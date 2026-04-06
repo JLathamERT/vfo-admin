@@ -210,9 +210,7 @@
       <button class="main-tab" data-panel="membersPanel">Members</button>
     </div>
     <div id="memberTabs" class="main-tabs" style="display:none;">
-      <button class="main-tab active" data-panel="mSpecialistsTab">Specialists</button>
-      <button class="main-tab" data-panel="mAppearanceTab">Appearance</button>
-      <button class="main-tab" data-panel="mSettingsTab">Settings</button>
+      <button class="main-tab active" data-panel="memberWebsitePanel">Website</button>
     </div>
     <div id="memberNotEnabled" style="display:none;text-align:center;padding:60px 20px;">
       <p style="font-family:'Playfair Display',serif;font-size:22px;color:#ffffff;margin-bottom:12px;">Website plugin not enabled</p>
@@ -426,7 +424,7 @@
       tabs.innerHTML = "";
       var items = currentRole === "admin"
         ? [{label:"Specialists",goto:"specialistsPanel"},{label:"Members",goto:"membersPanel"}]
-        : [{label:"Specialists",goto:"mSpecialistsTab"},{label:"Appearance",goto:"mAppearanceTab"},{label:"Settings",goto:"mSettingsTab"}];
+        : [{label:"Website",goto:"memberWebsitePanel"}];
       items.forEach(function(item){
         var btn = document.createElement("button");
         btn.className = "main-tab";
@@ -448,27 +446,37 @@
         document.getElementById("memberTabs").style.display="none";
       } else {
         document.getElementById("adminTabs").style.display="none";
-        // Check if website is enabled for this member
+        // Hide admin-only panels
+        document.getElementById("specialistsPanel").style.display="none";
+        // Show members panel directly for member role
         await initApp();
         var memberData = allMembers.find(function(m){ return m.member_number === currentUserMemberNumber; });
         if(!memberData || !memberData.website_enabled){
           document.getElementById("memberTabs").style.display="none";
+          document.getElementById("membersPanel").style.display="none";
+          document.getElementById("memberWebsitePanel").style.display="none";
           document.getElementById("memberNotEnabled").style.display="block";
           return;
         }
         document.getElementById("memberTabs").style.display="flex";
-        // Auto-select their member
+        document.getElementById("membersPanel").style.display="block";
+        document.getElementById("memberWebsitePanel").style.display="none";
+        // Hide add/edit member sub-tabs and member selector for members
+        document.querySelector("#membersPanel > .sub-tabs").style.display="none";
+        document.getElementById("addMemberSubPanel").style.display="none";
+        document.getElementById("editMemberSubPanel").classList.add("active");
+        document.getElementById("editMemberSubPanel").style.display="block";
+        // Auto-select their member and hide selector
         var sel = document.getElementById("memberSelect");
         sel.value = currentUserMemberNumber;
         sel.dispatchEvent(new Event("change"));
-        // Activate the right sub-tab based on which tab they clicked
-        if(initialPanel === "mSpecialistsTab") activateSubTab("specialistsSubPanel");
-        else if(initialPanel === "mAppearanceTab") activateSubTab("appearanceSubPanel");
-        else if(initialPanel === "mSettingsTab") activateSubTab("pluginSubPanel");
-        // Set active main tab
-        document.getElementById("memberTabs").querySelectorAll(".main-tab").forEach(function(t){ t.classList.remove("active"); });
-        var targetTab = document.getElementById("memberTabs").querySelector('[data-panel="'+initialPanel+'"]');
-        if(targetTab) targetTab.classList.add("active");
+        sel.parentElement.style.display = "none";
+        // Hide website plugin toggle and delete button for members
+        document.getElementById("mWebsiteEnabled").closest(".settings-section").style.display = "none";
+        document.getElementById("deleteMemberBtn").style.display = "none";
+        // Show website sub-tabs
+        document.getElementById("memberSubTabs").style.display = "flex";
+        activateSubTab("specialistsSubPanel");
         return;
       }
       await initApp();
@@ -535,12 +543,9 @@
     });
     document.querySelectorAll("#memberTabs .main-tab").forEach(function(tab){
       tab.addEventListener("click", function(){
+        // Single tab - just ensure it stays active and content shows
         document.querySelectorAll("#memberTabs .main-tab").forEach(function(t){ t.classList.remove("active"); });
         tab.classList.add("active");
-        var panelId = tab.getAttribute("data-panel");
-        if(panelId === "mSpecialistsTab") activateSubTab("specialistsSubPanel");
-        else if(panelId === "mAppearanceTab") activateSubTab("appearanceSubPanel");
-        else if(panelId === "mSettingsTab") activateSubTab("pluginSubPanel");
       });
     });
     document.querySelectorAll(".sub-tab").forEach(function(tab){
