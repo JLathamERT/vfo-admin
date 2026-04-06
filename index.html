@@ -535,7 +535,6 @@
           if(directSubTabs){
             var tabs = directSubTabs.querySelectorAll(".sub-tab");
             tabs.forEach(function(t){ t.classList.remove("active"); });
-            // Get the sub-panel IDs from these tabs and reset only those
             tabs.forEach(function(t){
               var sp = document.getElementById(t.getAttribute("data-subpanel"));
               if(sp) sp.classList.remove("active");
@@ -547,6 +546,11 @@
               if(firstPanel) firstPanel.classList.add("active");
             }
           }
+        }
+        // When switching away from Members, reset member editing state
+        if(tab.getAttribute("data-panel") !== "membersPanel"){
+          document.getElementById("memberContent").style.display = "none";
+          document.getElementById("memberSelect").value = "";
         }
       });
     });
