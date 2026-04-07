@@ -20,110 +20,199 @@
     <button style="margin-top:12px;background:none;border:none;color:#5a8ab5;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;" onclick="window.location.href='index.html'">Back</button>
   </div>
 
+  <!-- WELCOME SCREEN -->
+  <div id="welcomeScreen" style="display:none;">
+    <div style="max-width:900px;margin:0 auto;padding:48px 32px;">
+      <div class="app-header">
+        <h1>The VFO Portal</h1>
+        <div class="app-header-right">
+          <span class="admin-name" id="welcomeName"></span>
+          <button class="sign-out-btn" id="welcomeSignOut">Sign Out</button>
+        </div>
+      </div>
+      <div style="text-align:center;padding:60px 0 0;">
+        <p style="font-size:14px;color:#8bacc8;margin-bottom:8px;">Welcome back</p>
+        <p id="welcomeDisplayName" style="font-family:'Playfair Display',serif;font-size:36px;color:#ffffff;margin-bottom:48px;"></p>
+        <div class="main-tabs" id="welcomeTabs" style="max-width:600px;margin:0 auto;">
+          <button class="main-tab" data-panel="websitePanel">Website</button>
+          <button class="main-tab" data-panel="ciqPanel">CIQ</button>
+          <button class="main-tab" data-panel="growthPlanPanel">Growth Plan</button>
+          <button class="main-tab" data-panel="growthCreditsPanel">Growth Credits</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- MAIN APP -->
   <div class="app" id="app">
     <div class="app-header">
-      <h1>The VFO Portal</h1>
+      <h1 style="cursor:pointer;" id="appTitle">The VFO Portal</h1>
       <div class="app-header-right">
         <span class="admin-name" id="memberName"></span>
         <button class="sign-out-btn" id="signOutBtn">Sign Out</button>
       </div>
     </div>
-
-    <!-- Not Enabled Message -->
-    <div id="memberNotEnabled" style="display:none;text-align:center;padding:60px 20px;">
-      <p style="font-family:'Playfair Display',serif;font-size:22px;color:#ffffff;margin-bottom:12px;">Website plugin not enabled</p>
-      <p style="font-size:14px;color:#8bacc8;">Contact your administrator to enable website customization for your account.</p>
+    <div class="main-tabs" id="memberTabs">
+      <button class="main-tab active" data-panel="websitePanel">Website</button>
+      <button class="main-tab" data-panel="ciqPanel">CIQ</button>
+      <button class="main-tab" data-panel="growthPlanPanel">Growth Plan</button>
+      <button class="main-tab" data-panel="growthCreditsPanel">Growth Credits</button>
     </div>
 
-    <!-- Website Plugin Content -->
-    <div id="memberWebsiteContent" style="display:none;">
-      <div class="main-tabs">
-        <button class="main-tab active">Website</button>
+    <!-- Website Panel -->
+    <div class="tab-panel active" id="websitePanel">
+      <div id="memberNotEnabled" style="display:none;text-align:center;padding:60px 20px;">
+        <p style="font-family:'Playfair Display',serif;font-size:22px;color:#ffffff;margin-bottom:12px;">Website plugin not enabled</p>
+        <p style="font-size:14px;color:#8bacc8;">Contact your administrator to enable website customization for your account.</p>
       </div>
-      <div class="sub-tabs" id="memberSubTabs">
-        <button class="sub-tab active" data-subpanel="specialistsSubPanel">Specialists</button>
-        <button class="sub-tab" data-subpanel="appearanceSubPanel">Appearance</button>
-        <button class="sub-tab" data-subpanel="pluginSubPanel">Settings</button>
-      </div>
-      <div class="sub-panel active" id="specialistsSubPanel">
-        <div class="stats"><div><div class="stat-num" id="mEnabledCount">0</div><div class="stat-label">ENABLED</div></div><div><div class="stat-num" id="mTotalCount">0</div><div class="stat-label">TOTAL</div></div></div>
-        <div class="search-wrap"><span class="search-icon">&#x2315;</span><input type="text" class="search-input" id="mSearchInput" placeholder="Search specialists..."></div>
-        <div style="display:flex;gap:8px;margin-bottom:16px;"><button class="mode-btn" id="mEnableAll">Enable All</button><button class="mode-btn" id="mDisableAll">Disable All</button></div>
-        <div class="specialist-list" id="mSpecialistList"></div>
-      </div>
-      <div class="sub-panel" id="appearanceSubPanel">
-        <div class="settings-section">
-          <div class="settings-title">Colors</div>
-          <div class="setting-row"><div><div class="setting-label">Background Color</div><div class="setting-desc">Page background</div></div><div class="color-picker-wrap"><input type="color" class="color-picker" id="mBgColor"><input type="text" class="color-hex" id="mBgHex"></div></div>
-          <div class="setting-row"><div><div class="setting-label">Heading Text Color</div><div class="setting-desc">Title, subtitle, search, filters, group headings</div></div><div class="color-picker-wrap"><input type="color" class="color-picker" id="mTextColor"><input type="text" class="color-hex" id="mTextHex"></div></div>
-          <div class="setting-row"><div><div class="setting-label">Card Background</div><div class="setting-desc">Card and modal background</div></div><div class="color-picker-wrap"><input type="color" class="color-picker" id="mAccentColor"><input type="text" class="color-hex" id="mAccentHex"></div></div>
-          <div class="setting-row"><div><div class="setting-label">Card Text Color</div><div class="setting-desc">Names and bios on cards and modal</div></div><div class="color-picker-wrap"><input type="color" class="color-picker" id="mCardTextColor"><input type="text" class="color-hex" id="mCardTextHex"></div></div>
-          <div class="setting-row"><div><div class="setting-label">Accent Color</div><div class="setting-desc">Active buttons, tags, hover effects, underlines</div></div><div class="color-picker-wrap"><input type="color" class="color-picker" id="mPrimaryColor"><input type="text" class="color-hex" id="mPrimaryHex"></div></div>
-          <div class="color-preview"><div class="preview-label">PREVIEW</div><div class="preview-card" id="mPreviewCard"><div class="preview-name" id="mPreviewName">Bill L.</div><div class="preview-tag" id="mPreviewTag">Tax Planning</div></div></div>
+      <div id="memberWebsiteContent" style="display:none;">
+        <div class="sub-tabs" id="memberSubTabs">
+          <button class="sub-tab active" data-subpanel="specialistsSubPanel">Specialists</button>
+          <button class="sub-tab" data-subpanel="appearanceSubPanel">Appearance</button>
+          <button class="sub-tab" data-subpanel="pluginSubPanel">Settings</button>
         </div>
-        <div class="settings-section">
-          <div class="settings-title">Font</div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;" id="mFontPresets"></div>
-          <div style="position:relative;margin-top:12px;"><input type="text" class="search-input" id="mFontSearch" placeholder="Search Google Fonts..." style="padding-left:16px;"><div id="mFontResults" style="position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#162d4a;border:1px solid rgba(255,255,255,0.2);border-radius:8px;display:none;z-index:10;"></div></div>
-          <div id="mFontPreview" style="margin-top:12px;padding:16px;background:rgba(0,0,0,0.12);border-radius:8px;border:1px solid rgba(255,255,255,0.1);text-align:center;"><span style="font-size:20px;color:#ffffff;">The quick brown fox jumps over the lazy dog</span></div>
+        <div class="sub-panel active" id="specialistsSubPanel">
+          <div class="stats"><div><div class="stat-num" id="mEnabledCount">0</div><div class="stat-label">ENABLED</div></div><div><div class="stat-num" id="mTotalCount">0</div><div class="stat-label">TOTAL</div></div></div>
+          <div class="search-wrap"><span class="search-icon">&#x2315;</span><input type="text" class="search-input" id="mSearchInput" placeholder="Search specialists..."></div>
+          <div style="display:flex;gap:8px;margin-bottom:16px;"><button class="mode-btn" id="mEnableAll">Enable All</button><button class="mode-btn" id="mDisableAll">Disable All</button></div>
+          <div class="specialist-list" id="mSpecialistList"></div>
         </div>
-        <div class="settings-section">
-          <div class="settings-title">Display Options</div>
-          <div class="setting-row"><div><div class="setting-label">Last Name Initial Only</div><div class="setting-desc">Show "Bill L." instead of "Bill Lloyd"</div></div><label class="toggle"><input type="checkbox" id="mLastInitial"><span class="toggle-slider"></span></label></div>
-          <div class="setting-row"><div><div class="setting-label">Show Specialist Count</div><div class="setting-desc">Display "60 SPECIALISTS" text</div></div><label class="toggle"><input type="checkbox" id="mShowCount" checked><span class="toggle-slider"></span></label></div>
-          <div class="setting-row"><div><div class="setting-label">Show Search Bar</div><div class="setting-desc">Display the search specialists input</div></div><label class="toggle"><input type="checkbox" id="mShowSearch" checked><span class="toggle-slider"></span></label></div>
-          <div class="setting-row"><div><div class="setting-label">Display Mode</div><div class="setting-desc">How specialists are organized</div></div><div class="mode-selector"><button class="mode-btn active" data-mode="filter" id="mModeFilter">Filter Buttons</button><button class="mode-btn" data-mode="grouped" id="mModeGrouped">Grouped</button></div></div>
+        <div class="sub-panel" id="appearanceSubPanel">
+          <div class="settings-section">
+            <div class="settings-title">Colors</div>
+            <div class="setting-row"><div><div class="setting-label">Background Color</div><div class="setting-desc">Page background</div></div><div class="color-picker-wrap"><input type="color" class="color-picker" id="mBgColor"><input type="text" class="color-hex" id="mBgHex"></div></div>
+            <div class="setting-row"><div><div class="setting-label">Heading Text Color</div><div class="setting-desc">Title, subtitle, search, filters, group headings</div></div><div class="color-picker-wrap"><input type="color" class="color-picker" id="mTextColor"><input type="text" class="color-hex" id="mTextHex"></div></div>
+            <div class="setting-row"><div><div class="setting-label">Card Background</div><div class="setting-desc">Card and modal background</div></div><div class="color-picker-wrap"><input type="color" class="color-picker" id="mAccentColor"><input type="text" class="color-hex" id="mAccentHex"></div></div>
+            <div class="setting-row"><div><div class="setting-label">Card Text Color</div><div class="setting-desc">Names and bios on cards and modal</div></div><div class="color-picker-wrap"><input type="color" class="color-picker" id="mCardTextColor"><input type="text" class="color-hex" id="mCardTextHex"></div></div>
+            <div class="setting-row"><div><div class="setting-label">Accent Color</div><div class="setting-desc">Active buttons, tags, hover effects, underlines</div></div><div class="color-picker-wrap"><input type="color" class="color-picker" id="mPrimaryColor"><input type="text" class="color-hex" id="mPrimaryHex"></div></div>
+            <div class="color-preview"><div class="preview-label">PREVIEW</div><div class="preview-card" id="mPreviewCard"><div class="preview-name" id="mPreviewName">Bill L.</div><div class="preview-tag" id="mPreviewTag">Tax Planning</div></div></div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-title">Font</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;" id="mFontPresets"></div>
+            <div style="position:relative;margin-top:12px;"><input type="text" class="search-input" id="mFontSearch" placeholder="Search Google Fonts..." style="padding-left:16px;"><div id="mFontResults" style="position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#162d4a;border:1px solid rgba(255,255,255,0.2);border-radius:8px;display:none;z-index:10;"></div></div>
+            <div id="mFontPreview" style="margin-top:12px;padding:16px;background:rgba(0,0,0,0.12);border-radius:8px;border:1px solid rgba(255,255,255,0.1);text-align:center;"><span style="font-size:20px;color:#ffffff;">The quick brown fox jumps over the lazy dog</span></div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-title">Display Options</div>
+            <div class="setting-row"><div><div class="setting-label">Last Name Initial Only</div><div class="setting-desc">Show "Bill L." instead of "Bill Lloyd"</div></div><label class="toggle"><input type="checkbox" id="mLastInitial"><span class="toggle-slider"></span></label></div>
+            <div class="setting-row"><div><div class="setting-label">Show Specialist Count</div><div class="setting-desc">Display "60 SPECIALISTS" text</div></div><label class="toggle"><input type="checkbox" id="mShowCount" checked><span class="toggle-slider"></span></label></div>
+            <div class="setting-row"><div><div class="setting-label">Show Search Bar</div><div class="setting-desc">Display the search specialists input</div></div><label class="toggle"><input type="checkbox" id="mShowSearch" checked><span class="toggle-slider"></span></label></div>
+            <div class="setting-row"><div><div class="setting-label">Display Mode</div><div class="setting-desc">How specialists are organized</div></div><div class="mode-selector"><button class="mode-btn active" data-mode="filter" id="mModeFilter">Filter Buttons</button><button class="mode-btn" data-mode="grouped" id="mModeGrouped">Grouped</button></div></div>
+          </div>
         </div>
+        <div class="sub-panel" id="pluginSubPanel">
+          <div class="settings-section">
+            <div class="settings-title">Embed Code</div>
+            <p style="color:#5a8ab5;font-size:14px;margin-bottom:16px;">Copy this code and paste it into an HTML widget on your website.</p>
+            <pre id="pluginEmbedCode" style="background:rgba(0,0,0,0.3);padding:16px;border-radius:8px;color:#a0b0c4;font-size:13px;overflow-x:auto;white-space:pre-wrap;font-family:monospace;margin:0 0 12px;"></pre>
+            <button class="mode-btn" id="copyPluginBtn" style="color:#27ae60;border-color:rgba(39,174,96,0.3);font-size:13px;">Copy Code</button>
+          </div>
+        </div>
+        <div class="save-bar"><p class="unsaved-indicator" id="mUnsavedMsg">You have unsaved changes</p><button class="btn-primary" id="mSaveBtn">Save Changes</button></div>
+        <div class="status-msg" id="manageStatus"></div>
       </div>
-      <div class="sub-panel" id="pluginSubPanel">
-        <div class="settings-section">
-          <div class="settings-title">Embed Code</div>
-          <p style="color:#5a8ab5;font-size:14px;margin-bottom:16px;">Copy this code and paste it into an HTML widget on your website.</p>
-          <pre id="pluginEmbedCode" style="background:rgba(0,0,0,0.3);padding:16px;border-radius:8px;color:#a0b0c4;font-size:13px;overflow-x:auto;white-space:pre-wrap;font-family:monospace;margin:0 0 12px;"></pre>
-          <button class="mode-btn" id="copyPluginBtn" style="color:#27ae60;border-color:rgba(39,174,96,0.3);font-size:13px;">Copy Code</button>
-        </div>
+    </div>
+
+    <!-- CIQ Panel -->
+    <div class="tab-panel" id="ciqPanel">
+      <div style="text-align:center;padding:60px 20px;">
+        <p style="font-family:'Playfair Display',serif;font-size:22px;color:#ffffff;margin-bottom:12px;">CIQ</p>
+        <p style="font-size:14px;color:#8bacc8;">Coming soon.</p>
       </div>
-      <div class="save-bar"><p class="unsaved-indicator" id="mUnsavedMsg">You have unsaved changes</p><button class="btn-primary" id="mSaveBtn">Save Changes</button></div>
-      <div class="status-msg" id="manageStatus"></div>
-    </div><!-- end memberWebsiteContent -->
+    </div>
+
+    <!-- Growth Plan Panel -->
+    <div class="tab-panel" id="growthPlanPanel">
+      <div style="text-align:center;padding:60px 20px;">
+        <p style="font-family:'Playfair Display',serif;font-size:22px;color:#ffffff;margin-bottom:12px;">Growth Plan</p>
+        <p style="font-size:14px;color:#8bacc8;">Coming soon.</p>
+      </div>
+    </div>
+
+    <!-- Growth Credits Panel -->
+    <div class="tab-panel" id="growthCreditsPanel">
+      <div style="text-align:center;padding:60px 20px;">
+        <p style="font-family:'Playfair Display',serif;font-size:22px;color:#ffffff;margin-bottom:12px;">Growth Credits</p>
+        <p style="font-size:14px;color:#8bacc8;">Coming soon.</p>
+      </div>
+    </div>
   </div>
 
   <script src="shared.js"></script>
   <script>
     var memberNumber = null;
+    var memberDisplayName = "";
 
     // ─── LOGIN ──────────────────────────────────────────
     setupLogin("member");
 
     function onLoginSuccess(data) {
       memberNumber = data.member_number;
-      document.getElementById("memberName").textContent = data.name || data.email;
+      memberDisplayName = data.name || data.email;
+      document.getElementById("welcomeName").textContent = memberDisplayName;
+      document.getElementById("welcomeDisplayName").textContent = memberDisplayName;
+      document.getElementById("welcomeScreen").style.display = "block";
+    }
+
+    function enterApp(initialPanel) {
+      document.getElementById("welcomeScreen").style.display = "none";
+      document.getElementById("memberName").textContent = memberDisplayName;
       document.getElementById("app").style.display = "block";
+      document.querySelectorAll("#memberTabs .main-tab").forEach(function(t) { t.classList.remove("active"); });
+      document.querySelectorAll("#app .tab-panel").forEach(function(p) { p.classList.remove("active"); });
+      var targetTab = document.querySelector('#memberTabs [data-panel="' + initialPanel + '"]');
+      if (targetTab) targetTab.classList.add("active");
+      var targetPanel = document.getElementById(initialPanel);
+      if (targetPanel) targetPanel.classList.add("active");
       initMember();
     }
 
+    // Welcome tab clicks
+    document.querySelectorAll("#welcomeTabs .main-tab").forEach(function(tab) {
+      tab.addEventListener("click", function() { enterApp(tab.getAttribute("data-panel")); });
+    });
+
+    // App title goes back to welcome
+    document.getElementById("appTitle").addEventListener("click", function() {
+      document.getElementById("app").style.display = "none";
+      document.getElementById("welcomeScreen").style.display = "block";
+    });
+
     document.getElementById("signOutBtn").addEventListener("click", signOut);
+    document.getElementById("welcomeSignOut").addEventListener("click", signOut);
+
+    // ─── MAIN TABS ──────────────────────────────────────
+    document.querySelectorAll("#memberTabs .main-tab").forEach(function(tab) {
+      tab.addEventListener("click", function() {
+        document.querySelectorAll("#memberTabs .main-tab").forEach(function(t) { t.classList.remove("active"); });
+        document.querySelectorAll("#app .tab-panel").forEach(function(p) { p.classList.remove("active"); });
+        tab.classList.add("active");
+        var panel = document.getElementById(tab.getAttribute("data-panel"));
+        if (panel) panel.classList.add("active");
+      });
+    });
 
     // ─── INIT ───────────────────────────────────────────
+    var memberInitialized = false;
     async function initMember() {
+      if (memberInitialized) return;
       try {
         await loadAllData();
         var memberData = allMembers.find(function(m) { return m.member_number === memberNumber; });
-        if (!memberData || !memberData.website_enabled) {
+        if (!memberData) { alert("Member data not found."); return; }
+        if (!memberData.website_enabled) {
           document.getElementById("memberNotEnabled").style.display = "block";
-          return;
+        } else {
+          loadMemberData(memberData);
+          document.getElementById("memberWebsiteContent").style.display = "block";
+          var embed = '<div id="vfo-showroom"></div>\n<script src="https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/vfo-widget/vfo-widget.js?v=23" data-vfo-key="' + memberData.manage_key + '"><\/script>';
+          document.getElementById("pluginEmbedCode").textContent = embed;
+          setupWebsitePluginSubTabs();
+          setupMemberSearchAndBulk();
+          activateSubTab("specialistsSubPanel");
         }
-        // Load member data and show content
-        loadMemberData(memberData);
-        document.getElementById("memberWebsiteContent").style.display = "block";
-        // Populate embed code
-        var embed = '<div id="vfo-showroom"></div>\n<script src="https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/vfo-widget/vfo-widget.js?v=23" data-vfo-key="' + memberData.manage_key + '"><\/script>';
-        document.getElementById("pluginEmbedCode").textContent = embed;
-        // Setup interactions
-        setupWebsitePluginSubTabs();
-        setupMemberSearchAndBulk();
-        activateSubTab("specialistsSubPanel");
+        memberInitialized = true;
       } catch (err) {
         console.error("Init error:", err);
         alert("Error loading data: " + err.message);
