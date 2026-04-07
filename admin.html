@@ -76,18 +76,15 @@
           <select class="specialist-select" id="memberSelect"><option value="">-- Choose a member --</option></select>
         </div>
         <div id="memberContent" style="display:none;">
-          <div class="setting-row" style="padding:14px 20px;background:rgba(0,0,0,0.12);border:1px solid rgba(255,255,255,0.1);border-radius:12px;margin-bottom:20px;">
-            <div><div class="setting-label">Enable Website Plugin</div><div class="setting-desc">Allow this member to customize their showroom widget</div></div>
-            <label class="toggle"><input type="checkbox" id="mWebsiteEnabled"><span class="toggle-slider"></span></label>
-          </div>
           <div class="sub-tabs" id="memberFeatureTabs">
             <button class="sub-tab active" data-subpanel="websitePluginPanel">Website Plugin</button>
             <button class="sub-tab" data-subpanel="adminCiqPanel">CIQ</button>
             <button class="sub-tab" data-subpanel="adminGrowthPlanPanel">Growth Plan</button>
-            <button class="sub-tab" data-subpanel="adminGrowthCreditsPanel">Growth Credits</button>
+            <button class="sub-tab" data-subpanel="adminGrowthCreditsPanel">Growth Credit Marketplace</button>
+            <button class="sub-tab" data-subpanel="adminSettingsPanel">Settings</button>
           </div>
           <div class="sub-panel active" id="websitePluginPanel">
-            <div class="sub-tabs" id="memberSubTabs"><button class="sub-tab active" data-subpanel="specialistsSubPanel">Specialists</button><button class="sub-tab" data-subpanel="appearanceSubPanel">Appearance</button><button class="sub-tab" data-subpanel="pluginSubPanel">Settings</button></div>
+            <div class="sub-tabs" id="memberSubTabs"><button class="sub-tab active" data-subpanel="specialistsSubPanel">Specialists</button><button class="sub-tab" data-subpanel="appearanceSubPanel">Appearance</button><button class="sub-tab" data-subpanel="pluginSubPanel">Plugin Settings</button></div>
             <div class="sub-panel active" id="specialistsSubPanel">
               <div class="stats"><div><div class="stat-num" id="mEnabledCount">0</div><div class="stat-label">ENABLED</div></div><div><div class="stat-num" id="mTotalCount">0</div><div class="stat-label">TOTAL</div></div></div>
               <div class="search-wrap"><span class="search-icon">&#x2315;</span><input type="text" class="search-input" id="mSearchInput" placeholder="Search specialists..."></div>
@@ -120,6 +117,13 @@
             </div>
             <div class="sub-panel" id="pluginSubPanel">
               <div class="settings-section">
+                <div class="settings-title">Website Plugin</div>
+                <div class="setting-row">
+                  <div><div class="setting-label">Enable Website Plugin</div><div class="setting-desc">Allow this member to customize their showroom widget</div></div>
+                  <label class="toggle"><input type="checkbox" id="mWebsiteEnabled"><span class="toggle-slider"></span></label>
+                </div>
+              </div>
+              <div class="settings-section">
                 <div class="settings-title">Embed Code</div>
                 <p style="color:#5a8ab5;font-size:14px;margin-bottom:16px;">Copy this code and paste it into an HTML widget on the member's website.</p>
                 <pre id="pluginEmbedCode" style="background:rgba(0,0,0,0.3);padding:16px;border-radius:8px;color:#a0b0c4;font-size:13px;overflow-x:auto;white-space:pre-wrap;font-family:monospace;margin:0 0 12px;"></pre>
@@ -141,15 +145,17 @@
           </div>
           <div class="sub-panel" id="adminGrowthCreditsPanel">
             <div style="text-align:center;padding:60px 20px;">
-              <p style="font-family:'Playfair Display',serif;font-size:22px;color:#ffffff;margin-bottom:12px;">Growth Credits</p>
+              <p style="font-family:'Playfair Display',serif;font-size:22px;color:#ffffff;margin-bottom:12px;">Growth Credit Marketplace</p>
               <p style="font-size:14px;color:#8bacc8;">Coming soon.</p>
             </div>
           </div>
-          <div class="settings-section" style="border-color:rgba(231,76,60,0.15);">
-            <div class="settings-title" style="color:#e74c3c;">Danger Zone</div>
-            <p style="color:#5a8ab5;font-size:14px;margin-bottom:16px;">Permanently delete this member and all their settings. This cannot be undone.</p>
-            <button class="btn-danger" id="deleteMemberBtn">Delete Member</button>
-            <div class="status-msg" id="deleteMemberStatus"></div>
+          <div class="sub-panel" id="adminSettingsPanel">
+            <div class="settings-section" style="border-color:rgba(231,76,60,0.15);">
+              <div class="settings-title" style="color:#e74c3c;">Danger Zone</div>
+              <p style="color:#5a8ab5;font-size:14px;margin-bottom:16px;">Permanently delete this member and all their settings. This cannot be undone.</p>
+              <button class="btn-danger" id="deleteMemberBtn">Delete Member</button>
+              <div class="status-msg" id="deleteMemberStatus"></div>
+            </div>
           </div>
           <div class="save-bar"><p class="unsaved-indicator" id="mUnsavedMsg">You have unsaved changes</p><button class="btn-primary" id="mSaveBtn">Save Changes</button></div>
           <div class="status-msg" id="manageStatus"></div>
@@ -252,7 +258,7 @@
     (function() {
       var container = document.getElementById("memberFeatureTabs");
       var tabs = container.querySelectorAll(".sub-tab");
-      var panels = [document.getElementById("websitePluginPanel"), document.getElementById("adminCiqPanel"), document.getElementById("adminGrowthPlanPanel"), document.getElementById("adminGrowthCreditsPanel")];
+      var panels = [document.getElementById("websitePluginPanel"), document.getElementById("adminCiqPanel"), document.getElementById("adminGrowthPlanPanel"), document.getElementById("adminGrowthCreditsPanel"), document.getElementById("adminSettingsPanel")];
       tabs.forEach(function(tab) {
         tab.addEventListener("click", function() {
           tabs.forEach(function(t) { t.classList.remove("active"); });
@@ -492,7 +498,7 @@
       document.getElementById("pluginEmbedCode").textContent = embed;
       // Reset feature tabs to Website Plugin
       document.getElementById("memberFeatureTabs").querySelectorAll(".sub-tab").forEach(function(t) { t.classList.remove("active"); });
-      [document.getElementById("websitePluginPanel"), document.getElementById("adminCiqPanel"), document.getElementById("adminGrowthPlanPanel"), document.getElementById("adminGrowthCreditsPanel")].forEach(function(p) { p.classList.remove("active"); });
+      [document.getElementById("websitePluginPanel"), document.getElementById("adminCiqPanel"), document.getElementById("adminGrowthPlanPanel"), document.getElementById("adminGrowthCreditsPanel"), document.getElementById("adminSettingsPanel")].forEach(function(p) { p.classList.remove("active"); });
       document.querySelector('#memberFeatureTabs [data-subpanel="websitePluginPanel"]').classList.add("active");
       document.getElementById("websitePluginPanel").classList.add("active");
       activateSubTab("specialistsSubPanel");
