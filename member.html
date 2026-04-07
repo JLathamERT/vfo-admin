@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The VFO Portal — Member</title>
+  <link rel="icon" href="https://yt3.googleusercontent.com/ytc/AIdro_n97ca7emLIuU5FJqACNZ65pElKhWZkhC3px2ceBsVbHR4=s160-c-k-c0x00ffffff-no-rj" type="image/png">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+  <!-- LOGIN GATE -->
+  <div class="gate" id="gate">
+    <h1>The VFO Portal</h1>
+    <p style="color:#8bacc8;font-size:14px;margin-bottom:8px;">Member login</p>
+    <input type="email" class="gate-input email-input" id="emailInput" placeholder="Email address">
+    <input type="password" class="gate-input passcode-input" id="passcodeInput" placeholder="Passcode" maxlength="20">
+    <button class="gate-btn" id="loginBtn">Sign In</button>
+    <p class="gate-error" id="gateError">Invalid credentials</p>
+    <button style="margin-top:12px;background:none;border:none;color:#5a8ab5;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;" onclick="window.location.href='index.html'">Back</button>
+  </div>
+
+  <!-- MAIN APP -->
+  <div class="app" id="app">
+    <div class="app-header">
+      <h1>The VFO Portal</h1>
+      <div class="app-header-right">
+        <span class="admin-name" id="memberName"></span>
+        <button class="sign-out-btn" id="signOutBtn">Sign Out</button>
+      </div>
+    </div>
+
+    <!-- Not Enabled Message -->
+    <div id="memberNotEnabled" style="display:none;text-align:center;padding:60px 20px;">
+      <p style="font-family:'Playfair Display',serif;font-size:22px;color:#ffffff;margin-bottom:12px;">Website plugin not enabled</p>
+      <p style="font-size:14px;color:#8bacc8;">Contact your administrator to enable website customization for your account.</p>
+    </div>
+
+    <!-- Website Plugin Content -->
+    <div id="memberWebsiteContent" style="display:none;">
+      <div class="main-tabs">
+        <button class="main-tab active">Website</button>
+      </div>
+      <div class="sub-tabs" id="memberSubTabs">
+        <button class="sub-tab active" data-subpanel="specialistsSubPanel">Specialists</button>
+        <button class="sub-tab" data-subpanel="appearanceSubPanel">Appearance</button>
+        <button class="sub-tab" data-subpanel="pluginSubPanel">Settings</button>
+      </div>
+      <div class="sub-panel active" id="specialistsSubPanel">
+        <div class="stats"><div><div class="stat-num" id="mEnabledCount">0</div><div class="stat-label">ENABLED</div></div><div><div class="stat-num" id="mTotalCount">0</div><div class="stat-label">TOTAL</div></div></div>
+        <div class="search-wrap"><span class="search-icon">&#x2315;</span><input type="text" class="search-input" id="mSearchInput" placeholder="Search specialists..."></div>
+        <div style="display:flex;gap:8px;margin-bottom:16px;"><button class="mode-btn" id="mEnableAll">Enable All</button><button class="mode-btn" id="mDisableAll">Disable All</button></div>
+        <div class="specialist-list" id="mSpecialistList"></div>
+      </div>
+      <div class="sub-panel" id="appearanceSubPanel">
+        <div class="settings-section">
+          <div class="settings-title">Colors</div>
+          <div class="setting-row"><div><div class="setting-label">Background Color</div><div class="setting-desc">Page background</div></div><div class="color-picker-wrap"><input type="color" class="color-picker" id="mBgColor"><input type="text" class="color-hex" id="mBgHex"></div></div>
+          <div class="setting-row"><div><div class="setting-label">Heading Text Color</div><div class="setting-desc">Title, subtitle, search, filters, group headings</div></div><div class="color-picker-wrap"><input type="color" class="color-picker" id="mTextColor"><input type="text" class="color-hex" id="mTextHex"></div></div>
+          <div class="setting-row"><div><div class="setting-label">Card Background</div><div class="setting-desc">Card and modal background</div></div><div class="color-picker-wrap"><input type="color" class="color-picker" id="mAccentColor"><input type="text" class="color-hex" id="mAccentHex"></div></div>
+          <div class="setting-row"><div><div class="setting-label">Card Text Color</div><div class="setting-desc">Names and bios on cards and modal</div></div><div class="color-picker-wrap"><input type="color" class="color-picker" id="mCardTextColor"><input type="text" class="color-hex" id="mCardTextHex"></div></div>
+          <div class="setting-row"><div><div class="setting-label">Accent Color</div><div class="setting-desc">Active buttons, tags, hover effects, underlines</div></div><div class="color-picker-wrap"><input type="color" class="color-picker" id="mPrimaryColor"><input type="text" class="color-hex" id="mPrimaryHex"></div></div>
+          <div class="color-preview"><div class="preview-label">PREVIEW</div><div class="preview-card" id="mPreviewCard"><div class="preview-name" id="mPreviewName">Bill L.</div><div class="preview-tag" id="mPreviewTag">Tax Planning</div></div></div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-title">Font</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;" id="mFontPresets"></div>
+          <div style="position:relative;margin-top:12px;"><input type="text" class="search-input" id="mFontSearch" placeholder="Search Google Fonts..." style="padding-left:16px;"><div id="mFontResults" style="position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#162d4a;border:1px solid rgba(255,255,255,0.2);border-radius:8px;display:none;z-index:10;"></div></div>
+          <div id="mFontPreview" style="margin-top:12px;padding:16px;background:rgba(0,0,0,0.12);border-radius:8px;border:1px solid rgba(255,255,255,0.1);text-align:center;"><span style="font-size:20px;color:#ffffff;">The quick brown fox jumps over the lazy dog</span></div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-title">Display Options</div>
+          <div class="setting-row"><div><div class="setting-label">Last Name Initial Only</div><div class="setting-desc">Show "Bill L." instead of "Bill Lloyd"</div></div><label class="toggle"><input type="checkbox" id="mLastInitial"><span class="toggle-slider"></span></label></div>
+          <div class="setting-row"><div><div class="setting-label">Show Specialist Count</div><div class="setting-desc">Display "60 SPECIALISTS" text</div></div><label class="toggle"><input type="checkbox" id="mShowCount" checked><span class="toggle-slider"></span></label></div>
+          <div class="setting-row"><div><div class="setting-label">Show Search Bar</div><div class="setting-desc">Display the search specialists input</div></div><label class="toggle"><input type="checkbox" id="mShowSearch" checked><span class="toggle-slider"></span></label></div>
+          <div class="setting-row"><div><div class="setting-label">Display Mode</div><div class="setting-desc">How specialists are organized</div></div><div class="mode-selector"><button class="mode-btn active" data-mode="filter" id="mModeFilter">Filter Buttons</button><button class="mode-btn" data-mode="grouped" id="mModeGrouped">Grouped</button></div></div>
+        </div>
+      </div>
+      <div class="sub-panel" id="pluginSubPanel">
+        <div class="settings-section">
+          <div class="settings-title">Embed Code</div>
+          <p style="color:#5a8ab5;font-size:14px;margin-bottom:16px;">Copy this code and paste it into an HTML widget on your website.</p>
+          <pre id="pluginEmbedCode" style="background:rgba(0,0,0,0.3);padding:16px;border-radius:8px;color:#a0b0c4;font-size:13px;overflow-x:auto;white-space:pre-wrap;font-family:monospace;margin:0 0 12px;"></pre>
+          <button class="mode-btn" id="copyPluginBtn" style="color:#27ae60;border-color:rgba(39,174,96,0.3);font-size:13px;">Copy Code</button>
+        </div>
+      </div>
+      <div class="save-bar"><p class="unsaved-indicator" id="mUnsavedMsg">You have unsaved changes</p><button class="btn-primary" id="mSaveBtn">Save Changes</button></div>
+      <div class="status-msg" id="manageStatus"></div>
+    </div><!-- end memberWebsiteContent -->
+  </div>
+
+  <script src="shared.js"></script>
+  <script>
+    var memberNumber = null;
+
+    // ─── LOGIN ──────────────────────────────────────────
+    setupLogin("member");
+
+    function onLoginSuccess(data) {
+      memberNumber = data.member_number;
+      document.getElementById("memberName").textContent = data.name || data.email;
+      document.getElementById("app").style.display = "block";
+      initMember();
+    }
+
+    document.getElementById("signOutBtn").addEventListener("click", signOut);
+
+    // ─── INIT ───────────────────────────────────────────
+    async function initMember() {
+      try {
+        await loadAllData();
+        var memberData = allMembers.find(function(m) { return m.member_number === memberNumber; });
+        if (!memberData || !memberData.website_enabled) {
+          document.getElementById("memberNotEnabled").style.display = "block";
+          return;
+        }
+        // Load member data and show content
+        loadMemberData(memberData);
+        document.getElementById("memberWebsiteContent").style.display = "block";
+        // Populate embed code
+        var embed = '<div id="vfo-showroom"></div>\n<script src="https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/vfo-widget/vfo-widget.js?v=23" data-vfo-key="' + memberData.manage_key + '"><\/script>';
+        document.getElementById("pluginEmbedCode").textContent = embed;
+        // Setup interactions
+        setupWebsitePluginSubTabs();
+        setupMemberSearchAndBulk();
+        activateSubTab("specialistsSubPanel");
+      } catch (err) {
+        console.error("Init error:", err);
+        alert("Error loading data: " + err.message);
+      }
+    }
+
+    // ─── SAVE ───────────────────────────────────────────
+    document.getElementById("mSaveBtn").addEventListener("click", function() { saveMemberSettings("manageStatus"); });
+
+    // ─── COPY EMBED CODE ────────────────────────────────
+    document.getElementById("copyPluginBtn").addEventListener("click", function() {
+      var code = document.getElementById("pluginEmbedCode").textContent;
+      navigator.clipboard.writeText(code).then(function() {
+        var btn = document.getElementById("copyPluginBtn");
+        btn.textContent = "Copied!"; setTimeout(function() { btn.textContent = "Copy Code"; }, 2000);
+      });
+    });
+  </script>
+</body>
+</html>
