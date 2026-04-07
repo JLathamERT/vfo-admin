@@ -20,29 +20,6 @@
     <button style="margin-top:12px;background:none;border:none;color:#5a8ab5;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;" onclick="window.location.href='index.html'">Back</button>
   </div>
 
-  <!-- WELCOME SCREEN -->
-  <div id="welcomeScreen" style="display:none;">
-    <div style="max-width:900px;margin:0 auto;padding:48px 32px;">
-      <div class="app-header">
-        <h1>The VFO Portal</h1>
-        <div class="app-header-right">
-          <span class="admin-name" id="welcomeName"></span>
-          <button class="sign-out-btn" id="welcomeSignOut">Sign Out</button>
-        </div>
-      </div>
-      <div style="text-align:center;padding:60px 0 0;">
-        <p style="font-size:14px;color:#8bacc8;margin-bottom:8px;">Welcome back</p>
-        <p id="welcomeDisplayName" style="font-family:'Playfair Display',serif;font-size:36px;color:#ffffff;margin-bottom:48px;"></p>
-        <div class="main-tabs" id="welcomeTabs" style="max-width:600px;margin:0 auto;">
-          <button class="main-tab" data-panel="websitePanel">Website</button>
-          <button class="main-tab" data-panel="ciqPanel">CIQ</button>
-          <button class="main-tab" data-panel="growthPlanPanel">Growth Plan</button>
-          <button class="main-tab" data-panel="growthCreditsPanel">Growth Credits</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- MAIN APP -->
   <div class="app" id="app">
     <div class="app-header">
@@ -53,14 +30,20 @@
       </div>
     </div>
     <div class="main-tabs" id="memberTabs">
-      <button class="main-tab active" data-panel="websitePanel">Website</button>
+      <button class="main-tab" data-panel="websitePanel">Website</button>
       <button class="main-tab" data-panel="ciqPanel">CIQ</button>
       <button class="main-tab" data-panel="growthPlanPanel">Growth Plan</button>
       <button class="main-tab" data-panel="growthCreditsPanel">Growth Credits</button>
     </div>
 
+    <!-- Welcome (default, no tab selected) -->
+    <div id="welcomeContent" style="text-align:center;padding:60px 0 0;">
+      <p style="font-size:14px;color:#8bacc8;margin-bottom:8px;">Welcome back</p>
+      <p id="welcomeDisplayName" style="font-family:'Playfair Display',serif;font-size:36px;color:#ffffff;"></p>
+    </div>
+
     <!-- Website Panel -->
-    <div class="tab-panel active" id="websitePanel">
+    <div class="tab-panel" id="websitePanel">
       <div id="memberNotEnabled" style="display:none;text-align:center;padding:60px 20px;">
         <p style="font-family:'Playfair Display',serif;font-size:22px;color:#ffffff;margin-bottom:12px;">Website plugin not enabled</p>
         <p style="font-size:14px;color:#8bacc8;">Contact your administrator to enable website customization for your account.</p>
@@ -142,49 +125,31 @@
   <script src="shared.js"></script>
   <script>
     var memberNumber = null;
-    var memberDisplayName = "";
 
     // ─── LOGIN ──────────────────────────────────────────
     setupLogin("member");
 
     function onLoginSuccess(data) {
       memberNumber = data.member_number;
-      memberDisplayName = data.name || data.email;
-      document.getElementById("welcomeName").textContent = memberDisplayName;
-      document.getElementById("welcomeDisplayName").textContent = memberDisplayName;
-      document.getElementById("welcomeScreen").style.display = "block";
-    }
-
-    function enterApp(initialPanel) {
-      document.getElementById("welcomeScreen").style.display = "none";
-      document.getElementById("memberName").textContent = memberDisplayName;
+      document.getElementById("memberName").textContent = data.name || data.email;
+      document.getElementById("welcomeDisplayName").textContent = data.name || data.email;
       document.getElementById("app").style.display = "block";
-      document.querySelectorAll("#memberTabs .main-tab").forEach(function(t) { t.classList.remove("active"); });
-      document.querySelectorAll("#app .tab-panel").forEach(function(p) { p.classList.remove("active"); });
-      var targetTab = document.querySelector('#memberTabs [data-panel="' + initialPanel + '"]');
-      if (targetTab) targetTab.classList.add("active");
-      var targetPanel = document.getElementById(initialPanel);
-      if (targetPanel) targetPanel.classList.add("active");
       initMember();
     }
 
-    // Welcome tab clicks
-    document.querySelectorAll("#welcomeTabs .main-tab").forEach(function(tab) {
-      tab.addEventListener("click", function() { enterApp(tab.getAttribute("data-panel")); });
-    });
-
-    // App title goes back to welcome
-    document.getElementById("appTitle").addEventListener("click", function() {
-      document.getElementById("app").style.display = "none";
-      document.getElementById("welcomeScreen").style.display = "block";
-    });
-
     document.getElementById("signOutBtn").addEventListener("click", signOut);
-    document.getElementById("welcomeSignOut").addEventListener("click", signOut);
+
+    // App title deselects all tabs, shows welcome
+    document.getElementById("appTitle").addEventListener("click", function() {
+      document.querySelectorAll("#memberTabs .main-tab").forEach(function(t) { t.classList.remove("active"); });
+      document.querySelectorAll("#app .tab-panel").forEach(function(p) { p.classList.remove("active"); });
+      document.getElementById("welcomeContent").style.display = "block";
+    });
 
     // ─── MAIN TABS ──────────────────────────────────────
     document.querySelectorAll("#memberTabs .main-tab").forEach(function(tab) {
       tab.addEventListener("click", function() {
+        document.getElementById("welcomeContent").style.display = "none";
         document.querySelectorAll("#memberTabs .main-tab").forEach(function(t) { t.classList.remove("active"); });
         document.querySelectorAll("#app .tab-panel").forEach(function(p) { p.classList.remove("active"); });
         tab.classList.add("active");

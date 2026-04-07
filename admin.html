@@ -21,27 +21,6 @@
     <button style="margin-top:12px;background:none;border:none;color:#5a8ab5;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;" onclick="window.location.href='index.html'">Back</button>
   </div>
 
-  <!-- WELCOME SCREEN -->
-  <div id="welcomeScreen" style="display:none;">
-    <div style="max-width:900px;margin:0 auto;padding:48px 32px;">
-      <div class="app-header">
-        <h1>The VFO Portal</h1>
-        <div class="app-header-right">
-          <span class="admin-name" id="welcomeName"></span>
-          <button class="sign-out-btn" id="welcomeSignOut">Sign Out</button>
-        </div>
-      </div>
-      <div style="text-align:center;padding:60px 0 0;">
-        <p style="font-size:14px;color:#8bacc8;margin-bottom:8px;">Welcome back</p>
-        <p id="welcomeDisplayName" style="font-family:'Playfair Display',serif;font-size:36px;color:#ffffff;margin-bottom:48px;"></p>
-        <div class="main-tabs" id="welcomeTabs" style="max-width:400px;margin:0 auto;">
-          <button class="main-tab" data-panel="specialistsPanel">Specialists</button>
-          <button class="main-tab" data-panel="membersPanel">Members</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- MAIN APP -->
   <div class="app" id="app">
     <div class="app-header">
@@ -52,12 +31,18 @@
       </div>
     </div>
     <div class="main-tabs" id="adminTabs">
-      <button class="main-tab active" data-panel="specialistsPanel">Specialists</button>
+      <button class="main-tab" data-panel="specialistsPanel">Specialists</button>
       <button class="main-tab" data-panel="membersPanel">Members</button>
     </div>
 
+    <!-- Welcome (default, no tab selected) -->
+    <div id="welcomeContent" style="text-align:center;padding:60px 0 0;">
+      <p style="font-size:14px;color:#8bacc8;margin-bottom:8px;">Welcome back</p>
+      <p id="welcomeDisplayName" style="font-family:'Playfair Display',serif;font-size:36px;color:#ffffff;"></p>
+    </div>
+
     <!-- Specialists Panel -->
-    <div class="tab-panel active" id="specialistsPanel">
+    <div class="tab-panel" id="specialistsPanel">
       <div class="sub-tabs"><button class="sub-tab active" data-subpanel="addSubPanel">Add Specialist</button><button class="sub-tab" data-subpanel="editSubPanel">Edit Specialist</button></div>
       <div class="sub-panel active" id="addSubPanel">
         <div id="addForm"></div>
@@ -178,52 +163,34 @@
   <script>
     var addCIQ = [], addFile = null, addQuill = null;
     var editCIQ = [], editFile = null, editQuill = null, editingId = null;
-    var adminDisplayName = "";
 
     // ─── LOGIN ──────────────────────────────────────────
     setupLogin("admin");
 
     function onLoginSuccess(data) {
-      adminDisplayName = data.name || data.email;
-      document.getElementById("welcomeName").textContent = adminDisplayName;
-      document.getElementById("welcomeDisplayName").textContent = adminDisplayName;
-      document.getElementById("welcomeScreen").style.display = "block";
-    }
-
-    function enterApp(initialPanel) {
-      document.getElementById("welcomeScreen").style.display = "none";
-      document.getElementById("adminName").textContent = adminDisplayName;
+      document.getElementById("adminName").textContent = data.name || data.email;
+      document.getElementById("welcomeDisplayName").textContent = data.name || data.email;
       document.getElementById("app").style.display = "block";
-      // Activate the right tab
-      document.querySelectorAll("#adminTabs .main-tab").forEach(function(t) { t.classList.remove("active"); });
-      document.querySelectorAll(".tab-panel").forEach(function(p) { p.classList.remove("active"); });
-      var targetTab = document.querySelector('#adminTabs [data-panel="' + initialPanel + '"]');
-      if (targetTab) targetTab.classList.add("active");
-      var targetPanel = document.getElementById(initialPanel);
-      if (targetPanel) targetPanel.classList.add("active");
       initAdmin();
     }
 
-    // Welcome tab clicks
-    document.querySelectorAll("#welcomeTabs .main-tab").forEach(function(tab) {
-      tab.addEventListener("click", function() { enterApp(tab.getAttribute("data-panel")); });
-    });
+    document.getElementById("signOutBtn").addEventListener("click", signOut);
 
-    // App title goes back to welcome
+    // App title deselects all tabs, shows welcome
     document.getElementById("appTitle").addEventListener("click", function() {
-      document.getElementById("app").style.display = "none";
+      document.querySelectorAll("#adminTabs .main-tab").forEach(function(t) { t.classList.remove("active"); });
+      document.querySelectorAll(".tab-panel").forEach(function(p) { p.classList.remove("active"); });
+      document.getElementById("welcomeContent").style.display = "block";
+      // Reset member editing
       document.getElementById("memberContent").style.display = "none";
       document.getElementById("memberSelect").value = "";
       currentMember = null;
-      document.getElementById("welcomeScreen").style.display = "block";
     });
-
-    document.getElementById("signOutBtn").addEventListener("click", signOut);
-    document.getElementById("welcomeSignOut").addEventListener("click", signOut);
 
     // ─── MAIN TABS ──────────────────────────────────────
     document.querySelectorAll("#adminTabs .main-tab").forEach(function(tab) {
       tab.addEventListener("click", function() {
+        document.getElementById("welcomeContent").style.display = "none";
         document.querySelectorAll("#adminTabs .main-tab").forEach(function(t) { t.classList.remove("active"); });
         document.querySelectorAll(".tab-panel").forEach(function(p) { p.classList.remove("active"); });
         tab.classList.add("active");
@@ -254,7 +221,6 @@
     });
 
     // ─── SUB-TAB HANDLERS ───────────────────────────────
-    // Specialists panel: Add / Edit
     (function() {
       var panel = document.getElementById("specialistsPanel");
       var tabs = panel.querySelectorAll(":scope > .sub-tabs .sub-tab");
@@ -269,7 +235,6 @@
       });
     })();
 
-    // Members panel: Add / Edit Member
     (function() {
       var panel = document.getElementById("membersPanel");
       var tabs = panel.querySelectorAll(":scope > .sub-tabs .sub-tab");
@@ -284,7 +249,6 @@
       });
     })();
 
-    // Member feature tabs: Website Plugin, CIQ, Growth Plan, Growth Credits
     (function() {
       var container = document.getElementById("memberFeatureTabs");
       var tabs = container.querySelectorAll(".sub-tab");
@@ -299,7 +263,6 @@
       });
     })();
 
-    // Website plugin sub-tabs
     setupWebsitePluginSubTabs();
 
     // ─── INIT ───────────────────────────────────────────
@@ -525,7 +488,6 @@
       loadMemberData(member);
       document.getElementById("memberContent").style.display = "block";
       document.getElementById("mWebsiteEnabled").checked = memberSettings.website_enabled;
-      // Populate embed code
       var embed = '<div id="vfo-showroom"></div>\n<script src="https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/vfo-widget/vfo-widget.js?v=23" data-vfo-key="' + member.manage_key + '"><\/script>';
       document.getElementById("pluginEmbedCode").textContent = embed;
       // Reset feature tabs to Website Plugin
@@ -534,7 +496,6 @@
       document.querySelector('#memberFeatureTabs [data-subpanel="websitePluginPanel"]').classList.add("active");
       document.getElementById("websitePluginPanel").classList.add("active");
       activateSubTab("specialistsSubPanel");
-      // Reset save button
       var btn = document.getElementById("mSaveBtn"); btn.textContent = "Save Changes"; btn.style.opacity = "1";
       document.getElementById("mUnsavedMsg").classList.remove("visible");
     });
