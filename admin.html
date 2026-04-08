@@ -163,8 +163,8 @@
       <div style="margin-bottom:24px;padding:24px;background:rgba(0,0,0,0.12);border:1px solid rgba(255,255,255,0.1);border-radius:12px;">
         <div class="settings-title">Add New Admin</div>
         <div style="display:flex;gap:12px;margin-bottom:12px;">
-          <div style="flex:1;"><label class="field-label">Name *</label><input type="text" class="text-input" id="newAdminName" placeholder="e.g. Lindsay Czajka"></div>
-          <div style="flex:1;"><label class="field-label">Email *</label><input type="text" class="text-input" id="newAdminEmail" placeholder="e.g. lczajka@elitert.com"></div>
+          <div style="flex:1;"><label class="field-label">Name *</label><input type="text" class="text-input" id="newAdminName" placeholder="e.g. Jake Latham"></div>
+          <div style="flex:1;"><label class="field-label">Email *</label><input type="text" class="text-input" id="newAdminEmail" placeholder="e.g. jlatham@elitert.com"></div>
         </div>
         <div style="display:flex;gap:12px;margin-bottom:16px;">
           <div style="flex:1;"><label class="field-label">Passcode *</label><input type="text" class="text-input" id="newAdminPasscode" placeholder="Login passcode"></div>
@@ -318,15 +318,22 @@
     };
 
     document.getElementById("adminEditorBtn").addEventListener("click", function() {
-      // Hide welcome, deselect main tabs, show admin editor
+      // Hide welcome, main tabs, all panels
       document.getElementById("welcomeContent").style.display = "none";
-      document.querySelectorAll("#adminTabs .main-tab").forEach(function(t) { t.classList.remove("active"); });
+      document.getElementById("adminTabs").style.display = "none";
       document.querySelectorAll(".tab-panel").forEach(function(p) { p.classList.remove("active"); });
       document.getElementById("adminEditorPanel").classList.add("active");
       document.getElementById("memberContent").style.display = "none";
       document.getElementById("memberSelect").value = "";
       currentMember = null;
       loadAdminList();
+    });
+
+    // Override appTitle click to also restore tabs
+    var origTitleClick = document.getElementById("appTitle").onclick;
+    document.getElementById("appTitle").addEventListener("click", function() {
+      document.getElementById("adminTabs").style.display = "";
+      document.getElementById("adminEditorPanel").classList.remove("active");
     });
 
     async function loadAdminList() {
@@ -337,10 +344,23 @@
         (data.admins || []).forEach(function(admin) {
           var row = document.createElement("div");
           row.className = "specialist-row";
+          row.style.cursor = "default";
           var isSelf = admin.email === SUPERADMIN;
-          row.innerHTML = '<div class="specialist-info"><div class="specialist-name">' + admin.name + '</div><div class="specialist-tagline">' + admin.email + '</div></div>' + (isSelf ? '<span style="color:#5a8ab5;font-size:12px;">Superadmin</span>' : '<button class="btn-danger" style="padding:6px 16px;font-size:12px;margin-left:auto;">Remove</button>');
+          var buttonsHTML = '<div style="display:flex;gap:8px;align-items:center;margin-left:auto;">';
+          buttonsHTML += '<button class="mode-btn change-pass-btn" style="padding:6px 14px;font-size:12px;">Change Passcode</button>';
+          if (!isSelf) buttonsHTML += '<button class="btn-danger remove-btn" style="padding:6px 16px;font-size:12px;">Remove</button>';
+          buttonsHTML += '</div>';
+          row.innerHTML = '<div class="specialist-info"><div class="specialist-name">' + admin.name + '</div><div class="specialist-tagline">' + admin.email + (isSelf ? ' &middot; Superadmin' : '') + '</div></div>' + buttonsHTML;
+          // Change passcode
+          row.querySelector(".change-pass-btn").addEventListener("click", function(e) {
+            e.stopPropagation();
+            var newPass = prompt("New passcode for " + admin.name + ":");
+            if (!newPass || !newPass.trim()) return;
+            updateAdminPasscode(admin.id, newPass.trim());
+          });
+          // Remove
           if (!isSelf) {
-            row.querySelector(".btn-danger").addEventListener("click", function(e) {
+            row.querySelector(".remove-btn").addEventListener("click", function(e) {
               e.stopPropagation();
               if (!confirm("Remove admin \"" + admin.name + "\"?")) return;
               deleteAdmin(admin.id);
@@ -355,6 +375,13 @@
       try {
         await apiCall({ action: "delete_admin", admin_id: adminId });
         loadAdminList();
+      } catch (err) { alert("Error: " + err.message); }
+    }
+
+    async function updateAdminPasscode(adminId, newPasscode) {
+      try {
+        await apiCall({ action: "update_admin_passcode", admin_id: adminId, new_passcode: newPasscode });
+        alert("Passcode updated.");
       } catch (err) { alert("Error: " + err.message); }
     }
 
