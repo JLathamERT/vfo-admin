@@ -147,6 +147,27 @@
           </div>
           <!-- Settings feature tab -->
           <div class="sub-panel" id="adminSettingsPanel">
+            <div class="settings-section" id="memberLoginSection">
+              <div class="settings-title">Member Login</div>
+              <div id="memberLoginLoading" style="color:#8bacc8;font-size:14px;">Loading...</div>
+              <div id="memberLoginSetup" style="display:none;">
+                <p style="color:#5a8ab5;font-size:14px;margin-bottom:16px;">No login has been set up for this member. Create one to give them portal access.</p>
+                <div style="display:flex;gap:12px;margin-bottom:12px;">
+                  <div style="flex:1;"><label class="field-label">Email *</label><input type="text" class="text-input" id="memberLoginEmail" placeholder="member@example.com"></div>
+                  <div style="flex:1;"><label class="field-label">Passcode *</label><input type="text" class="text-input" id="memberLoginPasscode" placeholder="Login passcode"></div>
+                </div>
+                <button class="btn-primary" id="createMemberLoginBtn" style="padding:10px 28px;font-size:14px;">Create Login</button>
+                <div class="status-msg" id="memberLoginStatus"></div>
+              </div>
+              <div id="memberLoginEdit" style="display:none;">
+                <div style="display:flex;gap:12px;margin-bottom:12px;">
+                  <div style="flex:1;"><label class="field-label">Email</label><input type="text" class="text-input" id="memberLoginEmailEdit" placeholder="member@example.com"></div>
+                  <div style="flex:1;"><label class="field-label">New Passcode</label><input type="text" class="text-input" id="memberLoginPasscodeEdit" placeholder="Leave blank to keep current"></div>
+                </div>
+                <button class="btn-primary" id="updateMemberLoginBtn" style="padding:10px 28px;font-size:14px;">Update Login</button>
+                <div class="status-msg" id="memberLoginEditStatus"></div>
+              </div>
+            </div>
             <div class="settings-section" style="border-color:rgba(231,76,60,0.15);">
               <div class="settings-title" style="color:#e74c3c;">Danger Zone</div>
               <p style="color:#5a8ab5;font-size:14px;margin-bottom:16px;">Permanently delete this member and all their settings. This cannot be undone.</p>
@@ -299,9 +320,64 @@
       document.getElementById("adminSpecialistsPanel").classList.add("active");
       var btn = document.getElementById("mSaveBtn"); btn.textContent = "Save Changes"; btn.style.opacity = "1";
       document.getElementById("mUnsavedMsg").classList.remove("visible");
+      loadMemberLogin(mn);
     });
     document.getElementById("mSaveBtn").addEventListener("click", function() { saveMemberSettings("manageStatus"); });
     document.getElementById("mSaveBtn2").addEventListener("click", function() { saveMemberSettings("manageStatus2"); });
+
+    // ─── MEMBER LOGIN MANAGEMENT ────────────────────────
+    var currentMemberLoginId = null;
+
+    async function loadMemberLogin(memberNumber) {
+      document.getElementById("memberLoginLoading").style.display = "block";
+      document.getElementById("memberLoginSetup").style.display = "none";
+      document.getElementById("memberLoginEdit").style.display = "none";
+      currentMemberLoginId = null;
+      try {
+        var data = await apiCall({ action: "load_member_login", member_number: memberNumber });
+        document.getElementById("memberLoginLoading").style.display = "none";
+        if (data.login) {
+          currentMemberLoginId = data.login.id;
+          document.getElementById("memberLoginEmailEdit").value = data.login.email;
+          document.getElementById("memberLoginPasscodeEdit").value = "";
+          document.getElementById("memberLoginEdit").style.display = "block";
+        } else {
+          document.getElementById("memberLoginEmail").value = "";
+          document.getElementById("memberLoginPasscode").value = "";
+          document.getElementById("memberLoginSetup").style.display = "block";
+        }
+      } catch (err) {
+        document.getElementById("memberLoginLoading").style.display = "none";
+        document.getElementById("memberLoginSetup").style.display = "block";
+      }
+    }
+
+    document.getElementById("createMemberLoginBtn").addEventListener("click", async function() {
+      var email = document.getElementById("memberLoginEmail").value.trim();
+      var passcode = document.getElementById("memberLoginPasscode").value.trim();
+      if (!email || !passcode) { showStatus("memberLoginStatus", "error", "Email and passcode are required."); return; }
+      var btn = this; btn.disabled = true; btn.textContent = "Creating...";
+      try {
+        await apiCall({ action: "create_member_login", member_number: currentMember.member_number, email: email, passcode: passcode, name: currentMember.name });
+        showStatus("memberLoginStatus", "success", "Login created!");
+        loadMemberLogin(currentMember.member_number);
+      } catch (err) { showStatus("memberLoginStatus", "error", err.message); }
+      finally { btn.disabled = false; btn.textContent = "Create Login"; }
+    });
+
+    document.getElementById("updateMemberLoginBtn").addEventListener("click", async function() {
+      if (!currentMemberLoginId) return;
+      var email = document.getElementById("memberLoginEmailEdit").value.trim();
+      var passcode = document.getElementById("memberLoginPasscodeEdit").value.trim();
+      if (!email) { showStatus("memberLoginEditStatus", "error", "Email is required."); return; }
+      var btn = this; btn.disabled = true; btn.textContent = "Updating...";
+      try {
+        await apiCall({ action: "update_member_login", login_id: currentMemberLoginId, email: email, passcode: passcode || null });
+        showStatus("memberLoginEditStatus", "success", "Login updated!");
+        loadMemberLogin(currentMember.member_number);
+      } catch (err) { showStatus("memberLoginEditStatus", "error", err.message); }
+      finally { btn.disabled = false; btn.textContent = "Update Login"; }
+    });
     document.querySelectorAll('select').forEach(function(sel) { sel.addEventListener('mousedown', function(e) { e.stopPropagation(); }); });
 
     // ─── ADMIN EDITOR (superadmin only) ─────────────────
