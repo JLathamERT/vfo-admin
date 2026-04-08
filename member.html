@@ -23,16 +23,17 @@
       <h1 style="cursor:pointer;" id="appTitle">The VFO Portal</h1>
       <div class="app-header-right">
         <span class="admin-name" id="memberName"></span>
+        <button class="sign-out-btn" id="memberSettingsBtn">Settings</button>
         <button class="sign-out-btn" id="signOutBtn">Sign Out</button>
       </div>
     </div>
     <div class="main-tabs" id="memberTabs">
       <button class="main-tab" data-panel="specialistsPanel">Specialists</button>
+      <button class="main-tab" data-panel="showroomPanel">Showroom</button>
       <button class="main-tab" data-panel="websitePanel">Website Plugin</button>
       <button class="main-tab" data-panel="ciqPanel">CIQ</button>
       <button class="main-tab" data-panel="growthPlanPanel">Growth Plan</button>
       <button class="main-tab" data-panel="growthCreditsPanel">Growth Credit Marketplace</button>
-      <button class="main-tab" data-panel="accountPanel">Account</button>
     </div>
     <div id="welcomeContent" style="text-align:center;padding:60px 0 0;">
       <p style="font-size:14px;color:#8bacc8;margin-bottom:8px;">Welcome back</p>
@@ -112,8 +113,16 @@
       </div>
     </div>
 
-    <!-- Account Panel -->
-    <div class="tab-panel" id="accountPanel">
+    <!-- Showroom Panel -->
+    <div class="tab-panel" id="showroomPanel">
+      <div style="text-align:center;padding:60px 20px;">
+        <p style="font-family:'Playfair Display',serif;font-size:22px;color:#ffffff;margin-bottom:12px;">Showroom</p>
+        <p style="font-size:14px;color:#8bacc8;">Coming soon.</p>
+      </div>
+    </div>
+
+    <!-- Member Settings Panel (not a tab, triggered by Settings button) -->
+    <div class="tab-panel" id="memberSettingsPanel">
       <div class="settings-section">
         <div class="settings-title">Account Settings</div>
         <div style="display:flex;gap:12px;margin-bottom:12px;">
@@ -137,7 +146,19 @@
       initMember();
     }
     document.getElementById("signOutBtn").addEventListener("click", signOut);
+
+    // Settings button - hide tabs, show settings panel
+    document.getElementById("memberSettingsBtn").addEventListener("click", function() {
+      document.getElementById("welcomeContent").style.display = "none";
+      document.getElementById("memberTabs").style.display = "none";
+      document.querySelectorAll("#app .tab-panel").forEach(function(p) { p.classList.remove("active"); });
+      document.querySelectorAll("#memberTabs .main-tab").forEach(function(t) { t.classList.remove("active"); });
+      document.getElementById("memberSettingsPanel").classList.add("active");
+      loadMyLogin();
+    });
+
     document.getElementById("appTitle").addEventListener("click", function() {
+      document.getElementById("memberTabs").style.display = "";
       document.querySelectorAll("#memberTabs .main-tab").forEach(function(t) { t.classList.remove("active"); });
       document.querySelectorAll("#app .tab-panel").forEach(function(p) { p.classList.remove("active"); });
       document.getElementById("welcomeContent").style.display = "block";
