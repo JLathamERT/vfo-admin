@@ -108,9 +108,44 @@
       </div>
     </div>
     <div class="tab-panel" id="growthCreditsPanel">
-      <div style="text-align:center;padding:60px 20px;">
-        <p style="font-family:'Playfair Display',serif;font-size:22px;color:#ffffff;margin-bottom:12px;">GC Marketplace</p>
-        <p style="font-size:14px;color:#8bacc8;">Coming soon.</p>
+      <div class="sub-tabs" id="gcSubTabs">
+        <button class="sub-tab active" data-subpanel="gcDashboardPanel">Dashboard</button>
+        <button class="sub-tab" data-subpanel="gcServicesPanel">Services</button>
+        <button class="sub-tab" data-subpanel="gcHistoryPanel">History</button>
+      </div>
+
+      <!-- GC Dashboard -->
+      <div class="sub-panel active" id="gcDashboardPanel">
+        <div style="display:flex;gap:16px;margin-bottom:24px;">
+          <div class="settings-section" style="flex:1;text-align:center;">
+            <p style="color:#8bacc8;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Credit Balance</p>
+            <p id="gcBalance" style="font-family:'Playfair Display',serif;font-size:42px;color:#ffffff;">0</p>
+          </div>
+          <div class="settings-section" style="flex:1;">
+            <p style="color:#8bacc8;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Quick Stats</p>
+            <div class="setting-row" style="padding:8px 0;"><span style="color:#8bacc8;font-size:13px;">Total Redemptions</span><span id="gcTotalRedemptions" style="color:#ffffff;font-weight:600;">0</span></div>
+            <div class="setting-row" style="padding:8px 0;"><span style="color:#8bacc8;font-size:13px;">Pending Requests</span><span id="gcPendingCount" style="color:#ffffff;font-weight:600;">0</span></div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div class="settings-title" style="margin-bottom:0;">Recent Activity</div>
+          </div>
+          <div id="gcRecentActivity"><p style="color:#5a8ab5;font-size:14px;">Loading...</p></div>
+        </div>
+      </div>
+
+      <!-- GC Services -->
+      <div class="sub-panel" id="gcServicesPanel">
+        <div id="gcServicesList"><p style="color:#5a8ab5;font-size:14px;">Loading...</p></div>
+      </div>
+
+      <!-- GC History -->
+      <div class="sub-panel" id="gcHistoryPanel">
+        <div class="settings-section">
+          <div class="settings-title">Transaction History</div>
+          <div id="gcTransactionList"><p style="color:#5a8ab5;font-size:14px;">Loading...</p></div>
+        </div>
       </div>
     </div>
 
@@ -341,6 +376,112 @@
         tab.addEventListener("click", function() { if (!vaultLoaded) { loadVaultFiles(); vaultLoaded = true; } });
       }
     });
+
+    // ─── GC MARKETPLACE ─────────────────────────────────
+    // Sub-tab handler
+    (function() {
+      var container = document.getElementById("gcSubTabs");
+      var tabs = container.querySelectorAll(".sub-tab");
+      var panels = [document.getElementById("gcDashboardPanel"), document.getElementById("gcServicesPanel"), document.getElementById("gcHistoryPanel")];
+      tabs.forEach(function(tab) {
+        tab.addEventListener("click", function() {
+          tabs.forEach(function(t) { t.classList.remove("active"); });
+          panels.forEach(function(p) { p.classList.remove("active"); });
+          tab.classList.add("active");
+          document.getElementById(tab.getAttribute("data-subpanel")).classList.add("active");
+        });
+      });
+    })();
+
+    var gcLoaded = false;
+    document.querySelectorAll("#memberTabs .main-tab").forEach(function(tab) {
+      if (tab.getAttribute("data-panel") === "growthCreditsPanel") {
+        tab.addEventListener("click", function() { if (!gcLoaded) { loadGCDashboard(); gcLoaded = true; } });
+      }
+    });
+
+    async function loadGCDashboard() {
+      try {
+        var balData = await apiCall({ action: "gc_load_balance", member_number: memberNumber });
+        document.getElementById("gcBalance").textContent = balData.balance || 0;
+
+        var redData = await apiCall({ action: "gc_load_redemptions", member_number: memberNumber });
+        var redemptions = redData.redemptions || [];
+        document.getElementById("gcTotalRedemptions").textContent = redemptions.length;
+        document.getElementById("gcPendingCount").textContent = redemptions.filter(function(r) { return r.status === "pending"; }).length;
+
+        // Recent activity (last 5 transactions)
+        var txData = await apiCall({ action: "gc_load_transactions", member_number: memberNumber });
+        var transactions = txData.transactions || [];
+        var recentEl = document.getElementById("gcRecentActivity");
+        if (transactions.length === 0) {
+          recentEl.innerHTML = '<p style="color:#5a8ab5;font-size:14px;">No activity yet.</p>';
+        } else {
+          recentEl.innerHTML = "";
+          transactions.slice(0, 5).forEach(function(tx) {
+            var date = new Date(tx.created_at).toLocaleDateString();
+            var isPositive = tx.amount > 0;
+            var row = document.createElement("div");
+            row.className = "setting-row";
+            row.style.padding = "10px 0";
+            row.innerHTML = '<div><div style="color:#ffffff;font-size:14px;">' + (tx.description || tx.type) + '</div><div style="color:#5a8ab5;font-size:12px;">' + date + '</div></div><span style="color:' + (isPositive ? "#5dca7a" : "#ff6b6b") + ';font-weight:600;">' + (isPositive ? "+" : "") + tx.amount + '</span>';
+            recentEl.appendChild(row);
+          });
+        }
+
+        loadGCServices();
+        loadGCHistory(transactions);
+      } catch (err) { console.error("GC dashboard error:", err); }
+    }
+
+    async function loadGCServices() {
+      var list = document.getElementById("gcServicesList");
+      try {
+        var data = await apiCall({ action: "gc_load_services" });
+        var services = data.services || [];
+        if (services.length === 0) { list.innerHTML = '<p style="color:#5a8ab5;font-size:14px;">No services available.</p>'; return; }
+        list.innerHTML = "";
+        services.forEach(function(svc) {
+          var card = document.createElement("div");
+          card.className = "settings-section";
+          card.style.marginBottom = "12px";
+          card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;"><div><div style="color:#ffffff;font-size:15px;font-weight:600;">' + svc.name + '</div>' + (svc.description ? '<div style="color:#8bacc8;font-size:13px;margin-top:4px;">' + svc.description + '</div>' : '') + '</div><div style="display:flex;align-items:center;gap:12px;"><span style="color:#ffffff;font-weight:700;font-size:16px;">' + svc.credit_cost + '</span><span style="color:#5a8ab5;font-size:12px;">credits</span><button class="btn-primary gc-redeem-btn" style="padding:8px 20px;font-size:13px;" data-id="' + svc.id + '" data-name="' + svc.name + '" data-cost="' + svc.credit_cost + '">Redeem</button></div></div>';
+          card.querySelector(".gc-redeem-btn").addEventListener("click", function() {
+            var id = parseInt(this.getAttribute("data-id"));
+            var name = this.getAttribute("data-name");
+            var cost = this.getAttribute("data-cost");
+            if (!confirm("Redeem \"" + name + "\" for " + cost + " credits?")) return;
+            redeemService(id);
+          });
+          list.appendChild(card);
+        });
+      } catch (err) { list.innerHTML = '<p style="color:#ff6b6b;font-size:14px;">Error loading services.</p>'; }
+    }
+
+    async function redeemService(serviceId) {
+      try {
+        var result = await apiCall({ action: "gc_redeem", member_number: memberNumber, service_id: serviceId });
+        document.getElementById("gcBalance").textContent = result.balance;
+        gcLoaded = false;
+        loadGCDashboard();
+      } catch (err) { alert(err.message); }
+    }
+
+    function loadGCHistory(transactions) {
+      var list = document.getElementById("gcTransactionList");
+      if (!transactions || transactions.length === 0) { list.innerHTML = '<p style="color:#5a8ab5;font-size:14px;">No transactions yet.</p>'; return; }
+      list.innerHTML = "";
+      transactions.forEach(function(tx) {
+        var date = new Date(tx.created_at).toLocaleDateString();
+        var isPositive = tx.amount > 0;
+        var typeBadge = tx.type === "purchased" ? '<span style="background:rgba(39,174,96,0.2);color:#5dca7a;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">purchased</span>' : tx.type === "refunded" ? '<span style="background:rgba(91,159,230,0.2);color:#5b9fe6;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">refunded</span>' : '<span style="background:rgba(231,76,60,0.2);color:#ff6b6b;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">redeemed</span>';
+        var row = document.createElement("div");
+        row.className = "setting-row";
+        row.style.padding = "12px 0";
+        row.innerHTML = '<div style="flex:1;"><div style="color:#ffffff;font-size:14px;">' + (tx.description || tx.type) + '</div><div style="color:#5a8ab5;font-size:12px;margin-top:2px;">' + date + '</div></div><div style="display:flex;align-items:center;gap:12px;">' + typeBadge + '<span style="color:' + (isPositive ? "#5dca7a" : "#ff6b6b") + ';font-weight:600;min-width:50px;text-align:right;">' + (isPositive ? "+" : "") + tx.amount + '</span><span style="color:#5a8ab5;font-size:12px;min-width:40px;text-align:right;">' + tx.balance_after + '</span></div>';
+        list.appendChild(row);
+      });
+    }
   </script>
 </body>
 </html>

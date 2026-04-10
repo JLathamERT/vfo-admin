@@ -153,7 +153,56 @@
           </div>
           <!-- Growth Credit Marketplace feature tab -->
           <div class="sub-panel" id="adminGrowthCreditsPanel">
-            <div style="text-align:center;padding:60px 20px;"><p style="font-family:'Playfair Display',serif;font-size:22px;color:#ffffff;margin-bottom:12px;">GC Marketplace</p><p style="font-size:14px;color:#8bacc8;">Coming soon.</p></div>
+            <div class="sub-tabs" id="adminGcSubTabs">
+              <button class="sub-tab active" data-subpanel="adminGcDashboard">Dashboard</button>
+              <button class="sub-tab" data-subpanel="adminGcMemberDetails">Member Details</button>
+              <button class="sub-tab" data-subpanel="adminGcRedemptions">Recent Redemptions</button>
+            </div>
+
+            <!-- Admin GC Dashboard -->
+            <div class="sub-panel active" id="adminGcDashboard">
+              <div style="display:flex;gap:16px;margin-bottom:24px;">
+                <div class="settings-section" style="flex:1;text-align:center;">
+                  <p style="color:#8bacc8;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Credit Balance</p>
+                  <p id="adminGcBalance" style="font-family:'Playfair Display',serif;font-size:42px;color:#ffffff;">0</p>
+                </div>
+                <div class="settings-section" style="flex:1;">
+                  <p style="color:#8bacc8;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Quick Stats</p>
+                  <div class="setting-row" style="padding:8px 0;"><span style="color:#8bacc8;font-size:13px;">Total Redemptions</span><span id="adminGcTotalRed" style="color:#ffffff;font-weight:600;">0</span></div>
+                  <div class="setting-row" style="padding:8px 0;"><span style="color:#8bacc8;font-size:13px;">Pending Requests</span><span id="adminGcPending" style="color:#ffffff;font-weight:600;">0</span></div>
+                  <div class="setting-row" style="padding:8px 0;"><span style="color:#8bacc8;font-size:13px;">Total Spent</span><span id="adminGcSpent" style="color:#ffffff;font-weight:600;">0</span></div>
+                </div>
+              </div>
+              <div class="settings-section">
+                <div class="settings-title">Add Credits</div>
+                <div style="display:flex;gap:12px;align-items:flex-end;">
+                  <div style="flex:1;"><label class="field-label">Amount</label><input type="number" class="text-input" id="adminGcAddAmount" placeholder="e.g. 100" min="1"></div>
+                  <div style="flex:1;"><label class="field-label">Description (optional)</label><input type="text" class="text-input" id="adminGcAddDesc" placeholder="e.g. Monthly allocation"></div>
+                  <button class="btn-primary" id="adminGcAddBtn" style="padding:12px 24px;font-size:14px;white-space:nowrap;">Add Credits</button>
+                </div>
+                <div class="status-msg" id="adminGcAddStatus"></div>
+              </div>
+            </div>
+
+            <!-- Admin GC Member Details -->
+            <div class="sub-panel" id="adminGcMemberDetails">
+              <div class="settings-section">
+                <div class="settings-title">Transaction History</div>
+                <div id="adminGcTransactions"><p style="color:#5a8ab5;font-size:14px;">Loading...</p></div>
+              </div>
+              <div class="settings-section">
+                <div class="settings-title">Redemption History</div>
+                <div id="adminGcMemberRedemptions"><p style="color:#5a8ab5;font-size:14px;">Loading...</p></div>
+              </div>
+            </div>
+
+            <!-- Admin GC Recent Redemptions (all members) -->
+            <div class="sub-panel" id="adminGcRedemptions">
+              <div class="settings-section">
+                <div class="settings-title">Recent Redemptions — All Members</div>
+                <div id="adminGcAllRedemptions"><p style="color:#5a8ab5;font-size:14px;">Loading...</p></div>
+              </div>
+            </div>
           </div>
           <!-- The Vault feature tab -->
           <div class="sub-panel" id="adminVaultPanel">
@@ -423,6 +472,142 @@
       finally { btn.disabled = false; btn.textContent = "Update Login"; }
     });
     document.querySelectorAll('select').forEach(function(sel) { sel.addEventListener('mousedown', function(e) { e.stopPropagation(); }); });
+
+    // ─── ADMIN GC MARKETPLACE ─────────────────────────────
+    // Sub-tab handler
+    (function() {
+      var container = document.getElementById("adminGcSubTabs");
+      var tabs = container.querySelectorAll(".sub-tab");
+      var panels = [document.getElementById("adminGcDashboard"), document.getElementById("adminGcMemberDetails"), document.getElementById("adminGcRedemptions")];
+      tabs.forEach(function(tab) {
+        tab.addEventListener("click", function() {
+          tabs.forEach(function(t) { t.classList.remove("active"); });
+          panels.forEach(function(p) { p.classList.remove("active"); });
+          tab.classList.add("active");
+          document.getElementById(tab.getAttribute("data-subpanel")).classList.add("active");
+        });
+      });
+    })();
+
+    // Load GC data when clicking the GC Marketplace feature tab
+    (function() {
+      var container = document.getElementById("memberFeatureTabs");
+      container.querySelectorAll(".sub-tab").forEach(function(tab) {
+        if (tab.getAttribute("data-subpanel") === "adminGrowthCreditsPanel") {
+          tab.addEventListener("click", function() { if (currentMember) loadAdminGC(); });
+        }
+      });
+    })();
+
+    async function loadAdminGC() {
+      if (!currentMember) return;
+      var mn = currentMember.member_number;
+      try {
+        var balData = await apiCall({ action: "gc_load_balance", member_number: mn });
+        document.getElementById("adminGcBalance").textContent = balData.balance || 0;
+
+        var redData = await apiCall({ action: "gc_load_redemptions", member_number: mn });
+        var redemptions = redData.redemptions || [];
+        document.getElementById("adminGcTotalRed").textContent = redemptions.length;
+        document.getElementById("adminGcPending").textContent = redemptions.filter(function(r) { return r.status === "pending"; }).length;
+        var spent = redemptions.reduce(function(sum, r) { return sum + (r.credits || 0); }, 0);
+        document.getElementById("adminGcSpent").textContent = spent;
+
+        // Member transactions
+        var txData = await apiCall({ action: "gc_load_transactions", member_number: mn });
+        renderAdminGcTransactions(txData.transactions || []);
+
+        // Member redemptions
+        renderAdminGcMemberRedemptions(redemptions);
+
+        // All redemptions
+        loadAdminAllRedemptions();
+      } catch (err) { console.error("Admin GC error:", err); }
+    }
+
+    function renderAdminGcTransactions(transactions) {
+      var list = document.getElementById("adminGcTransactions");
+      if (transactions.length === 0) { list.innerHTML = '<p style="color:#5a8ab5;font-size:14px;">No transactions.</p>'; return; }
+      list.innerHTML = "";
+      transactions.forEach(function(tx) {
+        var date = new Date(tx.created_at).toLocaleDateString();
+        var isPositive = tx.amount > 0;
+        var typeBadge = tx.type === "purchased" ? '<span style="background:rgba(39,174,96,0.2);color:#5dca7a;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">purchased</span>' : tx.type === "refunded" ? '<span style="background:rgba(91,159,230,0.2);color:#5b9fe6;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">refunded</span>' : '<span style="background:rgba(231,76,60,0.2);color:#ff6b6b;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">redeemed</span>';
+        var row = document.createElement("div");
+        row.className = "setting-row";
+        row.style.padding = "12px 0";
+        row.innerHTML = '<div style="flex:1;"><div style="color:#ffffff;font-size:14px;">' + (tx.description || tx.type) + '</div><div style="color:#5a8ab5;font-size:12px;margin-top:2px;">' + date + '</div></div><div style="display:flex;align-items:center;gap:12px;">' + typeBadge + '<span style="color:' + (isPositive ? "#5dca7a" : "#ff6b6b") + ';font-weight:600;min-width:50px;text-align:right;">' + (isPositive ? "+" : "") + tx.amount + '</span><span style="color:#5a8ab5;font-size:12px;min-width:40px;text-align:right;">' + tx.balance_after + '</span></div>';
+        list.appendChild(row);
+      });
+    }
+
+    function renderAdminGcMemberRedemptions(redemptions) {
+      var list = document.getElementById("adminGcMemberRedemptions");
+      if (redemptions.length === 0) { list.innerHTML = '<p style="color:#5a8ab5;font-size:14px;">No redemptions.</p>'; return; }
+      list.innerHTML = "";
+      redemptions.forEach(function(r) {
+        var date = new Date(r.created_at).toLocaleDateString();
+        var serviceName = r.gc_services ? r.gc_services.name : "Unknown";
+        var statusBadge = r.status === "pending" ? '<span style="background:rgba(255,179,71,0.2);color:#ffb347;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">pending</span>' : r.status === "fulfilled" ? '<span style="background:rgba(39,174,96,0.2);color:#5dca7a;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">fulfilled</span>' : '<span style="background:rgba(231,76,60,0.2);color:#ff6b6b;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">rejected</span>';
+        var row = document.createElement("div");
+        row.className = "setting-row";
+        row.style.padding = "12px 0";
+        row.innerHTML = '<div style="flex:1;"><div style="color:#ffffff;font-size:14px;">' + serviceName + '</div><div style="color:#5a8ab5;font-size:12px;margin-top:2px;">' + date + ' &middot; ' + r.credits + ' credits</div></div><div style="display:flex;align-items:center;gap:8px;">' + statusBadge + (r.status === "pending" ? '<button class="mode-btn gc-fulfill-btn" style="padding:4px 12px;font-size:11px;color:#5dca7a;border-color:rgba(39,174,96,0.3);" data-id="' + r.id + '">Fulfill</button><button class="mode-btn gc-reject-btn" style="padding:4px 12px;font-size:11px;color:#ff6b6b;border-color:rgba(231,76,60,0.3);" data-id="' + r.id + '">Reject</button>' : '') + '</div>';
+        if (r.status === "pending") {
+          row.querySelector(".gc-fulfill-btn").addEventListener("click", function() { updateRedemption(parseInt(this.getAttribute("data-id")), "fulfilled"); });
+          row.querySelector(".gc-reject-btn").addEventListener("click", function() { if (confirm("Reject this redemption? Credits will be refunded.")) updateRedemption(parseInt(this.getAttribute("data-id")), "rejected"); });
+        }
+        list.appendChild(row);
+      });
+    }
+
+    async function loadAdminAllRedemptions() {
+      var list = document.getElementById("adminGcAllRedemptions");
+      try {
+        var data = await apiCall({ action: "gc_load_all_redemptions" });
+        var redemptions = data.redemptions || [];
+        if (redemptions.length === 0) { list.innerHTML = '<p style="color:#5a8ab5;font-size:14px;">No redemptions yet.</p>'; return; }
+        list.innerHTML = "";
+        redemptions.forEach(function(r) {
+          var date = new Date(r.created_at).toLocaleDateString();
+          var serviceName = r.gc_services ? r.gc_services.name : "Unknown";
+          var memberName = r.members ? r.members.name : r.member_number;
+          var statusBadge = r.status === "pending" ? '<span style="background:rgba(255,179,71,0.2);color:#ffb347;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">pending</span>' : r.status === "fulfilled" ? '<span style="background:rgba(39,174,96,0.2);color:#5dca7a;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">fulfilled</span>' : '<span style="background:rgba(231,76,60,0.2);color:#ff6b6b;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">rejected</span>';
+          var row = document.createElement("div");
+          row.className = "setting-row";
+          row.style.padding = "12px 0";
+          row.innerHTML = '<div style="flex:1;"><div style="color:#ffffff;font-size:14px;">' + memberName + ' — ' + serviceName + '</div><div style="color:#5a8ab5;font-size:12px;margin-top:2px;">' + date + ' &middot; ' + r.credits + ' credits</div></div><div style="display:flex;align-items:center;gap:8px;">' + statusBadge + (r.status === "pending" ? '<button class="mode-btn gc-fulfill-btn" style="padding:4px 12px;font-size:11px;color:#5dca7a;border-color:rgba(39,174,96,0.3);" data-id="' + r.id + '">Fulfill</button><button class="mode-btn gc-reject-btn" style="padding:4px 12px;font-size:11px;color:#ff6b6b;border-color:rgba(231,76,60,0.3);" data-id="' + r.id + '">Reject</button>' : '') + '</div>';
+          if (r.status === "pending") {
+            row.querySelector(".gc-fulfill-btn").addEventListener("click", function() { updateRedemption(parseInt(this.getAttribute("data-id")), "fulfilled"); });
+            row.querySelector(".gc-reject-btn").addEventListener("click", function() { if (confirm("Reject this redemption? Credits will be refunded.")) updateRedemption(parseInt(this.getAttribute("data-id")), "rejected"); });
+          }
+          list.appendChild(row);
+        });
+      } catch (err) { list.innerHTML = '<p style="color:#ff6b6b;font-size:14px;">Error loading redemptions.</p>'; }
+    }
+
+    async function updateRedemption(redemptionId, status) {
+      try {
+        await apiCall({ action: "gc_update_redemption", redemption_id: redemptionId, status: status });
+        loadAdminGC();
+      } catch (err) { alert("Error: " + err.message); }
+    }
+
+    document.getElementById("adminGcAddBtn").addEventListener("click", async function() {
+      if (!currentMember) return;
+      var amount = parseInt(document.getElementById("adminGcAddAmount").value);
+      var desc = document.getElementById("adminGcAddDesc").value.trim();
+      if (!amount || amount < 1) { showStatus("adminGcAddStatus", "error", "Enter a valid amount."); return; }
+      var btn = this; btn.disabled = true; btn.textContent = "Adding...";
+      try {
+        await apiCall({ action: "gc_add_credits", member_number: currentMember.member_number, amount: amount, description: desc || "Credits added" });
+        document.getElementById("adminGcAddAmount").value = "";
+        document.getElementById("adminGcAddDesc").value = "";
+        showStatus("adminGcAddStatus", "success", amount + " credits added.");
+        loadAdminGC();
+      } catch (err) { showStatus("adminGcAddStatus", "error", err.message); }
+      finally { btn.disabled = false; btn.textContent = "Add Credits"; }
+    });
 
     // ─── ADMIN VAULT ────────────────────────────────────
     var VAULT_BASE = "https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/member-vault/";
