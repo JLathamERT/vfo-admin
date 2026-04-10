@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The VFO Portal — Admin</title>
+  <title>VFO Portal — Admin</title>
   <link rel="icon" href="https://yt3.googleusercontent.com/ytc/AIdro_n97ca7emLIuU5FJqACNZ65pElKhWZkhC3px2ceBsVbHR4=s160-c-k-c0x00ffffff-no-rj" type="image/png">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
@@ -11,7 +11,7 @@
 </head>
 <body>
   <div class="gate" id="gate">
-    <h1>The VFO Portal</h1>
+    <h1>VFO Portal</h1>
     <p style="color:#8bacc8;font-size:14px;margin-bottom:8px;">Admin login</p>
     <input type="email" class="gate-input email-input" id="emailInput" placeholder="Email address">
     <input type="password" class="gate-input passcode-input" id="passcodeInput" placeholder="Passcode" maxlength="20">
@@ -21,7 +21,7 @@
   </div>
   <div class="app" id="app">
     <div class="app-header">
-      <h1 style="cursor:pointer;" id="appTitle">The VFO Portal</h1>
+      <h1 style="cursor:pointer;" id="appTitle">VFO Portal</h1>
       <div class="app-header-right">
         <span class="admin-name" id="adminName"></span>
         <button class="sign-out-btn" id="adminEditorBtn" style="display:none;color:#d4af37;border-color:rgba(212,175,55,0.3);">Admin Editor</button>
@@ -78,6 +78,7 @@
             <button class="sub-tab" data-subpanel="adminCiqPanel">CIQ</button>
             <button class="sub-tab" data-subpanel="adminGrowthPlanPanel">Growth Plan</button>
             <button class="sub-tab" data-subpanel="adminGrowthCreditsPanel">Growth Credit Marketplace</button>
+            <button class="sub-tab" data-subpanel="adminVaultPanel">The Vault</button>
             <button class="sub-tab" data-subpanel="adminSettingsPanel">Settings</button>
           </div>
           <!-- Specialists feature tab -->
@@ -113,7 +114,7 @@
               <div class="settings-section">
                 <div class="settings-title">Font</div>
                 <div style="display:flex;flex-wrap:wrap;gap:8px;" id="mFontPresets"></div>
-                <div style="position:relative;margin-top:12px;"><input type="text" class="search-input" id="mFontSearch" placeholder="Search Google Fonts..." style="padding-left:16px;"><div id="mFontResults" style="position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#162d4a;border:1px solid rgba(255,255,255,0.2);border-radius:8px;display:none;z-index:10;"></div></div>
+                <div style="position:relative;margin-top:12px;"><input type="text" class="search-input" id="mFontSearch" placeholder="Search Google Fonts..." style="padding-left:16px;"><div id="mFontResults" style="position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#073991;border:1px solid rgba(255,255,255,0.2);border-radius:8px;display:none;z-index:10;"></div></div>
                 <div id="mFontPreview" style="margin-top:12px;padding:16px;background:rgba(0,0,0,0.12);border-radius:8px;border:1px solid rgba(255,255,255,0.1);text-align:center;"><span style="font-size:20px;color:#ffffff;">The quick brown fox jumps over the lazy dog</span></div>
               </div>
               <div class="settings-section">
@@ -153,6 +154,24 @@
           <!-- Growth Credit Marketplace feature tab -->
           <div class="sub-panel" id="adminGrowthCreditsPanel">
             <div style="text-align:center;padding:60px 20px;"><p style="font-family:'Playfair Display',serif;font-size:22px;color:#ffffff;margin-bottom:12px;">Growth Credit Marketplace</p><p style="font-size:14px;color:#8bacc8;">Coming soon.</p></div>
+          </div>
+          <!-- The Vault feature tab -->
+          <div class="sub-panel" id="adminVaultPanel">
+            <div class="settings-section">
+              <div class="settings-title">The Vault</div>
+              <p style="color:#8bacc8;font-size:13px;margin-bottom:20px;">Upload and manage files for this member. Drag and drop or click to upload.</p>
+              <div id="adminVaultDropZone" style="border:2px dashed rgba(255,255,255,0.25);border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:20px;">
+                <p style="color:#8bacc8;font-size:14px;margin-bottom:8px;">Drag files here or click to browse</p>
+                <p style="color:#5a8ab5;font-size:12px;">Max 50MB per file</p>
+                <input type="file" id="adminVaultFileInput" multiple style="display:none;">
+              </div>
+              <div id="adminVaultUploading" style="display:none;color:#8bacc8;font-size:14px;margin-bottom:16px;">Uploading...</div>
+              <div class="status-msg" id="adminVaultStatus"></div>
+            </div>
+            <div class="settings-section">
+              <div class="settings-title">Member Files</div>
+              <div id="adminVaultFileList"><p style="color:#5a8ab5;font-size:14px;">Select a member to view files.</p></div>
+            </div>
           </div>
           <!-- Settings feature tab -->
           <div class="sub-panel" id="adminSettingsPanel">
@@ -283,7 +302,7 @@
     (function() {
       var container = document.getElementById("memberFeatureTabs");
       var tabs = container.querySelectorAll(".sub-tab");
-      var panels = [document.getElementById("adminSpecialistsPanel"), document.getElementById("adminShowroomPanel"), document.getElementById("websitePluginPanel"), document.getElementById("adminCiqPanel"), document.getElementById("adminGrowthPlanPanel"), document.getElementById("adminGrowthCreditsPanel"), document.getElementById("adminSettingsPanel")];
+      var panels = [document.getElementById("adminSpecialistsPanel"), document.getElementById("adminShowroomPanel"), document.getElementById("websitePluginPanel"), document.getElementById("adminCiqPanel"), document.getElementById("adminGrowthPlanPanel"), document.getElementById("adminGrowthCreditsPanel"), document.getElementById("adminVaultPanel"), document.getElementById("adminSettingsPanel")];
       tabs.forEach(function(tab) { tab.addEventListener("click", function() { tabs.forEach(function(t) { t.classList.remove("active"); }); panels.forEach(function(p) { p.classList.remove("active"); }); tab.classList.add("active"); document.getElementById(tab.getAttribute("data-subpanel")).classList.add("active"); }); });
     })();
     setupWebsitePluginSubTabs();
@@ -340,7 +359,7 @@
       document.getElementById("pluginEmbedCode").textContent = embed;
       // Reset feature tabs to Specialists
       document.getElementById("memberFeatureTabs").querySelectorAll(".sub-tab").forEach(function(t) { t.classList.remove("active"); });
-      [document.getElementById("adminSpecialistsPanel"), document.getElementById("adminShowroomPanel"), document.getElementById("websitePluginPanel"), document.getElementById("adminCiqPanel"), document.getElementById("adminGrowthPlanPanel"), document.getElementById("adminGrowthCreditsPanel"), document.getElementById("adminSettingsPanel")].forEach(function(p) { p.classList.remove("active"); });
+      [document.getElementById("adminSpecialistsPanel"), document.getElementById("adminShowroomPanel"), document.getElementById("websitePluginPanel"), document.getElementById("adminCiqPanel"), document.getElementById("adminGrowthPlanPanel"), document.getElementById("adminGrowthCreditsPanel"), document.getElementById("adminVaultPanel"), document.getElementById("adminSettingsPanel")].forEach(function(p) { p.classList.remove("active"); });
       document.querySelector('#memberFeatureTabs [data-subpanel="adminSpecialistsPanel"]').classList.add("active");
       document.getElementById("adminSpecialistsPanel").classList.add("active");
       var btn = document.getElementById("mSaveBtn"); btn.textContent = "Save Changes"; btn.style.opacity = "1";
@@ -404,6 +423,77 @@
       finally { btn.disabled = false; btn.textContent = "Update Login"; }
     });
     document.querySelectorAll('select').forEach(function(sel) { sel.addEventListener('mousedown', function(e) { e.stopPropagation(); }); });
+
+    // ─── ADMIN VAULT ────────────────────────────────────
+    var VAULT_BASE = "https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/member-vault/";
+    var adminDropZone = document.getElementById("adminVaultDropZone");
+    var adminVaultInput = document.getElementById("adminVaultFileInput");
+
+    adminDropZone.addEventListener("click", function() { adminVaultInput.click(); });
+    adminDropZone.addEventListener("dragover", function(e) { e.preventDefault(); adminDropZone.style.borderColor = "#ffffff"; adminDropZone.style.background = "rgba(255,255,255,0.05)"; });
+    adminDropZone.addEventListener("dragleave", function() { adminDropZone.style.borderColor = "rgba(255,255,255,0.25)"; adminDropZone.style.background = "none"; });
+    adminDropZone.addEventListener("drop", function(e) { e.preventDefault(); adminDropZone.style.borderColor = "rgba(255,255,255,0.25)"; adminDropZone.style.background = "none"; if (e.dataTransfer.files.length && currentMember) adminUploadVaultFiles(e.dataTransfer.files); });
+    adminVaultInput.addEventListener("change", function() { if (adminVaultInput.files.length && currentMember) adminUploadVaultFiles(adminVaultInput.files); adminVaultInput.value = ""; });
+
+    async function adminUploadVaultFiles(files) {
+      document.getElementById("adminVaultUploading").style.display = "block";
+      var count = 0;
+      for (var i = 0; i < files.length; i++) {
+        var file = files[i];
+        if (file.size > 50 * 1024 * 1024) { showStatus("adminVaultStatus", "error", file.name + " exceeds 50MB limit."); continue; }
+        try {
+          var base64 = await new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function() { resolve(reader.result.split(",")[1]); };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          await apiCall({ action: "vault_upload", member_number: currentMember.member_number, filename: file.name, file_base64: base64, content_type: file.type });
+          count++;
+        } catch (err) { showStatus("adminVaultStatus", "error", "Failed to upload " + file.name + ": " + err.message); }
+      }
+      document.getElementById("adminVaultUploading").style.display = "none";
+      if (count > 0) { showStatus("adminVaultStatus", "success", count + " file" + (count > 1 ? "s" : "") + " uploaded."); adminLoadVaultFiles(); }
+    }
+
+    async function adminLoadVaultFiles() {
+      if (!currentMember) return;
+      var list = document.getElementById("adminVaultFileList");
+      try {
+        var data = await apiCall({ action: "vault_list", member_number: currentMember.member_number });
+        if (!data.files || data.files.length === 0) { list.innerHTML = '<p style="color:#5a8ab5;font-size:14px;">No files yet.</p>'; return; }
+        list.innerHTML = "";
+        data.files.forEach(function(file) {
+          var size = file.size < 1024 ? file.size + " B" : file.size < 1048576 ? Math.round(file.size / 1024) + " KB" : (file.size / 1048576).toFixed(1) + " MB";
+          var row = document.createElement("div");
+          row.className = "specialist-row";
+          row.style.cursor = "default";
+          row.innerHTML = '<div class="specialist-info"><div class="specialist-name">' + file.name + '</div><div class="specialist-tagline">' + size + '</div></div><div style="display:flex;gap:8px;margin-left:auto;"><a href="' + VAULT_BASE + encodeURIComponent(file.path) + '" target="_blank" class="mode-btn" style="padding:6px 14px;font-size:12px;text-decoration:none;">Download</a><button class="btn-danger vault-delete-btn" style="padding:6px 14px;font-size:12px;">Delete</button></div>';
+          row.querySelector(".vault-delete-btn").addEventListener("click", function() {
+            if (!confirm("Delete \"" + file.name + "\"?")) return;
+            adminDeleteVaultFile(file.path);
+          });
+          list.appendChild(row);
+        });
+      } catch (err) { list.innerHTML = '<p style="color:#ff6b6b;font-size:14px;">Error loading files.</p>'; }
+    }
+
+    async function adminDeleteVaultFile(path) {
+      try {
+        await apiCall({ action: "vault_delete", path: path });
+        adminLoadVaultFiles();
+      } catch (err) { alert("Error: " + err.message); }
+    }
+
+    // Load vault when clicking The Vault tab
+    (function() {
+      var container = document.getElementById("memberFeatureTabs");
+      container.querySelectorAll(".sub-tab").forEach(function(tab) {
+        if (tab.getAttribute("data-subpanel") === "adminVaultPanel") {
+          tab.addEventListener("click", function() { if (currentMember) adminLoadVaultFiles(); });
+        }
+      });
+    })();
 
     // ─── ADMIN EDITOR (superadmin only) ─────────────────
     var SUPERADMIN = "jlatham@elitert.com";

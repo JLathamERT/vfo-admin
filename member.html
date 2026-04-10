@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The VFO Portal — Member</title>
+  <title>VFO Portal — Member</title>
   <link rel="icon" href="https://yt3.googleusercontent.com/ytc/AIdro_n97ca7emLIuU5FJqACNZ65pElKhWZkhC3px2ceBsVbHR4=s160-c-k-c0x00ffffff-no-rj" type="image/png">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="shared.css">
 </head>
 <body>
   <div class="gate" id="gate">
-    <h1>The VFO Portal</h1>
+    <h1>VFO Portal</h1>
     <p style="color:#8bacc8;font-size:14px;margin-bottom:8px;">Member login</p>
     <input type="email" class="gate-input email-input" id="emailInput" placeholder="Email address">
     <input type="password" class="gate-input passcode-input" id="passcodeInput" placeholder="Passcode" maxlength="20">
@@ -20,7 +20,7 @@
   </div>
   <div class="app" id="app">
     <div class="app-header">
-      <h1 style="cursor:pointer;" id="appTitle">The VFO Portal</h1>
+      <h1 style="cursor:pointer;" id="appTitle">VFO Portal</h1>
       <div class="app-header-right">
         <span class="admin-name" id="memberName"></span>
         <button class="sign-out-btn" id="memberSettingsBtn">Settings</button>
@@ -34,6 +34,7 @@
       <button class="main-tab" data-panel="ciqPanel">CIQ</button>
       <button class="main-tab" data-panel="growthPlanPanel">Growth Plan</button>
       <button class="main-tab" data-panel="growthCreditsPanel">Growth Credit Marketplace</button>
+      <button class="main-tab" data-panel="vaultPanel">The Vault</button>
     </div>
     <div id="welcomeContent" style="text-align:center;padding:60px 0 0;">
       <p style="font-size:14px;color:#8bacc8;margin-bottom:8px;">Welcome back</p>
@@ -71,7 +72,7 @@
           <div class="settings-section">
             <div class="settings-title">Font</div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;" id="mFontPresets"></div>
-            <div style="position:relative;margin-top:12px;"><input type="text" class="search-input" id="mFontSearch" placeholder="Search Google Fonts..." style="padding-left:16px;"><div id="mFontResults" style="position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#162d4a;border:1px solid rgba(255,255,255,0.2);border-radius:8px;display:none;z-index:10;"></div></div>
+            <div style="position:relative;margin-top:12px;"><input type="text" class="search-input" id="mFontSearch" placeholder="Search Google Fonts..." style="padding-left:16px;"><div id="mFontResults" style="position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#073991;border:1px solid rgba(255,255,255,0.2);border-radius:8px;display:none;z-index:10;"></div></div>
             <div id="mFontPreview" style="margin-top:12px;padding:16px;background:rgba(0,0,0,0.12);border-radius:8px;border:1px solid rgba(255,255,255,0.1);text-align:center;"><span style="font-size:20px;color:#ffffff;">The quick brown fox jumps over the lazy dog</span></div>
           </div>
           <div class="settings-section">
@@ -110,6 +111,25 @@
       <div style="text-align:center;padding:60px 20px;">
         <p style="font-family:'Playfair Display',serif;font-size:22px;color:#ffffff;margin-bottom:12px;">Growth Credit Marketplace</p>
         <p style="font-size:14px;color:#8bacc8;">Coming soon.</p>
+      </div>
+    </div>
+
+    <!-- The Vault Panel -->
+    <div class="tab-panel" id="vaultPanel">
+      <div class="settings-section">
+        <div class="settings-title">The Vault</div>
+        <p style="color:#8bacc8;font-size:13px;margin-bottom:20px;">Upload and manage your files. Drag and drop or click to upload.</p>
+        <div id="vaultDropZone" style="border:2px dashed rgba(255,255,255,0.25);border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:20px;">
+          <p style="color:#8bacc8;font-size:14px;margin-bottom:8px;">Drag files here or click to browse</p>
+          <p style="color:#5a8ab5;font-size:12px;">Max 50MB per file</p>
+          <input type="file" id="vaultFileInput" multiple style="display:none;">
+        </div>
+        <div id="vaultUploading" style="display:none;color:#8bacc8;font-size:14px;margin-bottom:16px;">Uploading...</div>
+        <div class="status-msg" id="vaultStatus"></div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-title">Your Files</div>
+        <div id="vaultFileList"><p style="color:#5a8ab5;font-size:14px;">Loading...</p></div>
       </div>
     </div>
 
@@ -251,6 +271,75 @@
         showStatus("acctStatus", "success", "Account updated!");
       } catch (err) { showStatus("acctStatus", "error", err.message); }
       finally { btn.disabled = false; btn.textContent = "Update"; }
+    });
+
+    // ─── THE VAULT ──────────────────────────────────────
+    var VAULT_BASE = "https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/member-vault/";
+    var dropZone = document.getElementById("vaultDropZone");
+    var vaultInput = document.getElementById("vaultFileInput");
+
+    dropZone.addEventListener("click", function() { vaultInput.click(); });
+    dropZone.addEventListener("dragover", function(e) { e.preventDefault(); dropZone.style.borderColor = "#ffffff"; dropZone.style.background = "rgba(255,255,255,0.05)"; });
+    dropZone.addEventListener("dragleave", function() { dropZone.style.borderColor = "rgba(255,255,255,0.25)"; dropZone.style.background = "none"; });
+    dropZone.addEventListener("drop", function(e) { e.preventDefault(); dropZone.style.borderColor = "rgba(255,255,255,0.25)"; dropZone.style.background = "none"; if (e.dataTransfer.files.length) uploadVaultFiles(e.dataTransfer.files); });
+    vaultInput.addEventListener("change", function() { if (vaultInput.files.length) uploadVaultFiles(vaultInput.files); vaultInput.value = ""; });
+
+    async function uploadVaultFiles(files) {
+      document.getElementById("vaultUploading").style.display = "block";
+      var count = 0;
+      for (var i = 0; i < files.length; i++) {
+        var file = files[i];
+        if (file.size > 50 * 1024 * 1024) { showStatus("vaultStatus", "error", file.name + " exceeds 50MB limit."); continue; }
+        try {
+          var base64 = await new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function() { resolve(reader.result.split(",")[1]); };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          await apiCall({ action: "vault_upload", member_number: memberNumber, filename: file.name, file_base64: base64, content_type: file.type });
+          count++;
+        } catch (err) { showStatus("vaultStatus", "error", "Failed to upload " + file.name + ": " + err.message); }
+      }
+      document.getElementById("vaultUploading").style.display = "none";
+      if (count > 0) { showStatus("vaultStatus", "success", count + " file" + (count > 1 ? "s" : "") + " uploaded."); loadVaultFiles(); }
+    }
+
+    async function loadVaultFiles() {
+      var list = document.getElementById("vaultFileList");
+      try {
+        var data = await apiCall({ action: "vault_list", member_number: memberNumber });
+        if (!data.files || data.files.length === 0) { list.innerHTML = '<p style="color:#5a8ab5;font-size:14px;">No files yet.</p>'; return; }
+        list.innerHTML = "";
+        data.files.forEach(function(file) {
+          var size = file.size < 1024 ? file.size + " B" : file.size < 1048576 ? Math.round(file.size / 1024) + " KB" : (file.size / 1048576).toFixed(1) + " MB";
+          var row = document.createElement("div");
+          row.className = "specialist-row";
+          row.style.cursor = "default";
+          row.innerHTML = '<div class="specialist-info"><div class="specialist-name">' + file.name + '</div><div class="specialist-tagline">' + size + '</div></div><div style="display:flex;gap:8px;margin-left:auto;"><a href="' + VAULT_BASE + encodeURIComponent(file.path) + '" target="_blank" class="mode-btn" style="padding:6px 14px;font-size:12px;text-decoration:none;">Download</a><button class="btn-danger vault-delete-btn" style="padding:6px 14px;font-size:12px;">Delete</button></div>';
+          row.querySelector(".vault-delete-btn").addEventListener("click", function() {
+            if (!confirm("Delete \"" + file.name + "\"?")) return;
+            deleteVaultFile(file.path);
+          });
+          list.appendChild(row);
+        });
+      } catch (err) { list.innerHTML = '<p style="color:#ff6b6b;font-size:14px;">Error loading files.</p>'; }
+    }
+
+    async function deleteVaultFile(path) {
+      try {
+        await apiCall({ action: "vault_delete", path: path });
+        loadVaultFiles();
+      } catch (err) { alert("Error: " + err.message); }
+    }
+
+    // Load vault files on init
+    var origInitMember = initMember;
+    var vaultLoaded = false;
+    document.querySelectorAll("#memberTabs .main-tab").forEach(function(tab) {
+      if (tab.getAttribute("data-panel") === "vaultPanel") {
+        tab.addEventListener("click", function() { if (!vaultLoaded) { loadVaultFiles(); vaultLoaded = true; } });
+      }
     });
   </script>
 </body>
