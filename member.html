@@ -129,12 +129,6 @@
           </div>
         </div>
         <div id="gcSuccessBanner" style="display:none;background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);color:#5dca7a;padding:14px 20px;border-radius:10px;font-size:14px;margin-bottom:20px;"></div>
-        <div class="settings-section">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <div class="settings-title" style="margin-bottom:0;">Recent Activity</div>
-          </div>
-          <div id="gcRecentActivity"><p style="color:#5a8ab5;font-size:14px;">Loading...</p></div>
-        </div>
       </div>
 
       <!-- Buy Credits Modal -->
@@ -477,21 +471,6 @@
 
         var txData = await apiCall({ action: "gc_load_transactions", member_number: memberNumber });
         var transactions = txData.transactions || [];
-        var recentEl = document.getElementById("gcRecentActivity");
-        if (transactions.length === 0) {
-          recentEl.innerHTML = '<p style="color:#5a8ab5;font-size:14px;">No activity yet.</p>';
-        } else {
-          recentEl.innerHTML = "";
-          transactions.slice(0, 5).forEach(function(tx) {
-            var date = new Date(tx.created_at).toLocaleDateString();
-            var isPositive = tx.amount > 0;
-            var row = document.createElement("div");
-            row.className = "setting-row";
-            row.style.padding = "10px 0";
-            row.innerHTML = '<div><div style="color:#ffffff;font-size:14px;">' + (tx.description || tx.type) + '</div><div style="color:#5a8ab5;font-size:12px;">' + date + '</div></div><span style="color:' + (isPositive ? "#5dca7a" : "#ff6b6b") + ';font-weight:600;">' + (isPositive ? "+" : "") + tx.amount + '</span>';
-            recentEl.appendChild(row);
-          });
-        }
 
         loadGCServices();
         loadGCHistory(transactions);
