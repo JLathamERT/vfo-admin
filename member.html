@@ -124,8 +124,8 @@
           </div>
           <div class="settings-section" style="flex:1;">
             <p style="color:#8bacc8;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Quick Stats</p>
-            <div class="setting-row" style="padding:8px 0;"><span style="color:#8bacc8;font-size:13px;">Total Redemptions</span><span id="gcTotalRedemptions" style="color:#ffffff;font-weight:600;">0</span></div>
-            <div class="setting-row" style="padding:8px 0;"><span style="color:#8bacc8;font-size:13px;">Total Spent</span><span id="gcTotalSpent" style="color:#ffffff;font-weight:600;">0</span></div>
+            <div class="setting-row" style="padding:8px 0;"><span style="color:#8bacc8;font-size:13px;">Total Transactions</span><span id="gcTotalRedemptions" style="color:#ffffff;font-weight:600;">0</span></div>
+            <div class="setting-row" style="padding:8px 0;"><span style="color:#8bacc8;font-size:13px;">Total Redeemed</span><span id="gcTotalSpent" style="color:#ffffff;font-weight:600;">0</span></div>
           </div>
         </div>
         <div id="gcSuccessBanner" style="display:none;background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);color:#5dca7a;padding:14px 20px;border-radius:10px;font-size:14px;margin-bottom:20px;"></div>
@@ -503,9 +503,14 @@
         var categories = [];
         var catMap = {};
         services.forEach(function(svc) {
-          var cat = svc.category || "Other";
+          var cat = svc.category || "Other Services";
           if (!catMap[cat]) { catMap[cat] = []; categories.push(cat); }
           catMap[cat].push(svc);
+        });
+        categories.sort(function(a, b) {
+          if (a === "Other Services") return 1;
+          if (b === "Other Services") return -1;
+          return 0;
         });
         categories.forEach(function(cat) {
           var section = document.createElement("div");
