@@ -336,7 +336,7 @@
     (function() {
       var panel = document.getElementById("specialistsPanel");
       var tabs = panel.querySelectorAll(":scope > .sub-tabs .sub-tab");
-      var panels = [document.getElementById("addSubPanel"), document.getElementById("editSubPanel")];
+      var panels = [document.getElementById("addSubPanel"), document.getElementById("editSubPanel"), document.getElementById("reorderSubPanel")];
       tabs.forEach(function(tab) { tab.addEventListener("click", function() { tabs.forEach(function(t) { t.classList.remove("active"); }); panels.forEach(function(p) { p.classList.remove("active"); }); tab.classList.add("active"); document.getElementById(tab.getAttribute("data-subpanel")).classList.add("active"); }); });
     })();
     (function() {
