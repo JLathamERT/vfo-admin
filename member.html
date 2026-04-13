@@ -137,10 +137,9 @@
           <div class="settings-title">Buy Credits</div>
           <p style="color:#8bacc8;font-size:13px;margin-bottom:16px;">Select a credit package to purchase.</p>
           <div style="display:flex;gap:12px;flex-wrap:wrap;" id="gcCreditPackages">
-            <button class="mode-btn gc-package-btn" data-amount="50" data-price="50" style="padding:16px 24px;flex:1;text-align:center;"><div style="font-size:18px;font-weight:700;color:#ffffff;">50</div><div style="font-size:11px;color:#8bacc8;margin-top:4px;">credits — $50</div></button>
-            <button class="mode-btn gc-package-btn" data-amount="100" data-price="100" style="padding:16px 24px;flex:1;text-align:center;"><div style="font-size:18px;font-weight:700;color:#ffffff;">100</div><div style="font-size:11px;color:#8bacc8;margin-top:4px;">credits — $100</div></button>
-            <button class="mode-btn gc-package-btn" data-amount="250" data-price="250" style="padding:16px 24px;flex:1;text-align:center;"><div style="font-size:18px;font-weight:700;color:#ffffff;">250</div><div style="font-size:11px;color:#8bacc8;margin-top:4px;">credits — $250</div></button>
-            <button class="mode-btn gc-package-btn" data-amount="500" data-price="500" style="padding:16px 24px;flex:1;text-align:center;"><div style="font-size:18px;font-weight:700;color:#ffffff;">500</div><div style="font-size:11px;color:#8bacc8;margin-top:4px;">credits — $500</div></button>
+            <button class="mode-btn gc-package-btn" data-amount="1" data-price="100" style="padding:16px 24px;flex:1;text-align:center;"><div style="font-size:18px;font-weight:700;color:#ffffff;">1</div><div style="font-size:11px;color:#8bacc8;margin-top:4px;">credit — $100</div></button>
+            <button class="mode-btn gc-package-btn" data-amount="10" data-price="950" style="padding:16px 24px;flex:1;text-align:center;"><div style="font-size:18px;font-weight:700;color:#ffffff;">10</div><div style="font-size:11px;color:#8bacc8;margin-top:4px;">credits — $950</div><div style="font-size:10px;color:#5dca7a;margin-top:2px;">Save 5%</div></button>
+            <button class="mode-btn gc-package-btn" data-amount="20" data-price="1800" style="padding:16px 24px;flex:1;text-align:center;"><div style="font-size:18px;font-weight:700;color:#ffffff;">20</div><div style="font-size:11px;color:#8bacc8;margin-top:4px;">credits — $1,800</div><div style="font-size:10px;color:#5dca7a;margin-top:2px;">Save 10%</div></button>
           </div>
           <button class="btn-secondary" id="gcBuyCancelBtn" style="margin-top:16px;">Cancel</button>
         </div>
@@ -477,6 +476,23 @@
       } catch (err) { console.error("GC dashboard error:", err); }
     }
 
+    function formatServiceDetails(desc) {
+      if (!desc) return '';
+      var parts = desc.split('|');
+      var html = '';
+      parts.forEach(function(part) {
+        var colonIdx = part.indexOf(':');
+        if (colonIdx > -1) {
+          var label = part.substring(0, colonIdx).trim();
+          var value = part.substring(colonIdx + 1).trim();
+          html += '<div style="margin-bottom:10px;"><span style="color:#ffffff;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">' + label + '</span><p style="color:#8bacc8;font-size:13px;margin-top:4px;line-height:1.5;">' + value + '</p></div>';
+        } else {
+          html += '<p style="color:#8bacc8;font-size:13px;margin-bottom:10px;line-height:1.5;">' + part.trim() + '</p>';
+        }
+      });
+      return html;
+    }
+
     async function loadGCServices() {
       var list = document.getElementById("gcServicesList");
       try {
@@ -484,7 +500,6 @@
         var services = data.services || [];
         if (services.length === 0) { list.innerHTML = '<p style="color:#5a8ab5;font-size:14px;">No services available.</p>'; return; }
         list.innerHTML = "";
-        // Group by category
         var categories = [];
         var catMap = {};
         services.forEach(function(svc) {
@@ -503,7 +518,19 @@
           catMap[cat].forEach(function(svc) {
             var row = document.createElement("div");
             row.style.cssText = "padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.06);";
-            row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;"><div style="flex:1;"><span style="color:#ffffff;font-size:14px;">' + svc.name + '</span></div><div style="display:flex;align-items:center;gap:12px;"><span style="color:#ffffff;font-weight:700;">' + svc.credit_cost + '</span><span style="color:#5a8ab5;font-size:11px;">credits</span><button class="btn-primary gc-redeem-btn" style="padding:6px 18px;font-size:12px;" data-id="' + svc.id + '" data-name="' + svc.name + '" data-cost="' + svc.credit_cost + '">Redeem</button></div></div><div class="gc-confirm-row" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);"><span style="color:#ffb347;font-size:13px;">Redeem ' + svc.name + ' for ' + svc.credit_cost + ' credits?</span><div style="display:inline-flex;gap:8px;margin-left:12px;"><button class="btn-primary gc-confirm-yes" style="padding:5px 14px;font-size:12px;">Yes</button><button class="btn-secondary gc-confirm-no" style="padding:5px 14px;font-size:12px;">Cancel</button></div></div>';
+            var detailsBtnHTML = svc.description ? '<button class="mode-btn gc-details-btn" style="padding:4px 12px;font-size:11px;">Details</button>' : '';
+            row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;"><div style="flex:1;display:flex;align-items:center;gap:10px;"><span style="color:#ffffff;font-size:14px;">' + svc.name + '</span>' + detailsBtnHTML + '</div><div style="display:flex;align-items:center;gap:12px;"><span style="color:#ffffff;font-weight:700;">' + svc.credit_cost + '</span><span style="color:#5a8ab5;font-size:11px;">credits</span><button class="btn-primary gc-redeem-btn" style="padding:6px 18px;font-size:12px;">Redeem</button></div></div><div class="gc-details-content" style="display:none;margin-top:12px;padding:16px;background:rgba(0,0,0,0.15);border-radius:8px;">' + formatServiceDetails(svc.description) + '</div><div class="gc-confirm-row" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);"><span style="color:#ffb347;font-size:13px;">Redeem ' + svc.name + ' for ' + svc.credit_cost + ' credits?</span><div style="display:inline-flex;gap:8px;margin-left:12px;"><button class="btn-primary gc-confirm-yes" style="padding:5px 14px;font-size:12px;">Yes</button><button class="btn-secondary gc-confirm-no" style="padding:5px 14px;font-size:12px;">Cancel</button></div></div>';
+            // Details toggle
+            var detailsBtn = row.querySelector(".gc-details-btn");
+            var detailsContent = row.querySelector(".gc-details-content");
+            if (detailsBtn) {
+              detailsBtn.addEventListener("click", function() {
+                var isOpen = detailsContent.style.display === "block";
+                detailsContent.style.display = isOpen ? "none" : "block";
+                detailsBtn.textContent = isOpen ? "Details" : "Hide";
+              });
+            }
+            // Redeem
             var redeemBtn = row.querySelector(".gc-redeem-btn");
             var confirmRow = row.querySelector(".gc-confirm-row");
             redeemBtn.addEventListener("click", function() {
