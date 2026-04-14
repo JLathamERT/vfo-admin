@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { callApi } from '../../lib/api'
+import MemberWebsitePlugin from '../shared/MemberWebsitePlugin'
 
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
-const ECOSYSTEMS = ['Tax Planning', 'Business Advisory', 'Legal', 'Insurance', 'Wealth Management']
 
 export default function MembersPanel({ allMembers, allExperts, allExclusionMap, onDataChange }) {
   const [activeTab, setActiveTab] = useState('add')
@@ -46,14 +46,12 @@ export default function MembersPanel({ allMembers, allExperts, allExclusionMap, 
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-      {/* Sub tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px' }}>
         {[['add', 'Add Member'], ['edit', 'Edit Member']].map(([key, label]) => (
           <button key={key} style={subTabStyle(activeTab === key)} onClick={() => setActiveTab(key)}>{label}</button>
         ))}
       </div>
 
-      {/* Add Member */}
       {activeTab === 'add' && (
         <div style={sectionStyle}>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
@@ -73,12 +71,11 @@ export default function MembersPanel({ allMembers, allExperts, allExclusionMap, 
         </div>
       )}
 
-      {/* Edit Member */}
       {activeTab === 'edit' && (
         <>
           <div style={{ marginBottom: '24px' }}>
             <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Select Member</label>
-            <select onChange={e => selectMember(e.target.value)} style={{...inputStyle, background: '#0d2a6e'}}>
+            <select onChange={e => selectMember(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
               <option value="">-- Choose a member --</option>
               {allMembers.map(m => <option key={m.member_number} value={m.member_number}>{m.name} ({m.member_number})</option>)}
             </select>
@@ -106,18 +103,14 @@ export default function MembersPanel({ allMembers, allExperts, allExclusionMap, 
               )}
               {memberFeatureTab === 'showroom' && <ComingSoon title="Showroom" />}
               {memberFeatureTab === 'website' && (
-                <MemberWebsitePlugin member={selectedMember} onDataChange={onDataChange} />
+                <MemberWebsitePlugin member={selectedMember} onDataChange={onDataChange} readOnly={false} />
               )}
               {memberFeatureTab === 'ciq' && <ComingSoon title="CIQ" />}
               {memberFeatureTab === 'growthplan' && <ComingSoon title="Growth Plan" />}
-              {memberFeatureTab === 'gc' && (
-                <MemberGC member={selectedMember} />
-              )}
-              {memberFeatureTab === 'vault' && (
-                <MemberVault member={selectedMember} />
-              )}
+              {memberFeatureTab === 'gc' && <MemberGC member={selectedMember} />}
+              {memberFeatureTab === 'vault' && <MemberVault member={selectedMember} />}
               {memberFeatureTab === 'settings' && (
-                <MemberSettings member={selectedMember} allMembers={allMembers} onDataChange={onDataChange} />
+                <MemberSettings member={selectedMember} onDataChange={onDataChange} />
               )}
             </>
           )}
@@ -172,15 +165,15 @@ function MemberSpecialists({ member, allExperts, allExclusionMap, onDataChange }
     <div>
       <p style={{ color: '#8bacc8', fontSize: '13px', marginBottom: '20px', fontStyle: 'italic' }}>Changes here affect which specialists appear in this member's VFO Showroom and Website Plugin.</p>
       <div style={{ display: 'flex', gap: '24px', marginBottom: '20px' }}>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '32px', fontWeight: '700', color: '#fff' }}>{enabledCount}</div><div style={{ fontSize: '11px', color: '#8bacc8', letterSpacing: '1px' }}>ENABLED</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '32px', fontWeight: '700', color: '#fff' }}>{allExperts.length}</div><div style={{ fontSize: '11px', color: '#8bacc8', letterSpacing: '1px' }}>TOTAL</div></div>
+        <div><div style={{ fontSize: '32px', fontWeight: '700', color: '#fff' }}>{enabledCount}</div><div style={{ fontSize: '11px', color: '#8bacc8', letterSpacing: '1px' }}>ENABLED</div></div>
+        <div><div style={{ fontSize: '32px', fontWeight: '700', color: '#fff' }}>{allExperts.length}</div><div style={{ fontSize: '11px', color: '#8bacc8', letterSpacing: '1px' }}>TOTAL</div></div>
       </div>
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search specialists..." style={{ ...inputStyle, marginBottom: '12px' }} />
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
         <button onClick={enableAll} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>Enable All</button>
         <button onClick={disableAll} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>Disable All</button>
       </div>
-      <div style={{ marginBottom: '20px' }}>
+      <div style={{ marginBottom: '8px' }}>
         {filtered.map(expert => (
           <div key={expert.id} onClick={() => toggle(expert.id)}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', cursor: 'pointer' }}>
@@ -188,9 +181,9 @@ function MemberSpecialists({ member, allExperts, allExclusionMap, onDataChange }
               <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }}>
                 {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
               </div>
-              <div>
-                <div style={{ fontSize: '14px', color: '#fff', textAlign: 'left' }}>{expert.name}</div>
-                <div style={{ fontSize: '12px', color: '#8bacc8', textAlign: 'left' }}>{expert.short_bio}</div>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: '14px', color: '#fff' }}>{expert.name}</div>
+                <div style={{ fontSize: '12px', color: '#8bacc8' }}>{expert.short_bio}</div>
               </div>
             </div>
             <div style={{ width: '20px', height: '20px', borderRadius: '4px', border: `2px solid ${enabled[expert.id] ? '#5b9fe6' : 'rgba(255,255,255,0.2)'}`, background: enabled[expert.id] ? '#5b9fe6' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -208,140 +201,6 @@ function MemberSpecialists({ member, allExperts, allExclusionMap, onDataChange }
   )
 }
 
-function MemberWebsitePlugin({ member, onDataChange }) {
-  const [appearanceTab, setAppearanceTab] = useState('appearance')
-  const [settings, setSettings] = useState({
-    bg_color: member.bg_color || '#0a1628',
-    text_color: member.text_color || '#ffffff',
-    accent_color: member.accent_color || '#1a2744',
-    card_text_color: member.card_text_color || '#ffffff',
-    primary_color: member.primary_color || '#d4af37',
-    font: member.font || 'DM Sans',
-    last_initial_only: member.last_initial_only || false,
-    show_count: member.show_count !== false,
-    show_search: member.show_search !== false,
-    display_mode: member.display_mode || 'filter',
-    website_enabled: member.website_enabled || false,
-  })
-  const [dirty, setDirty] = useState(false)
-  const [status, setStatus] = useState('')
-  const [statusType, setStatusType] = useState('success')
-
-  function update(key, val) { setSettings(p => ({ ...p, [key]: val })); setDirty(true) }
-
-  async function save() {
-    try {
-      await callApi('save_member', { member_number: member.member_number, settings })
-      await onDataChange()
-      setDirty(false)
-      setStatusType('success'); setStatus('Changes saved!')
-      setTimeout(() => setStatus(''), 4000)
-    } catch (err) { setStatusType('error'); setStatus(err.message) }
-  }
-
-  const embedCode = `<div id="vfo-showroom"></div>\n<script src="https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/vfo-widget/vfo-widget.js?v=23" data-vfo-key="${member.manage_key}"><\/script>`
-
-  const subTabStyle = (active) => ({
-    padding: '10px 18px', background: 'transparent', border: 'none',
-    borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent',
-    color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400',
-    cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap'
-  })
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
-  const rowStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }
-  const labelStyle = { fontSize: '14px', color: '#fff' }
-  const descStyle = { fontSize: '12px', color: '#8bacc8', marginTop: '2px' }
-
-  return (
-    <div>
-      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px' }}>
-        <button style={subTabStyle(appearanceTab === 'appearance')} onClick={() => setAppearanceTab('appearance')}>Appearance</button>
-        <button style={subTabStyle(appearanceTab === 'plugin')} onClick={() => setAppearanceTab('plugin')}>Plugin Settings</button>
-      </div>
-
-      {appearanceTab === 'appearance' && (
-        <>
-          <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Colors</div>
-            {[
-              ['bg_color', 'Background Color', 'Page background'],
-              ['text_color', 'Heading Text Color', 'Title, subtitle, search, filters, group headings'],
-              ['accent_color', 'Card Background', 'Card and modal background'],
-              ['card_text_color', 'Card Text Color', 'Names and bios on cards and modal'],
-              ['primary_color', 'Accent Color', 'Active buttons, tags, hover effects, underlines'],
-            ].map(([key, label, desc]) => (
-              <div key={key} style={rowStyle}>
-                <div><div style={labelStyle}>{label}</div><div style={descStyle}>{desc}</div></div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <input type="color" value={settings[key]} onChange={e => update(key, e.target.value)}
-                    style={{ width: '36px', height: '36px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'none' }} />
-                  <input value={settings[key]} onChange={e => update(key, e.target.value)}
-                    style={{ width: '90px', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif' }} />
-                </div>
-              </div>
-            ))}
-          </div>
-          <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Display Options</div>
-            {[
-              ['last_initial_only', 'Last Name Initial Only', 'Show "Bill L." instead of "Bill Lloyd"'],
-              ['show_count', 'Show Specialist Count', 'Display "60 SPECIALISTS" text'],
-              ['show_search', 'Show Search Bar', 'Display the search specialists input'],
-            ].map(([key, label, desc]) => (
-              <div key={key} style={rowStyle}>
-                <div><div style={labelStyle}>{label}</div><div style={descStyle}>{desc}</div></div>
-                <div onClick={() => update(key, !settings[key])}
-                  style={{ width: '44px', height: '24px', borderRadius: '12px', background: settings[key] ? '#2563eb' : 'rgba(255,255,255,0.15)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
-                  <div style={{ position: 'absolute', top: '2px', left: settings[key] ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
-                </div>
-              </div>
-            ))}
-            <div style={rowStyle}>
-              <div><div style={labelStyle}>Display Mode</div><div style={descStyle}>How specialists are organized</div></div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                {[['filter', 'Filter Buttons'], ['grouped', 'Grouped']].map(([val, label]) => (
-                  <button key={val} onClick={() => update('display_mode', val)}
-                    style={{ padding: '6px 14px', borderRadius: '6px', border: `1px solid ${settings.display_mode === val ? '#5b9fe6' : 'rgba(255,255,255,0.2)'}`, background: settings.display_mode === val ? 'rgba(91,159,230,0.15)' : 'transparent', color: settings.display_mode === val ? '#5b9fe6' : '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {appearanceTab === 'plugin' && (
-        <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Website Plugin</div>
-          <div style={rowStyle}>
-            <div><div style={labelStyle}>Enable Website Plugin</div><div style={descStyle}>Allow this member to use their showroom widget</div></div>
-            <div onClick={() => update('website_enabled', !settings.website_enabled)}
-              style={{ width: '44px', height: '24px', borderRadius: '12px', background: settings.website_enabled ? '#2563eb' : 'rgba(255,255,255,0.15)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
-              <div style={{ position: 'absolute', top: '2px', left: settings.website_enabled ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
-            </div>
-          </div>
-          <div style={{ marginTop: '24px' }}>
-            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Embed Code</div>
-            <p style={{ color: '#5a8ab5', fontSize: '14px', marginBottom: '12px' }}>Copy this code and paste it into an HTML widget on the member's website.</p>
-            <pre style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '8px', color: '#a0b0c4', fontSize: '13px', overflowX: 'auto', whiteSpace: 'pre-wrap', fontFamily: 'monospace', margin: '0 0 12px' }}>{embedCode}</pre>
-            <button onClick={() => navigator.clipboard.writeText(embedCode)}
-              style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid rgba(39,174,96,0.3)', background: 'transparent', color: '#27ae60', fontSize: '13px', cursor: 'pointer' }}>
-              Copy Code
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
-        {dirty && <span style={{ fontSize: '13px', color: '#d4af37' }}>You have unsaved changes</span>}
-        <button onClick={save} style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>Save Changes</button>
-      </div>
-      {status && <p style={{ color: statusType === 'success' ? '#27ae60' : '#ff6b6b', fontSize: '13px', marginTop: '12px' }}>{status}</p>}
-    </div>
-  )
-}
-
 function MemberGC({ member }) {
   const [gcTab, setGcTab] = useState('dashboard')
   const [balance, setBalance] = useState(0)
@@ -351,7 +210,6 @@ function MemberGC({ member }) {
   const [addDesc, setAddDesc] = useState('')
   const [status, setStatus] = useState('')
   const [statusType, setStatusType] = useState('success')
-  const [loaded, setLoaded] = useState(false)
 
   useState(() => { loadGC() }, [member.member_number])
 
@@ -365,7 +223,6 @@ function MemberGC({ member }) {
       setBalance(bal.balance || 0)
       setTransactions(trans.transactions || [])
       setRedemptions(red.redemptions || [])
-      setLoaded(true)
     } catch (err) { console.error(err) }
   }
 
@@ -439,7 +296,7 @@ function MemberGC({ member }) {
             <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Transaction History</div>
             {transactions.length === 0 ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No transactions yet.</p> : transactions.map(t => (
               <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                <div>
+                <div style={{ textAlign: 'left' }}>
                   <span style={{ fontSize: '13px', color: '#fff' }}>{t.description}</span>
                   <span style={{ fontSize: '11px', color: '#8bacc8', marginLeft: '8px' }}>{new Date(t.created_at).toLocaleDateString()}</span>
                 </div>
@@ -451,7 +308,7 @@ function MemberGC({ member }) {
             <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Redemption History</div>
             {redemptions.length === 0 ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No redemptions yet.</p> : redemptions.map(r => (
               <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                <div>
+                <div style={{ textAlign: 'left' }}>
                   <span style={{ fontSize: '13px', color: '#fff' }}>{r.service_name || 'Service'}</span>
                   <span style={{ fontSize: '11px', color: '#8bacc8', marginLeft: '8px' }}>{new Date(r.created_at).toLocaleDateString()}</span>
                 </div>
@@ -537,7 +394,7 @@ function MemberVault({ member }) {
   )
 }
 
-function MemberSettings({ member, allMembers, onDataChange }) {
+function MemberSettings({ member, onDataChange }) {
   const [loginLoading, setLoginLoading] = useState(true)
   const [existingLogin, setExistingLogin] = useState(null)
   const [loginEmail, setLoginEmail] = useState('')

@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { callApi } from '../../lib/api'
+
+const PRESET_FONTS = ['Playfair Display','Lora','Merriweather','Raleway','Montserrat','Open Sans','Poppins','Cormorant Garamond','Libre Baskerville','Source Serif Pro']
 
 export default function MemberWebsitePlugin({ member, onDataChange, readOnly = false }) {
   const [appearanceTab, setAppearanceTab] = useState('appearance')
@@ -9,7 +11,7 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
     accent_color: member.accent_color || '#1a2744',
     card_text_color: member.card_text_color || '#ffffff',
     primary_color: member.primary_color || '#d4af37',
-    font: member.font || 'DM Sans',
+    font: member.font || 'Playfair Display',
     last_initial_only: member.last_initial_only || false,
     show_count: member.show_count !== false,
     show_search: member.show_search !== false,
@@ -19,6 +21,9 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
   const [dirty, setDirty] = useState(false)
   const [status, setStatus] = useState('')
   const [statusType, setStatusType] = useState('success')
+  const [fontSearch, setFontSearch] = useState('')
+  const [fontResults, setFontResults] = useState([])
+  const fontSearchTimer = useRef(null)
 
   function update(key, val) { setSettings(p => ({ ...p, [key]: val })); setDirty(true) }
 
@@ -30,6 +35,32 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
       setStatusType('success'); setStatus('Changes saved!')
       setTimeout(() => setStatus(''), 4000)
     } catch (err) { setStatusType('error'); setStatus(err.message) }
+  }
+
+  function handleFontSearch(q) {
+    setFontSearch(q)
+    setFontResults([])
+    if (q.length < 2) return
+    clearTimeout(fontSearchTimer.current)
+    fontSearchTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch('https://fonts.google.com/metadata/fonts')
+        const text = await res.text()
+        const clean = text.replace(/^\)\]\}'\n?/, '')
+        const data = JSON.parse(clean)
+        const matches = data.familyMetadataList
+          .filter(f => f.family.toLowerCase().includes(q.toLowerCase()))
+          .slice(0, 8)
+          .map(f => f.family)
+        setFontResults(matches)
+      } catch (e) { setFontResults([]) }
+    }, 300)
+  }
+
+  function selectFont(font) {
+    update('font', font)
+    setFontSearch('')
+    setFontResults([])
   }
 
   const embedCode = `<div id="vfo-showroom"></div>\n<script src="https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/vfo-widget/vfo-widget.js?v=23" data-vfo-key="${member.manage_key}"><\/script>`
@@ -83,7 +114,52 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
                 </div>
               </div>
             ))}
+            {/* Color preview card */}
+            <div style={{ marginTop: '20px', padding: '16px', background: settings.bg_color, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginRight: '8px' }}>PREVIEW</div>
+              <div style={{ background: settings.accent_color, border: `1px solid ${settings.primary_color}4d`, borderRadius: '8px', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: '600', color: settings.card_text_color, fontFamily: `'${settings.font}', serif` }}>
+                    {settings.last_initial_only ? 'Bill L.' : 'Bill Lloyd'}
+                  </div>
+                  <div style={{ fontSize: '12px', color: settings.primary_color, marginTop: '4px' }}>Tax Planning</div>
+                </div>
+              </div>
+            </div>
           </div>
+
+          <div style={sectionStyle}>
+            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Font</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+              {PRESET_FONTS.map(font => (
+                <button key={font} onClick={() => update('font', font)}
+                  style={{ padding: '6px 14px', borderRadius: '6px', border: `1px solid ${settings.font === font ? '#5b9fe6' : 'rgba(255,255,255,0.2)'}`, background: settings.font === font ? 'rgba(91,159,230,0.15)' : 'transparent', color: settings.font === font ? '#5b9fe6' : '#8bacc8', fontSize: '12px', cursor: 'pointer' }}>
+                  {font}
+                </button>
+              ))}
+            </div>
+            <div style={{ position: 'relative' }}>
+              <input value={fontSearch} onChange={e => handleFontSearch(e.target.value)}
+                placeholder="Search Google Fonts..."
+                style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }} />
+              {fontResults.length > 0 && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#073991', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
+                  {fontResults.map(font => (
+                    <div key={font} onClick={() => selectFont(font)}
+                      style={{ padding: '10px 14px', cursor: 'pointer', color: '#b0cce5', fontSize: '13px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
+                      onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.1)'}
+                      onMouseLeave={e => e.target.style.background = 'none'}>
+                      {font}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ marginTop: '12px', padding: '16px', background: 'rgba(0,0,0,0.12)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center' }}>
+              <span style={{ fontSize: '20px', color: '#fff', fontFamily: `'${settings.font}', serif` }}>The quick brown fox jumps over the lazy dog</span>
+            </div>
+          </div>
+
           <div style={sectionStyle}>
             <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Display Options</div>
             {[
