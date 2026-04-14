@@ -1,38 +1,22 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
 import MemberWebsitePlugin from '../shared/MemberWebsitePlugin'
+import MSMTracking from './MSMTracking'
 
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
 
+const MEMBER_TYPES = [
+  'Implementation', 'Catalyst', 'Catalyst A', 'Free Catalyst',
+  'Fusion', 'Fusion A', 'Fusion A - I/M', 'Free Fusion', 'Free Legacy TBM', 'Legacy Fusion',
+  'Accelerator', 'Accelerator A', 'Legacy Accelerator',
+  'Corporate Member', 'Free Corporate Member', 'Free Corporate Member (Legacy)',
+  'Financial Collaborator', 'VFO Reconciliation (Free)'
+]
+
+const CORPORATE_TYPES = ['Corporate Member', 'Free Corporate Member', 'Free Corporate Member (Legacy)']
+
 export default function MembersPanel({ allMembers, allExperts, allExclusionMap, onDataChange }) {
-  const [activeTab, setActiveTab] = useState('add')
-  const [newName, setNewName] = useState('')
-  const [newNumber, setNewNumber] = useState('')
-  const [addStatus, setAddStatus] = useState('')
-  const [addStatusType, setAddStatusType] = useState('success')
-  const [selectedMember, setSelectedMember] = useState(null)
-  const [memberFeatureTab, setMemberFeatureTab] = useState('specialists')
-
-  function showStatus(type, msg) {
-    setAddStatusType(type); setAddStatus(msg)
-    setTimeout(() => setAddStatus(''), 4000)
-  }
-
-  async function createMember() {
-    if (!newName || !newNumber) { showStatus('error', 'Both fields are required.'); return }
-    try {
-      await callApi('add_member', { name: newName, member_number: newNumber })
-      await onDataChange()
-      setNewName(''); setNewNumber('')
-      showStatus('success', 'Member created! Switch to Edit Member to configure.')
-    } catch (err) { showStatus('error', err.message) }
-  }
-
-  function selectMember(mn) {
-    if (!mn) { setSelectedMember(null); return }
-    const member = allMembers.find(m => m.member_number === mn)
-    if (member) { setSelectedMember(member); setMemberFeatureTab('specialists') }
-  }
+  const [activeTab, setActiveTab] = useState('advisors')
 
   const subTabStyle = (active) => ({
     padding: '10px 18px', background: 'transparent', border: 'none',
@@ -41,50 +25,106 @@ export default function MembersPanel({ allMembers, allExperts, allExclusionMap, 
     cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap'
   })
 
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
-
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
       <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px' }}>
-        {[['add', 'Add Member'], ['edit', 'Edit Member']].map(([key, label]) => (
-          <button key={key} style={subTabStyle(activeTab === key)} onClick={() => setActiveTab(key)}>{label}</button>
-        ))}
+        <button style={subTabStyle(activeTab === 'advisors')} onClick={() => setActiveTab('advisors')}>Advisors</button>
+        <button style={subTabStyle(activeTab === 'accountants')} onClick={() => setActiveTab('accountants')}>Accountants</button>
+      </div>
+
+      {activeTab === 'advisors' && (
+        <AdvisorsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} />
+      )}
+      {activeTab === 'accountants' && (
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <p style={{ fontFamily: 'Playfair Display, serif', fontSize: '22px', color: '#fff', marginBottom: '12px' }}>Accountants</p>
+          <p style={{ fontSize: '14px', color: '#8bacc8' }}>Coming soon.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange }) {
+  const [activeTab, setActiveTab] = useState('search')
+  const [selectedMember, setSelectedMember] = useState(null)
+  const [memberFeatureTab, setMemberFeatureTab] = useState('profile')
+  const [memberSearch, setMemberSearch] = useState('')
+
+  const subTabStyle = (active) => ({
+    padding: '10px 18px', background: 'transparent', border: 'none',
+    borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent',
+    color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400',
+    cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap'
+  })
+
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
+
+  function selectMember(mn) {
+    if (!mn) { setSelectedMember(null); return }
+    const member = allMembers.find(m => m.plugin_member_number === mn)
+    if (member) { setSelectedMember(member); setMemberFeatureTab('profile') }
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px' }}>
+        <button style={subTabStyle(activeTab === 'search')} onClick={() => setActiveTab('search')}>Search Advisors</button>
+        <button style={subTabStyle(activeTab === 'add')} onClick={() => setActiveTab('add')}>Add Advisor</button>
       </div>
 
       {activeTab === 'add' && (
-        <div style={sectionStyle}>
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Member Name *</label>
-              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. John Smith" style={inputStyle} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Member Number *</label>
-              <input value={newNumber} onChange={e => setNewNumber(e.target.value)} placeholder="e.g. MEM001" style={inputStyle} />
-            </div>
-          </div>
-          <button onClick={createMember} style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
-            Create Member
-          </button>
-          {addStatus && <p style={{ color: addStatusType === 'success' ? '#27ae60' : '#ff6b6b', fontSize: '13px', marginTop: '12px' }}>{addStatus}</p>}
-        </div>
+        <AddAdvisorForm allMembers={allMembers} onDataChange={onDataChange} />
       )}
 
-      {activeTab === 'edit' && (
+      {activeTab === 'search' && (
         <>
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Select Member</label>
-            <select onChange={e => selectMember(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
-              <option value="">-- Choose a member --</option>
-              {allMembers.map(m => <option key={m.member_number} value={m.member_number}>{m.name} ({m.member_number})</option>)}
-            </select>
+          <div style={{ marginBottom: '24px', position: 'relative' }}>
+            <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Search Advisors</label>
+            <input
+              placeholder="Search by name or member number..."
+              style={inputStyle}
+              onChange={e => setMemberSearch(e.target.value.toLowerCase())}
+              value={memberSearch}
+            />
+            {memberSearch && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#0d2a6e', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', zIndex: 10, maxHeight: '240px', overflowY: 'auto' }}>
+                {allMembers.filter(m =>
+                  m.name?.toLowerCase().includes(memberSearch) ||
+                  m.plugin_member_number?.toLowerCase().includes(memberSearch)
+                ).map(m => (
+                  <div key={m.plugin_member_number}
+                    onClick={() => { selectMember(m.plugin_member_number); setMemberSearch('') }}
+                    style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: '14px' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                    <span style={{ fontWeight: '500' }}>{m.name}</span>
+                    <span style={{ color: '#8bacc8', marginLeft: '8px', fontSize: '13px' }}>({m.plugin_member_number})</span>
+                  </div>
+                ))}
+                {allMembers.filter(m =>
+                  m.name?.toLowerCase().includes(memberSearch) ||
+                  m.plugin_member_number?.toLowerCase().includes(memberSearch)
+                ).length === 0 && (
+                  <div style={{ padding: '10px 14px', color: '#8bacc8', fontSize: '14px' }}>No members found</div>
+                )}
+              </div>
+            )}
           </div>
 
           {selectedMember && (
             <>
-              <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px', overflowX: 'auto' }}>
+              {/* Member name header */}
+              <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '28px', color: '#fff' }}>{selectedMember.name}</div>
+                <div style={{ fontSize: '13px', color: '#8bacc8', marginTop: '4px' }}>{selectedMember.plugin_member_number}</div>
+              </div>
+
+              {/* Feature tabs */}
+              <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px', flexWrap: 'wrap' }}>
                 {[
+                  ['profile', 'Profile'],
+                  ['msm', 'MSM Tracking'], 
                   ['specialists', 'Specialists'],
                   ['showroom', 'Showroom'],
                   ['website', 'Website Plugin'],
@@ -94,27 +134,506 @@ export default function MembersPanel({ allMembers, allExperts, allExclusionMap, 
                   ['vault', 'The Vault'],
                   ['settings', 'Settings'],
                 ].map(([key, label]) => (
-                  <button key={key} style={subTabStyle(memberFeatureTab === key)} onClick={() => setMemberFeatureTab(key)}>{label}</button>
+                  <button key={key} style={{
+                    padding: '10px 16px', background: 'transparent', border: 'none',
+                    borderBottom: memberFeatureTab === key ? '2px solid #5b9fe6' : '2px solid transparent',
+                    color: memberFeatureTab === key ? '#fff' : '#8bacc8', fontSize: '13px',
+                    fontWeight: memberFeatureTab === key ? '600' : '400',
+                    cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap'
+                  }} onClick={() => setMemberFeatureTab(key)}>{label}</button>
                 ))}
               </div>
 
-              {memberFeatureTab === 'specialists' && (
-                <MemberSpecialists member={selectedMember} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} />
-              )}
+              {memberFeatureTab === 'profile' && <MemberProfile member={selectedMember} allMembers={allMembers} onDataChange={onDataChange} />}
+              {memberFeatureTab === 'msm' && <MSMTracking member={selectedMember} />}
+              {memberFeatureTab === 'specialists' && <MemberSpecialists member={selectedMember} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} />}
               {memberFeatureTab === 'showroom' && <ComingSoon title="Showroom" />}
-              {memberFeatureTab === 'website' && (
-                <MemberWebsitePlugin member={selectedMember} onDataChange={onDataChange} readOnly={false} />
-              )}
+              {memberFeatureTab === 'website' && <MemberWebsitePlugin member={selectedMember} onDataChange={onDataChange} readOnly={false} />}
               {memberFeatureTab === 'ciq' && <ComingSoon title="CIQ" />}
               {memberFeatureTab === 'growthplan' && <ComingSoon title="Growth Plan" />}
               {memberFeatureTab === 'gc' && <MemberGC member={selectedMember} />}
               {memberFeatureTab === 'vault' && <MemberVault member={selectedMember} />}
-              {memberFeatureTab === 'settings' && (
-                <MemberSettings member={selectedMember} onDataChange={onDataChange} />
-              )}
+              {memberFeatureTab === 'settings' && <MemberSettings member={selectedMember} onDataChange={onDataChange} />}
             </>
           )}
         </>
+      )}
+    </div>
+  )
+}
+
+function AddAdvisorForm({ allMembers, onDataChange }) {
+  const [memberType, setMemberType] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [email, setEmail] = useState('')
+  const [eliteStatus, setEliteStatus] = useState('Active')
+  const [revenueDecision, setRevenueDecision] = useState('Revenue Share')
+  const [connectedSearch, setConnectedSearch] = useState('')
+  const [connectedMember, setConnectedMember] = useState(null)
+  const [status, setStatus] = useState('')
+  const [statusType, setStatusType] = useState('success')
+  const [loading, setLoading] = useState(false)
+
+  const isCorporate = CORPORATE_TYPES.includes(memberType)
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
+  const labelStyle = { fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }
+  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
+
+  function generateMemberNumber() {
+    if (isCorporate && connectedMember) {
+      const existing = allMembers.filter(m =>
+        m.plugin_member_number?.startsWith(connectedMember.plugin_member_number + '-C')
+      )
+      return `${connectedMember.plugin_member_number}-C${existing.length + 1}`
+    }
+    // Find highest numeric member number
+    const nums = allMembers
+      .map(m => parseInt(m.plugin_member_number))
+      .filter(n => !isNaN(n))
+    const max = Math.max(...nums, 0)
+    return String(max + 1)
+  }
+
+  async function submit() {
+    if (!firstName || !lastName || !memberType) { setStatusType('error'); setStatus('First name, last name, and member type are required.'); return }
+    if (isCorporate && !connectedMember) { setStatusType('error'); setStatus('Corporate members require a connected member.'); return }
+    setLoading(true)
+    try {
+      const member_number = generateMemberNumber()
+      const name = `${firstName} ${lastName}`
+      await callApi('add_member_full', {
+        name, member_number,
+        first_name: firstName, last_name: lastName,
+        member_type: memberType, elite_status: eliteStatus,
+        email, revenue_decision: revenueDecision,
+        connected_member_number: connectedMember?.plugin_member_number || null,
+      })
+      await onDataChange()
+      setFirstName(''); setLastName(''); setEmail(''); setMemberType(''); setConnectedMember(null); setConnectedSearch('')
+      setStatusType('success'); setStatus(`Member created with number ${member_number}`)
+    } catch (err) { setStatusType('error'); setStatus(err.message) }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div style={sectionStyle}>
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: '160px' }}>
+          <label style={labelStyle}>First Name *</label>
+          <input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} />
+        </div>
+        <div style={{ flex: 1, minWidth: '160px' }}>
+          <label style={labelStyle}>Last Name *</label>
+          <input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} />
+        </div>
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <label style={labelStyle}>Member Type *</label>
+          <select value={memberType} onChange={e => setMemberType(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+            <option value="">-- Select --</option>
+            {MEMBER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {isCorporate && (
+        <div style={{ marginBottom: '16px', position: 'relative' }}>
+          <label style={labelStyle}>Connected Member *</label>
+          <input
+            value={connectedSearch}
+            onChange={e => { setConnectedSearch(e.target.value); setConnectedMember(null) }}
+            placeholder="Search by name or number..."
+            style={inputStyle}
+          />
+          {connectedSearch && !connectedMember && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#0d2a6e', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
+              {allMembers.filter(m =>
+                m.name?.toLowerCase().includes(connectedSearch.toLowerCase()) ||
+                m.plugin_member_number?.toLowerCase().includes(connectedSearch.toLowerCase())
+              ).map(m => (
+                <div key={m.plugin_member_number}
+                  onClick={() => { setConnectedMember(m); setConnectedSearch(m.name + ' (' + m.plugin_member_number + ')') }}
+                  style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: '14px' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                  {m.name} <span style={{ color: '#8bacc8' }}>({m.plugin_member_number})</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: '180px' }}>
+          <label style={labelStyle}>Email</label>
+          <input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} />
+        </div>
+        <div style={{ flex: 1, minWidth: '160px' }}>
+          <label style={labelStyle}>Status</label>
+          <select value={eliteStatus} onChange={e => setEliteStatus(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+            {['Active', 'Lost', 'Removed'].map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div style={{ flex: 1, minWidth: '180px' }}>
+          <label style={labelStyle}>Revenue Decision</label>
+          <select value={revenueDecision} onChange={e => setRevenueDecision(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+            <option value="Revenue Share">Revenue Share</option>
+            <option value="Money Mapping">Money Mapping</option>
+          </select>
+        </div>
+      </div>
+
+      <button onClick={submit} disabled={loading} style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
+        {loading ? 'Creating...' : 'Create Advisor'}
+      </button>
+      {status && <p style={{ color: statusType === 'success' ? '#27ae60' : '#ff6b6b', fontSize: '13px', marginTop: '12px' }}>{status}</p>}
+    </div>
+  )
+}
+
+function MemberProfile({ member, allMembers, onDataChange }) {
+  const [profile, setProfile] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('details')
+  const [typeHistory, setTypeHistory] = useState([])
+  const [corporateMembers, setCorporateMembers] = useState([])
+  const [dirty, setDirty] = useState(false)
+  const [status, setStatus] = useState('')
+  const [statusType, setStatusType] = useState('success')
+  const [confirmTypeChange, setConfirmTypeChange] = useState(null)
+  const [connectedSearch, setConnectedSearch] = useState('')
+  const [showConnectedSearch, setShowConnectedSearch] = useState(false)
+
+  useEffect(() => { loadProfile() }, [member.plugin_member_number])
+
+  async function loadProfile() {
+    setLoading(true)
+    try {
+      const data = await callApi('member_profile_load', { member_number: member.plugin_member_number })
+      const prof = data.profile || {
+        member_number: member.plugin_member_number,
+        first_name: member.name?.split(' ')[0] || '',
+        last_name: member.name?.split(' ').slice(1).join(' ') || '',
+        elite_status: 'Active', member_type: '', email: '',
+        suspended: false, paused: false,
+        revenue_decision: 'Revenue Share',
+        stripe_account_id: '', connected_member_number: null,
+        connection_type: '', notes: '',
+      }
+      setProfile(prof)
+      setTypeHistory(data.type_history || [])
+      // Load corporate members — members whose connected_member_number is this member
+      const corps = allMembers.filter(m => {
+        // Check plugin settings member number pattern
+        return m.plugin_member_number?.startsWith(member.plugin_member_number + '-C') ||
+               m.plugin_member_number?.startsWith(member.plugin_member_number + '-FC')
+      })
+      setCorporateMembers(corps)
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
+  }
+
+  function update(key, val) { setProfile(p => ({ ...p, [key]: val })); setDirty(true) }
+
+  function handleTypeChange(newType) {
+    setProfile(p => ({ ...p, member_type: newType }))
+    setDirty(true)
+  }
+
+  async function confirmType() {
+    update('member_type', confirmTypeChange)
+    setConfirmTypeChange(null)
+  }
+
+  const [saving, setSaving] = useState(false)
+
+  async function save() {
+    setSaving(true)
+    try {
+      await callApi('member_profile_save', { profile })
+      setDirty(false)
+      setStatusType('success'); setStatus('Saved!')
+      setTimeout(() => setStatus(''), 4000)
+      await loadProfile()
+    } catch (err) { setStatusType('error'); setStatus(err.message) }
+    finally { setSaving(false) }
+  }
+
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
+  const labelStyle = { fontSize: '11px', color: '#8bacc8', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }
+  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
+  const rowStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }
+  const subTabStyle = (active) => ({
+    padding: '10px 18px', background: 'transparent', border: 'none',
+    borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent',
+    color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400',
+    cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap'
+  })
+  const CONNECTION_TYPES = ['No Connection', '5% - Regular Advisor', '10% - Accredited Introducer', '10% - Accredited Mentor', '20% - Accredited Introducer + Mentor']
+  const statusColors = { Active: '#27ae60', Lost: '#e74c3c', Removed: '#8bacc8' }
+
+  if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading profile...</div>
+  if (!profile) return null
+
+  const connectedMemberObj = allMembers.find(m => m.plugin_member_number === profile.connected_member_number)
+
+  return (
+    <div>
+      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px' }}>
+        <button style={subTabStyle(activeTab === 'details')} onClick={() => setActiveTab('details')}>Details</button>
+        <button style={subTabStyle(activeTab === 'edit')} onClick={() => setActiveTab('edit')}>Edit Advisor</button>
+        <button style={subTabStyle(activeTab === 'history')} onClick={() => setActiveTab('history')}>Type History</button>
+      </div>
+
+      {/* DETAILS TAB */}
+      {activeTab === 'details' && (
+        <div>
+          <div style={sectionStyle}>
+            <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', marginBottom: profile.stripe_account_id ? '16px' : '0' }}>
+              <div style={{ flex: 1, minWidth: '140px' }}>
+                <div style={labelStyle}>Member Type</div>
+                <div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{profile.member_type || '—'}</div>
+              </div>
+              <div style={{ flex: 1, minWidth: '120px' }}>
+                <div style={labelStyle}>Status</div>
+                <div style={{ fontSize: '15px', color: statusColors[profile.elite_status] || '#fff', marginTop: '4px', fontWeight: '600' }}>{profile.elite_status || '—'}</div>
+              </div>
+              {(profile.paused || profile.suspended) && (
+                <div style={{ flex: 1, minWidth: '120px' }}>
+                  <div style={labelStyle}>Flags</div>
+                  <div style={{ marginTop: '4px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {profile.paused && <span style={{ color: '#f39c12', fontSize: '14px' }}>Paused</span>}
+                    {profile.suspended && <span style={{ color: '#e74c3c', fontSize: '14px' }}>Suspended</span>}
+                  </div>
+                </div>
+              )}
+            </div>
+            {profile.stripe_account_id && (
+              <div style={{ paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                <div style={labelStyle}>Stripe Account</div>
+                <div style={{ fontSize: '14px', color: '#8bacc8', fontFamily: 'monospace', marginTop: '4px' }}>{profile.stripe_account_id}</div>
+              </div>
+            )}
+          </div>
+
+          <div style={sectionStyle}>
+            <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '140px' }}>
+                <div style={labelStyle}>Join Date</div>
+                <div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{profile.join_date ? profile.join_date.split('T')[0] : '—'}</div>
+              </div>
+              {(profile.elite_status === 'Lost' || profile.elite_status === 'Removed') && (
+                <div style={{ flex: 1, minWidth: '140px' }}>
+                  <div style={labelStyle}>Leave Date</div>
+                  <div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{profile.leave_date ? profile.leave_date.split('T')[0] : '—'}</div>
+                </div>
+              )}
+              <div style={{ flex: 2, minWidth: '200px' }}>
+                <div style={labelStyle}>Email</div>
+                <div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{profile.email || '—'}</div>
+              </div>
+              <div style={{ flex: 1, minWidth: '160px' }}>
+                <div style={labelStyle}>Revenue Decision</div>
+                <div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{profile.revenue_decision || '—'}</div>
+              </div>
+            </div>
+          </div>
+
+          {corporateMembers.length > 0 && (
+            <div style={sectionStyle}>
+              <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Corporate Members</div>
+              {corporateMembers.map(cm => (
+                <div key={cm.plugin_member_number} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                  <span style={{ fontSize: '14px', color: '#fff' }}>{cm.name}</span>
+                  <span style={{ fontSize: '13px', color: '#8bacc8' }}>{cm.plugin_member_number}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {connectedMemberObj && (
+            <div style={sectionStyle}>
+              <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Connected Member</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '14px', color: '#fff' }}>{connectedMemberObj.name}</span>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '13px', color: '#8bacc8' }}>{connectedMemberObj.plugin_member_number}</div>
+                  {profile.connection_type && <div style={{ fontSize: '12px', color: '#5b9fe6', marginTop: '2px' }}>{profile.connection_type}</div>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {profile.notes && (
+            <div style={sectionStyle}>
+              <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Notes</div>
+              <p style={{ fontSize: '14px', color: '#fff', lineHeight: '1.6', margin: 0 }}>{profile.notes}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* EDIT ADVISOR TAB */}
+      {activeTab === 'edit' && (
+        <>
+          {confirmTypeChange && (
+            <div style={{ ...sectionStyle, border: '1px solid rgba(245,166,35,0.4)', marginBottom: '20px' }}>
+              <p style={{ color: '#f5a623', fontSize: '14px', marginBottom: '12px' }}>
+                Change member type from <strong>{profile.member_type}</strong> to <strong>{confirmTypeChange}</strong>? This will be logged in type history.
+              </p>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={confirmType} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Confirm</button>
+                <button onClick={() => setConfirmTypeChange(null)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          <div style={sectionStyle}>
+            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Basic Info</div>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>First Name</label><input value={profile.first_name || ''} onChange={e => update('first_name', e.target.value)} style={inputStyle} /></div>
+              <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>Last Name</label><input value={profile.last_name || ''} onChange={e => update('last_name', e.target.value)} style={inputStyle} /></div>
+              <div style={{ flex: 2, minWidth: '200px' }}><label style={labelStyle}>Email</label><input value={profile.email || ''} onChange={e => update('email', e.target.value)} type="email" style={inputStyle} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '180px' }}>
+                <label style={labelStyle}>Member Type</label>
+                <select value={profile.member_type || ''} onChange={e => handleTypeChange(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+                  <option value="">-- Select --</option>
+                  {MEMBER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: 1, minWidth: '140px' }}>
+                <label style={labelStyle}>Status</label>
+                <select value={profile.elite_status || 'Active'} onChange={e => update('elite_status', e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+                  {['Active', 'Lost', 'Removed'].map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: 1, minWidth: '140px' }}>
+                <label style={labelStyle}>Join Date</label>
+                <input type="date" value={profile.join_date || ''} onChange={e => update('join_date', e.target.value)} style={inputStyle} />
+              </div>
+              {(profile.elite_status === 'Lost' || profile.elite_status === 'Removed') && (
+                <div style={{ flex: 1, minWidth: '140px' }}>
+                  <label style={labelStyle}>Leave Date</label>
+                  <input type="date" value={profile.leave_date || ''} onChange={e => update('leave_date', e.target.value)} style={inputStyle} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div style={sectionStyle}>
+            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Settings</div>
+            <div style={rowStyle}>
+              <div><div style={{ fontSize: '14px', color: '#fff' }}>Suspended</div><div style={{ fontSize: '12px', color: '#8bacc8' }}>Stops all active processing</div></div>
+              <div onClick={() => update('suspended', !profile.suspended)}
+                style={{ width: '44px', height: '24px', borderRadius: '12px', background: profile.suspended ? '#e74c3c' : 'rgba(255,255,255,0.15)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: '2px', left: profile.suspended ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+              </div>
+            </div>
+            <div style={{ ...rowStyle, borderBottom: 'none' }}>
+              <div><div style={{ fontSize: '14px', color: '#fff' }}>Paused</div><div style={{ fontSize: '12px', color: '#8bacc8' }}>Temporarily pauses activity</div></div>
+              <div onClick={() => update('paused', !profile.paused)}
+                style={{ width: '44px', height: '24px', borderRadius: '12px', background: profile.paused ? '#f39c12' : 'rgba(255,255,255,0.15)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: '2px', left: profile.paused ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+              </div>
+            </div>
+          </div>
+
+          <div style={sectionStyle}>
+            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Revenue & Stripe</div>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>Revenue Decision</label>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                {['Revenue Share', 'Money Mapping'].map(v => (
+                  <button key={v} onClick={() => update('revenue_decision', v)}
+                    style={{ padding: '8px 18px', borderRadius: '6px', border: `1px solid ${profile.revenue_decision === v ? '#5b9fe6' : 'rgba(255,255,255,0.2)'}`, background: profile.revenue_decision === v ? 'rgba(91,159,230,0.15)' : 'transparent', color: profile.revenue_decision === v ? '#5b9fe6' : '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>Stripe Account ID</label>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                <input value={profile.stripe_account_id || ''} onChange={e => update('stripe_account_id', e.target.value)} placeholder="acct_..." style={inputStyle} />
+                <button style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  Send Request
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div style={sectionStyle}>
+            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Connected Member</div>
+            <div style={{ marginBottom: '16px', position: 'relative' }}>
+              <label style={labelStyle}>Search Member</label>
+              <input
+                value={connectedMemberObj && !showConnectedSearch ? `${connectedMemberObj.name} (${connectedMemberObj.plugin_member_number})` : connectedSearch}
+                onChange={e => { setConnectedSearch(e.target.value); setShowConnectedSearch(true); if (!e.target.value) update('connected_member_number', null) }}
+                placeholder="Search by name or number..."
+                style={{ ...inputStyle, marginTop: '6px' }}
+                onFocus={() => setShowConnectedSearch(true)}
+              />
+              {showConnectedSearch && connectedSearch && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#0d2a6e', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
+                  {allMembers.filter(m =>
+                    m.plugin_member_number !== member.plugin_member_number &&
+                    (m.name?.toLowerCase().includes(connectedSearch.toLowerCase()) ||
+                     m.plugin_member_number?.toLowerCase().includes(connectedSearch.toLowerCase()))
+                  ).map(m => (
+                    <div key={m.plugin_member_number}
+                      onClick={() => { update('connected_member_number', m.plugin_member_number); setConnectedSearch(''); setShowConnectedSearch(false) }}
+                      style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: '14px' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                      {m.name} <span style={{ color: '#8bacc8' }}>({m.plugin_member_number})</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <label style={labelStyle}>Connection Type</label>
+              <select value={profile.connection_type || ''} onChange={e => update('connection_type', e.target.value)} style={{ ...inputStyle, background: '#0d2a6e', marginTop: '6px' }}>
+                <option value="">-- Select --</option>
+                {CONNECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div style={sectionStyle}>
+            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Notes</div>
+            <textarea value={profile.notes || ''} onChange={e => update('notes', e.target.value)} rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
+
+          <div style={{ position: 'sticky', bottom: 0, background: '#073991', borderTop: '1px solid rgba(255,255,255,0.1)', padding: '16px 0', display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {dirty && <span style={{ fontSize: '13px', color: '#d4af37' }}>You have unsaved changes</span>}
+            <button onClick={save} disabled={saving} style={{ padding: '10px 28px', borderRadius: '8px', background: saving ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving...' : 'Save Changes'}</button>
+            {status && <span style={{ color: statusType === 'success' ? '#27ae60' : '#ff6b6b', fontSize: '13px' }}>{status}</span>}
+          </div>
+        </>
+      )}
+
+      {/* TYPE HISTORY TAB */}
+      {activeTab === 'history' && (
+        <div style={sectionStyle}>
+          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Member Type History</div>
+          {typeHistory.length === 0
+            ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No type changes recorded yet.</p>
+            : typeHistory.map(h => (
+              <div key={h.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ textAlign: 'left' }}>
+                  <span style={{ color: '#8bacc8', fontSize: '13px' }}>{h.old_type}</span>
+                  <span style={{ color: '#8bacc8', margin: '0 8px' }}>→</span>
+                  <span style={{ color: '#fff', fontSize: '13px', fontWeight: '600' }}>{h.new_type}</span>
+                </div>
+                <div style={{ fontSize: '12px', color: '#8bacc8' }}>{new Date(h.changed_at).toLocaleDateString()}</div>
+              </div>
+            ))
+          }
+        </div>
       )}
     </div>
   )
@@ -130,7 +649,7 @@ function ComingSoon({ title }) {
 }
 
 function MemberSpecialists({ member, allExperts, allExclusionMap, onDataChange }) {
-  const excluded = allExclusionMap[member.member_number] || []
+  const excluded = allExclusionMap[member.plugin_member_number] || []
   const [enabled, setEnabled] = useState(() => {
     const set = {}
     allExperts.forEach(e => { set[e.id] = !excluded.includes(e.id) })
@@ -151,7 +670,7 @@ function MemberSpecialists({ member, allExperts, allExclusionMap, onDataChange }
   async function save() {
     const newExcluded = allExperts.filter(e => !enabled[e.id]).map(e => e.id)
     try {
-      await callApi('save_member', { member_number: member.member_number, exclusions: newExcluded })
+      await callApi('save_member', { member_number: member.plugin_member_number, exclusions: newExcluded })
       await onDataChange()
       setDirty(false)
       setStatusType('success'); setStatus('Changes saved!')
@@ -194,7 +713,7 @@ function MemberSpecialists({ member, allExperts, allExclusionMap, onDataChange }
       </div>
       <div style={{ position: 'sticky', bottom: 0, background: '#073991', borderTop: '1px solid rgba(255,255,255,0.1)', padding: '16px 0', display: 'flex', alignItems: 'center', gap: '16px' }}>
         {dirty && <span style={{ fontSize: '13px', color: '#d4af37' }}>You have unsaved changes</span>}
-        <button onClick={save} style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>Save Changes</button>
+        <button onClick={save} disabled={saving} style={{ padding: '10px 28px', borderRadius: '8px', background: saving ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving...' : 'Save Changes'}</button>
         {status && <span style={{ color: statusType === 'success' ? '#27ae60' : '#ff6b6b', fontSize: '13px' }}>{status}</span>}
       </div>
     </div>
@@ -211,14 +730,14 @@ function MemberGC({ member }) {
   const [status, setStatus] = useState('')
   const [statusType, setStatusType] = useState('success')
 
-  useState(() => { loadGC() }, [member.member_number])
+  useState(() => { loadGC() }, [member.plugin_member_number])
 
   async function loadGC() {
     try {
       const [bal, trans, red] = await Promise.all([
-        callApi('gc_load_balance', { member_number: member.member_number }),
-        callApi('gc_load_transactions', { member_number: member.member_number }),
-        callApi('gc_load_redemptions', { member_number: member.member_number }),
+        callApi('gc_load_balance', { member_number: member.plugin_member_number }),
+        callApi('gc_load_transactions', { member_number: member.plugin_member_number }),
+        callApi('gc_load_redemptions', { member_number: member.plugin_member_number }),
       ])
       setBalance(bal.balance || 0)
       setTransactions(trans.transactions || [])
@@ -229,7 +748,7 @@ function MemberGC({ member }) {
   async function addCredits() {
     if (!addAmount) return
     try {
-      await callApi('gc_add_credits', { member_number: member.member_number, amount: parseInt(addAmount), description: addDesc })
+      await callApi('gc_add_credits', { member_number: member.plugin_member_number, amount: parseInt(addAmount), description: addDesc })
       setAddAmount(''); setAddDesc('')
       setStatusType('success'); setStatus('Credits added!')
       setTimeout(() => setStatus(''), 4000)
@@ -252,7 +771,6 @@ function MemberGC({ member }) {
         <button style={subTabStyle(gcTab === 'dashboard')} onClick={() => setGcTab('dashboard')}>Dashboard</button>
         <button style={subTabStyle(gcTab === 'details')} onClick={() => setGcTab('details')}>Member Details</button>
       </div>
-
       {gcTab === 'dashboard' && (
         <>
           <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
@@ -275,31 +793,21 @@ function MemberGC({ member }) {
           <div style={sectionStyle}>
             <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add Credits</div>
             <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Amount</label>
-                <input type="number" value={addAmount} onChange={e => setAddAmount(e.target.value)} placeholder="e.g. 100" min="1" style={inputStyle} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Description (optional)</label>
-                <input value={addDesc} onChange={e => setAddDesc(e.target.value)} placeholder="e.g. Monthly allocation" style={inputStyle} />
-              </div>
+              <div style={{ flex: 1 }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Amount</label><input type="number" value={addAmount} onChange={e => setAddAmount(e.target.value)} placeholder="e.g. 100" min="1" style={inputStyle} /></div>
+              <div style={{ flex: 1 }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Description (optional)</label><input value={addDesc} onChange={e => setAddDesc(e.target.value)} placeholder="e.g. Monthly allocation" style={inputStyle} /></div>
               <button onClick={addCredits} style={{ padding: '12px 24px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Add Credits</button>
             </div>
             {status && <p style={{ color: statusType === 'success' ? '#27ae60' : '#ff6b6b', fontSize: '13px', marginTop: '12px' }}>{status}</p>}
           </div>
         </>
       )}
-
       {gcTab === 'details' && (
         <>
           <div style={sectionStyle}>
             <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Transaction History</div>
             {transactions.length === 0 ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No transactions yet.</p> : transactions.map(t => (
               <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                <div style={{ textAlign: 'left' }}>
-                  <span style={{ fontSize: '13px', color: '#fff' }}>{t.description}</span>
-                  <span style={{ fontSize: '11px', color: '#8bacc8', marginLeft: '8px' }}>{new Date(t.created_at).toLocaleDateString()}</span>
-                </div>
+                <div style={{ textAlign: 'left' }}><span style={{ fontSize: '13px', color: '#fff' }}>{t.description}</span><span style={{ fontSize: '11px', color: '#8bacc8', marginLeft: '8px' }}>{new Date(t.created_at).toLocaleDateString()}</span></div>
                 <span style={{ color: t.amount > 0 ? '#27ae60' : '#e74c3c', fontWeight: '600', fontSize: '14px' }}>{t.amount > 0 ? '+' : ''}{t.amount}</span>
               </div>
             ))}
@@ -308,10 +816,7 @@ function MemberGC({ member }) {
             <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Redemption History</div>
             {redemptions.length === 0 ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No redemptions yet.</p> : redemptions.map(r => (
               <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                <div style={{ textAlign: 'left' }}>
-                  <span style={{ fontSize: '13px', color: '#fff' }}>{r.service_name || 'Service'}</span>
-                  <span style={{ fontSize: '11px', color: '#8bacc8', marginLeft: '8px' }}>{new Date(r.created_at).toLocaleDateString()}</span>
-                </div>
+                <div style={{ textAlign: 'left' }}><span style={{ fontSize: '13px', color: '#fff' }}>{r.service_name || 'Service'}</span><span style={{ fontSize: '11px', color: '#8bacc8', marginLeft: '8px' }}>{new Date(r.created_at).toLocaleDateString()}</span></div>
                 <span style={{ color: '#e74c3c', fontWeight: '600', fontSize: '14px' }}>-{r.credits}</span>
               </div>
             ))}
@@ -328,11 +833,11 @@ function MemberVault({ member }) {
   const [status, setStatus] = useState('')
   const [statusType, setStatusType] = useState('success')
 
-  useState(() => { loadFiles() }, [member.member_number])
+  useState(() => { loadFiles() }, [member.plugin_member_number])
 
   async function loadFiles() {
     try {
-      const data = await callApi('vault_list', { member_number: member.member_number })
+      const data = await callApi('vault_list', { member_number: member.plugin_member_number })
       setFiles(data.files || [])
     } catch (err) { console.error(err) }
   }
@@ -348,7 +853,7 @@ function MemberVault({ member }) {
         reader.onerror = reject
         reader.readAsDataURL(file)
       })
-      await callApi('vault_upload', { member_number: member.member_number, filename: file.name, file_base64: base64, content_type: file.type })
+      await callApi('vault_upload', { member_number: member.plugin_member_number, filename: file.name, file_base64: base64, content_type: file.type })
       setStatusType('success'); setStatus('File uploaded!')
       setTimeout(() => setStatus(''), 4000)
       loadFiles()
@@ -358,7 +863,7 @@ function MemberVault({ member }) {
 
   async function deleteFile(filename) {
     try {
-      await callApi('vault_delete', { member_number: member.member_number, filename })
+      await callApi('vault_delete', { member_number: member.plugin_member_number, filename })
       loadFiles()
     } catch (err) { setStatusType('error'); setStatus(err.message) }
   }
@@ -404,27 +909,24 @@ function MemberSettings({ member, onDataChange }) {
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleteStatus, setDeleteStatus] = useState('')
 
-  useState(() => { loadLogin() }, [member.member_number])
+  useState(() => { loadLogin() }, [member.plugin_member_number])
 
   async function loadLogin() {
     setLoginLoading(true)
     try {
-      const data = await callApi('load_member_login', { member_number: member.member_number })
+      const data = await callApi('load_member_login', { member_number: member.plugin_member_number })
       setExistingLogin(data.login || null)
       if (data.login) setLoginEmail(data.login.email)
     } catch (err) { console.error(err) }
     finally { setLoginLoading(false) }
   }
 
-  function showLoginStatus(type, msg) {
-    setLoginStatusType(type); setLoginStatus(msg)
-    setTimeout(() => setLoginStatus(''), 4000)
-  }
+  function showLoginStatus(type, msg) { setLoginStatusType(type); setLoginStatus(msg); setTimeout(() => setLoginStatus(''), 4000) }
 
   async function createLogin() {
     if (!loginEmail || !loginPasscode) { showLoginStatus('error', 'Email and passcode are required.'); return }
     try {
-      await callApi('create_member_login', { member_number: member.member_number, email: loginEmail, passcode: loginPasscode, name: member.name })
+      await callApi('create_member_login', { member_number: member.plugin_member_number, email: loginEmail, passcode: loginPasscode, name: member.name })
       showLoginStatus('success', 'Login created!')
       loadLogin()
     } catch (err) { showLoginStatus('error', err.message) }
@@ -432,7 +934,7 @@ function MemberSettings({ member, onDataChange }) {
 
   async function updateLogin() {
     try {
-      await callApi('update_member_login', { member_number: member.member_number, email: loginEmail, passcode: loginPasscode || undefined })
+      await callApi('update_member_login', { member_number: member.plugin_member_number, email: loginEmail, passcode: loginPasscode || undefined })
       showLoginStatus('success', 'Login updated!')
       loadLogin()
     } catch (err) { showLoginStatus('error', err.message) }
@@ -440,7 +942,7 @@ function MemberSettings({ member, onDataChange }) {
 
   async function deleteMember() {
     try {
-      await callApi('delete_member', { member_number: member.member_number })
+      await callApi('delete_member', { member_number: member.plugin_member_number })
       await onDataChange()
     } catch (err) { setDeleteStatus(err.message) }
   }
@@ -474,13 +976,10 @@ function MemberSettings({ member, onDataChange }) {
         )}
         {loginStatus && <p style={{ color: loginStatusType === 'success' ? '#27ae60' : '#ff6b6b', fontSize: '13px', marginTop: '12px' }}>{loginStatus}</p>}
       </div>
-
       <div style={{ ...sectionStyle, border: '1px solid rgba(231,76,60,0.3)' }}>
         <div style={{ fontSize: '13px', color: '#e74c3c', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Danger Zone</div>
         {!deleteConfirm ? (
-          <button onClick={() => setDeleteConfirm(true)} style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.4)', background: 'transparent', color: '#e74c3c', fontSize: '14px', cursor: 'pointer' }}>
-            Delete Member
-          </button>
+          <button onClick={() => setDeleteConfirm(true)} style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.4)', background: 'transparent', color: '#e74c3c', fontSize: '14px', cursor: 'pointer' }}>Delete Member</button>
         ) : (
           <div>
             <p style={{ color: '#e74c3c', fontSize: '14px', marginBottom: '12px' }}>Are you sure? This will remove all settings and exclusions. This cannot be undone.</p>

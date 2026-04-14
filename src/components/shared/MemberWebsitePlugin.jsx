@@ -29,7 +29,7 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
 
   async function save() {
     try {
-      await callApi('save_member', { member_number: member.member_number, settings })
+      await callApi('save_member', { member_number: member.plugin_member_number, settings })
       if (onDataChange) await onDataChange()
       setDirty(false)
       setStatusType('success'); setStatus('Changes saved!')
