@@ -5,12 +5,13 @@ const PROGRAMS = [
   { key: 'holistic', name: 'VFO Holistic Planning' },
   { key: 'partnership', name: 'Partnership Fast Track' },
   { key: 'tax', name: 'VFO Tax Planning' },
+  { key: 'coaching', name: 'Advanced Coaching' },
 ]
 
 const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael', 'Bridger Silvester', 'Tracy Miller', 'Evan Anderson']
-const MEETING_TYPES = ['MSM Meeting', 'Advanced Meeting', 'VFO 90 Day Plan Meeting', 'PFT 90 Day Plan Meeting', 'Other']
 
-export default function MSMTracking({ member }) {
+export default function MSMTracking({ member, activeSection }) {
+  const activeTab = activeSection === 'msm_meetings' ? 'meetings' : 'programs'
   const [programs, setPrograms] = useState([])
   const [enrollments, setEnrollments] = useState([])
   const [meetings, setMeetings] = useState([])
@@ -20,14 +21,11 @@ export default function MSMTracking({ member }) {
   // Meeting log state
   const [showLogMeeting, setShowLogMeeting] = useState(false)
   const [meetingDate, setMeetingDate] = useState('')
-  const [meetingType, setMeetingType] = useState('')
   const [meetingConductedBy, setMeetingConductedBy] = useState('')
   const [meetingNotes, setMeetingNotes] = useState('')
   const [meetingStatus, setMeetingStatus] = useState('')
 
-  useEffect(() => {
-    loadData()
-  }, [member.plugin_member_number])
+  useEffect(() => { loadData() }, [member.plugin_member_number])
 
   async function loadData() {
     setLoading(true)
@@ -40,35 +38,29 @@ export default function MSMTracking({ member }) {
       setPrograms(progData.programs || [])
       setEnrollments(enrollData.enrollments || [])
       setMeetings(meetData.meetings || [])
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
   }
 
   async function logMeeting() {
-    if (!meetingDate || !meetingType) { setMeetingStatus('Date and type are required.'); return }
+    if (!meetingDate) { setMeetingStatus('Date is required.'); return }
     try {
       await callApi('msm_log_meeting', {
         member_number: member.plugin_member_number,
         meeting_date: meetingDate,
-        meeting_type: meetingType,
+        meeting_type: 'MSM Meeting',
         conducted_by: meetingConductedBy,
         notes: meetingNotes,
       })
-      setMeetingDate(''); setMeetingType(''); setMeetingConductedBy(''); setMeetingNotes('')
-      setShowLogMeeting(false)
-      setMeetingStatus('')
+      setMeetingDate(''); setMeetingConductedBy(''); setMeetingNotes('')
+      setShowLogMeeting(false); setMeetingStatus('')
       loadData()
     } catch (err) { setMeetingStatus(err.message) }
   }
 
   async function deleteMeeting(id) {
-    try {
-      await callApi('msm_delete_meeting', { meeting_id: id })
-      loadData()
-    } catch (err) { console.error(err) }
+    try { await callApi('msm_delete_meeting', { meeting_id: id }); loadData() }
+    catch (err) { console.error(err) }
   }
 
   function getEnrollment(programName) {
@@ -77,7 +69,7 @@ export default function MSMTracking({ member }) {
 
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
-  const subTabStyle = (active) => ({
+  const tabStyle = (active) => ({
     padding: '10px 18px', background: 'transparent', border: 'none',
     borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent',
     color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400',
@@ -86,115 +78,123 @@ export default function MSMTracking({ member }) {
 
   if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
 
-  const meetingCounts = {}
-  MEETING_TYPES.forEach(t => { meetingCounts[t] = meetings.filter(m => m.meeting_type === t).length })
+  const msmCount = meetings.filter(m => m.meeting_type === 'MSM Meeting').length
+  const advancedCount = meetings.filter(m => m.meeting_type === 'Advanced Meeting').length
+  const vfo90Count = meetings.filter(m => m.meeting_type === 'VFO 90 Day Plan Meeting').length
+  const pft90Count = meetings.filter(m => m.meeting_type === 'PFT 90 Day Plan Meeting').length
 
   return (
     <div>
-      {/* Meeting Stats */}
-      <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting Summary</div>
-        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '20px' }}>
-          {MEETING_TYPES.filter(t => t !== 'Other').map(type => (
-            <div key={type} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{meetingCounts[type] || 0}</div>
-              <div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '2px' }}>{type.toUpperCase()}</div>
-            </div>
-          ))}
-        </div>
-        <button onClick={() => setShowLogMeeting(!showLogMeeting)}
-          style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer', marginBottom: showLogMeeting ? '16px' : '0' }}>
-          + Log Meeting
-        </button>
+      
 
-        {showLogMeeting && (
-          <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px' }}>
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: '160px' }}>
-                <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Date *</label>
-                <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={inputStyle} />
-              </div>
-              <div style={{ flex: 1, minWidth: '160px' }}>
-                <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Type *</label>
-                <select value={meetingType} onChange={e => setMeetingType(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
-                  <option value="">-- Select --</option>
-                  {MEETING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div style={{ flex: 1, minWidth: '160px' }}>
-                <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Conducted By</label>
-                <select value={meetingConductedBy} onChange={e => setMeetingConductedBy(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
-                  <option value="">-- Select --</option>
-                  {TEAM_MEMBERS.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-            </div>
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Notes</label>
-              <textarea value={meetingNotes} onChange={e => setMeetingNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={logMeeting} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
-              <button onClick={() => setShowLogMeeting(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
-            </div>
-            {meetingStatus && <p style={{ color: '#ff6b6b', fontSize: '13px', marginTop: '8px' }}>{meetingStatus}</p>}
+      {/* PROGRAMS TAB */}
+      {activeTab === 'programs' && (
+        <div>
+          <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px', flexWrap: 'wrap' }}>
+            {PROGRAMS.map(p => (
+              <button key={p.key} style={tabStyle(activeProgram === p.key)} onClick={() => setActiveProgram(p.key)}>{p.name}</button>
+            ))}
           </div>
-        )}
-      </div>
 
-      {/* Meeting History */}
-      {meetings.length > 0 && (
-        <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting History</div>
-          {meetings.map(m => (
-            <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '14px', color: '#fff' }}>{m.meeting_type}</div>
-                <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>
-                  {new Date(m.meeting_date).toLocaleDateString()}{m.conducted_by ? ` · ${m.conducted_by}` : ''}
+          {PROGRAMS.map(p => {
+            if (activeProgram !== p.key) return null
+            const dbProgram = programs.find(prog => prog.name === p.name)
+            const enrollment = dbProgram ? getEnrollment(p.name) : null
+
+            if (!dbProgram) {
+              return (
+                <div key={p.key} style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>
+                  Program "{p.name}" not found in database. Add it to the programs table first.
                 </div>
-                {m.notes && <div style={{ fontSize: '12px', color: '#5a8ab5', marginTop: '2px' }}>{m.notes}</div>}
-              </div>
-              <button onClick={() => deleteMeeting(m.id)}
-                style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontSize: '11px', cursor: 'pointer', flexShrink: 0 }}>
-                Delete
-              </button>
-            </div>
-          ))}
+              )
+            }
+
+            if (!enrollment) {
+              return <EnrollPanel key={p.key} member={member} program={dbProgram} onEnrolled={loadData} />
+            }
+
+            return <EnrolledPanel key={p.key} member={member} enrollment={enrollment} program={dbProgram} onDataChange={loadData} />
+          })}
         </div>
       )}
 
-      {/* Program Tabs */}
-      <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Programs</div>
-      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px' }}>
-        {PROGRAMS.map(p => (
-          <button key={p.key} style={subTabStyle(activeProgram === p.key)} onClick={() => setActiveProgram(p.key)}>
-            {p.name}
-          </button>
-        ))}
-      </div>
-
-      {PROGRAMS.map(p => {
-        if (activeProgram !== p.key) return null
-        const dbProgram = programs.find(prog => prog.name === p.name)
-        const enrollment = dbProgram ? getEnrollment(p.name) : null
-
-        if (!dbProgram) {
-          return (
-            <div key={p.key} style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>
-              Program not found in database. Add "{p.name}" to the programs table first.
+      {/* MEETINGS TAB */}
+      {activeTab === 'meetings' && (
+        <div>
+          {/* Meeting counts */}
+          <div style={sectionStyle}>
+            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting Summary</div>
+            <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', marginBottom: '20px' }}>
+              {[
+                ['MSM Meetings', msmCount],
+                ['Advanced Meetings', advancedCount],
+                ['VFO 90 Day Plan', vfo90Count],
+                ['PFT 90 Day Plan', pft90Count],
+              ].map(([label, count]) => (
+                <div key={label} style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{count}</div>
+                  <div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '2px', textTransform: 'uppercase' }}>{label}</div>
+                </div>
+              ))}
             </div>
-          )
-        }
 
-        if (!enrollment) {
-          return <EnrollPanel key={p.key} member={member} program={dbProgram} onEnrolled={loadData} />
-        }
+            <button onClick={() => setShowLogMeeting(!showLogMeeting)}
+              style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer', marginBottom: showLogMeeting ? '16px' : '0' }}>
+              + Log MSM Meeting
+            </button>
 
-        return (
-          <EnrolledPanel key={p.key} member={member} enrollment={enrollment} program={dbProgram} onDataChange={loadData} />
-        )
-      })}
+            {showLogMeeting && (
+              <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '160px' }}>
+                    <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Date *</label>
+                    <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={inputStyle} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: '160px' }}>
+                    <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Conducted By</label>
+                    <select value={meetingConductedBy} onChange={e => setMeetingConductedBy(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+                      <option value="">-- Select --</option>
+                      {TEAM_MEMBERS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Notes</label>
+                  <textarea value={meetingNotes} onChange={e => setMeetingNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={logMeeting} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
+                  <button onClick={() => setShowLogMeeting(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+                </div>
+                {meetingStatus && <p style={{ color: '#ff6b6b', fontSize: '13px', marginTop: '8px' }}>{meetingStatus}</p>}
+              </div>
+            )}
+          </div>
+
+          {/* Meeting history */}
+          <div style={sectionStyle}>
+            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting History</div>
+            {meetings.length === 0
+              ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No meetings logged yet.</p>
+              : meetings.map(m => (
+                <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: '14px', color: '#fff' }}>{m.meeting_type}</div>
+                    <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>
+                      {new Date(m.meeting_date + 'T12:00:00').toLocaleDateString()}{m.conducted_by ? ` · ${m.conducted_by}` : ''}
+                    </div>
+                    {m.notes && <div style={{ fontSize: '12px', color: '#5a8ab5', marginTop: '2px' }}>{m.notes}</div>}
+                  </div>
+                  <button onClick={() => deleteMeeting(m.id)}
+                    style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontSize: '11px', cursor: 'pointer', flexShrink: 0 }}>
+                    Delete
+                  </button>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -263,49 +263,30 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
   const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael', 'Bridger Silvester', 'Tracy Miller', 'Evan Anderson']
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
-  const subTabStyle = (active) => ({
-    padding: '10px 18px', background: 'transparent', border: 'none',
-    borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent',
-    color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400',
-    cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap'
-  })
+  const tabStyle = (active) => ({ padding: '10px 18px', background: 'transparent', border: 'none', borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent', color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' })
 
   async function saveEnrollment() {
     try {
-      await callApi('msm_update_enrollment', {
-        enrollment_id: enrollment.id,
-        program_status: programStatus,
-        assigned_msm: assignedMsm,
-        target_clients: parseInt(targetClients) || 0,
-      })
-      setSaveStatus('Saved!')
-      setTimeout(() => setSaveStatus(''), 3000)
+      await callApi('msm_update_enrollment', { enrollment_id: enrollment.id, program_status: programStatus, assigned_msm: assignedMsm, target_clients: parseInt(targetClients) || 0 })
+      setSaveStatus('Saved!'); setTimeout(() => setSaveStatus(''), 3000)
       onDataChange()
     } catch (err) { setSaveStatus(err.message) }
   }
 
-  const statusColors = {
-    active: '#27ae60', paused: '#f39c12', 'lost/removed': '#e74c3c', 'on ft': '#5b9fe6'
-  }
-  const statusColor = statusColors[programStatus?.toLowerCase()] || '#8bacc8'
+  const statusColors = { active: '#27ae60', paused: '#f39c12', 'lost/removed': '#e74c3c', 'on ft': '#5b9fe6', 'pre 90 day plan': '#8bacc8' }
 
   return (
     <div>
-      {/* Enrollment summary */}
       <div style={sectionStyle}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-          <div>
-            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Enrollment Details</div>
-            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-              <div><div style={{ fontSize: '12px', color: '#8bacc8' }}>Date Joined</div><div style={{ fontSize: '14px', color: '#fff' }}>{enrollment.date_enrolled ? new Date(enrollment.date_enrolled).toLocaleDateString() : '—'}</div></div>
-              <div><div style={{ fontSize: '12px', color: '#8bacc8' }}>Status</div><div style={{ fontSize: '14px', color: statusColor, fontWeight: '600' }}>{enrollment.program_status}</div></div>
-              <div><div style={{ fontSize: '12px', color: '#8bacc8' }}>Assigned MSM</div><div style={{ fontSize: '14px', color: '#fff' }}>{enrollment.assigned_msm || '—'}</div></div>
-              <div><div style={{ fontSize: '12px', color: '#8bacc8' }}>Target Clients</div><div style={{ fontSize: '14px', color: '#fff' }}>{enrollment.target_clients || 0}</div></div>
-              <div><div style={{ fontSize: '12px', color: '#8bacc8' }}>Training</div><div style={{ fontSize: '14px', color: '#fff' }}>{enrollment.training_status}</div></div>
-            </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: editingEnrollment ? '16px' : '0' }}>
+          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+            <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Joined</div><div style={{ fontSize: '14px', color: '#fff', marginTop: '4px' }}>{enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</div></div>
+            <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div><div style={{ fontSize: '14px', color: statusColors[enrollment.program_status?.toLowerCase()] || '#fff', marginTop: '4px', fontWeight: '600' }}>{enrollment.program_status}</div></div>
+            <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Assigned MSM</div><div style={{ fontSize: '14px', color: '#fff', marginTop: '4px' }}>{enrollment.assigned_msm || '—'}</div></div>
+            <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Target Clients</div><div style={{ fontSize: '14px', color: '#fff', marginTop: '4px' }}>{enrollment.target_clients || 0}</div></div>
+            <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Training</div><div style={{ fontSize: '14px', color: '#fff', marginTop: '4px' }}>{enrollment.training_status}</div></div>
           </div>
-          <button onClick={() => setEditingEnrollment(!editingEnrollment)}
-            style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '12px', cursor: 'pointer' }}>
+          <button onClick={() => setEditingEnrollment(!editingEnrollment)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '12px', cursor: 'pointer' }}>
             {editingEnrollment ? 'Cancel' : 'Edit'}
           </button>
         </div>
@@ -331,26 +312,19 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
                 <input type="number" value={targetClients} onChange={e => setTargetClients(e.target.value)} style={inputStyle} />
               </div>
             </div>
-            <button onClick={saveEnrollment} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>
-              Save
-            </button>
+            <button onClick={saveEnrollment} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
             {saveStatus && <span style={{ color: saveStatus === 'Saved!' ? '#27ae60' : '#ff6b6b', fontSize: '13px', marginLeft: '12px' }}>{saveStatus}</span>}
           </div>
         )}
       </div>
 
-      {/* Sub tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px' }}>
-        <button style={subTabStyle(activeTab === 'training')} onClick={() => setActiveTab('training')}>90 Day Plan</button>
-        <button style={subTabStyle(activeTab === 'clients')} onClick={() => setActiveTab('clients')}>Clients</button>
+        <button style={tabStyle(activeTab === 'training')} onClick={() => setActiveTab('training')}>90 Day Plan</button>
+        <button style={tabStyle(activeTab === 'clients')} onClick={() => setActiveTab('clients')}>Clients</button>
       </div>
 
-      {activeTab === 'training' && (
-        <TrainingTrack enrollment={enrollment} program={program} />
-      )}
-      {activeTab === 'clients' && (
-        <ClientsPanel enrollment={enrollment} member={member} program={program} />
-      )}
+      {activeTab === 'training' && <TrainingTrack enrollment={enrollment} program={program} />}
+      {activeTab === 'clients' && <ClientsPanel enrollment={enrollment} member={member} program={program} />}
     </div>
   )
 }
@@ -381,14 +355,7 @@ function TrainingTrack({ enrollment, program }) {
   async function saveTask(taskId, status, completedDate, completedBy, notes) {
     setSaving(p => ({ ...p, [taskId]: true }))
     try {
-      await callApi('msm_save_training_task', {
-        enrollment_id: enrollment.id,
-        task_id: taskId,
-        status,
-        completed_date: completedDate || null,
-        completed_by: completedBy || null,
-        notes: notes || null,
-      })
+      await callApi('msm_save_training_task', { enrollment_id: enrollment.id, task_id: taskId, status, completed_date: completedDate || null, completed_by: completedBy || null, notes: notes || null })
       setProgress(p => ({ ...p, [taskId]: { ...p[taskId], task_id: taskId, status, completed_date: completedDate, completed_by: completedBy, notes } }))
     } catch (err) { console.error(err) }
     finally { setSaving(p => ({ ...p, [taskId]: false })) }
@@ -396,17 +363,12 @@ function TrainingTrack({ enrollment, program }) {
 
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '16px' }
   const inputStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif' }
-
   const STATUS_OPTIONS = ['', 'Completed', 'Have Watched', 'In Progress', 'N/A', 'Pending']
-  const statusColors = { 'Completed': '#27ae60', 'Have Watched': '#5b9fe6', 'In Progress': '#f39c12', 'N/A': '#8bacc8', 'Pending': '#e74c3c' }
+  const statusColors = { Completed: '#27ae60', 'Have Watched': '#5b9fe6', 'In Progress': '#f39c12', 'N/A': '#8bacc8', Pending: '#e74c3c' }
 
   if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading training track...</div>
 
-  if (phases.length === 0) return (
-    <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>
-      No training track defined for this program yet. Add phases and tasks in the Programs setup.
-    </div>
-  )
+  if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No training track defined for this program yet.</div>
 
   const totalTasks = phases.reduce((s, p) => s + (p.program_training_tasks?.length || 0), 0)
   const completedTasks = Object.values(progress).filter(p => p.status === 'Completed').length
@@ -415,32 +377,26 @@ function TrainingTrack({ enrollment, program }) {
     <div>
       <div style={{ display: 'flex', gap: '24px', marginBottom: '20px' }}>
         <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{completedTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>COMPLETED</div></div>
-        <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{totalTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>TOTAL TASKS</div></div>
-        <div><div style={{ fontSize: '28px', fontWeight: '700', color: totalTasks > 0 ? '#27ae60' : '#8bacc8' }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>PROGRESS</div></div>
+        <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{totalTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>TOTAL</div></div>
+        <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#27ae60' }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>PROGRESS</div></div>
       </div>
-
       {phases.map(phase => (
         <div key={phase.id} style={sectionStyle}>
           <div style={{ fontSize: '14px', fontWeight: '600', color: '#fff', marginBottom: '16px', fontFamily: 'Playfair Display, serif' }}>{phase.name}</div>
           {(phase.program_training_tasks || []).map(task => {
             const p = progress[task.id] || {}
-            const statusColor = statusColors[p.status] || 'transparent'
             return (
               <div key={task.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: statusColor, flexShrink: 0, border: '1px solid rgba(255,255,255,0.2)' }} />
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: statusColors[p.status] || 'transparent', flexShrink: 0, border: '1px solid rgba(255,255,255,0.2)' }} />
                 <div style={{ flex: 1, minWidth: '150px' }}>
                   <span style={{ fontSize: '13px', color: '#8bacc8', marginRight: '8px' }}>{task.task_code}</span>
                   <span style={{ fontSize: '14px', color: '#fff' }}>{task.name}</span>
                 </div>
-                <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, p.completed_by, p.notes)}
-                  disabled={saving[task.id]}
-                  style={{ ...inputStyle, background: '#0d2a6e', minWidth: '130px' }}>
+                <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, p.completed_by, p.notes)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '130px' }}>
                   {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s || '-- Status --'}</option>)}
                 </select>
-                <input type="date" value={p.completed_date || ''} onChange={e => saveTask(task.id, p.status, e.target.value, p.completed_by, p.notes)}
-                  style={{ ...inputStyle, width: '140px' }} />
-                <input value={p.completed_by || ''} onChange={e => saveTask(task.id, p.status, p.completed_date, e.target.value, p.notes)}
-                  placeholder="By" style={{ ...inputStyle, width: '120px' }} onBlur={e => saveTask(task.id, p.status, p.completed_date, e.target.value, p.notes)} />
+                <input type="date" value={p.completed_date || ''} onChange={e => saveTask(task.id, p.status, e.target.value, p.completed_by, p.notes)} style={{ ...inputStyle, width: '140px' }} />
+                <input value={p.completed_by || ''} onChange={e => saveTask(task.id, p.status, p.completed_date, e.target.value, p.notes)} placeholder="By" style={{ ...inputStyle, width: '120px' }} onBlur={e => saveTask(task.id, p.status, p.completed_date, e.target.value, p.notes)} />
               </div>
             )
           })}
@@ -475,15 +431,8 @@ function ClientsPanel({ enrollment, member, program }) {
   async function addClient() {
     if (!firstName || !lastName) { setAddStatus('First and last name are required.'); return }
     try {
-      await callApi('msm_add_client', {
-        enrollment_id: enrollment.id,
-        member_number: member.plugin_member_number,
-        first_name: firstName,
-        last_name: lastName,
-        email, phone,
-      })
-      setFirstName(''); setLastName(''); setEmail(''); setPhone('')
-      setShowAdd(false); setAddStatus('')
+      await callApi('msm_add_client', { enrollment_id: enrollment.id, member_number: member.plugin_member_number, first_name: firstName, last_name: lastName, email, phone })
+      setFirstName(''); setLastName(''); setEmail(''); setPhone(''); setShowAdd(false); setAddStatus('')
       loadClients()
     } catch (err) { setAddStatus(err.message) }
   }
@@ -498,35 +447,20 @@ function ClientsPanel({ enrollment, member, program }) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div style={{ display: 'flex', gap: '24px' }}>
-          <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{clients.length}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>TOTAL CLIENTS</div></div>
+          <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{clients.length}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>TOTAL</div></div>
           <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{clients.filter(c => c.status === 'active').length}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>ACTIVE</div></div>
         </div>
-        <button onClick={() => setShowAdd(!showAdd)}
-          style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>
-          + Add Client
-        </button>
+        <button onClick={() => setShowAdd(!showAdd)} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add Client</button>
       </div>
 
       {showAdd && (
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>
           <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add New Client</div>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: '140px' }}>
-              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>First Name *</label>
-              <input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} />
-            </div>
-            <div style={{ flex: 1, minWidth: '140px' }}>
-              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Last Name *</label>
-              <input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} />
-            </div>
-            <div style={{ flex: 1, minWidth: '180px' }}>
-              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Email</label>
-              <input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} />
-            </div>
-            <div style={{ flex: 1, minWidth: '140px' }}>
-              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Phone</label>
-              <input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} />
-            </div>
+            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>First Name *</label><input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Last Name *</label><input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '180px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Email</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Phone</label><input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} /></div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={addClient} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
@@ -536,24 +470,18 @@ function ClientsPanel({ enrollment, member, program }) {
         </div>
       )}
 
-      {clients.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No clients added yet.</div>
-      ) : (
-        clients.map(client => (
+      {clients.length === 0
+        ? <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No clients added yet.</div>
+        : clients.map(client => (
           <div key={client.id} style={sectionStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-              onClick={() => setExpandedClient(expandedClient === client.id ? null : client.id)}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setExpandedClient(expandedClient === client.id ? null : client.id)}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ fontSize: '15px', fontWeight: '600', color: '#fff' }}>{client.first_name} {client.last_name}</span>
                   <span style={{ fontSize: '11px', color: '#8bacc8' }}>{client.client_ref}</span>
                   <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', background: `${statusColors[client.status] || '#8bacc8'}22`, color: statusColors[client.status] || '#8bacc8', border: `1px solid ${statusColors[client.status] || '#8bacc8'}44` }}>{client.status}</span>
                 </div>
-                {(client.email || client.phone) && (
-                  <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '4px' }}>
-                    {client.email}{client.email && client.phone ? ' · ' : ''}{client.phone}
-                  </div>
-                )}
+                {(client.email || client.phone) && <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '4px' }}>{client.email}{client.email && client.phone ? ' · ' : ''}{client.phone}</div>}
               </div>
               <span style={{ color: '#8bacc8', fontSize: '18px' }}>{expandedClient === client.id ? '▲' : '▼'}</span>
             </div>
@@ -564,7 +492,7 @@ function ClientsPanel({ enrollment, member, program }) {
             )}
           </div>
         ))
-      )}
+      }
     </div>
   )
 }
@@ -595,14 +523,7 @@ function ClientTrack({ client, program }) {
   async function saveTask(taskId, status, completedDate, completedBy, notes) {
     setSaving(p => ({ ...p, [taskId]: true }))
     try {
-      await callApi('msm_save_client_task', {
-        client_id: client.id,
-        task_id: taskId,
-        status,
-        completed_date: completedDate || null,
-        completed_by: completedBy || null,
-        notes: notes || null,
-      })
+      await callApi('msm_save_client_task', { client_id: client.id, task_id: taskId, status, completed_date: completedDate || null, completed_by: completedBy || null, notes: notes || null })
       setProgress(p => ({ ...p, [taskId]: { ...p[taskId], task_id: taskId, status, completed_date: completedDate, completed_by: completedBy, notes } }))
     } catch (err) { console.error(err) }
     finally { setSaving(p => ({ ...p, [taskId]: false })) }
@@ -610,15 +531,10 @@ function ClientTrack({ client, program }) {
 
   const inputStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif' }
   const STATUS_OPTIONS = ['', 'Completed', 'In Progress', 'Confirmed', 'Yes', 'No', 'N/A', 'Pending', 'Scheduled']
-  const statusColors = { 'Completed': '#27ae60', 'Confirmed': '#27ae60', 'Yes': '#27ae60', 'In Progress': '#f39c12', 'Scheduled': '#5b9fe6', 'No': '#e74c3c', 'N/A': '#8bacc8', 'Pending': '#f39c12' }
+  const statusColors = { Completed: '#27ae60', Confirmed: '#27ae60', Yes: '#27ae60', 'In Progress': '#f39c12', Scheduled: '#5b9fe6', No: '#e74c3c', 'N/A': '#8bacc8', Pending: '#f39c12' }
 
   if (loading) return <div style={{ color: '#8bacc8', fontSize: '13px', padding: '16px' }}>Loading track...</div>
-
-  if (phases.length === 0) return (
-    <div style={{ color: '#8bacc8', fontSize: '13px', padding: '16px' }}>
-      No client track defined for this program yet.
-    </div>
-  )
+  if (phases.length === 0) return <div style={{ color: '#8bacc8', fontSize: '13px', padding: '16px' }}>No client track defined for this program yet.</div>
 
   return (
     <div>
@@ -627,24 +543,18 @@ function ClientTrack({ client, program }) {
           <div style={{ fontSize: '13px', fontWeight: '600', color: '#5b9fe6', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{phase.name}</div>
           {(phase.program_client_tasks || []).map(task => {
             const p = progress[task.id] || {}
-            const statusColor = statusColors[p.status] || 'transparent'
             return (
               <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColor, flexShrink: 0, border: '1px solid rgba(255,255,255,0.2)' }} />
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[p.status] || 'transparent', flexShrink: 0, border: '1px solid rgba(255,255,255,0.2)' }} />
                 <div style={{ flex: 1, minWidth: '140px' }}>
                   <span style={{ fontSize: '12px', color: '#8bacc8', marginRight: '6px' }}>{task.task_code}</span>
                   <span style={{ fontSize: '13px', color: '#fff' }}>{task.name}</span>
                 </div>
-                <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, p.completed_by, p.notes)}
-                  disabled={saving[task.id]}
-                  style={{ ...inputStyle, background: '#0d2a6e', minWidth: '130px' }}>
+                <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, p.completed_by, p.notes)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '130px' }}>
                   {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s || '-- Status --'}</option>)}
                 </select>
-                <input type="date" value={p.completed_date || ''} onChange={e => saveTask(task.id, p.status, e.target.value, p.completed_by, p.notes)}
-                  style={{ ...inputStyle, width: '140px' }} />
-                <input value={p.notes || ''} onChange={e => saveTask(task.id, p.status, p.completed_date, p.completed_by, e.target.value)}
-                  placeholder="Notes" style={{ ...inputStyle, flex: 1, minWidth: '100px' }}
-                  onBlur={e => saveTask(task.id, p.status, p.completed_date, p.completed_by, e.target.value)} />
+                <input type="date" value={p.completed_date || ''} onChange={e => saveTask(task.id, p.status, e.target.value, p.completed_by, p.notes)} style={{ ...inputStyle, width: '140px' }} />
+                <input value={p.notes || ''} onChange={e => saveTask(task.id, p.status, p.completed_date, p.completed_by, e.target.value)} placeholder="Notes" style={{ ...inputStyle, flex: 1, minWidth: '100px' }} onBlur={e => saveTask(task.id, p.status, p.completed_date, p.completed_by, e.target.value)} />
               </div>
             )
           })}
