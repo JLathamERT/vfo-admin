@@ -58,8 +58,8 @@ function NavDropdown({ label, items, onSelect, isActive }) {
 export default function AdminPortal() {
   const navigate = useNavigate()
   const session = getSession()
-  const [activeTab, setActiveTab] = useState(null)
-  const [membersSection, setMembersSection] = useState('search_advisors')
+  const [activeTab, setActiveTab] = useState(sessionStorage.getItem('adminActiveTab') || null)
+  const [membersSection, setMembersSection] = useState(sessionStorage.getItem('adminMembersSection') || 'search_advisors')
   const [showEditor, setShowEditor] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [allExperts, setAllExperts] = useState([])
@@ -109,7 +109,9 @@ export default function AdminPortal() {
 
   function selectMembersSection(key) {
     setActiveTab('members')
+    sessionStorage.setItem('adminActiveTab', 'members')
     setMembersSection(key)
+    sessionStorage.setItem('adminMembersSection', key)
     setShowEditor(false)
     setShowSettings(false)
   }

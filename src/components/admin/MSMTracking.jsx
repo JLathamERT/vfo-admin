@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { callApi } from '../../lib/api'
 
 const PROGRAMS = [
@@ -316,6 +317,7 @@ function TrainingTrack({ enrollment, program }) {
   const [progress, setProgress] = useState({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState({})
+  const [expanded, setExpanded] = useState({})
   const [phaseCompletedBy, setPhaseCompletedBy] = useState({})
 
   useEffect(() => { loadTrack() }, [enrollment.id])
@@ -327,19 +329,28 @@ function TrainingTrack({ enrollment, program }) {
         callApi('msm_load_training_track', { program_id: program.id }),
         callApi('msm_load_training_progress', { enrollment_id: enrollment.id }),
       ])
-      setPhases(trackData.phases || [])
+      const loadedPhases = trackData.phases || []
+      setPhases(loadedPhases)
       const prog = {}
       const byPhase = {}
-      ;(progressData.progress || []).forEach(p => {
-        prog[p.task_id] = p
-      })
-      // Init phase completed_by from first task that has one
-      ;(trackData.phases || []).forEach(phase => {
+      ;(progressData.progress || []).forEach(p => { prog[p.task_id] = p })
+      loadedPhases.forEach(phase => {
         const firstWithBy = (phase.program_training_tasks || []).find(t => prog[t.id]?.completed_by)
         if (firstWithBy) byPhase[phase.id] = prog[firstWithBy.id].completed_by
+        else byPhase[phase.id] = ''
       })
       setProgress(prog)
       setPhaseCompletedBy(byPhase)
+
+      const expandState = {}
+      let foundActive = false
+      loadedPhases.forEach(phase => {
+        const tasks = phase.program_training_tasks || []
+        const allDone = tasks.length > 0 && tasks.every(t => prog[t.id]?.status)
+        if (!allDone && !foundActive) { expandState[phase.id] = true; foundActive = true }
+        else { expandState[phase.id] = false }
+      })
+      setExpanded(expandState)
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
   }
@@ -367,33 +378,29 @@ function TrainingTrack({ enrollment, program }) {
     finally { setSaving(prev => ({ ...prev, [taskId]: false })) }
   }
 
-  // Derive 90 day plan status
-  function getPlanStatus() {
-    if (!phases.length) return 'Not Started'
-    const allTasks = phases.flatMap(p => p.program_training_tasks || [])
-    if (!allTasks.length) return 'Not Started'
-    const allComplete = allTasks.every(t => progress[t.id]?.status === 'Completed')
-    if (allComplete) return 'Completed'
-    // Find current phase — last phase with any progress
-    for (let i = phases.length - 1; i >= 0; i--) {
-      const tasks = phases[i].program_training_tasks || []
-      const hasProgress = tasks.some(t => progress[t.id]?.status)
-      if (hasProgress) return phases[i].name
-    }
-    return 'Not Started'
+  function getPhaseState(phase) {
+    const tasks = phase.program_training_tasks || []
+    if (tasks.length === 0) return 'pending'
+    if (tasks.every(t => progress[t.id]?.status)) return 'done'
+    if (tasks.some(t => progress[t.id]?.status)) return 'active'
+    return 'pending'
   }
 
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '16px' }
+  function formatDate(d) {
+    if (!d) return ''
+    const parts = d.split('-')
+    return `${parts[1]}/${parts[2]}`
+  }
+
+  
+  const statusColors = { Completed: '#27ae60', 'Training Completed': '#27ae60', '90 Day Plan Completed': '#27ae60', 'Have Watched': '#27ae60', 'Will Watch': '#27ae60', 'In Progress': '#f39c12', Outstanding: '#f39c12', 'N/A': '#8bacc8', Pending: '#e74c3c', Stopped: '#e74c3c' }
   const inputStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif' }
-  const STATUS_OPTIONS = ['', 'Completed', 'Have Watched', 'In Progress', 'N/A', 'Pending']
-  const statusColors = { Completed: '#27ae60', 'Have Watched': '#5b9fe6', 'In Progress': '#f39c12', 'N/A': '#8bacc8', Pending: '#e74c3c' }
 
   if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading training track...</div>
   if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No training track defined for this program yet.</div>
 
   const totalTasks = phases.reduce((s, p) => s + (p.program_training_tasks?.length || 0), 0)
   const completedTasks = Object.values(progress).filter(p => p.status === 'Completed').length
-  const planStatus = getPlanStatus()
 
   return (
     <div>
@@ -402,41 +409,71 @@ function TrainingTrack({ enrollment, program }) {
         <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{totalTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>TOTAL</div></div>
         <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#27ae60' }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>PROGRESS</div></div>
       </div>
-      {phases.map(phase => (
-        <div key={phase.id} style={sectionStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div style={{ fontSize: '14px', fontWeight: '600', color: '#fff', fontFamily: 'Playfair Display, serif' }}>{phase.name}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '12px', color: '#8bacc8' }}>Completed By</span>
-              <select value={phaseCompletedBy[phase.id] || ''} onChange={e => setPhaseCompletedBy(p => ({ ...p, [phase.id]: e.target.value }))} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '160px' }}>
-                <option value="">-- Select --</option>
-                {TEAM_MEMBERS.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-          </div>
-          {(phase.program_training_tasks || []).map(task => {
-            const p = progress[task.id] || {}
-            return (
-              <div key={task.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: statusColors[p.status] || 'transparent', flexShrink: 0, border: '1px solid rgba(255,255,255,0.2)' }} />
-                <div style={{ flex: 1, minWidth: '150px' }}>
-                  <span style={{ fontSize: '13px', color: '#8bacc8', marginRight: '8px' }}>{task.task_code}</span>
-                  <span style={{ fontSize: '14px', color: '#fff' }}>{task.name}</span>
-                </div>
-                <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, phase.id)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '130px' }}>
-                  {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s || '-- Status --'}</option>)}
-                </select>
-                <input type="date" value={p.completed_date || ''} onChange={e => saveDateChange(task.id, e.target.value, phase.id)} style={{ ...inputStyle, width: '140px' }} />
+
+      {phases.map(phase => {
+        const state = getPhaseState(phase)
+        const isExpanded = expanded[phase.id]
+        const tasks = phase.program_training_tasks || []
+        const doneTasks = tasks.filter(t => progress[t.id]?.status === 'Completed').length
+        const borderColor = state === 'done' ? 'rgba(39,174,96,0.3)' : state === 'active' ? 'rgba(91,159,230,0.4)' : 'rgba(255,255,255,0.1)'
+        const dotColor = state === 'done' ? '#27ae60' : state === 'active' ? '#5b9fe6' : 'transparent'
+        const titleColor = state === 'active' ? '#5b9fe6' : '#fff'
+        const isReview = phase.name.includes('Review')
+
+        return (
+          <div key={phase.id} style={{ background: isReview ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.12)', border: `1px solid ${borderColor}`, borderRadius: '12px', marginBottom: isReview ? '10px' : '10px', marginTop: isReview ? '-6px' : '0', marginLeft: isReview ? '20px' : '0', overflow: 'hidden', borderTopLeftRadius: isReview ? '0' : '12px', borderTopRightRadius: isReview ? '12px' : '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
+              <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
+                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? 'rgba(255,255,255,0.2)' : dotColor}`, flexShrink: 0 }} />
+                <span style={{ fontSize: '13px', fontWeight: '600', color: titleColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{phase.name}{isReview && <span style={{ fontSize: '10px', color: '#8bacc8', marginLeft: '8px', textTransform: 'none', fontWeight: '400', letterSpacing: '0' }}>checkpoint</span>}</span>
               </div>
-            )
-          })}
-        </div>
-      ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {state === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Done</span>}
+                {state === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>In progress · {doneTasks}/{tasks.length}</span>}
+                {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>}
+                <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ color: '#8bacc8', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
+              </div>
+            </div>
+
+            {isExpanded && (
+              <div style={{ borderTop: `1px solid ${borderColor}`, padding: '12px 18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', justifyContent: 'flex-end' }}>
+                  <span style={{ fontSize: '12px', color: '#8bacc8' }}>Completed By</span>
+                  <select value={phaseCompletedBy[phase.id] || ''} onChange={e => setPhaseCompletedBy(p => ({ ...p, [phase.id]: e.target.value }))} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '160px' }}>
+                    <option value="">-- Select --</option>
+                    {TEAM_MEMBERS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                {tasks.map(task => {
+                  const p = progress[task.id] || {}
+                  const isDone = !!p.status
+                  const statusColor = statusColors[p.status] || '#8bacc8'
+                  return (
+                    <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'rgba(255,255,255,0.2)'}` }} />
+                      <div style={{ flex: 1, minWidth: '150px' }}>
+                        <span style={{ fontSize: '13px', color: '#8bacc8', marginRight: '8px' }}>{task.task_code}</span>
+                        <span style={{ fontSize: '14px', color: isDone ? '#8bacc8' : '#fff' }}>{task.name}</span>
+                      </div>
+                      <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, phase.id)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '130px', borderColor: isDone ? `${statusColor}66` : 'rgba(255,255,255,0.15)', color: isDone ? statusColor : '#fff' }}>
+                        <option value="">-- Status --</option>
+                        {(task.status_options || 'Completed|Outstanding|Stopped').split('|').map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <input type="date" value={p.completed_date || ''} onChange={e => saveDateChange(task.id, e.target.value, phase.id)} style={{ ...inputStyle, width: '140px' }} />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
 
 function ClientsPanel({ enrollment, member, program }) {
+  const navigate = useNavigate()
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -445,7 +482,6 @@ function ClientsPanel({ enrollment, member, program }) {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [addStatus, setAddStatus] = useState('')
-  const [expandedClient, setExpandedClient] = useState(null)
 
   useEffect(() => { loadClients() }, [enrollment.id])
 
@@ -475,10 +511,10 @@ function ClientsPanel({ enrollment, member, program }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', gap: '24px' }}>
-          <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{clients.length}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>TOTAL</div></div>
-          <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{clients.filter(c => c.status === 'active').length}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>ACTIVE</div></div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', width: '100%' }}>
+        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-end' }}>
+          <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff', lineHeight: 1 }}>{clients.length}</div><div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '4px' }}>TOTAL</div></div>
+          <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff', lineHeight: 1 }}>{clients.filter(c => c.status === 'active').length}</div><div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '4px' }}>ACTIVE</div></div>
         </div>
         <button onClick={() => setShowAdd(!showAdd)} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add Client</button>
       </div>
@@ -503,23 +539,21 @@ function ClientsPanel({ enrollment, member, program }) {
       {clients.length === 0
         ? <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No clients added yet.</div>
         : clients.map(client => (
-          <div key={client.id} style={sectionStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setExpandedClient(expandedClient === client.id ? null : client.id)}>
+          <div key={client.id} style={{ ...sectionStyle, cursor: 'pointer' }}
+            onClick={() => navigate(`/admin/client/${client.id}`)}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.12)'}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ fontSize: '15px', fontWeight: '600', color: '#fff' }}>{client.first_name} {client.last_name}</span>
                   <span style={{ fontSize: '11px', color: '#8bacc8' }}>{client.client_ref}</span>
-                  <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', background: `${statusColors[client.status] || '#8bacc8'}22`, color: statusColors[client.status] || '#8bacc8', border: `1px solid ${statusColors[client.status] || '#8bacc8'}44` }}>{client.status}</span>
+                  <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', background: `${statusColors[client.status] || '#8bacc8'}22`, color: statusColors[client.status] || '#8bacc8', border: `1px solid ${statusColors[client.status] || '#8bacc8'}44` }}>{client.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : ''}</span>
                 </div>
                 {(client.email || client.phone) && <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '4px' }}>{client.email}{client.email && client.phone ? ' · ' : ''}{client.phone}</div>}
               </div>
-              <span style={{ color: '#8bacc8', fontSize: '18px' }}>{expandedClient === client.id ? '▲' : '▼'}</span>
+              <span style={{ color: '#5b9fe6', fontSize: '13px' }}>View →</span>
             </div>
-            {expandedClient === client.id && (
-              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                <ClientTrack client={client} program={program} />
-              </div>
-            )}
           </div>
         ))
       }

@@ -65,8 +65,12 @@ function FeatureTabDropdown({ label, isActive, options, onSelect }) {
 function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, initialTab }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'search')
   useEffect(() => { setActiveTab(initialTab || 'search') }, [initialTab])
-  const [selectedMember, setSelectedMember] = useState(null)
-  const [memberFeatureTab, setMemberFeatureTab] = useState('profile')
+  const [selectedMember, setSelectedMember] = useState(() => {
+    const saved = sessionStorage.getItem('adminSelectedMember')
+    if (saved && allMembers.length) return allMembers.find(m => m.plugin_member_number === saved) || null
+    return null
+  })
+  const [memberFeatureTab, setMemberFeatureTab] = useState(sessionStorage.getItem('adminMemberFeatureTab') || 'profile')
   const [memberSearch, setMemberSearch] = useState('')
 
   const subTabStyle = (active) => ({
@@ -95,7 +99,7 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, 
           <div>
             {filteredMembers.map(m => (
               <div key={m.plugin_member_number}
-                onClick={() => { setSelectedMember(m); setMemberFeatureTab('profile_details') }}
+                onClick={() => { setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem('adminSelectedMember', m.plugin_member_number); sessionStorage.setItem('adminMemberFeatureTab', 'profile_details') }}
                 style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', marginBottom: '4px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', cursor: 'pointer' }}
                 onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}>
@@ -111,16 +115,16 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, 
 
       {activeTab === 'search' && selectedMember && (
         <>
-          <button onClick={() => setSelectedMember(null)} style={{ background: 'none', border: 'none', color: '#5b9fe6', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
+          <button onClick={() => { setSelectedMember(null); sessionStorage.removeItem('adminSelectedMember'); sessionStorage.removeItem('adminMemberFeatureTab') }} style={{ background: 'none', border: 'none', color: '#5b9fe6', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
           <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
             <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '28px', color: '#fff' }}>{selectedMember.name}</div>
             <div style={{ fontSize: '13px', color: '#8bacc8', marginTop: '4px' }}>{selectedMember.plugin_member_number}</div>
           </div>
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px', flexWrap: 'wrap' }}>
           <FeatureTabDropdown label="Profile" isActive={['profile_details','profile_edit','profile_history'].includes(memberFeatureTab)} options={[{key:'profile_details',label:'Details'},{key:'profile_edit',label:'Edit Advisor'},{key:'profile_history',label:'Type History'}]} onSelect={setMemberFeatureTab} />
-          <FeatureTabDropdown label="MSM Tracking" isActive={['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab)} options={[{key:'msm_meetings',label:'MSM Home'},{key:'msm_program_holistic',label:'Programs · VFO Holistic Planning'},{key:'msm_program_partnership',label:'Programs · Partnership Fast Track'},{key:'msm_program_tax',label:'Programs · VFO Tax Planning'},{key:'msm_program_coaching',label:'Programs · Advanced Coaching'}]} onSelect={setMemberFeatureTab} />
+          <FeatureTabDropdown label="MSM Tracking" isActive={['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab)} options={[{key:'msm_meetings',label:'MSM Home'},{key:'msm_program_holistic',label:'Programs · VFO Holistic Planning'},{key:'msm_program_partnership',label:'Programs · Partnership Fast Track'},{key:'msm_program_tax',label:'Programs · VFO Tax Planning'},{key:'msm_program_coaching',label:'Programs · Advanced Coaching'}]} onSelect={k => { setMemberFeatureTab(k); sessionStorage.setItem('adminMemberFeatureTab', k) }} />
             {[['specialists','Specialists'],['showroom','Showroom'],['website','Website Plugin'],['ciq','CIQ'],['growthplan','Growth Plan'],['gc','GC Marketplace'],['vault','The Vault'],['settings','Settings']].map(([key, label]) => (
-            <button key={key} style={{ padding: '10px 16px', background: 'transparent', border: 'none', borderBottom: memberFeatureTab === key ? '2px solid #5b9fe6' : '2px solid transparent', color: memberFeatureTab === key ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: memberFeatureTab === key ? '600' : '400', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' }} onClick={() => setMemberFeatureTab(key)}>{label}</button>
+            <button key={key} style={{ padding: '10px 16px', background: 'transparent', border: 'none', borderBottom: memberFeatureTab === key ? '2px solid #5b9fe6' : '2px solid transparent', color: memberFeatureTab === key ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: memberFeatureTab === key ? '600' : '400', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' }} onClick={() => { setMemberFeatureTab(key); sessionStorage.setItem('adminMemberFeatureTab', key) }}>{label}</button>
           ))}
           </div>
           {['profile_details','profile_edit','profile_history'].includes(memberFeatureTab) && <MemberProfile member={selectedMember} allMembers={allMembers} onDataChange={onDataChange} activeSection={memberFeatureTab} />}
