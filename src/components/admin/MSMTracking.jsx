@@ -437,6 +437,7 @@ function TrainingTrack({ enrollment, program }) {
 
             {isExpanded && (
               <div style={{ borderTop: `1px solid ${borderColor}`, padding: '12px 18px' }}>
+                {!isReview && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', justifyContent: 'flex-end' }}>
                   <span style={{ fontSize: '12px', color: '#8bacc8' }}>Completed By</span>
                   <select value={phaseCompletedBy[phase.id] || ''} onChange={e => setPhaseCompletedBy(p => ({ ...p, [phase.id]: e.target.value }))} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '160px' }}>
@@ -444,10 +445,85 @@ function TrainingTrack({ enrollment, program }) {
                     {TEAM_MEMBERS.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
+                )}
                 {tasks.map(task => {
                   const p = progress[task.id] || {}
                   const isDone = !!p.status
                   const statusColor = statusColors[p.status] || '#8bacc8'
+                  const code = task.task_code
+
+                  // --- REVIEW TASKS (auto-calculated) ---
+                  if (isReview) {
+                    const allTasks = phases.flatMap(ph => ph.program_training_tasks || [])
+                    const findByCode = (c) => allTasks.find(t => t.task_code === c)
+                    const isTaskDone = (c) => { const t = findByCode(c); return t && (progress[t.id]?.status === 'Completed' || progress[t.id]?.status === 'Have Watched') }
+                    const isTaskNotEmpty = (c) => { const t = findByCode(c); return t && progress[t.id]?.status && progress[t.id]?.status !== '' }
+                    let reviewStatus = 'Not Completed'
+                    let reviewColor = '#e74c3c'
+
+                    if (code === 'M25') {
+                      const codes = ['M3','M8','M15','M21']
+                      const doneCount = codes.filter(c => isTaskDone(c)).length
+                      if (doneCount === codes.length) { reviewStatus = 'Completed'; reviewColor = '#27ae60' }
+                      else if (doneCount > 0) { reviewStatus = 'In Progress'; reviewColor = '#f39c12' }
+                    } else if (code === 'M26') {
+                      if (isTaskDone('M4')) { reviewStatus = 'Completed'; reviewColor = '#27ae60' }
+                    } else if (code === 'M27') {
+                      const codes = ['M16','M30']
+                      const doneCount = codes.filter(c => isTaskDone(c)).length
+                      if (doneCount === codes.length) { reviewStatus = 'Completed'; reviewColor = '#27ae60' }
+                      else if (doneCount > 0) { reviewStatus = 'In Progress'; reviewColor = '#f39c12' }
+                    } else if (code === 'M28') {
+                      if (isTaskDone('M17')) { reviewStatus = 'Completed'; reviewColor = '#27ae60' }
+                    } else if (code === 'M29') {
+                      if (isTaskDone('M18')) { reviewStatus = 'Completed'; reviewColor = '#27ae60' }
+                    } else if (code === 'M30') {
+                      const m1to24 = []
+                      for (let i = 1; i <= 24; i++) m1to24.push('M' + i)
+                      const allDone = m1to24.every(c => {
+                        if (c === 'M22' || c === 'M23') return isTaskNotEmpty(c)
+                        return isTaskDone(c)
+                      })
+                      if (allDone) { reviewStatus = 'Completed'; reviewColor = '#27ae60' }
+                      else {
+                        const someStarted = m1to24.some(c => isTaskNotEmpty(c))
+                        if (someStarted) { reviewStatus = 'In Progress'; reviewColor = '#f39c12' }
+                      }
+                    }
+
+                    return (
+                      <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: reviewColor, flexShrink: 0, border: `1.5px solid ${reviewColor}` }} />
+                        <div style={{ flex: 1, minWidth: '150px' }}>
+                          <span style={{ fontSize: '13px', color: '#8bacc8', marginRight: '8px' }}>{code}</span>
+                          <span style={{ fontSize: '14px', color: '#fff' }}>{task.name}</span>
+                        </div>
+                        <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '6px', background: `${reviewColor}22`, color: reviewColor, border: `1px solid ${reviewColor}44`, fontWeight: '600' }}>{reviewStatus}</span>
+                      </div>
+                    )
+                  }
+
+                  // --- NUMBER INPUT TASKS (M22/M23) ---
+                  if (code === 'M22' || code === 'M23') {
+                    const label = code === 'M22' ? 'Sent' : 'Called'
+                    const numVal = p.status || ''
+                    return (
+                      <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: numVal ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${numVal ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+                        <div style={{ flex: 1, minWidth: '150px' }}>
+                          <span style={{ fontSize: '13px', color: '#8bacc8', marginRight: '8px' }}>{code}</span>
+                          <span style={{ fontSize: '14px', color: numVal ? '#8bacc8' : '#fff' }}>{task.name}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <input type="number" min="0" value={numVal} onChange={e => saveTask(task.id, e.target.value, p.completed_date, phase.id)} style={{ ...inputStyle, width: '60px', textAlign: 'center' }} placeholder="0" />
+                          <span style={{ fontSize: '13px', color: '#8bacc8' }}>{label}</span>
+                        </div>
+                        <input type="date" value={p.completed_date || ''} onChange={e => saveDateChange(task.id, e.target.value, phase.id)} style={{ ...inputStyle, width: '140px' }} />
+                      </div>
+                    )
+                  }
+
+                  // --- NORMAL TASKS ---
                   return (
                     <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'rgba(255,255,255,0.2)'}` }} />

@@ -216,9 +216,80 @@ function MemberTrainingView({ enrollment, program }) {
           <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{phase.name}{isReview && <span style={{ fontSize: '10px', color: '#8bacc8', marginLeft: '8px', textTransform: 'none', fontWeight: '400', letterSpacing: '0' }}>checkpoint</span>}</div>
           {(phase.program_training_tasks || []).map(task => {
             const p = progress[task.id] || {}
+            const code = task.task_code
+
             if (task.video_url) return (
               <VideoTask key={task.id} task={task} progress={p} enrollmentId={enrollment.id} onComplete={handleTaskComplete} />
             )
+
+            // --- REVIEW TASKS (auto-calculated, read-only) ---
+            if (isReview) {
+              const allTasks = phases.flatMap(ph => ph.program_training_tasks || [])
+              const findByCode = (c) => allTasks.find(t => t.task_code === c)
+              const isTaskDone = (c) => { const t = findByCode(c); return t && (progress[t.id]?.status === 'Completed' || progress[t.id]?.status === 'Have Watched') }
+              const isTaskNotEmpty = (c) => { const t = findByCode(c); return t && progress[t.id]?.status && progress[t.id]?.status !== '' }
+              let reviewStatus = 'Not Completed'
+              let reviewColor = '#e74c3c'
+
+              if (code === 'M25') {
+                const codes = ['M3','M8','M15','M21']
+                const doneCount = codes.filter(c => isTaskDone(c)).length
+                if (doneCount === codes.length) { reviewStatus = 'Completed'; reviewColor = '#27ae60' }
+                else if (doneCount > 0) { reviewStatus = 'In Progress'; reviewColor = '#f39c12' }
+              } else if (code === 'M26') {
+                if (isTaskDone('M4')) { reviewStatus = 'Completed'; reviewColor = '#27ae60' }
+              } else if (code === 'M27') {
+                const codes = ['M16','M30']
+                const doneCount = codes.filter(c => isTaskDone(c)).length
+                if (doneCount === codes.length) { reviewStatus = 'Completed'; reviewColor = '#27ae60' }
+                else if (doneCount > 0) { reviewStatus = 'In Progress'; reviewColor = '#f39c12' }
+              } else if (code === 'M28') {
+                if (isTaskDone('M17')) { reviewStatus = 'Completed'; reviewColor = '#27ae60' }
+              } else if (code === 'M29') {
+                if (isTaskDone('M18')) { reviewStatus = 'Completed'; reviewColor = '#27ae60' }
+              } else if (code === 'M30') {
+                const m1to24 = []
+                for (let i = 1; i <= 24; i++) m1to24.push('M' + i)
+                const allDone = m1to24.every(c => {
+                  if (c === 'M22' || c === 'M23') return isTaskNotEmpty(c)
+                  return isTaskDone(c)
+                })
+                if (allDone) { reviewStatus = 'Completed'; reviewColor = '#27ae60' }
+                else {
+                  const someStarted = m1to24.some(c => isTaskNotEmpty(c))
+                  if (someStarted) { reviewStatus = 'In Progress'; reviewColor = '#f39c12' }
+                }
+              }
+
+              return (
+                <div key={task.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: reviewColor, flexShrink: 0, border: `1px solid ${reviewColor}` }} />
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: '13px', color: '#8bacc8', marginRight: '8px' }}>{code}</span>
+                    <span style={{ fontSize: '14px', color: '#fff' }}>{task.name}</span>
+                  </div>
+                  <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '6px', background: `${reviewColor}22`, color: reviewColor, border: `1px solid ${reviewColor}44`, fontWeight: '600' }}>{reviewStatus}</span>
+                </div>
+              )
+            }
+
+            // --- M22/M23 number display (read-only on member side) ---
+            if (code === 'M22' || code === 'M23') {
+              const label = code === 'M22' ? 'Sent' : 'Called'
+              const numVal = p.status || '—'
+              return (
+                <div key={task.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: p.status ? '#27ae60' : 'transparent', flexShrink: 0, border: `1px solid ${p.status ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: '13px', color: '#8bacc8', marginRight: '8px' }}>{code}</span>
+                    <span style={{ fontSize: '14px', color: '#fff' }}>{task.name}</span>
+                  </div>
+                  <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '6px', background: p.status ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.08)', color: p.status ? '#27ae60' : '#8bacc8', fontWeight: '600' }}>{numVal} {label}</span>
+                </div>
+              )
+            }
+
+            // --- NORMAL TASKS ---
             return (
               <div key={task.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: statusColors[p.status] || 'transparent', flexShrink: 0, border: '1px solid rgba(255,255,255,0.2)' }} />
@@ -486,22 +557,12 @@ function VideoTask({ task, progress, enrollmentId, onComplete }) {
       height: '360',
       playerVars: { rel: 0, modestbranding: 1 },
       events: {
-        onStateChange: (e) => {
-          if (e.data === window.YT.PlayerState.ENDED) handleWatched()
-        }
+        onStateChange: () => {}
       }
     })
   }
 
-  async function handleWatched() {
-    if (completed) return
-    const today = new Date().toISOString().split('T')[0]
-    try {
-      await callApi('msm_save_training_task', { enrollment_id: enrollmentId, task_id: task.id, status: 'Have Watched', completed_date: today, completed_by: null, notes: null })
-      setCompleted(true)
-      onComplete(task.id, 'Have Watched', today)
-    } catch (err) { console.error(err) }
-  }
+  
 
   return (
     <div style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
