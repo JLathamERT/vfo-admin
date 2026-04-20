@@ -400,7 +400,7 @@ function TrainingTrack({ enrollment, program }) {
   if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No training track defined for this program yet.</div>
 
   const totalTasks = phases.reduce((s, p) => s + (p.program_training_tasks?.length || 0), 0)
-  const completedTasks = Object.values(progress).filter(p => p.status === 'Completed').length
+  const completedTasks = Object.values(progress).filter(p => p.status && p.status !== '').length
 
   return (
     <div>
@@ -414,7 +414,7 @@ function TrainingTrack({ enrollment, program }) {
         const state = getPhaseState(phase)
         const isExpanded = expanded[phase.id]
         const tasks = phase.program_training_tasks || []
-        const doneTasks = tasks.filter(t => progress[t.id]?.status === 'Completed').length
+        const doneTasks = tasks.filter(t => progress[t.id]?.status).length
         const borderColor = state === 'done' ? 'rgba(39,174,96,0.3)' : state === 'active' ? 'rgba(91,159,230,0.4)' : 'rgba(255,255,255,0.1)'
         const dotColor = state === 'done' ? '#27ae60' : state === 'active' ? '#5b9fe6' : 'transparent'
         const titleColor = state === 'active' ? '#5b9fe6' : '#fff'

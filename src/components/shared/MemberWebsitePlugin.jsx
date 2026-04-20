@@ -75,7 +75,7 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
   const rowStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }
   const inputStyle = { width: '90px', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif' }
 
-  if (!member.website_enabled && !readOnly) {
+  if (!member.website_enabled && readOnly) {
     return (
       <div style={{ textAlign: 'center', padding: '60px 20px' }}>
         <p style={{ fontFamily: 'Playfair Display, serif', fontSize: '22px', color: '#fff', marginBottom: '12px' }}>Website plugin not enabled</p>
