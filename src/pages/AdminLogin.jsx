@@ -15,6 +15,10 @@ export default function AdminLogin() {
     setLoading(true)
     try {
       const data = await callApi('admin_login', { email, passcode })
+      sessionStorage.removeItem('adminActiveTab')
+      sessionStorage.removeItem('adminMembersSection')
+      sessionStorage.removeItem('adminSelectedMember')
+      sessionStorage.removeItem('adminMemberFeatureTab')
       setSession({ token: data.token, email, name: data.name, role: 'admin', is_superadmin: data.is_superadmin })
       navigate('/admin')
     } catch (err) {

@@ -15,6 +15,7 @@ export default function MemberLogin() {
     setLoading(true)
     try {
       const data = await callApi('member_login', { email, passcode })
+      sessionStorage.removeItem('memberActiveTab')
       setSession({ token: data.token, email, name: data.name, role: 'member', member_number: data.member_number, website_enabled: data.website_enabled })
       navigate('/member')
     } catch (err) {

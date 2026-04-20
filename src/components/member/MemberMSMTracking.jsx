@@ -200,7 +200,7 @@ function MemberTrainingView({ enrollment, program }) {
   if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No training track defined yet.</div>
 
   const totalTasks = phases.reduce((s, p) => s + (p.program_training_tasks?.length || 0), 0)
-  const completedTasks = Object.values(progress).filter(p => p.status === 'Completed').length
+  const completedTasks = Object.values(progress).filter(p => p.status && p.status !== '').length
 
   return (
     <div>
@@ -573,10 +573,10 @@ function VideoTask({ task, progress, enrollmentId, onComplete }) {
           <span style={{ fontSize: '14px', color: completed ? '#8bacc8' : '#fff' }}>{task.name}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {completed && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Have Watched</span>}
           <button onClick={() => setShowVideo(!showVideo)} style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: `1px solid rgba(91,159,230,0.4)`, background: showVideo ? 'rgba(231,76,60,0.15)' : 'rgba(91,159,230,0.15)', color: showVideo ? '#e74c3c' : '#5b9fe6' }}>
             {showVideo ? 'Hide Video' : '▶ Watch Video'}
           </button>
+          {completed && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Have Watched</span>}
         </div>
       </div>
       {showVideo && (
