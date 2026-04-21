@@ -217,7 +217,7 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
             <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Embed Code</div>
             <p style={{ color: '#5a8ab5', fontSize: '14px', marginBottom: '12px', textAlign: 'left' }}>Copy this code and paste it into an HTML widget on your website.</p>
             <pre style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '8px', color: '#a0b0c4', fontSize: '13px', overflowX: 'auto', whiteSpace: 'pre-wrap', fontFamily: 'monospace', margin: '0 0 12px', textAlign: 'left' }}>{embedCode}</pre>
-            <button onClick={() => navigator.clipboard.writeText(embedCode)}
+            <button onClick={(e) => { navigator.clipboard.writeText(embedCode); const btn = e.currentTarget; btn.textContent = '✓ Copied!'; btn.style.background = 'rgba(39,174,96,0.15)'; setTimeout(() => { btn.textContent = 'Copy Code'; btn.style.background = 'transparent'; }, 2000) }}
               style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid rgba(39,174,96,0.3)', background: 'transparent', color: '#27ae60', fontSize: '13px', cursor: 'pointer' }}>
               Copy Code
             </button>
