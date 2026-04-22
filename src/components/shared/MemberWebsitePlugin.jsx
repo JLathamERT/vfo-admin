@@ -63,7 +63,7 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
     setFontResults([])
   }
 
-  const embedCode = `<div id="vfo-showroom"></div>\n<script src="https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/vfo-widget/vfo-widget.js?v=24" data-vfo-key="${member.manage_key}"><\/script>`
+  const embedCode = `<div id="vfo-showroom"></div>\n<script src="https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/vfo-widget/vfo-widget.js?v=25" data-vfo-key="${member.manage_key}"><\/script>`
 
   const subTabStyle = (active) => ({
     padding: '10px 18px', background: 'transparent', border: 'none',
