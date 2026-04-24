@@ -89,6 +89,7 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
       <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px' }}>
         <button style={subTabStyle(appearanceTab === 'appearance')} onClick={() => setAppearanceTab('appearance')}>Appearance</button>
         <button style={subTabStyle(appearanceTab === 'plugin')} onClick={() => setAppearanceTab('plugin')}>Plugin Settings</button>
+        <button style={subTabStyle(appearanceTab === 'preview')} onClick={() => setAppearanceTab('preview')}>Preview</button>
       </div>
 
       {appearanceTab === 'appearance' && (
@@ -221,6 +222,29 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
               style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid rgba(39,174,96,0.3)', background: 'transparent', color: '#27ae60', fontSize: '13px', cursor: 'pointer' }}>
               Copy Code
             </button>
+          </div>
+        </div>
+      )}
+
+      {appearanceTab === 'preview' && (
+        <div style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }}>
+          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Live Preview</div>
+          {dirty && <div style={{ fontSize: '13px', color: '#d4af37', marginBottom: '12px' }}>Save your changes first to see them in the preview.</div>}
+          <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <iframe
+              key={dirty ? 'stale' : Date.now()}
+              srcDoc={`<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body { margin: 0; background: ${settings.bg_color}; }</style>
+</head><body>
+<div id="vfo-showroom"></div>
+<script src="https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/vfo-widget/vfo-widget.js?v=25" data-vfo-key="${member.manage_key}"><\/script>
+</body></html>`}
+              style={{ width: '100%', height: '700px', border: 'none', borderRadius: '10px' }}
+              title="Widget Preview"
+            />
           </div>
         </div>
       )}
