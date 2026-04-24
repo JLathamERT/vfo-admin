@@ -60,6 +60,7 @@ export default function AdminPortal() {
   const session = getSession()
   const [activeTab, setActiveTab] = useState(sessionStorage.getItem('adminActiveTab') || null)
   const [membersSection, setMembersSection] = useState(sessionStorage.getItem('adminMembersSection') || 'search_advisors')
+const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getItem('adminSpecialistsSection') || 'search_specialists')
   const [showEditor, setShowEditor] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [allExperts, setAllExperts] = useState([])
@@ -116,6 +117,15 @@ export default function AdminPortal() {
     setShowSettings(false)
   }
 
+  function selectSpecialistsSection(key) {
+    setActiveTab('specialists')
+    sessionStorage.setItem('adminActiveTab', 'specialists')
+    setSpecialistsSection(key)
+    sessionStorage.setItem('adminSpecialistsSection', key)
+    setShowEditor(false)
+    setShowSettings(false)
+  }
+
   if (!session) return null
 
   const headerStyle = {
@@ -137,6 +147,16 @@ export default function AdminPortal() {
       options: [
         { key: 'search_accountants', label: 'Search Accountants' },
         { key: 'add_accountant', label: 'Add Accountant' },
+      ]
+    },
+  ]
+
+  const specialistsDropdownItems = [
+    {
+      key: 'specialists', header: null,
+      options: [
+        { key: 'search_specialists', label: 'Search Specialists' },
+        { key: 'add_specialist', label: 'Add Specialist' },
       ]
     },
   ]
@@ -178,18 +198,15 @@ export default function AdminPortal() {
               onSelect={selectMembersSection}
               isActive={activeTab === 'members'}
             />
-            <button onClick={() => { setActiveTab('specialists'); setShowEditor(false); setShowSettings(false) }}
-              style={{
-                padding: '14px 20px', background: 'transparent', border: 'none',
-                borderBottom: activeTab === 'specialists' ? '2px solid #5b9fe6' : '2px solid transparent',
-                color: activeTab === 'specialists' ? '#fff' : '#8bacc8', fontSize: '14px',
-                fontWeight: activeTab === 'specialists' ? '600' : '400',
-                cursor: 'pointer', fontFamily: 'DM Sans, sans-serif'
-              }}>
-              Specialists
-            </button>
+            <NavDropdown
+              label="Specialists"
+              items={specialistsDropdownItems}
+              onSelect={selectSpecialistsSection}
+              isActive={activeTab === 'specialists'}
+            />
           </div>
 
+          <div style={{ flex: 1, overflow: 'auto' }}>
           {!activeTab && (
             <div style={{ textAlign: 'center', padding: '60px 0 0' }}>
               <p style={{ fontSize: '14px', color: '#8bacc8', marginBottom: '8px' }}>Welcome back</p>
@@ -198,7 +215,7 @@ export default function AdminPortal() {
           )}
 
           {activeTab === 'specialists' && !loading && (
-            <SpecialistsPanel allExperts={allExperts} ecoMap={ecoMap} ciqMap={ciqMap} onDataChange={loadAllData} />
+            <SpecialistsPanel allExperts={allExperts} ecoMap={ecoMap} ciqMap={ciqMap} onDataChange={loadAllData} section={specialistsSection} />
           )}
 
           {activeTab === 'members' && !loading && (
@@ -210,6 +227,7 @@ export default function AdminPortal() {
           )}
 
           {loading && <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>Loading...</div>}
+          </div>
         </>
       )}
     </div>

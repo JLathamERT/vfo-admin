@@ -7,11 +7,13 @@ import MemberGCMarketplace from '../components/member/MemberGCMarketplace'
 import MemberMSMTracking from '../components/member/MemberMSMTracking'
 
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
+import vfoCertifiedSeal from '../assets/vfo-certified-emblem.png'
+import vfoAccreditedSeal from '../assets/vfo-accredited-emblem.png'
 
 export default function MemberPortal() {
   const navigate = useNavigate()
   const session = getSession()
-  const [activeTab, setActiveTab] = useState(null)
+  const [activeTab, setActiveTab] = useState('profile')
   const [showSettings, setShowSettings] = useState(false)
   const [memberData, setMemberData] = useState(null)
   const [allExperts, setAllExperts] = useState([])
@@ -49,7 +51,7 @@ export default function MemberPortal() {
   }
 
   function signOut() { clearSession(); navigate('/') }
-  function handleTitleClick() { setShowSettings(false); setActiveTab(null) }
+  function handleTitleClick() { setShowSettings(false); setActiveTab('profile') }
 
   if (!session) return null
 
@@ -106,13 +108,7 @@ export default function MemberPortal() {
             ))}
           </div>
 
-          {!activeTab && (
-            <div style={{ textAlign: 'center', padding: '60px 0 0' }}>
-              <p style={{ fontSize: '14px', color: '#8bacc8', marginBottom: '8px' }}>Welcome back</p>
-              <p style={{ fontFamily: 'Playfair Display, serif', fontSize: '36px', color: '#fff', margin: 0 }}>{session.name}</p>
-            </div>
-          )}
-
+          <div style={{ flex: 1, overflow: 'auto' }}>
           {loading && activeTab && <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>Loading...</div>}
 
           {!loading && activeTab === 'profile' && memberData && (
@@ -142,6 +138,7 @@ export default function MemberPortal() {
               <MemberVault memberNumber={session.member_number} />
             </div>
           )}
+          </div>
         </>
       )}
     </div>
@@ -259,25 +256,40 @@ function MemberSpecialists({ member, allExperts, exclusions, onDataChange }) {
 function MemberProfile({ member }) {
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
   const labelStyle = { fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }
-  const statusColors = { Active: '#27ae60', Lost: '#e74c3c', Removed: '#8bacc8' }
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
-        {member.member_type && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8', border: '1px solid rgba(255,255,255,0.1)' }}>{member.member_type}</span>}
-        {member.elite_status && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColors[member.elite_status] ? statusColors[member.elite_status] + '22' : 'rgba(255,255,255,0.06)'}`, color: statusColors[member.elite_status] || '#8bacc8', border: `1px solid ${statusColors[member.elite_status] ? statusColors[member.elite_status] + '44' : 'rgba(255,255,255,0.1)'}` }}>{member.elite_status}</span>}
-        {member.paused && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(243,156,18,0.15)', color: '#f39c12', border: '1px solid rgba(243,156,18,0.3)' }}>Paused</span>}
-        {member.suspended && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', border: '1px solid rgba(231,76,60,0.3)' }}>Suspended</span>}
-        {member.vfo_certified_date && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.1)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.2)' }}>✓ Certified · {member.vfo_certified_date.split('T')[0]}</span>}
-        {member.vfo_accredited_date && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.1)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.2)' }}>✓ Accredited · {member.vfo_accredited_date.split('T')[0]}</span>}
+      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+        <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '28px', color: '#fff' }}>{member.name}</div>
+        {member.member_type && <div style={{ fontSize: '13px', color: '#8bacc8', marginTop: '6px' }}>{member.member_type}</div>}
       </div>
-      <div style={sectionStyle}>
-        <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
-          <div><div style={labelStyle}>Member Number</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px', fontFamily: 'monospace' }}>{member.member_number}</div></div>
-          <div><div style={labelStyle}>Join Date</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{member.join_date ? member.join_date.split('T')[0] : '—'}</div></div>
-          <div><div style={labelStyle}>Email</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{member.email || '—'}</div></div>
-          <div><div style={labelStyle}>Revenue Decision</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{member.revenue_decision || '—'}</div></div>
-          {member.assigned_msm && <div><div style={labelStyle}>Assigned MSM</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{member.assigned_msm}</div></div>}
+      {(member.vfo_certified_date || member.vfo_accredited_date) && (
+        <div style={{ display: 'flex', gap: '24px', marginBottom: '24px', justifyContent: 'center' }}>
+          {member.vfo_certified_date && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+              <img src={vfoCertifiedSeal} style={{ width: '80px', height: '80px' }} />
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '13px', color: '#d4af37', fontWeight: '600' }}>VFO Certified</div>
+                <div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '2px' }}>{member.vfo_certified_date.split('T')[0]}</div>
+              </div>
+            </div>
+          )}
+          {member.vfo_accredited_date && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+              <img src={vfoAccreditedSeal} style={{ width: '80px', height: '80px' }} />
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '13px', color: '#8bacc8', fontWeight: '600' }}>VFO Accredited</div>
+                <div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '2px' }}>{member.vfo_accredited_date.split('T')[0]}</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ ...sectionStyle, display: 'inline-flex', gap: '32px', flexWrap: 'wrap' }}>
+          <div style={{ textAlign: 'left' }}><div style={labelStyle}>Member Number</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px', fontFamily: 'monospace' }}>{member.member_number}</div></div>
+          <div style={{ textAlign: 'left' }}><div style={labelStyle}>Join Date</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{member.join_date ? member.join_date.split('T')[0] : '—'}</div></div>
+          <div style={{ textAlign: 'left' }}><div style={labelStyle}>Revenue Decision</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{member.revenue_decision || '—'}</div></div>
         </div>
       </div>
     </div>

@@ -57,8 +57,9 @@ export default function ClientDetail() {
   async function loadData() {
     setLoading(true)
     try {
+      const passedEnrollmentId = location.state?.enrollment_id || null
       const [data, expertsData] = await Promise.all([
-        callApi('msm_load_client_home', { client_id: parseInt(clientId) }),
+        callApi('msm_load_client_home', { client_id: parseInt(clientId), enrollment_id: passedEnrollmentId }),
         callApi('load_data'),
       ])
       setClient(data.client)
@@ -122,6 +123,8 @@ export default function ClientDetail() {
           }
           {program?.name === 'Partnership Fast Track' ? (
             <button style={tabStyle(activeTab === 'pft')} onClick={() => setActiveTab('pft')}>PFT Engagement Process</button>
+          ) : program?.name === 'VFO Tax Planning' ? (
+            <button style={tabStyle(activeTab === 'tax')} onClick={() => setActiveTab('tax')}>Tax Priorities</button>
           ) : (
             <>
               <button style={tabStyle(activeTab === 'map1')} onClick={() => setActiveTab('map1')}>MAP 1</button>
@@ -136,7 +139,7 @@ export default function ClientDetail() {
         {activeTab === 'map1' && program && <ClientTrackViewV2 clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
         {activeTab === 'pft' && program && <PFTEngagementTrack clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
         {activeTab === 'regular' && program && <RegularPrioritiesTab clientId={parseInt(clientId)} programId={program.id} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
-        {activeTab === 'tax' && program && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+        {activeTab === 'tax' && program && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} programName={program.name} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
       </div>
     </div>
   )
@@ -2058,7 +2061,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
   )
 }
 
-function TaxPrioritiesTab({ clientId, programId, specialists, readOnly = false, notes = [], onNotesChange }) {
+function TaxPrioritiesTab({ clientId, programId, programName, specialists, readOnly = false, notes = [], onNotesChange }) {
   const [taxPlans, setTaxPlans] = useState([])
   const [phases, setPhases] = useState([])
   const [loading, setLoading] = useState(true)
@@ -2081,7 +2084,7 @@ function TaxPrioritiesTab({ clientId, programId, specialists, readOnly = false, 
       loadedPhases.forEach(p => p.program_client_tasks?.sort((a, b) => a.task_order - b.task_order))
       setPhases(loadedPhases)
  
-      const enabled = (map1Progress.progress || []).some(p => p.status === 'Tax priorities tab enabled')
+      const enabled = programName === 'VFO Tax Planning' || (map1Progress.progress || []).some(p => p.status === 'Tax priorities tab enabled')
       setTaxEnabled(enabled)
  
       // Load progress for all plans
@@ -2541,6 +2544,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     'Continue DD': '#27ae60', 'Continue - Revenue Share': '#27ae60', 'Stop - Refund': '#e74c3c', 'N/A': '#8bacc8',
     'Proceed with Implementation': '#27ae60', 'Not Implementing': '#e74c3c',
     'Pending Completion': '#f39c12',
+    'Go': '#27ae60',
+    'Stop': '#e74c3c',
   }
     
  
@@ -2617,7 +2622,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const tax5aTasks = tax5aPhase?.program_client_tasks || []
  
   // Filter out 5a and 5b from normal phase rendering
-  const phasesBeforeSpec = phases.filter(p => ['Tax 1 - Diagnostic', 'Tax 2 - Deeper Dive', 'Tax 3 - ROI Meeting', 'Tax 4 - Tax Plan Review'].includes(p.name))
+  const phasesBeforeSpec = phases.filter(p => ['Set Up', 'Tax 1 - Diagnostic', 'Tax 2 - Deeper Dive', 'Tax 3 - ROI Meeting', 'Tax 4 - Tax Plan Review'].includes(p.name))
   const phasesAfterSpec = phases.filter(p => p.name === 'Tax 6 - Implementation')
  
   function renderTask(task, phase, taxSpecialistId = null) {
@@ -2963,6 +2968,40 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       </div>
     )
  
+    // Two-button: Tax Plan Greenlight (Go / Stop)
+    if (task.status_options === 'tax_greenlight') return (
+      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'rgba(255,255,255,0.2)'}` }} />
+        <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
+        {isDone
+          ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
+          : <div style={{ display: 'flex', gap: '6px' }}>
+              <button onClick={() => saveTask(task.id, 'Go', p.completed_date, taxSpecialistId)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }}>Go</button>
+              <button onClick={() => saveTask(task.id, 'Stop', p.completed_date, taxSpecialistId)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }}>Stop</button>
+            </div>
+        }
+        {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#8bacc8' }}>{formatDate(p.completed_date)}</span>}
+      </div>
+    )
+
+    // Refund Paid — greyed unless Tax Plan Greenlight = Stop
+    if (task.status_options === 'tax_refund') {
+      const greenlightTask = allTasks.find(t => t.name === 'Tax Plan Greenlight')
+      const greenlightStatus = greenlightTask ? (localProgress[greenlightTask.id]?.status || '') : ''
+      const greyed = greenlightStatus !== 'Stop'
+      return (
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap', opacity: greyed ? 0.3 : 1, pointerEvents: greyed ? 'none' : 'auto' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'rgba(255,255,255,0.2)'}` }} />
+          <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
+          {isDone
+            ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
+            : <button onClick={() => saveTask(task.id, 'Completed', p.completed_date, taxSpecialistId)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6' }}>Send refund</button>
+          }
+          {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#8bacc8' }}>{formatDate(p.completed_date)}</span>}
+        </div>
+      )
+    }
+
     // Two-button: Ready for Tax 3
     if (task.status_options === 'tax_3_decision') return (
       <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>

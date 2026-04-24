@@ -1,27 +1,20 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { callApi } from '../../lib/api'
 
 const ECOSYSTEMS = ['Tax Planning', 'Business Advisory', 'Legal', 'Insurance', 'Wealth Management']
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
 const HEADSHOT_BASE = 'https://biz-diagnostic.com/Uploads/ExpertPhotos/'
 
-export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataChange }) {
-  const [activeTab, setActiveTab] = useState('add')
+export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataChange, section }) {
+  const activeTab = section === 'add_specialist' ? 'add' : 'edit'
   const [addStatus, setAddStatus] = useState('')
   const [addStatusType, setAddStatusType] = useState('success')
   const [editStatus, setEditStatus] = useState('')
   const [editStatusType, setEditStatusType] = useState('success')
-  const [reorderStatus, setReorderStatus] = useState('')
-  const [reorderStatusType, setReorderStatusType] = useState('success')
   const [editingId, setEditingId] = useState(null)
-  const [reorderExperts, setReorderExperts] = useState([])
-  const [reorderDirty, setReorderDirty] = useState(false)
-  const [reorderSearch, setReorderSearch] = useState('')
-  const dragItem = useRef(null)
-  const dragOver = useRef(null)
 
   // Add form state
-  const [addForm, setAddForm] = useState({ name: '', short_bio: '', long_bio: '', details_and_benefits: '' })
+  const [addForm, setAddForm] = useState({ name: '', short_bio: '', long_bio: '', background_check: '', 'D&B_strategy_expertise': '', 'D&B_cutoff_date': '', 'D&B_client_requirements': '', 'D&B_investment_cost': '', 'D&B_ideal_client': '', 'D&B_summary_benefits': '', 'D&B_getting_started': '', 'D&B_professional_process': '', 'D&B_competitive_advantage': '', 'D&B_audit_risk_general': '', 'D&B_audit_risk_history': '', 'D&B_audit_risk_worst_case': '', 'D&B_audit_risk_precautions': '', 'D&B_tax_risk_mindset': '', 'D&B_tax_risk_notes': '', 'D&B_revenue_share': '' })
   const [addEcos, setAddEcos] = useState([])
   const [addCiq, setAddCiq] = useState([])
   const [addFile, setAddFile] = useState(null)
@@ -35,27 +28,22 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   const [editFile, setEditFile] = useState(null)
   const [editPreview, setEditPreview] = useState(null)
   const [editCiqDrop, setEditCiqDrop] = useState('')
-  const [editSelectVal, setEditSelectVal] = useState('')
-  const [showEditForm, setShowEditForm] = useState(false)
+  const [editSearch, setEditSearch] = useState('')
+  const [selectedExpert, setSelectedExpert] = useState(null)
 
   function showStatus(which, type, msg) {
     if (which === 'add') { setAddStatusType(type); setAddStatus(msg); setTimeout(() => setAddStatus(''), 4000) }
     if (which === 'edit') { setEditStatusType(type); setEditStatus(msg); setTimeout(() => setEditStatus(''), 4000) }
-    if (which === 'reorder') { setReorderStatusType(type); setReorderStatus(msg); setTimeout(() => setReorderStatus(''), 4000) }
   }
 
   function clearAddForm() {
-    setAddForm({ name: '', short_bio: '', long_bio: '', details_and_benefits: '' })
+    setAddForm({ name: '', short_bio: '', long_bio: '', background_check: '', 'D&B_strategy_expertise': '', 'D&B_cutoff_date': '', 'D&B_client_requirements': '', 'D&B_investment_cost': '', 'D&B_ideal_client': '', 'D&B_summary_benefits': '', 'D&B_getting_started': '', 'D&B_professional_process': '', 'D&B_competitive_advantage': '', 'D&B_audit_risk_general': '', 'D&B_audit_risk_history': '', 'D&B_audit_risk_worst_case': '', 'D&B_audit_risk_precautions': '', 'D&B_tax_risk_mindset': '', 'D&B_tax_risk_notes': '', 'D&B_revenue_share': '' })
     setAddEcos([]); setAddCiq([]); setAddFile(null); setAddPreview(null)
   }
 
-  function handleEditSelect(id) {
-    setEditSelectVal(id)
-    if (!id) { setShowEditForm(false); return }
-    const expert = allExperts.find(e => e.id === parseInt(id))
-    if (!expert) return
+  function handleEditSelect(expert) {
     setEditingId(expert.id)
-    setEditForm({ name: expert.name || '', short_bio: expert.short_bio || '', long_bio: expert.long_bio || '', details_and_benefits: expert.details_and_benefits || '' })
+    setEditForm({ name: expert.name || '', short_bio: expert.short_bio || '', long_bio: expert.long_bio || '', background_check: expert.background_check || '', 'D&B_strategy_expertise': expert['D&B_strategy_expertise'] || '', 'D&B_cutoff_date': expert['D&B_cutoff_date'] || '', 'D&B_client_requirements': expert['D&B_client_requirements'] || '', 'D&B_investment_cost': expert['D&B_investment_cost'] || '', 'D&B_ideal_client': expert['D&B_ideal_client'] || '', 'D&B_summary_benefits': expert['D&B_summary_benefits'] || '', 'D&B_getting_started': expert['D&B_getting_started'] || '', 'D&B_professional_process': expert['D&B_professional_process'] || '', 'D&B_competitive_advantage': expert['D&B_competitive_advantage'] || '', 'D&B_audit_risk_general': expert['D&B_audit_risk_general'] || '', 'D&B_audit_risk_history': expert['D&B_audit_risk_history'] || '', 'D&B_audit_risk_worst_case': expert['D&B_audit_risk_worst_case'] || '', 'D&B_audit_risk_precautions': expert['D&B_audit_risk_precautions'] || '', 'D&B_tax_risk_mindset': expert['D&B_tax_risk_mindset'] || '', 'D&B_tax_risk_notes': expert['D&B_tax_risk_notes'] || '', 'D&B_revenue_share': expert['D&B_revenue_share'] || '' })
     setEditEcos(ecoMap[expert.id] || [])
     setEditCiq(ciqMap[expert.id] || [])
     setEditFile(null)
@@ -64,7 +52,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
     } else {
       setEditPreview(null)
     }
-    setShowEditForm(true)
+    setSelectedExpert(expert)
   }
 
   function handleFileChange(which, e) {
@@ -153,53 +141,16 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
     }
   }
 
-  function loadReorderList() {
-    setReorderExperts([...allExperts].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)))
-    setReorderDirty(false)
-  }
+  
 
-  function handleDragStart(idx) { dragItem.current = idx }
-  function handleDragEnter(idx) { dragOver.current = idx }
-  function handleDrop() {
-    const from = dragItem.current
-    const to = dragOver.current
-    if (from === null || to === null || from === to) return
-    const updated = [...reorderExperts]
-    const moved = updated.splice(from, 1)[0]
-    updated.splice(to, 0, moved)
-    setReorderExperts(updated)
-    setReorderDirty(true)
-    dragItem.current = null
-    dragOver.current = null
-  }
-
-  async function saveOrder() {
-    try {
-      const order = reorderExperts.map((e, i) => ({ id: e.id, sort_order: i + 1 }))
-      await callApi('save_specialist_order', { order })
-      await onDataChange()
-      setReorderDirty(false)
-      showStatus('reorder', 'success', 'Order saved!')
-    } catch (err) {
-      showStatus('reorder', 'error', err.message)
-    }
-  }
-
-  const subTabStyle = (active) => ({
-    padding: '10px 18px', background: 'transparent', border: 'none',
-    borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent',
-    color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400',
-    cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap'
-  })
+  
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
   const labelStyle = { fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }
   const fieldStyle = { marginBottom: '16px' }
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
 
-  const filteredReorder = reorderSearch
-    ? reorderExperts.filter(e => e.name.toLowerCase().includes(reorderSearch.toLowerCase()))
-    : reorderExperts
+  
 
   function SpecialistForm({ which, form, setForm, ecos, file, preview, ciq, ciqDrop, setCiqDrop, statusMsg, statusType: sType }) {
     return (
@@ -216,9 +167,102 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
           <label style={labelStyle}>Long Bio</label>
           <textarea value={form.long_bio} onChange={e => setForm(p => ({ ...p, long_bio: e.target.value }))} placeholder="Detailed biography..." rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
         </div>
+        <div style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '16px' }}>
+          <div style={{ fontSize: '14px', color: '#fff', fontWeight: '600', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>Details & Benefits</div>
+
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Strategy / Expertise</label>
+            <textarea value={form['D&B_strategy_expertise']} onChange={e => setForm(p => ({ ...p, 'D&B_strategy_expertise': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Cut-off Date for Strategy</label>
+            <input value={form['D&B_cutoff_date']} onChange={e => setForm(p => ({ ...p, 'D&B_cutoff_date': e.target.value }))} style={inputStyle} />
+          </div>
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Client Requirements</label>
+            <textarea value={form['D&B_client_requirements']} onChange={e => setForm(p => ({ ...p, 'D&B_client_requirements': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Amount of Investment or Cost</label>
+            <textarea value={form['D&B_investment_cost']} onChange={e => setForm(p => ({ ...p, 'D&B_investment_cost': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Ideal Client Description</label>
+            <textarea value={form['D&B_ideal_client']} onChange={e => setForm(p => ({ ...p, 'D&B_ideal_client': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Summary of Benefits</label>
+            <textarea value={form['D&B_summary_benefits']} onChange={e => setForm(p => ({ ...p, 'D&B_summary_benefits': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Getting Started with a Client</label>
+            <textarea value={form['D&B_getting_started']} onChange={e => setForm(p => ({ ...p, 'D&B_getting_started': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Steps of Professional Process</label>
+            <textarea value={form['D&B_professional_process']} onChange={e => setForm(p => ({ ...p, 'D&B_professional_process': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
+          <div style={fieldStyle}>
+            <label style={labelStyle}>What Makes You Better Than the Competition</label>
+            <textarea value={form['D&B_competitive_advantage']} onChange={e => setForm(p => ({ ...p, 'D&B_competitive_advantage': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
+
+          <div style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+            <div style={{ fontSize: '13px', color: '#8bacc8', fontWeight: '600', marginBottom: '16px' }}>Tax Planning Audit Risk Questionnaire</div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>1. What are the general risks of this strategy?</label>
+              <textarea value={form['D&B_audit_risk_general']} onChange={e => setForm(p => ({ ...p, 'D&B_audit_risk_general': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+            </div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>2. What has been the history of these risks coming to fruition?</label>
+              <textarea value={form['D&B_audit_risk_history']} onChange={e => setForm(p => ({ ...p, 'D&B_audit_risk_history': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+            </div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>3. What are potential worst-case scenarios?</label>
+              <textarea value={form['D&B_audit_risk_worst_case']} onChange={e => setForm(p => ({ ...p, 'D&B_audit_risk_worst_case': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+            </div>
+            <div style={{ marginBottom: '0' }}>
+              <label style={labelStyle}>4. What precautions are in place to prevent or minimize the risks?</label>
+              <textarea value={form['D&B_audit_risk_precautions']} onChange={e => setForm(p => ({ ...p, 'D&B_audit_risk_precautions': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+            </div>
+          </div>
+
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Revenue Share</label>
+            <textarea value={form['D&B_revenue_share']} onChange={e => setForm(p => ({ ...p, 'D&B_revenue_share': e.target.value }))} rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
+
+          <div style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '16px' }}>
+            <div style={{ fontSize: '13px', color: '#8bacc8', fontWeight: '600', marginBottom: '12px' }}>Acknowledgement, Agreement and Release</div>
+            <p style={{ fontSize: '12px', color: '#5a8ab5', lineHeight: '1.6', margin: 0 }}>Member acknowledges that ERT, and their related companies and legal partnerships maintain a relationship with Specialist in various fields of service and specialities, including, without limitation, in the financial, tax, accounting, and legal service industries. Member further acknowledges that (i) each of the Specialist is separate and independent from, and unrelated to, ERT, and their related companies and legal partnerships, and separate and independent from, and unrelated to, the associates, shareholders, managers, members, officers, directors, employees, contractors, agents, controlling persons, related parties, assigns and partners of ERT and/or of their related companies and legal partnerships; and (ii) that the services provided by the Specialists are not provided by ERT, and/or by their related companies or legal partnerships, and/or by the ERT Related Parties. Member acknowledges and agrees that it is their sole and absolute responsibility to seek his, her and/or their own independent legal, tax, compliance, accounting and financial advice, as applicable to such parties, from competent service providers and advisors of their own independent choosing, including, without limitation, to determine whether an Specialist is someone who is or will provide adequate and appropriate advice for and to the Advisor, Accountant and/or Client given the unique facts and circumstances and the particular risk profile of the service recipients.</p>
+          </div>
+        </div>
         <div style={fieldStyle}>
-          <label style={labelStyle}>Details and Benefits</label>
-          <textarea value={form.details_and_benefits} onChange={e => setForm(p => ({ ...p, details_and_benefits: e.target.value }))} placeholder="Strategy details, client requirements, benefits..." rows={6} style={{ ...inputStyle, resize: 'vertical' }} />
+          <label style={labelStyle}>Background Check</label>
+          <select value={form.background_check} onChange={e => setForm(p => ({ ...p, background_check: e.target.value }))} style={{ ...inputStyle, background: '#0d2a6e', width: '200px' }}>
+            <option value="">-- None --</option>
+            <option value="Lite">Lite</option>
+            <option value="Core">Core</option>
+            <option value="Max">Max</option>
+          </select>
+        </div>
+        <div style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+          <div style={{ fontSize: '13px', color: '#8bacc8', fontWeight: '600', marginBottom: '16px' }}>Tax Risk Mindset</div>
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Risk Level</label>
+            <select value={form['D&B_tax_risk_mindset']} onChange={e => setForm(p => ({ ...p, 'D&B_tax_risk_mindset': e.target.value }))} style={{ ...inputStyle, background: '#0d2a6e', width: '320px' }}>
+              <option value="">-- Select --</option>
+              <option value="Risk 1 – Very Conservative Mindset">Risk 1 – Very Conservative Mindset</option>
+              <option value="Risk 2 - Moderately Conservative Mindset">Risk 2 - Moderately Conservative Mindset</option>
+              <option value="Risk 3 – Average Risk Mindset">Risk 3 – Average Risk Mindset</option>
+              <option value="Risk 4 – Moderately Aggressive Mindset">Risk 4 – Moderately Aggressive Mindset</option>
+              <option value="Risk 5 – Very Aggressive Mindset">Risk 5 – Very Aggressive Mindset</option>
+            </select>
+          </div>
+          <div style={{ marginBottom: '0' }}>
+            <label style={labelStyle}>Tax Risk Notes</label>
+            <textarea value={form['D&B_tax_risk_notes']} onChange={e => setForm(p => ({ ...p, 'D&B_tax_risk_notes': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
         </div>
         <div style={fieldStyle}>
           <label style={labelStyle}>Headshot</label>
@@ -275,14 +319,9 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
-      {/* Sub tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px' }}>
-        {[['add', 'Add Specialist'], ['edit', 'Edit Specialist'], ['reorder', 'Reorder']].map(([key, label]) => (
-          <button key={key} style={subTabStyle(activeTab === key)}
-            onClick={() => { setActiveTab(key); if (key === 'reorder') loadReorderList() }}>
-            {label}
-          </button>
-        ))}
+      {/* Section title */}
+      <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '22px', color: '#fff', marginBottom: '24px' }}>
+        {activeTab === 'add' ? 'Add Specialist' : 'Search Specialists'}
       </div>
 
       {/* Add tab */}
@@ -307,73 +346,61 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
         </div>
       )}
 
-      {/* Edit tab */}
-      {activeTab === 'edit' && (
-        <div style={sectionStyle}>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Select Specialist</label>
-            <select value={editSelectVal} onChange={e => handleEditSelect(e.target.value)} style={{...inputStyle, background: '#0d2a6e'}}>
-              <option value="">-- Choose a specialist --</option>
-              {allExperts.map(ex => <option key={ex.id} value={ex.id}>{ex.name} -- {ex.short_bio || ''}</option>)}
-            </select>
+      {/* Search/Edit tab */}
+      {activeTab === 'edit' && !selectedExpert && (
+        <>
+          <div style={{ marginBottom: '16px' }}>
+            <input placeholder="Search by name..." style={inputStyle} onChange={e => setEditSearch(e.target.value.toLowerCase())} value={editSearch} />
           </div>
-          {showEditForm && (
-            <>
-              <SpecialistForm
-                which="edit" form={editForm} setForm={setEditForm}
-                ecos={editEcos} file={editFile} preview={editPreview}
-                ciq={editCiq} ciqDrop={editCiqDrop} setCiqDrop={setEditCiqDrop}
-                statusMsg={editStatus} statusType={editStatusType}
-              />
-              <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                <button onClick={() => submitSpecialist('edit')}
-                  style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
-                  Save Changes
-                </button>
-                <button onClick={() => { setShowEditForm(false); setEditSelectVal('') }}
-                  style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '14px', cursor: 'pointer' }}>
-                  Cancel
-                </button>
-                <button onClick={deleteSpecialist}
-                  style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontSize: '14px', cursor: 'pointer' }}>
-                  Delete
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Reorder tab */}
-      {activeTab === 'reorder' && (
-        <div style={sectionStyle}>
-          <p style={{ color: '#8bacc8', fontSize: '13px', marginBottom: '16px', fontStyle: 'italic' }}>Drag and drop to reorder specialists. This order applies to the widget and showroom for all members.</p>
-          <input value={reorderSearch} onChange={e => setReorderSearch(e.target.value)} placeholder="Search to find a specialist..." style={{ ...inputStyle, marginBottom: '16px' }} />
-          <div style={{ marginBottom: '20px' }}>
-            {filteredReorder.map((expert, idx) => (
+          <div>
+            {(editSearch ? allExperts.filter(e => e.name.toLowerCase().includes(editSearch)) : allExperts).map(expert => (
               <div key={expert.id}
-                draggable
-                onDragStart={() => handleDragStart(reorderExperts.indexOf(expert))}
-                onDragEnter={() => handleDragEnter(reorderExperts.indexOf(expert))}
-                onDragEnd={handleDrop}
-                onDragOver={e => e.preventDefault()}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', marginBottom: '6px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', cursor: 'grab' }}>
-                <span style={{ color: '#8bacc8', fontSize: '16px' }}>☰</span>
-                <span style={{ color: '#8bacc8', fontSize: '13px', minWidth: '28px' }}>{reorderExperts.indexOf(expert) + 1}</span>
-                <span style={{ fontSize: '14px', color: '#fff' }}>{expert.name}</span>
+                onClick={() => handleEditSelect(expert)}
+                style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', marginBottom: '4px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', cursor: 'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }}>
+                  {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                </div>
+                <div>
+                  <div style={{ fontSize: '14px', color: '#fff' }}>{expert.name}</div>
+                  <div style={{ fontSize: '12px', color: '#8bacc8' }}>{expert.short_bio || '—'}</div>
+                </div>
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {reorderDirty && <span style={{ fontSize: '13px', color: '#d4af37' }}>You have unsaved changes</span>}
-            <button onClick={saveOrder}
-              style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
-              Save Order
-            </button>
+        </>
+      )}
+
+      {activeTab === 'edit' && selectedExpert && (
+        <div>
+          <button onClick={() => { setSelectedExpert(null); setEditingId(null) }} style={{ background: 'none', border: 'none', color: '#5b9fe6', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
+          <div style={sectionStyle}>
+            <SpecialistForm
+              which="edit" form={editForm} setForm={setEditForm}
+              ecos={editEcos} file={editFile} preview={editPreview}
+              ciq={editCiq} ciqDrop={editCiqDrop} setCiqDrop={setEditCiqDrop}
+              statusMsg={editStatus} statusType={editStatusType}
+            />
+            <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+              <button onClick={() => submitSpecialist('edit')}
+                style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
+                Save Changes
+              </button>
+              <button onClick={() => { setSelectedExpert(null); setEditingId(null) }}
+                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '14px', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={deleteSpecialist}
+                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontSize: '14px', cursor: 'pointer' }}>
+                Delete
+              </button>
+            </div>
           </div>
-          {reorderStatus && <p style={{ color: reorderStatusType === 'success' ? '#27ae60' : '#ff6b6b', fontSize: '13px', marginTop: '12px' }}>{reorderStatus}</p>}
         </div>
       )}
+
+      
     </div>
   )
 }

@@ -3,7 +3,12 @@
 }
 
 html {
-  overflow-y: scroll;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
 }
 
 body {
@@ -11,6 +16,8 @@ body {
   padding: 0;
   background: #073991;
   font-family: 'DM Sans', sans-serif;
+  
+  overflow-x: hidden;
 }
 
 #root {

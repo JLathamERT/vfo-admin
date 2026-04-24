@@ -329,7 +329,7 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
         ) : (
           <>
             <button style={tabStyle(activeTab === 'training')} onClick={() => setActiveTab('training')}>90 Day Plan</button>
-            <button style={tabStyle(activeTab === 'clients')} onClick={() => setActiveTab('clients')}>Clients</button>
+            <button style={tabStyle(activeTab === 'clients')} onClick={() => setActiveTab('clients')}>{program.name === 'Partnership Fast Track' ? 'Accountants' : 'Clients'}</button>
           </>
         )}
       </div>
@@ -581,11 +581,17 @@ function ClientsPanel({ enrollment, member, program }) {
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
+  const [addMode, setAddMode] = useState(null)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [addStatus, setAddStatus] = useState('')
+  const [existingSearch, setExistingSearch] = useState('')
+  const [allMemberClients, setAllMemberClients] = useState([])
+  const [loadingExisting, setLoadingExisting] = useState(false)
+
+  const isPFT = program?.name?.includes('Partnership')
 
   useEffect(() => { loadClients() }, [enrollment.id])
 
@@ -598,13 +604,48 @@ function ClientsPanel({ enrollment, member, program }) {
     finally { setLoading(false) }
   }
 
+  async function loadExistingClients() {
+    setLoadingExisting(true)
+    try {
+      const data = await callApi('msm_load_member_clients', { member_number: member.plugin_member_number })
+      const currentIds = clients.map(c => c.id)
+      setAllMemberClients((data.clients || []).filter(c => !currentIds.includes(c.id) && !c.client_ref.includes('-PFT')))
+    } catch (err) { console.error(err) }
+    finally { setLoadingExisting(false) }
+  }
+
   async function addClient() {
     if (!firstName || !lastName) { setAddStatus('First and last name are required.'); return }
     try {
       await callApi('msm_add_client', { enrollment_id: enrollment.id, member_number: member.plugin_member_number, first_name: firstName, last_name: lastName, email, phone })
-      setFirstName(''); setLastName(''); setEmail(''); setPhone(''); setShowAdd(false); setAddStatus('')
+      setFirstName(''); setLastName(''); setEmail(''); setPhone(''); setShowAdd(false); setAddMode(null); setAddStatus('')
       loadClients()
     } catch (err) { setAddStatus(err.message) }
+  }
+
+  async function linkExistingClient(clientId) {
+    try {
+      await callApi('msm_link_existing_client', { client_id: clientId, enrollment_id: enrollment.id })
+      setShowAdd(false); setAddMode(null); setAddStatus('')
+      loadClients()
+    } catch (err) { setAddStatus(err.message) }
+  }
+
+  function handleShowAdd() {
+    if (isPFT) {
+      setShowAdd(true)
+      setAddMode('new')
+    } else {
+      setShowAdd(!showAdd)
+      setAddMode(null)
+      setAddStatus('')
+    }
+  }
+
+  function selectAddMode(mode) {
+    setAddMode(mode)
+    setAddStatus('')
+    if (mode === 'existing') loadExistingClients()
   }
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
@@ -613,6 +654,10 @@ function ClientsPanel({ enrollment, member, program }) {
 
   if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading clients...</div>
 
+  const filteredExisting = existingSearch
+    ? allMemberClients.filter(c => `${c.first_name} ${c.last_name}`.toLowerCase().includes(existingSearch.toLowerCase()) || c.client_ref.toLowerCase().includes(existingSearch.toLowerCase()))
+    : allMemberClients
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', width: '100%' }}>
@@ -620,10 +665,53 @@ function ClientsPanel({ enrollment, member, program }) {
           <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff', lineHeight: 1 }}>{clients.length}</div><div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '4px' }}>TOTAL</div></div>
           <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff', lineHeight: 1 }}>{clients.filter(c => c.status === 'active').length}</div><div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '4px' }}>ACTIVE</div></div>
         </div>
-        <button onClick={() => setShowAdd(!showAdd)} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add Client</button>
+        <button onClick={handleShowAdd} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add {isPFT ? 'Accountant' : 'Client'}</button>
       </div>
 
-      {showAdd && (
+      {showAdd && !isPFT && !addMode && (
+        <div style={{ ...sectionStyle, marginBottom: '20px' }}>
+          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add Client</div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button onClick={() => selectAddMode('existing')} style={{ flex: 1, padding: '20px', borderRadius: '8px', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.08)', color: '#5b9fe6', fontSize: '14px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Add Existing Client</button>
+            <button onClick={() => selectAddMode('new')} style={{ flex: 1, padding: '20px', borderRadius: '8px', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.08)', color: '#27ae60', fontSize: '14px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Add New Client</button>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+            <button onClick={() => { setShowAdd(false); setAddMode(null) }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {showAdd && addMode === 'existing' && (
+        <div style={{ ...sectionStyle, marginBottom: '20px' }}>
+          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add Existing Client</div>
+          {loadingExisting
+            ? <div style={{ padding: '20px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
+            : allMemberClients.length === 0
+              ? <div style={{ padding: '20px', color: '#8bacc8', textAlign: 'center' }}>No other clients found for this member.</div>
+              : <>
+                  <input value={existingSearch} onChange={e => setExistingSearch(e.target.value)} placeholder="Search by name or ref..." style={{ ...inputStyle, marginBottom: '12px' }} />
+                  {filteredExisting.map(c => (
+                    <div key={c.id} onClick={() => linkExistingClient(c.id)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', cursor: 'pointer' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}>
+                      <div>
+                        <div style={{ fontSize: '14px', color: '#fff' }}>{c.first_name} {c.last_name}</div>
+                        <div style={{ fontSize: '12px', color: '#8bacc8' }}>{c.client_ref}{c.email ? ` · ${c.email}` : ''}</div>
+                      </div>
+                      <span style={{ color: '#5b9fe6', fontSize: '12px' }}>Select →</span>
+                    </div>
+                  ))}
+                </>
+          }
+          {addStatus && <p style={{ color: '#ff6b6b', fontSize: '13px', marginTop: '8px' }}>{addStatus}</p>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+            <button onClick={() => setAddMode(null)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>Back</button>
+          </div>
+        </div>
+      )}
+
+      {showAdd && addMode === 'new' && (
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>
           <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add New Client</div>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
@@ -634,17 +722,17 @@ function ClientsPanel({ enrollment, member, program }) {
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={addClient} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
-            <button onClick={() => setShowAdd(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={() => { isPFT ? setShowAdd(false) : setAddMode(null) }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>{isPFT ? 'Cancel' : 'Back'}</button>
           </div>
           {addStatus && <p style={{ color: '#ff6b6b', fontSize: '13px', marginTop: '8px' }}>{addStatus}</p>}
         </div>
       )}
 
-      {clients.length === 0
+      {clients.length === 0 && !showAdd
         ? <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No clients added yet.</div>
         : clients.map(client => (
           <div key={client.id} style={{ ...sectionStyle, cursor: 'pointer' }}
-            onClick={() => navigate(`/admin/client/${client.id}`)}
+            onClick={() => navigate(`/admin/client/${client.id}`, { state: { enrollment_id: enrollment.id } })}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
             onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.12)'}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
