@@ -88,6 +88,10 @@ export default function MemberCIQ({ memberNumber }) {
     try {
       await callApi('ciq_save', { ciq_id: activeCiq.id, answers })
       setSaving(false)
+      setActiveCiq(null)
+      setAnswers({})
+      setActiveSection('intro')
+      loadCiqs()
     } catch (err) { console.error(err); setSaving(false) }
   }
 
