@@ -21,6 +21,7 @@ export default function MemberCIQ({ memberNumber }) {
   const [answers, setAnswers] = useState({})
   const [saving, setSaving] = useState(false)
   const [contactsMap, setContactsMap] = useState({})
+  const [expandedBiz, setExpandedBiz] = useState(null)
 
   useEffect(() => { loadCiqs() }, [memberNumber])
 
@@ -112,6 +113,109 @@ export default function MemberCIQ({ memberNumber }) {
     : allClients
 
   // ─── Active CIQ form view ─────────────────────────────
+  const CIQ_SECTIONS = [
+    { key: 'intro', label: 'Introduction' },
+    { key: 'client_info', label: 'Client Information' },
+    { key: 'business_advisory', label: 'Business Advisory' },
+    { key: 'tax_planning', label: 'Tax Planning' },
+    { key: 'risk_mitigation', label: 'Risk Mitigation' },
+    { key: 'wealth_management', label: 'Wealth Management' },
+    { key: 'legal_services', label: 'Legal Services' },
+    { key: 'finalize', label: 'Finalize' },
+  ]
+
+  const [activeSection, setActiveSection] = useState('intro')
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [validationErrors, setValidationErrors] = useState([])
+
+  function validateCiq() {
+    const errors = []
+    const biz = (() => { try { return JSON.parse(answers.businesses || '[]') } catch { return [] } })()
+    const hasBiz = answers.has_business === 'Yes'
+
+    // Client Info
+    const clientInfoMissing = []
+    if (!answers.marital_status) clientInfoMissing.push('Marital Status')
+    if (!answers.income) clientInfoMissing.push('Income')
+    if (!answers.federal_tax) clientInfoMissing.push('Federal Income Taxes Paid')
+    if (clientInfoMissing.length > 0) errors.push({ section: 'Client Information', fields: clientInfoMissing })
+
+    // Business Advisory
+    if (!answers.has_business) {
+      errors.push({ section: 'Business Advisory', fields: ['Do you have a business?'] })
+    } else if (hasBiz) {
+      if (biz.length === 0) errors.push({ section: 'Business Advisory', fields: ['Add at least one business'] })
+      biz.forEach((b, i) => {
+        const label = b.name || `Business ${i + 1}`
+        const missing = []
+        if (!b.name) missing.push('Business Name')
+        if (!b.type) missing.push('Business Type')
+        if (!b.ownership) missing.push('Ownership %')
+        if (!b.revenue) missing.push('Business Revenue')
+        if (!b.taxes) missing.push('Business Taxes Paid')
+        if (!answers[`biz_focus_${i}`]) missing.push('Key Business Focus')
+        if (missing.length > 0) errors.push({ section: `Business Advisory — ${label}`, fields: missing })
+      })
+    }
+
+    // Tax Planning
+    const taxMissing = []
+    if (!answers.tax_primary_focus) taxMissing.push('Primary Focus')
+    if (!answers.tax_focus_type) taxMissing.push('Primary Tax Focus Type')
+    if (!answers.tax_professional_rating) taxMissing.push('Professional Rating')
+    const taxAreas = ['income_tax_planning', 'capital_gains_tax', 'retirement___estate', 'charitable___gift', 'business_tax_planning']
+    taxAreas.forEach(a => { if (!answers[`tax_interest_${a}`]) taxMissing.push('Tax Interest Grid') })
+    if (taxMissing.length > 0) errors.push({ section: 'Tax Planning', fields: [...new Set(taxMissing)] })
+
+    // Risk Mitigation
+    const riskMissing = []
+    const personalRiskKeys = ['long-term_sickness__insufficient_income_', 'live_too_long__insufficient_income_', 'die_too_soon__impact_dependents_', 'asset_protection__personally_sued_']
+    const businessRiskKeys = ['loss_of_key_person', 'asset_protection__business_sued_', 'technology_advancements']
+    personalRiskKeys.forEach(k => { if (!answers[`risk_personal_${k}`]) riskMissing.push('Personal Risks Grid') })
+    businessRiskKeys.forEach(k => { if (!answers[`risk_business_${k}`]) riskMissing.push('Business Risks Grid') })
+    if (riskMissing.length > 0) errors.push({ section: 'Risk Mitigation', fields: [...new Set(riskMissing)] })
+
+    // Wealth Management
+    const wealthMissing = []
+    if (!answers.wealth_term_focus) wealthMissing.push('Short/Long Term Focus')
+    if (!answers.wealth_term_interest) wealthMissing.push('Short/Long Term Interest')
+    if (!answers.wealth_grow_retain) wealthMissing.push('Grow or Retain')
+    if (!answers.wealth_grow_retain_interest) wealthMissing.push('Grow/Retain Interest')
+    if (!answers.wealth_life_phase) wealthMissing.push('Phase of Life')
+    if (!answers.wealth_life_phase_interest) wealthMissing.push('Life Phase Interest')
+    if (!answers.wealth_alt_interest) wealthMissing.push('Alternative Investments Interest')
+    if (wealthMissing.length > 0) errors.push({ section: 'Wealth Management', fields: wealthMissing })
+
+    // Legal Services
+    const legalMissing = []
+    if (!answers.legal_personal_trusts_and_wills__estate_planning_) legalMissing.push('Personal Legal Services Grid')
+    const bizLegalKeys = ['contract___corporate_law', 'structuring_entities', 'buy___sell_agreements', 'joint_venture_agreements', 'intellectual_property']
+    bizLegalKeys.forEach(k => { if (!answers[`legal_business_${k}`]) legalMissing.push('Business Legal Services Grid') })
+    if (legalMissing.length > 0) errors.push({ section: 'Legal Services', fields: [...new Set(legalMissing)] })
+
+    return errors
+  }
+
+  function handleFinalize() {
+    const errors = validateCiq()
+    setValidationErrors(errors)
+    if (errors.length === 0) setShowConfirm(true)
+  }
+
+  function goNext() {
+    const idx = CIQ_SECTIONS.findIndex(s => s.key === activeSection)
+    if (idx < CIQ_SECTIONS.length - 1) setActiveSection(CIQ_SECTIONS[idx + 1].key)
+  }
+
+  function goPrev() {
+    const idx = CIQ_SECTIONS.findIndex(s => s.key === activeSection)
+    if (idx > 0) setActiveSection(CIQ_SECTIONS[idx - 1].key)
+  }
+
+  const sectionIdx = CIQ_SECTIONS.findIndex(s => s.key === activeSection)
+  const isFirst = sectionIdx === 0
+  const isLast = sectionIdx === CIQ_SECTIONS.length - 1
+
   if (activeCiq) {
     const client = activeCiq.clients
     return (
@@ -121,19 +225,559 @@ export default function MemberCIQ({ memberNumber }) {
             <div style={{ fontSize: '18px', fontWeight: '600', color: '#fff' }}>{client?.first_name} {client?.last_name}</div>
             <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '4px' }}>{client?.client_ref} · {client?.email}</div>
           </div>
-          <button onClick={() => { setActiveCiq(null); setAnswers({}) }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>← Back to list</button>
+          <button onClick={() => { setActiveCiq(null); setAnswers({}); setActiveSection('intro') }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>← Back to list</button>
         </div>
-        <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>
-            CIQ Questionnaire {activeCiq.status === 'completed' && <span style={{ color: '#27ae60', marginLeft: '8px' }}>✓ Completed</span>}
+
+        {/* Section nav */}
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', flexWrap: 'wrap' }}>
+          {CIQ_SECTIONS.map((sec, i) => (
+            <button key={sec.key} onClick={() => setActiveSection(sec.key)}
+              style={{ padding: '8px 16px', borderRadius: '6px', border: activeSection === sec.key ? '1px solid #5b9fe6' : '1px solid rgba(255,255,255,0.1)', background: activeSection === sec.key ? 'rgba(91,159,230,0.15)' : 'transparent', color: activeSection === sec.key ? '#fff' : '#8bacc8', fontSize: '12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+              {i + 1}. {sec.label}
+            </button>
+          ))}
+        </div>
+
+        {activeCiq.status === 'completed' && (
+          <div style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(39,174,96,0.1)', border: '1px solid rgba(39,174,96,0.3)', color: '#27ae60', fontSize: '13px', marginBottom: '20px' }}>✓ This CIQ has been completed</div>
+        )}
+
+        {/* Intro section */}
+        {activeSection === 'intro' && (
+          <div style={sectionStyle}>
+            <div style={{ fontSize: '16px', color: '#fff', lineHeight: '1.7', marginBottom: '20px' }}>
+              We will walk through the following questions together to get a better understanding of your planning needs and concerns.
+            </div>
+            <div style={{ fontSize: '14px', color: '#8bacc8', marginBottom: '16px' }}>
+              The questions are organized within the 5 main areas of the Virtual Family Office:
+            </div>
+            <div style={{ marginLeft: '8px' }}>
+              {['Business Advisory', 'Tax Planning', 'Risk Mitigation', 'Wealth Management', 'Legal Services'].map(area => (
+                <div key={area} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0' }}>
+                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#5b9fe6', flexShrink: 0 }} />
+                  <span style={{ fontSize: '15px', color: '#fff' }}>{area}</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <p style={{ color: '#5a8ab5', fontSize: '14px', marginBottom: '20px' }}>Questions will be added here — tell Jake to send them over.</p>
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={saveAnswers} disabled={saving} style={{ padding: '10px 24px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving...' : 'Save Draft'}</button>
-          {activeCiq.status !== 'completed' && (
-            <button onClick={completeCiq} disabled={saving} style={{ padding: '10px 24px', borderRadius: '8px', background: '#27ae60', border: 'none', color: '#fff', fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer' }}>Mark Complete</button>
-          )}
+        )}
+
+        {/* Client Information */}
+        {activeSection === 'client_info' && (
+          <div style={sectionStyle}>
+            <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '20px' }}>Client Information</div>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Marital Status *</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {['Single', 'Married', 'Relationship with Partner'].map(opt => (
+                  <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px', border: answers.marital_status === opt ? '1px solid #5b9fe6' : '1px solid rgba(255,255,255,0.1)', background: answers.marital_status === opt ? 'rgba(91,159,230,0.1)' : 'transparent', cursor: 'pointer' }}
+                    onClick={() => setAnswers(a => ({ ...a, marital_status: opt }))}>
+                    <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: answers.marital_status === opt ? '5px solid #5b9fe6' : '2px solid rgba(255,255,255,0.3)', boxSizing: 'border-box' }} />
+                    <span style={{ fontSize: '14px', color: '#fff' }}>{opt}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Number of children</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button onClick={() => setAnswers(a => ({ ...a, children: String(Math.max(0, parseInt(a.children || '0') - 1)) }))} style={{ width: '36px', height: '36px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#fff', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                <span style={{ fontSize: '20px', color: '#fff', fontWeight: '600', minWidth: '24px', textAlign: 'center' }}>{answers.children || '0'}</span>
+                <button onClick={() => setAnswers(a => ({ ...a, children: String(parseInt(a.children || '0') + 1) }))} style={{ width: '36px', height: '36px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#fff', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+              </div>
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Income *</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {['<$100k', '$100k - $400k', '$400k - $1M', '>$1M'].map(opt => (
+                  <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px', border: answers.income === opt ? '1px solid #5b9fe6' : '1px solid rgba(255,255,255,0.1)', background: answers.income === opt ? 'rgba(91,159,230,0.1)' : 'transparent', cursor: 'pointer' }}
+                    onClick={() => setAnswers(a => ({ ...a, income: opt }))}>
+                    <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: answers.income === opt ? '5px solid #5b9fe6' : '2px solid rgba(255,255,255,0.3)', boxSizing: 'border-box' }} />
+                    <span style={{ fontSize: '14px', color: '#fff' }}>{opt}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Federal Income taxes paid *</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {['<$20k', '$20k - $100k', '$100k - $250k', '$250k - $500k', '>$500k'].map(opt => (
+                  <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px', border: answers.federal_tax === opt ? '1px solid #5b9fe6' : '1px solid rgba(255,255,255,0.1)', background: answers.federal_tax === opt ? 'rgba(91,159,230,0.1)' : 'transparent', cursor: 'pointer' }}
+                    onClick={() => setAnswers(a => ({ ...a, federal_tax: opt }))}>
+                    <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: answers.federal_tax === opt ? '5px solid #5b9fe6' : '2px solid rgba(255,255,255,0.3)', boxSizing: 'border-box' }} />
+                    <span style={{ fontSize: '14px', color: '#fff' }}>{opt}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Business Advisory */}
+        {activeSection === 'business_advisory' && (() => {
+          const hasBiz = answers.has_business
+          const businesses = (() => { try { return JSON.parse(answers.businesses || '[]') } catch { return [] } })()
+          const setBiz = (newBiz) => setAnswers(a => ({ ...a, businesses: JSON.stringify(newBiz) }))
+          const addBusiness = () => setBiz([...businesses, { name: '', type: '', ownership: '', revenue: '', taxes: '' }])
+          const updateBiz = (idx, field, val) => { const b = [...businesses]; b[idx] = { ...b[idx], [field]: val }; setBiz(b) }
+          const removeBiz = (idx) => { const b = [...businesses]; b.splice(idx, 1); setBiz(b); const adv = {}; Object.keys(answers).filter(k => k.startsWith('biz_focus_') || k.startsWith('biz_interest_')).forEach(k => { adv[k] = undefined }); setAnswers(a => ({ ...a, ...adv })) }
+          
+
+          const radioGroup = (label, answerKey, options) => (
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>{label}</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {options.map(opt => (
+                  <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px', border: answers[answerKey] === opt ? '1px solid #5b9fe6' : '1px solid rgba(255,255,255,0.1)', background: answers[answerKey] === opt ? 'rgba(91,159,230,0.1)' : 'transparent', cursor: 'pointer' }}
+                    onClick={() => setAnswers(a => ({ ...a, [answerKey]: opt }))}>
+                    <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: answers[answerKey] === opt ? '5px solid #5b9fe6' : '2px solid rgba(255,255,255,0.3)', boxSizing: 'border-box' }} />
+                    <span style={{ fontSize: '14px', color: '#fff' }}>{opt}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )
+
+          const bizRadio = (label, idx, field, options) => {
+            const val = businesses[idx]?.[field] || ''
+            return (
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>{label}</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {options.map(opt => (
+                    <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px', border: val === opt ? '1px solid #5b9fe6' : '1px solid rgba(255,255,255,0.1)', background: val === opt ? 'rgba(91,159,230,0.1)' : 'transparent', cursor: 'pointer' }}
+                      onClick={() => updateBiz(idx, field, opt)}>
+                      <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: val === opt ? '5px solid #5b9fe6' : '2px solid rgba(255,255,255,0.3)', boxSizing: 'border-box' }} />
+                      <span style={{ fontSize: '14px', color: '#fff' }}>{opt}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )
+          }
+
+          return (
+            <div>
+              {/* Do you have a business? */}
+              <div style={sectionStyle}>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '20px' }}>Business Overview</div>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Do you have a business? *</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {['Yes', 'No'].map(opt => (
+                      <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px', border: hasBiz === opt ? '1px solid #5b9fe6' : '1px solid rgba(255,255,255,0.1)', background: hasBiz === opt ? 'rgba(91,159,230,0.1)' : 'transparent', cursor: 'pointer' }}
+                        onClick={() => setAnswers(a => ({ ...a, has_business: opt }))}>
+                        <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: hasBiz === opt ? '5px solid #5b9fe6' : '2px solid rgba(255,255,255,0.3)', boxSizing: 'border-box' }} />
+                        <span style={{ fontSize: '14px', color: '#fff' }}>{opt}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {hasBiz === 'No' && (
+                  <div style={{ padding: '12px 16px', borderRadius: '8px', background: 'rgba(91,159,230,0.06)', border: '1px solid rgba(91,159,230,0.2)', color: '#8bacc8', fontSize: '13px' }}>
+                    No business — this section is complete. Click Next to continue to Tax Planning.
+                  </div>
+                )}
+              </div>
+
+              {/* Business cards — only if Yes */}
+              {hasBiz === 'Yes' && (
+                <>
+                  {businesses.length === 0 && (
+                    <div style={{ ...sectionStyle, textAlign: 'center', padding: '40px' }}>
+                      <div style={{ color: '#8bacc8', fontSize: '14px', marginBottom: '12px' }}>No businesses added yet.</div>
+                      <button onClick={addBusiness} style={{ padding: '10px 24px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add Your First Business</button>
+                    </div>
+                  )}
+
+                  {businesses.map((biz, idx) => (
+                    <div key={idx} style={{ ...sectionStyle, borderColor: expandedBiz === idx ? 'rgba(91,159,230,0.3)' : 'rgba(255,255,255,0.1)' }}>
+                      {/* Header — click to expand/collapse */}
+                      <div onClick={() => setExpandedBiz(expandedBiz === idx ? null : idx)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+                        <div>
+                          <div style={{ fontSize: '15px', fontWeight: '600', color: '#fff' }}>{biz.name || `Business ${idx + 1}`}</div>
+                          {biz.type && <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>{biz.type}{biz.ownership ? ` · ${biz.ownership}% ownership` : ''}</div>}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ color: '#8bacc8', fontSize: '18px' }}>{expandedBiz === idx ? '▾' : '▸'}</span>
+                        </div>
+                      </div>
+
+                      {/* Expanded content */}
+                      {expandedBiz === idx && (
+                        <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                          <div style={{ marginBottom: '20px' }}>
+                            <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Business Name *</label>
+                            <input value={biz.name} onChange={e => updateBiz(idx, 'name', e.target.value)} style={inputStyle} />
+                          </div>
+                          <div style={{ marginBottom: '20px' }}>
+                            <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Business Type *</label>
+                            <input value={biz.type} onChange={e => updateBiz(idx, 'type', e.target.value)} style={inputStyle} />
+                          </div>
+                          <div style={{ marginBottom: '20px' }}>
+                            <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Ownership % *</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                              <input type="range" min="0" max="100" step="1" value={biz.ownership || 0} onChange={e => updateBiz(idx, 'ownership', e.target.value)}
+                                style={{ flex: 1, accentColor: '#5b9fe6', cursor: 'pointer' }} />
+                              <span style={{ fontSize: '18px', fontWeight: '600', color: '#fff', minWidth: '50px', textAlign: 'right' }}>{biz.ownership || 0}%</span>
+                            </div>
+                          </div>
+                          {bizRadio('Business Revenue *', idx, 'revenue', ['<$500k', '$500k - $1M', '$1M - $2M', '$2M - $5M', '>$5M', 'N/A'])}
+                          {bizRadio('Business Taxes Paid *', idx, 'taxes', ['<$50k', '$50k - $100k', '$100k - $250k', '$250k - $500k', '>$500k', 'N/A'])}
+
+                          <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px', marginTop: '16px' }}>
+                            <div style={{ fontSize: '14px', fontWeight: '600', color: '#5b9fe6', marginBottom: '16px' }}>Business Advisory — {biz.name || `Business ${idx + 1}`}</div>
+                            {radioGroup(`What is your key business focus next year for ${biz.name || 'this business'}?`, `biz_focus_${idx}`, ['Business Growth', 'Business Exit', 'Neither of the Above'])}
+                            {(answers[`biz_focus_${idx}`] === 'Business Growth' || answers[`biz_focus_${idx}`] === 'Business Exit') &&
+                              radioGroup('Rate your level of interest', `biz_interest_${idx}`, ['Not Applicable', 'Not Interested', 'Somewhat Interested', 'Very Interested'])
+                            }
+                          </div>
+
+                          <div style={{ marginBottom: '20px' }}>
+                            <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Any other business focus for {biz.name || `Business ${idx + 1}`}?</label>
+                            <input value={answers[`biz_other_focus_${idx}`] || ''} onChange={e => setAnswers(a => ({ ...a, [`biz_other_focus_${idx}`]: e.target.value }))} style={inputStyle} />
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                            <button onClick={() => removeBiz(idx)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontSize: '12px', cursor: 'pointer' }}>Remove Business</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {businesses.length > 0 && (
+                    <button onClick={addBusiness} style={{ padding: '8px 14px', borderRadius: '6px', border: '1px dashed rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.06)', color: '#5b9fe6', fontSize: '12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', marginBottom: '16px' }}>+ Add Another Business</button>
+                  )}
+                </>
+              )}
+            </div>
+          )
+        })()}
+        {activeSection === 'tax_planning' && (() => {
+          const businesses = (() => { try { return JSON.parse(answers.businesses || '[]') } catch { return [] } })()
+          const hasBiz = answers.has_business === 'Yes' && businesses.length > 0
+
+          const radioGroup = (label, answerKey, options) => (
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>{label}</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {options.map(opt => (
+                  <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px', border: answers[answerKey] === opt ? '1px solid #5b9fe6' : '1px solid rgba(255,255,255,0.1)', background: answers[answerKey] === opt ? 'rgba(91,159,230,0.1)' : 'transparent', cursor: 'pointer' }}
+                    onClick={() => setAnswers(a => ({ ...a, [answerKey]: opt }))}>
+                    <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: answers[answerKey] === opt ? '5px solid #5b9fe6' : '2px solid rgba(255,255,255,0.3)', boxSizing: 'border-box' }} />
+                    <span style={{ fontSize: '14px', color: '#fff' }}>{opt}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )
+
+          const interestLevels = ['Not Applicable', 'Not Interested', 'Somewhat Interested', 'Very Interested']
+          const taxAreas = ['Income Tax Planning', 'Capital Gains Tax', 'Retirement / Estate', 'Charitable / Gift', 'Business Tax Planning']
+
+          return (
+            <div>
+              <div style={sectionStyle}>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '20px' }}>Tax Planning</div>
+
+                {radioGroup('Where is your primary focus? *', 'tax_primary_focus', ['Prior Tax Years', 'Future Tax Years'])}
+
+                {radioGroup('Is your primary tax focus relating to *', 'tax_focus_type', ['One-time Taxable Transaction', 'Continuing Taxable Planning Required'])}
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Aside from anyone in this meeting, are there any other professionals that you would typically run financial decisions by (particularly when it comes to tax planning)? *</label>
+                  <input value={answers.tax_other_professionals || ''} onChange={e => setAnswers(a => ({ ...a, tax_other_professionals: e.target.value }))} style={inputStyle} />
+                </div>
+
+                {radioGroup('How would you rate the primary professional referenced above? *', 'tax_professional_rating', ['Great', 'Average', 'Poor', 'N/A'])}
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Please rate your level of interest in the following areas of tax planning *</label>
+                  <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', overflow: 'hidden' }}>
+                    {/* Header row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr repeat(4, 100px)', background: 'rgba(0,0,0,0.2)', padding: '10px 14px', gap: '4px' }}>
+                      <div style={{ fontSize: '12px', color: '#8bacc8' }}></div>
+                      {interestLevels.map(level => (
+                        <div key={level} style={{ fontSize: '11px', color: '#8bacc8', textAlign: 'center' }}>{level}</div>
+                      ))}
+                    </div>
+                    {/* Rows */}
+                    {taxAreas.map(area => {
+                      const key = `tax_interest_${area.toLowerCase().replace(/[\s\/]/g, '_')}`
+                      return (
+                        <div key={area} style={{ display: 'grid', gridTemplateColumns: '1fr repeat(4, 100px)', padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', gap: '4px', alignItems: 'center' }}>
+                          <div style={{ fontSize: '13px', color: '#fff' }}>{area}</div>
+                          {interestLevels.map(level => (
+                            <div key={level} style={{ display: 'flex', justifyContent: 'center' }}>
+                              <div onClick={() => setAnswers(a => ({ ...a, [key]: level }))}
+                                style={{ width: '18px', height: '18px', borderRadius: '50%', border: answers[key] === level ? '5px solid #5b9fe6' : '2px solid rgba(255,255,255,0.3)', boxSizing: 'border-box', cursor: 'pointer' }} />
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Business Tax Planning — which business dropdown */}
+                  {answers.tax_interest_business_tax_planning && answers.tax_interest_business_tax_planning !== 'Not Applicable' && answers.tax_interest_business_tax_planning !== 'Not Interested' && hasBiz && (
+                    <div style={{ marginTop: '12px', padding: '12px 14px', borderRadius: '8px', background: 'rgba(91,159,230,0.06)', border: '1px solid rgba(91,159,230,0.2)' }}>
+                      <label style={{ fontSize: '12px', color: '#5b9fe6', display: 'block', marginBottom: '6px' }}>Which business? *</label>
+                      <select value={answers.tax_which_business || ''} onChange={e => setAnswers(a => ({ ...a, tax_which_business: e.target.value }))}
+                        style={{ ...inputStyle, background: '#0d2a6e' }}>
+                        <option value="">-- Select a business --</option>
+                        {businesses.length > 1 && <option value="All">All</option>}
+                        {businesses.map((b, i) => (
+                          <option key={i} value={b.name || `Business ${i + 1}`}>{b.name || `Business ${i + 1}`}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ marginBottom: '0' }}>
+                  <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Any other tax focus?</label>
+                  <textarea value={answers.tax_other_focus || ''} onChange={e => setAnswers(a => ({ ...a, tax_other_focus: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+        {activeSection === 'risk_mitigation' && (() => {
+          const businesses = (() => { try { return JSON.parse(answers.businesses || '[]') } catch { return [] } })()
+          const hasBiz = answers.has_business === 'Yes' && businesses.length > 0
+          const concernLevels = ['No Concern', 'Little Concern', 'Average Concern', 'Large Concern']
+          const personalRisks = ['Long-term Sickness (Insufficient Income)', 'Live too Long (Insufficient Income)', 'Die too Soon (Impact Dependents)', 'Asset Protection (Personally Sued)']
+          const businessRisks = ['Loss of Key Person', 'Asset Protection (Business Sued)', 'Technology Advancements']
+
+          const concernGrid = (title, areas, keyPrefix) => (
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>{title}</label>
+              <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr repeat(4, 1fr)', background: 'rgba(0,0,0,0.2)', padding: '10px 14px', gap: '4px' }}>
+                  <div />
+                  {concernLevels.map(level => (
+                    <div key={level} style={{ fontSize: '11px', color: '#8bacc8', textAlign: 'center' }}>{level}</div>
+                  ))}
+                </div>
+                {areas.map(area => {
+                  const key = `${keyPrefix}_${area.toLowerCase().replace(/[\s\/\(\)]/g, '_')}`
+                  return (
+                    <div key={area} style={{ display: 'grid', gridTemplateColumns: '1.5fr repeat(4, 1fr)', padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', gap: '4px', alignItems: 'center' }}>
+                      <div style={{ fontSize: '13px', color: '#fff' }}>{area}</div>
+                      {concernLevels.map(level => (
+                        <div key={level} style={{ display: 'flex', justifyContent: 'center' }}>
+                          <div onClick={() => setAnswers(a => ({ ...a, [key]: level }))}
+                            style={{ width: '18px', height: '18px', borderRadius: '50%', border: answers[key] === level ? '5px solid #5b9fe6' : '2px solid rgba(255,255,255,0.3)', boxSizing: 'border-box', cursor: 'pointer' }} />
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+
+          return (
+            <div>
+              <div style={sectionStyle}>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '8px' }}>Risk Mitigation</div>
+                <div style={{ fontSize: '14px', color: '#8bacc8', marginBottom: '24px' }}>Big Picture Priorities regarding Risk Mitigation</div>
+
+                {concernGrid('Personal Risks — What are your principal concerns? *', personalRisks, 'risk_personal')}
+
+                {concernGrid('Business Risks — What are your principal concerns? *', businessRisks, 'risk_business')}
+
+                {/* Which business dropdown for business risks */}
+                {hasBiz && (
+                  <div style={{ marginBottom: '24px', padding: '12px 14px', borderRadius: '8px', background: 'rgba(91,159,230,0.06)', border: '1px solid rgba(91,159,230,0.2)' }}>
+                    <label style={{ fontSize: '12px', color: '#5b9fe6', display: 'block', marginBottom: '6px' }}>Which business do the above business risks relate to? *</label>
+                    <select value={answers.risk_which_business || ''} onChange={e => setAnswers(a => ({ ...a, risk_which_business: e.target.value }))}
+                      style={{ ...inputStyle, background: '#0d2a6e' }}>
+                      <option value="">-- Select a business --</option>
+                      {businesses.length > 1 && <option value="All">All</option>}
+                      {businesses.map((b, i) => (
+                        <option key={i} value={b.name || `Business ${i + 1}`}>{b.name || `Business ${i + 1}`}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '0' }}>
+                  <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Any other risk mitigation focus?</label>
+                  <textarea value={answers.risk_other_focus || ''} onChange={e => setAnswers(a => ({ ...a, risk_other_focus: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+        {activeSection === 'wealth_management' && (() => {
+          const interestLevels = ['Not Applicable', 'Not Interested', 'Somewhat Interested', 'Very Interested']
+
+          const radioGroup = (label, answerKey, options) => (
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>{label}</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {options.map(opt => (
+                  <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px', border: answers[answerKey] === opt ? '1px solid #5b9fe6' : '1px solid rgba(255,255,255,0.1)', background: answers[answerKey] === opt ? 'rgba(91,159,230,0.1)' : 'transparent', cursor: 'pointer' }}
+                    onClick={() => setAnswers(a => ({ ...a, [answerKey]: opt }))}>
+                    <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: answers[answerKey] === opt ? '5px solid #5b9fe6' : '2px solid rgba(255,255,255,0.3)', boxSizing: 'border-box' }} />
+                    <span style={{ fontSize: '14px', color: '#fff' }}>{opt}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )
+
+          return (
+            <div>
+              <div style={sectionStyle}>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '8px' }}>Wealth Management</div>
+                <div style={{ fontSize: '14px', color: '#8bacc8', marginBottom: '24px' }}>Big Picture Priorities regarding Wealth Management</div>
+
+                {radioGroup('Is your primary focus short term or long term Wealth Management (or both)? *', 'wealth_term_focus', ['Short Term', 'Long Term', 'Both'])}
+
+                {radioGroup('Please rate your level of interest Short / Long Term Planning *', 'wealth_term_interest', interestLevels)}
+
+                {radioGroup('Is your primary focus to grow or retain wealth (or both)? *', 'wealth_grow_retain', ['Grow Wealth', 'Retain Wealth', 'Both'])}
+
+                {radioGroup('Please rate your level of interest of Grow or Retain Wealth *', 'wealth_grow_retain_interest', interestLevels)}
+
+                {radioGroup('Where is your primary Wealth Management focus (in terms of your "phase of life")? *', 'wealth_life_phase', ['Young Children', 'College Planning', 'Retirement Planning', 'Legacy Planning'])}
+
+                {radioGroup('Please rate your level of interest in that primary focus of Key Life Phase *', 'wealth_life_phase_interest', interestLevels)}
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Do you have any interest in alternative investments (real estate, crypto, etc)? Note the area you are primarily interested in *</label>
+                  <textarea value={answers.wealth_alt_investments || ''} onChange={e => setAnswers(a => ({ ...a, wealth_alt_investments: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                </div>
+
+                {radioGroup('Please rate your level of interest in Alternative Investments *', 'wealth_alt_interest', interestLevels)}
+
+                <div style={{ marginBottom: '0' }}>
+                  <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Any other wealth management focus?</label>
+                  <textarea value={answers.wealth_other_focus || ''} onChange={e => setAnswers(a => ({ ...a, wealth_other_focus: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+        {activeSection === 'legal_services' && (() => {
+          const businesses = (() => { try { return JSON.parse(answers.businesses || '[]') } catch { return [] } })()
+          const hasBiz = answers.has_business === 'Yes' && businesses.length > 0
+          const interestLevels = ['Not Applicable', 'Not Interested', 'Somewhat Interested', 'Very Interested']
+          const personalLegal = ['Trusts and Wills (Estate Planning)']
+          const businessLegal = ['Contract / Corporate Law', 'Structuring Entities', 'Buy / Sell Agreements', 'Joint Venture Agreements', 'Intellectual Property']
+
+          const interestGrid = (title, areas, keyPrefix) => (
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>{title}</label>
+              <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr repeat(4, 1fr)', background: 'rgba(0,0,0,0.2)', padding: '10px 14px', gap: '4px' }}>
+                  <div />
+                  {interestLevels.map(level => (
+                    <div key={level} style={{ fontSize: '11px', color: '#8bacc8', textAlign: 'center' }}>{level}</div>
+                  ))}
+                </div>
+                {areas.map(area => {
+                  const key = `${keyPrefix}_${area.toLowerCase().replace(/[\s\/\(\)]/g, '_')}`
+                  return (
+                    <div key={area} style={{ display: 'grid', gridTemplateColumns: '1.5fr repeat(4, 1fr)', padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', gap: '4px', alignItems: 'center' }}>
+                      <div style={{ fontSize: '13px', color: '#fff' }}>{area}</div>
+                      {interestLevels.map(level => (
+                        <div key={level} style={{ display: 'flex', justifyContent: 'center' }}>
+                          <div onClick={() => setAnswers(a => ({ ...a, [key]: level }))}
+                            style={{ width: '18px', height: '18px', borderRadius: '50%', border: answers[key] === level ? '5px solid #5b9fe6' : '2px solid rgba(255,255,255,0.3)', boxSizing: 'border-box', cursor: 'pointer' }} />
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+
+          return (
+            <div>
+              <div style={sectionStyle}>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '8px' }}>Legal Services</div>
+                <div style={{ fontSize: '14px', color: '#8bacc8', marginBottom: '24px' }}>Big Picture Priorities regarding Legal Services</div>
+
+                {interestGrid('Please rate your level of interest in the following areas of Personal Legal Services *', personalLegal, 'legal_personal')}
+
+                {interestGrid('Please rate your level of interest in the following areas of Business Legal Services *', businessLegal, 'legal_business')}
+
+                {hasBiz && (
+                  <div style={{ marginBottom: '24px', padding: '12px 14px', borderRadius: '8px', background: 'rgba(91,159,230,0.06)', border: '1px solid rgba(91,159,230,0.2)' }}>
+                    <label style={{ fontSize: '12px', color: '#5b9fe6', display: 'block', marginBottom: '6px' }}>Which business do the above business legal services relate to? *</label>
+                    <select value={answers.legal_which_business || ''} onChange={e => setAnswers(a => ({ ...a, legal_which_business: e.target.value }))}
+                      style={{ ...inputStyle, background: '#0d2a6e' }}>
+                      <option value="">-- Select a business --</option>
+                      {businesses.length > 1 && <option value="All">All</option>}
+                      {businesses.map((b, i) => (
+                        <option key={i} value={b.name || `Business ${i + 1}`}>{b.name || `Business ${i + 1}`}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '0' }}>
+                  <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Any other legal services focus?</label>
+                  <textarea value={answers.legal_other_focus || ''} onChange={e => setAnswers(a => ({ ...a, legal_other_focus: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* Finalize */}
+        {activeSection === 'finalize' && !showConfirm && (
+          <div style={sectionStyle}>
+            <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '8px' }}>Finalize CIQ</div>
+            <div style={{ fontSize: '14px', color: '#8bacc8', marginBottom: '24px' }}>
+              You have reached the end of the CIQ Diagnostic. If you need to go back and make any changes, do that now.
+            </div>
+            {activeCiq.status !== 'completed' && (
+              <button onClick={handleFinalize} style={{ padding: '12px 28px', borderRadius: '8px', background: '#27ae60', border: 'none', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Finalize CIQ</button>
+            )}
+            {validationErrors.length > 0 && (
+              <div style={{ marginTop: '20px', padding: '16px', borderRadius: '8px', background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.3)' }}>
+                <div style={{ fontSize: '14px', color: '#e74c3c', fontWeight: '600', marginBottom: '12px' }}>The following sections have incomplete fields:</div>
+                {validationErrors.map((err, i) => (
+                  <div key={i} style={{ marginBottom: '10px' }}>
+                    <div style={{ fontSize: '13px', color: '#fff', fontWeight: '600' }}>{err.section}</div>
+                    <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>{err.fields.join(', ')}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeSection === 'finalize' && showConfirm && (
+          <div style={sectionStyle}>
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <div style={{ fontSize: '20px', fontWeight: '600', color: '#fff', marginBottom: '12px' }}>Confirm Finalization</div>
+              <div style={{ fontSize: '14px', color: '#8bacc8', marginBottom: '24px', maxWidth: '500px', margin: '0 auto 24px' }}>
+                You are about to finalize this CIQ Diagnostic. Once finalized, the questionnaire will be marked as completed. You can still view and edit the answers afterward.
+              </div>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                <button onClick={() => setShowConfirm(false)} style={{ padding: '12px 28px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '14px', cursor: 'pointer' }}>Go Back</button>
+                <button onClick={async () => { await completeCiq(); setShowConfirm(false) }} disabled={saving} style={{ padding: '12px 28px', borderRadius: '8px', background: '#27ae60', border: 'none', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Finalizing...' : 'Finalize CIQ Diagnostic'}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation + save */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {!isFirst && <button onClick={goPrev} style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>← Previous</button>}
+            {!isLast && <button onClick={goNext} style={{ padding: '10px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Next →</button>}
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={saveAnswers} disabled={saving} style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#fff', fontSize: '13px', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving...' : 'Save Draft'}</button>
+          </div>
         </div>
       </div>
     )
