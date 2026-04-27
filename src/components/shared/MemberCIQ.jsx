@@ -22,6 +22,8 @@ export default function MemberCIQ({ memberNumber }) {
   const [saving, setSaving] = useState(false)
   const [contactsMap, setContactsMap] = useState({})
   const [expandedBiz, setExpandedBiz] = useState(null)
+  const [showReport, setShowReport] = useState(false)
+  const [ciqView, setCiqView] = useState(null)
 
   useEffect(() => { loadCiqs() }, [memberNumber])
 
@@ -79,6 +81,8 @@ export default function MemberCIQ({ memberNumber }) {
       const data = await callApi('ciq_load', { ciq_id: ciq.id })
       setActiveCiq(data.ciq)
       setAnswers(data.answers || {})
+      if (data.ciq.status === 'completed') { setCiqView('chooser'); setShowReport(false) }
+      else { setCiqView('diagnostic'); setShowReport(false) }
     } catch (err) { console.error(err) }
   }
 
@@ -101,9 +105,9 @@ export default function MemberCIQ({ memberNumber }) {
     try {
       await callApi('ciq_save', { ciq_id: activeCiq.id, answers })
       await callApi('ciq_complete', { ciq_id: activeCiq.id })
-      setActiveCiq(null)
-      setAnswers({})
-      loadCiqs()
+      setShowConfirm(false)
+      setCiqView('report')
+      setShowReport(true)
     } catch (err) { console.error(err) }
     finally { setSaving(false) }
   }
@@ -222,6 +226,221 @@ export default function MemberCIQ({ memberNumber }) {
 
   if (activeCiq) {
     const client = activeCiq.clients
+    const reportBiz = (() => { try { return JSON.parse(answers.businesses || '[]') } catch { return [] } })()
+
+    // ─── CHOOSER VIEW (completed CIQs) ──────────────────
+    if (ciqView === 'chooser') {
+      return (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: '600', color: '#fff' }}>{client?.first_name} {client?.last_name}</div>
+              <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '4px' }}>{client?.client_ref} · {client?.email}</div>
+            </div>
+            <button onClick={() => { setActiveCiq(null); setAnswers({}); setActiveSection('intro'); setCiqView(null); loadCiqs() }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>← Back to list</button>
+          </div>
+
+          <div style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(39,174,96,0.1)', border: '1px solid rgba(39,174,96,0.3)', color: '#27ae60', fontSize: '13px', marginBottom: '24px' }}>✓ CIQ Diagnostic completed {activeCiq.completed_at?.split('T')[0] || ''}</div>
+
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <div onClick={() => setCiqView('diagnostic')}
+              style={{ flex: 1, padding: '32px 24px', borderRadius: '12px', border: '1px solid rgba(91,159,230,0.3)', background: 'rgba(91,159,230,0.06)', cursor: 'pointer', textAlign: 'center' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(91,159,230,0.12)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(91,159,230,0.06)'}>
+              <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '6px' }}>Diagnostic</div>
+              <div style={{ fontSize: '12px', color: '#8bacc8' }}>View or edit the questionnaire answers</div>
+            </div>
+            <div onClick={() => { setCiqView('report'); setShowReport(true) }}
+              style={{ flex: 1, padding: '32px 24px', borderRadius: '12px', border: '1px solid rgba(39,174,96,0.3)', background: 'rgba(39,174,96,0.06)', cursor: 'pointer', textAlign: 'center' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(39,174,96,0.12)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(39,174,96,0.06)'}>
+              <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '6px' }}>Report</div>
+              <div style={{ fontSize: '12px', color: '#8bacc8' }}>View the completed CIQ summary</div>
+            </div>
+            <div onClick={() => setCiqView('prioritize')}
+              style={{ flex: 1, padding: '32px 24px', borderRadius: '12px', border: '1px solid rgba(212,175,55,0.3)', background: 'rgba(212,175,55,0.06)', cursor: 'pointer', textAlign: 'center' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.12)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'}>
+              <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '6px' }}>Prioritize</div>
+              <div style={{ fontSize: '12px', color: '#8bacc8' }}>Prioritize identified opportunities</div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // ─── PRIORITIZE VIEW (placeholder) ───────────────────
+    if (ciqView === 'prioritize') {
+      return (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: '600', color: '#fff' }}>Prioritize Opportunities — {client?.first_name} {client?.last_name}</div>
+              <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '4px' }}>{client?.client_ref}</div>
+            </div>
+            <button onClick={() => setCiqView('chooser')} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>← Back</button>
+          </div>
+          <div style={{ ...sectionStyle, textAlign: 'center', padding: '60px 20px' }}>
+            <div style={{ fontSize: '18px', fontWeight: '600', color: '#fff', marginBottom: '12px' }}>Prioritize Opportunities</div>
+            <div style={{ fontSize: '14px', color: '#8bacc8' }}>Coming soon — this is where you will prioritize the opportunities identified in the CIQ Diagnostic.</div>
+          </div>
+        </div>
+      )
+    }
+
+    // ─── REPORT VIEW ─────────────────────────────────────
+    if (showReport) {
+      const reportRow = (label, value) => (
+        <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ flex: 1, padding: '10px 14px', fontSize: '13px', color: '#8bacc8' }}>{label}</div>
+          <div style={{ flex: 1, padding: '10px 14px', fontSize: '13px', color: '#fff' }}>{value || '—'}</div>
+        </div>
+      )
+
+      const reportHeader = (title, subtitle) => (
+        <div style={{ background: 'rgba(91,159,230,0.15)', padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ fontSize: '14px', fontWeight: '600', color: '#fff' }}>{title}</div>
+          {subtitle && <div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '2px' }}>{subtitle}</div>}
+        </div>
+      )
+
+      const reportSubHeader = (title) => (
+        <div style={{ background: 'rgba(91,159,230,0.08)', padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ fontSize: '12px', fontWeight: '600', color: '#5b9fe6', textAlign: 'center' }}>{title}</div>
+        </div>
+      )
+
+      const tableStyle = { border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden', marginBottom: '24px' }
+
+      return (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: '600', color: '#fff' }}>CIQ Report — {client?.first_name} {client?.last_name}</div>
+              <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '4px' }}>{client?.client_ref} · Completed {activeCiq.completed_at?.split('T')[0] || 'just now'}</div>
+            </div>
+            <button onClick={() => { setShowReport(false); setCiqView('chooser') }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>← Back</button>
+          </div>
+
+          {/* Client Information */}
+          <div style={tableStyle}>
+            {reportHeader('Client Information')}
+            {reportRow('Client Name', `${client?.first_name} ${client?.last_name}`)}
+            {reportRow('Client Ref', client?.client_ref)}
+            {reportRow('Email', client?.email)}
+            {reportRow('Marital Status', answers.marital_status)}
+            {reportRow('Children', answers.children || '0')}
+            {reportRow('Income', answers.income)}
+            {reportRow('Federal Income Taxes Paid', answers.federal_tax)}
+          </div>
+
+          {/* Business Overview */}
+          <div style={tableStyle}>
+            {reportHeader('Business Overview')}
+            {reportRow('Has a Business', answers.has_business)}
+            {answers.has_business === 'Yes' && reportBiz.map((biz, i) => (
+              <div key={i}>
+                {reportSubHeader(biz.name || `Business ${i + 1}`)}
+                {reportRow('Business Name', biz.name)}
+                {reportRow('Business Type', biz.type)}
+                {reportRow('Ownership %', biz.ownership ? `${biz.ownership}%` : '')}
+                {reportRow('Business Revenue', biz.revenue)}
+                {reportRow('Business Taxes Paid', biz.taxes)}
+              </div>
+            ))}
+          </div>
+
+          {/* Business Advisory */}
+          {answers.has_business === 'Yes' && reportBiz.length > 0 && (
+            <div style={tableStyle}>
+              {reportHeader('Business Advisory')}
+              {reportBiz.map((biz, i) => (
+                <div key={i}>
+                  {reportSubHeader(biz.name || `Business ${i + 1}`)}
+                  {reportRow('Key Business Focus', answers[`biz_focus_${i}`])}
+                  {(answers[`biz_focus_${i}`] === 'Business Growth' || answers[`biz_focus_${i}`] === 'Business Exit') && reportRow('Level of Interest', answers[`biz_interest_${i}`])}
+                  {reportRow('Other Business Focus', answers[`biz_other_focus_${i}`])}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Tax Planning */}
+          <div style={tableStyle}>
+            {reportHeader('Tax Planning')}
+            {reportRow('Primary Focus', answers.tax_primary_focus)}
+            {reportRow('Tax Focus Type', answers.tax_focus_type)}
+            {reportRow('Other Professionals', answers.tax_other_professionals)}
+            {reportRow('Professional Rating', answers.tax_professional_rating)}
+            {reportSubHeader('Interest Levels')}
+            {reportRow('Income Tax Planning', answers.tax_interest_income_tax_planning)}
+            {reportRow('Capital Gains Tax', answers.tax_interest_capital_gains_tax)}
+            {reportRow('Retirement / Estate', answers.tax_interest_retirement___estate)}
+            {reportRow('Charitable / Gift', answers.tax_interest_charitable___gift)}
+            {reportRow('Business Tax Planning', answers.tax_interest_business_tax_planning)}
+            {answers.tax_which_business && reportRow('Which Business', answers.tax_which_business)}
+            {reportSubHeader('Other')}
+            {reportRow('Other Tax Focus', answers.tax_other_focus)}
+          </div>
+
+          {/* Risk Mitigation */}
+          <div style={tableStyle}>
+            {reportHeader('Risk Mitigation')}
+            {reportSubHeader('Personal Risks')}
+            {reportRow('Long-term Sickness', answers['risk_personal_long-term_sickness__insufficient_income_'])}
+            {reportRow('Live too Long', answers['risk_personal_live_too_long__insufficient_income_'])}
+            {reportRow('Die too Soon', answers['risk_personal_die_too_soon__impact_dependents_'])}
+            {reportRow('Asset Protection (Personal)', answers['risk_personal_asset_protection__personally_sued_'])}
+            {reportSubHeader('Business Risks')}
+            {reportRow('Loss of Key Person', answers.risk_business_loss_of_key_person)}
+            {reportRow('Asset Protection (Business)', answers['risk_business_asset_protection__business_sued_'])}
+            {reportRow('Technology Advancements', answers.risk_business_technology_advancements)}
+            {answers.risk_which_business && reportRow('Which Business', answers.risk_which_business)}
+            {reportSubHeader('Other')}
+            {reportRow('Other Risk Focus', answers.risk_other_focus)}
+          </div>
+
+          {/* Wealth Management */}
+          <div style={tableStyle}>
+            {reportHeader('Wealth Management')}
+            {reportRow('Short/Long Term Focus', answers.wealth_term_focus)}
+            {reportRow('Short/Long Term Interest', answers.wealth_term_interest)}
+            {reportRow('Grow or Retain Wealth', answers.wealth_grow_retain)}
+            {reportRow('Grow/Retain Interest', answers.wealth_grow_retain_interest)}
+            {reportRow('Phase of Life Focus', answers.wealth_life_phase)}
+            {reportRow('Life Phase Interest', answers.wealth_life_phase_interest)}
+            {reportRow('Alternative Investments', answers.wealth_alt_investments)}
+            {reportRow('Alt Investment Interest', answers.wealth_alt_interest)}
+            {reportSubHeader('Other')}
+            {reportRow('Other Wealth Focus', answers.wealth_other_focus)}
+          </div>
+
+          {/* Legal Services */}
+          <div style={tableStyle}>
+            {reportHeader('Legal Services')}
+            {reportSubHeader('Personal')}
+            {reportRow('Trusts and Wills (Estate Planning)', answers['legal_personal_trusts_and_wills__estate_planning_'])}
+            {reportSubHeader('Business')}
+            {reportRow('Contract / Corporate Law', answers['legal_business_contract___corporate_law'])}
+            {reportRow('Structuring Entities', answers.legal_business_structuring_entities)}
+            {reportRow('Buy / Sell Agreements', answers['legal_business_buy___sell_agreements'])}
+            {reportRow('Joint Venture Agreements', answers.legal_business_joint_venture_agreements)}
+            {reportRow('Intellectual Property', answers.legal_business_intellectual_property)}
+            {answers.legal_which_business && reportRow('Which Business', answers.legal_which_business)}
+            {reportSubHeader('Other')}
+            {reportRow('Other Legal Focus', answers.legal_other_focus)}
+          </div>
+
+          {/* Bottom actions */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '24px' }}>
+            <button onClick={() => { setShowReport(false); setCiqView('chooser') }} style={{ padding: '12px 28px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '14px', cursor: 'pointer' }}>← Back</button>
+            <button onClick={() => { setCiqView('prioritize'); setShowReport(false) }} style={{ padding: '12px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>Continue to Prioritize Opportunities →</button>
+          </div>
+        </div>
+      )
+    }
+
+    // ─── DIAGNOSTIC VIEW ─────────────────────────────────
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -229,7 +448,7 @@ export default function MemberCIQ({ memberNumber }) {
             <div style={{ fontSize: '18px', fontWeight: '600', color: '#fff' }}>{client?.first_name} {client?.last_name}</div>
             <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '4px' }}>{client?.client_ref} · {client?.email}</div>
           </div>
-          <button onClick={() => { setActiveCiq(null); setAnswers({}); setActiveSection('intro') }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>← Back to list</button>
+          <button onClick={() => { if (activeCiq.status === 'completed') { setCiqView('chooser'); setActiveSection('intro') } else { setActiveCiq(null); setAnswers({}); setActiveSection('intro'); setCiqView(null) } }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>{activeCiq.status === 'completed' ? '← Back' : '← Back to list'}</button>
         </div>
 
         {/* Section nav */}
