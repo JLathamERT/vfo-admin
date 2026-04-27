@@ -592,9 +592,14 @@ function ClientsPanel({ enrollment, member, program }) {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [addStatus, setAddStatus] = useState('')
+  const [showAdditional, setShowAdditional] = useState(false)
+  const [addFirstName, setAddFirstName] = useState('')
+  const [addLastName, setAddLastName] = useState('')
+  const [addEmail, setAddEmail] = useState('')
   const [existingSearch, setExistingSearch] = useState('')
   const [allMemberClients, setAllMemberClients] = useState([])
   const [loadingExisting, setLoadingExisting] = useState(false)
+  const [contactsMap, setContactsMap] = useState({})
 
   const isPFT = program?.name?.includes('Partnership')
 
@@ -603,8 +608,12 @@ function ClientsPanel({ enrollment, member, program }) {
   async function loadClients() {
     setLoading(true)
     try {
-      const data = await callApi('msm_load_clients', { enrollment_id: enrollment.id })
+      const [data, contactData] = await Promise.all([
+        callApi('msm_load_clients', { enrollment_id: enrollment.id }),
+        callApi('load_member_contacts', { member_number: member.plugin_member_number }),
+      ])
       setClients(data.clients || [])
+      setContactsMap(contactData.contacts || {})
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
   }
@@ -620,10 +629,11 @@ function ClientsPanel({ enrollment, member, program }) {
   }
 
   async function addClient() {
-    if (!firstName || !lastName) { setAddStatus('First and last name are required.'); return }
+    if (!firstName || !lastName || !email) { setAddStatus('First name, last name, and email are required.'); return }
     try {
-      await callApi('msm_add_client', { enrollment_id: enrollment.id, member_number: member.plugin_member_number, first_name: firstName, last_name: lastName, email, phone })
-      setFirstName(''); setLastName(''); setEmail(''); setPhone(''); setShowAdd(false); setAddMode(null); setAddStatus('')
+      const additional_contact = showAdditional && addFirstName && addLastName ? { first_name: addFirstName, last_name: addLastName, email: addEmail } : undefined
+      await callApi('msm_add_client', { enrollment_id: enrollment.id, member_number: member.plugin_member_number, first_name: firstName, last_name: lastName, email, phone, additional_contact })
+      setFirstName(''); setLastName(''); setEmail(''); setPhone(''); setShowAdd(false); setAddMode(null); setAddStatus(''); setShowAdditional(false); setAddFirstName(''); setAddLastName(''); setAddEmail('')
       loadClients()
     } catch (err) { setAddStatus(err.message) }
   }
@@ -722,9 +732,25 @@ function ClientsPanel({ enrollment, member, program }) {
           <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>First Name *</label><input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} /></div>
             <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Last Name *</label><input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} /></div>
-            <div style={{ flex: 1, minWidth: '180px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Email</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '180px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
             <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Phone</label><input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} /></div>
           </div>
+          {!showAdditional && (
+            <button onClick={() => setShowAdditional(true)} style={{ padding: '8px 14px', borderRadius: '6px', border: '1px dashed rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.06)', color: '#5b9fe6', fontSize: '12px', cursor: 'pointer', marginBottom: '12px', fontFamily: 'DM Sans, sans-serif' }}>+ Add additional contact (e.g. spouse)</button>
+          )}
+          {showAdditional && (
+            <div style={{ padding: '16px', background: 'rgba(91,159,230,0.06)', border: '1px solid rgba(91,159,230,0.2)', borderRadius: '8px', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <div style={{ fontSize: '12px', color: '#5b9fe6', fontStyle: 'italic' }}>Additional contact (not the primary client)</div>
+                <button onClick={() => { setShowAdditional(false); setAddFirstName(''); setAddLastName(''); setAddEmail('') }} style={{ background: 'none', border: 'none', color: '#8bacc8', fontSize: '11px', cursor: 'pointer' }}>Remove</button>
+              </div>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: '120px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>First Name</label><input value={addFirstName} onChange={e => setAddFirstName(e.target.value)} style={inputStyle} /></div>
+                <div style={{ flex: 1, minWidth: '120px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Last Name</label><input value={addLastName} onChange={e => setAddLastName(e.target.value)} style={inputStyle} /></div>
+                <div style={{ flex: 1, minWidth: '160px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Email</label><input value={addEmail} onChange={e => setAddEmail(e.target.value)} type="email" style={inputStyle} /></div>
+              </div>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={addClient} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
             <button onClick={() => { isPFT ? setShowAdd(false) : setAddMode(null) }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>{isPFT ? 'Cancel' : 'Back'}</button>
@@ -748,6 +774,7 @@ function ClientsPanel({ enrollment, member, program }) {
                   <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', background: `${statusColors[client.status] || '#8bacc8'}22`, color: statusColors[client.status] || '#8bacc8', border: `1px solid ${statusColors[client.status] || '#8bacc8'}44` }}>{client.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : ''}</span>
                 </div>
                 {(client.email || client.phone) && <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '4px' }}>{client.email}{client.email && client.phone ? ' · ' : ''}{client.phone}</div>}
+                {contactsMap[client.id]?.length > 0 && <div style={{ fontSize: '12px', color: '#5a8ab5', marginTop: '2px', fontStyle: 'italic' }}>with {contactsMap[client.id].map(c => `${c.first_name} ${c.last_name}`).join(', ')}</div>}
               </div>
               <span style={{ color: '#5b9fe6', fontSize: '13px' }}>View →</span>
             </div>

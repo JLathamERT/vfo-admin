@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { callApi } from '../../lib/api'
 import MemberWebsitePlugin from '../shared/MemberWebsitePlugin'
 import MemberVault from '../shared/MemberVault'
+import MemberCIQ from '../shared/MemberCIQ'
 import MSMTracking from './MSMTracking'
 
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
@@ -141,7 +142,7 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, 
           {['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab) && <MSMTracking member={selectedMember} activeSection={memberFeatureTab} onDataChange={onDataChange} />}          {memberFeatureTab === 'specialists' && <MemberSpecialists member={selectedMember} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} />}
           {memberFeatureTab === 'showroom' && <ComingSoon title="Showroom" />}
           {memberFeatureTab === 'website' && <MemberWebsitePlugin member={selectedMember} onDataChange={onDataChange} readOnly={false} />}
-          {memberFeatureTab === 'ciq' && <ComingSoon title="CIQ" />}
+          {memberFeatureTab === 'ciq' && <MemberCIQ memberNumber={selectedMember.plugin_member_number} />}
           {memberFeatureTab === 'growthplan' && <ComingSoon title="Growth Plan" />}
           {memberFeatureTab === 'gc' && <MemberGC member={selectedMember} />}
           {memberFeatureTab === 'vault' && <MemberVault memberNumber={selectedMember.plugin_member_number} />}

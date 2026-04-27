@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getSession, clearSession, callApi } from '../lib/api'
 import MemberWebsitePlugin from '../components/shared/MemberWebsitePlugin'
 import MemberVault from '../components/shared/MemberVault'
+import MemberCIQ from '../components/shared/MemberCIQ'
 import MemberGCMarketplace from '../components/member/MemberGCMarketplace'
 import MemberMSMTracking from '../components/member/MemberMSMTracking'
 
@@ -126,7 +127,7 @@ export default function MemberPortal() {
               <MemberWebsitePlugin member={memberData} onDataChange={loadData} />
             </div>
           )}
-          {!loading && activeTab === 'ciq' && <ComingSoon title="CIQ" />}
+          {!loading && activeTab === 'ciq' && <MemberCIQ memberNumber={session.member_number} />}
           {!loading && activeTab === 'growthplan' && <ComingSoon title="Growth Plan" />}
           {!loading && activeTab === 'gc' && (
             <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>

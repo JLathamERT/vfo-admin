@@ -106,7 +106,10 @@ export default function ClientDetail() {
 
         {/* Client header */}
         <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '28px', color: '#fff' }}>{client?.first_name} {client?.last_name}</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+            <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '28px', color: '#fff' }}>{client?.first_name} {client?.last_name}</div>
+            {contacts?.length > 0 && <div style={{ fontSize: '14px', color: '#5a8ab5', fontStyle: 'italic' }}>with {contacts.map(c => `${c.first_name} ${c.last_name}`).join(', ')}</div>}
+          </div>
           <div style={{ display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={{ fontSize: '13px', color: '#8bacc8', fontFamily: 'monospace' }}>{client?.client_ref}</span>
             {program && <span style={{ fontSize: '13px', color: '#5b9fe6' }}>{program.name}</span>}
@@ -134,7 +137,7 @@ export default function ClientDetail() {
           )}
         </div>
 
-        {activeTab === 'home' && <ClientHome client={client} onUpdate={loadData} sectionStyle={sectionStyle} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+        {activeTab === 'home' && <ClientHome client={client} contacts={contacts} onUpdate={loadData} sectionStyle={sectionStyle} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
         {activeTab === 'details' && !isMember && <ClientDetails client={client} contacts={contacts} onUpdate={loadData} onReloadContacts={reloadContacts} sectionStyle={sectionStyle} />}
         {activeTab === 'map1' && program && <ClientTrackViewV2 clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
         {activeTab === 'pft' && program && <PFTEngagementTrack clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
@@ -145,7 +148,7 @@ export default function ClientDetail() {
   )
 }
 
-function ClientHome({ client, onUpdate, sectionStyle, readOnly = false, notes = [], onNotesChange }) {
+function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = false, notes = [], onNotesChange }) {
   const [status, setStatus] = useState(client?.status || 'pending')
   const [saving, setSaving] = useState(false)
   const [assignedPf, setAssignedPf] = useState(client?.assigned_pf || '')
@@ -210,6 +213,12 @@ function ClientHome({ client, onUpdate, sectionStyle, readOnly = false, notes = 
           <div><div style={{ fontSize: '11px', color: '#8bacc8', marginBottom: '4px' }}>EMAIL</div><div style={{ fontSize: '14px', color: '#fff' }}>{client?.email || '—'}</div></div>
           <div><div style={{ fontSize: '11px', color: '#8bacc8', marginBottom: '4px' }}>PHONE</div><div style={{ fontSize: '14px', color: '#fff' }}>{client?.phone || '—'}</div></div>
         </div>
+        {contacts?.length > 0 && <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ fontSize: '11px', color: '#8bacc8', marginBottom: '8px' }}>ADDITIONAL CONTACTS</div>
+          {contacts.map(c => (
+            <div key={c.id} style={{ fontSize: '14px', color: '#fff', marginBottom: '4px' }}>{c.first_name} {c.last_name}{c.email ? <span style={{ color: '#8bacc8', fontSize: '12px' }}> · {c.email}</span> : ''}</div>
+          ))}
+        </div>}
       </div>
       {!readOnly && notes.length > 0 && (
         <div style={sectionStyle}>
