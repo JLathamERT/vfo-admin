@@ -270,7 +270,8 @@ function EnrollPanel({ member, program, onEnrolled }) {
 
 function EnrolledPanel({ member, enrollment, program, onDataChange }) {
   const isCoaching = program.name === 'Advanced Coaching'
-  const [activeTab, setActiveTab] = useState(isCoaching ? 'meetings' : 'training')
+  const isTaxPlanning = program.name === 'VFO Tax Planning'
+  const [activeTab, setActiveTab] = useState(isCoaching ? 'meetings' : isTaxPlanning ? 'clients' : 'training')
   const [editingEnrollment, setEditingEnrollment] = useState(false)
   const [programStatus, setProgramStatus] = useState(enrollment.program_status || 'On Fast Track')
   const [saveStatus, setSaveStatus] = useState('')
@@ -297,7 +298,7 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
           <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
             <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Joined</div><div style={{ fontSize: '14px', color: '#fff', marginTop: '4px' }}>{enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</div></div>
             {!isCoaching && <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Program Status</div><div style={{ fontSize: '14px', color: statusColors[enrollment.program_status] || '#fff', marginTop: '4px', fontWeight: '600' }}>{enrollment.program_status}</div></div>}
-            {!isCoaching && <PlanStatusBadge enrollmentId={enrollment.id} programId={program.id} />}
+            {!isCoaching && !isTaxPlanning && <PlanStatusBadge enrollmentId={enrollment.id} programId={program.id} />}
           </div>
           {!isCoaching && <button onClick={() => setEditingEnrollment(!editingEnrollment)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '12px', cursor: 'pointer' }}>
             {editingEnrollment ? 'Cancel' : 'Edit'}
@@ -325,6 +326,10 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
           <>
             <button style={tabStyle(activeTab === 'meetings')} onClick={() => setActiveTab('meetings')}>Meetings</button>
             <button style={tabStyle(activeTab === 'renewal')} onClick={() => setActiveTab('renewal')}>Renewal</button>
+          </>
+        ) : program.name === 'VFO Tax Planning' ? (
+          <>
+            <button style={tabStyle(activeTab === 'clients')} onClick={() => setActiveTab('clients')}>Clients</button>
           </>
         ) : (
           <>

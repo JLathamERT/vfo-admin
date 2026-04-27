@@ -221,6 +221,7 @@ function ClientHome({ client, onUpdate, sectionStyle, readOnly = false, notes = 
                 <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{note.created_by}</span>
                 <span style={{ fontSize: '11px', color: '#5a8ab5' }}>·</span>
                 <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{note.created_at?.split('T')[0]}</span>
+                {note.program_name && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.12)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.2)' }}>{note.program_name}</span>}
                 <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.2)' }}>{note.tab_name}</span>
                 <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>{note.phase_name}</span>
               </div>
@@ -829,7 +830,7 @@ function PhaseNotesButton({ count, isOpen, onClick }) {
   )
 }
  
-function PhaseNotesPanel({ clientId, phaseName, tabName, notes, onNotesChange }) {
+function PhaseNotesPanel({ clientId, phaseName, tabName, programName, notes, onNotesChange }) {
   const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -842,7 +843,7 @@ function PhaseNotesPanel({ clientId, phaseName, tabName, notes, onNotesChange })
     if (!newNote.trim()) return
     setSaving(true)
     try {
-      const result = await callApi('add_client_note', { client_id: clientId, phase_name: phaseName, tab_name: tabName, note_text: newNote.trim(), created_by: session?.name || 'Admin' })
+      const result = await callApi('add_client_note', { client_id: clientId, phase_name: phaseName, tab_name: tabName, program_name: programName || null, note_text: newNote.trim(), created_by: session?.name || 'Admin' })
       onNotesChange([result.note, ...notes])
       setNewNote('')
     } catch (err) { console.error(err) }
@@ -1055,7 +1056,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
               </div>
             </div>
 
-            {!readOnly && expanded[`notes_${phase.id}`] && <PhaseNotesPanel clientId={clientId} phaseName={phase.name} tabName="MAP 1" notes={notes} onNotesChange={onNotesChange} />}
+            {!readOnly && expanded[`notes_${phase.id}`] && <PhaseNotesPanel clientId={clientId} phaseName={phase.name} tabName="MAP 1" programName="VFO Holistic Planning" notes={notes} onNotesChange={onNotesChange} />}
 
             {/* Phase body */}
             {isExpanded && (
@@ -1610,7 +1611,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
               </div>
             </div>
 
-            {!readOnly && expanded[`notes_${phase.id}`] && <PhaseNotesPanel clientId={clientId} phaseName={phase.name} tabName="Regular Priorities" notes={notes} onNotesChange={onNotesChange} />}
+            {!readOnly && expanded[`notes_${phase.id}`] && <PhaseNotesPanel clientId={clientId} phaseName={phase.name} tabName="Regular Priorities" programName="VFO Holistic Planning" notes={notes} onNotesChange={onNotesChange} />}
 
             {isExpanded && (
               <div style={{ borderTop: `1px solid ${borderColor}`, padding: '12px 18px' }}>
@@ -1859,7 +1860,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
               </div>
             </div>
 
-            {!readOnly && expanded[`notes_${phase.id}`] && <PhaseNotesPanel clientId={clientId} phaseName={phase.name} tabName="PFT" notes={notes} onNotesChange={onNotesChange} />}
+            {!readOnly && expanded[`notes_${phase.id}`] && <PhaseNotesPanel clientId={clientId} phaseName={phase.name} tabName="PFT" programName="Partnership Fast Track" notes={notes} onNotesChange={onNotesChange} />}
 
             {isExpanded && (
               <div style={{ borderTop: `1px solid ${borderColor}`, padding: '12px 18px' }}>
@@ -2135,6 +2136,7 @@ function TaxPrioritiesTab({ clientId, programId, programName, specialists, readO
         notes={notes}
         onNotesChange={onNotesChange}
         clientId={clientId}
+        programName={programName === 'VFO Tax Planning' ? 'VFO Tax Planning' : 'VFO Holistic Planning'}
       />
     )
   }
@@ -2452,7 +2454,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   )
 }
  
-function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists, onBack, readOnly = false, notes = [], onNotesChange, clientId }) {
+function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists, onBack, readOnly = false, notes = [], onNotesChange, clientId, programName }) {
   const [localProgress, setLocalProgress] = useState(initialProgress)
   const [saving, setSaving] = useState({})
   const [expanded, setExpanded] = useState({})
@@ -3184,7 +3186,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               </div>
             </div>
 
-            {!readOnly && expanded[`notes_${phase.id}`] && <PhaseNotesPanel clientId={clientId} phaseName={phase.name} tabName="Tax Priorities" notes={notes} onNotesChange={onNotesChange} />}
+            {!readOnly && expanded[`notes_${phase.id}`] && <PhaseNotesPanel clientId={clientId} phaseName={phase.name} tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
 
             {isExpanded && (
               <div style={{ borderTop: `1px solid ${borderColor}`, padding: '12px 18px' }}>
@@ -3219,7 +3221,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             </div>
           </div>
  
-          {!readOnly && expanded['notes_tax5a'] && <PhaseNotesPanel clientId={clientId} phaseName="Tax 5 - Education & DD (Specialist Allocation)" tabName="Tax Priorities" notes={notes} onNotesChange={onNotesChange} />}
+          {!readOnly && expanded['notes_tax5a'] && <PhaseNotesPanel clientId={clientId} phaseName="Tax 5 - Education & DD (Specialist Allocation)" tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
 
           <div style={{ borderTop: '1px solid rgba(91,159,230,0.2)', padding: '12px 18px' }}>
             {showAddSpec && (
@@ -3292,7 +3294,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               {anySpecialistUpdateDone && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>}
             </div>
           </div>
-          {!readOnly && expanded['notes_tax5b'] && <PhaseNotesPanel clientId={clientId} phaseName="Tax 5 - Education & DD (Post Allocation)" tabName="Tax Priorities" notes={notes} onNotesChange={onNotesChange} />}
+          {!readOnly && expanded['notes_tax5b'] && <PhaseNotesPanel clientId={clientId} phaseName="Tax 5 - Education & DD (Post Allocation)" tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
           {anySpecialistUpdateDone && (
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', padding: '12px 18px' }}>
               {(tax5bPhase.program_client_tasks || []).map(task => renderTask(task, tax5bPhase))}
@@ -3326,7 +3328,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               </div>
             </div>
 
-            {!readOnly && expanded[`notes_${phase.id}`] && <PhaseNotesPanel clientId={clientId} phaseName={phase.name} tabName="Tax Priorities" notes={notes} onNotesChange={onNotesChange} />}
+            {!readOnly && expanded[`notes_${phase.id}`] && <PhaseNotesPanel clientId={clientId} phaseName={phase.name} tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
 
             {isExpanded && (
               <div style={{ borderTop: `1px solid ${borderColor}`, padding: '12px 18px' }}>
