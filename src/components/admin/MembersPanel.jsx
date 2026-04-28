@@ -142,7 +142,7 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, 
           {['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab) && <MSMTracking member={selectedMember} activeSection={memberFeatureTab} onDataChange={onDataChange} />}          {memberFeatureTab === 'specialists' && <MemberSpecialists member={selectedMember} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} />}
           {memberFeatureTab === 'showroom' && <ComingSoon title="Showroom" />}
           {memberFeatureTab === 'website' && <MemberWebsitePlugin member={selectedMember} onDataChange={onDataChange} readOnly={false} />}
-          {memberFeatureTab === 'ciq' && <MemberCIQ memberNumber={selectedMember.plugin_member_number} />}
+          {memberFeatureTab === 'ciq' && <MemberCIQ memberNumber={selectedMember.plugin_member_number} memberName={selectedMember.name} ciqEnabled={selectedMember.ciq_enabled} ciqVfosManaged={selectedMember.ciq_vfos_managed} isAdmin={true} />}
           {memberFeatureTab === 'growthplan' && <ComingSoon title="Growth Plan" />}
           {memberFeatureTab === 'gc' && <MemberGC member={selectedMember} />}
           {memberFeatureTab === 'vault' && <MemberVault memberNumber={selectedMember.plugin_member_number} />}
@@ -658,6 +658,9 @@ function MemberSettings({ member, onDataChange }) {
   const [loginStatusType, setLoginStatusType] = useState('success')
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleteStatus, setDeleteStatus] = useState('')
+  const [ciqEnabled, setCiqEnabled] = useState(member.ciq_enabled || false)
+  const [ciqVfosManaged, setCiqVfosManaged] = useState(member.ciq_vfos_managed !== false)
+  const [ciqStatus, setCiqStatus] = useState('')
 
   useEffect(() => { loadLogin() }, [member.plugin_member_number])
 
@@ -672,6 +675,16 @@ function MemberSettings({ member, onDataChange }) {
   }
 
   function showLoginStatus(type, msg) { setLoginStatusType(type); setLoginStatus(msg); setTimeout(() => setLoginStatus(''), 4000) }
+
+  async function saveCiqSettings(enabled, vfosManaged) {
+    try {
+      await callApi('member_profile_save', { profile: { member_number: member.plugin_member_number, ciq_enabled: enabled, ciq_vfos_managed: vfosManaged } })
+      setCiqEnabled(enabled)
+      setCiqVfosManaged(vfosManaged)
+      if (onDataChange) await onDataChange()
+      setCiqStatus('Saved!'); setTimeout(() => setCiqStatus(''), 3000)
+    } catch (err) { setCiqStatus(err.message) }
+  }
 
   async function createLogin() {
     if (!loginEmail || !loginPasscode) { showLoginStatus('error', 'Email and passcode are required.'); return }

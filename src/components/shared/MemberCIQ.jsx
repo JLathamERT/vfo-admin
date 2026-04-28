@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
 
-export default function MemberCIQ({ memberNumber }) {
+export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true, ciqVfosManaged = true, isAdmin = false }) {
   const [ciqs, setCiqs] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -24,6 +24,36 @@ export default function MemberCIQ({ memberNumber }) {
   const [expandedBiz, setExpandedBiz] = useState(null)
   const [showReport, setShowReport] = useState(false)
   const [ciqView, setCiqView] = useState(null)
+  const [priorities, setPriorities] = useState({})
+  const [snapshots, setSnapshots] = useState([])
+  const [selectedSnapshot, setSelectedSnapshot] = useState(null)
+  const [oppSubTab, setOppSubTab] = useState('latest')
+  const [showCiqSettings, setShowCiqSettings] = useState(false)
+  const [localCiqEnabled, setLocalCiqEnabled] = useState(ciqEnabled)
+  const [localCiqVfosManaged, setLocalCiqVfosManaged] = useState(ciqVfosManaged)
+  const [ciqSettingsStatus, setCiqSettingsStatus] = useState('')
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+
+  useEffect(() => {
+    async function loadCiqSettings() {
+      try {
+        const data = await callApi('ciq_load_settings', { member_number: memberNumber })
+        setLocalCiqEnabled(data.ciq_enabled)
+        setLocalCiqVfosManaged(data.ciq_vfos_managed)
+      } catch (err) { console.error(err) }
+      finally { setSettingsLoaded(true) }
+    }
+    loadCiqSettings()
+  }, [memberNumber])
+
+  async function saveCiqSetting(enabled, vfosManaged) {
+    try {
+      await callApi('member_profile_save', { profile: { member_number: memberNumber, ciq_enabled: enabled, ciq_vfos_managed: vfosManaged } })
+      setLocalCiqEnabled(enabled)
+      setLocalCiqVfosManaged(vfosManaged)
+      setCiqSettingsStatus('Saved!'); setTimeout(() => setCiqSettingsStatus(''), 3000)
+    } catch (err) { setCiqSettingsStatus(err.message) }
+  }
 
   useEffect(() => { loadCiqs() }, [memberNumber])
 
@@ -78,9 +108,17 @@ export default function MemberCIQ({ memberNumber }) {
 
   async function openCiq(ciq) {
     try {
-      const data = await callApi('ciq_load', { ciq_id: ciq.id })
+      const [data, prioData, snapData] = await Promise.all([
+        callApi('ciq_load', { ciq_id: ciq.id }),
+        callApi('ciq_load_priorities', { ciq_id: ciq.id }),
+        callApi('ciq_load_priority_snapshots', { ciq_id: ciq.id }),
+      ])
       setActiveCiq(data.ciq)
       setAnswers(data.answers || {})
+      setPriorities(prioData.priorities || {})
+      setSnapshots(snapData.snapshots || [])
+      setSelectedSnapshot(null)
+      setOppSubTab('latest')
       if (data.ciq.status === 'completed') { setCiqView('chooser'); setShowReport(false) }
       else { setCiqView('diagnostic'); setShowReport(false) }
     } catch (err) { console.error(err) }
@@ -264,13 +302,139 @@ export default function MemberCIQ({ memberNumber }) {
               <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '6px' }}>Prioritize</div>
               <div style={{ fontSize: '12px', color: '#8bacc8' }}>Prioritize identified opportunities</div>
             </div>
+            {activeCiq.priorities_completed_at ? (
+              <div onClick={() => setCiqView('onePagePlan')}
+                style={{ flex: 1, padding: '32px 24px', borderRadius: '12px', border: '1px solid rgba(39,174,96,0.3)', background: 'rgba(39,174,96,0.06)', cursor: 'pointer', textAlign: 'center' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(39,174,96,0.12)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(39,174,96,0.06)'}>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '6px' }}>One Page Plan</div>
+                <div style={{ fontSize: '12px', color: '#8bacc8' }}>View your planning summary</div>
+              </div>
+            ) : (
+              <div style={{ flex: 1, padding: '32px 24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', textAlign: 'center', opacity: 0.4 }}>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '6px' }}>One Page Plan</div>
+                <div style={{ fontSize: '12px', color: '#8bacc8' }}>Complete Prioritize first</div>
+              </div>
+            )}
           </div>
         </div>
       )
     }
 
-    // ─── PRIORITIZE VIEW (placeholder) ───────────────────
+    // ─── PRIORITIZE VIEW ─────────────────────────────────
     if (ciqView === 'prioritize') {
+      const pBiz = (() => { try { return JSON.parse(answers.businesses || '[]') } catch { return [] } })()
+      const hasBiz = answers.has_business === 'Yes' && pBiz.length > 0
+
+      // Build prioritizable items from diagnostic answers
+      function buildItems() {
+        const items = []
+
+        // Business Advisory — per business
+        if (hasBiz) {
+          pBiz.forEach((biz, i) => {
+            const bizName = biz.name || `Business ${i + 1}`
+            if (answers[`biz_focus_${i}`]) items.push({ key: `biz_focus_${i}`, label: `${answers[`biz_focus_${i}`]}`, sublabel: `${answers[`biz_interest_${i}`] || ''}`, section: `Business Advisory — ${bizName}` })
+            if (answers[`biz_other_focus_${i}`]) items.push({ key: `biz_other_focus_${i}`, label: `Any other business focus for ${bizName}?`, sublabel: answers[`biz_other_focus_${i}`], section: `Business Advisory — ${bizName}`, subsection: 'Other' })
+          })
+        }
+
+        // Tax Planning
+        const taxInterestItems = [
+          { key: 'tax_interest_income_tax_planning', label: 'Income Tax' },
+          { key: 'tax_interest_capital_gains_tax', label: 'Capital Gains Tax' },
+          { key: 'tax_interest_retirement___estate', label: 'Retirement / Estate' },
+          { key: 'tax_interest_charitable___gift', label: 'Charitable / Gift' },
+          { key: 'tax_interest_business_tax_planning', label: 'Business Tax' },
+        ]
+        taxInterestItems.forEach(t => { if (answers[t.key]) items.push({ key: t.key, label: t.label, value: answers[t.key], section: 'Tax Planning' }) })
+        if (answers.tax_other_focus) items.push({ key: 'tax_other_focus', label: 'Any other tax focus?', sublabel: answers.tax_other_focus, section: 'Tax Planning', subsection: 'Other' })
+
+        // Risk Mitigation — Personal
+        const personalRiskItems = [
+          { key: 'risk_personal_long-term_sickness__insufficient_income_', label: 'Long Term Sickness (Insufficient Income)' },
+          { key: 'risk_personal_live_too_long__insufficient_income_', label: 'Live too Long (Insufficient Income)' },
+          { key: 'risk_personal_die_too_soon__impact_dependents_', label: 'Die too Soon (Impact Dependents)' },
+          { key: 'risk_personal_asset_protection__personally_sued_', label: 'Asset Protection (Personally Sued)' },
+        ]
+        personalRiskItems.forEach(r => { if (answers[r.key]) items.push({ key: r.key, label: r.label, value: answers[r.key], section: 'Risk Mitigation', subsection: 'Personal' }) })
+
+        // Risk Mitigation — Business
+        const businessRiskItems = [
+          { key: 'risk_business_loss_of_key_person', label: 'Loss of Key Person' },
+          { key: 'risk_business_asset_protection__business_sued_', label: 'Asset Protection (Business Sued)' },
+          { key: 'risk_business_technology_advancements', label: 'Technology Advancements' },
+        ]
+        businessRiskItems.forEach(r => { if (answers[r.key]) items.push({ key: r.key, label: r.label, value: answers[r.key], section: 'Risk Mitigation', subsection: 'Business' }) })
+        if (answers.risk_other_focus) items.push({ key: 'risk_other_focus', label: 'Any other risk mitigation focus?', sublabel: answers.risk_other_focus, section: 'Risk Mitigation', subsection: 'Other' })
+
+        // Wealth Management
+        if (answers.wealth_term_focus) items.push({ key: 'wealth_term', label: 'Short / Long Term Planning', sublabel: `${answers.wealth_term_focus}, ${answers.wealth_term_interest || ''}`, section: 'Wealth Management' })
+        if (answers.wealth_grow_retain) items.push({ key: 'wealth_grow_retain', label: 'Grow or Retain Wealth', sublabel: `${answers.wealth_grow_retain}, ${answers.wealth_grow_retain_interest || ''}`, section: 'Wealth Management' })
+        if (answers.wealth_life_phase) items.push({ key: 'wealth_life_phase', label: 'Planning Related to Key Life Phase', sublabel: `${answers.wealth_life_phase}, ${answers.wealth_life_phase_interest || ''}`, section: 'Wealth Management' })
+        if (answers.wealth_alt_investments) items.push({ key: 'wealth_alt', label: 'Alternative Investment', sublabel: `${answers.wealth_alt_investments}, ${answers.wealth_alt_interest || ''}`, section: 'Wealth Management' })
+        if (answers.wealth_other_focus) items.push({ key: 'wealth_other_focus', label: 'Any other wealth management focus?', sublabel: answers.wealth_other_focus, section: 'Wealth Management', subsection: 'Other' })
+
+        // Legal Services
+        if (answers['legal_personal_trusts_and_wills__estate_planning_']) items.push({ key: 'legal_personal_trusts', label: 'Trusts and Wills (Estate Planning)', value: answers['legal_personal_trusts_and_wills__estate_planning_'], section: 'Legal Services', subsection: 'Personal' })
+
+        const bizLegalItems = [
+          { key: 'legal_business_contract___corporate_law', label: 'Contract / Corporate Law' },
+          { key: 'legal_business_structuring_entities', label: 'Structuring Entities' },
+          { key: 'legal_business_buy___sell_agreements', label: 'Buy / Sell Agreements' },
+          { key: 'legal_business_joint_venture_agreements', label: 'Joint Venture Agreements' },
+          { key: 'legal_business_intellectual_property', label: 'Intellectual Property' },
+        ]
+        bizLegalItems.forEach(l => { if (answers[l.key]) items.push({ key: l.key, label: l.label, value: answers[l.key], section: 'Legal Services', subsection: 'Business' }) })
+        if (answers.legal_other_focus) items.push({ key: 'legal_other_focus', label: 'Any other legal services focus?', sublabel: answers.legal_other_focus, section: 'Legal Services', subsection: 'Other' })
+
+        return items
+      }
+
+      const allItems = buildItems()
+
+      // Group by section
+      const sections = []
+      const sectionMap = {}
+      allItems.forEach(item => {
+        if (!sectionMap[item.section]) { sectionMap[item.section] = []; sections.push(item.section) }
+        sectionMap[item.section].push(item)
+      })
+
+      function getPriority(key) { return priorities[key]?.decision || 'drop' }
+      function getNote(key) { return priorities[key]?.notes || '' }
+      function setPriorityDecision(item, decision) {
+        setPriorities(p => ({ ...p, [item.key]: { ...p[item.key], item_key: item.key, item_label: item.label, item_section: item.section, item_value: item.sublabel || item.value || '', decision, notes: p[item.key]?.notes || '' } }))
+      }
+      function setPriorityNote(item, notes) {
+        setPriorities(p => ({ ...p, [item.key]: { ...p[item.key], item_key: item.key, item_label: item.label, item_section: item.section, item_value: item.sublabel || item.value || '', decision: p[item.key]?.decision || 'drop', notes } }))
+      }
+
+      async function savePriorities() {
+        setSaving(true)
+        try {
+          const list = allItems.map(item => ({
+            item_key: item.key,
+            item_label: item.label,
+            item_section: item.section,
+            item_value: item.sublabel || item.value || '',
+            decision: priorities[item.key]?.decision || 'drop',
+            notes: priorities[item.key]?.notes || ''
+          }))
+          await callApi('ciq_save_priorities', { ciq_id: activeCiq.id, priorities: list })
+          const session = JSON.parse(sessionStorage.getItem('vfo_session') || '{}')
+          await callApi('ciq_save_priority_snapshot', { ciq_id: activeCiq.id, snapshot: list, saved_by: session.name || memberName || memberNumber })
+          const freshMap = {}
+          list.forEach(p => { freshMap[p.item_key] = p })
+          setPriorities(freshMap)
+          // Reload snapshots
+          try { const snapData = await callApi('ciq_load_priority_snapshots', { ciq_id: activeCiq.id }); setSnapshots(snapData.snapshots || []) } catch {}
+        } catch (err) { console.error(err) }
+        finally { setSaving(false) }
+      }
+
+      const decisionColors = { drop: '#8bacc8', park: '#f39c12', prioritize: '#27ae60' }
+
       return (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -280,10 +444,177 @@ export default function MemberCIQ({ memberNumber }) {
             </div>
             <button onClick={() => setCiqView('chooser')} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>← Back</button>
           </div>
-          <div style={{ ...sectionStyle, textAlign: 'center', padding: '60px 20px' }}>
-            <div style={{ fontSize: '18px', fontWeight: '600', color: '#fff', marginBottom: '12px' }}>Prioritize Opportunities</div>
-            <div style={{ fontSize: '14px', color: '#8bacc8' }}>Coming soon — this is where you will prioritize the opportunities identified in the CIQ Diagnostic.</div>
+
+          {sections.map(sectionName => {
+            const sectionItems = sectionMap[sectionName]
+            let lastSubsection = null
+            return (
+            <div key={sectionName} style={{ marginBottom: '24px' }}>
+              <div style={{ background: 'rgba(91,159,230,0.15)', padding: '10px 14px', borderRadius: '10px 10px 0 0', border: '1px solid rgba(255,255,255,0.1)', borderBottom: 'none' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '600', color: '#fff' }}>{sectionName}</div>
+                  <div style={{ fontSize: '12px', color: '#8bacc8' }}>Notes</div>
+                </div>
+              </div>
+              <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
+                {sectionItems.map((item, idx) => {
+                  const showSubHeader = item.subsection && item.subsection !== lastSubsection
+                  lastSubsection = item.subsection || lastSubsection
+                  return (<>
+                  {showSubHeader && (
+                    <div style={{ background: 'rgba(91,159,230,0.08)', padding: '8px 14px', borderTop: idx > 0 ? '1px solid rgba(255,255,255,0.1)' : 'none' }}>
+                      <div style={{ fontSize: '12px', fontWeight: '600', color: '#5b9fe6', textAlign: 'center' }}>{item.subsection}</div>
+                    </div>
+                  )}
+                  <div key={item.key} style={{ display: 'flex', gap: '0', borderTop: idx > 0 && !showSubHeader ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+                    {/* Label + Value */}
+                    <div style={{ flex: '1 1 180px', padding: '12px 14px', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ fontSize: '14px', fontWeight: '600', color: '#fff' }}>{item.label}</div>
+                      {(item.sublabel || item.value) && <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '4px' }}>{item.sublabel || item.value}</div>}
+                    </div>
+                    {/* Decision radios */}
+                    <div style={{ flex: '0 0 160px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'center', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+                      {['drop', 'park', 'prioritize'].map(d => (
+                        <label key={d} onClick={() => setPriorityDecision(item, d)} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: getPriority(item.key) === d ? `4px solid ${decisionColors[d]}` : '2px solid rgba(255,255,255,0.3)', boxSizing: 'border-box' }} />
+                          <span style={{ fontSize: '12px', color: getPriority(item.key) === d ? decisionColors[d] : '#8bacc8', fontWeight: getPriority(item.key) === d ? '600' : '400' }}>{d.charAt(0).toUpperCase() + d.slice(1)}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {/* Notes */}
+                    <div style={{ flex: '1 1 200px', padding: '8px' }}>
+                      <textarea value={getNote(item.key)} onChange={e => setPriorityNote(item, e.target.value)} rows={2} placeholder="Add notes..." style={{ ...inputStyle, fontSize: '12px', resize: 'vertical', height: '100%', minHeight: '60px' }} />
+                    </div>
+                  </div>
+                  </>)
+                })}
+              </div>
+            </div>
+            )
+          })}
+
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '24px' }}>
+            <button onClick={() => setCiqView('chooser')} style={{ padding: '12px 28px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '14px', cursor: 'pointer' }}>← Back</button>
+            <button onClick={async () => { await savePriorities(); try { await callApi('ciq_complete_priorities', { ciq_id: activeCiq.id }); setActiveCiq(prev => ({ ...prev, priorities_completed_at: new Date().toISOString() })) } catch(e) { console.error(e) }; setCiqView('onePagePlan') }} disabled={saving} style={{ padding: '12px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving...' : 'Save & Continue to One Page Plan →'}</button>
           </div>
+        </div>
+      )
+    }
+
+    // ─── ONE PAGE PLAN VIEW ──────────────────────────────
+    if (ciqView === 'onePagePlan') {
+      const planDate = activeCiq.priorities_completed_at?.split('T')[0] || new Date().toISOString().split('T')[0]
+      const displayPriorities = selectedSnapshot ? (() => { try { const items = typeof selectedSnapshot.snapshot === 'string' ? JSON.parse(selectedSnapshot.snapshot) : selectedSnapshot.snapshot; const map = {}; items.forEach(p => { map[p.item_key] = p }); return map } catch { return priorities } })() : priorities
+      const immediateItems = Object.values(displayPriorities).filter(p => p.decision === 'prioritize')
+      const parkedItems = Object.values(displayPriorities).filter(p => p.decision === 'park')
+
+      function renderPlanItems(items) {
+        if (items.length === 0) return <div style={{ color: '#8bacc8', fontSize: '14px', padding: '12px 0' }}>None</div>
+        return items.map(item => {
+          const isOther = item.item_key?.includes('other_focus')
+          const bizMatch = item.item_section?.match(/Business Advisory — (.+)/)
+          const mainText = isOther ? (item.item_value || item.item_label) : item.item_label
+          const displayLabel = bizMatch ? `${mainText} — ${bizMatch[1]}` : mainText
+          const displaySection = bizMatch ? 'Business Advisory' : item.item_section
+          return (
+            <div key={item.item_key} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ fontSize: '14px', color: '#fff' }}>{displayLabel}{item.notes ? ` — ${item.notes}` : ''}</div>
+              <div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '2px' }}>{displaySection}</div>
+            </div>
+          )
+        })
+      }
+
+      return (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: '600', color: '#fff' }}>One Page Plan for {client?.first_name} {client?.last_name} <span style={{ fontSize: '14px', fontWeight: '400', color: '#8bacc8' }}>working with {memberName || memberNumber}</span></div>
+              {localCiqVfosManaged && <div style={{ fontSize: '13px', color: '#5b9fe6', marginTop: '4px' }}>Powered by VFO Services</div>}
+            </div>
+            <button onClick={() => { setCiqView('chooser'); setSelectedSnapshot(null); setOppSubTab('latest') }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>← Back</button>
+          </div>
+
+          {/* Sub tabs */}
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '24px' }}>
+            <button onClick={() => { setOppSubTab('latest'); setSelectedSnapshot(null) }}
+              style={{ padding: '8px 20px', borderRadius: '6px', border: oppSubTab === 'latest' ? '1px solid #5b9fe6' : '1px solid rgba(255,255,255,0.1)', background: oppSubTab === 'latest' ? 'rgba(91,159,230,0.15)' : 'transparent', color: oppSubTab === 'latest' ? '#fff' : '#8bacc8', fontSize: '13px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Latest Version</button>
+            <button onClick={() => setOppSubTab('history')}
+              style={{ padding: '8px 20px', borderRadius: '6px', border: oppSubTab === 'history' ? '1px solid #5b9fe6' : '1px solid rgba(255,255,255,0.1)', background: oppSubTab === 'history' ? 'rgba(91,159,230,0.15)' : 'transparent', color: oppSubTab === 'history' ? '#fff' : '#8bacc8', fontSize: '13px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>History</button>
+          </div>
+
+          {/* Latest Version */}
+          {oppSubTab === 'latest' && (
+            <div>
+              <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '24px' }}>Plan Completed on {planDate}</div>
+              <div style={{ fontSize: '13px', color: '#8bacc8', lineHeight: '1.8', marginBottom: '24px', paddingLeft: '4px' }}>
+                Having completed: Client Information Questionnaire to identify areas of interest, and Prioritization Process to determine immediate / later areas of focus.
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ fontSize: '16px', fontWeight: '700', color: '#27ae60', marginBottom: '2px' }}>Immediate Priorities</div>
+                <div style={{ fontSize: '12px', color: '#8bacc8', fontStyle: 'italic', marginBottom: '12px' }}>We will begin to address these priorities with immediate effect</div>
+                <div style={sectionStyle}>{renderPlanItems(immediateItems)}</div>
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ fontSize: '16px', fontWeight: '700', color: '#f39c12', marginBottom: '2px' }}>Parked Priorities</div>
+                <div style={{ fontSize: '12px', color: '#8bacc8', fontStyle: 'italic', marginBottom: '12px' }}>We will reconsider these parked priorities at our next Partners In Planning Meeting</div>
+                <div style={sectionStyle}>{renderPlanItems(parkedItems)}</div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px' }}>
+                <button onClick={() => { setCiqView('chooser'); setSelectedSnapshot(null) }} style={{ padding: '12px 28px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '14px', cursor: 'pointer' }}>← Back</button>
+              </div>
+            </div>
+          )}
+
+          {/* History */}
+          {oppSubTab === 'history' && (
+            <div>
+              {selectedSnapshot ? (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <div>
+                      <div style={{ fontSize: '14px', color: '#fff' }}>Snapshot from {selectedSnapshot.saved_at?.split('T')[0]}</div>
+                      <div style={{ fontSize: '12px', color: '#8bacc8' }}>Saved by {selectedSnapshot.saved_by}</div>
+                    </div>
+                    <button onClick={() => setSelectedSnapshot(null)} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '12px', cursor: 'pointer' }}>← Back to list</button>
+                  </div>
+
+                  <div style={{ marginBottom: '24px' }}>
+                    <div style={{ fontSize: '16px', fontWeight: '700', color: '#27ae60', marginBottom: '2px' }}>Immediate Priorities</div>
+                    <div style={{ fontSize: '12px', color: '#8bacc8', fontStyle: 'italic', marginBottom: '12px' }}>We will begin to address these priorities with immediate effect</div>
+                    <div style={sectionStyle}>{renderPlanItems(immediateItems)}</div>
+                  </div>
+
+                  <div style={{ marginBottom: '24px' }}>
+                    <div style={{ fontSize: '16px', fontWeight: '700', color: '#f39c12', marginBottom: '2px' }}>Parked Priorities</div>
+                    <div style={{ fontSize: '12px', color: '#8bacc8', fontStyle: 'italic', marginBottom: '12px' }}>We will reconsider these parked priorities at our next Partners In Planning Meeting</div>
+                    <div style={sectionStyle}>{renderPlanItems(parkedItems)}</div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  {snapshots.length === 0
+                    ? <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No history yet. Snapshots are saved each time priorities are updated.</div>
+                    : snapshots.map(snap => (
+                      <div key={snap.id} onClick={() => setSelectedSnapshot(snap)}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', marginBottom: '4px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', cursor: 'pointer' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}>
+                        <div>
+                          <div style={{ fontSize: '14px', color: '#fff' }}>{snap.saved_at?.split('T')[0]} at {snap.saved_at?.split('T')[1]?.substring(0, 5)}</div>
+                          <div style={{ fontSize: '12px', color: '#8bacc8' }}>Saved by {snap.saved_by}</div>
+                        </div>
+                        <span style={{ color: '#5b9fe6', fontSize: '12px' }}>View →</span>
+                      </div>
+                    ))
+                  }
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )
     }
@@ -709,7 +1040,7 @@ export default function MemberCIQ({ memberNumber }) {
                 {radioGroup('Is your primary tax focus relating to *', 'tax_focus_type', ['One-time Taxable Transaction', 'Continuing Taxable Planning Required'])}
 
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Aside from anyone in this meeting, are there any other professionals that you would typically run financial decisions by (particularly when it comes to tax planning)? *</label>
+                  <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Aside from anyone in this meeting, are there any other professionals that you would typically run financial decisions by (particularly when it comes to tax planning)?</label>
                   <input value={answers.tax_other_professionals || ''} onChange={e => setAnswers(a => ({ ...a, tax_other_professionals: e.target.value }))} style={inputStyle} />
                 </div>
 
@@ -871,7 +1202,7 @@ export default function MemberCIQ({ memberNumber }) {
                 {radioGroup('Please rate your level of interest in that primary focus of Key Life Phase *', 'wealth_life_phase_interest', interestLevels)}
 
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Do you have any interest in alternative investments (real estate, crypto, etc)? Note the area you are primarily interested in *</label>
+                  <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Do you have any interest in alternative investments (real estate, crypto, etc)? Note the area you are primarily interested in</label>
                   <textarea value={answers.wealth_alt_investments || ''} onChange={e => setAnswers(a => ({ ...a, wealth_alt_investments: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
                 </div>
 
@@ -1006,6 +1337,18 @@ export default function MemberCIQ({ memberNumber }) {
     )
   }
 
+  // ─── CIQ access gate ──────────────────────────────────
+  if (!settingsLoaded) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
+
+  if (!isAdmin && !localCiqEnabled) {
+    return (
+      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+        <div style={{ fontSize: '18px', fontWeight: '600', color: '#fff', marginBottom: '12px' }}>CIQ is not yet enabled for your account</div>
+        <div style={{ fontSize: '14px', color: '#8bacc8' }}>Please contact your VFO Services representative to get started.</div>
+      </div>
+    )
+  }
+
   // ─── CIQ list view ────────────────────────────────────
   if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
 
@@ -1020,9 +1363,44 @@ export default function MemberCIQ({ memberNumber }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <div style={{ fontSize: '13px', color: '#8bacc8' }}>{ciqs.length} questionnaire{ciqs.length !== 1 ? 's' : ''}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ fontSize: '13px', color: '#8bacc8' }}>{ciqs.length} questionnaire{ciqs.length !== 1 ? 's' : ''}</div>
+          {isAdmin && (
+            <button onClick={() => setShowCiqSettings(!showCiqSettings)} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: showCiqSettings ? 'rgba(91,159,230,0.15)' : 'transparent', color: '#8bacc8', fontSize: '12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Settings</button>
+          )}
+        </div>
         <button onClick={() => { setShowAdd(!showAdd); setAddMode(null); setAddStatus('') }} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Start New CIQ</button>
       </div>
+
+      {showCiqSettings && isAdmin && (
+        <div style={{ ...sectionStyle, marginBottom: '20px' }}>
+          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>CIQ Settings</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div>
+              <div style={{ fontSize: '14px', color: '#fff' }}>Enable CIQ for Member</div>
+              <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>Allow this member to access the CIQ tab in their portal</div>
+            </div>
+            <div onClick={() => setLocalCiqEnabled(!localCiqEnabled)}
+              style={{ width: '44px', height: '24px', borderRadius: '12px', background: localCiqEnabled ? '#2563eb' : 'rgba(255,255,255,0.15)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
+              <div style={{ position: 'absolute', top: '2px', left: localCiqEnabled ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
+            <div>
+              <div style={{ fontSize: '14px', color: '#fff' }}>VFO Services Managed</div>
+              <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>When on, One Page Plan shows "powered by VFO Services"</div>
+            </div>
+            <div onClick={() => setLocalCiqVfosManaged(!localCiqVfosManaged)}
+              style={{ width: '44px', height: '24px', borderRadius: '12px', background: localCiqVfosManaged ? '#2563eb' : 'rgba(255,255,255,0.15)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
+              <div style={{ position: 'absolute', top: '2px', left: localCiqVfosManaged ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px' }}>
+            <button onClick={() => saveCiqSetting(localCiqEnabled, localCiqVfosManaged)} style={{ padding: '10px 24px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>Save Settings</button>
+            {ciqSettingsStatus && <span style={{ color: '#27ae60', fontSize: '13px' }}>{ciqSettingsStatus}</span>}
+          </div>
+        </div>
+      )}
 
       {/* Add: choose mode */}
       {showAdd && !addMode && (

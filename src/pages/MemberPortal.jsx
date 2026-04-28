@@ -127,7 +127,11 @@ export default function MemberPortal() {
               <MemberWebsitePlugin member={memberData} onDataChange={loadData} />
             </div>
           )}
-          {!loading && activeTab === 'ciq' && <MemberCIQ memberNumber={session.member_number} />}
+          {!loading && activeTab === 'ciq' && (
+            <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
+              <MemberCIQ memberNumber={session.member_number} memberName={session.name || session.member_number} ciqEnabled={session.ciq_enabled} ciqVfosManaged={session.ciq_vfos_managed} isAdmin={false} />
+            </div>
+          )}
           {!loading && activeTab === 'growthplan' && <ComingSoon title="Growth Plan" />}
           {!loading && activeTab === 'gc' && (
             <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
