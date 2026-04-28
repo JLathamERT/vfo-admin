@@ -155,7 +155,7 @@ function NavDropdown({ label, isActive, options, activeTab, onSelect }) {
   const closeTimer = useRef(null)
 
   function handleMouseEnter() { clearTimeout(closeTimer.current); setOpen(true) }
-  function handleMouseLeave() { closeTimer.current = setTimeout(() => setOpen(false), 200) }
+  function handleMouseLeave() { setOpen(false) }
 
   return (
     <div style={{ position: 'relative' }} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>

@@ -160,14 +160,15 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
 
   // ─── Active CIQ form view ─────────────────────────────
   const CIQ_SECTIONS = [
-    { key: 'intro', label: 'Introduction' },
-    { key: 'client_info', label: 'Client Information' },
+    { key: 'intro', label: 'Introduction', noNumber: true },
+    { key: 'personal_info', label: 'Personal Information' },
+    { key: 'business_info', label: 'Business Information' },
     { key: 'business_advisory', label: 'Business Advisory' },
     { key: 'tax_planning', label: 'Tax Planning' },
     { key: 'risk_mitigation', label: 'Risk Mitigation' },
     { key: 'wealth_management', label: 'Wealth Management' },
     { key: 'legal_services', label: 'Legal Services' },
-    { key: 'finalize', label: 'Finalize' },
+    { key: 'finalize', label: 'Finalize', noNumber: true },
   ]
 
   const [activeSection, setActiveSection] = useState('intro')
@@ -179,16 +180,16 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
     const biz = (() => { try { return JSON.parse(answers.businesses || '[]') } catch { return [] } })()
     const hasBiz = answers.has_business === 'Yes'
 
-    // Client Info
+    // Personal Info
     const clientInfoMissing = []
     if (!answers.marital_status) clientInfoMissing.push('Marital Status')
     if (!answers.income) clientInfoMissing.push('Income')
     if (!answers.federal_tax) clientInfoMissing.push('Federal Income Taxes Paid')
-    if (clientInfoMissing.length > 0) errors.push({ section: 'Client Information', fields: clientInfoMissing })
+    if (clientInfoMissing.length > 0) errors.push({ section: 'Personal Information', fields: clientInfoMissing })
 
-    // Business Advisory
+    // Business Information
     if (!answers.has_business) {
-      errors.push({ section: 'Business Advisory', fields: ['Do you have a business?'] })
+      errors.push({ section: 'Business Information', fields: ['Do you have a business?'] })
     } else if (hasBiz) {
       if (biz.length === 0) errors.push({ section: 'Business Advisory', fields: ['Add at least one business'] })
       biz.forEach((b, i) => {
@@ -200,7 +201,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
         if (!b.revenue) missing.push('Business Revenue')
         if (!b.taxes) missing.push('Business Taxes Paid')
         if (!answers[`biz_focus_${i}`]) missing.push('Key Business Focus')
-        if (missing.length > 0) errors.push({ section: `Business Advisory — ${label}`, fields: missing })
+        if (missing.length > 0) errors.push({ section: `Business Information — ${label}`, fields: missing })
       })
     }
 
@@ -787,7 +788,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
           {CIQ_SECTIONS.map((sec, i) => (
             <button key={sec.key} onClick={() => setActiveSection(sec.key)}
               style={{ padding: '8px 16px', borderRadius: '6px', border: activeSection === sec.key ? '1px solid #5b9fe6' : '1px solid rgba(255,255,255,0.1)', background: activeSection === sec.key ? 'rgba(91,159,230,0.15)' : 'transparent', color: activeSection === sec.key ? '#fff' : '#8bacc8', fontSize: '12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
-              {i + 1}. {sec.label}
+              {sec.noNumber ? sec.label : `${CIQ_SECTIONS.filter((s, j) => j < i && !s.noNumber).length + 1}. ${sec.label}`}
             </button>
           ))}
         </div>
@@ -816,10 +817,10 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
           </div>
         )}
 
-        {/* Client Information */}
-        {activeSection === 'client_info' && (
+        {/* Personal Information */}
+        {activeSection === 'personal_info' && (
           <div style={sectionStyle}>
-            <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '20px' }}>Client Information</div>
+            <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '20px' }}>Personal Information</div>
             <div style={{ marginBottom: '20px' }}>
               <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Marital Status *</label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -839,6 +840,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
                 <span style={{ fontSize: '20px', color: '#fff', fontWeight: '600', minWidth: '24px', textAlign: 'center' }}>{answers.children || '0'}</span>
                 <button onClick={() => setAnswers(a => ({ ...a, children: String(parseInt(a.children || '0') + 1) }))} style={{ width: '36px', height: '36px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#fff', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
               </div>
+              <input value={answers.children_details || ''} onChange={e => setAnswers(a => ({ ...a, children_details: e.target.value }))} placeholder="Additional details" style={{ ...inputStyle, marginTop: '10px' }} />
             </div>
             <div style={{ marginBottom: '20px' }}>
               <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Income *</label>
@@ -867,8 +869,8 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
           </div>
         )}
 
-        {/* Business Advisory */}
-        {activeSection === 'business_advisory' && (() => {
+        {/* Business Information */}
+        {activeSection === 'business_info' && (() => {
           const hasBiz = answers.has_business
           const businesses = (() => { try { return JSON.parse(answers.businesses || '[]') } catch { return [] } })()
           const setBiz = (newBiz) => setAnswers(a => ({ ...a, businesses: JSON.stringify(newBiz) }))
@@ -979,19 +981,6 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
                           {bizRadio('Business Revenue *', idx, 'revenue', ['<$500k', '$500k - $1M', '$1M - $2M', '$2M - $5M', '>$5M', 'N/A'])}
                           {bizRadio('Business Taxes Paid *', idx, 'taxes', ['<$50k', '$50k - $100k', '$100k - $250k', '$250k - $500k', '>$500k', 'N/A'])}
 
-                          <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px', marginTop: '16px' }}>
-                            <div style={{ fontSize: '14px', fontWeight: '600', color: '#5b9fe6', marginBottom: '16px' }}>Business Advisory — {biz.name || `Business ${idx + 1}`}</div>
-                            {radioGroup(`What is your key business focus next year for ${biz.name || 'this business'}?`, `biz_focus_${idx}`, ['Business Growth', 'Business Exit', 'Neither of the Above'])}
-                            {(answers[`biz_focus_${idx}`] === 'Business Growth' || answers[`biz_focus_${idx}`] === 'Business Exit') &&
-                              radioGroup('Rate your level of interest', `biz_interest_${idx}`, ['Not Applicable', 'Not Interested', 'Somewhat Interested', 'Very Interested'])
-                            }
-                          </div>
-
-                          <div style={{ marginBottom: '20px' }}>
-                            <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Any other business focus for {biz.name || `Business ${idx + 1}`}?</label>
-                            <input value={answers[`biz_other_focus_${idx}`] || ''} onChange={e => setAnswers(a => ({ ...a, [`biz_other_focus_${idx}`]: e.target.value }))} style={inputStyle} />
-                          </div>
-
                           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
                             <button onClick={() => removeBiz(idx)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontSize: '12px', cursor: 'pointer' }}>Remove Business</button>
                           </div>
@@ -1008,6 +997,59 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
             </div>
           )
         })()}
+
+{/* Business Advisory */}
+        {activeSection === 'business_advisory' && (() => {
+          const businesses = (() => { try { return JSON.parse(answers.businesses || '[]') } catch { return [] } })()
+          const hasBiz = answers.has_business === 'Yes' && businesses.length > 0
+
+          const radioGroup = (label, answerKey, options) => (
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>{label}</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {options.map(opt => (
+                  <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px', border: answers[answerKey] === opt ? '1px solid #5b9fe6' : '1px solid rgba(255,255,255,0.1)', background: answers[answerKey] === opt ? 'rgba(91,159,230,0.1)' : 'transparent', cursor: 'pointer' }}
+                    onClick={() => setAnswers(a => ({ ...a, [answerKey]: opt }))}>
+                    <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: answers[answerKey] === opt ? '5px solid #5b9fe6' : '2px solid rgba(255,255,255,0.3)', boxSizing: 'border-box' }} />
+                    <span style={{ fontSize: '14px', color: '#fff' }}>{opt}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )
+
+          if (!hasBiz) {
+            return (
+              <div style={sectionStyle}>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '16px' }}>Business Advisory</div>
+                <div style={{ padding: '12px 16px', borderRadius: '8px', background: 'rgba(91,159,230,0.06)', border: '1px solid rgba(91,159,230,0.2)', color: '#8bacc8', fontSize: '13px' }}>
+                  No businesses added. Add businesses in Business Information to complete this section.
+                </div>
+              </div>
+            )
+          }
+
+          return (
+            <div>
+              <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '20px' }}>Business Advisory</div>
+              <div style={{ fontSize: '14px', color: '#8bacc8', marginBottom: '20px' }}>Big Picture Priorities regarding Business Advisory</div>
+              {businesses.map((biz, idx) => (
+                <div key={idx} style={sectionStyle}>
+                  <div style={{ fontSize: '15px', fontWeight: '600', color: '#5b9fe6', marginBottom: '16px' }}>{biz.name || `Business ${idx + 1}`}</div>
+                  {radioGroup(`What is your key business focus next year for ${biz.name || 'this business'}?`, `biz_focus_${idx}`, ['Business Growth', 'Business Exit', 'Neither of the Above'])}
+                  {(answers[`biz_focus_${idx}`] === 'Business Growth' || answers[`biz_focus_${idx}`] === 'Business Exit') &&
+                    radioGroup('Rate your level of interest', `biz_interest_${idx}`, ['Not Applicable', 'Not Interested', 'Somewhat Interested', 'Very Interested'])
+                  }
+                  <div style={{ marginBottom: '0' }}>
+                    <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Any other business focus for {biz.name || `Business ${idx + 1}`}?</label>
+                    <input value={answers[`biz_other_focus_${idx}`] || ''} onChange={e => setAnswers(a => ({ ...a, [`biz_other_focus_${idx}`]: e.target.value }))} style={inputStyle} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
+
         {activeSection === 'tax_planning' && (() => {
           const businesses = (() => { try { return JSON.parse(answers.businesses || '[]') } catch { return [] } })()
           const hasBiz = answers.has_business === 'Yes' && businesses.length > 0

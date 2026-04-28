@@ -14,7 +14,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   const [editingId, setEditingId] = useState(null)
 
   // Add form state
-  const [addForm, setAddForm] = useState({ name: '', short_bio: '', long_bio: '', background_check: '', 'D&B_strategy_expertise': '', 'D&B_cutoff_date': '', 'D&B_client_requirements': '', 'D&B_investment_cost': '', 'D&B_ideal_client': '', 'D&B_summary_benefits': '', 'D&B_getting_started': '', 'D&B_professional_process': '', 'D&B_competitive_advantage': '', 'D&B_audit_risk_general': '', 'D&B_audit_risk_history': '', 'D&B_audit_risk_worst_case': '', 'D&B_audit_risk_precautions': '', 'D&B_tax_risk_mindset': '', 'D&B_tax_risk_notes': '', 'D&B_revenue_share': '' })
+  const [addForm, setAddForm] = useState({ name: '', short_bio: '', long_bio: '', background_check: '', top_of_t: false, 'D&B_strategy_expertise': '', 'D&B_cutoff_date': '', 'D&B_client_requirements': '', 'D&B_investment_cost': '', 'D&B_ideal_client': '', 'D&B_summary_benefits': '', 'D&B_getting_started': '', 'D&B_professional_process': '', 'D&B_competitive_advantage': '', 'D&B_audit_risk_general': '', 'D&B_audit_risk_history': '', 'D&B_audit_risk_worst_case': '', 'D&B_audit_risk_precautions': '', 'D&B_tax_risk_mindset': '', 'D&B_tax_risk_notes': '', 'D&B_revenue_share': '' })
   const [addEcos, setAddEcos] = useState([])
   const [addCiq, setAddCiq] = useState([])
   const [addFile, setAddFile] = useState(null)
@@ -37,13 +37,13 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   }
 
   function clearAddForm() {
-    setAddForm({ name: '', short_bio: '', long_bio: '', background_check: '', 'D&B_strategy_expertise': '', 'D&B_cutoff_date': '', 'D&B_client_requirements': '', 'D&B_investment_cost': '', 'D&B_ideal_client': '', 'D&B_summary_benefits': '', 'D&B_getting_started': '', 'D&B_professional_process': '', 'D&B_competitive_advantage': '', 'D&B_audit_risk_general': '', 'D&B_audit_risk_history': '', 'D&B_audit_risk_worst_case': '', 'D&B_audit_risk_precautions': '', 'D&B_tax_risk_mindset': '', 'D&B_tax_risk_notes': '', 'D&B_revenue_share': '' })
+    setAddForm({ name: '', short_bio: '', long_bio: '', background_check: '', top_of_t: false, 'D&B_strategy_expertise': '', 'D&B_cutoff_date': '', 'D&B_client_requirements': '', 'D&B_investment_cost': '', 'D&B_ideal_client': '', 'D&B_summary_benefits': '', 'D&B_getting_started': '', 'D&B_professional_process': '', 'D&B_competitive_advantage': '', 'D&B_audit_risk_general': '', 'D&B_audit_risk_history': '', 'D&B_audit_risk_worst_case': '', 'D&B_audit_risk_precautions': '', 'D&B_tax_risk_mindset': '', 'D&B_tax_risk_notes': '', 'D&B_revenue_share': '' })
     setAddEcos([]); setAddCiq([]); setAddFile(null); setAddPreview(null)
   }
 
   function handleEditSelect(expert) {
     setEditingId(expert.id)
-    setEditForm({ name: expert.name || '', short_bio: expert.short_bio || '', long_bio: expert.long_bio || '', background_check: expert.background_check || '', 'D&B_strategy_expertise': expert['D&B_strategy_expertise'] || '', 'D&B_cutoff_date': expert['D&B_cutoff_date'] || '', 'D&B_client_requirements': expert['D&B_client_requirements'] || '', 'D&B_investment_cost': expert['D&B_investment_cost'] || '', 'D&B_ideal_client': expert['D&B_ideal_client'] || '', 'D&B_summary_benefits': expert['D&B_summary_benefits'] || '', 'D&B_getting_started': expert['D&B_getting_started'] || '', 'D&B_professional_process': expert['D&B_professional_process'] || '', 'D&B_competitive_advantage': expert['D&B_competitive_advantage'] || '', 'D&B_audit_risk_general': expert['D&B_audit_risk_general'] || '', 'D&B_audit_risk_history': expert['D&B_audit_risk_history'] || '', 'D&B_audit_risk_worst_case': expert['D&B_audit_risk_worst_case'] || '', 'D&B_audit_risk_precautions': expert['D&B_audit_risk_precautions'] || '', 'D&B_tax_risk_mindset': expert['D&B_tax_risk_mindset'] || '', 'D&B_tax_risk_notes': expert['D&B_tax_risk_notes'] || '', 'D&B_revenue_share': expert['D&B_revenue_share'] || '' })
+    setEditForm({ name: expert.name || '', short_bio: expert.short_bio || '', long_bio: expert.long_bio || '', background_check: expert.background_check || '', top_of_t: expert.top_of_t || false, 'D&B_strategy_expertise': expert['D&B_strategy_expertise'] || '', 'D&B_cutoff_date': expert['D&B_cutoff_date'] || '', 'D&B_client_requirements': expert['D&B_client_requirements'] || '', 'D&B_investment_cost': expert['D&B_investment_cost'] || '', 'D&B_ideal_client': expert['D&B_ideal_client'] || '', 'D&B_summary_benefits': expert['D&B_summary_benefits'] || '', 'D&B_getting_started': expert['D&B_getting_started'] || '', 'D&B_professional_process': expert['D&B_professional_process'] || '', 'D&B_competitive_advantage': expert['D&B_competitive_advantage'] || '', 'D&B_audit_risk_general': expert['D&B_audit_risk_general'] || '', 'D&B_audit_risk_history': expert['D&B_audit_risk_history'] || '', 'D&B_audit_risk_worst_case': expert['D&B_audit_risk_worst_case'] || '', 'D&B_audit_risk_precautions': expert['D&B_audit_risk_precautions'] || '', 'D&B_tax_risk_mindset': expert['D&B_tax_risk_mindset'] || '', 'D&B_tax_risk_notes': expert['D&B_tax_risk_notes'] || '', 'D&B_revenue_share': expert['D&B_revenue_share'] || '' })
     setEditEcos(ecoMap[expert.id] || [])
     setEditCiq(ciqMap[expert.id] || [])
     setEditFile(null)
@@ -288,6 +288,16 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
                 {eco}
               </button>
             ))}
+          </div>
+        </div>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Top of the T</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div onClick={() => setForm(p => ({ ...p, top_of_t: !p.top_of_t }))}
+              style={{ width: '44px', height: '24px', borderRadius: '12px', background: form.top_of_t ? '#2563eb' : 'rgba(255,255,255,0.15)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
+              <div style={{ position: 'absolute', top: '2px', left: form.top_of_t ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+            </div>
+            <span style={{ fontSize: '14px', color: form.top_of_t ? '#fff' : '#8bacc8' }}>{form.top_of_t ? 'Yes' : 'No'}</span>
           </div>
         </div>
         <div style={fieldStyle}>

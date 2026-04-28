@@ -19,7 +19,7 @@ const MEMBER_TYPES = [
 
 const CORPORATE_TYPES = ['Corporate Member', 'Free Corporate Member', 'Free Corporate Member (Legacy)']
 
-export default function MembersPanel({ allMembers, allExperts, allExclusionMap, onDataChange, section }) {
+export default function MembersPanel({ allMembers, allExperts, allExclusionMap, onDataChange, section, navClickCount }) {
   if (section === 'search_accountants' || section === 'add_accountant') {
     return (
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
@@ -33,7 +33,7 @@ export default function MembersPanel({ allMembers, allExperts, allExclusionMap, 
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-      <AdvisorsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} initialTab={section === 'add_advisor' ? 'add' : 'search'} />
+      <AdvisorsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} initialTab={section === 'add_advisor' ? 'add' : 'search'} section={section} navClickCount={navClickCount} />
     </div>
   )
 }
@@ -43,7 +43,7 @@ function FeatureTabDropdown({ label, isActive, options, onSelect }) {
   const closeTimer = useRef(null)
 
   function handleMouseEnter() { clearTimeout(closeTimer.current); setOpen(true) }
-  function handleMouseLeave() { closeTimer.current = setTimeout(() => setOpen(false), 200) }
+  function handleMouseLeave() { setOpen(false) }
 
   return (
     <div style={{ position: 'relative' }} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
@@ -66,7 +66,7 @@ function FeatureTabDropdown({ label, isActive, options, onSelect }) {
   )
 }
 
-function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, initialTab }) {
+function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, initialTab, section, navClickCount }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'search')
   useEffect(() => { setActiveTab(initialTab || 'search') }, [initialTab])
   const [selectedMember, setSelectedMember] = useState(() => {
@@ -74,6 +74,11 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, 
     if (saved && allMembers.length) return allMembers.find(m => m.plugin_member_number === saved) || null
     return null
   })
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem('adminSelectedMember')
+    if (!saved) { setSelectedMember(null); setMemberFeatureTab('profile_details') }
+  }, [navClickCount])
   const [memberFeatureTab, setMemberFeatureTab] = useState(sessionStorage.getItem('adminMemberFeatureTab') || 'profile')
   const [memberSearch, setMemberSearch] = useState('')
 
@@ -131,7 +136,7 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, 
               
             </div>
           </div>
-          <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px', flexWrap: 'wrap', position: 'relative', zIndex: 50 }}>
           <FeatureTabDropdown label="Profile" isActive={['profile_details','profile_edit','profile_history'].includes(memberFeatureTab)} options={[{key:'profile_details',label:'Profile'},{key:'profile_edit',label:'Edit Profile'},{key:'profile_history',label:'Type History'}]} onSelect={setMemberFeatureTab} />
           <FeatureTabDropdown label="MSM" isActive={['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab)} options={[{key:'msm_meetings',label:'MSM'},{key:'msm_program_holistic',label:'VFO Holistic Planning'},{key:'msm_program_partnership',label:'Partnership Fast Track'},{key:'msm_program_tax',label:'VFO Tax Planning'},{key:'msm_program_coaching',label:'Advanced Coaching'}]} onSelect={k => { setMemberFeatureTab(k); sessionStorage.setItem('adminMemberFeatureTab', k) }} />
             {[['specialists','Specialists'],['showroom','Showroom'],['website','Website Plugin'],['ciq','CIQ'],['growthplan','Growth Plan'],['gc','GC Marketplace'],['vault','The Vault'],['settings','Settings']].map(([key, label]) => (
@@ -165,6 +170,7 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
   const [status, setStatus] = useState('')
   const [statusType, setStatusType] = useState('success')
   const [loading, setLoading] = useState(false)
+  const [customMemberNumber, setCustomMemberNumber] = useState('')
 
   const isCorporate = CORPORATE_TYPES.includes(memberType)
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
@@ -185,10 +191,14 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
     if (isCorporate && !connectedMember) { setStatusType('error'); setStatus('Corporate members require a connected member.'); return }
     setLoading(true)
     try {
-      const member_number = generateMemberNumber()
+      if (customMemberNumber.trim()) {
+        const exists = allMembers.find(m => m.plugin_member_number === customMemberNumber.trim())
+        if (exists) { setStatusType('error'); setStatus(`Member number ${customMemberNumber.trim()} already exists.`); setLoading(false); return }
+      }
+      const member_number = customMemberNumber.trim() || generateMemberNumber()
       await callApi('add_member_full', { name: `${firstName} ${lastName}`, member_number, first_name: firstName, last_name: lastName, member_type: memberType, elite_status: eliteStatus, email, revenue_decision: revenueDecision, connected_member_number: connectedMember?.plugin_member_number || null })
       await onDataChange()
-      setFirstName(''); setLastName(''); setEmail(''); setMemberType(''); setConnectedMember(null); setConnectedSearch('')
+      setFirstName(''); setLastName(''); setEmail(''); setMemberType(''); setConnectedMember(null); setConnectedSearch(''); setCustomMemberNumber('')
       setStatusType('success'); setStatus(`Member created with number ${member_number}`)
     } catch (err) { setStatusType('error'); setStatus(err.message) }
     finally { setLoading(false) }
@@ -240,6 +250,10 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
             <option value="Money Mapping">Money Mapping</option>
           </select>
         </div>
+      </div>
+      <div style={{ marginBottom: '16px' }}>
+        <label style={labelStyle}>Member Number <span style={{ fontSize: '11px', color: '#5a8ab5', fontStyle: 'italic', textTransform: 'none', letterSpacing: 0 }}>— leave blank to auto-generate</span></label>
+        <input value={customMemberNumber} onChange={e => setCustomMemberNumber(e.target.value)} placeholder="e.g. 59452" style={{ ...inputStyle, maxWidth: '200px' }} />
       </div>
       <button onClick={submit} disabled={loading} style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
         {loading ? 'Creating...' : 'Create Advisor'}

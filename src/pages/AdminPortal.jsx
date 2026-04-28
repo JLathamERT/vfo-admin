@@ -16,7 +16,7 @@ function NavDropdown({ label, items, onSelect, isActive }) {
   }
 
   function handleMouseLeave() {
-    closeTimer.current = setTimeout(() => setOpen(false), 200)
+    setOpen(false)
   }
 
   return (
@@ -60,6 +60,7 @@ export default function AdminPortal() {
   const session = getSession()
   const [activeTab, setActiveTab] = useState(sessionStorage.getItem('adminActiveTab') || null)
   const [membersSection, setMembersSection] = useState(sessionStorage.getItem('adminMembersSection') || 'search_advisors')
+  const [navClickCount, setNavClickCount] = useState(0)
 const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getItem('adminSpecialistsSection') || 'search_specialists')
   const [showEditor, setShowEditor] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -113,6 +114,9 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
     sessionStorage.setItem('adminActiveTab', 'members')
     setMembersSection(key)
     sessionStorage.setItem('adminMembersSection', key)
+    sessionStorage.removeItem('adminSelectedMember')
+    sessionStorage.removeItem('adminMemberFeatureTab')
+    setNavClickCount(c => c + 1)
     setShowEditor(false)
     setShowSettings(false)
   }
@@ -122,6 +126,8 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
     sessionStorage.setItem('adminActiveTab', 'specialists')
     setSpecialistsSection(key)
     sessionStorage.setItem('adminSpecialistsSection', key)
+    sessionStorage.removeItem('adminSelectedMember')
+    sessionStorage.removeItem('adminMemberFeatureTab')
     setShowEditor(false)
     setShowSettings(false)
   }
@@ -206,7 +212,7 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
             />
           </div>
 
-          <div style={{ flex: 1, overflow: 'auto' }}>
+          <div style={{ flex: 1 }}>
           {!activeTab && (
             <div style={{ textAlign: 'center', padding: '60px 0 0' }}>
               <p style={{ fontSize: '14px', color: '#8bacc8', marginBottom: '8px' }}>Welcome back</p>
@@ -222,7 +228,7 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
             <MembersPanel
               allMembers={allMembers} allExperts={allExperts}
               allExclusionMap={allExclusionMap} ecoMap={ecoMap} ciqMap={ciqMap}
-              onDataChange={loadAllData} section={membersSection}
+              onDataChange={loadAllData} section={membersSection} navClickCount={navClickCount}
             />
           )}
 
