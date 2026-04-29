@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { callApi } from '../../lib/api'
+import { callApi, getSession } from '../../lib/api'
 import MemberWebsitePlugin from '../shared/MemberWebsitePlugin'
 import MemberVault from '../shared/MemberVault'
 import MemberCIQ from '../shared/MemberCIQ'
@@ -283,8 +283,16 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection }) {
   const [statusType, setStatusType] = useState('success')
   const [connectedSearch, setConnectedSearch] = useState('')
   const [showConnectedSearch, setShowConnectedSearch] = useState(false)
+  const [programNotes, setProgramNotes] = useState([])
 
-  useEffect(() => { loadProfile() }, [member.plugin_member_number])
+  useEffect(() => { loadProfile(); loadProgramNotes() }, [member.plugin_member_number])
+
+  async function loadProgramNotes() {
+    try {
+      const data = await callApi('load_member_program_notes', { member_number: member.plugin_member_number })
+      setProgramNotes(data.notes || [])
+    } catch (err) { console.error(err) }
+  }
 
   async function loadProfile() {
     setLoading(true)
@@ -366,6 +374,22 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection }) {
             </div>
           )}
           {profile.notes && <div style={sectionStyle}><div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Notes</div><p style={{ fontSize: '14px', color: '#fff', lineHeight: '1.6', margin: 0 }}>{profile.notes}</p></div>}
+          {programNotes.length > 0 && (
+            <div style={sectionStyle}>
+              <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>All Program Notes ({programNotes.length})</div>
+              {programNotes.map(note => (
+                <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ fontSize: '13px', color: '#fff', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{note.created_by}</span>
+                    <span style={{ fontSize: '11px', color: '#5a8ab5' }}>·</span>
+                    <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{note.created_at?.split('T')[0]}</span>
+                    <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.12)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.2)' }}>{note.program_name}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

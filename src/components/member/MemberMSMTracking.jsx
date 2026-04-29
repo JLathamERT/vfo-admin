@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { callApi, getSession } from '../../lib/api'
+import { callApi } from '../../lib/api'
 
 const PROGRAMS = [
   { key: 'holistic', name: 'VFO Holistic Planning' },
@@ -163,106 +163,11 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
   return null
 }
 
-function ProgramNotes({ memberNumber, programName }) {
-  const [notes, setNotes] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [showAdd, setShowAdd] = useState(false)
-  const [newText, setNewText] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [editingId, setEditingId] = useState(null)
-  const [editText, setEditText] = useState('')
-  const session = getSession()
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
 
-  useEffect(() => { loadNotes() }, [memberNumber, programName])
-
-  async function loadNotes() {
-    setLoading(true)
-    try {
-      const data = await callApi('load_member_program_notes', { member_number: memberNumber, program_name: programName })
-      setNotes(data.notes || [])
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
-  }
-
-  async function addNote() {
-    if (!newText.trim()) return
-    setSaving(true)
-    try {
-      const result = await callApi('add_member_program_note', { member_number: memberNumber, program_name: programName, note_text: newText.trim(), created_by: session?.name || 'Unknown' })
-      setNotes([result.note, ...notes])
-      setNewText('')
-      setShowAdd(false)
-    } catch (err) { console.error(err) }
-    finally { setSaving(false) }
-  }
-
-  async function updateNote(noteId) {
-    if (!editText.trim()) return
-    try {
-      const result = await callApi('update_member_program_note', { note_id: noteId, note_text: editText.trim() })
-      setNotes(notes.map(n => n.id === noteId ? result.note : n))
-      setEditingId(null)
-    } catch (err) { console.error(err) }
-  }
-
-  async function deleteNote(noteId) {
-    try {
-      await callApi('delete_member_program_note', { note_id: noteId })
-      setNotes(notes.filter(n => n.id !== noteId))
-    } catch (err) { console.error(err) }
-  }
-
-  if (loading) return <div style={{ padding: '20px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
-
-  return (
-    <div style={sectionStyle}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px' }}>Notes ({notes.length})</div>
-        {!showAdd && <button onClick={() => setShowAdd(true)} style={{ padding: '4px 12px', borderRadius: '6px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>+ Add Note</button>}
-      </div>
-      {showAdd && (
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          <textarea value={newText} onChange={e => setNewText(e.target.value)} placeholder="Add a note..." rows={2} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addNote() } }} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical' }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <button onClick={addNote} disabled={saving || !newText.trim()} style={{ padding: '8px 14px', borderRadius: '8px', background: saving ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '12px', cursor: saving ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>{saving ? '...' : 'Save'}</button>
-            <button onClick={() => { setShowAdd(false); setNewText('') }} style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '12px', cursor: 'pointer' }}>✕</button>
-          </div>
-        </div>
-      )}
-      {notes.length === 0 && <div style={{ fontSize: '13px', color: '#5a8ab5', padding: '8px 0' }}>No notes yet.</div>}
-      {notes.map(note => (
-        <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          {editingId === note.id ? (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <textarea value={editText} onChange={e => setEditText(e.target.value)} rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical' }} />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <button onClick={() => updateNote(note.id)} style={{ padding: '4px 10px', borderRadius: '6px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>Save</button>
-                <button onClick={() => setEditingId(null)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div style={{ fontSize: '13px', color: '#fff', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{note.created_by}</span>
-                <span style={{ fontSize: '11px', color: '#5a8ab5' }}>·</span>
-                <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{note.created_at?.split('T')[0]}</span>
-                <button onClick={() => { setEditingId(note.id); setEditText(note.note_text) }} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#5b9fe6', fontSize: '11px', cursor: 'pointer' }}>Edit</button>
-                <button onClick={() => deleteNote(note.id)} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#e74c3c', fontSize: '11px', cursor: 'pointer' }}>Delete</button>
-              </div>
-            </>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
 
 function MemberEnrolledView({ enrollment, program, member }) {
   const isCoaching = program.name === 'Advanced Coaching'
-  const isTaxPlanning = program.name === 'VFO Tax Planning'
-  const [activeTab, setActiveTab] = useState('home')
+  const [activeTab, setActiveTab] = useState(isCoaching ? 'meetings' : program.name === 'VFO Tax Planning' ? 'clients' : 'training')
   const tabStyle = (active) => ({ padding: '10px 18px', background: 'transparent', border: 'none', borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent', color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' })
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
   const statusColors = { 'On Fast Track': '#27ae60', 'Paused Fast Track': '#f39c12', 'Lost/Removed': '#e74c3c', 'Revert to Legacy': '#8bacc8', 'Active': '#27ae60' }
@@ -276,13 +181,12 @@ function MemberEnrolledView({ enrollment, program, member }) {
         </div>
       </div>
       <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px' }}>
-        <button style={tabStyle(activeTab === 'home')} onClick={() => setActiveTab('home')}>{program.name} Home</button>
         {isCoaching ? (
           <>
             <button style={tabStyle(activeTab === 'meetings')} onClick={() => setActiveTab('meetings')}>Meetings</button>
             <button style={tabStyle(activeTab === 'renewal')} onClick={() => setActiveTab('renewal')}>Renewal</button>
           </>
-        ) : isTaxPlanning ? (
+        ) : program.name === 'VFO Tax Planning' ? (
           <>
             <button style={tabStyle(activeTab === 'clients')} onClick={() => setActiveTab('clients')}>Clients</button>
           </>
@@ -293,7 +197,6 @@ function MemberEnrolledView({ enrollment, program, member }) {
           </>
         )}
       </div>
-      {activeTab === 'home' && <ProgramNotes memberNumber={member.member_number} programName={program.name} />}
       {activeTab === 'training' && <MemberTrainingView enrollment={enrollment} program={program} />}
       {activeTab === 'clients' && <MemberClientsView enrollment={enrollment} member={member} program={program} />}
       {activeTab === 'meetings' && <MemberCoachingMeetings enrollment={enrollment} />}
