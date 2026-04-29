@@ -9,7 +9,7 @@ const PROGRAMS = [
   { key: 'coaching', name: 'Advanced Coaching' },
 ]
 
-const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael', 'Bridger Silvester', 'Tracy Miller', 'Evan Anderson']
+const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael Hopson', 'Ian Welham', 'Paul Latham']
 
 export default function MSMTracking({ member, activeSection, onDataChange }) {
   const activeTab = activeSection === 'msm_meetings' ? 'home' : 'programs'
@@ -857,7 +857,6 @@ function MsmAssignment({ member, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState('')
 
-  const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael', 'Bridger Silvester', 'Tracy Miller', 'Evan Anderson']
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
 

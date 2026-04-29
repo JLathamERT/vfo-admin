@@ -137,7 +137,7 @@ export default function ClientDetail() {
           )}
         </div>
 
-        {activeTab === 'home' && <ClientHome client={client} contacts={contacts} onUpdate={loadData} sectionStyle={sectionStyle} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+        {activeTab === 'home' && <ClientHome client={client} contacts={contacts} onUpdate={loadData} sectionStyle={sectionStyle} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} program={program} />}
         {activeTab === 'details' && !isMember && <ClientDetails client={client} contacts={contacts} onUpdate={loadData} onReloadContacts={reloadContacts} sectionStyle={sectionStyle} />}
         {activeTab === 'map1' && program && <ClientTrackViewV2 clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
         {activeTab === 'pft' && program && <PFTEngagementTrack clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
@@ -148,12 +148,30 @@ export default function ClientDetail() {
   )
 }
 
-function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = false, notes = [], onNotesChange }) {
+function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = false, notes = [], onNotesChange, program }) {
+  const [editingNoteId, setEditingNoteId] = useState(null)
+  const [editNoteText, setEditNoteText] = useState('')
   const [status, setStatus] = useState(client?.status || 'pending')
   const [saving, setSaving] = useState(false)
   const [assignedPf, setAssignedPf] = useState(client?.assigned_pf || '')
   const [savingPf, setSavingPf] = useState(false)
   const [pfSaved, setPfSaved] = useState(false)
+
+  async function updateNote(noteId) {
+    if (!editNoteText.trim()) return
+    try {
+      const result = await callApi('update_client_note', { note_id: noteId, note_text: editNoteText.trim() })
+      onNotesChange(notes.map(n => n.id === noteId ? result.note : n))
+      setEditingNoteId(null)
+    } catch (err) { console.error(err) }
+  }
+
+  async function deleteNote(noteId) {
+    try {
+      await callApi('delete_client_note', { note_id: noteId })
+      onNotesChange(notes.filter(n => n.id !== noteId))
+    } catch (err) { console.error(err) }
+  }
 
   async function savePf() {
     setSavingPf(true)
@@ -220,20 +238,37 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
           ))}
         </div>}
       </div>
-      {!readOnly && notes.length > 0 && (
+      {!readOnly && (
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>All Notes ({notes.length})</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px' }}>All Notes ({notes.length})</div>
+            <AddGeneralNote clientId={client.id} notes={notes} onNotesChange={onNotesChange} programName={program?.name || null} />
+          </div>
           {notes.map(note => (
             <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <div style={{ fontSize: '13px', color: '#fff', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{note.created_by}</span>
-                <span style={{ fontSize: '11px', color: '#5a8ab5' }}>·</span>
-                <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{note.created_at?.split('T')[0]}</span>
-                {note.program_name && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.12)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.2)' }}>{note.program_name}</span>}
-                <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.2)' }}>{note.tab_name}</span>
-                <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>{note.phase_name}</span>
-              </div>
+              {editingNoteId === note.id ? (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <textarea value={editNoteText} onChange={e => setEditNoteText(e.target.value)} rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <button onClick={() => updateNote(note.id)} style={{ padding: '4px 10px', borderRadius: '6px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>Save</button>
+                    <button onClick={() => setEditingNoteId(null)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: '13px', color: '#fff', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{note.created_by}</span>
+                    <span style={{ fontSize: '11px', color: '#5a8ab5' }}>·</span>
+                    <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{note.created_at?.split('T')[0]}</span>
+                    {note.program_name && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.12)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.2)' }}>{note.program_name}</span>}
+                    <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.2)' }}>{note.tab_name}</span>
+                    {note.phase_name !== 'General' && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>{note.phase_name}</span>}
+                    <button onClick={() => { setEditingNoteId(note.id); setEditNoteText(note.note_text) }} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#5b9fe6', fontSize: '11px', cursor: 'pointer' }}>Edit</button>
+                    <button onClick={() => deleteNote(note.id)} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#e74c3c', fontSize: '11px', cursor: 'pointer' }}>Delete</button>
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>
@@ -826,6 +861,39 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }
     </div>
   )
 }
+
+function AddGeneralNote({ clientId, notes, onNotesChange, programName }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const [saving, setSaving] = useState(false)
+  const session = getSession()
+
+  async function save() {
+    if (!text.trim()) return
+    setSaving(true)
+    try {
+      const result = await callApi('add_client_note', { client_id: clientId, phase_name: 'General', tab_name: 'General Note', program_name: programName, note_text: text.trim(), created_by: session?.name || 'Admin' })
+      onNotesChange([result.note, ...notes])
+      setText('')
+      setOpen(false)
+    } catch (err) { console.error(err) }
+    finally { setSaving(false) }
+  }
+
+  if (!open) {
+    return <button onClick={() => setOpen(true)} style={{ padding: '4px 12px', borderRadius: '6px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>+ Add Note</button>
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', flex: 1, marginLeft: '16px' }}>
+      <textarea value={text} onChange={e => setText(e.target.value)} placeholder="Add a general note..." rows={2} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save() } }} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical' }} />
+      <button onClick={save} disabled={saving || !text.trim()} style={{ padding: '8px 14px', borderRadius: '8px', background: saving ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '12px', cursor: saving ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>{saving ? '...' : 'Save'}</button>
+      <button onClick={() => { setOpen(false); setText('') }} style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '12px', cursor: 'pointer' }}>✕</button>
+    </div>
+  )
+}
+
+
 
 // PhaseNotes — renders a "Notes (N)" button for phase headers.
 // When open=true (controlled externally via expanded state), renders the notes panel.

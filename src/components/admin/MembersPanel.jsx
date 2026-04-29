@@ -79,6 +79,14 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, 
     const saved = sessionStorage.getItem('adminSelectedMember')
     if (!saved) { setSelectedMember(null); setMemberFeatureTab('profile_details') }
   }, [navClickCount])
+
+  // Keep selectedMember in sync when allMembers refreshes (e.g. after saving MSM assignment)
+  useEffect(() => {
+    if (selectedMember && allMembers.length) {
+      const fresh = allMembers.find(m => m.plugin_member_number === selectedMember.plugin_member_number)
+      if (fresh && fresh !== selectedMember) setSelectedMember(fresh)
+    }
+  }, [allMembers])
   const [memberFeatureTab, setMemberFeatureTab] = useState(sessionStorage.getItem('adminMemberFeatureTab') || 'profile')
   const [memberSearch, setMemberSearch] = useState('')
 
