@@ -163,6 +163,7 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
       options: [
         { key: 'search_specialists', label: 'Search Specialists' },
         { key: 'add_specialist', label: 'Add Specialist' },
+        { key: 'specialist_onboarding', label: 'Onboarding' },
       ]
     },
   ]

@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { callApi } from '../../lib/api'
+import SpecialistOnboarding from './SpecialistOnboarding'
 
 const ECOSYSTEMS = ['Tax Planning', 'Business Advisory', 'Legal', 'Insurance', 'Wealth Management']
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
 const HEADSHOT_BASE = 'https://biz-diagnostic.com/Uploads/ExpertPhotos/'
 
 export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataChange, section }) {
+  if (section === 'specialist_onboarding') return <SpecialistOnboarding />
   const activeTab = section === 'add_specialist' ? 'add' : 'edit'
   const [addStatus, setAddStatus] = useState('')
   const [addStatusType, setAddStatusType] = useState('success')
