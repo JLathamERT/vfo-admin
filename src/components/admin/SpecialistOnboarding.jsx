@@ -25,9 +25,9 @@ const STAGE4_FOLDER_ITEMS = [
 ]
  
 const STAGE5_SKOOL_ITEMS = [
-  { key: 'profile_created', label: 'Profile created' },
-  { key: 'intro_post', label: 'Introduction post made' },
-  { key: 'team_members_added', label: 'Additional team members added' },
+  { key: 'profile_created', label: 'Profile created', options: ['Completed'] },
+  { key: 'intro_post', label: 'Introduction post made', options: ['Completed'] },
+  { key: 'team_members_added', label: 'Additional team members added', options: ['Completed', 'N/A'] },
 ]
  
 export default function SpecialistOnboarding() {
@@ -258,7 +258,13 @@ function OnboardingDetail({ id, onBack }) {
           </div>
         )}
         {isExpanded && ob.current_stage < stage && (
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', padding: '12px 18px', color: '#5a8ab5', fontSize: '13px' }}>Complete Stage {stage - 1} to unlock.</div>
+          <div style={{ borderTop: `1px solid ${borderColor}`, padding: '12px 18px' }}>
+            {stage === 1 && <Stage1Content />}
+            {stage === 2 && <Stage2Content />}
+            {stage === 3 && <Stage3Content />}
+            {stage === 4 && <Stage4Content />}
+            {stage === 5 && <Stage5Content />}
+          </div>
         )}
       </div>
     )
@@ -266,10 +272,11 @@ function OnboardingDetail({ id, onBack }) {
  
   function AutoStep({ done, label, detail }) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0' }}>
-        <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', border: `1.5px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.3)'}`, flexShrink: 0 }} />
-        <span style={{ fontSize: '13px', color: done ? '#fff' : '#8bacc8' }}>{label}</span>
-        {detail && <span style={{ fontSize: '11px', color: '#5a8ab5', marginLeft: 'auto' }}>{detail}</span>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+        <span style={{ fontSize: '13px', color: '#8bacc8', flex: 1 }}>{label}</span>
+        {detail && <span style={{ fontSize: '11px', color: '#5a8ab5', marginRight: '8px' }}>{detail}</span>}
+        <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: done ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: done ? '#27ae60' : '#8bacc8', border: `1px solid ${done ? 'rgba(39,174,96,0.3)' : 'rgba(255,255,255,0.1)'}` }}>{done ? 'Completed' : 'Not completed'}</span>
       </div>
     )
   }
@@ -300,7 +307,7 @@ function OnboardingDetail({ id, onBack }) {
             <div key={voter} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
               <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '8px' }}>{voter}</div>
               {!v ? (
-                <span style={{ fontSize: '12px', color: '#5a8ab5', fontStyle: 'italic' }}>Awaiting response...</span>
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8', border: '1px solid rgba(255,255,255,0.1)' }}>Awaiting response</span>
               ) : (
                 <span style={{ fontSize: '12px', color: v === 'confirm' ? '#27ae60' : '#f39c12', fontWeight: '600' }}>
                   {v === 'confirm' ? '✓ Confirmed' : '⚠ Further questions'}
@@ -317,32 +324,74 @@ function OnboardingDetail({ id, onBack }) {
     return <div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', marginTop: '14px' }}>{children}</div>
   }
  
+  function Stage1Decision() {
+    const [meetingDate, setMeetingDate] = useState('')
+    const [showDateInput, setShowDateInput] = useState(false)
+
+    return (
+      <div style={{ marginBottom: '12px' }}>
+        {!showDateInput ? (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <ActionButton label="Continue — Send email (with date)" onClick={() => setShowDateInput(true)} color="#27ae60" />
+            <ActionButton label="Continue — date not yet arranged" onClick={() => { saveProgress(1, 'decision', 'continue_no_date'); saveProgress(1, 'email_sent', 'completed'); advanceStage() }} color="#27ae60" />
+            <ActionButton label="Stop — Send email" onClick={() => { saveProgress(1, 'decision', 'stop'); stopOnboarding() }} color="#e74c3c" />
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '13px', color: '#8bacc8' }}>Next meeting date:</span>
+            <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: '#0d2a6e', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif' }} />
+            <ActionButton label="Confirm & Send email" onClick={() => { if (!meetingDate) return; saveProgress(1, 'decision', 'continue', meetingDate); saveProgress(1, 'email_sent', 'completed'); advanceStage() }} color="#27ae60" disabled={!meetingDate} />
+            <ActionButton label="Cancel" onClick={() => setShowDateInput(false)} color="#5b9fe6" />
+          </div>
+        )}
+      </div>
+    )
+  }
+
   function Stage1Content() {
     const decision = getTaskStatus(1, 'decision')
     return (
       <>
         <SectionLabel>Post-meeting decision</SectionLabel>
         {!decision ? (
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-            <ActionButton label="Continue — Send email" onClick={() => { saveProgress(1, 'decision', 'continue'); saveProgress(1, 'email_sent', 'completed') }} color="#27ae60" />
-            <ActionButton label="Stop — Send email" onClick={() => { saveProgress(1, 'decision', 'stop'); stopOnboarding() }} color="#e74c3c" />
-          </div>
+          <Stage1Decision />
         ) : (
           <div style={{ marginBottom: '12px' }}>
-            <span style={{ fontSize: '13px', color: decision === 'continue' ? '#27ae60' : '#e74c3c', fontWeight: '600' }}>{decision === 'continue' ? '✓ Continuing' : '✗ Stopped'}</span>
+            <span style={{ fontSize: '13px', color: decision === 'continue' || decision === 'continue_no_date' ? '#27ae60' : '#e74c3c', fontWeight: '600' }}>
+              {decision === 'continue' ? `✓ Continuing — next meeting: ${progress['1-decision']?.notes || ''}` : decision === 'continue_no_date' ? '✓ Continuing — date not yet arranged' : '✗ Stopped'}
+            </span>
           </div>
         )}
-        <SectionLabel>Automated</SectionLabel>
-        <AutoStep done={!!getTaskStatus(1, 'email_sent')} label="Email sent to potential VFO specialist" detail="DD form, rev share examples, template agreement" />
-        {decision === 'continue' && ob.current_stage === 1 && (
-          <div style={{ marginTop: '14px' }}>
-            <ActionButton label="Advance to Stage 2 →" onClick={advanceStage} />
-          </div>
-        )}
+        
+        <AutoStep done={!!getTaskStatus(1, 'email_sent')} label="Email sent to potential VFO specialist" detail="SIF form, rev share examples, template agreement" />
       </>
     )
   }
  
+  function Stage2MeetingButtons({ onLogMeeting, onLogStop }) {
+    const [showDateInput, setShowDateInput] = useState(false)
+    const [meetingDate, setMeetingDate] = useState('')
+
+    return (
+      <div style={{ marginTop: '12px', marginBottom: '12px' }}>
+        {!showDateInput ? (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <ActionButton label="Still interested — Send email (with date)" onClick={() => setShowDateInput(true)} color="#27ae60" />
+            <ActionButton label="Still interested — date not yet arranged" onClick={onLogMeeting} color="#27ae60" />
+            <ActionButton label="Stop — Send email" onClick={onLogStop} color="#e74c3c" />
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '13px', color: '#8bacc8' }}>Next meeting date:</span>
+            <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: '#0d2a6e', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif' }} />
+            <ActionButton label="Confirm & Send email" onClick={() => { if (!meetingDate) return; onLogMeeting(meetingDate); setShowDateInput(false) }} color="#27ae60" disabled={!meetingDate} />
+            <ActionButton label="Cancel" onClick={() => setShowDateInput(false)} color="#5b9fe6" />
+          </div>
+        )}
+      </div>
+    )
+  }
+
   function Stage2Content() {
     // Build meeting history from progress keys
     const meetingCount = meetings.length
@@ -361,7 +410,7 @@ function OnboardingDetail({ id, onBack }) {
     const eitherQuestion = (getVote(2, 'Anton Anderson') === 'further_questions' || getVote(2, 'Paul Latham') === 'further_questions') && !bothConfirm
     const anyVote = getVote(2, 'Anton Anderson') || getVote(2, 'Paul Latham')
 
-    async function logMeeting() {
+    async function logMeeting(nextMeetingDate) {
       // Gather currently checked items that aren't already locked
       const newlyChecked = []
       STAGE2_CHECKLIST.forEach((_, i) => {
@@ -377,6 +426,7 @@ function OnboardingDetail({ id, onBack }) {
           meeting_date: new Date().toISOString().split('T')[0],
           items_discussed: [...lockedItems, ...newlyChecked],
           outcome: 'interested',
+          notes: nextMeetingDate ? `Next meeting: ${nextMeetingDate}` : 'Next meeting date not yet arranged',
           created_by: session?.name || 'Admin',
         })
         setMeetings(prev => [result.meeting, ...prev])
@@ -385,15 +435,23 @@ function OnboardingDetail({ id, onBack }) {
 
     async function logStop() {
       try {
-        await callApi('save_onboarding_meeting', {
+        // Gather all currently checked items
+        const allChecked = []
+        STAGE2_CHECKLIST.forEach((_, i) => {
+          if (getTaskStatus(2, `checklist_${i}`) || lockedItems.has(String(i))) {
+            allChecked.push(String(i))
+          }
+        })
+        const result = await callApi('save_onboarding_meeting', {
           onboarding_id: id,
           meeting_date: new Date().toISOString().split('T')[0],
-          items_discussed: [...lockedItems],
+          items_discussed: allChecked,
           outcome: 'stopped',
           created_by: session?.name || 'Admin',
         })
-        saveProgress(2, 'decision', 'stop')
-        stopOnboarding()
+        setMeetings(prev => [result.meeting, ...prev])
+        await saveProgress(2, 'decision', 'stop')
+        await stopOnboarding()
       } catch (err) { console.error(err) }
     }
 
@@ -424,8 +482,26 @@ function OnboardingDetail({ id, onBack }) {
                   <span style={{ fontSize: '13px', color: '#8bacc8', textDecoration: 'line-through' }}>{STAGE2_CHECKLIST[parseInt(idx)]}</span>
                 </div>
               ))}
-              {meeting.outcome === 'stopped' && <div style={{ fontSize: '12px', color: '#e74c3c', fontWeight: '600', marginTop: '6px' }}>✗ Process stopped</div>}
-              {meeting.outcome === 'interested' && <div style={{ fontSize: '12px', color: '#27ae60', marginTop: '6px' }}>✓ Still interested — email sent</div>}
+              {meeting.outcome === 'stopped' && (
+                <>
+                  {STAGE2_CHECKLIST.map((item, i) => {
+                    if (!(meeting.items_discussed || []).includes(String(i))) {
+                      return <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '3px 0' }}>
+                        <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: '1.5px solid rgba(255,255,255,0.2)', flexShrink: 0 }} />
+                        <span style={{ fontSize: '13px', color: '#8bacc8' }}>{item}</span>
+                      </div>
+                    }
+                    return null
+                  })}
+                  <div style={{ fontSize: '12px', color: '#e74c3c', fontWeight: '600', marginTop: '6px' }}>✗ Process stopped — email sent</div>
+                </>
+              )}
+              {meeting.outcome === 'interested' && (
+                <div style={{ fontSize: '12px', color: '#27ae60', marginTop: '6px' }}>
+                  ✓ Still interested — email sent
+                  {meeting.notes && <span style={{ color: '#8bacc8', marginLeft: '8px' }}>({meeting.notes})</span>}
+                </div>
+              )}
             </div>
           )
         })}
@@ -438,11 +514,7 @@ function OnboardingDetail({ id, onBack }) {
               <CheckItem key={index} done={!!getTaskStatus(2, `checklist_${index}`)} label={item} onClick={() => saveProgress(2, `checklist_${index}`, 'completed')} />
             ))}
 
-            <div style={{ marginTop: '12px', display: 'flex', gap: '8px', marginBottom: '4px' }}>
-              <ActionButton label="Still interested — Send email" onClick={logMeeting} color="#27ae60" />
-              <ActionButton label="Stop — Send email" onClick={logStop} color="#e74c3c" />
-            </div>
-            <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '12px' }}>Email includes completed/remaining items.</div>
+            <Stage2MeetingButtons onLogMeeting={logMeeting} onLogStop={logStop} />
           </>
         )}
 
@@ -463,7 +535,7 @@ function OnboardingDetail({ id, onBack }) {
                   <div key={voter} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
                     <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '8px' }}>{voter}</div>
                     {!v ? (
-                      <span style={{ fontSize: '12px', color: '#5a8ab5', fontStyle: 'italic' }}>Awaiting response...</span>
+                      <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8', border: '1px solid rgba(255,255,255,0.1)' }}>Awaiting response</span>
                     ) : (
                       <span style={{ fontSize: '12px', color: v === 'confirm' ? '#27ae60' : '#f39c12', fontWeight: '600' }}>
                         {v === 'confirm' ? '✓ Confirmed' : '⚠ Further questions'}
@@ -473,10 +545,10 @@ function OnboardingDetail({ id, onBack }) {
                 )
               })}
             </div>
-            {!anyVote && <div style={{ fontSize: '11px', color: '#5a8ab5', fontStyle: 'italic', marginBottom: '12px' }}>Executive approval emails sent — waiting for responses.</div>}
+            
             {eitherQuestion && <div style={{ fontSize: '12px', color: '#f39c12', padding: '8px 12px', borderRadius: '6px', border: '1px dashed rgba(243,156,18,0.3)', background: 'rgba(243,156,18,0.06)', marginBottom: '12px' }}>Process paused — executive has further questions.</div>}
             {bothConfirm && <div style={{ fontSize: '11px', color: '#27ae60', marginBottom: '8px' }}>Both executives confirmed. Background check email triggered.</div>}
-            <SectionLabel>Automated</SectionLabel>
+            
             <AutoStep done={!!getTaskStatus(2, 'bg_email_sent')} label="Background check email sent (Core $350 / Max $950)" />
             <AutoStep done={!!getTaskStatus(2, 'payment_received')} label="Payment received" detail={ob.background_check_type || ''} />
             {!getTaskStatus(2, 'payment_received') && bothConfirm && (
@@ -493,6 +565,24 @@ function OnboardingDetail({ id, onBack }) {
     )
   }
  
+  function RevShareDisplay({ notes }) {
+    const [expanded, setExpanded] = useState(false)
+    const preview = notes.length > 100 ? notes.substring(0, 100) + '...' : notes
+    return (
+      <div style={{ marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+          <span style={{ fontSize: '13px', color: '#27ae60', fontWeight: '600' }}>✓ Revenue share proposal submitted</span>
+          {notes.length > 100 && <button onClick={() => setExpanded(!expanded)} style={{ background: 'none', border: 'none', color: '#5b9fe6', fontSize: '11px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', padding: 0 }}>{expanded ? 'Collapse' : 'View details'}</button>}
+        </div>
+        {notes && (
+          <div style={{ fontSize: '12px', color: '#8bacc8', lineHeight: '1.6', whiteSpace: 'pre-wrap', padding: '8px 12px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            {expanded || notes.length <= 100 ? notes : preview}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   function Stage3Content() {
     const [revSharePercent, setRevSharePercent] = useState('')
     const [submittingRevShare, setSubmittingRevShare] = useState(false)
@@ -506,12 +596,13 @@ function OnboardingDetail({ id, onBack }) {
     const bgDone = bgResult === 'passed'
     const bgFailed = bgResult === 'failed'
     const allDone = ddDone && revDone && bgDone
+    
 
     async function submitRevShareProposal() {
       if (!revSharePercent) return
       setSubmittingRevShare(true)
       try {
-        await saveProgress(3, 'rev_share_prepared', 'completed', `Revenue share: ${revSharePercent}%`)
+        await saveProgress(3, 'rev_share_prepared', 'completed', revSharePercent.trim())
         await saveProgress(3, 'rev_share_email_sent', 'completed')
       } catch (err) { console.error(err) }
       finally { setSubmittingRevShare(false) }
@@ -520,7 +611,7 @@ function OnboardingDetail({ id, onBack }) {
     return (
       <>
         {/* 1. Tracy confirms background check sent */}
-        <SectionLabel>Tracy's action</SectionLabel>
+        
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', marginBottom: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: bgInitiated ? '#27ae60' : 'transparent', border: `1.5px solid ${bgInitiated ? '#27ae60' : 'rgba(255,255,255,0.3)'}`, flexShrink: 0 }} />
@@ -531,15 +622,15 @@ function OnboardingDetail({ id, onBack }) {
         </div>
 
         {/* 2. Auto: DD checklist email — fires when Tracy clicks above */}
-        <SectionLabel>Automated</SectionLabel>
+        
         <AutoStep done={!!getTaskStatus(3, 'dd_email_sent')} label="DD checklist email sent to specialist" />
 
         {/* 3. DD checklist response — read-only, populated by email */}
-        <SectionLabel>Waiting on specialist</SectionLabel>
+        
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', marginBottom: '12px' }}>
           <span style={{ fontSize: '13px', color: '#fff', fontWeight: '500' }}>DD checklist</span>
           {!ddStatus ? (
-            <span style={{ fontSize: '12px', color: '#5a8ab5', fontStyle: 'italic', marginLeft: 'auto' }}>Awaiting response...</span>
+            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8', border: '1px solid rgba(255,255,255,0.1)', marginLeft: 'auto' }}>Not completed</span>
           ) : ddStatus === 'help_requested' ? (
             <span style={{ fontSize: '12px', color: '#f39c12', fontWeight: '600', marginLeft: 'auto' }}>⚠ Specialist needs help — Tracy notified</span>
           ) : ddStatus === 'completed' ? (
@@ -550,35 +641,27 @@ function OnboardingDetail({ id, onBack }) {
         <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', margin: '16px 0' }} />
 
         {/* 4. Revenue share proposal — form */}
-        <SectionLabel>Tracy's input — Revenue share proposal</SectionLabel>
+        <SectionLabel>Revenue share proposal</SectionLabel>
         {!getTaskStatus(3, 'rev_share_prepared') ? (
           <div style={{ padding: '14px', borderRadius: '8px', border: '1px solid rgba(91,159,230,0.3)', background: 'rgba(255,255,255,0.02)', marginBottom: '12px' }}>
-            <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '8px' }}>Revenue Share Percentage</div>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <input type="number" value={revSharePercent} onChange={e => setRevSharePercent(e.target.value)} placeholder="e.g. 15" style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', fontFamily: 'DM Sans, sans-serif', width: '100px' }} />
-                <span style={{ fontSize: '14px', color: '#8bacc8' }}>%</span>
-              </div>
-              <ActionButton label={submittingRevShare ? 'Submitting...' : 'Submit & Send to Specialist'} onClick={submitRevShareProposal} disabled={!revSharePercent || submittingRevShare} color="#27ae60" />
-            </div>
+            <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '8px' }}>Revenue Share Proposal</div>
+            <textarea value={revSharePercent} onChange={e => setRevSharePercent(e.target.value)} placeholder="Enter revenue share proposal details..." rows={6} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '10px' }} />
+            <ActionButton label={submittingRevShare ? 'Submitting...' : 'Submit & Send to Specialist'} onClick={submitRevShareProposal} disabled={!revSharePercent.trim() || submittingRevShare} color="#27ae60" />
           </div>
         ) : (
-          <div style={{ marginBottom: '12px' }}>
-            <span style={{ fontSize: '13px', color: '#27ae60', fontWeight: '600' }}>✓ Revenue share proposal submitted</span>
-            <span style={{ fontSize: '11px', color: '#5a8ab5', marginLeft: '10px' }}>{progress['3-rev_share_prepared']?.notes || ''}</span>
-          </div>
+          <RevShareDisplay notes={progress['3-rev_share_prepared']?.notes || ''} />
         )}
 
         {/* 5. Auto: revenue share email — fires when form submitted */}
-        <SectionLabel>Automated</SectionLabel>
+        
         <AutoStep done={!!getTaskStatus(3, 'rev_share_email_sent')} label="Revenue share proposal email sent to specialist" />
 
         {/* 6. Revenue share response — read-only, populated by email */}
-        <SectionLabel>Waiting on specialist</SectionLabel>
+        
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', marginBottom: '12px' }}>
           <span style={{ fontSize: '13px', color: '#fff', fontWeight: '500' }}>Revenue share proposal</span>
           {!revResponse ? (
-            <span style={{ fontSize: '12px', color: '#5a8ab5', fontStyle: 'italic', marginLeft: 'auto' }}>Awaiting response...</span>
+            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8', border: '1px solid rgba(255,255,255,0.1)', marginLeft: 'auto' }}>Not completed</span>
           ) : revResponse === 'further_questions' ? (
             <span style={{ fontSize: '12px', color: '#f39c12', fontWeight: '600', marginLeft: 'auto' }}>⚠ Further questions — Tracy notified</span>
           ) : revResponse === 'happy' ? (
@@ -596,7 +679,7 @@ function OnboardingDetail({ id, onBack }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', marginBottom: '12px' }}>
             <span style={{ fontSize: '13px', color: '#fff' }}>Background check results</span>
             <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
-              <ActionButton label="Passed" onClick={() => saveProgress(3, 'bg_results_received', 'passed')} color="#27ae60" />
+              <ActionButton label="Passed" onClick={async () => { await saveProgress(3, 'bg_results_received', 'passed'); if (ddDone && revDone) advanceStage() }} color="#27ae60" />
               <ActionButton label="Failed" onClick={() => { saveProgress(3, 'bg_results_received', 'failed'); stopOnboarding() }} color="#e74c3c" />
             </div>
           </div>
@@ -608,17 +691,12 @@ function OnboardingDetail({ id, onBack }) {
         )}
 
         {/* Gate */}
-        <div style={{ padding: '8px 12px', borderRadius: '6px', border: `1px dashed ${allDone ? 'rgba(39,174,96,0.3)' : bgFailed ? 'rgba(231,76,60,0.3)' : 'rgba(255,255,255,0.1)'}`, background: allDone ? 'rgba(39,174,96,0.06)' : bgFailed ? 'rgba(231,76,60,0.06)' : 'transparent', marginTop: '14px', marginBottom: '10px' }}>
-          <span style={{ fontSize: '12px', color: allDone ? '#27ae60' : bgFailed ? '#e74c3c' : '#8bacc8' }}>
-            {allDone ? '✓ All 3 requirements met — ready for Stage 4' : bgFailed ? '✗ Background check failed — onboarding stopped' : 'All 3 must be done: DD checklist + revenue share agreed + background check passed'}
-          </span>
-        </div>
-        {allDone && (
-          <>
-            <AutoStep done={true} label="Email sent — Step 3 complete, moving to Step 4" />
-            {ob.current_stage === 3 && <div style={{ marginTop: '10px' }}><ActionButton label="Advance to Stage 4 →" onClick={advanceStage} /></div>}
-          </>
+        {bgFailed && (
+          <div style={{ padding: '8px 12px', borderRadius: '6px', border: '1px dashed rgba(231,76,60,0.3)', background: 'rgba(231,76,60,0.06)', marginTop: '14px', marginBottom: '10px' }}>
+            <span style={{ fontSize: '12px', color: '#e74c3c' }}>✗ Background check failed — onboarding stopped</span>
+          </div>
         )}
+        <AutoStep done={allDone} label="Email sent — Step 3 complete, moving to Step 4" />
       </>
     )
   }
@@ -630,7 +708,7 @@ function OnboardingDetail({ id, onBack }) {
  
     return (
       <>
-        <SectionLabel>Automated</SectionLabel>
+        
         <AutoStep done={true} label="Final executive approval emails sent" />
  
         <SectionLabel>Final executive approval</SectionLabel>
@@ -640,7 +718,7 @@ function OnboardingDetail({ id, onBack }) {
         {bothConfirm && <div style={{ fontSize: '11px', color: '#27ae60', marginBottom: '8px' }}>Both executives confirmed.</div>}
 
         <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', margin: '16px 0' }} />
-        <SectionLabel>Automated</SectionLabel>
+        
         <AutoStep done={!!getTaskStatus(4, 'agreement_created')} label="VFO Specialist Agreement created" />
         <AutoStep done={!!getTaskStatus(4, 'specialist_signed')} label="VFO Specialist Agreement signed by specialist" />
         <AutoStep done={!!getTaskStatus(4, 'ert_signed')} label="VFO Specialist Agreement signed by ERT" />
@@ -658,29 +736,61 @@ function OnboardingDetail({ id, onBack }) {
         <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', margin: '16px 0' }} />
         <SectionLabel>Personal folder</SectionLabel>
         {STAGE4_FOLDER_ITEMS.map(item => (
-          <CheckItem key={item.key} done={!!getTaskStatus(4, item.key)} label={item.label} onClick={() => saveProgress(4, item.key, 'completed')} />
-        ))}
-        {allFolderDone && ob.current_stage === 4 && (
-          <div style={{ marginTop: '14px' }}><ActionButton label="Advance to Stage 5 →" onClick={advanceStage} /></div>
-        )}
+                  <CheckItem key={item.key} done={!!getTaskStatus(4, item.key)} label={item.label} onClick={async () => {
+                    await saveProgress(4, item.key, 'completed')
+                    const othersDone = STAGE4_FOLDER_ITEMS.filter(i => i.key !== item.key).every(i => getTaskStatus(4, i.key))
+                    if (othersDone && ob.current_stage === 4) advanceStage()
+                  }} />
+                ))}
+        
       </>
     )
   }
  
+  function TeamMembersInput({ currentNotes, onSave }) {
+    const [names, setNames] = useState(currentNotes)
+    const [saved, setSaved] = useState(false)
+
+    async function handleSave() {
+      await onSave(names)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    }
+
+    return (
+      <div style={{ padding: '10px 0 10px 26px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '6px' }}>Team member names</div>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+          <textarea value={names} onChange={e => { setNames(e.target.value); setSaved(false) }} placeholder="Enter team member names..." rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <ActionButton label={saved ? '✓ Saved' : 'Save'} onClick={handleSave} color={saved ? '#27ae60' : '#5b9fe6'} disabled={saved} />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   function Stage5Content() {
     return (
       <>
         <SectionLabel>VFO Skool</SectionLabel>
         {STAGE5_SKOOL_ITEMS.map(item => {
           const status = getTaskStatus(5, item.key)
+          if (item.options.length === 1) {
+            return <CheckItem key={item.key} done={!!status} label={item.label} onClick={() => saveProgress(5, item.key, 'Completed')} />
+          }
           return (
-            <div key={item.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-              <span style={{ fontSize: '13px', color: '#fff' }}>{item.label}</span>
-              <select value={status || ''} onChange={e => e.target.value && saveProgress(5, item.key, e.target.value)} disabled={isStopped} style={{ ...inputStyle, minWidth: '120px', borderColor: status ? 'rgba(39,174,96,0.4)' : 'rgba(255,255,255,0.15)', color: status ? '#27ae60' : '#fff' }}>
-                <option value="">-- Select --</option>
-                <option value="Completed">Completed</option>
-                <option value="N/A">N/A</option>
-              </select>
+            <div key={item.key}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <span style={{ fontSize: '13px', color: '#fff' }}>{item.label}</span>
+                <select value={status || ''} onChange={e => e.target.value && saveProgress(5, item.key, e.target.value)} disabled={isStopped} style={{ ...inputStyle, minWidth: '120px', borderColor: status ? 'rgba(39,174,96,0.4)' : 'rgba(255,255,255,0.15)', color: status ? '#27ae60' : '#fff' }}>
+                  <option value="">-- Select --</option>
+                  {item.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              </div>
+              {item.key === 'team_members_added' && status === 'Completed' && (
+                <TeamMembersInput onboarding_id={id} currentNotes={progress['5-team_members_added']?.notes || ''} onSave={(notes) => saveProgress(5, 'team_members_added', 'Completed', notes)} />
+              )}
             </div>
           )
         })}
