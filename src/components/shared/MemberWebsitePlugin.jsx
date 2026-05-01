@@ -16,6 +16,7 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
     show_count: member.show_count !== false,
     show_search: member.show_search !== false,
     display_mode: member.display_mode || 'filter',
+    widget_font_size: member.widget_font_size || 14,
     website_enabled: member.website_enabled || false,
   })
   const [dirty, setDirty] = useState(false)
@@ -63,7 +64,7 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
     setFontResults([])
   }
 
-  const embedCode = `<div id="vfo-showroom"></div>\n<script src="https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/vfo-widget/vfo-widget.js?v=25" data-vfo-key="${member.manage_key}"><\/script>`
+  const embedCode = `<div id="vfo-showroom"></div>\n<script src="https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/vfo-widget/vfo-widget.js?v=26" data-vfo-key="${member.manage_key}"><\/script>`
 
   const subTabStyle = (active) => ({
     padding: '10px 18px', background: 'transparent', border: 'none',
@@ -181,6 +182,17 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
             ))}
             <div style={rowStyle}>
               <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: '14px', color: '#fff' }}>Font Size</div>
+                <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>Base font size for the widget ({settings.widget_font_size}px)</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '11px', color: '#8bacc8' }}>14</span>
+                <input type="range" min={14} max={22} value={settings.widget_font_size} onChange={e => update('widget_font_size', parseInt(e.target.value))} style={{ width: '140px', accentColor: '#5b9fe6', cursor: 'pointer' }} />
+                <span style={{ fontSize: '11px', color: '#8bacc8' }}>22</span>
+              </div>
+            </div>
+            <div style={rowStyle}>
+              <div style={{ textAlign: 'left' }}>
                 <div style={{ fontSize: '14px', color: '#fff' }}>Display Mode</div>
                 <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>How specialists are organized</div>
               </div>
@@ -240,7 +252,7 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
 <style>body { margin: 0; background: ${settings.bg_color}; }</style>
 </head><body>
 <div id="vfo-showroom"></div>
-<script src="https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/vfo-widget/vfo-widget.js?v=25" data-vfo-key="${member.manage_key}"><\/script>
+<script src="https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/vfo-widget/vfo-widget.js?v=26" data-vfo-key="${member.manage_key}"><\/script>
 </body></html>`}
               style={{ width: '100%', height: '700px', border: 'none', borderRadius: '10px' }}
               title="Widget Preview"

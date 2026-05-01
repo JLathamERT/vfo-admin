@@ -18,10 +18,23 @@ const STAGE2_CHECKLIST = [
 const STAGE4_FOLDER_ITEMS = [
   { key: 'bio_collected', label: 'Bio collected' },
   { key: 'headshot_collected', label: 'Headshot collected' },
-  { key: 'details_benefits_collected', label: 'Details & benefits collected' },
   { key: 'signed_contracts_collected', label: 'Signed contracts collected' },
   { key: 'misc_docs_collected', label: 'Misc documents collected' },
   { key: 'tax_docs_collected', label: 'Tax documents collected' },
+]
+
+const STAGE4_DETAILS_BENEFITS = [
+  { key: 'db_strategy_expertise', label: 'Strategy / Expertise' },
+  { key: 'db_cutoff_date', label: 'Cut-off Date for Strategy' },
+  { key: 'db_client_requirements', label: 'Client Requirements' },
+  { key: 'db_investment_cost', label: 'Amount of Investment or Cost' },
+  { key: 'db_ideal_client', label: 'Ideal Client Description' },
+  { key: 'db_benefits_summary', label: 'Summary of Benefits' },
+  { key: 'db_getting_started', label: 'Getting Started with a Client' },
+  { key: 'db_process_steps', label: 'Steps of Professional Process' },
+  { key: 'db_competitive_advantage', label: 'What Makes You Better Than the Competition' },
+  { key: 'db_tax_audit_risk', label: 'Tax Planning Audit Risk Questionnaire' },
+  { key: 'db_revenue_share', label: 'Revenue Share' },
 ]
  
 const STAGE5_SKOOL_ITEMS = [
@@ -700,11 +713,33 @@ function OnboardingDetail({ id, onBack }) {
       </>
     )
   }
+
+  function DetailsAndBenefits({ getTaskStatus, saveProgress, isStopped }) {
+    const completedCount = STAGE4_DETAILS_BENEFITS.filter(item => getTaskStatus(4, item.key)).length
+    const allDone = completedCount === STAGE4_DETAILS_BENEFITS.length
+
+    return (
+      <div style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0' }}>
+          <span style={{ fontSize: '13px', color: allDone ? '#27ae60' : '#fff', fontWeight: '500', flex: 1 }}>{allDone ? '✓ ' : ''}Details & benefits</span>
+          <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{completedCount}/{STAGE4_DETAILS_BENEFITS.length}</span>
+        </div>
+        <div style={{ paddingLeft: '16px', paddingBottom: '8px' }}>
+          {STAGE4_DETAILS_BENEFITS.map(item => (
+            <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0' }}>
+              <div onClick={() => !isStopped && !getTaskStatus(4, item.key) && saveProgress(4, item.key, 'completed')} style={{ width: '14px', height: '14px', borderRadius: '3px', border: `1.5px solid ${getTaskStatus(4, item.key) ? '#27ae60' : 'rgba(255,255,255,0.3)'}`, background: getTaskStatus(4, item.key) ? '#27ae60' : 'transparent', cursor: getTaskStatus(4, item.key) || isStopped ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#fff', flexShrink: 0 }}>{getTaskStatus(4, item.key) ? '✓' : ''}</div>
+              <span style={{ fontSize: '12px', color: getTaskStatus(4, item.key) ? '#8bacc8' : '#fff', textDecoration: getTaskStatus(4, item.key) ? 'line-through' : 'none' }}>{item.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
  
   function Stage4Content() {
     const bothConfirm = getVote(4, 'Anton Anderson') === 'confirm' && getVote(4, 'Paul Latham') === 'confirm'
     const eitherQuestion = (getVote(4, 'Anton Anderson') === 'further_questions' || getVote(4, 'Paul Latham') === 'further_questions') && !bothConfirm
-    const allFolderDone = STAGE4_FOLDER_ITEMS.every(item => getTaskStatus(4, item.key))
+    const allFolderDone = STAGE4_FOLDER_ITEMS.every(item => getTaskStatus(4, item.key)) && STAGE4_DETAILS_BENEFITS.every(item => getTaskStatus(4, item.key))
  
     return (
       <>
@@ -735,13 +770,14 @@ function OnboardingDetail({ id, onBack }) {
 
         <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', margin: '16px 0' }} />
         <SectionLabel>Personal folder</SectionLabel>
-        {STAGE4_FOLDER_ITEMS.map(item => (
-                  <CheckItem key={item.key} done={!!getTaskStatus(4, item.key)} label={item.label} onClick={async () => {
-                    await saveProgress(4, item.key, 'completed')
-                    const othersDone = STAGE4_FOLDER_ITEMS.filter(i => i.key !== item.key).every(i => getTaskStatus(4, i.key))
-                    if (othersDone && ob.current_stage === 4) advanceStage()
-                  }} />
-                ))}
+        <CheckItem done={!!getTaskStatus(4, 'bio_collected')} label="Bio collected" onClick={async () => { await saveProgress(4, 'bio_collected', 'completed'); const allDone = ['headshot_collected','signed_contracts_collected','misc_docs_collected','tax_docs_collected'].every(k => getTaskStatus(4, k)) && STAGE4_DETAILS_BENEFITS.every(i => getTaskStatus(4, i.key)); if (allDone && ob.current_stage === 4) advanceStage() }} />
+        <CheckItem done={!!getTaskStatus(4, 'headshot_collected')} label="Headshot collected" onClick={async () => { await saveProgress(4, 'headshot_collected', 'completed'); const allDone = ['bio_collected','signed_contracts_collected','misc_docs_collected','tax_docs_collected'].every(k => getTaskStatus(4, k)) && STAGE4_DETAILS_BENEFITS.every(i => getTaskStatus(4, i.key)); if (allDone && ob.current_stage === 4) advanceStage() }} />
+
+        <DetailsAndBenefits getTaskStatus={getTaskStatus} saveProgress={saveProgress} isStopped={isStopped} />
+
+        <CheckItem done={!!getTaskStatus(4, 'signed_contracts_collected')} label="Signed contracts collected" onClick={async () => { await saveProgress(4, 'signed_contracts_collected', 'completed'); const allDone = ['bio_collected','headshot_collected','misc_docs_collected','tax_docs_collected'].every(k => getTaskStatus(4, k)) && STAGE4_DETAILS_BENEFITS.every(i => getTaskStatus(4, i.key)); if (allDone && ob.current_stage === 4) advanceStage() }} />
+        <CheckItem done={!!getTaskStatus(4, 'misc_docs_collected')} label="Misc documents collected" onClick={async () => { await saveProgress(4, 'misc_docs_collected', 'completed'); const allDone = ['bio_collected','headshot_collected','signed_contracts_collected','tax_docs_collected'].every(k => getTaskStatus(4, k)) && STAGE4_DETAILS_BENEFITS.every(i => getTaskStatus(4, i.key)); if (allDone && ob.current_stage === 4) advanceStage() }} />
+        <CheckItem done={!!getTaskStatus(4, 'tax_docs_collected')} label="Tax documents collected" onClick={async () => { await saveProgress(4, 'tax_docs_collected', 'completed'); const allDone = ['bio_collected','headshot_collected','signed_contracts_collected','misc_docs_collected'].every(k => getTaskStatus(4, k)) && STAGE4_DETAILS_BENEFITS.every(i => getTaskStatus(4, i.key)); if (allDone && ob.current_stage === 4) advanceStage() }} />
         
       </>
     )
