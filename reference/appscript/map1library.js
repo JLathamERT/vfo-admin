@@ -3029,7 +3029,7 @@ function handleConnectSetupRedirect(params) {
     }
   }
 
-  // Create fresh onboarding link
+  // Create fresh onboarding linkk
   var link = stripeRequest("account_links", {
     "account": connectId,
     "refresh_url": WEB_APP_URL + "?action=connectsetup&memberNum=" + encodeURIComponent(memberNum) + "&token=" + encodeURIComponent(token),
