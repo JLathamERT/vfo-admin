@@ -5,6 +5,7 @@ import SpecialistsPanel from '../components/admin/SpecialistsPanel'
 import MembersPanel from '../components/admin/MembersPanel'
 import AdminEditor from '../components/admin/AdminEditor'
 import AdminSettings from '../components/admin/AdminSettings'
+import AutomationPanel from '../components/admin/AutomationPanel'
 
 function NavDropdown({ label, items, onSelect, isActive }) {
   const [open, setOpen] = useState(false)
@@ -62,6 +63,7 @@ export default function AdminPortal() {
   const [membersSection, setMembersSection] = useState(sessionStorage.getItem('adminMembersSection') || 'search_advisors')
   const [navClickCount, setNavClickCount] = useState(0)
 const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getItem('adminSpecialistsSection') || 'search_specialists')
+  const [automationSection, setAutomationSection] = useState(sessionStorage.getItem('adminAutomationSection') || 'map1_pipeline')
   const [showEditor, setShowEditor] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [allExperts, setAllExperts] = useState([])
@@ -132,6 +134,17 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
     setShowSettings(false)
   }
 
+  function selectAutomationSection(key) {
+    setActiveTab('automation')
+    sessionStorage.setItem('adminActiveTab', 'automation')
+    setAutomationSection(key)
+    sessionStorage.setItem('adminAutomationSection', key)
+    sessionStorage.removeItem('adminSelectedMember')
+    sessionStorage.removeItem('adminMemberFeatureTab')
+    setShowEditor(false)
+    setShowSettings(false)
+  }
+
   if (!session) return null
 
   const headerStyle = {
@@ -164,6 +177,15 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
         { key: 'search_specialists', label: 'Search Specialists' },
         { key: 'add_specialist', label: 'Add Specialist' },
         { key: 'specialist_onboarding', label: 'Onboarding' },
+      ]
+    },
+  ]
+
+  const automationDropdownItems = [
+    {
+      key: 'automation', header: null,
+      options: [
+        { key: 'map1_pipeline', label: 'MAP 1 Pipeline' },
       ]
     },
   ]
@@ -211,6 +233,12 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
               onSelect={selectSpecialistsSection}
               isActive={activeTab === 'specialists'}
             />
+            <NavDropdown
+              label="Automation"
+              items={automationDropdownItems}
+              onSelect={selectAutomationSection}
+              isActive={activeTab === 'automation'}
+            />
           </div>
 
           <div style={{ flex: 1 }}>
@@ -231,6 +259,10 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
               allExclusionMap={allExclusionMap} ecoMap={ecoMap} ciqMap={ciqMap}
               onDataChange={loadAllData} section={membersSection} navClickCount={navClickCount}
             />
+          )}
+
+          {activeTab === 'automation' && !loading && (
+            <AutomationPanel section={automationSection} />
           )}
 
           {loading && <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>Loading...</div>}

@@ -374,130 +374,7 @@ function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionSt
   )
 }
 
-function ClientTrackView({ clientId, programId, sectionStyle }) {
-  const [phases, setPhases] = useState([])
-  const [progress, setProgress] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState({})
-  const [completedPhases, setCompletedPhases] = useState({})
 
-  useEffect(() => { loadTrack() }, [clientId])
-
-  async function loadTrack() {
-    setLoading(true)
-    try {
-      const [trackData, progressData] = await Promise.all([
-        callApi('msm_load_client_track', { program_id: programId }),
-        callApi('msm_load_client_progress', { client_id: clientId }),
-      ])
-      setPhases(trackData.phases || [])
-      const prog = {}
-      ;(progressData.progress || []).forEach(p => { prog[p.task_id] = p })
-      setProgress(prog)
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
-  }
-
-  async function saveTask(taskId, status, completedDate, phaseId) {
-    const today = new Date().toISOString().split('T')[0]
-    const date = completedDate || (status ? today : null)
-    setSaving(p => ({ ...p, [taskId]: true }))
-    try {
-      await callApi('msm_save_client_task', { client_id: clientId, task_id: taskId, status, completed_date: date || null, completed_by: null, notes: null })
-      setProgress(p => ({ ...p, [taskId]: { ...p[taskId], task_id: taskId, status, completed_date: date } }))
-    } catch (err) { console.error(err) }
-    finally { setSaving(p => ({ ...p, [taskId]: false })) }
-  }
-
-  async function saveDateChange(taskId, completedDate) {
-    const p = progress[taskId] || {}
-    setSaving(prev => ({ ...prev, [taskId]: true }))
-    try {
-      await callApi('msm_save_client_task', { client_id: clientId, task_id: taskId, status: p.status, completed_date: completedDate || null, completed_by: null, notes: null })
-      setProgress(prev => ({ ...prev, [taskId]: { ...prev[taskId], completed_date: completedDate } }))
-    } catch (err) { console.error(err) }
-    finally { setSaving(prev => ({ ...prev, [taskId]: false })) }
-  }
-
-  async function handlePhaseComplete(phase) {
-    const today = new Date().toISOString().split('T')[0]
-    const tasks = (phase.program_client_tasks || []).filter(t => t.status_options && t.status_options !== 'auto')
-    setCompletedPhases(p => ({ ...p, [phase.id]: 'saving' }))
-    try {
-      await Promise.all(tasks.map(task => {
-        const firstOption = task.status_options.split('|')[0]
-        return callApi('msm_save_client_task', { client_id: clientId, task_id: task.id, status: firstOption, completed_date: today, completed_by: null, notes: null })
-      }))
-      const newProgress = { ...progress }
-      tasks.forEach(task => {
-        const firstOption = task.status_options.split('|')[0]
-        newProgress[task.id] = { ...newProgress[task.id], task_id: task.id, status: firstOption, completed_date: today }
-      })
-      setProgress(newProgress)
-      setCompletedPhases(p => ({ ...p, [phase.id]: 'done' }))
-      setTimeout(() => setCompletedPhases(p => ({ ...p, [phase.id]: null })), 3000)
-    } catch (err) { console.error(err); setCompletedPhases(p => ({ ...p, [phase.id]: null })) }
-  }
-
-  const inputStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif' }
-
-  if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
-  if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No client track defined yet.</div>
-
-  const totalTasks = phases.reduce((s, p) => s + (p.program_client_tasks?.length || 0), 0)
-  const completedTasks = Object.values(progress).filter(p => ['Completed','Confirmed','Yes'].includes(p.status)).length
-
-  return (
-    <div>
-      
-
-      {phases.map(phase => (
-        <div key={phase.id} style={sectionStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div style={{ fontSize: '14px', fontWeight: '600', color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{phase.name}</div>
-            {phase.name === 'MAP 1 - PIP 1' && (
-              <MeetingCompleteButton phase={phase} progress={progress} onComplete={handlePhaseComplete} completedPhases={completedPhases} />
-            )}
-          </div>
-          {(phase.program_client_tasks || []).map(task => {
-            const p = progress[task.id] || {}
-            return (
-              <div key={task.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: statusColors[p.status] || 'transparent', flexShrink: 0, border: '1px solid rgba(255,255,255,0.2)' }} />
-                <div style={{ flex: 1, minWidth: '150px' }}>
-                  
-                  <span style={{ fontSize: '14px', color: '#fff' }}>{task.name}</span>
-                </div>
-                {task.status_options === 'auto'
-                  ? <span style={{ fontSize: '12px', color: '#27ae60', padding: '4px 10px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', border: '1px solid rgba(39,174,96,0.3)' }}>Auto-completed</span>
-                  : task.name === 'PIP Follow-up meeting re-confirmation/declined email'
-                  ? <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <button onClick={() => saveTask(task.id, 'Send confirmation email', p.completed_date, phase.id)}
-                        style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', background: p.status === 'Send confirmation email' ? 'rgba(39,174,96,0.15)' : 'rgba(91,159,230,0.15)', border: `1px solid ${p.status === 'Send confirmation email' ? 'rgba(39,174,96,0.4)' : 'rgba(91,159,230,0.4)'}`, color: p.status === 'Send confirmation email' ? '#27ae60' : '#5b9fe6' }}>
-                        Re-confirm Meeting
-                      </button>
-                      <button onClick={() => saveTask(task.id, 'Send declined email', p.completed_date, phase.id)}
-                        style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', background: p.status === 'Send declined email' ? 'rgba(231,76,60,0.15)' : 'rgba(255,255,255,0.06)', border: `1px solid ${p.status === 'Send declined email' ? 'rgba(231,76,60,0.4)' : 'rgba(255,255,255,0.15)'}`, color: p.status === 'Send declined email' ? '#e74c3c' : '#8bacc8' }}>
-                        Meeting Declined
-                      </button>
-                      {p.status && <span style={{ fontSize: '12px', color: '#8bacc8' }}>{p.completed_date}</span>}
-                    </div>
-                  : <>
-                    <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, phase.id)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '160px' }}>
-                      <option value="">-- Select --</option>
-                      {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <input type="date" value={p.completed_date || ''} onChange={e => saveDateChange(task.id, e.target.value)} style={{ ...inputStyle, width: '140px' }} />
-                  </>
-                }
-              </div>
-            )
-          })}
-        </div>
-      ))}
-    </div>
-  )
-}
 
 function MeetingCompleteButton({ phase, progress, onComplete, completedPhases }) {
   const state = completedPhases[phase.id]
@@ -983,6 +860,9 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
   const [saving, setSaving] = useState({})
   const [expanded, setExpanded] = useState({})
   const [completedPhases, setCompletedPhases] = useState({})
+  const [c8ShowDate, setC8ShowDate] = useState(false)
+  const [c8Date, setC8Date] = useState('')
+  const [c8Triggering, setC8Triggering] = useState(false)
 
   useEffect(() => { loadTrack() }, [clientId])
 
@@ -1030,6 +910,19 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
       setProgress(prev => ({ ...prev, [taskId]: { ...prev[taskId], completed_date: date } }))
     } catch (err) { console.error(err) }
     finally { setSaving(prev => ({ ...prev, [taskId]: false })) }
+  }
+
+  async function triggerC8(taskId, decision, date) {
+    setC8Triggering(true)
+    try {
+      await callApi('automation_c8_trigger', { client_id: clientId, decision, followup_meeting_date: date || null })
+      const status = decision === 'Yes' ? 'Sent confirmation email' : 'Send declined email'
+      await callApi('msm_save_client_task', { client_id: clientId, task_id: taskId, status, completed_date: new Date().toISOString().split('T')[0], completed_by: null, notes: null })
+      setProgress(p => ({ ...p, [taskId]: { ...p[taskId], task_id: taskId, status, completed_date: new Date().toISOString().split('T')[0] } }))
+      setC8ShowDate(false)
+      setC8Date('')
+    } catch (err) { console.error('C8 trigger error:', err) }
+    finally { setC8Triggering(false) }
   }
 
   async function completePhase(phase) {
@@ -1250,10 +1143,16 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                       <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
                       {isDone
                         ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
-                        : <div style={{ display: 'flex', gap: '6px' }}>
-                            <button onClick={() => saveTask(task.id, 'Sent confirmation email', p.completed_date)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }}>Send re-confirmation email to client</button>
-                            <button onClick={() => saveTask(task.id, 'Send declined email', p.completed_date)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }}>Meeting declined - Email client</button>
-                          </div>
+                        : c8ShowDate
+                          ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                              <input type="date" value={c8Date} onChange={e => setC8Date(e.target.value)} style={{ padding: '4px 8px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '11px' }} />
+                              <button onClick={() => triggerC8(task.id, 'Yes', c8Date)} disabled={c8Triggering || !c8Date} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }}>{c8Triggering ? '...' : 'Send'}</button>
+                              <button onClick={() => setC8ShowDate(false)} style={{ padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#8bacc8' }}>Cancel</button>
+                            </div>
+                          : <div style={{ display: 'flex', gap: '6px' }}>
+                              <button onClick={() => setC8ShowDate(true)} disabled={c8Triggering} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }}>Send re-confirmation email to client</button>
+                              <button onClick={() => triggerC8(task.id, 'No')} disabled={c8Triggering} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }}>{c8Triggering ? '...' : 'Meeting declined - Email client'}</button>
+                            </div>
                       }
                       {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#8bacc8' }}>{formatDate(p.completed_date)}</span>}
                     </div>
@@ -1863,6 +1762,19 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
       setProgress(prev => ({ ...prev, [taskId]: { ...prev[taskId], completed_date: date } }))
     } catch (err) { console.error(err) }
     finally { setSaving(prev => ({ ...prev, [taskId]: false })) }
+  }
+
+  async function triggerC8(taskId, decision, date) {
+    setC8Triggering(true)
+    try {
+      await callApi('automation_c8_trigger', { client_id: clientId, decision, followup_meeting_date: date || null })
+      const status = decision === 'Yes' ? 'Sent confirmation email' : 'Send declined email'
+      await callApi('msm_save_client_task', { client_id: clientId, task_id: taskId, status, completed_date: new Date().toISOString().split('T')[0], completed_by: null, notes: null })
+      setProgress(p => ({ ...p, [taskId]: { ...p[taskId], task_id: taskId, status, completed_date: new Date().toISOString().split('T')[0] } }))
+      setC8ShowDate(false)
+      setC8Date('')
+    } catch (err) { console.error('C8 trigger error:', err) }
+    finally { setC8Triggering(false) }
   }
 
   function getA11Status() {
