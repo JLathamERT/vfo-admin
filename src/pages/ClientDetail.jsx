@@ -37,7 +37,7 @@ export default function ClientDetail() {
   const location = useLocation()
   const session = getSession()
   console.log('session on client detail:', session)
-  const [activeTab, setActiveTab] = useState('home')
+  const [activeTab, setActiveTab] = useState(new URLSearchParams(window.location.search).get('tab') || 'home')
   const [client, setClient] = useState(null)
   const [program, setProgram] = useState(null)
   const [contacts, setContacts] = useState([])
@@ -179,6 +179,7 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
       await callApi('msm_update_client', { client_id: client.id, status: client.status, first_name: client.first_name, last_name: client.last_name, email: client.email, phone: client.phone, assigned_pf: assignedPf })
       setPfSaved(true)
       setTimeout(() => setPfSaved(false), 3000)
+      onUpdate()
     } catch (err) { console.error(err) }
     finally { setSavingPf(false) }
   }
@@ -498,6 +499,7 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }
     }
     try {
       await callApi('msm_save_client_task', { client_id: clientId, task_id: task.id, status: `Completed - ${decision}`, completed_date: new Date().toISOString().split('T')[0], completed_by: null, notes: JSON.stringify(formData) })
+      await callApi('automation_PIPFU_decision', { client_id: clientId, decision, form_data: formData }).catch(err => console.error('Pipeline update error:', err))
       if (onSubmitted) onSubmitted(`Completed - ${decision}`, formData)
     } catch (err) { console.error(err) }
     finally { setSubmitting(false) }
@@ -853,6 +855,79 @@ function PhaseNotesPanel({ clientId, phaseName, tabName, programName, notes, onN
   )
 }
 
+function PFPricingForm({ clientId, serviceLevel, pipelineId, onComplete }) {
+  const [grossFee, setGrossFee] = useState('')
+  const [memberContribution, setMemberContribution] = useState('')
+  const netInvoice = ((parseFloat(grossFee) || 0) - (parseFloat(memberContribution) || 0)).toFixed(2)
+  const [memberShare, setMemberShare] = useState('')
+  const [vfosShare, setVfosShare] = useState('')
+  const [paymentPlan, setPaymentPlan] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  async function handleSubmit() {
+    if (!grossFee || !paymentPlan) return
+    setSubmitting(true)
+    try {
+      await callApi('automation_PCADMIN_pricing', {
+        pipeline_id: pipelineId,
+        client_id: clientId,
+        service_level: serviceLevel,
+        gross_fee: grossFee,
+        member_contribution: memberContribution,
+        net_invoice: netInvoice,
+        member_share: memberShare,
+        vfos_share: vfosShare,
+        payment_plan: paymentPlan,
+      })
+      if (onComplete) onComplete()
+    } catch (err) { console.error('Pricing save error:', err) }
+    finally { setSubmitting(false) }
+  }
+
+  const inputStyle = { padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', width: '100%' }
+  const labelStyle = { fontSize: '11px', color: '#5a8ab5', marginBottom: '4px', display: 'block' }
+
+  return (
+    <div style={{ padding: '12px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px solid rgba(91,159,230,0.2)', marginTop: '8px', marginBottom: '8px' }}>
+      <div style={{ fontSize: '12px', fontWeight: '600', color: '#5b9fe6', marginBottom: '12px' }}>Complete Pricing — {serviceLevel} Membership</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
+        <div>
+          <label style={labelStyle}>Gross Service Value ($)</label>
+          <input value={grossFee} onChange={e => setGrossFee(e.target.value)} style={inputStyle} placeholder="e.g. 5400" />
+        </div>
+        <div>
+          <label style={labelStyle}>Member Contribution ($)</label>
+          <input value={memberContribution} onChange={e => setMemberContribution(e.target.value)} style={inputStyle} placeholder="e.g. 0" />
+        </div>
+        <div>
+          <label style={labelStyle}>Net Invoice Value ($)</label>
+          <input value={netInvoice} readOnly style={{ ...inputStyle, opacity: 0.6 }} />
+        </div>
+        <div>
+          <label style={labelStyle}>Payment Plan</label>
+          <select value={paymentPlan} onChange={e => setPaymentPlan(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+            <option value="">-- Select --</option>
+            <option value="1 Payment">1 Payment</option>
+            <option value="4 Quarterly">4 Quarterly</option>
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>Member Share ($)</label>
+          <input value={memberShare} onChange={e => setMemberShare(e.target.value)} style={inputStyle} placeholder="e.g. 1200" />
+        </div>
+        <div>
+          <label style={labelStyle}>VFOs Share ($)</label>
+          <input value={vfosShare} onChange={e => setVfosShare(e.target.value)} style={inputStyle} placeholder="e.g. 4200" />
+        </div>
+      </div>
+      <button onClick={handleSubmit} disabled={submitting || !grossFee || !paymentPlan}
+        style={{ marginTop: '12px', padding: '8px 24px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60', fontFamily: 'DM Sans, sans-serif' }}>
+        {submitting ? 'Saving...' : 'Submit Pricing'}
+      </button>
+    </div>
+  )
+}
+
 function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], onNotesChange }) {
   const [phases, setPhases] = useState([])
   const [progress, setProgress] = useState({})
@@ -863,6 +938,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
   const [c8ShowDate, setC8ShowDate] = useState(false)
   const [c8Date, setC8Date] = useState('')
   const [c8Triggering, setC8Triggering] = useState(false)
+  const [pipelineData, setPipelineData] = useState(null)
 
   useEffect(() => { loadTrack() }, [clientId])
 
@@ -887,6 +963,13 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
         expandState[phase.id] = !allDone
       })
       setExpanded(expandState)
+
+      // Load pipeline data
+      try {
+        const pData = await callApi('automation_load_pipeline_data', { table_name: 'pipeline_map1' })
+        const clientRow = (pData.rows || []).find(r => r.client_id === clientId)
+        setPipelineData(clientRow || null)
+      } catch (e) { console.error('Pipeline load error:', e) }
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
   }
@@ -915,7 +998,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
   async function triggerC8(taskId, decision, date) {
     setC8Triggering(true)
     try {
-      await callApi('automation_c8_trigger', { client_id: clientId, decision, followup_meeting_date: date || null })
+      await callApi('automation_PIP1_reconfirmationemail', { client_id: clientId, decision, followup_meeting_date: date || null })
       const status = decision === 'Yes' ? 'Sent confirmation email' : 'Send declined email'
       await callApi('msm_save_client_task', { client_id: clientId, task_id: taskId, status, completed_date: new Date().toISOString().split('T')[0], completed_by: null, notes: null })
       setProgress(p => ({ ...p, [taskId]: { ...p[taskId], task_id: taskId, status, completed_date: new Date().toISOString().split('T')[0] } }))
@@ -1044,11 +1127,11 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                   const decisionColor = pipDecision === 'Yes' ? '#27ae60' : pipDecision === 'No' ? '#e74c3c' : '#f39c12'
                   const decisionLabel = pipDecision === 'Yes' ? 'Yes — proceeding' : pipDecision === 'No' ? 'No — declined' : 'Undecided — awaiting client'
 
-                  const autoStep = (label) => (
+                  const autoStep = (label, done = false) => (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1px solid rgba(255,255,255,0.2)' }} />
-                      <span style={{ fontSize: '12px', color: '#8bacc8' }}>{label}</span>
-                      <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8', marginLeft: 'auto' }}>Not completed</span>
+                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+                      <span style={{ fontSize: '12px', color: done ? '#27ae60' : '#8bacc8' }}>{label}</span>
+                      <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: done ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: done ? '#27ae60' : '#8bacc8', marginLeft: 'auto' }}>{done ? 'Done' : 'Not completed'}</span>
                     </div>
                   )
 
@@ -1075,28 +1158,63 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
 
                       {pipDecision === 'Yes' && yesSteps.map((s, i) => <div key={i}>{autoStep(s)}</div>)}
 
-                      {pipDecision === 'Undecided' && (
-                        <>
-                          {autoStep('Decision email sent')}
-                          {autoStep('Client response received')}
-                          <div style={{ marginLeft: '14px', borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px' }}>
-                            <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px' }}>If Yes:</div>
-                            {yesSteps.map((s, i) => <div key={`y${i}`}>{autoStep(s)}</div>)}
-                            <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px', marginTop: '10px' }}>If No:</div>
-                            {autoStep('Decline email sent to client')}
-                            <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px', marginTop: '10px' }}>If extra meeting:</div>
-                            {autoStep('Extra meeting held')}
-                            {autoStep('PF submits outcome')}
-                            <div style={{ marginLeft: '14px', borderLeft: '1px solid rgba(255,255,255,0.06)', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px' }}>
-                              <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px' }}>If Yes:</div>
-                              {autoStep('PF completed pricing')}
-                              {yesSteps.map((s, i) => <div key={`ey${i}`}>{autoStep(s)}</div>)}
-                              <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px', marginTop: '10px' }}>If No:</div>
-                              {autoStep('Decline email sent to client')}
-                            </div>
-                          </div>
-                        </>
-                      )}
+                      {pipDecision === 'Undecided' && (() => {
+                        const pd = pipelineData
+                        const emailSent = pd?.c14_email_sent === 'Yes'
+                        const finalDec = pd?.c15_final_decision
+                        const needsPricing = finalDec === 'Yes' && !pd?.gross_fee
+
+                        return (
+                          <>
+                            {autoStep('Decision email sent', emailSent)}
+                            {autoStep('Client response received', !!finalDec)}
+                            {finalDec && (
+                              <div style={{ marginLeft: '14px', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
+                                <div style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', display: 'inline-block', marginBottom: '8px',
+                                  background: finalDec === 'Yes' ? 'rgba(39,174,96,0.15)' : finalDec === 'No' ? 'rgba(231,76,60,0.15)' : 'rgba(91,159,230,0.15)',
+                                  color: finalDec === 'Yes' ? '#27ae60' : finalDec === 'No' ? '#e74c3c' : '#5b9fe6',
+                                  border: `1px solid ${finalDec === 'Yes' ? 'rgba(39,174,96,0.3)' : finalDec === 'No' ? 'rgba(231,76,60,0.3)' : 'rgba(91,159,230,0.3)'}`
+                                }}>
+                                  {finalDec === 'Yes' ? `Yes — ${pd?.c15_service_level || ''}` : finalDec === 'No' ? 'No — declined' : 'Extra Meeting requested'}
+                                </div>
+
+                                {finalDec === 'No' && autoStep('Decline email sent to client', true)}
+
+                                {finalDec === 'Yes' && (
+                                  <>
+                                    {needsPricing ? (
+                                      <PFPricingForm clientId={clientId} serviceLevel={pd?.c15_service_level} pipelineId={pd?.id} onComplete={() => loadTrack()} />
+                                    ) : pd?.gross_fee ? (
+                                      <>
+                                        {autoStep('PF completed pricing', true)}
+                                        {yesSteps.map((s, i) => <div key={`y${i}`}>{autoStep(s)}</div>)}
+                                      </>
+                                    ) : null}
+                                  </>
+                                )}
+
+                                {finalDec === 'ExtraMeeting' && (
+                                  <>
+                                    {autoStep('Extra meeting requested', true)}
+                                    {autoStep('PF submits outcome', false)}
+                                  </>
+                                )}
+                              </div>
+                            )}
+                            {!finalDec && (
+                              <div style={{ marginLeft: '14px', borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px' }}>
+                                <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px' }}>If Yes:</div>
+                                {yesSteps.map((s, i) => <div key={`y${i}`}>{autoStep(s)}</div>)}
+                                <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px', marginTop: '10px' }}>If No:</div>
+                                {autoStep('Decline email sent to client')}
+                                <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px', marginTop: '10px' }}>If extra meeting:</div>
+                                {autoStep('Extra meeting held')}
+                                {autoStep('PF submits outcome')}
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
                   )
                 })()}
@@ -1764,18 +1882,6 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
     finally { setSaving(prev => ({ ...prev, [taskId]: false })) }
   }
 
-  async function triggerC8(taskId, decision, date) {
-    setC8Triggering(true)
-    try {
-      await callApi('automation_c8_trigger', { client_id: clientId, decision, followup_meeting_date: date || null })
-      const status = decision === 'Yes' ? 'Sent confirmation email' : 'Send declined email'
-      await callApi('msm_save_client_task', { client_id: clientId, task_id: taskId, status, completed_date: new Date().toISOString().split('T')[0], completed_by: null, notes: null })
-      setProgress(p => ({ ...p, [taskId]: { ...p[taskId], task_id: taskId, status, completed_date: new Date().toISOString().split('T')[0] } }))
-      setC8ShowDate(false)
-      setC8Date('')
-    } catch (err) { console.error('C8 trigger error:', err) }
-    finally { setC8Triggering(false) }
-  }
 
   function getA11Status() {
     const allTasks = phases.flatMap(p => p.program_client_tasks || [])

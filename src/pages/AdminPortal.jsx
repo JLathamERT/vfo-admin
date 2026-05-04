@@ -6,6 +6,8 @@ import MembersPanel from '../components/admin/MembersPanel'
 import AdminEditor from '../components/admin/AdminEditor'
 import AdminSettings from '../components/admin/AdminSettings'
 import AutomationPanel from '../components/admin/AutomationPanel'
+import NotificationBell from '../components/NotificationBell'
+import EmailTemplatesPanel from '../components/admin/EmailTemplatesPanel'
 
 function NavDropdown({ label, items, onSelect, isActive }) {
   const [open, setOpen] = useState(false)
@@ -186,6 +188,7 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
       key: 'automation', header: null,
       options: [
         { key: 'map1_pipeline', label: 'MAP 1 Pipeline' },
+        { key: 'email_templates', label: 'Email Templates' },
       ]
     },
   ]
@@ -197,6 +200,7 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
           VFO Portal
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <NotificationBell />
           <span style={{ fontSize: '14px', color: '#8bacc8' }}>{session.name}</span>
           {session.is_superadmin && (
             <button onClick={() => { setShowEditor(true); setShowSettings(false); setActiveTab(null) }}
@@ -261,8 +265,11 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
             />
           )}
 
-          {activeTab === 'automation' && !loading && (
+          {activeTab === 'automation' && !loading && automationSection === 'map1_pipeline' && (
             <AutomationPanel section={automationSection} />
+          )}
+          {activeTab === 'automation' && !loading && automationSection === 'email_templates' && (
+            <EmailTemplatesPanel />
           )}
 
           {loading && <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>Loading...</div>}
