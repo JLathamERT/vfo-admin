@@ -31,10 +31,6 @@ export default function NotificationBell() {
   }
  
   async function handleClick(notif) {
-    try {
-      await callApi('mark_notification_read', { notification_id: notif.id })
-      setNotifications(prev => prev.filter(n => n.id !== notif.id))
-    } catch (err) { console.error(err) }
     setOpen(false)
     if (notif.link) navigate(notif.link)
   }

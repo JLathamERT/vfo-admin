@@ -70,11 +70,11 @@ function Badge({ text, color }) {
   )
 }
  
-function Step({ title, dotColor, done, children }) {
+function Step({ title, done, children }) {
   return (
     <div style={{ display: 'flex', gap: '14px', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '14px', paddingTop: '3px' }}>
-        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? dotColor : 'transparent', border: `2px solid ${done ? dotColor : 'rgba(255,255,255,0.12)'}`, flexShrink: 0 }} />
+        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', border: `2px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.12)'}`, flexShrink: 0 }} />
         <div style={{ flex: 1, width: '1px', background: 'rgba(255,255,255,0.06)', marginTop: '4px' }} />
       </div>
       <div style={{ flex: 1 }}>
@@ -95,7 +95,7 @@ function ExpandedRow({ row }) {
     <div style={{ padding: '4px 24px 16px 48px', background: 'rgba(0,0,0,0.06)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
  
       {/* PIP 1 */}
-      <Step title="PIP 1 — Reconfirmation Email" dotColor="#3b82f6" done={!!row.c81_decision}>
+      <Step title="PIP 1 — Reconfirmation Email" done={!!row.c81_decision}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
           <Badge text={row.c81_decision} />
           {row.c81_email_sent && <Badge text={row.c81_email_sent === 'Skipped' ? 'Email Skipped' : 'Email Sent'} color={row.c81_email_sent === 'Skipped' ? '#f59e0b' : '#27ae60'} />}
@@ -104,7 +104,7 @@ function ExpandedRow({ row }) {
       </Step>
  
       {/* PIP Follow Up */}
-      <Step title="PIP Follow Up — Decision" dotColor="#8b5cf6" done={!!row.c13_decision}>
+      <Step title="PIP Follow Up — Decision" done={!!row.c13_decision}>
         {row.c13_decision ? (
           <>
             <div style={{ marginBottom: '6px' }}><Badge text={row.c13_decision} /></div>
@@ -152,7 +152,7 @@ function ExpandedRow({ row }) {
       </Step>
  
       {/* Follow-up Email */}
-      <Step title="PC Admin — Follow-up Email" dotColor="#f59e0b" done={row.c14_email_sent === 'Yes'}>
+      <Step title="PC Admin — Follow-up Email" done={row.c14_email_sent === 'Yes'}>
         {row.c14_email_sent === 'Yes' ? (
           <>
             <Badge text="Email Sent" color="#27ae60" />
@@ -165,9 +165,12 @@ function ExpandedRow({ row }) {
       </Step>
  
       {/* Final Decision */}
-      <Step title="PC Admin — Final Decision" dotColor="#f59e0b" done={!!row.c15_final_decision}>
+      <Step title="PC Admin — Final Decision" done={!!row.c15_final_decision}>
         {row.c15_final_decision ? (
           <>
+            {row.c15_via_extra_meeting && (
+              <div style={{ fontSize: '11px', color: '#5b9fe6', marginBottom: '6px' }}>Via extra meeting</div>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
               <Badge text={row.c15_final_decision} />
               {row.c15_service_level && <span style={{ fontSize: '12px', color: '#d1dce8' }}>{row.c15_service_level}</span>}
@@ -189,7 +192,7 @@ function ExpandedRow({ row }) {
       </Step>
  
       {/* Contract */}
-      <Step title="Contract" dotColor="#6366f1" done={row.c18_ceo_signed === 'Yes'}>
+      <Step title="Contract" done={row.c18_ceo_signed === 'Yes'}>
         {row.c16_sent && row.c16_sent !== 'No' ? (
           <>
             <F l="Agreement sent" v={row.c16_sent} />
@@ -202,7 +205,7 @@ function ExpandedRow({ row }) {
       </Step>
  
       {/* Payment */}
-      <Step title="Payment" dotColor="#ec4899" done={!!row.pay1_status}>
+      <Step title="Payment" done={!!row.pay1_status}>
         {row.pay1_status ? (
           <>
             <F l="Method" v={row.payment_method_type} />
@@ -218,7 +221,7 @@ function ExpandedRow({ row }) {
       </Step>
  
       {/* Invoice & Receipts */}
-      <Step title="Invoice & Receipts" dotColor="#14b8a6" done={!!row.invoice_number}>
+      <Step title="Invoice & Receipts" done={!!row.invoice_number}>
         {row.invoice_number ? (
           <>
             <F l="Invoice #" v={row.invoice_number} />
@@ -235,7 +238,7 @@ function ExpandedRow({ row }) {
       </Step>
  
       {/* Rev Share */}
-      <Step title="Revenue Share" dotColor="#22c55e" done={row.c24_email_sent}>
+      <Step title="Revenue Share" done={row.c24_email_sent}>
         {row.rec1_rev_share ? (
           <>
             {[1,2,3,4].map(n => {
