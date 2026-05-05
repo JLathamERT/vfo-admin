@@ -935,8 +935,8 @@ function PFExtraMeetingForm({ clientId, pipelineId, onComplete }) {
               <label style={labelStyle}>Payment Plan</label>
               <select value={paymentPlan} onChange={e => setPaymentPlan(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
                 <option value="">-- Select --</option>
-                <option value="1 Payment">1 Payment</option>
-                <option value="4 Quarterly">4 Quarterly</option>
+                <option value="1 Time Payment">1 Time Payment</option>
+                <option value="Quarterly">Quarterly</option>
               </select>
             </div>
             <div>
@@ -1016,8 +1016,8 @@ function PFPricingForm({ clientId, serviceLevel, pipelineId, onComplete }) {
           <label style={labelStyle}>Payment Plan</label>
           <select value={paymentPlan} onChange={e => setPaymentPlan(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
             <option value="">-- Select --</option>
-            <option value="1 Payment">1 Payment</option>
-            <option value="4 Quarterly">4 Quarterly</option>
+            <option value="1 Time Payment">1 Time Payment</option>
+            <option value="Quarterly">Quarterly</option>
           </select>
         </div>
         <div>
