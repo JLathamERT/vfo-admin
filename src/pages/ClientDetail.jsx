@@ -1233,8 +1233,9 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                     <div style={{ padding: '12px', color: '#8bacc8', fontSize: '13px' }}>Waiting for PIP Follow Up decision</div>
                   )
 
-                  const decisionColor = pipDecision === 'Yes' ? '#27ae60' : pipDecision === 'No' ? '#e74c3c' : '#f39c12'
-                  const decisionLabel = pipDecision === 'Yes' ? 'Yes — proceeding' : pipDecision === 'No' ? 'No — declined' : 'Undecided — awaiting client'
+                  const finalDec = pipelineData?.c15_final_decision
+                  const decisionColor = pipDecision === 'Yes' ? '#27ae60' : pipDecision === 'No' ? '#e74c3c' : finalDec === 'Yes' ? '#27ae60' : finalDec === 'No' ? '#e74c3c' : '#f39c12'
+                  const decisionLabel = pipDecision === 'Yes' ? 'Yes — proceeding' : pipDecision === 'No' ? 'No — declined' : finalDec === 'Yes' ? `Yes — ${pipelineData?.c15_service_level || 'proceeding'}${pipelineData?.c15_via_extra_meeting ? ' (via extra meeting)' : ''}` : finalDec === 'No' ? `No — declined${pipelineData?.c15_via_extra_meeting ? ' (via extra meeting)' : ''}` : finalDec === 'ExtraMeeting' ? 'Extra meeting requested' : 'Undecided — awaiting client'
 
                   const autoStep = (label, done = false) => (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
@@ -1295,7 +1296,25 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                                       <PFPricingForm clientId={clientId} serviceLevel={pd?.c15_service_level} pipelineId={pd?.id} onComplete={() => loadTrack()} />
                                     ) : pd?.gross_fee ? (
                                       <>
-                                        {autoStep('PF completed pricing', true)}
+                                        <div style={{ cursor: 'pointer' }} onClick={() => setExpanded(prev => ({ ...prev, pricing_details: !prev.pricing_details }))}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#27ae60', flexShrink: 0, border: '1px solid #27ae60' }} />
+                                            <span style={{ fontSize: '12px', color: '#27ae60' }}>PF completed pricing</span>
+                                            <span style={{ fontSize: '10px', color: '#8bacc8', marginLeft: '4px', transform: expanded.pricing_details ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                                            <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', marginLeft: 'auto' }}>Done</span>
+                                          </div>
+                                        </div>
+                                        {expanded.pricing_details && (
+                                          <div style={{ marginLeft: '14px', padding: '8px 12px', background: 'rgba(0,0,0,0.1)', borderRadius: '6px', marginBottom: '4px', borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#5a8ab5', width: '140px' }}>Service level</span><span style={{ fontSize: '11px', color: '#d1dce8' }}>{pd?.service_level || pd?.c15_service_level || '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#5a8ab5', width: '140px' }}>Gross fee</span><span style={{ fontSize: '11px', color: '#d1dce8' }}>${pd?.gross_fee || '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#5a8ab5', width: '140px' }}>Member contribution</span><span style={{ fontSize: '11px', color: '#d1dce8' }}>{pd?.member_contribution ? `$${pd.member_contribution}` : '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#5a8ab5', width: '140px' }}>Net invoice</span><span style={{ fontSize: '11px', color: '#d1dce8' }}>{pd?.net_invoice ? `$${pd.net_invoice}` : '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#5a8ab5', width: '140px' }}>Member share</span><span style={{ fontSize: '11px', color: '#d1dce8' }}>{pd?.member_share ? `$${pd.member_share}` : '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#5a8ab5', width: '140px' }}>VFOs share</span><span style={{ fontSize: '11px', color: '#d1dce8' }}>{pd?.vfos_share ? `$${pd.vfos_share}` : '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#5a8ab5', width: '140px' }}>Payment plan</span><span style={{ fontSize: '11px', color: '#d1dce8' }}>{pd?.payment_plan || '—'}</span></div>
+                                          </div>
+                                        )}
                                         {yesSteps.map((s, i) => <div key={`y${i}`}>{autoStep(s)}</div>)}
                                       </>
                                     ) : null}
