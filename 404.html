@@ -3,10 +3,11 @@
   <head>
     <script>
       var path = window.location.pathname;
+      var search = window.location.search;
       var base = '/vfo-portal/';
       if (path.startsWith(base)) {
         var rest = path.slice(base.length);
-        sessionStorage.setItem('vfo_redirect', rest);
+        sessionStorage.setItem('vfo_redirect', rest + search);
       }
       window.location.replace(base);
     </script>
