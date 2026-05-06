@@ -44,8 +44,14 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
 
       // Load pipeline data
       try {
-        const pData = await callApi('automation_load_pipeline_data', { table_name: 'pipeline_map1' })
-        const clientRow = (pData.rows || []).find(r => r.client_id === clientId)
+        let clientRow = null
+        if (readOnly) {
+          const pData = await callApi('member_load_pipeline', { client_id: clientId })
+          clientRow = pData.row || null
+        } else {
+          const pData = await callApi('automation_load_pipeline_data', { table_name: 'pipeline_map1' })
+          clientRow = (pData.rows || []).find(r => r.client_id === clientId) || null
+        }
         setPipelineData(clientRow || null)
       } catch (e) { console.error('Pipeline load error:', e) }
     } catch (err) { console.error(err) }
@@ -213,17 +219,8 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                     </div>
                   )
 
-                  const yesSteps = [
-                    'Engagement letter created',
-                    'Engagement letter signed by client',
-                    'Engagement letter signed by VFO Services',
-                    'Take the payment due (and send confirmation email)',
-                    'Create invoice (once money settled)',
-                    'Email to client (invoice + next steps/priorities)',
-                    'Revenue shares paid',
-                    'Email member to confirm revenue share details',
-                    'Email VFO-L & PPT',
-                  ]
+                  const pd_yes = pipelineData
+                  const yesSteps = null
 
                   return (
                     <div style={{ padding: '8px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -234,7 +231,21 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
 
                       {pipDecision === 'No' && autoStep('Decline email sent to client')}
 
-                      {pipDecision === 'Yes' && yesSteps.map((s, i) => <div key={i}>{autoStep(s)}</div>)}
+                      {pipDecision === 'Yes' && (() => {
+                        const pd = pd_yes
+                        return (
+                          <>
+                            {autoStep('Agreement sent to client', pd?.c16_sent === 'Yes')}
+                            {autoStep('Client signed', pd?.c17_client_signed === 'Yes')}
+                            {autoStep('CEO signed', pd?.c18_ceo_signed === 'Yes')}
+                            {autoStep('Payment link sent', pd?.c18_ceo_signed === 'Yes')}
+                            {autoStep('Payment received', !!pd?.pay1_status)}
+                            {autoStep('Invoice/receipt sent', !!pd?.invoice_number)}
+                            {autoStep('Revenue share paid', !!pd?.rec1_rev_share)}
+                            {autoStep('Member notified of revenue share', pd?.c24_email_sent === 'Yes')}
+                          </>
+                        )
+                      })()}
 
                       {pipDecision === 'Undecided' && (() => {
                         const pd = pipelineData
@@ -260,8 +271,8 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
 
                                 {finalDec === 'Yes' && (
                                   <>
-                                    {needsPricing ? (
-                                      <PFPricingForm clientId={clientId} serviceLevel={pd?.c15_service_level} pipelineId={pd?.id} onComplete={() => loadTrack()} />
+                                    {needsPricing && !readOnly ? (
+                              <PFPricingForm clientId={clientId} serviceLevel={pd?.c15_service_level} pipelineId={pd?.id} onComplete={() => loadTrack()} />
                                     ) : pd?.gross_fee ? (
                                       <>
                                         <div style={{ cursor: 'pointer' }} onClick={() => setExpanded(prev => ({ ...prev, pricing_details: !prev.pricing_details }))}>
@@ -283,7 +294,14 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                                             <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#5a8ab5', width: '140px' }}>Payment plan</span><span style={{ fontSize: '11px', color: '#d1dce8' }}>{pd?.payment_plan || '—'}</span></div>
                                           </div>
                                         )}
-                                        {yesSteps.map((s, i) => <div key={`y${i}`}>{autoStep(s)}</div>)}
+                                        {autoStep('Agreement sent to client', pd?.c16_sent === 'Yes')}
+                                        {autoStep('Client signed', pd?.c17_client_signed === 'Yes')}
+                                        {autoStep('CEO signed', pd?.c18_ceo_signed === 'Yes')}
+                                        {autoStep('Payment link sent', false)}
+                                        {autoStep('Payment received', !!pd?.pay1_status)}
+                                        {autoStep('Invoice/receipt sent', !!pd?.invoice_number)}
+                                        {autoStep('Revenue share paid', !!pd?.rec1_rev_share)}
+                                        {autoStep('Member notified of revenue share', pd?.c24_email_sent === 'Yes')}
                                       </>
                                     ) : null}
                                   </>
@@ -300,7 +318,14 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                             {!finalDec && (
                               <div style={{ marginLeft: '14px', borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px' }}>
                                 <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px' }}>If Yes:</div>
-                                {yesSteps.map((s, i) => <div key={`y${i}`}>{autoStep(s)}</div>)}
+                                {autoStep('Agreement sent to client', pd?.c16_sent === 'Yes')}
+                                {autoStep('Client signed', pd?.c17_client_signed === 'Yes')}
+                                {autoStep('CEO signed', pd?.c18_ceo_signed === 'Yes')}
+                                {autoStep('Payment link sent', pd?.c18_ceo_signed === 'Yes')}
+                            {autoStep('Payment received', !!pd?.pay1_status)}
+                                {autoStep('Invoice/receipt sent', !!pd?.invoice_number)}
+                                {autoStep('Revenue share paid', !!pd?.rec1_rev_share)}
+                                {autoStep('Member notified of revenue share', pd?.c24_email_sent === 'Yes')}
                                 <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px', marginTop: '10px' }}>If No:</div>
                                 {autoStep('Decline email sent to client')}
                                 <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px', marginTop: '10px' }}>If extra meeting:</div>

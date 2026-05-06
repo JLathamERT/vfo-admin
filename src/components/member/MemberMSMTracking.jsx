@@ -471,21 +471,24 @@ function MemberClientTrackView({ client, program }) {
   const [progress, setProgress] = useState({})
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState({})
+  const [pipelineData, setPipelineData] = useState(null)
 
   useEffect(() => { loadTrack() }, [client.id])
 
   async function loadTrack() {
     setLoading(true)
     try {
-      const [trackData, progressData] = await Promise.all([
+      const [trackData, progressData, pipelineRes] = await Promise.all([
         callApi('msm_load_client_track', { program_id: program.id }),
         callApi('msm_load_client_progress', { client_id: client.id }),
+        callApi('member_load_pipeline', { client_id: client.id }),
       ])
       const loadedPhases = trackData.phases || []
       setPhases(loadedPhases)
       const prog = {}
       ;(progressData.progress || []).forEach(p => { prog[p.task_id] = p })
       setProgress(prog)
+      setPipelineData(pipelineRes?.row || null)
 
       const expandState = {}
       loadedPhases.forEach(phase => {
@@ -564,6 +567,45 @@ function MemberClientTrackView({ client, program }) {
                   const isDone = !!p.status && p.status !== ''
                   const statusColor = statusColors[p.status] || '#8bacc8'
                   const isGreyedOut = (task.task_code === 'C14' || task.task_code === 'C15') && !c14c15Active
+
+                  if (task.name === 'AI PC Admin' && pipelineData) {
+                    const pd = pipelineData
+                    const pipDecision = pd?.c13_decision
+                    const finalDec = pd?.c15_final_decision
+                    const autoStep = (label, done) => (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+                        <span style={{ fontSize: '12px', color: done ? '#27ae60' : '#8bacc8' }}>{label}</span>
+                        {done && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', marginLeft: 'auto' }}>Done</span>}
+                      </div>
+                    )
+                    return (
+                      <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: pd?.c18_ceo_signed === 'Yes' ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${pd?.c18_ceo_signed === 'Yes' ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+                          <span style={{ fontSize: '13px', color: '#fff', flex: 1 }}>{task.name}</span>
+                        </div>
+                        {pipDecision && (
+                          <div style={{ marginLeft: '18px' }}>
+                            {finalDec === 'Yes' && (
+                              <>
+                                {autoStep('Agreement sent to client', pd?.c16_sent === 'Yes')}
+                                {autoStep('Client signed', pd?.c17_client_signed === 'Yes')}
+                                {autoStep('CEO signed', pd?.c18_ceo_signed === 'Yes')}
+                                {autoStep('Payment link sent', false)}
+                                {autoStep('Payment received', !!pd?.pay1_status)}
+                                {autoStep('Invoice/receipt sent', !!pd?.invoice_number)}
+                                {autoStep('Revenue share paid', !!pd?.rec1_rev_share)}
+                                {autoStep('Member notified of revenue share', pd?.c24_email_sent === 'Yes')}
+                              </>
+                            )}
+                            {finalDec === 'No' && autoStep('Decline email sent to client', true)}
+                            {!finalDec && autoStep('Awaiting client decision', false)}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
 
                   return (
                     <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', opacity: isGreyedOut ? 0.3 : 1 }}>
