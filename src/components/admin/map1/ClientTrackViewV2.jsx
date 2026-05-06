@@ -211,11 +211,14 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                   const decisionColor = pipDecision === 'Yes' ? '#27ae60' : pipDecision === 'No' ? '#e74c3c' : finalDec === 'Yes' ? '#27ae60' : finalDec === 'No' ? '#e74c3c' : '#f39c12'
                   const decisionLabel = pipDecision === 'Yes' ? 'Yes — proceeding' : pipDecision === 'No' ? 'No — declined' : finalDec === 'Yes' ? `Yes — ${pipelineData?.c15_service_level || 'proceeding'}${pipelineData?.c15_via_extra_meeting ? ' (via extra meeting)' : ''}` : finalDec === 'No' ? `No — declined${pipelineData?.c15_via_extra_meeting ? ' (via extra meeting)' : ''}` : finalDec === 'ExtraMeeting' ? 'Extra meeting requested' : 'Undecided — awaiting client'
 
-                  const autoStep = (label, done = false) => (
+                  const autoStep = (label, done = false, tag = null) => (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                       <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
                       <span style={{ fontSize: '12px', color: done ? '#27ae60' : '#8bacc8' }}>{label}</span>
-                      <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: done ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: done ? '#27ae60' : '#8bacc8', marginLeft: 'auto' }}>{done ? 'Done' : 'Not completed'}</span>
+                      <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
+                        {done && tag && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>{tag}</span>}
+                        <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: done ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: done ? '#27ae60' : '#8bacc8' }}>{done ? 'Done' : 'Not completed'}</span>
+                      </span>
                     </div>
                   )
 
@@ -239,7 +242,8 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                             {autoStep('Client signed', pd?.c17_client_signed === 'Yes')}
                             {autoStep('CEO signed', pd?.c18_ceo_signed === 'Yes')}
                             {autoStep('Payment link sent', pd?.c18_ceo_signed === 'Yes')}
-                            {autoStep('Payment received', !!pd?.pay1_status)}
+                            {autoStep('Payment made', !!pd?.pay1_status, pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null)}
+                            {autoStep('Payment received', pd?.pay1_status === 'succeeded')}
                             {autoStep('Invoice/receipt sent', !!pd?.invoice_number)}
                             {autoStep('Revenue share paid', !!pd?.rec1_rev_share)}
                             {autoStep('Member notified of revenue share', pd?.c24_email_sent === 'Yes')}
@@ -322,7 +326,8 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                                 {autoStep('Client signed', pd?.c17_client_signed === 'Yes')}
                                 {autoStep('CEO signed', pd?.c18_ceo_signed === 'Yes')}
                                 {autoStep('Payment link sent', pd?.c18_ceo_signed === 'Yes')}
-                            {autoStep('Payment received', !!pd?.pay1_status)}
+                            {autoStep('Payment made', !!pd?.pay1_status, pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null)}
+                            {autoStep('Payment received', pd?.pay1_status === 'succeeded')}
                                 {autoStep('Invoice/receipt sent', !!pd?.invoice_number)}
                                 {autoStep('Revenue share paid', !!pd?.rec1_rev_share)}
                                 {autoStep('Member notified of revenue share', pd?.c24_email_sent === 'Yes')}

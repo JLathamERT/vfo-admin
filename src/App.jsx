@@ -6,6 +6,7 @@ import AdminPortal from './pages/AdminPortal'
 import MemberPortal from './pages/MemberPortal'
 import ClientDetail from './pages/ClientDetail'
 import DecidePage from './pages/DecidePage'
+import PayPage from './pages/PayPage'
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
       <Route path="/member" element={<MemberPortal />} />
       <Route path="/member/client/:clientId" element={<ClientDetail />} />
       <Route path="/decide" element={<DecidePage />} />
+      <Route path="/pay" element={<PayPage />} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   )
