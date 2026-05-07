@@ -1,0 +1,134 @@
+# Authentication & sessions
+
+The portal uses a **custom session-token scheme** layered on top of the Supabase anon JWT — *not* Supabase Auth. There is no `auth.users` table involvement; identity is `allowed_admins` (admin role) and `member_logins` (member role), and tokens live in `admin_sessions` (single table for both roles, despite the name).
+
+## Storage layout
+
+| Where | What | Key |
+|---|---|---|
+| Browser `sessionStorage` | The active session object as JSON | `vfo_session` |
+| Browser `sessionStorage` | UI state per panel | `adminActiveTab`, `adminMembersSection`, `adminSpecialistsSection`, `adminAutomationSection`, `adminSelectedMember`, `adminMemberFeatureTab`, `memberActiveTab` |
+| Supabase `admin_sessions` | Server-side token record | `token` PK, `email`, `expires_at` |
+
+Helpers in [src/lib/api.js](src/lib/api.js):
+
+| Helper | Lines | Purpose |
+|---|---|---|
+| `callApi(action, payload)` | 4-29 | Wraps `fetch` POST + retry ×3 + 401 redirect |
+| `getSession()` | 31-33 | Reads `vfo_session` from `sessionStorage` |
+| `setSession(session)` | 35-37 | Writes `vfo_session` |
+| `clearSession()` | 39-41 | Removes `vfo_session` |
+
+## Session object shape
+
+After `admin_login` ([AdminLogin.jsx:22](src/pages/AdminLogin.jsx)):
+```
+{ token, email, name, role: 'admin', is_superadmin: boolean }
+```
+
+After `member_login` ([MemberLogin.jsx:19](src/pages/MemberLogin.jsx)):
+```
+{ token, email, name, role: 'member', member_number, website_enabled }
+```
+
+> **Inconsistency:** The session created at login does **not** include `ciq_enabled` / `ciq_vfos_managed`, but [MemberPortal.jsx:132](src/pages/MemberPortal.jsx) reads `session.ciq_enabled` / `session.ciq_vfos_managed` to gate the CIQ tab. Those fields *are* returned by `member_login` (see `vfo-admin-api/index.ts:511`) but are **not persisted to `vfo_session`** by [MemberLogin.jsx:19](src/pages/MemberLogin.jsx). The tab will currently render with `ciqEnabled={undefined}` / `ciqVfosManaged={undefined}`. Behavior in `MemberCIQ.jsx` should be checked under that condition — flagged for Phase E.
+
+## Login flow
+
+```
+RolePicker (/) ──► /admin/login ──► callApi('admin_login') ──► setSession ──► /admin
+                └─► /member/login ──► callApi('member_login') ──► setSession ──► /member
+```
+
+[AdminLogin.jsx](src/pages/AdminLogin.jsx) and [MemberLogin.jsx](src/pages/MemberLogin.jsx) both clear UI-state sessionStorage keys before navigation (lines 18-21 and 18 respectively) — preventing a previous user's tab/section state from leaking into the new session.
+
+## On-the-wire request shape (every authenticated call)
+
+```
+POST https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api
+Headers:
+  Authorization: Bearer <hardcoded-anon-jwt>
+  Content-Type: application/json
+Body:
+  { "action": "<name>", "token": "<session-token>", ...payload }
+```
+
+The `Bearer` JWT is the **anon key**, hardcoded into [src/lib/api.js:2](src/lib/api.js). Per the live registry, both edge functions have `verify_jwt: false`, so this header is informational rather than enforced. Authentication is the `token` field in the body.
+
+Public-token pages bypass `callApi` entirely — they raw-fetch with no `Authorization` header at all:
+
+| Page | Direct fetch | Token source |
+|---|---|---|
+| [DecidePage.jsx:33](src/pages/DecidePage.jsx) | `automation_PCADMIN_finaldecision` | URL `?token=...` (matches `pipeline_map1.c15_token`) |
+| [PayPage.jsx:20](src/pages/PayPage.jsx) | `automation_CONTRACT_loadpayment` | URL `?token=...` (matches `pipeline_map1.checkout_token`) |
+| [PayPage.jsx:38](src/pages/PayPage.jsx) | `automation_CONTRACT_stripecheckout` | same URL token |
+
+> **Inconsistency 2:** [DecidePage.jsx:4](src/pages/DecidePage.jsx) honors `import.meta.env.VITE_API_URL` as an override; [PayPage.jsx:4](src/pages/PayPage.jsx) hardcodes the same URL with no env fallback.
+
+## Server-side auth gate
+
+In [vfo-admin-api/index.ts:2190](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts) — every action below this line:
+
+1. Reads `body.token`. Returns `401` if missing.
+2. Looks up `admin_sessions` row by token. Returns `401` if missing or `expires_at` past (and deletes the expired row).
+3. Looks up `allowed_admins` by email → if found: `callerRole='admin'`, `is_superadmin = (email === SUPERADMIN_EMAIL)`. Otherwise `callerRole='member'` and resolves `callerMemberNumber` via `member_logins`.
+
+### Session lifetime
+
+- Created by `admin_login` / `member_login` / `login` with `expires_at = now() + 8h` (lines 472, 498, 533 — admin-api).
+- Note: [tables/auth.md](../tables/auth.md) earlier said "24h" based on token-flow inspection — actual code shows **8 hours**. This doc supersedes that.
+- Migration `auto_cleanup_expired_sessions` (2026-04-28) presumably installs a periodic delete; not verified by reading migration content. Flagged.
+
+### Role gates
+
+| Gate | Where | Behavior |
+|---|---|---|
+| `ADMIN_ONLY_ACTIONS` array (~52 entries) | admin-api line 2226 | Member callers get `403 Forbidden` |
+| `MEMBER_SCOPED_ACTIONS` array (~17 entries) | admin-api line 2261 | For member callers, `body.member_number` is overwritten with the caller's own value before dispatch |
+
+**Gaps explicitly visible:**
+- `add_client_note`, `update_client_note`, `delete_client_note` are in **neither** list — both admin and member can call them, with no DB-level scoping. Security relies on the caller knowing a `note_id` they're allowed to touch.
+- `gc_redeem` is not admin-gated; member callers can redeem services for their own `member_number` (which IS forced by `MEMBER_SCOPED_ACTIONS`).
+- The whole `ciq_*`, `tax_*`, `coaching_*`, `msm_save_priority_task`, `msm_save_client_task` family is also unrestricted at the role level — relies on application-level ownership checks.
+
+### Front-of-component auth checks
+
+| Component | Check | Action on fail |
+|---|---|---|
+| [AdminPortal.jsx:79](src/pages/AdminPortal.jsx) | `!session \|\| session.role !== 'admin'` | `navigate('/admin/login')` |
+| [MemberPortal.jsx:27](src/pages/MemberPortal.jsx) | `!session \|\| session.role !== 'member'` | `navigate('/member/login')` |
+| [ClientDetail.jsx:59](src/pages/ClientDetail.jsx) | `!session` | `navigate('/admin/login')` (always to admin login, even when arriving from /member route — see flag below) |
+
+> **Inconsistency 3:** [ClientDetail.jsx:59](src/pages/ClientDetail.jsx) redirects to `/admin/login` even when the route is `/member/client/:clientId`. A logged-out member hitting a member URL would land on the admin login. The sign-out button at line 106 *does* branch correctly on `isMember`, but the missing-session redirect does not.
+
+## Logout
+
+- [AdminPortal.jsx:113](src/pages/AdminPortal.jsx): `signOut()` → `clearSession()` + `navigate('/')` (returns to RolePicker).
+- [MemberPortal.jsx:54](src/pages/MemberPortal.jsx): same.
+- [ClientDetail.jsx:106](src/pages/ClientDetail.jsx): `sessionStorage.clear()` + redirect to `/admin/login` or `/member/login` based on `isMember`. **Note:** uses `sessionStorage.clear()`, which wipes UI-state keys too. The portal pages use `clearSession()` which only removes `vfo_session`. Functional difference is small (UI state is regenerated on next login), but it's an inconsistency.
+
+Logout is **client-only** — there is no admin-api action to delete the `admin_sessions` row at sign-out. The token remains valid server-side until `expires_at` passes. A copy of `vfo_session` could in theory be replayed for the remaining lifetime.
+
+## 401 auto-redirect
+
+[src/lib/api.js:17-21](src/lib/api.js): on any 401 response:
+```
+clearSession()
+window.location.href = window.location.origin + '/vfo-portal/'
+```
+
+The `'/vfo-portal/'` path is the gh-pages base path. On localhost dev (Vite at port 5173), this redirect lands on `http://localhost:5173/vfo-portal/` which doesn't exist — flagged for the dev-environment doc. In production it resolves correctly to `https://jlathamert.github.io/vfo-portal/`.
+
+## Passcode hashing
+
+`hashPasscode()` in admin-api (line 189) is **plain SHA-256, no salt**. All `allowed_admins.passcode` and `member_logins.passcode` values are stored as a 64-char hex digest. This is the result of migration `hash_passcodes_and_cleanup_sessions` (2026-04-28). Trade-offs (rainbow-table susceptibility, no per-user salt) are observable but not corrected in this doc.
+
+## Notification polling
+
+[NotificationBell.jsx:12-16](src/components/NotificationBell.jsx) calls `callApi('load_notifications')` on mount and again every **30 seconds** via `setInterval`. This is the only background polling in the frontend. If a session expires while the bell is mounted, the next poll will 401 → trigger the global redirect — observed in transcript reports as "user gets bumped to login while idle."
+
+## Cross-references
+
+- Edge-function auth gate detail: [03-edge-functions.md](03-edge-functions.md#token-auth-gate-line-2190)
+- Auth tables: [../tables/auth.md](../tables/auth.md)
+- Login action handlers: [05-api-action-catalog.md#auth-no-token-required](05-api-action-catalog.md)

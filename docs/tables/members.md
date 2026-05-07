@@ -1,0 +1,86 @@
+# Members tables
+
+The "member" entity in this system = an advisor or accountant (not the end client). They log into the Member Portal, manage their own clients, and run programs.
+
+## `members`
+
+The advisor/accountant roster. PK is `member_number` (text), not an integer — used as the foreign-key target across most tables.
+
+| Column | Type | Notes |
+|---|---|---|
+| `member_number` | text | pk |
+| `first_name` / `last_name` | text | |
+| `member_type` | text | e.g., `"advisor"`, `"accountant"`. Drives portal/UI behavior. |
+| `elite_status` | text | default `'Active'`. Status field. |
+| `join_date` / `renewal_date` / `leave_date` | date | |
+| `suspended` | boolean | default `false`. Status field. |
+| `paused` | boolean | default `false`. Status field. |
+| `revenue_decision` | text | Whether they share revenue. |
+| `stripe_account_id` | text | **Stripe Connect ID** — used by `automation_CONTRACT_revshare` for Transfers. |
+| `primary_relationship` / `advisor_engagement` | text | |
+| `connected_member_number` | text | fk → `members.member_number` (SET NULL). Self-referencing — links a junior member to a senior. |
+| `connection_type` | text | |
+| `email` | text | |
+| `notes` | text | |
+| `assigned_msm` | text | Member-Servicing-Manager identifier. |
+| `vfo_certified_date` / `vfo_accredited_date` | date | |
+| `ciq_enabled` | boolean | not null, default `false`. **CIQ feature gate** for this member. |
+| `ciq_vfos_managed` | boolean | not null, default `true`. CIQ behavior toggle. |
+| `created_at` | timestamptz | default `now()` |
+
+**Status fields:** `elite_status`, `suspended`, `paused`, `ciq_enabled`.
+**Automation fields:** `stripe_account_id` (revshare), `ciq_enabled` / `ciq_vfos_managed` (CIQ feature gate).
+
+**Touched by:** `load_data`, `add_member`, `add_member_full`, `save_member`, `delete_member`, `member_profile_load`, `member_profile_save`, `automation_CONTRACT_revshare`. Frontend: [MembersPanel.jsx](src/components/admin/MembersPanel.jsx).
+
+---
+
+## `member_plugin_settings`
+
+Per-member website-widget configuration. PK `plugin_member_number` is a separate identifier from `member_number` — though many tables FK to `plugin_member_number` (specifically `member_logins`, `gc_*`, `member_exclusions`).
+
+| Column | Type | Notes |
+|---|---|---|
+| `plugin_member_number` | text | pk |
+| `name` | text | |
+| `type` | text | |
+| `manage_key` | text | not null. Used as URL-safe identifier in widget embed. |
+| `primary_color` / `bg_color` / `text_color` / `accent_color` / `card_text_color` | text | Theme colors. Defaults: `'#d4af37'`, `'#0a1628'`, `'#ffffff'`, `'#1a2744'`, `'#ffffff'`. |
+| `last_initial_only` | boolean | default `false`. Privacy toggle. |
+| `display_mode` | text | default `'filter'` |
+| `font` | text | default `'Playfair Display'` |
+| `show_count` / `show_search` | boolean | default `true` |
+| `website_enabled` | boolean | default `false`. Status field — gates whether the public widget is live. |
+| `widget_font_size` | integer | default `14`. (Migration `change_widget_font_size_to_integer` indicates this was previously text.) |
+
+**Touched by:** `load_data`, `save_member` (settings payload), `member_profile_save`. Frontend: [MemberWebsitePlugin.jsx](src/components/shared/MemberWebsitePlugin.jsx).
+
+---
+
+## `member_type_history`
+
+Audit trail of `member_type` changes.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | integer | pk |
+| `member_number` | text | fk → `members.member_number` (CASCADE) |
+| `old_type` / `new_type` | text | |
+| `changed_at` | timestamptz | default `now()` |
+| `changed_by` | text | |
+
+**Touched by:** Any handler that changes `members.member_type` (currently `member_profile_save`).
+
+---
+
+## `member_exclusions`
+
+Per-member list of `experts` they want excluded from their ecosystem (effectively a blocklist for the website widget / specialist matching).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | pk |
+| `member_number` | text | fk → `member_plugin_settings.plugin_member_number` (CASCADE). Note: links to plugin number, not main `members.member_number`. |
+| `expert_id` | bigint | fk → `experts.id` (CASCADE) |
+
+**Touched by:** `load_data`, `load_exclusions`, `save_member`. Frontend: [MembersPanel.jsx:550](src/components/admin/MembersPanel.jsx).

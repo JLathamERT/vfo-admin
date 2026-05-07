@@ -1,0 +1,123 @@
+# Orchestration files
+
+The "biggest brains" of the codebase — files that own a feature area or coordinate many actions. Sized by where logic concentrates, not LOC alone. Read this file to know *where to look first* for any given feature.
+
+> Read-only summary: this doc states what each file does, not what it should do.
+
+## Tier 1 — System edges (every request goes through these)
+
+| File | Size | Owns |
+|---|---|---|
+| `C:\vfo-edge-functions\supabase\functions\vfo-admin-api\index.ts` | 4964 lines / 246KB | **The single backend.** Stripe webhook receiver, BoldSign webhook receiver (embedded duplicate), and dispatcher for ~125 actions. See [03-edge-functions.md](03-edge-functions.md). |
+| `C:\vfo-edge-functions\supabase\functions\boldsign-webhook\index.ts` | 95 lines | Standalone BoldSign webhook receiver. Updates `pipeline_map1` and chains into `automation_CONTRACT_ceocountersign` / `_stripecustomer`. |
+| [src/lib/api.js](src/lib/api.js) | 41 lines | The **only** module that talks to the edge function. `callApi`, `getSession`, `setSession`, `clearSession`. |
+| [src/App.jsx](src/App.jsx) | 26 lines | Route table. 8 routes + catch-all. |
+
+## Tier 2 — Top-level pages (one mounts at a time per route)
+
+| File | Size | Routes that mount it | Owns |
+|---|---|---|---|
+| [src/pages/AdminPortal.jsx](src/pages/AdminPortal.jsx) | 281 lines | `/admin` | Admin shell: 3-dropdown nav, `load_data` bootstrap, panel routing, NotificationBell, modal overlays for AdminEditor + AdminSettings. State persisted in `sessionStorage`. |
+| [src/pages/MemberPortal.jsx](src/pages/MemberPortal.jsx) | 349 lines (incl. inline subcomponents) | `/member` | Member shell: dynamic tab list driven by `member_program_enabled` + 3 inline subcomponents (`MemberSpecialists`, `MemberProfile`, `MemberSettings`). Hardcoded program-name → tab-key map at line 59. |
+| [src/pages/ClientDetail.jsx](src/pages/ClientDetail.jsx) | 384 lines | `/admin/client/:clientId` & `/member/client/:clientId` | **Dual-mode page.** The `isMember = pathname.startsWith('/member')` flag at line 55 cascades as `readOnly`. Tab set branches on `program?.name` (PFT vs Tax vs MAP1+Regular+Tax). Inline `ClientHome` (status + PF + notes) and `ClientDetails` (edit + contacts). |
+| [src/pages/AdminLogin.jsx](src/pages/AdminLogin.jsx), [src/pages/MemberLogin.jsx](src/pages/MemberLogin.jsx) | ~46 each | `/admin/login`, `/member/login` | Tiny login forms. See [04-auth-and-sessions.md](04-auth-and-sessions.md). |
+| [src/pages/DecidePage.jsx](src/pages/DecidePage.jsx) | 170 lines | `/decide?token=...` | Token-link page for `automation_PCADMIN_finaldecision`. Raw `fetch` (no session). |
+| [src/pages/PayPage.jsx](src/pages/PayPage.jsx) | 115 lines | `/pay?token=...` | Token-link page → loads payment data → user picks ACH/Card → Stripe Checkout redirect. |
+| [src/pages/RolePicker.jsx](src/pages/RolePicker.jsx) | 15 lines | `/` | Two buttons. |
+
+## Tier 3 — Feature panels (mounted by a Tier-2 page)
+
+These are the components where most of the per-feature logic and `callApi` calls concentrate. Listed here in approximate descending complexity.
+
+### Largest by feature surface
+
+| File | Size | Mounted by | Owns |
+|---|---|---|---|
+| [src/components/shared/MemberCIQ.jsx](src/components/shared/MemberCIQ.jsx) | 111KB | MemberPortal `ciq` tab | Whole CIQ flow — settings, list, draft, save answers, complete, priorities, snapshots. ~14 distinct callApi actions. Used by both admin (via MembersPanel → "CIQ" feature tab) and member (via the CIQ portal tab); the `isAdmin` prop differentiates. |
+| [src/components/admin/MSMTracking.jsx](src/components/admin/MSMTracking.jsx) | 90KB | _Not mounted from AdminPortal directly._ Imported by [MembersPanel.jsx](src/components/admin/MembersPanel.jsx) as the per-member feature tab "MSM Tracking." | The admin-side per-member view of programs/enrollments/training-progress/clients/coaching/tax. |
+| [src/components/admin/tax/TaxPrioritiesTab.jsx](src/components/admin/tax/TaxPrioritiesTab.jsx) | 81KB | ClientDetail `tax` tab | Tax engagement UI: load plan, add specialist, save tasks, archive. Calls `tax_*` actions. |
+| [src/components/admin/MembersPanel.jsx](src/components/admin/MembersPanel.jsx) | 63KB | AdminPortal `members` tab | The largest admin panel. Routes between Add Advisor / Search Advisors / per-member feature tabs (Profile, MSM Tracking, GC, Specialists, Settings, etc.). Internally fans out to ~30 callApi actions. |
+| [src/components/member/MemberMSMTracking.jsx](src/components/member/MemberMSMTracking.jsx) | 56KB | MemberPortal `msm_*` tabs | Member-side mirror of MSMTracking. Loads program/training/clients/coaching/renewals. Includes `member_load_pipeline` to read the MAP1 pipeline row inline. |
+| [src/components/admin/SpecialistOnboarding.jsx](src/components/admin/SpecialistOnboarding.jsx) | 55KB | AdminPortal `specialists` (`specialist_onboarding` section) | Multi-stage onboarding workflow: stages 1..N, votes, meetings, progress, status updates. ~7 callApi actions, all `*_onboarding*`. |
+| [src/components/admin/map1/ClientTrackViewV2.jsx](src/components/admin/map1/ClientTrackViewV2.jsx) | 42KB | ClientDetail `map1` tab | The MAP1 phase tracker — renders the c-task list, surfaces inline forms (PIPDecisionForm, PFPricingForm, PFExtraMeetingForm), reads the `pipeline_map1` row for current stage. **Triggers `automation_PIP1_reconfirmationemail`** at line 85 when the c81 task is completed with a decision. |
+| [src/components/admin/regular/RegularPrioritiesTab.jsx](src/components/admin/regular/RegularPrioritiesTab.jsx) | 32KB | ClientDetail `regular` tab | "Regular priorities" UI — `client_priority_tracks` + `priority_progress`. |
+| [src/components/admin/SpecialistsPanel.jsx](src/components/admin/SpecialistsPanel.jsx) | 30KB | AdminPortal `specialists` tab | Specialist roster CRUD + `experts.D&B_*` editor + headshot upload. |
+| [src/components/admin/pft/PFTEngagementTrack.jsx](src/components/admin/pft/PFTEngagementTrack.jsx) | 28KB | ClientDetail `pft` tab | Partnership Fast Track engagement tracker. |
+| [src/components/admin/map1/PIPDecisionForm.jsx](src/components/admin/map1/PIPDecisionForm.jsx) | 25KB | ClientTrackViewV2 (inline) | The c13 decision form — Yes/Undecided/No, priorities, pricing fields. **Triggers `automation_PIPFU_decision`** at line 107. Owns ~30 lines of validation rules (priority count, fee splits, etc.). |
+| [src/components/admin/AutomationPanel.jsx](src/components/admin/AutomationPanel.jsx) | 20KB | AdminPortal `automation` (`map1_pipeline` section) | **Read-only** observer of `pipeline_map1`. Renders the stage table + expanded row view with 8 step cards. The stage detection at line 30 is the canonical view of "where is this client in the pipeline." |
+
+### Smaller but role-critical
+
+| File | Size | Owns |
+|---|---|---|
+| [src/components/NotificationBell.jsx](src/components/NotificationBell.jsx) | 4.8KB | Top-bar bell icon. Polls `load_notifications` every 30s. Only background-poller in the app. |
+| [src/components/admin/EmailTemplatesPanel.jsx](src/components/admin/EmailTemplatesPanel.jsx) | 9KB | Admin-only editor for `email_templates`. |
+| [src/components/admin/AdminEditor.jsx](src/components/admin/AdminEditor.jsx) | 4.2KB | Superadmin-only editor for `allowed_admins`. |
+| [src/components/admin/AdminSettings.jsx](src/components/admin/AdminSettings.jsx) | 3KB | `update_my_passcode` only. |
+| [src/components/member/MemberGCMarketplace.jsx](src/components/member/MemberGCMarketplace.jsx) | 13.5KB | Member GC marketplace UI — balance, services list, buy credits (Stripe Checkout), redeem. |
+| [src/components/shared/MemberWebsitePlugin.jsx](src/components/shared/MemberWebsitePlugin.jsx) | 17.8KB | Per-member website widget configurator (`member_plugin_settings`). |
+| [src/components/shared/MemberVault.jsx](src/components/shared/MemberVault.jsx) | 4.1KB | Supabase storage CRUD for `member-vault` bucket. |
+| [src/components/shared/PhaseNotes.jsx](src/components/shared/PhaseNotes.jsx) | 5.7KB | Per-phase notes UI — used inside MAP1, regular, tax, PFT tabs. Calls `add/update/delete_client_note`. |
+| [src/components/shared/AddGeneralNote.jsx](src/components/shared/AddGeneralNote.jsx) | 2.3KB | Same actions as PhaseNotes but scoped to `phase_name='General'`. |
+| [src/components/admin/map1/PFPricingForm.jsx](src/components/admin/map1/PFPricingForm.jsx) | 4.5KB | Inline pricing entry form — triggers `automation_PCADMIN_pricing`. |
+| [src/components/admin/map1/PFExtraMeetingForm.jsx](src/components/admin/map1/PFExtraMeetingForm.jsx) | 6KB | Inline extra-meeting outcome form — triggers `automation_PCADMIN_extrameeting`. |
+| [src/components/admin/map1/MeetingCompleteButton.jsx](src/components/admin/map1/MeetingCompleteButton.jsx) | 1KB | Tiny per-phase "Meeting Completed" button surfaced when all phase tasks have a status. |
+
+## Where each automation_* action is triggered from the frontend
+
+| Action | Triggered by | File:line |
+|---|---|---|
+| `automation_PCADMIN_finaldecision` | Direct fetch (no session) from email-button landing page | [DecidePage.jsx:33](src/pages/DecidePage.jsx) |
+| `automation_PIP1_reconfirmationemail` | Admin completes c81 task with a decision | [ClientTrackViewV2.jsx:85](src/components/admin/map1/ClientTrackViewV2.jsx) |
+| `automation_PIPFU_decision` | Admin submits the c13 decision form | [PIPDecisionForm.jsx:107](src/components/admin/map1/PIPDecisionForm.jsx) |
+| `automation_PCADMIN_pricing` | Admin submits PF pricing form | [PFPricingForm.jsx:19](src/components/admin/map1/PFPricingForm.jsx) |
+| `automation_PCADMIN_extrameeting` | Admin submits extra-meeting outcome form | [PFExtraMeetingForm.jsx:21](src/components/admin/map1/PFExtraMeetingForm.jsx) |
+| `automation_CONTRACT_sendagreement` | **NOT directly triggered from frontend.** Server-to-server chain from `automation_PIPFU_decision` (Yes+pricing), `automation_PCADMIN_pricing`, `automation_PCADMIN_extrameeting` (Yes). | (server side only) |
+| `automation_CONTRACT_ceocountersign` | Server chain from standalone `boldsign-webhook` (client-signed event) | (server side only) |
+| `automation_CONTRACT_stripecustomer` | Server chain from standalone `boldsign-webhook` (Completed event) | (server side only) |
+| `automation_CONTRACT_paymentemail` | Server chain from `automation_CONTRACT_stripecustomer` | (server side only) |
+| `automation_CONTRACT_loadpayment` | Direct fetch (no session) from `/pay` page mount | [PayPage.jsx:20](src/pages/PayPage.jsx) |
+| `automation_CONTRACT_stripecheckout` | Direct fetch (no session) when client picks ACH/Card | [PayPage.jsx:38](src/pages/PayPage.jsx) |
+| `automation_CONTRACT_confirmationemail` | Server chain from Stripe webhook (`checkout.session.completed`) | (server side only) |
+| `automation_CONTRACT_invoicereceipt` | Server chain from Stripe webhook (`checkout.session.completed` for card; `payment_intent.succeeded` for ACH and quarterly 2-4) | (server side only) |
+| `automation_CONTRACT_revshare` | **NOT triggered from frontend** and **NOT chained from any webhook in the source observed.** Mechanism for invocation is unclear — flagged as an open question. |
+| `automation_CONTRACT_stripewebhook` | (Likely dead code — see [03-edge-functions.md](03-edge-functions.md#possibly-dead-code)) | — |
+| `automation_load_pipelines` | AdminPortal Automation tab mount | [AutomationPanel.jsx:290](src/components/admin/AutomationPanel.jsx) |
+| `automation_load_pipeline_data` | AdminPortal Automation tab pipeline switch | [AutomationPanel.jsx:299](src/components/admin/AutomationPanel.jsx) |
+| `automation_load_email_templates` | AdminPortal → Automation → Email Templates | [EmailTemplatesPanel.jsx:18](src/components/admin/EmailTemplatesPanel.jsx) |
+| `automation_save_email_template` | EmailTemplatesPanel save | [EmailTemplatesPanel.jsx:40](src/components/admin/EmailTemplatesPanel.jsx) |
+| `member_load_pipeline` | Member viewing a client's MAP1 status | [MemberMSMTracking.jsx:484](src/components/member/MemberMSMTracking.jsx) |
+
+## Open question: how is `automation_CONTRACT_revshare` invoked?
+
+This is the only `automation_*` action with no observed trigger. It's not in any callApi grep result, not chained from any of the Stripe webhook event handlers (lines 222-441), and not a follow-up from `_invoicereceipt` (line 1812-2188). Possibilities, none verified:
+
+1. There may be a separate scheduled task / cron / GitHub Action invoking it. No such file was found in `.github/`, `package.json`, or scripts.
+2. It may be invoked via `curl` or Supabase Studio manually by Tracy / admin staff after reconciling the Revenue Master sheet (the function early-exits with `pending: true` until Tracy's numbers verify, suggesting human-in-the-loop).
+3. There may be a UI button somewhere I haven't read — but the action name does not appear in the frontend grep at all.
+
+Recommend confirming with the user / inspecting external systems. To be revisited in [flows/contract-and-payment.md](../flows/contract-and-payment.md) (Phase E).
+
+## Hardcoded program-name dependencies (frontend)
+
+The frontend hardcodes the program names from the `programs` table in three places. Adding a new row to `programs` will not surface a new tab without editing these:
+
+| File:line | Hardcoded names |
+|---|---|
+| [MemberPortal.jsx:59](src/pages/MemberPortal.jsx) | `'VFO Holistic Planning'`, `'Partnership Fast Track'`, `'VFO Tax Planning'`, `'Advanced Coaching'` |
+| [MemberPortal.jsx:100](src/pages/MemberPortal.jsx) | (same) |
+| [ClientDetail.jsx:133-143](src/pages/ClientDetail.jsx) | `'Partnership Fast Track'`, `'VFO Tax Planning'` (rest fall through to the MAP1+Regular+Tax bucket) |
+
+Hardcoded PF (Planning Facilitator) names also appear in:
+- [vfo-admin-api/index.ts:163-167](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts) — `getPfEmail()` map
+- [ClientDetail.jsx:227-228](src/pages/ClientDetail.jsx) — `<select>` options for assigning PF (only `Evan Anderson` and `Bridger Silvester` — note the email-map has 3 names but the dropdown has 2)
+- [ClientDetail.jsx:11](src/pages/ClientDetail.jsx) — `TEAM_MEMBERS` const includes 5 names (`Sarah Freitas`, `Rachael`, `Bridger Silvester`, `Tracy Miller`, `Evan Anderson`) but only PF assignment flows through it.
+
+> **Inconsistency:** [ClientDetail.jsx:227-228](src/pages/ClientDetail.jsx) lists 2 PF options, but `getPfEmail()` maps 3 names (`Lindsay Morris` is in the map but not selectable). A client could in theory have an `assigned_pf='Lindsay Morris'` value if set programmatically, but the frontend dropdown won't surface that as an option.
+
+## Cross-references
+
+- Action catalog: [05-api-action-catalog.md](05-api-action-catalog.md)
+- Frontend shell: [02-frontend-shell.md](02-frontend-shell.md)
+- Edge functions: [03-edge-functions.md](03-edge-functions.md)
+- Auth: [04-auth-and-sessions.md](04-auth-and-sessions.md)
