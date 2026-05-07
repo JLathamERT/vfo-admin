@@ -8,10 +8,12 @@ function PFPricingForm({ clientId, serviceLevel, pipelineId, onComplete }) {
   const [memberShare, setMemberShare] = useState('')
   const [vfosShare, setVfosShare] = useState('')
   const [paymentPlan, setPaymentPlan] = useState('')
+  const [pipMeetingCount, setPipMeetingCount] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   async function handleSubmit() {
     if (!grossFee || !paymentPlan) return
+    if (serviceLevel === 'Max' && !pipMeetingCount) return
     setSubmitting(true)
     try {
       await callApi('automation_PCADMIN_pricing', {
@@ -24,6 +26,7 @@ function PFPricingForm({ clientId, serviceLevel, pipelineId, onComplete }) {
         member_share: memberShare,
         vfos_share: vfosShare,
         payment_plan: paymentPlan,
+        pip_meeting_count: serviceLevel === 'Max' ? pipMeetingCount : (serviceLevel === 'Core' ? '4' : serviceLevel === 'Lite' ? '1' : null),
       })
       if (onComplete) onComplete()
     } catch (err) { console.error('Pricing save error:', err) }
@@ -57,6 +60,12 @@ function PFPricingForm({ clientId, serviceLevel, pipelineId, onComplete }) {
             <option value="Quarterly">Quarterly</option>
           </select>
         </div>
+        {serviceLevel === 'Max' && (
+          <div>
+            <label style={labelStyle}>PIP Meeting Count</label>
+            <input value={pipMeetingCount} onChange={e => setPipMeetingCount(e.target.value)} style={inputStyle} placeholder="e.g. 4" />
+          </div>
+        )}
         <div>
           <label style={labelStyle}>Member Share ($)</label>
           <input value={memberShare} onChange={e => setMemberShare(e.target.value)} style={inputStyle} placeholder="e.g. 1200" />

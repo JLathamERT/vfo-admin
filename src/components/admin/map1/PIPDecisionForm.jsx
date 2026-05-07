@@ -25,6 +25,7 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }
   const [memberShare, setMemberShare] = useState(existing.memberShare || '')
   const [vfosShare, setVfosShare] = useState(existing.vfosShare || '')
   const [paymentPlan, setPaymentPlan] = useState(existing.paymentPlan || '')
+  const [pipMeetingCount, setPipMeetingCount] = useState(existing.pipMeetingCount || '')
   const [undecidedReasons, setUndecidedReasons] = useState(existing.undecidedReasons || [])
   const [liteCost, setLiteCost] = useState(existing.liteCost || '')
   const [coreCost, setCoreCost] = useState(existing.coreCost || '')
@@ -63,6 +64,7 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }
       if (!clientService) { setSubmitError('Please select a client service'); return }
       if (!grossServiceValue) { setSubmitError('Please enter gross service value'); return }
       if (!paymentPlan) { setSubmitError('Please select a payment plan'); return }
+      if (clientService === 'Max' && !pipMeetingCount) { setSubmitError('Please enter PIP meeting count for Max'); return }
       const splitTotal = (parseFloat(memberShare) || 0) + (parseFloat(vfosShare) || 0)
       const netVal = parseFloat(netInvoiceValue) || 0
       if (Math.abs(splitTotal - netVal) > 0.01) {
@@ -90,6 +92,7 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }
       formData.memberShare = memberShare
       formData.vfosShare = vfosShare
       formData.paymentPlan = paymentPlan
+      formData.pipMeetingCount = clientService === 'Max' ? pipMeetingCount : null
     } else if (decision === 'Undecided') {
       formData.undecidedReasons = undecidedReasons
       formData.currentPriorities = currentPriorities
@@ -236,6 +239,15 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }
                 </select>
             }
           </div>
+          {clientService === 'Max' && (
+            <div style={{ marginBottom: '12px' }}>
+              <label style={labelStyle}>PIP Meeting Count</label>
+              {isViewMode
+                ? <div style={readOnlyInput}>{pipMeetingCount || '—'}</div>
+                : <input value={pipMeetingCount} onChange={e => setPipMeetingCount(e.target.value)} style={inputStyle} placeholder="e.g. 4" />
+              }
+            </div>
+          )}
         </>
       )}
 
