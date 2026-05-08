@@ -31,7 +31,7 @@ After `member_login` ([MemberLogin.jsx:19](src/pages/MemberLogin.jsx)):
 { token, email, name, role: 'member', member_number, website_enabled }
 ```
 
-> **Inconsistency:** The session created at login does **not** include `ciq_enabled` / `ciq_vfos_managed`, but [MemberPortal.jsx:132](src/pages/MemberPortal.jsx) reads `session.ciq_enabled` / `session.ciq_vfos_managed` to gate the CIQ tab. Those fields *are* returned by `member_login` (see `vfo-admin-api/index.ts:511`) but are **not persisted to `vfo_session`** by [MemberLogin.jsx:19](src/pages/MemberLogin.jsx). The tab will currently render with `ciqEnabled={undefined}` / `ciqVfosManaged={undefined}`. Behavior in `MemberCIQ.jsx` should be checked under that condition — flagged for Phase E.
+> **Inconsistency:** The session created at login does **not** include `ciq_enabled` / `ciq_vfos_managed`, but [MemberPortal.jsx:132](src/pages/MemberPortal.jsx) reads `session.ciq_enabled` / `session.ciq_vfos_managed` to gate the CIQ tab. Those fields *are* returned by `member_login` (see `actions/auth/member-login.ts`) but are **not persisted to `vfo_session`** by [MemberLogin.jsx:19](src/pages/MemberLogin.jsx). The tab will currently render with `ciqEnabled={undefined}` / `ciqVfosManaged={undefined}`. Behavior in `MemberCIQ.jsx` should be checked under that condition — flagged for Phase E.
 
 ## Login flow
 
@@ -53,7 +53,7 @@ Body:
   { "action": "<name>", "token": "<session-token>", ...payload }
 ```
 
-The `Bearer` JWT is the **anon key**, hardcoded into [src/lib/api.js:2](src/lib/api.js). Per the live registry, both edge functions have `verify_jwt: false`, so this header is informational rather than enforced. Authentication is the `token` field in the body.
+The `Bearer` JWT is the **anon key**, hardcoded into [src/lib/api.js:2](src/lib/api.js). Both edge functions have `verify_jwt = false` (matched in `vfo-edge-functions/supabase/config.toml` and the live registry as of v196), so this header is informational rather than enforced at the Kong gateway level. Authentication is the `token` field in the body, validated by `vfo-admin-api/middleware/auth.ts::authenticate()`.
 
 Public-token pages bypass `callApi` entirely — they raw-fetch with no `Authorization` header at all:
 
@@ -63,28 +63,32 @@ Public-token pages bypass `callApi` entirely — they raw-fetch with no `Authori
 | [PayPage.jsx:20](src/pages/PayPage.jsx) | `automation_CONTRACT_loadpayment` | URL `?token=...` (matches `pipeline_map1.checkout_token`) |
 | [PayPage.jsx:38](src/pages/PayPage.jsx) | `automation_CONTRACT_stripecheckout` | same URL token |
 
-> **Inconsistency 2:** [DecidePage.jsx:4](src/pages/DecidePage.jsx) honors `import.meta.env.VITE_API_URL` as an override; [PayPage.jsx:4](src/pages/PayPage.jsx) hardcodes the same URL with no env fallback.
+> **Resolved.** Previously [PayPage.jsx:4](src/pages/PayPage.jsx) and [src/lib/api.js:1](src/lib/api.js) hardcoded the production URL while only [DecidePage.jsx:4](src/pages/DecidePage.jsx) honored `import.meta.env.VITE_API_URL`. As of `test/frontend-vs-local-function` branch (commit `3bf0963`), all three honor the env var with the production URL as the fallback. Production behavior unchanged when the env var is unset.
 
 ## Server-side auth gate
 
-In [vfo-admin-api/index.ts:2190](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts) — every action below this line:
+`vfo-admin-api/middleware/auth.ts::authenticate(action, body, supabase, json)` is the single entry point for all token validation and role-gating. It runs after the public-handler dispatch and before the authed-handler dispatch in `index.ts`.
+
+For every action that reaches this gate (i.e., not in `PUBLIC_HANDLERS` and not a login):
 
 1. Reads `body.token`. Returns `401` if missing.
 2. Looks up `admin_sessions` row by token. Returns `401` if missing or `expires_at` past (and deletes the expired row).
 3. Looks up `allowed_admins` by email → if found: `callerRole='admin'`, `is_superadmin = (email === SUPERADMIN_EMAIL)`. Otherwise `callerRole='member'` and resolves `callerMemberNumber` via `member_logins`.
 
+The function returns either an `AuthResult` of kind `"response"` (early-return 401/403) or kind `"auth"` carrying the full `AuthContext` (defined in `types/index.ts`). Handlers that take `auth` as a 4th parameter receive that context.
+
 ### Session lifetime
 
-- Created by `admin_login` / `member_login` / `login` with `expires_at = now() + 8h` (lines 472, 498, 533 — admin-api).
+- Created by `admin_login` / `member_login` / `login` (in `actions/auth/`) with `expires_at = now() + 8h`.
 - Note: [tables/auth.md](../tables/auth.md) earlier said "24h" based on token-flow inspection — actual code shows **8 hours**. This doc supersedes that.
 - Migration `auto_cleanup_expired_sessions` (2026-04-28) presumably installs a periodic delete; not verified by reading migration content. Flagged.
 
 ### Role gates
 
-| Gate | Where | Behavior |
+| Gate | File | Behavior |
 |---|---|---|
-| `ADMIN_ONLY_ACTIONS` array (~52 entries) | admin-api line 2226 | Member callers get `403 Forbidden` |
-| `MEMBER_SCOPED_ACTIONS` array (~17 entries) | admin-api line 2261 | For member callers, `body.member_number` is overwritten with the caller's own value before dispatch |
+| `ADMIN_ONLY_ACTIONS` array (~52 entries) | `constants/role-gates.ts` | Member callers get `403 Forbidden` |
+| `MEMBER_SCOPED_ACTIONS` array (~17 entries) | `constants/role-gates.ts` | For member callers, `body.member_number` is overwritten with the caller's own value before dispatch |
 
 **Gaps explicitly visible:**
 - `add_client_note`, `update_client_note`, `delete_client_note` are in **neither** list — both admin and member can call them, with no DB-level scoping. Security relies on the caller knowing a `note_id` they're allowed to touch.
@@ -121,7 +125,7 @@ The `'/vfo-portal/'` path is the gh-pages base path. On localhost dev (Vite at p
 
 ## Passcode hashing
 
-`hashPasscode()` in admin-api (line 189) is **plain SHA-256, no salt**. All `allowed_admins.passcode` and `member_logins.passcode` values are stored as a 64-char hex digest. This is the result of migration `hash_passcodes_and_cleanup_sessions` (2026-04-28). Trade-offs (rainbow-table susceptibility, no per-user salt) are observable but not corrected in this doc.
+`hashPasscode()` lives in `vfo-admin-api/utils/crypto.ts`. **Plain SHA-256, no salt.** All `allowed_admins.passcode` and `member_logins.passcode` values are stored as a 64-char hex digest. This is the result of migration `hash_passcodes_and_cleanup_sessions` (2026-04-28). Trade-offs (rainbow-table susceptibility, no per-user salt) are observable but not corrected in this doc.
 
 ## Notification polling
 

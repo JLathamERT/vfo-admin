@@ -2,84 +2,116 @@
 
 Two Supabase edge functions deployed to project `ejpsprsmhpufwogbmxjv`. Both are `Deno.serve`-style functions; both use the Supabase service-role key (so RLS is bypassed; auth is enforced application-side).
 
-| Function | File | Live version | `verify_jwt` |
+| Function | Layout | Live version | `verify_jwt` |
 |---|---|---|---|
-| `vfo-admin-api` | `C:\vfo-edge-functions\supabase\functions\vfo-admin-api\index.ts` (4964 lines, 246KB) | v194 | `false` (live registry) |
-| `boldsign-webhook` | `C:\vfo-edge-functions\supabase\functions\boldsign-webhook\index.ts` (95 lines) | v23 | `false` (live registry) |
+| `vfo-admin-api` | `supabase/functions/vfo-admin-api/` — 88-line `index.ts` orchestrator + `router/`, `middleware/`, `actions/`, `utils/`, `constants/`, `types/`, `integrations/` subdirs (~150 .ts files total) | **v196** | `false` (config.toml + live registry, matched as of Phase 6) |
+| `boldsign-webhook` | `supabase/functions/boldsign-webhook/index.ts` (95 lines, single file) | v23 | `false` (live registry; config.toml says `true` — see note below) |
 
-> **Discrepancy:** local `supabase/config.toml` declares `verify_jwt = true` for both, but the live registry returned `verify_jwt: false` from `list_edge_functions`. Both functions roll their own auth (admin-api via `admin_sessions` token in body; boldsign-webhook is public by design). The `config.toml` value is moot in practice.
+> **Refactor history.** `vfo-admin-api` was a single 4371-line `index.ts` until v194 (deployed 2026-05-07). The modular extraction was completed in 18 phased commits across the `refactor/vfo-admin-api-modularize` branch and deployed as v196 on 2026-05-08. Behavior (action names, response shapes, DB writes, chain semantics) is byte-equivalent; only file structure and 4 explicitly-approved dead-code removals changed. See `.refactor-resume.md` and `.refactor-baseline.md` in the worktree for the full history.
+
+> **`verify_jwt` note.** v195 of `vfo-admin-api` regressed when deploying with the default `verify_jwt = true` from config.toml — Kong gateway 401'd public-token endpoints (`/decide`, `/pay`) before requests reached the function. Fixed in v196 by changing config.toml to `verify_jwt = false`, matching the historical deploy practice. The standalone `boldsign-webhook` config still says `true` (untouched per safety rules) but its deployed registry value is `false`. If you ever redeploy `boldsign-webhook`, mirror the fix or pass `--no-verify-jwt`.
 
 ---
 
 ## `vfo-admin-api` — overall shape
 
-A single 4964-line `Deno.serve` handler that dispatches on `body.action`. It is **three** functions glued into one:
+The 88-line orchestrator at `supabase/functions/vfo-admin-api/index.ts` does:
 
-1. **Stripe webhook receiver** — gated by the `stripe-signature` HTTP header.
-2. **BoldSign webhook receiver** — gated by `body.event?.eventType` shape.
-3. **Action dispatcher** — every other request, switched on `body.action`.
+1. **OPTIONS short-circuit** + per-request CORS headers
+2. **Stripe webhook** (header-shape detection via `router/webhooks.ts::maybeHandleStripeWebhook`)
+3. **JSON body parse**
+4. **Login handlers** inline (admin_login / member_login / login — pre-webhook ordering preserved verbatim)
+5. **BoldSign webhook** (body-shape detection via `router/webhooks.ts::maybeHandleBoldSignWebhook`)
+6. **`PUBLIC_HANDLERS` dispatch** (router/dispatch.ts) — public-token + chain-callable handlers, no auth required
+7. **Auth gate** (`middleware/auth.ts::authenticate`) — validates body.token against `admin_sessions`, applies role gates from `constants/role-gates.ts`
+8. **`AUTH_HANDLERS` dispatch** (router/dispatch.ts) — every other action, post-auth
+9. **Unknown-action fallthrough** (200 if action missing, else 400)
 
 ### Top-of-file constants & helpers
 
-| Symbol | Where | Purpose |
+All previously-inline helpers have been extracted to per-file modules:
+
+| Symbol | File | Purpose |
 |---|---|---|
-| `generateInvoiceHTML` / `generateReceiptHTML` | lines 4-141 | Inline HTML builders for invoice/receipt PDFs (used by `automation_CONTRACT_invoicereceipt`) |
-| `ALLOWED_ORIGINS` | line 144 | CORS allowlist: `https://jlathamert.github.io`, `http://localhost:5173`, `http://localhost:5174`. Hardcoded — production frontend is at `https://jlathamert.github.io/vfo-portal/`. |
-| `SUPERADMIN_EMAIL` | line 159 | Hardcoded `"jlatham@elitert.com"`. Drives `is_superadmin` flag in session, gates Admin Editor in [AdminPortal.jsx:205](src/pages/AdminPortal.jsx). |
-| `getPfEmail()` | lines 161-168 | Hardcoded map of PF (Planning Facilitator) name → email. Three entries: Evan Anderson, Bridger Silvester, Lindsay Morris. |
-| `generateToken()` | line 170 | 32-byte crypto-random hex — used for sessions, `c15_token`, `checkout_token`. |
-| `json(data, status)` | line 182 | Response helper with CORS headers. |
-| `hashPasscode()` | line 189 | **SHA-256, no salt** — used for `allowed_admins.passcode` and `member_logins.passcode`. (Migration `hash_passcodes_and_cleanup_sessions` introduced this.) |
+| `generateInvoiceHTML` / `generateReceiptHTML` | `utils/html-templates.ts` | HTML builders for invoice/receipt PDFs (used by `automation_CONTRACT_invoicereceipt`) |
+| `ALLOWED_ORIGINS` | `constants/allowed-origins.ts` | CORS allowlist: `https://jlathamert.github.io`, `http://localhost:5173`, `http://localhost:5174`. |
+| `SUPERADMIN_EMAIL` | `constants/superadmin.ts` | Hardcoded `"jlatham@elitert.com"`. Drives `is_superadmin` flag in session, gates Admin Editor in [AdminPortal.jsx:205](src/pages/AdminPortal.jsx). |
+| `getPfEmail()` | `utils/pf-emails.ts` | Hardcoded map of PF (Planning Facilitator) name → email. Three entries: Evan Anderson, Bridger Silvester, Lindsay Morris. |
+| `generateToken()` | `utils/crypto.ts` | 32-byte crypto-random hex — used for sessions, `c15_token`, `checkout_token`. |
+| `hashPasscode()` | `utils/crypto.ts` | **SHA-256, no salt** — used for `allowed_admins.passcode` and `member_logins.passcode`. (Migration `hash_passcodes_and_cleanup_sessions` introduced this.) |
+| `jsonResponse(data, status, corsHeaders)` | `utils/json.ts` | Response helper. **Phase 1 fixed the previous module-level mutable `corsHeaders` global** — now scoped per-request via a closure created in `index.ts::serve()`. |
+| `buildCorsHeaders(req)` | `utils/cors.ts` | Builds CORS headers for a single request (origin echo if allowed). |
+| `ADMIN_ONLY_ACTIONS` / `MEMBER_SCOPED_ACTIONS` | `constants/role-gates.ts` | Action-name arrays consumed by the auth middleware. |
+| `JsonResponder`, `AuthContext`, `PublicHandlerCtx`, `AuthedHandlerCtx` | `types/index.ts` | Shared TS types for handler signatures. |
 
-### Request flow (top to bottom)
+### Request flow (current, post-v196)
 
 ```
-serve(req) ─┬─ OPTIONS  → 204 + CORS
-            ├─ GET      → 200 "OK"
-            ├─ stripe-signature header set → STRIPE WEBHOOK BLOCK (lines 222-441)
-            ├─ body.event?.eventType set   → BOLDSIGN WEBHOOK BLOCK (lines 544-583)
-            ├─ action === "admin_login" / "member_login" / "login"  (lines 454-537)
-            ├─ public-token actions, NO session required:
-            │     "automation_PCADMIN_finaldecision"   (line 586)
-            │     "automation_CONTRACT_ceocountersign" (line 745, server-to-server)
-            │     "automation_CONTRACT_stripecustomer" (line 861, server-to-server)
-            │     "automation_CONTRACT_paymentemail"   (line 939, server-to-server)
-            │     "automation_CONTRACT_loadpayment"    (line 1053, public token)
-            │     "automation_CONTRACT_stripecheckout" (line 1086, public token)
-            │     "automation_CONTRACT_stripewebhook"  (line 1156 — see note below)
-            │     "automation_CONTRACT_revshare"       (line 1248, server-to-server)
-            │     "automation_CONTRACT_confirmationemail" (line 1660, server-to-server)
-            │     "automation_CONTRACT_invoicereceipt"  (line 1812, server-to-server)
-            ├─ TOKEN AUTH GATE (line 2190) — every action below requires
-            │  `body.token` to match a non-expired `admin_sessions` row
-            ├─ ROLE DETECTION (line 2206) — looks up `allowed_admins.role`
-            │  to determine `callerRole` ("admin" | "member") and `is_superadmin`
-            ├─ ADMIN_ONLY_ACTIONS gate (line 2226) — array of ~50 action names;
-            │  member callers get HTTP 403
-            ├─ MEMBER_SCOPED_ACTIONS gate (line 2261) — for member callers,
-            │  forces `body.member_number = callerMemberNumber`
-            └─ Action dispatcher: ~110 `if (action === "X")` blocks
-               (lines 2278-4959), with a final fallback at line 4962
+serve(req)
+  ├─ OPTIONS → 204 + CORS
+  ├─ GET     → 200 "OK"
+  ├─ POST:
+  │
+  ├─ 1. router/webhooks.ts::maybeHandleStripeWebhook(req, ...)
+  │      • Triggered by stripe-signature header
+  │      • Consumes req.text() for HMAC verification (so MUST run before req.json())
+  │      • Returns Response or null
+  │
+  ├─ 2. JSON body parse: const body = await req.json()
+  │      const { action } = body
+  │
+  ├─ 3. Inline login handlers (admin_login / member_login / login)
+  │      Pre-webhook order preserved (an admin login request never reaches BoldSign-shape detection)
+  │
+  ├─ 4. router/webhooks.ts::maybeHandleBoldSignWebhook(body, ...)
+  │      • Triggered by body.event?.eventType
+  │      • Returns Response or null
+  │
+  ├─ 5. PUBLIC_HANDLERS[action]  (from router/dispatch.ts)
+  │      • 9 entries: public-token + server-to-server chain-callable
+  │      • Dispatched ctx: { body, supabase, json, req }
+  │
+  ├─ 6. await middleware/auth.ts::authenticate(action, body, supabase, json)
+  │      • Reads body.token, looks up admin_sessions
+  │      • Returns 401 if missing/expired
+  │      • Detects role: admin (allowed_admins) or member (member_logins)
+  │      • Applies ADMIN_ONLY_ACTIONS gate (403 for member callers on listed actions)
+  │      • Applies MEMBER_SCOPED_ACTIONS gate (forces body.member_number to caller's own)
+  │
+  ├─ 7. AUTH_HANDLERS[action]  (from router/dispatch.ts)
+  │      • 116 entries
+  │      • Dispatched ctx: { body, supabase, json, auth, req }
+  │      • Some handlers take auth (.auth.session.email etc.)
+  │      • Three handlers take req for HTTP chain Authorization forwarding
+  │        (PIPFU_decision, PCADMIN_pricing, PCADMIN_extrameeting)
+  │
+  └─ 8. Unknown-action fallthrough
+         • !action → 200 { ok: true }
+         • else    → 400 { error: "Unknown action: <name>" }
 ```
+
+Total handler count: **128 unique action handlers** (3 logins + 9 public + 116 authed). The total used to be 130 in v194; Phase 6 mechanical removed the dup `msm_update_client` handler and the dead `automation_CONTRACT_stripewebhook` handler.
 
 ### Key cross-cutting concerns
 
-#### Stripe webhook (lines 222-441)
+#### Stripe webhook (`router/webhooks.ts::maybeHandleStripeWebhook`)
 
 Triggered by presence of `stripe-signature` header. Verifies HMAC-SHA256 against `STRIPE_WEBHOOK_SECRET`, with a 5-minute timestamp tolerance.
 
 Handles two event types:
 
 - **`checkout.session.completed`** — handles two cases via metadata:
-  1. **GC credit purchase** (line 270-288): metadata has `member_number` and `credits`. Increments `gc_balances`, inserts `gc_transactions` row.
-  2. **MAP1 first payment** (line 290-392): looks up `pipeline_map1` row by `stripe_customer_id`. Expands `payment_intent` to extract `payment_method.type` (card vs us_bank_account) and `last4`. Sets `pay1_status` to `"succeeded"` (card) or `"processing"` (ACH). Computes `card_processing_fee` from `amount_received` vs `net_invoice / payment_count`. Writes quarterly schedule (`pay2/3/4_date` = +91/182/273 days).
+  1. **GC credit purchase**: metadata has `member_number` and `credits`. Increments `gc_balances`, inserts `gc_transactions` row.
+  2. **MAP1 first payment**: looks up `pipeline_map1` row by `stripe_customer_id`. Expands `payment_intent` to extract `payment_method.type` (card vs us_bank_account) and `last4`. Sets `pay1_status` to `"succeeded"` (card) or `"processing"` (ACH). Computes `card_processing_fee` from `amount_received` vs `net_invoice / payment_count`. Writes quarterly schedule (`pay2/3/4_date` = +91/182/273 days).
      - **Chains:** `automation_CONTRACT_confirmationemail` (always), `automation_CONTRACT_invoicereceipt` (card only — ACH waits for `payment_intent.succeeded`).
 
-- **`payment_intent.succeeded`** (line 394-438) — two cases:
+- **`payment_intent.succeeded`** — two cases:
   1. Quarterly subsequent payment (metadata `payment_number` is 2-4): sets `payN_status='succeeded'`, chains `automation_CONTRACT_invoicereceipt` for that payment number.
   2. ACH first-payment cleared (`pay1_status === "processing"`): flips to `"succeeded"`, chains `automation_CONTRACT_invoicereceipt` for payment 1.
 
-#### BoldSign webhook (lines 544-583)
+> **Note: `piData` cross-block scope warning.** The MAP1 first-payment handler declares `piData` inside `if (paymentIntentId) { ... }` and references it later via `typeof piData !== "undefined"`. This is one of the 9 baseline `deno check` errors preserved verbatim from the original code; the runtime guard makes it safe but TypeScript can't see across the block. A behavior-relevant fix is deferred to a future session (would hoist `let piData: any = undefined` to outer scope).
+
+#### BoldSign webhook (`router/webhooks.ts::maybeHandleBoldSignWebhook`)
 
 Triggered by `body.event.eventType` shape. Looks up `pipeline_map1` row by `boldsign_doc_id`.
 
@@ -87,52 +119,55 @@ Triggered by `body.event.eventType` shape. Looks up `pipeline_map1` row by `bold
 - `eventType === "Signed"` with signer email matching CEO (`aanderson@elitert.com`, hardcoded) → set `c18_ceo_signed='Yes'`.
 - `eventType === "Signed"` with any other signer → set `c17_client_signed='Yes'`.
 
-> **Important:** This handler **does not chain** to any downstream action. The standalone `boldsign-webhook` function (below) does. It is unclear which one is the live BoldSign webhook target — the chained behavior only fires if BoldSign is calling the standalone function.
+> **Important:** This embedded handler **does not chain** to any downstream action. The standalone `boldsign-webhook` function (below) does. It is unclear which one is the live BoldSign webhook target — the chained behavior only fires if BoldSign is calling the standalone function.
 
-#### Token auth gate (line 2190)
+#### Token auth gate (`middleware/auth.ts`)
 
-Below this line, every action does:
+Below the public dispatch step, every action does:
 
 1. Reads `body.token`. Returns 401 if missing.
 2. Looks up `admin_sessions` row by token. Returns 401 if missing or `expires_at` is past (and deletes the expired row).
 3. Detects role via `allowed_admins` row (admin) or falls back to `member` and looks up `member_logins.member_number`.
-
-#### Admin-only and member-scoped action gates
-
-`ADMIN_ONLY_ACTIONS` (line 2226) is a hardcoded array of ~50 action names. Member callers get 403 on any of these. **Note:** the list does not include every mutation action — e.g. `add_client_note`, `update_client_note`, `delete_client_note`, `gc_redeem`, and the entire `automation_PCADMIN_finaldecision` path (which is public-token anyway). Members can call these; whether that's intentional is undocumented.
-
-`MEMBER_SCOPED_ACTIONS` (line 2261) is ~17 action names where the caller's `body.member_number` is *forcibly overwritten* with their own — preventing cross-tenant reads.
+4. Applies `ADMIN_ONLY_ACTIONS` (constants/role-gates.ts) — 403 for member callers on listed actions.
+5. Applies `MEMBER_SCOPED_ACTIONS` (constants/role-gates.ts) — overwrites `body.member_number` with caller's for scoped reads/writes.
 
 ### Hardcoded constants worth knowing
 
-| Value | Where | Purpose |
+These remain hardcoded in their respective handler files (preserved verbatim — extracting them was outside refactor scope):
+
+| Value | File | Purpose |
 |---|---|---|
-| `aanderson@elitert.com` | lines 568, 658, 725, 782, 912, 1590, 4270, 4511, 4725, 4912 | CEO signer + BCC on all automation emails |
-| `platham@elitert.com` | lines 658, 1590, 4270, 4511, 4912 | BCC on automation emails |
-| `tnmiller@elitert.com` | line 1626 | "Tracy" — recipient of `automation_CONTRACT_revshare` intro email on payment 1 |
-| `tracy@vfo-services.com` | line 2104 | CC on `automation_CONTRACT_invoicereceipt` (separate address from above) |
-| `aipc@vfo-services.com` | line 4916 | `From:` on `automation_CONTRACT_sendagreement` Gmail draft |
-| `https://jlathamert.github.io/vfo-portal/pay?token=...` | line 980, 1119, 4237 | Pay-page redirect URL |
-| `https://www.vfo-services.com/payment-successful/` | line 1120 | Stripe Checkout success URL |
-| `MASTER_SHEET_ID = "1PvUEWwTH70OBHabdHPh2SS9U7isITOzHmSd11GoHGJ0"` | line 1324 | Revenue Master Google Sheet — read by `automation_CONTRACT_revshare` |
-| `BrandId = "f6b2e092-73a4-438e-b786-ebd20e472732"` | line 4765 | BoldSign brand for `automation_CONTRACT_sendagreement` |
+| `aanderson@elitert.com` | `router/webhooks.ts`, multiple `actions/pipeline/*.ts` | CEO signer + BCC on automation emails |
+| `platham@elitert.com` | `actions/pipeline/pip1-reconfirmation-email.ts`, `pipfu-decision.ts`, `contract-send-agreement.ts`, `contract-confirmation-email.ts`, `pcadmin-final-decision.ts`, `pcadmin-extra-meeting.ts` | BCC on automation emails |
+| `tnmiller@elitert.com` | `actions/pipeline/contract-revshare.ts` | "Tracy" — recipient of intro email on payment 1 |
+| `tracy@vfo-services.com` | `actions/pipeline/contract-invoice-receipt.ts` | CC on `automation_CONTRACT_invoicereceipt` (separate address from above) |
+| `aipc@vfo-services.com` | `actions/pipeline/contract-send-agreement.ts` | `From:` on `automation_CONTRACT_sendagreement` Gmail draft |
+| `https://jlathamert.github.io/vfo-portal/pay?token=...` | `actions/pipeline/contract-payment-email.ts`, `contract-stripe-checkout.ts` | Pay-page redirect URL |
+| `https://www.vfo-services.com/payment-successful/` | `actions/pipeline/contract-stripe-checkout.ts` | Stripe Checkout success URL |
+| `MASTER_SHEET_ID = "1PvUEWwTH70OBHabdHPh2SS9U7isITOzHmSd11GoHGJ0"` | `actions/pipeline/contract-revshare.ts` | Revenue Master Google Sheet |
+| `BrandId = "f6b2e092-73a4-438e-b786-ebd20e472732"` | `actions/pipeline/contract-send-agreement.ts` | BoldSign brand for `automation_CONTRACT_sendagreement` |
 
-### Possibly dead code
+### Phase 6 mechanical removals (intentional behavior changes)
 
-- **`automation_CONTRACT_stripewebhook`** (line 1156): triggered by `body.object === "event"` (line 540 sets `body.action` to this when seen). But the *actual* Stripe webhook is the `stripe-signature` block at line 222 — which always fires first. The line-1156 handler appears reachable only via a manual POST that forges `{object:"event"}` without setting the signature header; effectively dead in production. Worth flagging in flows doc.
-- **Embedded BoldSign webhook handler** (line 544-583): does the database write but skips the downstream chain that the standalone `boldsign-webhook` function performs. Unclear which is the live webhook target.
-- **Debug fetch** (line 2170): `automation_CONTRACT_invoicereceipt` fetches a hardcoded draft ID `"r-8771745882155742140"` to inspect message structure — looks like leftover dev debugging.
+These were removed in commit `6615141` with explicit per-item approval:
+
+- **Duplicate `msm_update_client` handler** (was in Phase 4G2 as `update-client-dup.ts`). Originally a second `if (action === "msm_update_client")` block at baseline line 2427 — unreachable at runtime because the first dispatch always returned. File deleted; only one `msm_update_client` registration in `router/dispatch.ts`.
+- **Dead `automation_CONTRACT_stripewebhook` handler** (was in Phase 4H3). Doubly-dead: real Stripe events have stripe-signature header (caught by webhook block); the synthetic-action assignment that would have routed to this handler was unreachable from dispatch (the `action` const was destructured before the mutation). File deleted; entry removed from `PUBLIC_HANDLERS`; synthetic-action assignment removed from `index.ts`.
+- **Debug Gmail draft fetch** in `actions/pipeline/contract-invoice-receipt.ts` (was hardcoded draft id `r-8771745882155742140?format=full`). Removed.
+- **Dead `vfo_assignments` table reference** in `actions/specialists/delete.ts`. Removed (the table doesn't exist in current schema; the delete was a silent no-op).
+
+Behavior change observable from outside: an explicit POST with `{ "action": "automation_CONTRACT_stripewebhook" }` now returns 401 (no token; falls through to auth gate) or 400 "Unknown action" (with token). v194 returned `{"ok":true}`. No real caller invokes this action by name.
 
 ### Storage buckets referenced
 
-- `headshots` (line 2387) — `upload_headshot`. Migration `lock_down_headshots_storage` indicates RLS-locked.
-- `member-vault` (line 2654) — `vault_list`, `vault_upload`, `vault_delete`.
+- `headshots` — `actions/specialists/upload-headshot.ts`. Migration `lock_down_headshots_storage` indicates RLS-locked.
+- `member-vault` — `actions/vault/list.ts`, `actions/vault/upload.ts`, `actions/vault/delete.ts`.
 
 ---
 
 ## `boldsign-webhook` — overall shape
 
-A 95-line `Deno.serve` that handles BoldSign webhook POSTs.
+A 95-line `Deno.serve` that handles BoldSign webhook POSTs. **Untouched by the refactor** (separate function, per safety rules).
 
 ```
 POST → parse body → look up pipeline_map1 by boldsign_doc_id
@@ -154,10 +189,10 @@ The two functions write to identical columns. The standalone version is the only
 
 ## How frontend talks to the edge function
 
-[src/lib/api.js](src/lib/api.js) is the single client:
+[src/lib/api.js](src/lib/api.js) is the single client (admin/member portals):
 
 ```js
-const EDGE_URL = 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
+const EDGE_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 const ANON_KEY = '<hardcoded anon JWT>'
 
 callApi(action, payload) →
@@ -168,16 +203,20 @@ callApi(action, payload) →
   on 401: clearSession() + redirect to /vfo-portal/
 ```
 
-The `Authorization: Bearer <ANON_KEY>` header satisfies Supabase's gateway-level requirement (since `verify_jwt: false` per registry, but the platform may still inspect it). The actual auth is the `token` field in the body, validated against `admin_sessions`.
+The same `VITE_API_URL` env-var pattern is used by `src/pages/PayPage.jsx` and `src/pages/DecidePage.jsx`. Production behavior is unchanged when `VITE_API_URL` is unset — the fallback is the production Supabase URL. The env var is only set during local-dev (e.g., `$env:VITE_API_URL = "http://127.0.0.1:54321/functions/v1/vfo-admin-api"`) to point at a local function-serve.
 
-Server-to-server chains (admin-api → admin-api) use `Authorization: Bearer <SERVICE_ROLE_KEY>` instead, and **do not** include the user's session token — they bypass the per-action auth gate by being routed before line 2190 (the public-action handlers). This is why `automation_CONTRACT_stripecustomer`, `_ceocountersign`, `_paymentemail`, `_revshare`, `_confirmationemail`, `_invoicereceipt` all sit *above* the auth gate in the file.
+The `Authorization: Bearer <ANON_KEY>` header is sent by all `callApi` traffic (admin/member portal). The `/decide` and `/pay` pages use raw `fetch` **without** an Authorization header — they're public-token endpoints. The `verify_jwt = false` setting on the function is what allows those headerless requests through Kong; the function itself enforces auth (or doesn't, for public-token actions) via the `PUBLIC_HANDLERS` vs `AUTH_HANDLERS` split in `router/dispatch.ts`.
+
+Server-to-server chains (admin-api → admin-api) use `Authorization: Bearer <SERVICE_ROLE_KEY>` instead, and **do not** include the user's session token — they bypass the per-action auth gate by being routed through `PUBLIC_HANDLERS`. Three handlers chain in this style and forward `req.headers.get("Authorization")` to the chain target so the receiving handler has the same auth context: `automation_PIPFU_decision`, `automation_PCADMIN_pricing`, `automation_PCADMIN_extrameeting` (all chain to `automation_CONTRACT_sendagreement`). The Stripe-webhook handler chains via service-role key. The pre-auth `automation_CONTRACT_stripecustomer` chains to `automation_CONTRACT_paymentemail` via service-role key.
 
 ---
 
 ## Cross-references
 
 - Action catalog with full table-touch + chain map: [05-api-action-catalog.md](05-api-action-catalog.md)
+- File layout under `vfo-admin-api/`: [06-orchestration-files.md](06-orchestration-files.md)
 - Pipeline column dictionary: [../tables/pipeline.md](../tables/pipeline.md)
 - Auth tables: [../tables/auth.md](../tables/auth.md)
-- Integration deep-dives: [../integrations/](../integrations/) (forthcoming Phase D)
-- End-to-end contract flow: [../flows/contract-and-payment.md](../flows/contract-and-payment.md) (forthcoming Phase E)
+- Integration deep-dives: [../integrations/](../integrations/)
+- End-to-end contract flow: [../flows/contract-and-payment.md](../flows/contract-and-payment.md)
+- Refactor history + remaining work (deferred TS-error fix): `.refactor-resume.md` in `vfo-edge-functions/.claude/worktrees/refactor-modularize/`

@@ -8,9 +8,14 @@ The "biggest brains" of the codebase — files that own a feature area or coordi
 
 | File | Size | Owns |
 |---|---|---|
-| `C:\vfo-edge-functions\supabase\functions\vfo-admin-api\index.ts` | 4964 lines / 246KB | **The single backend.** Stripe webhook receiver, BoldSign webhook receiver (embedded duplicate), and dispatcher for ~125 actions. See [03-edge-functions.md](03-edge-functions.md). |
-| `C:\vfo-edge-functions\supabase\functions\boldsign-webhook\index.ts` | 95 lines | Standalone BoldSign webhook receiver. Updates `pipeline_map1` and chains into `automation_CONTRACT_ceocountersign` / `_stripecustomer`. |
-| [src/lib/api.js](src/lib/api.js) | 41 lines | The **only** module that talks to the edge function. `callApi`, `getSession`, `setSession`, `clearSession`. |
+| `vfo-admin-api/index.ts` (slim orchestrator) | 88 lines | **Request entry point.** OPTIONS, CORS closure, method gate, calls `router/webhooks.ts` (Stripe + BoldSign by shape), inline login dispatches, then `PUBLIC_HANDLERS` → auth gate → `AUTH_HANDLERS`. See [03-edge-functions.md](03-edge-functions.md). |
+| `vfo-admin-api/router/dispatch.ts` | ~290 lines | The two action-dispatch tables: `PUBLIC_HANDLERS` (9 entries) + `AUTH_HANDLERS` (116 entries). Each entry adapts a handler from `actions/<group>/<file>.ts` to a uniform ctx-based signature. |
+| `vfo-admin-api/router/webhooks.ts` | ~290 lines | Two webhook handlers: `maybeHandleStripeWebhook` (header-shape detection, HMAC verify, GC + MAP1 fulfillment, chains to confirmation/invoicereceipt) and `maybeHandleBoldSignWebhook` (body-shape detection, c17/c18 update, **does not chain**). |
+| `vfo-admin-api/middleware/auth.ts` | ~120 lines | The token gate. `authenticate(action, body, supabase, json)` validates `body.token` against `admin_sessions`, applies `ADMIN_ONLY_ACTIONS` and `MEMBER_SCOPED_ACTIONS` gates from `constants/role-gates.ts`. |
+| `vfo-admin-api/actions/<group>/*.ts` | 128 files | One file per action handler. Groups: `auth/`, `data/`, `client-notes/`, `member-program-notes/`, `email-templates/`, `notifications/`, `admins/`, `member-logins/`, `vault/`, `members/`, `specialists/`, `gc/`, `coaching/`, `tax/`, `ciq/`, `onboarding/`, `msm/` (31 files), `pipeline/` (17 files). |
+| `vfo-admin-api/utils/`, `constants/`, `types/`, `integrations/` | ~15 files | Shared helpers: `cors.ts`, `crypto.ts`, `html-templates.ts`, `json.ts`, `pf-emails.ts`, role-gate arrays, `JsonResponder` / `AuthContext` / ctx types, integration scaffolding for Stripe/BoldSign/Google. |
+| `vfo-edge-functions/supabase/functions/boldsign-webhook/index.ts` | 95 lines | Standalone BoldSign webhook receiver (separate function, untouched by refactor). Updates `pipeline_map1` and chains into `automation_CONTRACT_ceocountersign` / `_stripecustomer`. |
+| [src/lib/api.js](src/lib/api.js) | 41 lines | The **only** module that talks to the edge function. `callApi`, `getSession`, `setSession`, `clearSession`. Now honors `import.meta.env.VITE_API_URL` for local-dev (production fallback unchanged). |
 | [src/App.jsx](src/App.jsx) | 26 lines | Route table. 8 routes + catch-all. |
 
 ## Tier 2 — Top-level pages (one mounts at a time per route)
@@ -81,7 +86,7 @@ These are the components where most of the per-feature logic and `callApi` calls
 | `automation_CONTRACT_confirmationemail` | Server chain from Stripe webhook (`checkout.session.completed`) | (server side only) |
 | `automation_CONTRACT_invoicereceipt` | Server chain from Stripe webhook (`checkout.session.completed` for card; `payment_intent.succeeded` for ACH and quarterly 2-4) | (server side only) |
 | `automation_CONTRACT_revshare` | **NOT triggered from frontend** and **NOT chained from any webhook in the source observed.** Mechanism for invocation is unclear — flagged as an open question. |
-| `automation_CONTRACT_stripewebhook` | (Likely dead code — see [03-edge-functions.md](03-edge-functions.md#possibly-dead-code)) | — |
+| `automation_CONTRACT_stripewebhook` | **REMOVED in Phase 6 mechanical** — was doubly-dead (real Stripe events caught by signature header; synthetic-action assignment was unreachable from dispatch). v196 returns 401/400 for explicit calls. | — |
 | `automation_load_pipelines` | AdminPortal Automation tab mount | [AutomationPanel.jsx:290](src/components/admin/AutomationPanel.jsx) |
 | `automation_load_pipeline_data` | AdminPortal Automation tab pipeline switch | [AutomationPanel.jsx:299](src/components/admin/AutomationPanel.jsx) |
 | `automation_load_email_templates` | AdminPortal → Automation → Email Templates | [EmailTemplatesPanel.jsx:18](src/components/admin/EmailTemplatesPanel.jsx) |
@@ -109,7 +114,7 @@ The frontend hardcodes the program names from the `programs` table in three plac
 | [ClientDetail.jsx:133-143](src/pages/ClientDetail.jsx) | `'Partnership Fast Track'`, `'VFO Tax Planning'` (rest fall through to the MAP1+Regular+Tax bucket) |
 
 Hardcoded PF (Planning Facilitator) names also appear in:
-- [vfo-admin-api/index.ts:163-167](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts) — `getPfEmail()` map
+- `vfo-admin-api/utils/pf-emails.ts` — `getPfEmail()` map
 - [ClientDetail.jsx:227-228](src/pages/ClientDetail.jsx) — `<select>` options for assigning PF (only `Evan Anderson` and `Bridger Silvester` — note the email-map has 3 names but the dropdown has 2)
 - [ClientDetail.jsx:11](src/pages/ClientDetail.jsx) — `TEAM_MEMBERS` const includes 5 names (`Sarah Freitas`, `Rachael`, `Bridger Silvester`, `Tracy Miller`, `Evan Anderson`) but only PF assignment flows through it.
 

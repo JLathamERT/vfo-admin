@@ -1,6 +1,8 @@
 # System map
 
-The top-level picture. Two repos, one Supabase project, four external integrations, one static-hosted SPA. The whole system is held together by a single 4964-line edge function.
+The top-level picture. Two repos, one Supabase project, four external integrations, one static-hosted SPA. The whole system is held together by an **88-line orchestrator** in `vfo-admin-api/index.ts` that dispatches to **128 modular action handlers** plus two routers (`router/dispatch.ts`, `router/webhooks.ts`).
+
+> **Refactor history.** The edge function was a single 4371-line file as of `vfo-admin-api` v194 (deployed 2026-05-07). The modular extraction was completed in 18 phased commits and deployed as v196 on 2026-05-08. All 128 action handlers preserve their original behavior byte-equivalently — the public API contract (action names, response shapes, DB writes) is unchanged. See [03-edge-functions.md](03-edge-functions.md) for the new file layout.
 
 ## High-level diagram
 
@@ -20,15 +22,19 @@ The top-level picture. Two repos, one Supabase project, four external integratio
                                ▼                                  ▼
                           ┌─────────────────────────────────────────────┐
                           │   SUPABASE EDGE FUNCTION: vfo-admin-api      │
-                          │   (~125 actions, 4964 lines, single file)    │
+                          │   (128 actions, 88-line orchestrator         │
+                          │    + 128 handler files + 2 routers)          │
                           │                                              │
-                          │   Three glued handlers:                      │
-                          │   1. Stripe webhook  (stripe-signature hdr)  │
-                          │   2. BoldSign webhook (body.event shape)     │
-                          │   3. Action dispatcher (body.action)         │
+                          │   Three dispatch surfaces:                   │
+                          │   1. Stripe webhook  (router/webhooks.ts —   │
+                          │      stripe-signature hdr)                   │
+                          │   2. BoldSign webhook (router/webhooks.ts —  │
+                          │      body.event shape)                       │
+                          │   3. Action dispatcher (router/dispatch.ts — │
+                          │      PUBLIC_HANDLERS + AUTH_HANDLERS maps)   │
                           │                                              │
-                          │   Token gate at line 2190; admin/member      │
-                          │   role gates at lines 2226/2261.             │
+                          │   Token gate via middleware/auth.ts;         │
+                          │   role gates from constants/role-gates.ts.   │
                           └────┬────────┬────────┬──────────┬────────────┘
                                │        │        │          │
               service_role     │        │        │          │ chains
@@ -92,7 +98,7 @@ The top-level picture. Two repos, one Supabase project, four external integratio
 ## Data direction
 
 - **Browser → admin-api**: every action via [src/lib/api.js](src/lib/api.js). Includes session token in body.
-- **Browser → admin-api (token-link pages)**: `/decide` and `/pay` use raw `fetch` with URL token (no session). Bypass the auth gate at admin-api line 2190 by routing to public-token actions (`automation_PCADMIN_finaldecision`, `automation_CONTRACT_loadpayment`, `automation_CONTRACT_stripecheckout`).
+- **Browser → admin-api (token-link pages)**: `/decide` and `/pay` use raw `fetch` with URL token (no session). Reach the public-token handlers via `PUBLIC_HANDLERS` in `router/dispatch.ts` (which is dispatched BEFORE the `middleware/auth.ts` gate). Public-token actions: `automation_PCADMIN_finaldecision`, `automation_CONTRACT_loadpayment`, `automation_CONTRACT_stripecheckout`.
 - **admin-api → Postgres**: via `createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)` — service-role bypasses RLS. Auth is application-level.
 - **admin-api → admin-api (loopback chains)**: server-to-server `fetch` with `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>`. Used by webhooks and automation handlers to chain into other handlers. The chains route to public-token actions, so they bypass the user-session gate.
 - **admin-api → external APIs**: Stripe, BoldSign, Google OAuth, Gmail, Sheets, Drive, html2pdf.app. All via `fetch` with API-specific auth.
@@ -123,28 +129,35 @@ The top-level picture. Two repos, one Supabase project, four external integratio
               ↓ no Authorization                   ↓         body.token = session)
               ↓                                    ↓
               ┌────────────────────────────────────────────────────────┐
-              │  vfo-admin-api dispatcher                              │
+              │  vfo-admin-api orchestrator (index.ts, 88 lines)       │
               │                                                        │
-              │  Public actions (above line 2190):                     │
-              │    automation_PCADMIN_finaldecision (URL token)        │
-              │    automation_CONTRACT_loadpayment  (URL token)        │
-              │    automation_CONTRACT_stripecheckout (URL token)      │
-              │    automation_CONTRACT_*  (server-to-server only)      │
-              │    admin_login / member_login / login (credentials)    │
+              │  1. router/webhooks.ts (Stripe + BoldSign by shape)    │
+              │  2. admin_login / member_login / login (inline,        │
+              │     pre-webhook order preserved)                       │
+              │  3. PUBLIC_HANDLERS map (router/dispatch.ts):          │
+              │       9 public-token + chain-callable handlers         │
+              │       (PCADMIN_finaldecision, CONTRACT_loadpayment,    │
+              │        CONTRACT_stripecheckout — URL token             │
+              │        endpoints; CONTRACT_ceocountersign,             │
+              │        CONTRACT_stripecustomer, CONTRACT_paymentemail, │
+              │        CONTRACT_revshare, CONTRACT_confirmationemail,  │
+              │        CONTRACT_invoicereceipt — server-to-server)     │
               │                                                        │
-              │  ─── Token gate (line 2190) ──────────                 │
-              │    Reads body.token, looks up admin_sessions.          │
-              │    Detects role: admin (allowed_admins) or member      │
-              │    (member_logins).                                    │
+              │  ─── middleware/auth.ts (Token gate) ──────────        │
+              │     Reads body.token, looks up admin_sessions.         │
+              │     Detects role: admin (allowed_admins) or member     │
+              │     (member_logins).                                   │
               │                                                        │
-              │  ADMIN_ONLY_ACTIONS (line 2226): ~52 mutations         │
-              │    - 403 for member callers                            │
+              │  ADMIN_ONLY_ACTIONS (constants/role-gates.ts):         │
+              │     ~52 mutations → 403 for member callers             │
               │                                                        │
-              │  MEMBER_SCOPED_ACTIONS (line 2261): ~17 reads/writes   │
-              │    - body.member_number forced to caller's own         │
+              │  MEMBER_SCOPED_ACTIONS (constants/role-gates.ts):      │
+              │     ~17 reads/writes → body.member_number forced       │
+              │     to caller's own                                    │
               │                                                        │
-              │  ~70 actions in NEITHER list:                          │
-              │    Both roles can call. Application-level scoping only.│
+              │  4. AUTH_HANDLERS map (router/dispatch.ts):            │
+              │       116 authed handlers. Both roles can call most;   │
+              │       application-level scoping by role-gates.         │
               └────────────────────────────────────────────────────────┘
 ```
 
@@ -173,6 +186,6 @@ These are explicitly absent from the codebase (read-only observation, no judgeme
 - **No CI / GitHub Actions** observed. Build and deploy are manual via `npm run deploy` (`gh-pages -d dist`).
 - **No tests.** No `__tests__/`, no `.test.js`, no test runner config in `package.json`.
 - **No TypeScript** in the React app (only in the Deno edge functions).
-- **No environment-specific configs** for the frontend (Supabase URL is hardcoded; only `VITE_API_URL` is honored, and only by `DecidePage`).
+- **No environment-specific configs** for the frontend (Supabase ANON_KEY is hardcoded). `VITE_API_URL` IS honored by `src/lib/api.js`, `src/pages/PayPage.jsx`, and `src/pages/DecidePage.jsx` — production behavior unchanged via fallback to the hardcoded prod URL when the env var is unset. (Added on `test/frontend-vs-local-function` branch, commit `3bf0963`, for local-function smoke testing.)
 - **No observability beyond `console.log`/`console.error`** in either edge function. No structured logging, no metrics export.
 - **No background jobs / cron** observed. Several columns suggest reminders should run periodically (`c14_followup1_sent`, etc.) but no implementation found.

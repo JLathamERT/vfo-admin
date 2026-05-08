@@ -8,20 +8,31 @@ Project: `ejpsprsmhpufwogbmxjv` ("VFO Showroom"), region `us-east-2`, Postgres 1
 
 | Var | Used by | Purpose |
 |---|---|---|
-| `SUPABASE_URL` | edge functions | `https://ejpsprsmhpufwogbmxjv.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | edge functions | Service-role JWT — used by both edge functions in `createClient(...)`. Bypasses RLS. |
-| (frontend) anon key | hardcoded in [src/lib/api.js:2](src/lib/api.js) | Sent as `Authorization: Bearer <anon>` on every request. Per the live registry, both functions have `verify_jwt: false`, so the gateway does not enforce this. |
+| `SUPABASE_URL` | edge functions | `https://ejpsprsmhpufwogbmxjv.supabase.co`. Auto-injected by `supabase functions serve`/deploy — do NOT set in `.env.local`. |
+| `SUPABASE_SERVICE_ROLE_KEY` | edge functions | Service-role JWT — used by both edge functions in `createClient(...)`. Bypasses RLS. Auto-injected (same as above). |
+| (frontend) anon key | hardcoded in [src/lib/api.js:2](src/lib/api.js) | Sent as `Authorization: Bearer <anon>` on every regular admin/member portal request. Both functions have `verify_jwt: false` (config + registry), so Kong does not enforce this header. Public-token pages (`/decide`, `/pay`) omit the header entirely. |
 
 The frontend never has access to the service-role key.
 
 ## Edge function deployment
 
-| Function | Slug | Live version | `verify_jwt` (registry) | Source |
+| Function | Slug | Live version | `verify_jwt` (config + registry) | Source |
 |---|---|---|---|---|
-| Admin / dispatcher | `vfo-admin-api` | v194 | `false` | `C:\vfo-edge-functions\supabase\functions\vfo-admin-api\index.ts` |
-| BoldSign webhook | `boldsign-webhook` | v23 | `false` | `C:\vfo-edge-functions\supabase\functions\boldsign-webhook\index.ts` |
+| Admin / dispatcher (modularized) | `vfo-admin-api` | **v196** | `false` (matched as of v196) | `vfo-edge-functions/supabase/functions/vfo-admin-api/` (88-line `index.ts` + ~150 modular .ts files) |
+| BoldSign webhook | `boldsign-webhook` | v23 | `false` (registry); `true` (config — pre-existing mismatch, untouched) | `vfo-edge-functions/supabase/functions/boldsign-webhook/index.ts` (95 lines) |
 
-Local `config.toml` declares `verify_jwt = true` for both — but the live registry shows `false`. The local declaration is moot. Both functions implement their own auth (see [04-auth-and-sessions.md](../architecture/04-auth-and-sessions.md)).
+The `vfo-admin-api` config was changed from `verify_jwt = true` to `false` in commit `b9e9471` (post-v195 fix) so future deploys don't need `--no-verify-jwt`. The `boldsign-webhook` config block was NOT touched (per refactor safety rule "never touch boldsign-webhook"); if you ever redeploy that function, either pass `--no-verify-jwt` or flip the config block first. Both functions implement their own auth at the application layer (see [04-auth-and-sessions.md](../architecture/04-auth-and-sessions.md)).
+
+### Deploy command
+
+From `vfo-edge-functions` (or any worktree):
+
+```powershell
+cd C:\vfo-edge-functions   # or the worktree at .claude\worktrees\refactor-modularize\
+supabase functions deploy vfo-admin-api
+```
+
+The deploy bundles every `.ts` and `.json` under `supabase/functions/vfo-admin-api/` (~150 files, ~173kB compressed) and uploads to project `ejpsprsmhpufwogbmxjv`. Function secrets (Stripe live + sandbox, BoldSign live + sandbox, Gmail OAuth, Drive folder, html2pdf) live on the Supabase project — they're NOT included in the bundle and they survive redeploys. Rollback via Supabase Dashboard → Edge Functions → `vfo-admin-api` → version history → revert.
 
 Function URLs:
 - `https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api`
@@ -66,7 +77,7 @@ Local `supabase/migrations/` directory does **not exist** — migrations live re
 
 ### Auto-cleanup of expired sessions
 
-Migration `auto_cleanup_expired_sessions` (2026-04-28) presumably installs a periodic cleanup of `admin_sessions` rows past `expires_at`. The migration content was not inspected. The edge function does an *explicit* delete on a single row when it finds it expired during auth ([admin-api:2201](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) — this is a runtime fallback regardless of any scheduled job.
+Migration `auto_cleanup_expired_sessions` (2026-04-28) presumably installs a periodic cleanup of `admin_sessions` rows past `expires_at`. The migration content was not inspected. The edge function does an *explicit* delete on a single row when it finds it expired during auth (`vfo-admin-api/middleware/auth.ts::authenticate()`) — this is a runtime fallback regardless of any scheduled job.
 
 ## Storage
 
@@ -78,7 +89,7 @@ Per-specialist headshot images. RLS-locked by migration `lock_down_headshots_sto
 
 | Action | Where | Path scheme |
 |---|---|---|
-| Upload | `upload_headshot` ([admin-api:2387](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) | `<filename>` (no folder structure) |
+| Upload | `upload_headshot` (`vfo-admin-api/actions/specialists/upload-headshot.ts`) | `<filename>` (no folder structure) |
 
 Public read: yes — the frontend builds URLs like `https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/<filename>` ([MemberPortal.jsx:10](src/pages/MemberPortal.jsx)). The bucket is configured as public despite the "lock_down" migration name; the migration likely restricts only WRITE not READ.
 
@@ -90,9 +101,9 @@ Per-member private file storage. Each member's files live under `<plugin_member_
 
 | Action | Where | Behavior |
 |---|---|---|
-| `vault_list` | [admin-api:2615-2633](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts) | Lists files under `<member_number>/`, generates signed URLs (3600s expiry) for each |
-| `vault_upload` | [admin-api:2640-2645](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts) | Uploads to `<member_number>/<filename>` (upsert) |
-| `vault_delete` | [admin-api:2654](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts) | Deletes `<member_number>/<filename>` |
+| `vault_list` | `vfo-admin-api/actions/vault/list.ts` | Lists files under `<member_number>/`, generates signed URLs (3600s expiry) for each |
+| `vault_upload` | `vfo-admin-api/actions/vault/upload.ts` | Uploads to `<member_number>/<filename>` (upsert) |
+| `vault_delete` | `vfo-admin-api/actions/vault/delete.ts` | Deletes `<member_number>/<filename>` |
 
 `config.toml` sets `file_size_limit = "50MiB"` for storage globally.
 
@@ -112,9 +123,11 @@ Set on every response. Adding a new frontend host (e.g., a custom domain) requir
 
 ## Migration practices
 
-- The local `vfo-edge-functions` repo has no `supabase/migrations/` directory — migrations are authored remotely.
+- On `main`, the `vfo-edge-functions` repo has no `supabase/migrations/` directory — migrations are authored remotely.
 - The `vfo-react` repo has no migrations of its own.
 - New schema changes must be tracked via the remote migration registry (visible via the MCP `list_migrations` call).
+
+> **Local-dev migration baseline:** the `refactor/vfo-admin-api-modularize` worktree at `vfo-edge-functions/.claude/worktrees/refactor-modularize/` populates `supabase/migrations/` with a baseline `pg_dump` of the live `public` schema (`20260507000000_baseline_remote_schema.sql`, 82 schema objects). This is for **localhost-only testing** during refactor work — the migration was never deployed to production. The refactor itself completed and was deployed as v196 on 2026-05-08; see [03-edge-functions.md](../architecture/03-edge-functions.md) for the new file layout.
 
 ## Frontend storage usage (browser)
 
