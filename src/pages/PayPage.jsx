@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-const API_URL = 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
+const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
 export default function PayPage() {
   const [searchParams] = useSearchParams()
