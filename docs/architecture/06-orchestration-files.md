@@ -26,8 +26,8 @@ The "biggest brains" of the codebase — files that own a feature area or coordi
 | [src/pages/MemberPortal.jsx](src/pages/MemberPortal.jsx) | 349 lines (incl. inline subcomponents) | `/member` | Member shell: dynamic tab list driven by `member_program_enabled` + 3 inline subcomponents (`MemberSpecialists`, `MemberProfile`, `MemberSettings`). Hardcoded program-name → tab-key map at line 59. |
 | [src/pages/ClientDetail.jsx](src/pages/ClientDetail.jsx) | 384 lines | `/admin/client/:clientId` & `/member/client/:clientId` | **Dual-mode page.** The `isMember = pathname.startsWith('/member')` flag at line 55 cascades as `readOnly`. Tab set branches on `program?.name` (PFT vs Tax vs MAP1+Regular+Tax). Inline `ClientHome` (status + PF + notes) and `ClientDetails` (edit + contacts). |
 | [src/pages/AdminLogin.jsx](src/pages/AdminLogin.jsx), [src/pages/MemberLogin.jsx](src/pages/MemberLogin.jsx) | ~46 each | `/admin/login`, `/member/login` | Tiny login forms. See [04-auth-and-sessions.md](04-auth-and-sessions.md). |
-| [src/pages/DecidePage.jsx](src/pages/DecidePage.jsx) | 170 lines | `/decide?token=...` | Token-link page for `automation_PCADMIN_finaldecision`. Raw `fetch` (no session). |
-| [src/pages/PayPage.jsx](src/pages/PayPage.jsx) | 115 lines | `/pay?token=...` | Token-link page → loads payment data → user picks ACH/Card → Stripe Checkout redirect. |
+| [src/pages/DecidePage.jsx](src/pages/DecidePage.jsx) | 166 lines | `/decide?token=...` | Token-link page for `automation_PCADMIN_finaldecision`. Raw `fetch` (no session). |
+| [src/pages/PayPage.jsx](src/pages/PayPage.jsx) | 289 lines | `/pay?token=...` | Token-link page → loads payment data → user picks ACH/Card → Stripe Checkout redirect. |
 | [src/pages/RolePicker.jsx](src/pages/RolePicker.jsx) | 15 lines | `/` | Two buttons. |
 
 ## Tier 3 — Feature panels (mounted by a Tier-2 page)
@@ -81,8 +81,8 @@ These are the components where most of the per-feature logic and `callApi` calls
 | `automation_CONTRACT_ceocountersign` | Server chain from standalone `boldsign-webhook` (client-signed event) | (server side only) |
 | `automation_CONTRACT_stripecustomer` | Server chain from standalone `boldsign-webhook` (Completed event) | (server side only) |
 | `automation_CONTRACT_paymentemail` | Server chain from `automation_CONTRACT_stripecustomer` | (server side only) |
-| `automation_CONTRACT_loadpayment` | Direct fetch (no session) from `/pay` page mount | [PayPage.jsx:20](src/pages/PayPage.jsx) |
-| `automation_CONTRACT_stripecheckout` | Direct fetch (no session) when client picks ACH/Card | [PayPage.jsx:38](src/pages/PayPage.jsx) |
+| `automation_CONTRACT_loadpayment` | Direct fetch (no session) from `/pay` page mount | [PayPage.jsx:19](src/pages/PayPage.jsx) |
+| `automation_CONTRACT_stripecheckout` | Direct fetch (no session) when client picks ACH/Card | [PayPage.jsx:39](src/pages/PayPage.jsx) |
 | `automation_CONTRACT_confirmationemail` | Server chain from Stripe webhook (`checkout.session.completed`) | (server side only) |
 | `automation_CONTRACT_invoicereceipt` | Server chain from Stripe webhook (`checkout.session.completed` for card; `payment_intent.succeeded` for ACH and quarterly 2-4) | (server side only) |
 | `automation_CONTRACT_revshare` | **NOT triggered from frontend** and **NOT chained from any webhook in the source observed.** Mechanism for invocation is unclear — flagged as an open question. |

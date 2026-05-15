@@ -109,8 +109,6 @@ Handles two event types:
   1. Quarterly subsequent payment (metadata `payment_number` is 2-4): sets `payN_status='succeeded'`, chains `automation_CONTRACT_invoicereceipt` for that payment number.
   2. ACH first-payment cleared (`pay1_status === "processing"`): flips to `"succeeded"`, chains `automation_CONTRACT_invoicereceipt` for payment 1.
 
-> **Note: `piData` cross-block scope warning.** The MAP1 first-payment handler declares `piData` inside `if (paymentIntentId) { ... }` and references it later via `typeof piData !== "undefined"`. This is one of the 9 baseline `deno check` errors preserved verbatim from the original code; the runtime guard makes it safe but TypeScript can't see across the block. A behavior-relevant fix is deferred to a future session (would hoist `let piData: any = undefined` to outer scope).
-
 #### BoldSign webhook (`router/webhooks.ts::maybeHandleBoldSignWebhook`)
 
 Triggered by `body.event.eventType` shape. Looks up `pipeline_map1` row by `boldsign_doc_id`.

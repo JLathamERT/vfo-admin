@@ -129,7 +129,7 @@ The MAP1 contract-and-payment chain is the most complex frontend flow. It is **d
 | **C16 — agreement send** | *not directly user-triggered.* Auto-chained from `automation_PIPFU_decision` (Yes + grossServiceValue), `automation_PCADMIN_pricing`, and `automation_PCADMIN_extrameeting` (Yes) — server-to-server | server side | `automation_CONTRACT_sendagreement` |
 | **C17/C18 — sign events** | none — driven by BoldSign webhook | server side | (webhook → `automation_CONTRACT_ceocountersign` if standalone) |
 | **Stripe customer + payment email** | server-to-server chain after both signed | server side | `automation_CONTRACT_stripecustomer` → `automation_CONTRACT_paymentemail` |
-| **Pay** | The client clicks the email link, lands on `/pay` | [PayPage.jsx:20, 38](src/pages/PayPage.jsx) | `automation_CONTRACT_loadpayment` then `automation_CONTRACT_stripecheckout` (raw `fetch`, no session) |
+| **Pay** | The client clicks the email link, lands on `/pay` | [PayPage.jsx:19, 39](src/pages/PayPage.jsx) | `automation_CONTRACT_loadpayment` then `automation_CONTRACT_stripecheckout` (raw `fetch`, no session) |
 | **Stripe checkout/payment_intent webhooks** | none — Stripe → admin-api signature-gated handler | server side | (chains `automation_CONTRACT_confirmationemail`, `_invoicereceipt`) |
 | **Rev share** | not yet observed in UI. Mechanism is admin-api line 1248 `automation_CONTRACT_revshare`. **Open question:** what triggers it? It is NOT chained from the Stripe webhook handlers above; it appears to require a manual or external trigger. Not seen called from the frontend. |
 
