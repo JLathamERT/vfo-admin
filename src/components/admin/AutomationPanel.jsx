@@ -260,16 +260,78 @@ function ExpandedRow({ row }) {
   )
 }
  
-function SandboxBadge({ config }) {
-  if (!config?.sandbox_mode) return null
+function SandboxBadge({ config, onClick }) {
+  const sandbox = !!config?.sandbox_mode
+  const palette = sandbox
+    ? { bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.4)', text: '#f59e0b', label: 'SANDBOX MODE' }
+    : { bg: 'rgba(239,68,68,0.15)', border: 'rgba(239,68,68,0.4)', text: '#ef4444', label: 'LIVE MODE' }
   return (
-    <span style={{
-      padding: '4px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: '600',
-      background: 'rgba(245,158,11,0.15)', color: '#f59e0b',
-      border: '1px solid rgba(245,158,11,0.3)', letterSpacing: '0.5px'
+    <button
+      onClick={onClick}
+      title="Click to toggle"
+      style={{
+        padding: '4px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: '600',
+        background: palette.bg, color: palette.text,
+        border: `1px solid ${palette.border}`, letterSpacing: '0.5px',
+        cursor: 'pointer', fontFamily: 'inherit',
+      }}
+    >
+      {palette.label}
+    </button>
+  )
+}
+
+function SandboxToggleModal({ currentlySandbox, onConfirm, onCancel, saving }) {
+  const switchingTo = currentlySandbox ? 'LIVE' : 'SANDBOX'
+  const isGoingLive = switchingTo === 'LIVE'
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+      fontFamily: '"DM Sans", sans-serif',
     }}>
-      SANDBOX MODE
-    </span>
+      <div style={{
+        background: '#0a1628', border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: '12px', padding: '32px', maxWidth: '440px', width: '90%',
+      }}>
+        <h2 style={{ fontSize: '18px', color: '#fff', margin: '0 0 12px' }}>
+          Switch to {switchingTo} mode?
+        </h2>
+        <p style={{ fontSize: '14px', color: '#94a3b8', lineHeight: 1.6, margin: '0 0 24px' }}>
+          {isGoingLive
+            ? 'This will switch the MAP1 automation pipeline to use LIVE Stripe + BoldSign keys. Real emails will be sent to real clients/members/PFs and real cards will be charged. Are you sure?'
+            : 'This will switch back to sandbox mode. All emails route to the sandbox address and Stripe/BoldSign use test keys.'}
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+          <button
+            onClick={onCancel}
+            disabled={saving}
+            style={{
+              padding: '10px 20px', borderRadius: '8px',
+              border: '1px solid rgba(255,255,255,0.15)', background: 'transparent',
+              color: '#94a3b8', fontSize: '14px', cursor: saving ? 'default' : 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={saving}
+            style={{
+              padding: '10px 20px', borderRadius: '8px',
+              border: 'none', background: isGoingLive ? '#ef4444' : '#f59e0b',
+              color: '#fff', fontSize: '14px', fontWeight: 600,
+              cursor: saving ? 'default' : 'pointer',
+              fontFamily: 'inherit',
+              opacity: saving ? 0.6 : 1,
+            }}
+          >
+            {saving ? 'Saving…' : `Switch to ${switchingTo}`}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
  
@@ -281,6 +343,8 @@ export default function AutomationPanel({ section }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [expandedRow, setExpandedRow] = useState(null)
+  const [showModeModal, setShowModeModal] = useState(false)
+  const [savingMode, setSavingMode] = useState(false)
  
   useEffect(() => { loadPipelines() }, [])
   useEffect(() => { if (selectedPipeline) loadPipelineData(selectedPipeline) }, [selectedPipeline])
@@ -301,6 +365,25 @@ export default function AutomationPanel({ section }) {
       setSandboxConfig(data.sandbox_config || null)
     } catch (err) { setError(err.message) }
   }
+
+  async function toggleSandboxMode() {
+    if (!sandboxConfig) return
+    const next = !sandboxConfig.sandbox_mode
+    setSavingMode(true)
+    try {
+      await callApi('save_sandbox_config', {
+        sandbox_mode: next,
+        stripe_test_mode: next,
+        boldsign_test_mode: next,
+      })
+      setSandboxConfig({ ...sandboxConfig, sandbox_mode: next, stripe_test_mode: next, boldsign_test_mode: next })
+      setShowModeModal(false)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSavingMode(false)
+    }
+  }
  
   if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>Loading...</div>
  
@@ -309,7 +392,7 @@ export default function AutomationPanel({ section }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '24px', color: '#fff', margin: 0 }}>Automation Pipeline</h2>
-          <SandboxBadge config={sandboxConfig} />
+          <SandboxBadge config={sandboxConfig} onClick={() => setShowModeModal(true)} />
         </div>
         {pipelines.length > 1 && (
           <select value={selectedPipeline?.id || ''} onChange={e => { const p = pipelines.find(p => p.id === parseInt(e.target.value)); if (p) setSelectedPipeline(p) }}
@@ -394,6 +477,14 @@ export default function AutomationPanel({ section }) {
             </tbody>
           </table>
         </div>
+      )}
+      {showModeModal && (
+        <SandboxToggleModal
+          currentlySandbox={!!sandboxConfig?.sandbox_mode}
+          onConfirm={toggleSandboxMode}
+          onCancel={() => setShowModeModal(false)}
+          saving={savingMode}
+        />
       )}
     </div>
   )
