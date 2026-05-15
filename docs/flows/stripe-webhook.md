@@ -21,11 +21,11 @@ Triggered by presence of the `stripe-signature` header. Always returns before re
 
 ### Step 0 — Signature verification ([lines 226-262](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts))
 
-1. Reads `STRIPE_WEBHOOK_SECRET` env var (returns 500 if missing).
+1. Reads BOTH `STRIPE_WEBHOOK_SECRET` and `STRIPE_WEBHOOK_SECRET_SANDBOX` env vars. At least one must be set (returns 500 otherwise).
 2. Parses the `stripe-signature` header into `t` (timestamp) and `v1` (signature) parts.
 3. Rejects if timestamp is older than **5 minutes** (replay guard).
-4. Computes HMAC-SHA256 over `<timestamp>.<rawBody>` using the secret.
-5. Returns 401 if signatures don't match.
+4. Computes HMAC-SHA256 over `<timestamp>.<rawBody>` against EACH configured secret. Whichever matches wins — so a single endpoint can receive both live and sandbox webhooks.
+5. Returns 401 if neither secret produces a matching signature.
 6. Parses raw body as JSON. Returns 400 on parse failure.
 
 ### Step 1 — Dispatch by event type

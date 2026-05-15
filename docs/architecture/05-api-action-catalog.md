@@ -1,10 +1,10 @@
 # API action catalog (`vfo-admin-api`)
 
-All **129 actions** dispatched by `vfo-admin-api`. The post-refactor catalog cites file paths (not line numbers — line numbers shift across handler edits). Action names and behavior are byte-equivalent to v194 except for explicit follow-up changes noted in entries below.
+All **130 actions** dispatched by `vfo-admin-api`. The post-refactor catalog cites file paths (not line numbers — line numbers shift across handler edits). Action names and behavior are byte-equivalent to v194 except for explicit follow-up changes noted in entries below.
 
 Format: action · `file` · tables read / written · chains / external. Table prefix `pipeline_map1` is shortened to `pmap1` and `pipeline_sandbox_config` to `psbx_cfg` for brevity. All file references are relative to `C:\vfo-edge-functions\supabase\functions\vfo-admin-api\`.
 
-> **Pre-refactor count.** v194 had 130 dispatch references. Phase 6 mechanical removed two: the duplicate `msm_update_client` registration (always unreachable) and the dead `automation_CONTRACT_stripewebhook` handler (doubly unreachable). After that the total was 128. `feature/revshare-automation` then added `automation_CONTRACT_revshare_sweep` to PUBLIC_HANDLERS. **Current count is 3 logins + 10 PUBLIC_HANDLERS + 116 AUTH_HANDLERS = 129.**
+> **Pre-refactor count.** v194 had 130 dispatch references. Phase 6 mechanical removed two: the duplicate `msm_update_client` registration (always unreachable) and the dead `automation_CONTRACT_stripewebhook` handler (doubly unreachable). After that the total was 128. `feature/revshare-automation` added `automation_CONTRACT_revshare_sweep` to PUBLIC_HANDLERS. `fix/webhook-symmetric-secrets` added `save_sandbox_config` to AUTH_HANDLERS. **Current count is 3 logins + 10 PUBLIC_HANDLERS + 117 AUTH_HANDLERS = 130.**
 
 ---
 
@@ -60,7 +60,7 @@ All dispatched AFTER `middleware/auth.ts::authenticate()` validates body.token. 
 
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
-| `load_data` | `actions/data/load-data.ts` | `experts`, `vfo_ecosystem_assignments`, `ciq_assignments`, `member_plugin_settings`, `member_exclusions`, `members` | — | — |
+| `load_data` | `actions/data/load-data.ts` | `experts`, `vfo_ecosystem_assignments`, `ciq_assignments`, `member_plugin_settings`, `member_exclusions`, `members`, `pipeline_sandbox_config` (MAP 1 row) | — | Response shape: `{experts, ecosystems, ciq, members, exclusions, sandbox_config}`. |
 
 ### Specialists (admin-only mutations)
 
@@ -259,6 +259,7 @@ These run AFTER the auth gate. The three handlers that take `req: Request` as a 
 | `automation_CONTRACT_sendagreement` | `actions/pipeline/contract-send-agreement.ts` | `pmap1`, `clients`, `client_enrollments`, `members`, `agreement_templates`, `psbx_cfg`, `email_templates` | `pmap1` (c16_sent='Yes', boldsign_doc_id, c17/c18='No', c17_followup_sent_date) | html2pdf.app · BoldSign `POST /v1/document/send` (multipart with PDF) · BoldSign `GET /v1/document/getEmbeddedSignLink` (5 retries) · Gmail draft to client |
 | `automation_load_email_templates` | `actions/email-templates/load.ts` | `email_templates` | — | — |
 | `automation_save_email_template` | `actions/email-templates/save.ts` | — | `email_templates` | — |
+| `save_sandbox_config` | `actions/pipeline/save-sandbox-config.ts` | — | `pipeline_sandbox_config` (MAP 1 row) — fields: `sandbox_mode`, `stripe_test_mode`, `boldsign_test_mode`, optional `sandbox_email` | — |
 | `member_load_pipeline` | `actions/pipeline/member-load-pipeline.ts` | `pmap1` | — | — |
 
 ### Notifications
