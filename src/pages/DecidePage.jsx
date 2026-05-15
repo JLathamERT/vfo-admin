@@ -1,34 +1,34 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
- 
+
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
- 
+
 export default function DecidePage() {
   const [searchParams] = useSearchParams()
   const [status, setStatus] = useState('processing')
   const [error, setError] = useState('')
   const [decision, setDecision] = useState('')
   const [serviceLevel, setServiceLevel] = useState('')
- 
+
   useEffect(() => {
     processDecision()
   }, [])
- 
+
   async function processDecision() {
     const token = searchParams.get('token')
     const dec = searchParams.get('decision')
     const level = searchParams.get('serviceLevel')
     const clientRef = searchParams.get('clientRef')
- 
+
     if (!token || !dec) {
       setError('Invalid link — missing required parameters.')
       setStatus('error')
       return
     }
- 
+
     setDecision(dec)
     setServiceLevel(level || '')
- 
+
     try {
       const res = await fetch(API_URL, {
         method: 'POST',
@@ -42,129 +42,125 @@ export default function DecidePage() {
         }),
       })
       const data = await res.json()
- 
+
       if (!res.ok) {
         if (data.existing_decision) {
           setDecision(data.existing_decision)
-          setStatus('already_recorded')
+          setStatus('already_submitted')
         } else {
           setError(data.error || 'Something went wrong.')
           setStatus('error')
         }
         return
       }
- 
+
       setStatus('success')
     } catch (err) {
       setError('Unable to connect. Please try again later.')
       setStatus('error')
     }
   }
- 
-  const containerStyle = {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'linear-gradient(135deg, #0a1929 0%, #162d4a 50%, #1e3a5f 100%)',
-    fontFamily: 'DM Sans, sans-serif',
-    padding: '20px',
-  }
- 
-  const cardStyle = {
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: '16px',
-    padding: '48px 40px',
-    maxWidth: '500px',
-    width: '100%',
-    textAlign: 'center',
-  }
- 
-  const iconSize = { fontSize: '48px', marginBottom: '20px' }
- 
-  function getMessage() {
-    if (status === 'processing') {
-      return (
-        <>
-          <div style={{ ...iconSize, color: '#5b9fe6' }}>...</div>
-          <h2 style={{ color: '#fff', fontSize: '20px', marginBottom: '8px' }}>Processing your response...</h2>
-          <p style={{ color: '#8bacc8', fontSize: '14px' }}>Please wait, do not close this page.</p>
-        </>
-      )
-    }
- 
-    if (status === 'already_recorded') {
-      return (
-        <>
-          <div style={{ ...iconSize, color: '#f59e0b', fontWeight: '700' }}>—</div>
-          <h2 style={{ color: '#fff', fontSize: '20px', marginBottom: '8px' }}>Response Already Recorded</h2>
-          <p style={{ color: '#8bacc8', fontSize: '14px' }}>Your decision was already submitted. No further action is needed.</p>
-        </>
-      )
-    }
- 
-    if (status === 'error') {
-      return (
-        <>
-          <div style={{ ...iconSize, color: '#e74c3c', fontWeight: '700' }}>X</div>
-          <h2 style={{ color: '#fff', fontSize: '20px', marginBottom: '8px' }}>Something Went Wrong</h2>
-          <p style={{ color: '#ff6b6b', fontSize: '14px' }}>{error}</p>
-        </>
-      )
-    }
- 
-    if (decision === 'Yes') {
-      return (
-        <>
-          <div style={{ ...iconSize, color: '#27ae60', fontWeight: '700' }}>OK</div>
-          <h2 style={{ color: '#fff', fontSize: '20px', marginBottom: '8px' }}>Thank You!</h2>
-          <p style={{ color: '#8bacc8', fontSize: '14px', lineHeight: '1.6' }}>
-            Your decision to proceed{serviceLevel ? ` with the ${serviceLevel} Membership` : ''} has been recorded.
-            <br /><br />
-            Your Proactive Facilitator will be in touch shortly with the next steps.
-          </p>
-        </>
-      )
-    }
- 
-    if (decision === 'No') {
-      return (
-        <>
-          <div style={{ ...iconSize, color: '#e74c3c', fontWeight: '700' }}>OK</div>
-          <h2 style={{ color: '#fff', fontSize: '20px', marginBottom: '8px' }}>Thank You</h2>
-          <p style={{ color: '#8bacc8', fontSize: '14px', lineHeight: '1.6' }}>
-            We understand your decision not to proceed at this time.
-            <br /><br />
-            Should you ever wish to reconsider, please don't hesitate to reach out to your Proactive Facilitator or Member Advisor.
-          </p>
-        </>
-      )
-    }
- 
-    if (decision === 'ExtraMeeting') {
-      return (
-        <>
-          <div style={{ ...iconSize, color: '#5b9fe6', fontWeight: '700' }}>OK</div>
-          <h2 style={{ color: '#fff', fontSize: '20px', marginBottom: '8px' }}>Thank You!</h2>
-          <p style={{ color: '#8bacc8', fontSize: '14px', lineHeight: '1.6' }}>
-            Your request for an additional meeting has been recorded.
-            <br /><br />
-            Your Proactive Facilitator will be in touch shortly to arrange a convenient time.
-          </p>
-        </>
-      )
-    }
-  }
- 
+
+  const view = getView(status, decision, serviceLevel, error)
+
   return (
     <div style={containerStyle}>
       <div style={cardStyle}>
-        <div style={{ marginBottom: '24px' }}>
-          <span style={{ fontFamily: 'Playfair Display, serif', fontSize: '22px', color: '#fff', letterSpacing: '1px' }}>VFO SERVICES</span>
+        <div style={{ ...iconCircleStyle, background: view.color + '20' }}>
+          <span style={{ fontSize: '32px', lineHeight: 1 }}>{view.icon}</span>
         </div>
-        {getMessage()}
+        <h1 style={titleStyle}>{view.title}</h1>
+        <p style={messageStyle}>{view.message}</p>
       </div>
     </div>
   )
+}
+
+function getView(status, decision, serviceLevel, error) {
+  if (status === 'processing') {
+    return {
+      icon: '⏳',
+      color: '#3b82f6',
+      title: 'Processing your response…',
+      message: 'Please wait, do not close this page.',
+    }
+  }
+  if (status === 'already_submitted') {
+    return {
+      icon: 'ℹ️',
+      color: '#3b82f6',
+      title: 'Already Received',
+      message: "We've already received your decision — no further action is needed. Thank you!",
+    }
+  }
+  if (status === 'error') {
+    return {
+      icon: '⚠️',
+      color: '#ef4444',
+      title: 'Something Went Wrong',
+      message: error || 'An unexpected error occurred.',
+    }
+  }
+  if (decision === 'ExtraMeeting') {
+    return {
+      icon: '📅',
+      color: '#2563eb',
+      title: 'Meeting Requested',
+      message: 'Thank you — your Proactive Facilitator will be in touch to arrange an additional meeting.',
+    }
+  }
+  if (decision === 'Yes') {
+    return {
+      icon: '✓',
+      color: '#22c55e',
+      title: 'Thank You!',
+      message: `We're excited to move forward${serviceLevel ? ` with the ${serviceLevel} Membership` : ''}. We will be in touch shortly with next steps.`,
+    }
+  }
+  return {
+    icon: '✓',
+    color: '#22c55e',
+    title: 'Thank You',
+    message: "We appreciate you letting us know. If circumstances ever change, we'll be right here to help.",
+  }
+}
+
+const containerStyle = {
+  fontFamily: '"DM Sans", sans-serif',
+  background: '#0a1628',
+  color: '#e2e8f0',
+  minHeight: '100vh',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '24px',
+}
+
+const cardStyle = {
+  textAlign: 'center',
+  maxWidth: '480px',
+  padding: '48px 32px',
+}
+
+const iconCircleStyle = {
+  width: '72px',
+  height: '72px',
+  borderRadius: '50%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  margin: '0 auto 24px',
+}
+
+const titleStyle = {
+  fontSize: '24px',
+  fontWeight: 700,
+  color: '#fff',
+  marginBottom: '12px',
+}
+
+const messageStyle = {
+  fontSize: '15px',
+  color: '#94a3b8',
+  lineHeight: 1.6,
 }
