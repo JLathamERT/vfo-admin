@@ -8,6 +8,7 @@ export default function PayPage() {
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
   const [data, setData] = useState(null)
+  const [hoveredOption, setHoveredOption] = useState(null)
 
   useEffect(() => {
     const token = searchParams.get('token')
@@ -50,66 +51,239 @@ export default function PayPage() {
     }
   }
 
-  const containerStyle = { minHeight: '100vh', background: '#0f1f3d', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'DM Sans, sans-serif', padding: '24px' }
-  const cardStyle = { background: '#1a2f5a', borderRadius: '16px', padding: '40px', maxWidth: '480px', width: '100%', border: '1px solid rgba(255,255,255,0.1)' }
-
   if (status === 'loading') return (
     <div style={containerStyle}>
-      <div style={{ color: '#8bacc8', fontSize: '16px' }}>Loading payment details...</div>
+      <p style={{ color: '#94a3b8', fontSize: '15px' }}>Loading payment details…</p>
     </div>
   )
 
   if (status === 'error') return (
     <div style={containerStyle}>
-      <div style={cardStyle}>
-        <div style={{ color: '#e74c3c', fontSize: '16px', textAlign: 'center' }}>{error}</div>
+      <div style={messageCardStyle}>
+        <div style={{ ...iconCircleStyle, background: '#ef444420' }}>
+          <span style={{ fontSize: '28px', lineHeight: 1 }}>⚠️</span>
+        </div>
+        <h1 style={titleStyle}>Payment Error</h1>
+        <p style={subtitleStyle}>{error}</p>
       </div>
     </div>
   )
 
   if (status === 'redirecting') return (
     <div style={containerStyle}>
-      <div style={{ color: '#8bacc8', fontSize: '16px' }}>Redirecting to Stripe...</div>
+      <p style={{ color: '#94a3b8', fontSize: '15px' }}>Redirecting to Stripe…</p>
     </div>
   )
 
-  const cardAmount = (data.payment_amount + data.payment_amount * 0.029 + 0.30).toFixed(2)
-  const achAmount = data.payment_amount.toFixed(2)
+  const baseAmount = Number(data.payment_amount) || 0
+  const cardFee = Math.round((baseAmount * 0.029 + 0.30) * 100) / 100
+  const cardTotal = Math.round((baseAmount + cardFee) * 100) / 100
 
   return (
     <div style={containerStyle}>
-      <div style={cardStyle}>
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '24px', color: '#fff', marginBottom: '8px' }}>VFO SERVICES</div>
-          <div style={{ fontSize: '14px', color: '#8bacc8' }}>Complete Your Payment</div>
+      <div style={pageContainerStyle}>
+        <div style={{ ...iconCircleStyle, width: '64px', height: '64px', background: 'rgba(34,197,94,0.15)' }}>
+          <span style={{ fontSize: '28px', lineHeight: 1 }}>🔒</span>
         </div>
+        <h1 style={{ ...titleStyle, fontSize: '22px', textAlign: 'center', marginBottom: '8px' }}>VFO Services Payment</h1>
+        <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '12px' }}>Choose your preferred payment method</p>
+        <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '32px', fontSize: '13px', color: '#64748b' }}>
+          Payment {data.payment_x} of {data.payment_y} — {data.service_level} Membership · {data.client_name}
+        </p>
 
-        <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '10px', padding: '16px', marginBottom: '28px', textAlign: 'center' }}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', marginBottom: '4px' }}>Payment {data.payment_x} of {data.payment_y} — {data.service_level} Membership</div>
-          <div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>${Number(data.payment_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-          <div style={{ fontSize: '12px', color: '#5a8ab5', marginTop: '4px' }}>{data.client_name}</div>
-        </div>
+        <OptionCard
+          isHovered={hoveredOption === 'ach'}
+          onHover={() => setHoveredOption('ach')}
+          onLeave={() => setHoveredOption(null)}
+          onClick={() => handleChoice('ach')}
+          title="🏦 ACH Bank Transfer"
+          badgeText="No Fee"
+          badgeClass="green"
+          amount={baseAmount}
+          breakdown={[
+            { label: 'VFO Services Membership', value: `$${formatMoney(baseAmount)}`, valueColor: '#e2e8f0' },
+            { label: 'Processing Fee', value: '$0.00', valueColor: '#4ade80' },
+          ]}
+          footer="Funds transfer directly from your bank account. Takes 2-4 business days to process."
+        />
 
-        <div style={{ fontSize: '13px', color: '#8bacc8', marginBottom: '16px', textAlign: 'center' }}>Choose your payment method:</div>
+        <div style={dividerStyle}>— or —</div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <button onClick={() => handleChoice('ach')} style={{ padding: '16px', borderRadius: '10px', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.08)', color: '#fff', cursor: 'pointer', textAlign: 'left' }}>
-            <div style={{ fontWeight: '600', fontSize: '15px', marginBottom: '4px' }}>Bank Transfer (ACH)</div>
-            <div style={{ fontSize: '13px', color: '#27ae60', fontWeight: '600' }}>${Number(achAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })} — No fee</div>
-            <div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '4px' }}>3-5 business days to process</div>
-          </button>
+        <OptionCard
+          isHovered={hoveredOption === 'card'}
+          onHover={() => setHoveredOption('card')}
+          onLeave={() => setHoveredOption(null)}
+          onClick={() => handleChoice('card')}
+          title="💳 Credit / Debit Card"
+          badgeText="2.9% + $0.30 Fee"
+          badgeClass="blue"
+          amount={cardTotal}
+          breakdown={[
+            { label: 'VFO Services Membership', value: `$${formatMoney(baseAmount)}`, valueColor: '#e2e8f0' },
+            { label: 'Card Processing Fee (2.9% + $0.30)', value: `$${formatMoney(cardFee)}`, valueColor: '#e2e8f0' },
+          ]}
+          footer="Processes immediately. The processing fee covers card transaction costs."
+        />
 
-          <button onClick={() => handleChoice('card')} style={{ padding: '16px', borderRadius: '10px', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.08)', color: '#fff', cursor: 'pointer', textAlign: 'left' }}>
-            <div style={{ fontWeight: '600', fontSize: '15px', marginBottom: '4px' }}>Credit / Debit Card</div>
-            <div style={{ fontSize: '13px', color: '#5b9fe6', fontWeight: '600' }}>${Number(cardAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })} — includes 2.9% + $0.30 fee</div>
-            <div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '4px' }}>Instant processing</div>
-          </button>
-        </div>
-
-        <div style={{ fontSize: '11px', color: '#5a8ab5', textAlign: 'center', marginTop: '24px' }}>
-          🔒 Secure payment powered by Stripe. We never see or store your payment details.
-        </div>
+        <p style={securityNoteStyle}>
+          Your payment details are handled securely by Stripe.<br />
+          VFO Services never sees or stores your payment information.
+        </p>
       </div>
     </div>
   )
+}
+
+function OptionCard({ isHovered, onHover, onLeave, onClick, title, badgeText, badgeClass, amount, breakdown, footer }) {
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={onHover}
+      onMouseLeave={onLeave}
+      style={{
+        ...optionCardStyle,
+        borderColor: isHovered ? '#3b82f6' : 'rgba(255,255,255,0.1)',
+        background: isHovered ? 'rgba(59,130,246,0.05)' : 'transparent',
+      }}
+    >
+      <div style={optionHeaderStyle}>
+        <span style={optionTitleStyle}>{title}</span>
+        <span style={{ ...optionBadgeBaseStyle, ...badgeStyles[badgeClass] }}>{badgeText}</span>
+      </div>
+      <div style={optionAmountStyle}>${formatMoney(amount)}</div>
+      <div style={{ marginBottom: '16px' }}>
+        {breakdown.map((row, i) => (
+          <div key={i} style={optionDetailRowStyle}>
+            <span style={{ color: '#64748b' }}>{row.label}</span>
+            <span style={{ color: row.valueColor, fontWeight: 600 }}>{row.value}</span>
+          </div>
+        ))}
+      </div>
+      <div style={optionFooterStyle}>{footer}</div>
+    </div>
+  )
+}
+
+function formatMoney(n) {
+  return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+const containerStyle = {
+  fontFamily: '"DM Sans", sans-serif',
+  background: '#0a1628',
+  color: '#e2e8f0',
+  minHeight: '100vh',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '24px',
+}
+
+const pageContainerStyle = {
+  maxWidth: '540px',
+  width: '100%',
+}
+
+const messageCardStyle = {
+  textAlign: 'center',
+  maxWidth: '480px',
+  padding: '48px 32px',
+}
+
+const iconCircleStyle = {
+  width: '72px',
+  height: '72px',
+  borderRadius: '50%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  margin: '0 auto 24px',
+}
+
+const titleStyle = {
+  fontSize: '24px',
+  fontWeight: 700,
+  color: '#fff',
+  marginBottom: '12px',
+}
+
+const subtitleStyle = {
+  fontSize: '14px',
+  color: '#94a3b8',
+}
+
+const optionCardStyle = {
+  border: '2px solid rgba(255,255,255,0.1)',
+  borderRadius: '16px',
+  padding: '28px',
+  marginBottom: '16px',
+  cursor: 'pointer',
+  transition: 'all 0.2s',
+}
+
+const optionHeaderStyle = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: '16px',
+}
+
+const optionTitleStyle = {
+  fontSize: '16px',
+  fontWeight: 700,
+  color: '#fff',
+}
+
+const optionBadgeBaseStyle = {
+  fontSize: '11px',
+  fontWeight: 600,
+  padding: '4px 10px',
+  borderRadius: '20px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+}
+
+const badgeStyles = {
+  green: { background: 'rgba(34,197,94,0.15)', color: '#4ade80' },
+  blue: { background: 'rgba(59,130,246,0.15)', color: '#60a5fa' },
+}
+
+const optionAmountStyle = {
+  fontSize: '28px',
+  fontWeight: 700,
+  color: '#fff',
+  marginBottom: '16px',
+}
+
+const optionDetailRowStyle = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  padding: '4px 0',
+  fontSize: '13px',
+}
+
+const optionFooterStyle = {
+  fontSize: '12px',
+  color: '#475569',
+  marginTop: '12px',
+  paddingTop: '12px',
+  borderTop: '1px solid rgba(255,255,255,0.06)',
+}
+
+const dividerStyle = {
+  textAlign: 'center',
+  color: '#475569',
+  fontSize: '12px',
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '1px',
+  margin: '8px 0',
+}
+
+const securityNoteStyle = {
+  textAlign: 'center',
+  color: '#475569',
+  fontSize: '12px',
+  marginTop: '24px',
+  lineHeight: 1.6,
 }
