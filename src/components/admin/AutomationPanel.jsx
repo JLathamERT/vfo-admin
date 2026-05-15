@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
  
 const STAGE_LABELS = {
@@ -357,8 +357,8 @@ export default function AutomationPanel({ section }) {
                 const stageColor = STAGE_COLORS[stage] || '#8bacc8'
                 const isExpanded = expandedRow === row.id
                 return (
-                  <>
-                    <tr key={row.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', background: isExpanded ? 'rgba(255,255,255,0.03)' : 'transparent' }}
+                  <Fragment key={row.id}>
+                    <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', background: isExpanded ? 'rgba(255,255,255,0.03)' : 'transparent' }}
                       onClick={() => setExpandedRow(isExpanded ? null : row.id)}
                       onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
                       onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = 'transparent' }}
@@ -384,11 +384,11 @@ export default function AutomationPanel({ section }) {
                       <td style={{ padding: '12px', fontSize: '12px', color: '#5a8ab5' }}>{row.updated_at ? row.updated_at.split('T')[0] : '—'}</td>
                     </tr>
                     {isExpanded && (
-                      <tr key={`${row.id}_detail`}>
+                      <tr>
                         <td colSpan={9} style={{ padding: 0 }}><ExpandedRow row={row} /></td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 )
               })}
             </tbody>

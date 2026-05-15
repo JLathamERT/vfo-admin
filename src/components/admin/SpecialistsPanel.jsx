@@ -134,8 +134,6 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
     try {
       await callApi('delete_specialist', { expert_id: editingId })
       await onDataChange()
-      setShowEditForm(false)
-      setEditSelectVal('')
       setEditingId(null)
       showStatus('edit', 'success', 'Specialist deleted.')
     } catch (err) {
@@ -339,12 +337,12 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
       {/* Add tab */}
       {activeTab === 'add' && (
         <div style={sectionStyle}>
-          <SpecialistForm
-            which="add" form={addForm} setForm={setAddForm}
-            ecos={addEcos} file={addFile} preview={addPreview}
-            ciq={addCiq} ciqDrop={addCiqDrop} setCiqDrop={setAddCiqDrop}
-            statusMsg={addStatus} statusType={addStatusType}
-          />
+          {SpecialistForm({
+            which: 'add', form: addForm, setForm: setAddForm,
+            ecos: addEcos, file: addFile, preview: addPreview,
+            ciq: addCiq, ciqDrop: addCiqDrop, setCiqDrop: setAddCiqDrop,
+            statusMsg: addStatus, statusType: addStatusType,
+          })}
           <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
             <button onClick={() => submitSpecialist('add')}
               style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
@@ -388,12 +386,12 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
         <div>
           <button onClick={() => { setSelectedExpert(null); setEditingId(null) }} style={{ background: 'none', border: 'none', color: '#5b9fe6', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
           <div style={sectionStyle}>
-            <SpecialistForm
-              which="edit" form={editForm} setForm={setEditForm}
-              ecos={editEcos} file={editFile} preview={editPreview}
-              ciq={editCiq} ciqDrop={editCiqDrop} setCiqDrop={setEditCiqDrop}
-              statusMsg={editStatus} statusType={editStatusType}
-            />
+            {SpecialistForm({
+              which: 'edit', form: editForm, setForm: setEditForm,
+              ecos: editEcos, file: editFile, preview: editPreview,
+              ciq: editCiq, ciqDrop: editCiqDrop, setCiqDrop: setEditCiqDrop,
+              statusMsg: editStatus, statusType: editStatusType,
+            })}
             <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
               <button onClick={() => submitSpecialist('edit')}
                 style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
