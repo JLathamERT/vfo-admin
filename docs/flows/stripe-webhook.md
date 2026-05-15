@@ -72,11 +72,12 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
    - `confirmation_status='Confirmation Needed'`
 6. **Chains** `automation_CONTRACT_confirmationemail` (always).
 7. **Chains** `automation_CONTRACT_invoicereceipt` for card only (ACH waits for `payment_intent.succeeded` to chain).
+8. **Chains** `automation_CONTRACT_revshare` for card only (P1). First attempt typically returns `pending: true` (Tracy's sheet not yet updated). The daily 02:00-UTC `_revshare_sweep` cron retries.
 
 **Tables read:** `pipeline_map1`, `pipeline_sandbox_config`.
 **Tables written:** `pipeline_map1` (many columns).
 **External calls:** Stripe `GET /v1/payment_intents`.
-**Chains:** `automation_CONTRACT_confirmationemail`, `automation_CONTRACT_invoicereceipt` (card).
+**Chains:** `automation_CONTRACT_confirmationemail`, `automation_CONTRACT_invoicereceipt` (card), `automation_CONTRACT_revshare` (card).
 
 ---
 
@@ -96,12 +97,13 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
 1. Looks up `pipeline_map1` by `stripe_customer_id`.
 2. UPDATEs `pay${n}_status='succeeded'`.
 3. **Chains** `automation_CONTRACT_invoicereceipt` for that payment number.
+4. **Chains** `automation_CONTRACT_revshare` for that payment number.
 
 > **Open question:** how `metadata.payment_number` gets set for payments 2-4. The frontend `/pay` flow only handles payment 1. The `setup_future_usage: off_session` flag is set on the first PaymentIntent, which captures the payment method for reuse — but **no observed code creates the subsequent off-session charges**. Possible mechanisms:
 > 1. Manual via Stripe Dashboard with the metadata set by hand.
-> 2. External cron (none in repo).
+> 2. External off-session charger (not in repo).
 > 3. Unimplemented.
-> Confirm with user.
+> Confirm with user. (Separately: a daily `pg_cron` job now exists, but only for the rev-share sweep — it does not create off-session charges.)
 
 ### Sub-branch B2 — ACH first-payment cleared
 
@@ -110,6 +112,7 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
 **What it does:**
 1. UPDATEs `pay1_status='succeeded'`.
 2. **Chains** `automation_CONTRACT_invoicereceipt` for payment 1.
+3. **Chains** `automation_CONTRACT_revshare` for payment 1.
 
 ---
 
@@ -123,10 +126,10 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
 | Branch | Chains |
 |---|---|
 | A1 (GC) | none |
-| A2 (MAP1 card) | `automation_CONTRACT_confirmationemail` + `automation_CONTRACT_invoicereceipt` (payment 1) |
+| A2 (MAP1 card) | `automation_CONTRACT_confirmationemail` + `automation_CONTRACT_invoicereceipt` + `automation_CONTRACT_revshare` (payment 1) |
 | A2 (MAP1 ACH) | `automation_CONTRACT_confirmationemail` only |
-| B1 (Quarterly N) | `automation_CONTRACT_invoicereceipt` for payment N |
-| B2 (ACH cleared) | `automation_CONTRACT_invoicereceipt` (payment 1) |
+| B1 (Quarterly N) | `automation_CONTRACT_invoicereceipt` + `automation_CONTRACT_revshare` (payment N) |
+| B2 (ACH cleared) | `automation_CONTRACT_invoicereceipt` + `automation_CONTRACT_revshare` (payment 1) |
 
 ## Dead-code note
 

@@ -103,11 +103,13 @@ Handles two event types:
 - **`checkout.session.completed`** — handles two cases via metadata:
   1. **GC credit purchase**: metadata has `member_number` and `credits`. Increments `gc_balances`, inserts `gc_transactions` row.
   2. **MAP1 first payment**: looks up `pipeline_map1` row by `stripe_customer_id`. Expands `payment_intent` to extract `payment_method.type` (card vs us_bank_account) and `last4`. Sets `pay1_status` to `"succeeded"` (card) or `"processing"` (ACH). Computes `card_processing_fee` from `amount_received` vs `net_invoice / payment_count`. Writes quarterly schedule (`pay2/3/4_date` = +91/182/273 days).
-     - **Chains:** `automation_CONTRACT_confirmationemail` (always), `automation_CONTRACT_invoicereceipt` (card only — ACH waits for `payment_intent.succeeded`).
+     - **Chains:** `automation_CONTRACT_confirmationemail` (always); for card only, also `automation_CONTRACT_invoicereceipt` and then `automation_CONTRACT_revshare` (P1). ACH waits for `payment_intent.succeeded` to chain invoicereceipt + revshare.
 
 - **`payment_intent.succeeded`** — two cases:
-  1. Quarterly subsequent payment (metadata `payment_number` is 2-4): sets `payN_status='succeeded'`, chains `automation_CONTRACT_invoicereceipt` for that payment number.
-  2. ACH first-payment cleared (`pay1_status === "processing"`): flips to `"succeeded"`, chains `automation_CONTRACT_invoicereceipt` for payment 1.
+  1. Quarterly subsequent payment (metadata `payment_number` is 2-4): sets `payN_status='succeeded'`, chains `automation_CONTRACT_invoicereceipt` then `automation_CONTRACT_revshare` for that payment number.
+  2. ACH first-payment cleared (`pay1_status === "processing"`): flips to `"succeeded"`, chains `automation_CONTRACT_invoicereceipt` then `automation_CONTRACT_revshare` for payment 1.
+
+The revshare chain typically returns `pending: true` immediately after payment (Tracy's Revenue Master sheet not yet updated) — the daily `pg_cron` sweep (02:00 UTC, see `supabase/cron/revshare-sweep.sql`) retries until it succeeds or remains permanently failed.
 
 #### BoldSign webhook (`router/webhooks.ts::maybeHandleBoldSignWebhook`)
 

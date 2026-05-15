@@ -1,10 +1,10 @@
 # API action catalog (`vfo-admin-api`)
 
-All **128 actions** dispatched by `vfo-admin-api` in v196. The post-refactor catalog cites file paths (not line numbers — line numbers shift across handler edits). Action names and behavior are byte-equivalent to v194.
+All **129 actions** dispatched by `vfo-admin-api`. The post-refactor catalog cites file paths (not line numbers — line numbers shift across handler edits). Action names and behavior are byte-equivalent to v194 except for explicit follow-up changes noted in entries below.
 
 Format: action · `file` · tables read / written · chains / external. Table prefix `pipeline_map1` is shortened to `pmap1` and `pipeline_sandbox_config` to `psbx_cfg` for brevity. All file references are relative to `C:\vfo-edge-functions\supabase\functions\vfo-admin-api\`.
 
-> **Pre-refactor count.** v194 had 130 dispatch references. Phase 6 mechanical removed two: the duplicate `msm_update_client` registration (always unreachable) and the dead `automation_CONTRACT_stripewebhook` handler (doubly unreachable). The current count is 3 logins + 9 PUBLIC_HANDLERS + 116 AUTH_HANDLERS = **128**.
+> **Pre-refactor count.** v194 had 130 dispatch references. Phase 6 mechanical removed two: the duplicate `msm_update_client` registration (always unreachable) and the dead `automation_CONTRACT_stripewebhook` handler (doubly unreachable). After that the total was 128. `feature/revshare-automation` then added `automation_CONTRACT_revshare_sweep` to PUBLIC_HANDLERS. **Current count is 3 logins + 10 PUBLIC_HANDLERS + 116 AUTH_HANDLERS = 129.**
 
 ---
 
@@ -43,7 +43,8 @@ These sit BEFORE the auth gate. Triggered either by user-facing token links (`/d
 | `automation_CONTRACT_paymentemail` | `actions/pipeline/contract-payment-email.ts` | `pmap1`, `clients`, `psbx_cfg`, `email_templates` | — | Gmail draft to client with `/pay?token=...` link |
 | `automation_CONTRACT_loadpayment` | `actions/pipeline/contract-load-payment.ts` | `pmap1`(by checkout_token), `clients` | — | — |
 | `automation_CONTRACT_stripecheckout` | `actions/pipeline/contract-stripe-checkout.ts` | `pmap1`(by checkout_token), `psbx_cfg` | — | Stripe `POST /v1/checkout/sessions` (returns redirect URL) |
-| `automation_CONTRACT_revshare` | `actions/pipeline/contract-revshare.ts` | `pmap1`, `clients`, `members`, `psbx_cfg` | `pmap1`(recN_rev_share/_paid/_email_sent, member_contrib_status, c24_email_sent) | Google Sheets (Master + batch sheet) read · Stripe `POST /v1/transfers` to `members.stripe_account_id` · 1-2 Gmail drafts (member rev-share + Tracy intro email on payment 1) |
+| `automation_CONTRACT_revshare` | `actions/pipeline/contract-revshare.ts` | `pmap1`, `clients`, `members`, `psbx_cfg` | `pmap1`(recN_rev_share/_paid/_email_sent, member_contrib_status, c24_email_sent) | Google Sheets (Master + batch sheet) read · Stripe `POST /v1/transfers` to `members.stripe_account_id` · 1-2 Gmail drafts (member rev-share + Tracy intro email on payment 1). Duplicate guard skips only on resolved state (`rev_paid` in Yes/Money Mapping/N/A) — Failed and Pending re-attempt on next call. Triggered by Stripe webhook chain + daily sweep (see `_revshare_sweep`). |
+| `automation_CONTRACT_revshare_sweep` | `actions/pipeline/contract-revshare-sweep.ts` | `pmap1` (scans rec1-4 across all rows) | — (chains, no direct writes) | Chains `automation_CONTRACT_revshare` for every unresolved rec1-4 (NULL / Pending / previously-Failed). Service-role auth required (401 otherwise). Triggered by daily pg_cron job (`supabase/cron/revshare-sweep.sql`, 02:00 UTC). |
 | `automation_CONTRACT_confirmationemail` | `actions/pipeline/contract-confirmation-email.ts` | `pmap1`, `clients`, `members`, `psbx_cfg`, `email_templates` | `pmap1`(confirmation_status='Sent') | Gmail draft to client |
 | `automation_CONTRACT_invoicereceipt` | `actions/pipeline/contract-invoice-receipt.ts` | `pmap1`, `clients`, `members`, `psbx_cfg`, `email_templates`, `document_numbers` | `pmap1`(invoice_number, invoice_drive_id, recN_number/_drive_id/_email_sent), `document_numbers` (insert) | html2pdf.app (×2) · Google Drive (find/create folder, upload ×2) · Gmail draft with PDF attachments |
 

@@ -301,17 +301,16 @@ BoldSign fires `event.eventType='Signed'` with CEO email AND eventually `event.e
 
 ---
 
-## Step 13 — Revenue share (open question)
+## Step 13 — Revenue share
 
-**Trigger:** **Unknown.** Not in any frontend grep, not chained from any webhook handler in the source. See [open question 1 in README.md](README.md#open-questions-surfaced-across-all-flows). Three hypotheses:
-1. External cron (none observed in the repo).
-2. Manual invocation via `curl` or Supabase Studio after Tracy reconciles the Revenue Master sheet.
-3. UI button somewhere not yet read (no grep match in `src/`).
+**Trigger (two paths, both automatic):**
+1. **Push chain from Stripe webhook:** `router/webhooks.ts` chains `_revshare` immediately after `_invoicereceipt` in all three Stripe webhook chain sites (MAP1 first-card, quarterly N succeeded, ACH cleared). First attempt usually returns `pending: true` because Tracy's Revenue Master sheet isn't updated yet — silent and non-fatal.
+2. **Daily sweep via `automation_CONTRACT_revshare_sweep`:** `pg_cron` runs at 02:00 UTC (see `vfo-edge-functions/supabase/cron/revshare-sweep.sql`). The sweep enumerates every `pipeline_map1` row where any `rec1-4_number` is set but `rev_paid` is not yet `Yes`/`Money Mapping`/`N/A` — and re-invokes `_revshare` for each. Includes previously-`Failed` transfers, so misconfigured Stripe Connect accounts auto-recover once fixed. No manual path.
 
-**Handler:** `automation_CONTRACT_revshare` ([admin-api:1248-1657](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)).
+**Handler:** `automation_CONTRACT_revshare` ([actions/pipeline/contract-revshare.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/contract-revshare.ts)).
 
-**What it does (per payment number, after manual trigger):**
-1. Validates `pipeline_map1.rec{N}_number` exists. If `rec{N}_rev_share` already set non-Pending, idempotent skip.
+**What it does (per payment number):**
+1. Validates `pipeline_map1.rec{N}_number` exists. **Duplicate guard:** skips only if `rev_share` is set non-`Pending` AND `rev_paid` is in `Yes`/`Money Mapping`/`N/A — No Share Due`. `Failed` and `Pending` re-attempt on next call.
 2. Sets `rec{N}_rev_share='Pending'`.
 3. Refreshes Google access token (covers Sheets + Gmail + Drive).
 4. Reads Google Sheet `MASTER_SHEET_ID` (`Home Page!A1:I200`), finds `client_ref` in col A, extracts batch sheet ID from the col-I hyperlink. If not found: returns `pending: true, reason: "Client ref not found in Revenue Master"` and exits.
@@ -396,9 +395,9 @@ The `pipeline_map1` row evolves through these column writes, in order:
 4. **Wrong BoldSign webhook URL** → `c17/c18` flip but no chain. CEO countersign + payment email never get created. Stalls until manual intervention.
 5. **`document_numbers` race** → two concurrent `_invoicereceipt` calls could allocate the same number. Not protected by DB unique constraint or transaction.
 6. **Drive folder name change** → if client is renamed, prior PDFs orphan in the old folder.
-7. **Sheets verification stuck** → `_revshare` returns `pending: true` but does not auto-retry. Tracy must invoke the action again after fixing the sheet (mechanism unknown — see open question).
-8. **Stripe Transfer fails** → `rec{N}_rev_paid='Failed'` but the rev-share email + Tracy email still get drafted (handler proceeds past the transfer).
-9. **Idempotency**: most handlers check a single column to skip duplicate work (`c16_sent === 'Yes'`, `confirmation_status === 'Sent'`, `rec{N}_rev_share` non-Pending). The dual `Signed` + `Completed` BoldSign events are explicitly idempotent. Stripe webhook checks `pay1_status` empty.
+7. **Sheets verification stuck** → `_revshare` returns `pending: true`. The daily `_revshare_sweep` cron auto-retries every 24h until Tracy's sheet matches.
+8. **Stripe Transfer fails** → `rec{N}_rev_paid='Failed'`. Member email + Tracy email are **NOT** drafted on Failed (gated on `rev_paid === "Yes"` at [contract-revshare.ts:347](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/contract-revshare.ts)). The daily sweep auto-retries Failed transfers, so once the Stripe Connect account is fixed (typically a missing `transfers` capability) the next sweep run completes the flow.
+9. **Idempotency**: the rev-share duplicate guard skips only when `rev_paid` is in `Yes`/`Money Mapping`/`N/A — No Share Due` — `Pending` and `Failed` retry on next call. Other handlers check single columns: `c16_sent === 'Yes'`, `confirmation_status === 'Sent'`. The dual `Signed` + `Completed` BoldSign events are explicitly idempotent. Stripe webhook checks `pay1_status` empty.
 
 ## Cross-references
 

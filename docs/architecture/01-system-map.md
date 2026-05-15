@@ -1,8 +1,8 @@
 # System map
 
-The top-level picture. Two repos, one Supabase project, four external integrations, one static-hosted SPA. The whole system is held together by an **88-line orchestrator** in `vfo-admin-api/index.ts` that dispatches to **128 modular action handlers** plus two routers (`router/dispatch.ts`, `router/webhooks.ts`).
+The top-level picture. Two repos, one Supabase project, four external integrations, one static-hosted SPA. The whole system is held together by an **88-line orchestrator** in `vfo-admin-api/index.ts` that dispatches to **129 modular action handlers** plus two routers (`router/dispatch.ts`, `router/webhooks.ts`).
 
-> **Refactor history.** The edge function was a single 4371-line file as of `vfo-admin-api` v194 (deployed 2026-05-07). The modular extraction was completed in 18 phased commits and deployed as v196 on 2026-05-08. All 128 action handlers preserve their original behavior byte-equivalently — the public API contract (action names, response shapes, DB writes) is unchanged. See [03-edge-functions.md](03-edge-functions.md) for the new file layout.
+> **Refactor history.** The edge function was a single 4371-line file as of `vfo-admin-api` v194 (deployed 2026-05-07). The modular extraction was completed in 18 phased commits and deployed as v196 on 2026-05-08. All 128 action handlers at that point preserved their original behavior byte-equivalently — the public API contract (action names, response shapes, DB writes) was unchanged. One new action (`automation_CONTRACT_revshare_sweep`) was added post-refactor for the rev-share cron sweep (current total: 129). See [03-edge-functions.md](03-edge-functions.md) for the new file layout.
 
 ## High-level diagram
 
@@ -22,8 +22,8 @@ The top-level picture. Two repos, one Supabase project, four external integratio
                                ▼                                  ▼
                           ┌─────────────────────────────────────────────┐
                           │   SUPABASE EDGE FUNCTION: vfo-admin-api      │
-                          │   (128 actions, 88-line orchestrator         │
-                          │    + 128 handler files + 2 routers)          │
+                          │   (129 actions, 88-line orchestrator         │
+                          │    + 129 handler files + 2 routers)          │
                           │                                              │
                           │   Three dispatch surfaces:                   │
                           │   1. Stripe webhook  (router/webhooks.ts —   │
@@ -188,4 +188,4 @@ These are explicitly absent from the codebase (read-only observation, no judgeme
 - **No TypeScript** in the React app (only in the Deno edge functions).
 - **No environment-specific configs** for the frontend (Supabase ANON_KEY is hardcoded). `VITE_API_URL` IS honored by `src/lib/api.js`, `src/pages/PayPage.jsx`, and `src/pages/DecidePage.jsx` — production behavior unchanged via fallback to the hardcoded prod URL when the env var is unset. (Added on `test/frontend-vs-local-function` branch, commit `3bf0963`, for local-function smoke testing.)
 - **No observability beyond `console.log`/`console.error`** in either edge function. No structured logging, no metrics export.
-- **No background jobs / cron** observed. Several columns suggest reminders should run periodically (`c14_followup1_sent`, etc.) but no implementation found.
+- **One background job: daily revshare sweep.** `pg_cron` runs `automation_CONTRACT_revshare_sweep` at 02:00 UTC via `pg_net.http_post`. See `vfo-edge-functions/supabase/cron/revshare-sweep.sql` for setup. Reminder columns on `pipeline_map1` (`c14_followup1_sent`, `c17_followup1_sent`, `pay1_followup1_sent`, etc.) remain unimplemented — no code writes them.

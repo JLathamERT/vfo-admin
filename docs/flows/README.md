@@ -32,8 +32,7 @@ Every flow doc follows the same structure:
 
 These are the unresolved items that would need user/external confirmation:
 
-1. **`automation_CONTRACT_revshare` invocation** — no observed trigger in code or webhooks. Possibly cron / manual / external. Documented in [contract-and-payment.md](contract-and-payment.md).
-2. **BoldSign webhook URL configuration** — both standalone and embedded handlers exist; only the standalone chains downstream. Live URL must be confirmed externally. Documented in [boldsign-webhook.md](boldsign-webhook.md).
-3. **Stripe quarterly payment 2-4 invocation** — no observed code path creates these PaymentIntents. Documented in [stripe-webhook.md](stripe-webhook.md).
-4. **Reminder cron jobs** — `c14_followup1_sent`, `c14_followup2_sent`, `c17_followup1_sent`, `c17_followup2_sent`, `pay1_followup1_sent`, `pay1_followup2_sent` columns exist on `pipeline_map1` but no code writes them. May be unimplemented or external. Documented in [contract-and-payment.md](contract-and-payment.md).
-5. **GC purchase fulfillment** — confirmed: handled by the Stripe webhook handler at [admin-api:270-288](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts) via `metadata.member_number` + `metadata.credits`. Documented in [gift-credits.md](gift-credits.md).
+1. **BoldSign webhook URL configuration** — both standalone and embedded handlers exist; only the standalone chains downstream. Live URL must be confirmed externally. Documented in [boldsign-webhook.md](boldsign-webhook.md).
+2. **Stripe quarterly payment 2-4 invocation** — no observed code path creates these PaymentIntents. Documented in [stripe-webhook.md](stripe-webhook.md).
+3. **Reminder cron jobs** — `c14_followup1_sent`, `c14_followup2_sent`, `c17_followup1_sent`, `c17_followup2_sent`, `pay1_followup1_sent`, `pay1_followup2_sent` columns exist on `pipeline_map1` but no code writes them. May be unimplemented or external. Documented in [contract-and-payment.md](contract-and-payment.md).
+4. **GC purchase fulfillment** — confirmed: handled by the Stripe webhook handler at [admin-api:270-288](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts) via `metadata.member_number` + `metadata.credits`. Documented in [gift-credits.md](gift-credits.md).
