@@ -96,14 +96,13 @@ The biggest files in the codebase are catalogued in [architecture/06-orchestrati
 
 These items are flagged across multiple docs and remain unresolved without external confirmation:
 
-1. **`automation_CONTRACT_revshare` invocation** — no observed trigger in code or webhooks. Possibly cron / manual / external. See [flows/contract-and-payment.md](flows/contract-and-payment.md#step-13--revenue-share-open-question).
-2. **BoldSign webhook URL** — both standalone and embedded handlers exist; only the standalone chains downstream. Live URL must be confirmed in BoldSign's account settings. See [flows/boldsign-webhook.md](flows/boldsign-webhook.md).
-3. **Stripe quarterly payments 2-4** — no observed code path creates them with `metadata.payment_number`. May be manual / external / unimplemented. See [flows/stripe-webhook.md](flows/stripe-webhook.md#sub-branch-b1--quarterly-subsequent-payment).
-4. **Reminder followup columns** — `c14_followup{1,2}_sent`, `c17_followup{1,2}_sent`, `pay1_followup{1,2}_sent`, `c17_followup_sent_date` exist but no code writes them. Cron / external / unimplemented? See [flows/contract-and-payment.md](flows/contract-and-payment.md#reminder-followups-unimplemented).
-5. **`gc_create_checkout` admin-only gate** — gated by `ADMIN_ONLY_ACTIONS` but invoked from a member-mounted React component. Members would currently get HTTP 403. See [flows/gift-credits.md](flows/gift-credits.md#auth).
-6. **Gmail OAuth account identity** — which Gmail account owns the refresh token, and where do the drafts appear? Not visible from code.
-7. **`boldsign_template_id` column** — read but never used in the BoldSign API request. Vestigial?
-8. **`stripe_test_mode` column** — exists on `pipeline_sandbox_config` but no code reads it.
+1. **BoldSign webhook URL** — both standalone and embedded handlers exist; only the standalone chains downstream. Live URL must be confirmed in BoldSign's account settings. See [flows/boldsign-webhook.md](flows/boldsign-webhook.md).
+2. **Stripe quarterly payments 2-4** — no observed code path creates them with `metadata.payment_number`. May be manual / external / unimplemented. See [flows/stripe-webhook.md](flows/stripe-webhook.md#sub-branch-b1--quarterly-subsequent-payment).
+3. **Reminder followup columns** — `c14_followup{1,2}_sent`, `c17_followup{1,2}_sent`, `pay1_followup{1,2}_sent`, `c17_followup_sent_date` exist but no code writes them. Cron / external / unimplemented? See [flows/contract-and-payment.md](flows/contract-and-payment.md#reminder-followups-unimplemented).
+4. **`gc_create_checkout` admin-only gate** — gated by `ADMIN_ONLY_ACTIONS` but invoked from a member-mounted React component. Members would currently get HTTP 403. See [flows/gift-credits.md](flows/gift-credits.md#auth).
+5. **Gmail OAuth account identity** — which Gmail account owns the refresh token, and where do the drafts appear? Not visible from code.
+6. **`boldsign_template_id` column** — read but never used in the BoldSign API request. Vestigial?
+7. **`stripe_test_mode` column** — exists on `pipeline_sandbox_config` but no code reads it.
 
 ## Verification
 

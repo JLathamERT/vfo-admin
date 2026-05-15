@@ -93,15 +93,14 @@ These are the components where most of the per-feature logic and `callApi` calls
 | `automation_save_email_template` | EmailTemplatesPanel save | [EmailTemplatesPanel.jsx:40](src/components/admin/EmailTemplatesPanel.jsx) |
 | `member_load_pipeline` | Member viewing a client's MAP1 status | [MemberMSMTracking.jsx:484](src/components/member/MemberMSMTracking.jsx) |
 
-## Open question: how is `automation_CONTRACT_revshare` invoked?
+## How `automation_CONTRACT_revshare` is invoked
 
-This is the only `automation_*` action with no observed trigger. It's not in any callApi grep result, not chained from any of the Stripe webhook event handlers (lines 222-441), and not a follow-up from `_invoicereceipt` (line 1812-2188). Possibilities, none verified:
+Two auto-trigger paths, no manual surface:
 
-1. There may be a separate scheduled task / cron / GitHub Action invoking it. No such file was found in `.github/`, `package.json`, or scripts.
-2. It may be invoked via `curl` or Supabase Studio manually by Tracy / admin staff after reconciling the Revenue Master sheet (the function early-exits with `pending: true` until Tracy's numbers verify, suggesting human-in-the-loop).
-3. There may be a UI button somewhere I haven't read — but the action name does not appear in the frontend grep at all.
+1. **Push chain from Stripe webhook** — `router/webhooks.ts` chains `_revshare` immediately after `_invoicereceipt` in all three Stripe chain sites (MAP1 card P1, quarterly N succeeded, ACH cleared). First call usually returns `pending: true` because Tracy's Revenue Master sheet hasn't been updated yet — silent.
+2. **Daily sweep via `automation_CONTRACT_revshare_sweep`** — a `pg_cron` job (02:00 UTC) calls the sweep, which enumerates every `pipeline_map1` row where `rec{N}_number` is set but `rev_paid` is not yet `Yes`/`Money Mapping`/`N/A`, and re-invokes `_revshare` for each. Also retries previously-`Failed` transfers so misconfigured Connect accounts auto-recover. Cron SQL lives at `vfo-edge-functions/supabase/cron/revshare-sweep.sql` (manual-apply with real service-role key — placeholder in committed file).
 
-Recommend confirming with the user / inspecting external systems. To be revisited in [flows/contract-and-payment.md](../flows/contract-and-payment.md) (Phase E).
+See [flows/contract-and-payment.md](../flows/contract-and-payment.md#step-13--revenue-share) Step 13.
 
 ## Hardcoded program-name dependencies (frontend)
 
