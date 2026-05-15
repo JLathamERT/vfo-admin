@@ -14,7 +14,7 @@ The specialist roster. Most columns are display/marketing text (the "D&B" prefix
 | `short_bio` / `long_bio` | text | |
 | `branding` | text | |
 | `details_and_benefits` | text | |
-| `sort_order` | integer | default `0`. Display order. |
+| `sort_order` | integer | default `0`, nullable. Display order. Renormalized to 1-based alphabetical position by `name` on every `save_specialist` insert. Edits do not touch this column. The `save_specialist_order` admin reorder API still exists but is overridden on the next insert. |
 | `background_check` | text | |
 | `D&B_strategy_expertise` | text | |
 | `D&B_cutoff_date` | text | (Stored as text, not date) |

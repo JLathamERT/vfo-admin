@@ -65,7 +65,7 @@ All dispatched AFTER `middleware/auth.ts::authenticate()` validates body.token. 
 
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
-| `save_specialist` | `actions/specialists/save.ts` | — | `experts`, `vfo_ecosystem_assignments` (delete+insert), `ciq_assignments` (delete+insert) | — |
+| `save_specialist` | `actions/specialists/save.ts` | — | `experts`, `vfo_ecosystem_assignments` (delete+insert), `ciq_assignments` (delete+insert). On **insert** (no `editing_id`), also renormalizes `experts.sort_order` for every row to its 1-based alphabetical position by `name`. **Edit** branch does not touch `sort_order`. | — |
 | `save_specialist_order` | `actions/specialists/save-order.ts` | — | `experts.sort_order` | — |
 | `delete_specialist` | `actions/specialists/delete.ts` | — | `member_exclusions`, `vfo_ecosystem_assignments`, `ciq_assignments`, `experts` (delete chain) | — |
 | `upload_headshot` | `actions/specialists/upload-headshot.ts` | — | Supabase storage `headshots` bucket | — |
