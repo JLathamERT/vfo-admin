@@ -53,7 +53,7 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 The portal itself only fires `load_data` (line 85). All deeper actions are fired by the panels it renders:
 - `MembersPanel` → `add_member_full`, `save_member`, `delete_member`, `member_profile_load/save`, `gc_*`, `member_program_notes_*`, `load_member_login`, `create/update_member_login` ([MembersPanel.jsx:207, 292, 300, 313, 550, 615-617, 628, 716, 727, 737, 742, 747](src/components/admin/MembersPanel.jsx))
 - `SpecialistsPanel` → `save_specialist`, `delete_specialist`, `upload_headshot` ([SpecialistsPanel.jsx:115, 123, 135](src/components/admin/SpecialistsPanel.jsx))
-- `AutomationPanel` → `automation_load_pipelines`, `automation_load_pipeline_data` ([AutomationPanel.jsx:290, 299](src/components/admin/AutomationPanel.jsx)) — **read-only view**; the actual mutations come from inside ClientDetail's MAP1 tab.
+- `AutomationPanel` → `automation_load_pipelines`, `automation_load_pipeline_data`, `save_sandbox_config` ([AutomationPanel.jsx](src/components/admin/AutomationPanel.jsx)) — **read-only view of pipeline rows**, plus a clickable mode badge in the header that calls `save_sandbox_config` to toggle the MAP1 sandbox/live mode. The pipeline-row mutations themselves come from inside ClientDetail's MAP1 tab.
 - `EmailTemplatesPanel` → `automation_load_email_templates`, `automation_save_email_template` ([EmailTemplatesPanel.jsx:18, 40](src/components/admin/EmailTemplatesPanel.jsx))
 - `AdminEditor` → `load_admins`, `create_admin`, `delete_admin` ([AdminEditor.jsx:17, 35, 44](src/components/admin/AdminEditor.jsx))
 - `AdminSettings` → `update_my_passcode` ([AdminSettings.jsx:19](src/components/admin/AdminSettings.jsx))
@@ -115,7 +115,7 @@ A **dual-mode** page rendered by both `/admin/client/:clientId` and `/member/cli
 
 ## MAP1 / contract / payment UI flow
 
-The MAP1 contract-and-payment chain is the most complex frontend flow. It is **driven from inside `ClientDetail`'s MAP1 tab** ([ClientTrackViewV2.jsx](src/components/admin/map1/ClientTrackViewV2.jsx) — 42KB), with [AutomationPanel](src/components/admin/AutomationPanel.jsx) acting only as a *read-only observer*.
+The MAP1 contract-and-payment chain is the most complex frontend flow. It is **driven from inside `ClientDetail`'s MAP1 tab** ([ClientTrackViewV2.jsx](src/components/admin/map1/ClientTrackViewV2.jsx) — 42KB). [AutomationPanel](src/components/admin/AutomationPanel.jsx) is a read-only observer of pipeline rows; its only write is the sandbox/live-mode toggle in the panel header.
 
 ### Where UI mutations happen
 

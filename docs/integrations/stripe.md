@@ -5,7 +5,7 @@ Stripe handles **two** distinct payment flows in this system:
 1. **MAP1 service payments** — recurring quarterly or one-time payment for the VFO membership engagement. Customers, Checkout Sessions, PaymentIntents, and Transfers (revenue share to advisors).
 2. **GC marketplace purchases** — one-shot Stripe Checkout for buying gift credits.
 
-Both flows share the same `STRIPE_WEBHOOK_SECRET` and route through the same webhook endpoint (the `vfo-admin-api` function gated by `stripe-signature`). They are disambiguated by Checkout-Session metadata.
+Both flows route through the same webhook endpoint (the `vfo-admin-api` function gated by `stripe-signature`). They are disambiguated by Checkout-Session metadata. The webhook handler verifies the incoming signature against BOTH `STRIPE_WEBHOOK_SECRET` and `STRIPE_WEBHOOK_SECRET_SANDBOX` — whichever validates wins, so live and sandbox Stripe accounts can both deliver to the same URL.
 
 ## Env vars
 
@@ -13,7 +13,8 @@ Both flows share the same `STRIPE_WEBHOOK_SECRET` and route through the same web
 |---|---|---|
 | `STRIPE_SECRET_KEY` | Live secret key | — |
 | `STRIPE_SECRET_KEY_SANDBOX` | Test-mode secret key | Selected when `pipeline_sandbox_config.sandbox_mode=true` for "MAP 1" |
-| `STRIPE_WEBHOOK_SECRET` | HMAC secret for webhook signature verification | One value covers live + test (no sandbox variant) |
+| `STRIPE_WEBHOOK_SECRET` | HMAC secret for verifying **live** webhook signatures | Verification handler tries this first |
+| `STRIPE_WEBHOOK_SECRET_SANDBOX` | HMAC secret for verifying **test/sandbox** webhook signatures | Verification handler also tries this; either secret validates a webhook |
 
 Sandbox switching is per-pipeline and per-action: handlers read `pipeline_sandbox_config` (`pipeline='MAP 1'`) at the top of each call and pick the live/sandbox key accordingly. **Notable exception:** `gc_create_checkout` uses `STRIPE_SECRET_KEY` unconditionally ([vfo-admin-api/index.ts:2810](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) — no sandbox path for GC purchases.
 

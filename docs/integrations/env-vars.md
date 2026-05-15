@@ -23,7 +23,8 @@ Confirmed via `Deno.env.get(...)` audit of `vfo-admin-api/index.ts` and `boldsig
 |---|---|---|
 | `STRIPE_SECRET_KEY` | `automation_CONTRACT_stripecustomer`, `automation_CONTRACT_stripecheckout`, `automation_CONTRACT_revshare`, Stripe webhook handler, `gc_create_checkout` | Live mode |
 | `STRIPE_SECRET_KEY_SANDBOX` | same as above except `gc_create_checkout` | Test-mode key. Selected when `pipeline_sandbox_config.sandbox_mode=true` for `MAP 1`. |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification (`router/webhooks.ts::maybeHandleStripeWebhook`) | Single secret covers both live and test events. |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification (`router/webhooks.ts::maybeHandleStripeWebhook`) — live secret | Stripe issues separate signing secrets per mode. The handler tries this first when verifying. |
+| `STRIPE_WEBHOOK_SECRET_SANDBOX` | Same handler — sandbox/test-mode secret | Handler also tries this; either secret can validate an incoming webhook so live and sandbox Stripe accounts can deliver to the same function URL. |
 
 > **Note:** `automation_CONTRACT_stripewebhook` was removed in Phase 6 mechanical (was doubly-dead code). It no longer reads any env vars.
 
@@ -95,7 +96,7 @@ Quick "what does this action need?" lookup:
 | Action / handler | Env vars required |
 |---|---|
 | `admin_login`, `member_login`, `login`, plus all CRUD reads | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` |
-| Stripe webhook handler (`router/webhooks.ts::maybeHandleStripeWebhook`) | `STRIPE_WEBHOOK_SECRET`, `STRIPE_SECRET_KEY` (or sandbox), `SUPABASE_*` |
+| Stripe webhook handler (`router/webhooks.ts::maybeHandleStripeWebhook`) | `STRIPE_WEBHOOK_SECRET` and/or `STRIPE_WEBHOOK_SECRET_SANDBOX` (at least one must be set), `STRIPE_SECRET_KEY` (or sandbox), `SUPABASE_*` |
 | `automation_PCADMIN_finaldecision` (No path only) | `GMAIL_*`, `SUPABASE_*` |
 | `automation_PCADMIN_pricing`, `automation_PCADMIN_extrameeting` (Yes path) | `SUPABASE_*` (then chains) |
 | `automation_PCADMIN_extrameeting` (No path) | `GMAIL_*`, `SUPABASE_*` |

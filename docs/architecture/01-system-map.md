@@ -1,8 +1,8 @@
 # System map
 
-The top-level picture. Two repos, one Supabase project, four external integrations, one static-hosted SPA. The whole system is held together by an **88-line orchestrator** in `vfo-admin-api/index.ts` that dispatches to **129 modular action handlers** plus two routers (`router/dispatch.ts`, `router/webhooks.ts`).
+The top-level picture. Two repos, one Supabase project, four external integrations, one static-hosted SPA. The whole system is held together by an **88-line orchestrator** in `vfo-admin-api/index.ts` that dispatches to **130 modular action handlers** plus two routers (`router/dispatch.ts`, `router/webhooks.ts`).
 
-> **Refactor history.** The edge function was a single 4371-line file as of `vfo-admin-api` v194 (deployed 2026-05-07). The modular extraction was completed in 18 phased commits and deployed as v196 on 2026-05-08. All 128 action handlers at that point preserved their original behavior byte-equivalently — the public API contract (action names, response shapes, DB writes) was unchanged. One new action (`automation_CONTRACT_revshare_sweep`) was added post-refactor for the rev-share cron sweep (current total: 129). See [03-edge-functions.md](03-edge-functions.md) for the new file layout.
+> **Refactor history.** The edge function was a single 4371-line file as of `vfo-admin-api` v194 (deployed 2026-05-07). The modular extraction was completed in 18 phased commits and deployed as v196 on 2026-05-08. All 128 action handlers at that point preserved their original behavior byte-equivalently — the public API contract (action names, response shapes, DB writes) was unchanged. Two new actions were added post-refactor: `automation_CONTRACT_revshare_sweep` (rev-share cron sweep) and `save_sandbox_config` (admin sandbox/live-mode toggle). Current total: 130. See [03-edge-functions.md](03-edge-functions.md) for the new file layout.
 
 ## High-level diagram
 
@@ -22,8 +22,8 @@ The top-level picture. Two repos, one Supabase project, four external integratio
                                ▼                                  ▼
                           ┌─────────────────────────────────────────────┐
                           │   SUPABASE EDGE FUNCTION: vfo-admin-api      │
-                          │   (129 actions, 88-line orchestrator         │
-                          │    + 129 handler files + 2 routers)          │
+                          │   (130 actions, 88-line orchestrator         │
+                          │    + 130 handler files + 2 routers)          │
                           │                                              │
                           │   Three dispatch surfaces:                   │
                           │   1. Stripe webhook  (router/webhooks.ts —   │
