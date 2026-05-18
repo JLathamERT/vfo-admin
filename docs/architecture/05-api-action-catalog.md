@@ -50,7 +50,7 @@ These sit BEFORE the auth gate. Triggered either by user-facing token links (`/d
 | `automation_CONTRACT_confirmationemail` | `actions/pipeline/contract-confirmation-email.ts` | `pmap1`, `clients`, `members`, `psbx_cfg`, `email_templates` | `pmap1`(confirmation_status='Sent') | Gmail draft to client |
 | `automation_CONTRACT_invoicereceipt` | `actions/pipeline/contract-invoice-receipt.ts` | `pmap1`, `clients`, `members`, `psbx_cfg`, `email_templates`, `document_numbers` | `pmap1`(invoice_number, invoice_drive_id, recN_number/_drive_id/_email_sent), `document_numbers` (insert) | html2pdf.app (×2) · Google Drive (find/create folder, upload ×2) · Gmail draft with PDF attachments |
 
-> **Removed in Phase 6 mechanical:** `automation_CONTRACT_stripewebhook` — was a doubly-dead handler (real Stripe events caught by signature header; synthetic-action assignment in index.ts was unreachable from dispatch). v196 returns 401/400 for explicit calls; no real caller invokes this action by name.
+> **Removed in Phase 6 mechanical:** `automation_CONTRACT_stripewebhook` — was a doubly-dead handler (real Stripe events caught by signature header; synthetic-action assignment in index.ts was unreachable from dispatch). The function returns 401/400 for explicit calls; no real caller invokes this action by name.
 
 ---
 
@@ -277,7 +277,7 @@ These run AFTER the auth gate. The three handlers that take `req: Request` as a 
 
 ## Notes & oddities
 
-1. **`automation_CONTRACT_stripewebhook` was removed in Phase 6 mechanical.** It was doubly-dead: real Stripe events had the `stripe-signature` header and were caught by the webhook block; the synthetic-action assignment in `index.ts` (also removed) was unreachable from dispatch because the `action` const was destructured before the mutation. v196 returns 401 (no token) or 400 "Unknown action" (with token) for explicit calls.
+1. **`automation_CONTRACT_stripewebhook` was removed in Phase 6 mechanical.** It was doubly-dead: real Stripe events had the `stripe-signature` header and were caught by the webhook block; the synthetic-action assignment in `index.ts` (also removed) was unreachable from dispatch because the `action` const was destructured before the mutation. The function returns 401 (no token) or 400 "Unknown action" (with token) for explicit calls.
 2. **The duplicate `msm_update_client` handler was removed in Phase 6 mechanical.** Same effect achieved via Map dedupe in `router/dispatch.ts`.
 3. **The embedded BoldSign webhook handler in `router/webhooks.ts::maybeHandleBoldSignWebhook` does not chain downstream**, only the standalone `boldsign-webhook` function does. Live BoldSign webhook target should be confirmed (only the standalone function will trigger `automation_CONTRACT_ceocountersign` / `_stripecustomer`).
 4. **Action gating is enforced in two places**, both via `constants/role-gates.ts`:

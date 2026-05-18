@@ -4,7 +4,7 @@ Complete list of secrets and config-vars referenced by the edge functions, with 
 
 > **Integration helpers** (Phase 3 scaffolding) — `getStripeKey(isSandbox)` in `vfo-admin-api/integrations/stripe/client.ts`, `getBoldSignKey(isSandbox)` in `vfo-admin-api/integrations/boldsign/client.ts`, `getGoogleAccessToken()` in `vfo-admin-api/integrations/google/oauth.ts`, `loadSandboxConfig(supabase, pipelineName)` in `vfo-admin-api/integrations/sandbox-config.ts`. Phase 4 handlers were extracted byte-equivalently — most still call `Deno.env.get(...)` and `fetch(...)` directly; only `gc_create_checkout` adopted the Stripe helper. Adopting the rest is optional polish, not a refactor requirement.
 
-> **`verify_jwt` setting** — both functions now have `verify_jwt = false` in `vfo-edge-functions/supabase/config.toml` AND in the live registry (matched as of v196 / 2026-05-08). Public-token endpoints (`/decide`, `/pay`) require this so Kong gateway doesn't 401 their headerless requests. Application-level auth still happens via `middleware/auth.ts::authenticate()`. If you ever redeploy without `--no-verify-jwt`, the config setting now matches reality so it Just Works.
+> **`verify_jwt` setting** — both functions have `verify_jwt = false` in `vfo-edge-functions/supabase/config.toml` AND in the live registry (matched). Public-token endpoints (`/decide`, `/pay`) require this so Kong gateway doesn't 401 their headerless requests. Application-level auth still happens via `middleware/auth.ts::authenticate()`. The config setting matches reality, so plain `supabase functions deploy` Just Works (no `--no-verify-jwt` needed).
 
 ## Edge-function env vars
 
