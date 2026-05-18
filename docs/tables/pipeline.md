@@ -87,15 +87,16 @@ Set by `automation_PCADMIN_pricing` ([PFPricingForm.jsx:19](src/components/admin
 |---|---|---|
 | `stripe_customer_id` | text | **Stripe integration field.** Created by `automation_CONTRACT_stripecustomer`. |
 | `checkout_token` | text | One-time token used in `/pay?token=...` link. |
-| `payment_method_type` | text | `"card"` / `"ach"` / `"check"`. |
-| `card_processing_fee` | text | Computed when `payment_method_type='card'`. |
+| `payment_method_type` | text | `"card"` / `"ach"` / `"check"`. `check` set by `automation_CONTRACT_paidbycheck`; card/ach set by the Stripe webhook handler. |
+| `card_processing_fee` | text | Computed when `payment_method_type='card'`. NULL for check/ach. |
 | `pay1_followup_sent_date` | date | |
-| `pay1_followup1_sent` / `pay1_followup2_sent` | boolean | default `false` |
+| `pay1_followup1_sent` / `pay1_followup2_sent` | boolean | default `false` (unimplemented — no code writes these). |
+| `pay2_reminder_sent` / `pay3_reminder_sent` / `pay4_reminder_sent` | boolean | default `false`. Written `true` by `automation_CONTRACT_checkreminder_sweep` after successful Gmail draft. Only meaningful for check clients. |
 | `stripe_bank_token` | text | |
 | `bank_token` | text | |
-| `acct_last4` | text | Last-4 captured from Stripe PaymentIntent expansion. |
-| `pay1_status` … `pay4_status` | text | Status fields. Values: `"paid"`, `"scheduled"`, etc. |
-| `pay1_date` … `pay4_date` | date | |
+| `acct_last4` | text | Last-4 captured from Stripe PaymentIntent expansion. NULL for check. |
+| `pay1_status` … `pay4_status` | text | Status fields. Stripe path: `"succeeded"` / `"processing"` (ACH in-flight) / `"declined"` / `"auth_required"`. Check path: `"check_pending"` (admin clicked Paid via check, waiting for bank to clear) → `"succeeded"` (admin clicked Check cleared P{N}). |
+| `pay1_date` … `pay4_date` | date | Set by Stripe webhook for card/ach (today + 91/182/273 for P2-4), or by `automation_CONTRACT_paidbycheck` for check P1 (same +91/182/273 schedule). |
 
 ### Stage C24+ — Confirmation & receipts
 | Column | Type | Notes |

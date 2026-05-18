@@ -188,8 +188,9 @@ These are explicitly absent from the codebase (read-only observation, no judgeme
 - **No TypeScript** in the React app (only in the Deno edge functions).
 - **No environment-specific configs** for the frontend (Supabase ANON_KEY is hardcoded). `VITE_API_URL` IS honored by `src/lib/api.js`, `src/pages/PayPage.jsx`, and `src/pages/DecidePage.jsx` — production behavior unchanged via fallback to the hardcoded prod URL when the env var is unset. (Added on `test/frontend-vs-local-function` branch, commit `3bf0963`, for local-function smoke testing.)
 - **No observability beyond `console.log`/`console.error`** in either edge function. No structured logging, no metrics export.
-- **Two background jobs via `pg_cron` + `pg_net.http_post`:**
+- **Three background jobs via `pg_cron` + `pg_net.http_post`** (staggered to avoid races on the same `pipeline_map1` row):
   1. **Daily revshare sweep** — `automation_CONTRACT_revshare_sweep` at 02:00 UTC. Setup: `vfo-edge-functions/supabase/cron/revshare-sweep.sql`.
-  2. **Daily scheduled-payment charger** — `automation_CONTRACT_chargescheduled_sweep` at 03:00 UTC. Creates off-session Stripe PaymentIntents for MAP1 quarterly payments 2-4 once `payN_date` arrives. Setup: `vfo-edge-functions/supabase/cron/chargescheduled-sweep.sql`.
+  2. **Daily scheduled-payment charger** — `automation_CONTRACT_chargescheduled_sweep` at 03:00 UTC. Creates off-session Stripe PaymentIntents for MAP1 quarterly card/ACH payments 2-4 once `payN_date` arrives. Setup: `vfo-edge-functions/supabase/cron/chargescheduled-sweep.sql`.
+  3. **Daily check-payment reminder sweep** — `automation_CONTRACT_checkreminder_sweep` at 04:00 UTC. Drafts Gmail reminders for MAP1 quarterly check clients ~7 days before each P2/P3/P4 due date. Setup: `vfo-edge-functions/supabase/cron/check-reminder-sweep.sql`.
 
-  Reminder columns on `pipeline_map1` (`c14_followup1_sent`, `c17_followup1_sent`, `pay1_followup1_sent`, etc.) remain unimplemented — no code writes them.
+  Older reminder columns on `pipeline_map1` (`c14_followup1_sent`, `c17_followup1_sent`, `pay1_followup1_sent`, etc.) remain unimplemented — no code writes them. The newer `pay{2,3,4}_reminder_sent` columns are written by the check-reminder sweep.

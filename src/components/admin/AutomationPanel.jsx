@@ -70,6 +70,75 @@ function Badge({ text, color }) {
   )
 }
  
+function PaymentButtons({ row, onRefresh }) {
+  const [busy, setBusy] = useState(null)
+  const [err, setErr] = useState('')
+
+  async function clickPaidByCheck() {
+    if (!window.confirm('Mark this client as paying by check?\n\nThis sets pay1_status to "check_pending" and blocks the Stripe /pay link. The customer can no longer pay online unless this is undone manually in SQL.')) return
+    setBusy('paidbycheck'); setErr('')
+    try {
+      await callApi('automation_CONTRACT_paidbycheck', { client_id: row.client_id })
+      await onRefresh()
+    } catch (e) { setErr(e.message || String(e)) }
+    finally { setBusy(null) }
+  }
+
+  async function clickCheckCleared(n) {
+    const note = n === 1
+      ? 'This sets pay1_status to "succeeded" and fires the confirmation email, invoice/receipt PDFs, and revshare chain.'
+      : `This sets pay${n}_status to "succeeded" and fires the invoice/receipt PDFs and revshare chain for P${n}.`
+    if (!window.confirm(`Mark P${n} check as cleared?\n\n${note}\n\nOnly click this AFTER your bank has actually cleared the check.`)) return
+    setBusy(`cleared-${n}`); setErr('')
+    try {
+      await callApi('automation_CONTRACT_checkcleared', { client_id: row.client_id, payment_number: n })
+      await onRefresh()
+    } catch (e) { setErr(e.message || String(e)) }
+    finally { setBusy(null) }
+  }
+
+  const btnStyle = {
+    padding: '4px 10px', fontSize: '11px', fontWeight: '600',
+    background: 'rgba(34,197,94,0.15)', color: '#22c55e',
+    border: '1px solid rgba(34,197,94,0.4)', borderRadius: '4px',
+    cursor: 'pointer', fontFamily: 'inherit',
+  }
+  const btnDisabledStyle = { ...btnStyle, opacity: 0.5, cursor: 'not-allowed' }
+
+  const buttons = []
+
+  if (row.checkout_token && !row.pay1_status) {
+    buttons.push(
+      <button key="paidbycheck" onClick={clickPaidByCheck} disabled={!!busy} style={busy ? btnDisabledStyle : btnStyle}>
+        {busy === 'paidbycheck' ? 'Working...' : 'Paid via check'}
+      </button>
+    )
+  }
+
+  if (row.payment_method_type === 'check') {
+    for (const n of [1, 2, 3, 4]) {
+      const status = row[`pay${n}_status`]
+      const date = row[`pay${n}_date`]
+      if (!date) continue
+      if (status === 'succeeded') continue
+      buttons.push(
+        <button key={`cleared-${n}`} onClick={() => clickCheckCleared(n)} disabled={!!busy} style={busy ? btnDisabledStyle : btnStyle}>
+          {busy === `cleared-${n}` ? 'Working...' : `Check cleared P${n}`}
+        </button>
+      )
+    }
+  }
+
+  if (buttons.length === 0 && !err) return null
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+      {buttons}
+      {err && <span style={{ fontSize: '11px', color: '#ff6b6b', width: '100%', marginTop: '4px' }}>{err}</span>}
+    </div>
+  )
+}
+
 function Step({ title, done, children }) {
   return (
     <div style={{ display: 'flex', gap: '14px', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
@@ -85,7 +154,7 @@ function Step({ title, done, children }) {
   )
 }
  
-function ExpandedRow({ row }) {
+function ExpandedRow({ row, onRefresh }) {
   const currentPriorities = tryParseJSON(row.current_priorities)
   const parkedPriorities = tryParseJSON(row.parked_priorities)
   const undecidedReasons = tryParseJSON(row.undecided_reason)
@@ -214,9 +283,13 @@ function ExpandedRow({ row }) {
             {row.pay2_status && <F l="Pay 2" v={`${row.pay2_status}${row.pay2_date ? ' — ' + row.pay2_date : ''}`} />}
             {row.pay3_status && <F l="Pay 3" v={`${row.pay3_status}${row.pay3_date ? ' — ' + row.pay3_date : ''}`} />}
             {row.pay4_status && <F l="Pay 4" v={`${row.pay4_status}${row.pay4_date ? ' — ' + row.pay4_date : ''}`} />}
+            <PaymentButtons row={row} onRefresh={onRefresh} />
           </>
         ) : (
-          <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
+          <>
+            <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
+            <PaymentButtons row={row} onRefresh={onRefresh} />
+          </>
         )}
       </Step>
  
@@ -468,7 +541,7 @@ export default function AutomationPanel({ section }) {
                     </tr>
                     {isExpanded && (
                       <tr>
-                        <td colSpan={9} style={{ padding: 0 }}><ExpandedRow row={row} /></td>
+                        <td colSpan={9} style={{ padding: 0 }}><ExpandedRow row={row} onRefresh={() => loadPipelineData(selectedPipeline)} /></td>
                       </tr>
                     )}
                   </Fragment>

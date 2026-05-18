@@ -278,6 +278,57 @@ BoldSign fires `event.eventType='Signed'` with CEO email AND eventually `event.e
 
 ---
 
+## Step 10⅔ — Check-payment branch (parallel to Steps 10/10½ — never both)
+
+Some clients prefer to pay by physical check instead of using Stripe. The check branch replaces Steps 10 and 10½ entirely for those clients. The Stripe webhook + chargescheduled sweep do NOT run.
+
+**Entry point:** in the AdminPortal Automation tab, after the `/pay` email has been sent (`checkout_token IS NOT NULL`) but before any payment has been received (`pay1_status IS NULL`), a **"Paid via check"** button appears on the row. Admin clicks it when the client tells them they'd rather mail a check.
+
+**Handler: `automation_CONTRACT_paidbycheck`** ([actions/pipeline/contract-paidbycheck.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/contract-paidbycheck.ts)) — admin-only.
+
+**What it does:**
+1. Validates row has `checkout_token` set and `pay1_status IS NULL`.
+2. Sets `payment_method_type='check'`, `pay1_status='check_pending'`, `pay1_date=CURRENT_DATE`.
+3. If `payment_plan='Quarterly'`: sets `pay2/3/4_date = today + 91/182/273 days` (same offset Stripe would use).
+4. No chains. No emails. Admin will manually clear each check via the next handler.
+
+**Side effect:** the existing `automation_CONTRACT_stripecheckout` rejects with "Payment already completed" when `pay1_status` is truthy. So the `/pay` link is auto-blocked — no risk of accidental double-pay.
+
+---
+
+### Step 10⅔a — Admin clicks "Check cleared P{N}" once each check actually clears the bank
+
+For each payment cycle (P1 for one-time, P1+P2+P3+P4 for quarterly), the row shows a **"Check cleared P{N}"** button when `payment_method_type='check'` AND `pay{N}_date` is set AND `pay{N}_status != 'succeeded'`.
+
+**Handler: `automation_CONTRACT_checkcleared`** ([actions/pipeline/contract-checkcleared.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/contract-checkcleared.ts)) — admin-only.
+
+**What it does:**
+1. Validates `payment_method_type='check'` and `pay{N}_status` is NULL or `'check_pending'`.
+2. Sets `pay{N}_status='succeeded'`. For N=1 also sets `confirmation_status='Confirmation Needed'`.
+3. Chains (HTTP fetch + service-role auth, refactor safety rule):
+   - For N=1 only: `automation_CONTRACT_confirmationemail` (uses the new `CONTRACT_confirmationemail|check` template; `[PROCESSING_TIME]` substituted to "Your check has been received and cleared.")
+   - For all N: `automation_CONTRACT_invoicereceipt` (renders "Check" on the invoice and "Via Check" on the receipt PDF; no `acct_last4`, no `card_processing_fee`)
+   - For all N: `automation_CONTRACT_revshare` (same revshare path as card/ACH — no special handling for check)
+
+---
+
+### Step 10⅔b — Daily check-reminder sweep
+
+**Trigger:** daily `pg_cron` job `check-reminder-sweep-daily` at 04:00 UTC (cron SQL: `vfo-edge-functions/supabase/cron/check-reminder-sweep.sql`).
+
+**Handler:** `automation_CONTRACT_checkreminder_sweep` ([actions/pipeline/contract-check-reminder-sweep.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/contract-check-reminder-sweep.ts)) — PUBLIC, service-role-gated.
+
+**What it does:**
+1. Loads sandbox config + the `CONTRACT_checkreminder|check` email template (returns 500 if template missing).
+2. Selects `pipeline_map1` rows where `payment_method_type='check'` AND `payment_plan='Quarterly'` AND `pay1_status='succeeded'`.
+3. For each row and each N in [2, 3, 4]: emits a candidate if `payN_date IN [today, today+7]` AND `payN_status != 'succeeded'` AND `payN_reminder_sent=false`.
+4. For each candidate: drafts Gmail to client (`sandbox_email` redirected target when sandbox_mode is true) including the check mailing address (`12636 High Bluff Drive, Suite 400, San Diego, CA 92130`).
+5. On successful draft: `pay{N}_reminder_sent=true` (so we don't re-send tomorrow). On Gmail failure: `reminder_sent` stays false, next day's cron retries.
+
+**v1 limitation:** the reminder email is text-only — does NOT include a "pay this cycle by card/ACH" link. If a check client wants to switch to Stripe for a single cycle, admin manually issues them a fresh `/pay` link (or extends them a different option). Flagged for follow-up.
+
+---
+
 ## Step 11 — Confirmation email
 
 **Trigger:** Server-to-server chain from Stripe webhook handler.
