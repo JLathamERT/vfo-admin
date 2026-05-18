@@ -282,7 +282,7 @@ BoldSign fires `event.eventType='Signed'` with CEO email AND eventually `event.e
 
 Some clients prefer to pay by physical check instead of using Stripe. The check branch replaces Steps 10 and 10½ entirely for those clients. The Stripe webhook + chargescheduled sweep do NOT run.
 
-**Entry point:** in the AdminPortal Automation tab, after the `/pay` email has been sent (`checkout_token IS NOT NULL`) but before any payment has been received (`pay1_status IS NULL`), a **"Paid via check"** button appears on the row. Admin clicks it when the client tells them they'd rather mail a check.
+**Entry point:** in the AdminPortal Automation tab, after the `/pay` email has been sent (`checkout_token IS NOT NULL`) but before any payment has been received (`pay1_status IS NULL`), a **"Pay via check"** button appears on the row. Admin clicks it when the client tells them they'd rather mail a check.
 
 **Handler: `automation_CONTRACT_paidbycheck`** ([actions/pipeline/contract-paidbycheck.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/contract-paidbycheck.ts)) — admin-only.
 
@@ -290,7 +290,7 @@ Some clients prefer to pay by physical check instead of using Stripe. The check 
 1. Validates row has `checkout_token` set and `pay1_status IS NULL`.
 2. Sets `payment_method_type='check'`, `pay1_status='check_pending'`, `pay1_date=CURRENT_DATE`.
 3. If `payment_plan='Quarterly'`: sets `pay2/3/4_date = today + 91/182/273 days` (same offset Stripe would use).
-4. No chains. No emails. Admin will manually clear each check via the next handler.
+4. Drafts a Gmail to the client with the check mailing address (template `CONTRACT_paidbycheck|check`). Sandbox-aware (redirects to `sandbox_email` when sandbox_mode is true). Email draft is non-fatal — if Gmail fails, the DB state still reflects the check path and admin can manually email the address.
 
 **Side effect:** the existing `automation_CONTRACT_stripecheckout` rejects with "Payment already completed" when `pay1_status` is truthy. So the `/pay` link is auto-blocked — no risk of accidental double-pay.
 

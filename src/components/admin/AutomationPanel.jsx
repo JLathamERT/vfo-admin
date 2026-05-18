@@ -75,7 +75,7 @@ function PaymentButtons({ row, onRefresh }) {
   const [err, setErr] = useState('')
 
   async function clickPaidByCheck() {
-    if (!window.confirm('Mark this client as paying by check?\n\nThis sets pay1_status to "check_pending" and blocks the Stripe /pay link. The customer can no longer pay online unless this is undone manually in SQL.')) return
+    if (!window.confirm('Mark this client as paying by check?\n\nThis will:\n  • Set pay1_status to "check_pending"\n  • Block the Stripe /pay link (customer can no longer pay online unless this is undone manually in SQL)\n  • Draft a Gmail to the client with the check mailing address\n\nProceed?')) return
     setBusy('paidbycheck'); setErr('')
     try {
       await callApi('automation_CONTRACT_paidbycheck', { client_id: row.client_id })
@@ -110,7 +110,7 @@ function PaymentButtons({ row, onRefresh }) {
   if (row.checkout_token && !row.pay1_status) {
     buttons.push(
       <button key="paidbycheck" onClick={clickPaidByCheck} disabled={!!busy} style={busy ? btnDisabledStyle : btnStyle}>
-        {busy === 'paidbycheck' ? 'Working...' : 'Paid via check'}
+        {busy === 'paidbycheck' ? 'Working...' : 'Pay via check'}
       </button>
     )
   }
