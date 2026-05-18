@@ -188,4 +188,8 @@ These are explicitly absent from the codebase (read-only observation, no judgeme
 - **No TypeScript** in the React app (only in the Deno edge functions).
 - **No environment-specific configs** for the frontend (Supabase ANON_KEY is hardcoded). `VITE_API_URL` IS honored by `src/lib/api.js`, `src/pages/PayPage.jsx`, and `src/pages/DecidePage.jsx` — production behavior unchanged via fallback to the hardcoded prod URL when the env var is unset. (Added on `test/frontend-vs-local-function` branch, commit `3bf0963`, for local-function smoke testing.)
 - **No observability beyond `console.log`/`console.error`** in either edge function. No structured logging, no metrics export.
-- **One background job: daily revshare sweep.** `pg_cron` runs `automation_CONTRACT_revshare_sweep` at 02:00 UTC via `pg_net.http_post`. See `vfo-edge-functions/supabase/cron/revshare-sweep.sql` for setup. Reminder columns on `pipeline_map1` (`c14_followup1_sent`, `c17_followup1_sent`, `pay1_followup1_sent`, etc.) remain unimplemented — no code writes them.
+- **Two background jobs via `pg_cron` + `pg_net.http_post`:**
+  1. **Daily revshare sweep** — `automation_CONTRACT_revshare_sweep` at 02:00 UTC. Setup: `vfo-edge-functions/supabase/cron/revshare-sweep.sql`.
+  2. **Daily scheduled-payment charger** — `automation_CONTRACT_chargescheduled_sweep` at 03:00 UTC. Creates off-session Stripe PaymentIntents for MAP1 quarterly payments 2-4 once `payN_date` arrives. Setup: `vfo-edge-functions/supabase/cron/chargescheduled-sweep.sql`.
+
+  Reminder columns on `pipeline_map1` (`c14_followup1_sent`, `c17_followup1_sent`, `pay1_followup1_sent`, etc.) remain unimplemented — no code writes them.

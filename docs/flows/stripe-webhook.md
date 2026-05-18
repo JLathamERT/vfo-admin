@@ -99,11 +99,7 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
 3. **Chains** `automation_CONTRACT_invoicereceipt` for that payment number.
 4. **Chains** `automation_CONTRACT_revshare` for that payment number.
 
-> **Open question:** how `metadata.payment_number` gets set for payments 2-4. The frontend `/pay` flow only handles payment 1. The `setup_future_usage: off_session` flag is set on the first PaymentIntent, which captures the payment method for reuse — but **no observed code creates the subsequent off-session charges**. Possible mechanisms:
-> 1. Manual via Stripe Dashboard with the metadata set by hand.
-> 2. External off-session charger (not in repo).
-> 3. Unimplemented.
-> Confirm with user. (Separately: a daily `pg_cron` job now exists, but only for the rev-share sweep — it does not create off-session charges.)
+> **How payments 2-4 are created:** `automation_CONTRACT_chargescheduled_sweep` (PUBLIC, service-role gated) is invoked by a daily `pg_cron` job at 03:00 UTC. It scans `pipeline_map1` for due-but-unpaid quarterly payments, lists saved payment methods on the Stripe customer, and POSTs to `/v1/payment_intents` with `confirm=true off_session=true metadata.payment_number=N` and an `Idempotency-Key` derived from `client_id + N + UTC date`. The resulting `payment_intent.succeeded` is what this webhook branch handles. See [contract-and-payment.md](contract-and-payment.md) Step 10½ and [05-api-action-catalog.md](../architecture/05-api-action-catalog.md#public-token-automation-public_handlers-in-routerdispatchts).
 
 ### Sub-branch B2 — ACH first-payment cleared
 

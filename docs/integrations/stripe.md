@@ -117,7 +117,7 @@ Two cases (lines 394-438):
 1. `metadata.payment_number` ∈ {2,3,4}: subsequent quarterly payment cleared. Sets `pay${n}_status='succeeded'`. **Chains** `automation_CONTRACT_invoicereceipt` for that payment number.
 2. `pipeRow.pay1_status === 'processing'`: ACH first-payment cleared. Flips to `'succeeded'`. **Chains** `automation_CONTRACT_invoicereceipt` for payment 1.
 
-> **Open question:** how Stripe sets `metadata.payment_number` for payments 2-4. The `automation_CONTRACT_stripecheckout` action doesn't set this — only payment 1 goes through that handler. Quarterly subsequent payments must be created elsewhere (presumably manual via Stripe dashboard or a not-yet-found code path) with `setup_future_usage: off_session` saved-payment-method. **Worth confirming with the user.** Flagged for [flows/stripe-webhook.md](../flows/stripe-webhook.md) (Phase E).
+> **How `metadata.payment_number` gets set for payments 2-4:** by `automation_CONTRACT_chargescheduled_sweep`, a daily-`pg_cron`-driven PUBLIC action (service-role gated). It uses the saved-on-customer payment method (captured by P1's `setup_future_usage: off_session`), creates the PaymentIntent server-side with `Idempotency-Key: chargescheduled-{client_id}-P{N}-{YYYY-MM-DD}`, and stamps `metadata.payment_number=N` so this webhook branch fires the correct chain. See [flows/contract-and-payment.md](../flows/contract-and-payment.md) Step 10½ and [flows/stripe-webhook.md](../flows/stripe-webhook.md).
 
 ## Stripe Connect & revenue share
 
