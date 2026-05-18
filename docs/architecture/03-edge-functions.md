@@ -41,6 +41,7 @@ All previously-inline helpers have been extracted to per-file modules:
 | `hashPasscode()` | `utils/crypto.ts` | **SHA-256, no salt** — used for `allowed_admins.passcode` and `member_logins.passcode`. (Migration `hash_passcodes_and_cleanup_sessions` introduced this.) |
 | `jsonResponse(data, status, corsHeaders)` | `utils/json.ts` | Response helper. **Phase 1 fixed the previous module-level mutable `corsHeaders` global** — now scoped per-request via a closure created in `index.ts::serve()`. |
 | `buildCorsHeaders(req)` | `utils/cors.ts` | Builds CORS headers for a single request (origin echo if allowed). |
+| `formatLongDate(isoDate)` | `utils/format-date.ts` | Formats a `YYYY-MM-DD` string as `"August 18, 2026"` (en-US long month/day/year, parsed + rendered in UTC to avoid local-tz drift). Returns input unchanged for non-date strings like `"TBD"`. Used by `automation_CONTRACT_checkreminder_sweep` and `automation_PIP1_reconfirmationemail`. |
 | `ADMIN_ONLY_ACTIONS` / `MEMBER_SCOPED_ACTIONS` | `constants/role-gates.ts` | Action-name arrays consumed by the auth middleware. |
 | `JsonResponder`, `AuthContext`, `PublicHandlerCtx`, `AuthedHandlerCtx` | `types/index.ts` | Shared TS types for handler signatures. |
 

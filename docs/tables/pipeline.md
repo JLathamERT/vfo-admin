@@ -106,7 +106,7 @@ Set by `automation_PCADMIN_pricing` ([PFPricingForm.jsx:19](src/components/admin
 | `invoice_drive_id` | text | Google Drive file ID for stored PDF (write target during `automation_CONTRACT_confirmationemail`). |
 | `invoice_email_sent` | boolean | default `false` |
 | `rec1_number` … `rec4_number` | text | Receipt numbers per payment. |
-| `rec1_status` … `rec4_status` | text | Status fields. |
+| `rec1_status` … `rec4_status` | text | Receipt lifecycle. Written `"Sent"` by `automation_CONTRACT_invoicereceipt` after the Gmail draft is created. NULL before invoicereceipt has run (AutomationPanel renders NULL as "pending" via fallback). Same on card / ACH / check paths. |
 | `rec1_drive_id` … `rec4_drive_id` | text | Google Drive IDs. |
 | `rec1_email_sent` … `rec4_email_sent` | boolean | default `false` |
 | `member_contrib_status` | text | |

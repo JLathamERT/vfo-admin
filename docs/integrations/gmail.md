@@ -119,8 +119,10 @@ All automation emails use HTML templates from the [`email_templates`](../tables/
 | `CONTRACT_agreementsent\|Yes` | `automation_CONTRACT_sendagreement` |
 | `CONTRACT_ceocountersign\|Yes` | `automation_CONTRACT_ceocountersign` |
 | `CONTRACT_paymentemail\|Yes` | `automation_CONTRACT_paymentemail` |
-| `CONTRACT_confirmationemail\|card` / `\|ach` | `automation_CONTRACT_confirmationemail` |
+| `CONTRACT_confirmationemail\|card` / `\|ach` / `\|check` | `automation_CONTRACT_confirmationemail` |
 | `CONTRACT_invoicereceipt_email\|first` / `\|subsequent` | `automation_CONTRACT_invoicereceipt` |
+| `CONTRACT_paidbycheck\|check` | `automation_CONTRACT_paidbycheck` (inline Gmail draft when admin clicks "Pay via check"). Body has a `[QUARTERLY_NOTE]` placeholder that the handler substitutes per payment plan (Quarterly: reminder-note sentence; OneTime: empty). |
+| `CONTRACT_checkreminder\|check` | `automation_CONTRACT_checkreminder_sweep` (daily 04:00 UTC cron). `[Due Date]` substituted via `utils/format-date.ts::formatLongDate()`. |
 
 The `pipeline` field is `"MAP 1"` for all of the above. No other pipelines exist yet.
 
