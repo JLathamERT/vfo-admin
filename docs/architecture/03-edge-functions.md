@@ -2,10 +2,12 @@
 
 Two Supabase edge functions deployed to project `ejpsprsmhpufwogbmxjv`. Both are `Deno.serve`-style functions; both use the Supabase service-role key (so RLS is bypassed; auth is enforced application-side).
 
-| Function | Layout | Live version | `verify_jwt` |
-|---|---|---|---|
-| `vfo-admin-api` | `supabase/functions/vfo-admin-api/` — 88-line `index.ts` orchestrator + `router/`, `middleware/`, `actions/`, `utils/`, `constants/`, `types/`, `integrations/` subdirs (~150 .ts files total) | **v196** | `false` (config.toml + live registry, matched as of Phase 6) |
-| `boldsign-webhook` | `supabase/functions/boldsign-webhook/index.ts` (95 lines, single file) | v23 | `false` (live registry; config.toml says `true` — see note below) |
+| Function | Layout | `verify_jwt` |
+|---|---|---|
+| `vfo-admin-api` | `supabase/functions/vfo-admin-api/` — 88-line `index.ts` orchestrator + `router/`, `middleware/`, `actions/`, `utils/`, `constants/`, `types/`, `integrations/` subdirs (~150 .ts files total) | `false` (config.toml + live registry, matched) |
+| `boldsign-webhook` | `supabase/functions/boldsign-webhook/index.ts` (95 lines, single file) | `false` (live registry; config.toml says `true` — see note below) |
+
+> Live versions increment per deploy; see Supabase Dashboard → Edge Functions for the current value of each.
 
 > **Refactor history.** `vfo-admin-api` was a single 4371-line `index.ts` until v194 (deployed 2026-05-07). The modular extraction was completed in 18 phased commits across the `refactor/vfo-admin-api-modularize` branch and deployed as v196 on 2026-05-08. Behavior (action names, response shapes, DB writes, chain semantics) is byte-equivalent; only file structure and 4 explicitly-approved dead-code removals changed. See `.refactor-resume.md` and `.refactor-baseline.md` in the worktree for the full history.
 
@@ -45,7 +47,7 @@ All previously-inline helpers have been extracted to per-file modules:
 | `ADMIN_ONLY_ACTIONS` / `MEMBER_SCOPED_ACTIONS` | `constants/role-gates.ts` | Action-name arrays consumed by the auth middleware. |
 | `JsonResponder`, `AuthContext`, `PublicHandlerCtx`, `AuthedHandlerCtx` | `types/index.ts` | Shared TS types for handler signatures. |
 
-### Request flow (current, post-v196)
+### Request flow (current)
 
 ```
 serve(req)
@@ -91,7 +93,7 @@ serve(req)
          • else    → 400 { error: "Unknown action: <name>" }
 ```
 
-Total handler count: **128 unique action handlers** (3 logins + 9 public + 116 authed). The total used to be 130 in v194; Phase 6 mechanical removed the dup `msm_update_client` handler and the dead `automation_CONTRACT_stripewebhook` handler.
+Total handler count: **134 unique action handlers** (3 logins + 12 public + 119 authed). Phase 6 mechanical of the modular refactor removed the dup `msm_update_client` handler and the dead `automation_CONTRACT_stripewebhook` handler, dropping the post-refactor baseline to 128. Subsequent features have added 6 actions: `_revshare_sweep`, `save_sandbox_config`, `_chargescheduled_sweep`, `_paidbycheck`, `_checkcleared`, `_checkreminder_sweep`. The authoritative count is the one published in [05-api-action-catalog.md](05-api-action-catalog.md).
 
 ### Key cross-cutting concerns
 

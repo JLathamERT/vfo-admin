@@ -53,7 +53,7 @@ Body:
   { "action": "<name>", "token": "<session-token>", ...payload }
 ```
 
-The `Bearer` JWT is the **anon key**, hardcoded into [src/lib/api.js:2](src/lib/api.js). Both edge functions have `verify_jwt = false` (matched in `vfo-edge-functions/supabase/config.toml` and the live registry as of v196), so this header is informational rather than enforced at the Kong gateway level. Authentication is the `token` field in the body, validated by `vfo-admin-api/middleware/auth.ts::authenticate()`.
+The `Bearer` JWT is the **anon key**, hardcoded into [src/lib/api.js:2](src/lib/api.js). Both edge functions have `verify_jwt = false` (matched in `vfo-edge-functions/supabase/config.toml` and the live registry), so this header is informational rather than enforced at the Kong gateway level. Authentication is the `token` field in the body, validated by `vfo-admin-api/middleware/auth.ts::authenticate()`.
 
 Public-token pages bypass `callApi` entirely — they raw-fetch with no `Authorization` header at all:
 

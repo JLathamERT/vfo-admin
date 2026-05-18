@@ -129,4 +129,4 @@ When this map and the code disagree, **the code wins**. Memory of past states (e
 - Run the SQL counterpart against Supabase
 - Read the actual handler
 
-Generated: 2026-05-07. Project ID: `ejpsprsmhpufwogbmxjv`. Postgres 17. Edge functions: `vfo-admin-api` v194, `boldsign-webhook` v23.
+Project ID: `ejpsprsmhpufwogbmxjv`. Postgres 17. Edge functions: `vfo-admin-api`, `boldsign-webhook` (current live versions in Supabase Dashboard → Edge Functions). Originally drafted 2026-05-07; updated per feature as the system evolves.

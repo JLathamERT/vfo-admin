@@ -86,7 +86,7 @@ These are the components where most of the per-feature logic and `callApi` calls
 | `automation_CONTRACT_confirmationemail` | Server chain from Stripe webhook (`checkout.session.completed`) | (server side only) |
 | `automation_CONTRACT_invoicereceipt` | Server chain from Stripe webhook (`checkout.session.completed` for card; `payment_intent.succeeded` for ACH and quarterly 2-4) | (server side only) |
 | `automation_CONTRACT_revshare` | **NOT triggered from frontend** and **NOT chained from any webhook in the source observed.** Mechanism for invocation is unclear — flagged as an open question. |
-| `automation_CONTRACT_stripewebhook` | **REMOVED in Phase 6 mechanical** — was doubly-dead (real Stripe events caught by signature header; synthetic-action assignment was unreachable from dispatch). v196 returns 401/400 for explicit calls. | — |
+| `automation_CONTRACT_stripewebhook` | **REMOVED in Phase 6 mechanical** — was doubly-dead (real Stripe events caught by signature header; synthetic-action assignment was unreachable from dispatch). The function returns 401/400 for explicit calls. | — |
 | `automation_load_pipelines` | AdminPortal Automation tab mount | [AutomationPanel.jsx:290](src/components/admin/AutomationPanel.jsx) |
 | `automation_load_pipeline_data` | AdminPortal Automation tab pipeline switch | [AutomationPanel.jsx:299](src/components/admin/AutomationPanel.jsx) |
 | `automation_load_email_templates` | AdminPortal → Automation → Email Templates | [EmailTemplatesPanel.jsx:18](src/components/admin/EmailTemplatesPanel.jsx) |

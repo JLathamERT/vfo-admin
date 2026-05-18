@@ -16,10 +16,12 @@ The frontend never has access to the service-role key.
 
 ## Edge function deployment
 
-| Function | Slug | Live version | `verify_jwt` (config + registry) | Source |
-|---|---|---|---|---|
-| Admin / dispatcher (modularized) | `vfo-admin-api` | **v196** | `false` (matched as of v196) | `vfo-edge-functions/supabase/functions/vfo-admin-api/` (88-line `index.ts` + ~150 modular .ts files) |
-| BoldSign webhook | `boldsign-webhook` | v23 | `false` (registry); `true` (config — pre-existing mismatch, untouched) | `vfo-edge-functions/supabase/functions/boldsign-webhook/index.ts` (95 lines) |
+| Function | Slug | `verify_jwt` (config + registry) | Source |
+|---|---|---|---|
+| Admin / dispatcher (modularized) | `vfo-admin-api` | `false` (matched) | `vfo-edge-functions/supabase/functions/vfo-admin-api/` (88-line `index.ts` + ~150 modular .ts files) |
+| BoldSign webhook | `boldsign-webhook` | `false` (registry); `true` (config — pre-existing mismatch, untouched) | `vfo-edge-functions/supabase/functions/boldsign-webhook/index.ts` (95 lines) |
+
+> Live versions increment per deploy; see Supabase Dashboard → Edge Functions for the current version of each function.
 
 The `vfo-admin-api` config was changed from `verify_jwt = true` to `false` in commit `b9e9471` (post-v195 fix) so future deploys don't need `--no-verify-jwt`. The `boldsign-webhook` config block was NOT touched (per refactor safety rule "never touch boldsign-webhook"); if you ever redeploy that function, either pass `--no-verify-jwt` or flip the config block first. Both functions implement their own auth at the application layer (see [04-auth-and-sessions.md](../architecture/04-auth-and-sessions.md)).
 
