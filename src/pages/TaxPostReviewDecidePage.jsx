@@ -1,0 +1,95 @@
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
+
+export default function TaxPostReviewDecidePage() {
+  const [searchParams] = useSearchParams()
+  const [status, setStatus] = useState('processing')
+  const [error, setError] = useState('')
+  const [decision, setDecision] = useState('')
+
+  useEffect(() => {
+    processDecision()
+  }, [])
+
+  async function processDecision() {
+    const token = searchParams.get('token')
+    const dec = searchParams.get('decision')
+    if (!token || !dec) {
+      setError('Invalid link — missing required parameters.')
+      setStatus('error')
+      return
+    }
+    setDecision(dec)
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'automation_TAX_postreviewclientdecision',
+          token,
+          decision: dec,
+        }),
+      })
+      const data = await res.json()
+      if (data.existing_decision) {
+        setDecision(data.existing_decision)
+        setStatus('already_submitted')
+        return
+      }
+      if (data.window_expired) {
+        setStatus('window_expired')
+        setError(data.error || '')
+        return
+      }
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong.')
+        setStatus('error')
+        return
+      }
+      setStatus('success')
+    } catch (err) {
+      setError('Unable to connect. Please try again later.')
+      setStatus('error')
+    }
+  }
+
+  const view = getView(status, decision, error)
+  return (
+    <div style={containerStyle}>
+      <div style={cardStyle}>
+        <div style={{ ...iconCircleStyle, background: view.color + '20' }}>
+          <span style={{ fontSize: '32px', lineHeight: 1 }}>{view.icon}</span>
+        </div>
+        <h1 style={titleStyle}>{view.title}</h1>
+        <p style={messageStyle}>{view.message}</p>
+      </div>
+    </div>
+  )
+}
+
+function getView(status, decision, error) {
+  if (status === 'processing') {
+    return { icon: '⏳', color: '#3b82f6', title: 'Processing your response…', message: 'Please wait, do not close this page.' }
+  }
+  if (status === 'already_submitted') {
+    return { icon: 'ℹ️', color: '#3b82f6', title: 'Already Received', message: "We've already received your response — no further action is needed. Thank you!" }
+  }
+  if (status === 'window_expired') {
+    return { icon: '⏰', color: '#f59e0b', title: 'Window Closed', message: error || 'The refund window has closed. Your engagement has been locked in. Please contact us if you have questions.' }
+  }
+  if (status === 'error') {
+    return { icon: '⚠️', color: '#ef4444', title: 'Something Went Wrong', message: error || 'An unexpected error occurred. Please contact us.' }
+  }
+  if (decision === 'Refund') {
+    return { icon: '✓', color: '#22c55e', title: 'Refund Requested', message: 'Thank you — your refund request has been received and is being processed. You will receive a confirmation email shortly.' }
+  }
+  return { icon: '✓', color: '#22c55e', title: 'Thank You — Moving Forward', message: "We're delighted to continue with your Tax Planning Engagement. Our team will be in touch with next steps shortly." }
+}
+
+const containerStyle = { fontFamily: '"DM Sans", sans-serif', background: '#0a1628', color: '#e2e8f0', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }
+const cardStyle = { textAlign: 'center', maxWidth: '480px', padding: '48px 32px' }
+const iconCircleStyle = { width: '72px', height: '72px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }
+const titleStyle = { fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '12px' }
+const messageStyle = { fontSize: '15px', color: '#94a3b8', lineHeight: 1.6 }
