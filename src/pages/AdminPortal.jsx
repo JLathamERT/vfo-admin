@@ -6,6 +6,7 @@ import MembersPanel from '../components/admin/MembersPanel'
 import AdminEditor from '../components/admin/AdminEditor'
 import AdminSettings from '../components/admin/AdminSettings'
 import AutomationPanel from '../components/admin/AutomationPanel'
+import TaxAutomationPanel from '../components/admin/TaxAutomationPanel'
 import NotificationBell from '../components/NotificationBell'
 import EmailTemplatesPanel from '../components/admin/EmailTemplatesPanel'
 
@@ -187,7 +188,8 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
     {
       key: 'automation', header: null,
       options: [
-        { key: 'map1_pipeline', label: 'MAP 1 Pipeline' },
+        { key: 'map1_pipeline', label: 'Holistic Planning - MAP 1' },
+        { key: 'tax_pipeline', label: 'Holistic Planning - Tax Planning' },
         { key: 'email_templates', label: 'Email Templates' },
       ]
     },
@@ -267,6 +269,9 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
 
           {activeTab === 'automation' && !loading && automationSection === 'map1_pipeline' && (
             <AutomationPanel section={automationSection} />
+          )}
+          {activeTab === 'automation' && !loading && automationSection === 'tax_pipeline' && (
+            <TaxAutomationPanel />
           )}
           {activeTab === 'automation' && !loading && automationSection === 'email_templates' && (
             <EmailTemplatesPanel />

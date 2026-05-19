@@ -9,6 +9,7 @@ Ordered by complexity (highest first). Highest-complexity flow drives the rest o
 | Flow | One-liner |
 |---|---|
 | [contract-and-payment.md](contract-and-payment.md) | The MAP1 master flow: PIP1 reconfirmation → PF decision → PCADMIN pricing → BoldSign agreement → CEO countersign → Stripe payment → confirmation/invoice/receipt → revenue share. Touches every integration. |
+| [tax-planning.md](tax-planning.md) | The Tax Planning master flow (within Holistic Planning program): Ready for Tax 3 → ROI decision → BoldSign agreement → CEO countersign → Stripe retainer payment → confirmation/invoice/receipt. Parallel structure to MAP1 but operating on `client_tax_plans`. Phases 6+7 (revshare/refund/implementation auto-charge) not yet wired. |
 | [boldsign-webhook.md](boldsign-webhook.md) | What happens when BoldSign tells us a document was signed |
 | [stripe-webhook.md](stripe-webhook.md) | What happens when Stripe tells us a payment occurred (handles both MAP1 payments and GC credit purchases) |
 | [ciq.md](ciq.md) | Client Intake Questionnaire — create, fill, complete, prioritize, snapshot |

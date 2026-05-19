@@ -43,6 +43,7 @@ docs/
 ├── flows/                            (the "verb" layer — end-to-end business processes)
 │   ├── README.md                     (flow index + global open questions)
 │   ├── contract-and-payment.md       (the master MAP1 flow — all 13 steps)
+│   ├── tax-planning.md               (the Tax Planning flow within Holistic Planning — parallel to MAP1)
 │   ├── boldsign-webhook.md           (sign events → pipeline updates → chains)
 │   ├── stripe-webhook.md             (payment events → pipeline updates → chains)
 │   ├── ciq.md                        (intake questionnaire workflow)

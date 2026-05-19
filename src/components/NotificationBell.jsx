@@ -92,25 +92,48 @@ export default function NotificationBell() {
               No new notifications
             </div>
           ) : (
-            notifications.map(n => (
-              <div
-                key={n.id}
-                onClick={() => handleClick(n)}
-                style={{
-                  padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)',
-                  cursor: 'pointer'
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                <div style={{ fontSize: '13px', color: '#fff', fontWeight: '500', marginBottom: '2px' }}>{n.title}</div>
-                <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '4px' }}>{n.message}</div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  {n.pipeline && <span style={{ fontSize: '10px', color: '#5b9fe6', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.15)' }}>{n.pipeline}</span>}
-                  <span style={{ fontSize: '10px', color: '#4a7a9e' }}>{n.created_at?.split('T')[0]}</span>
+            notifications.map(n => {
+              const isDismissible = n.dismissible !== false
+              const handleDone = async (e) => {
+                e.stopPropagation()
+                try {
+                  await callApi('mark_notification_read', { notification_id: n.id })
+                  setNotifications(prev => prev.filter(x => x.id !== n.id))
+                } catch (err) { console.error('mark read error:', err) }
+              }
+              return (
+                <div
+                  key={n.id}
+                  onClick={() => handleClick(n)}
+                  style={{
+                    padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    cursor: 'pointer', display: 'flex', gap: '12px', alignItems: 'flex-start'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', color: '#fff', fontWeight: '500', marginBottom: '2px' }}>{n.title}</div>
+                    <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '4px' }}>{n.message}</div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      {n.pipeline && <span style={{ fontSize: '10px', color: '#5b9fe6', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.15)' }}>{n.pipeline}</span>}
+                      <span style={{ fontSize: '10px', color: '#4a7a9e' }}>{n.created_at?.split('T')[0]}</span>
+                      {!isDismissible && <span style={{ fontSize: '10px', color: '#f39c12', fontStyle: 'italic' }}>· action required</span>}
+                    </div>
+                  </div>
+                  {isDismissible && (
+                    <button
+                      onClick={handleDone}
+                      style={{
+                        padding: '4px 10px', borderRadius: '4px', fontSize: '11px',
+                        border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)',
+                        color: '#27ae60', cursor: 'pointer', flexShrink: 0
+                      }}
+                    >Done</button>
+                  )}
                 </div>
-              </div>
-            ))
+              )
+            })
           )}
         </div>
       )}

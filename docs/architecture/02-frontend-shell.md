@@ -15,8 +15,12 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | `/admin/client/:clientId` | [ClientDetail](src/pages/ClientDetail.jsx) | admin session | Client deep-dive (admin variant) |
 | `/member` | [MemberPortal](src/pages/MemberPortal.jsx) | member session | Top-level member shell |
 | `/member/client/:clientId` | [ClientDetail](src/pages/ClientDetail.jsx) | member session | Client deep-dive (member variant — `readOnly`) |
-| `/decide` | [DecidePage](src/pages/DecidePage.jsx) | URL token | `automation_PCADMIN_finaldecision` token-link landing page |
-| `/pay` | [PayPage](src/pages/PayPage.jsx) | URL token | `automation_CONTRACT_loadpayment` + Stripe checkout redirect |
+| `/decide` | [DecidePage](src/pages/DecidePage.jsx) | URL token | `automation_PCADMIN_finaldecision` token-link landing (MAP1) |
+| `/pay` | [PayPage](src/pages/PayPage.jsx) | URL token | `automation_CONTRACT_loadpayment` + Stripe checkout redirect (MAP1) |
+| `/tax-decide` | [TaxDecidePage](src/pages/TaxDecidePage.jsx) | URL token | `automation_TAX_finaldecision` — Tax 3 Undecided client-decision landing |
+| `/tax-pay` | [TaxPayPage](src/pages/TaxPayPage.jsx) | URL token | `automation_TAX_loadpayment` + Stripe checkout — branches between retainer and implementation-fee retry based on plan state |
+| `/tax-implement-decide` | [TaxImplementDecidePage](src/pages/TaxImplementDecidePage.jsx) | URL token | `automation_TAX_implementfinaldecision` — Tax 5 Proceed/Decline landing |
+| `/tax-postreview-decide` | [TaxPostReviewDecidePage](src/pages/TaxPostReviewDecidePage.jsx) | URL token | `automation_TAX_postreviewclientdecision` — Tax 4 post-review Refund / Proceed landing |
 | `*` | redirect to `/` | — | Catch-all |
 
 ## Top-level shells
