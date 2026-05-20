@@ -69,7 +69,7 @@ Each arrow is either:
 5. Substitutes `[Client Name]`, `[Client First]`, `[Meeting Attendees]` (= "[PF Name] and [Member Name]"), `[Member Name]`, `[PF Name]`, `[TAX_SAVINGS]`, `[INITIAL_RETAINER]`, `[BUTTONS]`, `[PRESENTATION_LINK]`.
 6. Builds **multipart MIME** Gmail draft to client with the PDF attached as `Tax-Planning-Engagement-Agreement.pdf`.
    - MIME headers built without empty-string CC/BCC lines (see "MIME-empty-line bug" gotcha).
-7. Flips `tax_decision_email_sent='Yes'`.
+7. Flips `tax_decision_email_sent='Yes'` AND writes `tax_decision_email_sent_at=now()`. Both columns must be set together — the boolean-flag is the idempotency guard, the timestamp is the base for the 48h reminder + 96h PF-notification timers driven by `tax-revshare-sweep-daily`.
 
 ### Decision = `No`
 
@@ -467,6 +467,7 @@ Visible when `payment_method_type='check'` AND `retainer_status='check_pending'`
 6. **`document_numbers` race** → two concurrent invoicereceipt calls could allocate the same INV/REC number. Not protected by DB constraint. Same caveat as MAP1.
 7. **Drive folder name change** → if client renamed, prior PDFs orphan in old folder.
 8. **Idempotency**: `agreement_sent === 'Yes'` blocks re-send. `retainer_confirmation_status === 'Sent'` blocks re-send. `retainer_receipt_status === 'Sent'` blocks re-fire. `tax_final_decision` set blocks re-flip on `/tax-decide`. `ready_for_tax3_email_sent === 'Yes'`, `tax_decision_email_sent === 'Yes'` block re-fires.
+9. **ACH retainer → implementation auto-charge fails (Stripe restriction)**. If the client paid the retainer via ACH (`payment_method_type='ach'`), Stripe will reject the off-session implementation `POST /v1/payment_intents` with `"The PaymentMethod provided (us_bank_account) is not allowed for this PaymentIntent"`. This happens at both the Tax 5 client-Proceed click and the 24h sweep auto-lock paths. The `automation_TAX_charge_implementation` handler degrades gracefully: sets `implementation_charge_status='declined'`, regenerates a fresh `checkout_token` so the existing `/tax-pay` link route can serve the implementation re-pay (the page + `automation_TAX_stripecheckout` already branch on `retainer_status='succeeded' AND implementation_charge_status IN (declined, auth_required, manual_required)` to charge the implementation amount with `metadata.payment_kind='implementation'` instead of the retainer), inserts an admin notification with the Stripe error text + the new token, and drafts a client Gmail with the fresh `/tax-pay` link. **The client manually re-pays via /tax-pay** (typically with a card, not ACH again) — same page, different branch, same downstream Stripe webhook routing. No automated retry; the admin notification is the trigger to email the client. (Verified end-to-end in 2026-05-20 testing.)
 
 ---
 
