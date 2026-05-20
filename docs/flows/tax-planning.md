@@ -356,6 +356,32 @@ Visible when `payment_method_type='check'` AND `retainer_status='check_pending'`
 
 ---
 
+## Step 12½ — Tax 4 Tax Plan Review meeting date + daily nudge to Tim
+
+**Trigger:** Admin records the date scheduled for the Tax 4 high-level Tax Plan Review meeting via the "Date Scheduled for High Level Meeting" task at the top of the `Tax 4 - Tax Plan Review` phase. Renders as a date input (status_options `tax_meeting_date`); the task lives in `program_client_tasks` with `task_order=0` (above `Detailed tax plan presentation`) for both Holistic Planning (phase 21) and standalone Tax Planning (phase 29).
+
+**Handler:** [`automation_TAX_save_meeting_date`](../../supabase/functions/vfo-admin-api/actions/tax/save-meeting-date.ts) — AUTH admin-only. Takes `tax_plan_id` + `meeting_date` (YYYY-MM-DD or null). Writes `client_tax_plans.tax4_meeting_date`. Clearing the date also clears `client_tax_plans.tax4_meeting_reminder_last_sent_at`.
+
+**Daily nudge:** the `tax-revshare-sweep-daily` cron (02:30 UTC) sweeps rows where `tax4_meeting_date IS NOT NULL` AND `post_review_decision IS NULL` AND `tax4_meeting_date < current_date`. For each candidate not yet nudged today (`tax4_meeting_reminder_last_sent_at < date_trunc('day', now())`), drafts a Gmail to **tgacsy@vfo-services.com** (CC **tnmiller@vfo-services.com**; sandbox redirects To and drops CC) with the `TAX_meeting_nudge|Yes` template — substitutions: `[Client Name]`, `[MEETING_DATE]`, `[CLIENT_LINK]` (= `https://jlathamert.github.io/vfo-portal/admin/client/<id>?tab=tax`). Updates `tax4_meeting_reminder_last_sent_at=now()`. One draft per UTC day per row.
+
+**Stop conditions:**
+- Admin sets `post_review_decision` (Tax 4 Client decision 1: `Continue - Revenue Share` / `Undecided` / `Stop - Refund`) — sweep filter excludes the row → nudges stop
+- Admin clears `tax4_meeting_date` (re-saves as blank) → sweep filter excludes
+- No automatic cap or escalation — by design, daily nudges continue indefinitely until one of the stop conditions
+
+**Tables read:** `client_tax_plans`, `clients`, `pipeline_sandbox_config`, `email_templates`(`TAX_meeting_nudge\|Yes`).
+**Tables written:** `client_tax_plans` (`tax4_meeting_date` via save handler; `tax4_meeting_reminder_last_sent_at` via sweep).
+**External calls:** Google OAuth + Gmail drafts API.
+**Chains:** none — the nudge is informational. Tim clicks the Tax 4 `Client decision 1` dropdown to advance to Step 13.
+
+> **Why a daily Gmail draft (not auto-send)?** Matches every other tax email in the system — admin reviews drafts in Gmail before sending. Acceptable trade-off: Tim sees the draft folder fill up; he sends when he's ready to act on it.
+
+> **Audit-date UX**: all tax-tab task date inputs (other than this one) were converted to read-only `Mar 15, 2026`-style small text spans during this change. The completed_date still auto-populates from `tax_save_task` on first save; the inline back-date input was removed.
+
+> **Login redirect bonus**: as part of this work, `AdminLogin.jsx` now reads a `?next=` query param post-login and navigates there instead of `/admin`. `ClientDetail.jsx` and `AdminPortal.jsx` set `?next=` when bouncing unauthenticated users to login. So clicking the email link from a fresh browser session → login → land directly on the client Tax tab (no manual navigation needed).
+
+---
+
 ## Step 13 — Tax 4 Continue/Stop
 
 **Trigger:** After Tax Plan Review meeting (Tax 4 phase, manual), admin clicks one of the buttons in the Tax 4 `Client decision 1` task:

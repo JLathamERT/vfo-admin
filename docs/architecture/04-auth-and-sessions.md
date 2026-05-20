@@ -99,11 +99,13 @@ The function returns either an `AuthResult` of kind `"response"` (early-return 4
 
 | Component | Check | Action on fail |
 |---|---|---|
-| [AdminPortal.jsx:79](src/pages/AdminPortal.jsx) | `!session \|\| session.role !== 'admin'` | `navigate('/admin/login')` |
-| [MemberPortal.jsx:27](src/pages/MemberPortal.jsx) | `!session \|\| session.role !== 'member'` | `navigate('/member/login')` |
-| [ClientDetail.jsx:59](src/pages/ClientDetail.jsx) | `!session` | `navigate('/admin/login')` (always to admin login, even when arriving from /member route — see flag below) |
+| [AdminPortal.jsx:79](src/pages/AdminPortal.jsx) | `!session \|\| session.role !== 'admin'` | `navigate('/admin/login?next=' + encodeURIComponent(location.pathname + location.search))` |
+| [MemberPortal.jsx:27](src/pages/MemberPortal.jsx) | `!session \|\| session.role !== 'member'` | `navigate('/member/login')` (no `?next=` preservation — member side not yet updated) |
+| [ClientDetail.jsx:59](src/pages/ClientDetail.jsx) | `!session` | `navigate('/admin/login?next=' + encodeURIComponent(location.pathname + location.search))` (always to admin login, even when arriving from /member route — see flag below) |
 
-> **Inconsistency 3:** [ClientDetail.jsx:59](src/pages/ClientDetail.jsx) redirects to `/admin/login` even when the route is `/member/client/:clientId`. A logged-out member hitting a member URL would land on the admin login. The sign-out button at line 106 *does* branch correctly on `isMember`, but the missing-session redirect does not.
+> **Post-login redirect**: `AdminLogin.jsx` reads `?next=` from `window.location.search` after a successful sign-in and navigates there if it starts with `/admin/`. Routes outside that prefix fall back to `/admin` (open-redirect safety). The `?next=` value uses the basename-relative path from react-router's `useLocation()` — NOT `window.location.pathname` (which includes Vite's `/vfo-portal/` basename and would fail the prefix check). Pattern was added so admins clicking deep-link admin URLs (e.g. notification-bell links, the Tax 4 Tim-nudge `Open client` button) land on the intended page rather than the admin home after login.
+
+> **Inconsistency 3:** [ClientDetail.jsx:59](src/pages/ClientDetail.jsx) redirects to `/admin/login` even when the route is `/member/client/:clientId`. A logged-out member hitting a member URL would land on the admin login. The sign-out button at line 106 *does* branch correctly on `isMember`, but the missing-session redirect does not. (The `?next=` preservation works for both flows; only the destination login URL is admin-biased.)
 
 ## Logout
 

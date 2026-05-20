@@ -104,6 +104,8 @@ The Tax 4 flow no longer fires money movement on admin click. Admin picks a 3-op
 
 | Column | Type | Notes |
 |---|---|---|
+| `tax4_meeting_date` | date | Admin-recorded date scheduled for the Tax Plan Review (Tax 4) high-level meeting. Set via `automation_TAX_save_meeting_date` from the "Date Scheduled for High Level Meeting" task at the top of the Tax 4 phase (`task_order=0`, above `Detailed tax plan presentation`). Once set AND `post_review_decision IS NULL`, the daily `tax-revshare-sweep-daily` cron drafts a nudge email to Tim Gacsy (`tgacsy@vfo-services.com` CC `tnmiller@vfo-services.com`) starting the calendar day after, every day, until Tim records the Tax 4 Client decision 1 (Continue - Revenue Share / Undecided / Stop - Refund). Template: `TAX_meeting_nudge\|Yes`. |
+| `tax4_meeting_reminder_last_sent_at` | timestamptz | Last time the sweep drafted the Tim-nudge email. Filter is `< date_trunc('day', now())` — guarantees at most one nudge per UTC day per plan. Cleared if admin clears `tax4_meeting_date`. |
 | `post_review_decision` | text | Admin's pick: `Continue - Revenue Share` / `Undecided` / `Stop - Refund`. |
 | `post_review_decision_token` | text | 32-byte hex for `/tax-postreview-decide?token=`. Indexed. Generated on Continue + Undecided. |
 | `post_review_decision_email_sent_at` | timestamptz | When client email was drafted — sweep base for 24h (Continue lock-in) / 48h (Undecided reminder) / 96h (Undecided PF). |

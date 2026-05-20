@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { getSession, clearSession, callApi } from '../lib/api'
 import SpecialistsPanel from '../components/admin/SpecialistsPanel'
 import MembersPanel from '../components/admin/MembersPanel'
@@ -61,6 +61,7 @@ function NavDropdown({ label, items, onSelect, isActive }) {
 
 export default function AdminPortal() {
   const navigate = useNavigate()
+  const location = useLocation()
   const session = getSession()
   const [activeTab, setActiveTab] = useState(sessionStorage.getItem('adminActiveTab') || null)
   const [membersSection, setMembersSection] = useState(sessionStorage.getItem('adminMembersSection') || 'search_advisors')
@@ -77,7 +78,7 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!session || session.role !== 'admin') { navigate('/admin/login'); return }
+    if (!session || session.role !== 'admin') { navigate('/admin/login?next=' + encodeURIComponent(location.pathname + location.search)); return }
     loadAllData()
   }, [])
 
