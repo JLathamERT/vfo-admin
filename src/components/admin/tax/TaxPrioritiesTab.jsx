@@ -1130,7 +1130,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       async function handlePick(value) {
         if (!value) return
         if (value === 'Continue - Revenue Share' && !confirm("Mark client as Continue?\n\nThis sends them an email with a refund button + a 24h grace window. After 24h with no click the revenue share is auto-fired.")) return
-        if (value === 'Stop - Refund' && !confirm("Stop - Refund? This will IMMEDIATELY fire a Stripe refund of the retainer. No client email.")) return
+        if (value === 'Stop - Refund' && !confirm("Stop - Refund? This will IMMEDIATELY fire a Stripe refund of the retainer and draft a refund confirmation email to the client.")) return
         if (value === 'Undecided' && !confirm("Mark client as Undecided?\n\nThey'll get an email with two buttons (Proceed / Refund). After 48h with no click we send a reminder, after 96h we notify you to call the client.")) return
         await saveTask(task.id, value, new Date().toISOString().slice(0, 10))
         let res
@@ -1176,7 +1176,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', marginBottom: '8px' }}>
               {adminDecision === 'Stop - Refund' && (
                 <>
-                  {autoStep('Refund auto-fired (no client email)', refundStatus === 'succeeded')}
+                  {autoStep('Refund processed and confirmation email drafted', refundStatus === 'succeeded')}
                 </>
               )}
               {adminDecision === 'Continue - Revenue Share' && (
