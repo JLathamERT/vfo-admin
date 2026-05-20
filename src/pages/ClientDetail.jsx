@@ -56,7 +56,7 @@ export default function ClientDetail() {
   const backUrl = location.state?.from || (isMember ? '/member' : '/admin')
 
   useEffect(() => {
-    if (!session) { navigate('/admin/login'); return }
+    if (!session) { navigate('/admin/login?next=' + encodeURIComponent(location.pathname + location.search)); return }
     loadData()
   }, [clientId])
 

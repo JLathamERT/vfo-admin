@@ -619,7 +619,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: decisionColor, flexShrink: 0 }} />
               <span style={{ fontSize: '13px', color: '#8bacc8', flex: 1 }}>{task.name}</span>
               <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${decisionColor}22`, color: decisionColor, border: `1px solid ${decisionColor}44` }}>{decisionLabel}</span>
-              {p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
+              <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
             </div>
           )
         }
@@ -644,7 +644,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? decisionColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? decisionColor : 'rgba(255,255,255,0.2)'}` }} />
               <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1, fontWeight: '600' }}>{task.name}</span>
               {isDone && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${decisionColor}22`, color: decisionColor, border: `1px solid ${decisionColor}44` }}>{decisionLabel}</span>}
-              {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
+              <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
               {isDone && <span style={{ color: '#8bacc8', fontSize: '10px', transform: isFormShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>}
             </div>
             {isFormShown && (
@@ -747,7 +747,6 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: aipcDone ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${aipcDone ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
             <span style={{ fontSize: '13px', color: '#fff', flex: 1, fontWeight: '600' }}>{task.name}</span>
-            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${decisionColor}22`, color: decisionColor, border: `1px solid ${decisionColor}44` }}>{decisionLabel}</span>
           </div>
           <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
             {decision === 'No' && autoStep('Decline email sent to client', true)}
@@ -842,6 +841,33 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
 
     if (task.name === 'Refund initial 50%' || task.name === 'Revenue share for initial 50%') return null
 
+    if (task.status_options === 'tax_meeting_date') {
+      const savedDate = livePlan?.tax4_meeting_date || ''
+      const decisionMade = !!livePlan?.post_review_decision
+      async function saveMeetingDate(value) {
+        const res = await callApi('automation_TAX_save_meeting_date', { tax_plan_id: plan.id, meeting_date: value || null })
+        if (res?.error) alert(`Error: ${res.error}`)
+        await refreshLivePlan()
+      }
+      return (
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: savedDate ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${savedDate ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+          <span style={{ fontSize: '13px', color: savedDate ? '#8bacc8' : '#fff', flex: 1, fontWeight: '600' }}>{task.name}</span>
+          {readOnly ? (
+            savedDate && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#27ae6022', color: '#27ae60', border: '1px solid #27ae6044' }}>{savedDate}</span>
+          ) : (
+            <input
+              type="date"
+              value={savedDate}
+              onChange={(e) => saveMeetingDate(e.target.value)}
+              style={{ ...inputStyle, fontFamily: 'DM Sans, sans-serif' }}
+              title={decisionMade ? 'Tax 4 Client decision 1 already recorded — nudge emails will not fire' : (savedDate ? 'Daily nudge email to Tim Gacsy will fire starting the day after this date until the Tax 4 Client decision 1 (Continue / Undecided / Stop) is recorded' : 'Set the scheduled date for the Tax Plan Review meeting. After that date passes, if no Tax 4 decision is recorded, Tim Gacsy gets a daily email.')}
+            />
+          )}
+        </div>
+      )
+    }
+
     if (task.status_options === 'tax_implement_decision') {
       const implDecision = livePlan?.implementation_decision
       const decisionColor = implDecision === 'Proceed' ? '#27ae60' : implDecision === 'Not Implementing' ? '#e74c3c' : implDecision === 'Undecided' ? '#f39c12' : '#8bacc8'
@@ -853,6 +879,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         if (decision === 'Proceed' && !confirm("Mark client as Proceed?\n\nThis sends them an email with a 'Decline implementation' button + a 24h grace window. After 24h with no click the implementation fee auto-charges via Stripe against the saved card.")) return
         if (decision === 'Not Implementing' && !confirm("Mark as Not Implementing? A 'thank you, didn't move forward' decline email will be drafted. Engagement closes. No charge, no refund.")) return
         if (decision === 'Undecided' && !confirm("Mark client as Undecided?\n\nThey'll get an email with two buttons (Proceed / Decline). After 48h with no click we send a reminder, after 96h we notify you to call the client.")) return
+        await saveTask(task.id, decision, new Date().toISOString().slice(0, 10))
         const res = await callApi('automation_TAX_implementdecision', { tax_plan_id: plan.id, decision })
         if (res?.error) alert(`Error: ${res.error}`)
         else if (res?.charge_result?.error) alert(`Email drafted but charge failed: ${res.charge_result.error}. Recovery: ${res.charge_result.recovery || 'see admin notifications'}`)
@@ -874,6 +901,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               </div>
             )
           )}
+          <span style={{ fontSize: '11px', color: '#8bacc8', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{implDecision && p.completed_date ? formatDate(p.completed_date) : ''}</span>
         </div>
       )
     }
@@ -1004,7 +1032,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: autoIsDone ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${autoIsDone ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
           <span style={{ fontSize: '13px', color: '#8bacc8', flex: 1 }}>{task.name}</span>
           <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: autoIsDone ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: autoIsDone ? '#27ae60' : '#8bacc8', border: `1px solid ${autoIsDone ? 'rgba(39,174,96,0.3)' : 'rgba(255,255,255,0.1)'}` }}>{autoIsDone ? 'Completed' : 'Not completed'}</span>
-          {autoIsDone && p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
+          <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{autoIsDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
         </div>
       )
     }
@@ -1017,7 +1045,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
           : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>
         }
-        {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
+        <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
       </div>
     )
 
@@ -1030,7 +1058,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Completed</span>
           : <button onClick={() => saveTask(task.id, 'Completed', p.completed_date, taxSpecialistId)} style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6' }}>Enter details</button>
         }
-        <input type="date" value={p.completed_date || ''} onChange={e => saveDate(task.id, e.target.value, taxSpecialistId)} style={{ ...inputStyle, width: '130px' }} />
+        <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
       </div>
     )
 
@@ -1045,7 +1073,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               <button onClick={() => saveTask(task.id, 'Stop', p.completed_date, taxSpecialistId)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }}>Stop</button>
             </div>
         }
-        {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#8bacc8' }}>{formatDate(p.completed_date)}</span>}
+        <span style={{ fontSize: '11px', color: '#8bacc8', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
       </div>
     )
 
@@ -1061,7 +1089,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
             : <button onClick={() => saveTask(task.id, 'Completed', p.completed_date, taxSpecialistId)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6' }}>Send refund</button>
           }
-          {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#8bacc8' }}>{formatDate(p.completed_date)}</span>}
+          <span style={{ fontSize: '11px', color: '#8bacc8', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
         </div>
       )
     }
@@ -1084,7 +1112,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                   </div>
                 )
             }
-            {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#8bacc8' }}>{formatDate(p.completed_date)}</span>}
+            <span style={{ fontSize: '11px', color: '#8bacc8', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
           </div>
           {declineOpen && !isDone && (
             <div style={{ marginLeft: '18px', marginBottom: '8px', padding: '14px 16px', background: 'rgba(0,0,0,0.15)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'DM Sans, sans-serif' }}>
@@ -1170,7 +1198,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 </div>
               )
             )}
-            {adminDecision && p.completed_date && <span style={{ fontSize: '11px', color: '#8bacc8' }}>{formatDate(p.completed_date)}</span>}
+            <span style={{ fontSize: '11px', color: '#8bacc8', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{adminDecision && p.completed_date ? formatDate(p.completed_date) : ''}</span>
           </div>
           {adminDecision && (
             <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', marginBottom: '8px' }}>
@@ -1234,7 +1262,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               <button onClick={() => saveTask(task.id, 'Move to Implementation', p.completed_date)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }}>Move to Implementation</button>
             </div>
         }
-        {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#8bacc8' }}>{formatDate(p.completed_date)}</span>}
+        <span style={{ fontSize: '11px', color: '#8bacc8', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
       </div>
     )
 
@@ -1253,7 +1281,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               <option value="">-- Select --</option>
               {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            <input type="date" value={p.completed_date || ''} onChange={e => saveDate(task.id, e.target.value, taxSpecialistId)} style={{ ...inputStyle, width: '130px' }} />
+            <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
           </div>
           <div style={{ marginLeft: '18px', borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '12px', paddingBottom: '4px', opacity: greyed ? 0.3 : 1, pointerEvents: greyed ? 'none' : 'auto' }}>
             {childTasks.map(ct => {
@@ -1269,7 +1297,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                     <option value="">-- Select --</option>
                     {(ct.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
-                  <input type="date" value={cp.completed_date || ''} onChange={e => saveDate(ct.id, e.target.value, taxSpecialistId)} style={{ ...inputStyle, width: '120px', fontSize: '11px' }} />
+                  <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{cp.completed_date ? formatDate(cp.completed_date) : ''}</span>
                 </div>
               )
             })}
@@ -1295,7 +1323,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           <option value="">-- Select --</option>
           {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <input type="date" value={p.completed_date || ''} onChange={e => saveDate(task.id, e.target.value, taxSpecialistId)} style={{ ...inputStyle, width: '130px' }} />
+        <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
       </div>
     )
   }
