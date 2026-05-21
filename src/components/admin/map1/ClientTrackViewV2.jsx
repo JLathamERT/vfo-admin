@@ -69,16 +69,6 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
     finally { setSaving(p => ({ ...p, [taskId]: false })) }
   }
 
-  async function saveDate(taskId, date) {
-    const p = progress[taskId] || {}
-    setSaving(prev => ({ ...prev, [taskId]: true }))
-    try {
-      await callApi('msm_save_client_task', { client_id: clientId, task_id: taskId, status: p.status, completed_date: date || null, completed_by: null, notes: null })
-      setProgress(prev => ({ ...prev, [taskId]: { ...prev[taskId], completed_date: date } }))
-    } catch (err) { console.error(err) }
-    finally { setSaving(prev => ({ ...prev, [taskId]: false })) }
-  }
-
   async function triggerC8(taskId, decision, date) {
     setC8Triggering(true)
     try {
@@ -408,7 +398,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                           <option value="">-- Select --</option>
                           {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        <input type="date" value={p.completed_date || ''} onChange={e => saveDate(task.id, e.target.value)} style={{ ...inputStyle, width: '130px' }} />
+                        {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
                       </div>
                     </div>
                   )
@@ -489,7 +479,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                         <option value="">-- Select --</option>
                         {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
-                      <input type="date" value={p.completed_date || ''} onChange={e => saveDate(task.id, e.target.value)} style={{ ...inputStyle, width: '130px' }} />
+                      {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
                     </div>
                   )
                 })}
