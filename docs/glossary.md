@@ -39,10 +39,13 @@ The `pipeline_map1` table uses `c##_*` column prefixes for each MAP1 lifecycle s
 |---|---|---|
 | `c81_decision`, `c81_email_sent` | PIP 1 reconfirmation | `automation_PIP1_reconfirmationemail` |
 | `c13_decision` | PIP follow-up decision | `automation_PIPFU_decision` |
-| `c14_email_sent`, `c14_followup1_sent`, `c14_followup2_sent` | PCADMIN follow-up email | `automation_PIPFU_decision` (Undecided/No path) |
+| `c14_email_sent` | PCADMIN follow-up email drafted (`'Yes'`/`'No'`) | `automation_PIPFU_decision` (Undecided/No path) |
+| `c14_email_sent_at`, `c14_reminder_sent_at`, `c14_pf_notified_at` | Reminder-ladder timer base (Undecided only) + idempotency guards for the 48h reminder + 96h PF notification | `automation_PIPFU_decision` (timer base, Undecided branch); `automation_CONTRACT_revshare_sweep` (guards) |
 | `c15_token`, `c15_final_decision`, `c15_service_level`, `c15_via_extra_meeting` | PCADMIN final decision | `automation_PCADMIN_finaldecision` (via `/decide` link) |
 | `c16_sent` | Agreement sent to BoldSign | `automation_CONTRACT_sendagreement` |
-| `c17_client_signed`, `c17_followup_sent_date`, `c17_followup1_sent`, `c17_followup2_sent` | Client signed agreement | `boldsign-webhook` |
+| `c17_client_signed` | Client signed agreement | `boldsign-webhook` |
+| `c17_followup_sent_date` | Agreement-sent timer base (also reminder ladder base for the signing stall) | `automation_CONTRACT_sendagreement` |
+| `c17_reminder_sent_at`, `c17_pf_notified_at` | Reminder-ladder idempotency guards for the 48h signing reminder + 96h PF notification | `automation_CONTRACT_revshare_sweep` |
 | `c18_ceo_signed` | CEO countersigned | `boldsign-webhook` |
 | `c24_email_sent` | Tracy intro email sent (after first payment + revenue share) | `automation_CONTRACT_revshare` |
 

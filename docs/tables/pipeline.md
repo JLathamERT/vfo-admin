@@ -25,11 +25,13 @@ Registry of pipeline kinds. The frontend [AutomationPanel.jsx:290](src/component
 
 The single most important automation table. One row per client journey through MAP1. ~80 columns. Column families:
 
+> **DB invariant**: `UNIQUE (client_id)` since 2026-05-21. The constraint prevents the historical drift where stale handler-INSERT branches silently created duplicate rows for the same client (which then broke downstream `.maybeSingle()` lookups). Any code path that tries to insert a second row for an existing client_id now hard-fails with Postgres `23505 unique_violation`.
+
 ### Identity / routing
 | Column | Type | Notes |
 |---|---|---|
 | `id` | integer | pk |
-| `client_id` | integer | fk → `clients.id` (NO ACTION). |
+| `client_id` | integer | fk → `clients.id` (NO ACTION). UNIQUE (see invariant above). |
 | `client_ref` | text | Human-friendly ref (e.g., `"VFO-ABC-123"`). Mirrored from `clients.client_ref`. |
 | `pf` | text | Assigned PF (Planning Facilitator). Used in step routing. |
 | `tax_planner` | text | Optional tax planner assignment. |
@@ -50,9 +52,10 @@ The single most important automation table. One row per client journey through M
 |---|---|---|
 | `c13_decision` | text | Status field. |
 | `current_priorities` / `parked_priorities` / `meeting_notes` | text | Free-form |
-| `c14_email_sent` | text | default `'No'`. Set by `automation_PIP1_reconfirmationemail`. |
-| `c14_followup_sent_date` | date | |
-| `c14_followup1_sent` / `c14_followup2_sent` | boolean | default `false`. Likely cron/manual reminder flags. |
+| `c14_email_sent` | text | default `'No'`. Flipped to `'Yes'` by `automation_PIPFU_decision` after drafting the Undecided/No email. |
+| `c14_email_sent_at` | timestamptz | **Reminder-ladder timer base.** Written `now()` by `automation_PIPFU_decision` **only on the Undecided branch** (not No). Drives the 48h client reminder + 96h PF notification fired by `automation_CONTRACT_revshare_sweep`. |
+| `c14_reminder_sent_at` | timestamptz | Idempotency guard for the 48h Undecided-email reminder. Set once by the sweep; row excluded from the reminder block thereafter. |
+| `c14_pf_notified_at` | timestamptz | Idempotency guard for the 96h PF "client hasn't clicked a decision button" admin notification. |
 | `c15_token` | text | One-time token embedded in the `/decide?token=...` link emailed to client. |
 | `c15_final_decision` | text | Status field. Set when client lands on `/decide` and submits via `automation_PCADMIN_finaldecision`. |
 | `c15_service_level` | text | One of `Lite` / `Core` / `Max` (chosen on `/decide`). |
@@ -78,8 +81,9 @@ Set by `automation_PCADMIN_pricing` ([PFPricingForm.jsx:19](src/components/admin
 | `c16_sent` | text | default `'No'`. Set to `'Yes'` after `automation_CONTRACT_sendagreement` succeeds. |
 | `boldsign_doc_id` | text | **BoldSign integration field.** ID of the document created by `automation_CONTRACT_sendagreement`. Indexed lookup target for `boldsign-webhook`. |
 | `c17_client_signed` | text | Status field. `'Yes'` when client signs (set by webhook or admin-api duplicate handler). |
-| `c17_followup_sent_date` | date | |
-| `c17_followup1_sent` / `c17_followup2_sent` | boolean | default `false` |
+| `c17_followup_sent_date` | date | **Reminder-ladder timer base.** Written by `automation_CONTRACT_sendagreement` at agreement-send time. Drives the 48h signing reminder + 96h PF notification fired by `automation_CONTRACT_revshare_sweep`. |
+| `c17_reminder_sent_at` | timestamptz | Idempotency guard for the 48h "agreement still not signed" client reminder. |
+| `c17_pf_notified_at` | timestamptz | Idempotency guard for the 96h PF "client hasn't signed the agreement" admin notification. |
 | `c18_ceo_signed` | text | Status field. `'Yes'` when CEO countersigns. |
 
 ### Payment block — Stripe
@@ -89,9 +93,10 @@ Set by `automation_PCADMIN_pricing` ([PFPricingForm.jsx:19](src/components/admin
 | `checkout_token` | text | One-time token used in `/pay?token=...` link. |
 | `payment_method_type` | text | `"card"` / `"ach"` / `"check"`. `check` set by `automation_CONTRACT_paidbycheck`; card/ach set by the Stripe webhook handler. |
 | `card_processing_fee` | text | Computed when `payment_method_type='card'`. NULL for check/ach. |
-| `pay1_followup_sent_date` | date | |
-| `pay1_followup1_sent` / `pay1_followup2_sent` | boolean | default `false` (unimplemented — no code writes these). |
-| `pay2_reminder_sent` / `pay3_reminder_sent` / `pay4_reminder_sent` | boolean | default `false`. Written `true` by `automation_CONTRACT_checkreminder_sweep` after successful Gmail draft. Only meaningful for check clients. |
+| `pay1_email_sent_at` | timestamptz | **Reminder-ladder timer base.** Written `now()` by `automation_CONTRACT_paymentemail` after the Gmail draft of the `/pay?token=...` link is queued. Drives the 48h payment reminder + 96h PF notification fired by `automation_CONTRACT_revshare_sweep`. |
+| `pay1_reminder_sent_at` | timestamptz | Idempotency guard for the 48h "payment link still not paid" client reminder. |
+| `pay1_pf_notified_at` | timestamptz | Idempotency guard for the 96h PF "client hasn't paid the first payment" admin notification. |
+| `pay2_reminder_sent` / `pay3_reminder_sent` / `pay4_reminder_sent` | boolean | default `false`. Written `true` by `automation_CONTRACT_checkreminder_sweep` after successful Gmail draft. Only meaningful for check clients. (Separate from the `pay1_*` reminder ladder — these are 7-day pre-due-date nudges fired by a different sweep.) |
 | `stripe_bank_token` | text | |
 | `bank_token` | text | |
 | `acct_last4` | text | Last-4 captured from Stripe PaymentIntent expansion. NULL for check. |

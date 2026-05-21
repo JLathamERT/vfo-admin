@@ -83,7 +83,14 @@ Migration `auto_cleanup_expired_sessions` (2026-04-28) presumably installs a per
 
 ## Storage
 
-Two storage buckets used by edge function:
+Four storage buckets in use:
+
+| Bucket | Visibility | Used by | Notes |
+|---|---|---|---|
+| `headshots` | public | `upload_headshot` | Specialist headshots, served via direct public URL. |
+| `member-vault` | private | `vault_list` / `vault_upload` / `vault_delete` | Per-member files under `<member_number>/`, signed URLs (1h). |
+| `tax-agreements` | public | `actions/tax/decision.ts` (Undecided branch) | Holds the static **Tax Planning Engagement Agreement** PDF (`tax-planning.pdf`). Fetched no-auth at email-draft time and attached as a multipart MIME part to the client's Undecided email. |
+| `map1-agreements` | public | `actions/pipeline/pipfu-decision.ts` (Undecided branch) | Holds the three MAP 1 service-level agreements: `proactive-lite.pdf`, `proactive-core.pdf`, `proactive-max.pdf`. All three are attached on Undecided emails by default; the Max PDF is suppressed when `form_data.maxNA === true` (admin ticked "N/A" for Max in the PIP Follow Up form). Created 2026-05-21. |
 
 ### `headshots`
 
@@ -108,6 +115,12 @@ Per-member private file storage. Each member's files live under `<plugin_member_
 | `vault_delete` | `vfo-admin-api/actions/vault/delete.ts` | Deletes `<member_number>/<filename>` |
 
 `config.toml` sets `file_size_limit = "50MiB"` for storage globally.
+
+### `tax-agreements` / `map1-agreements`
+
+Both are **public buckets** holding **static PDF agreements** that an automation handler fetches at email-draft time (no Supabase auth needed) and attaches as a multipart/mixed MIME part to a Gmail draft. URL pattern: `https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/<bucket>/<filename>.pdf`.
+
+No write path from any handler — PDFs are uploaded manually via Supabase Studio. To swap an agreement, replace the file in the bucket and the next email draft picks up the new version automatically.
 
 ## CORS
 
