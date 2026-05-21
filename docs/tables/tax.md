@@ -4,7 +4,9 @@ Tax engagements run alongside (and downstream of) the regular member-program. A 
 
 ## `client_tax_plans`
 
-State machine for the tax-planning engagement. **69 columns total** (4 original + 51 added via migration `20260518000000_tax_phase0_schema.sql` + 14 split column families). Parallel to `pipeline_map1` for MAP1; see [tax-planning flow](../flows/tax-planning.md) for end-to-end usage.
+State machine for the tax-planning engagement. **75 columns total** (4 original + 51 added via migration `20260518000000_tax_phase0_schema.sql` + 14 split column families + 6 deposit-refund columns added in the Tax Planning alignment session). Parallel to `pipeline_map1` for MAP1; see [tax-planning flow](../flows/tax-planning.md) for end-to-end usage.
+
+> **Program-aware**: rows are tagged with `program_id` so the same handlers serve both Holistic Planning's Tax Priorities track (program_id=1) and the standalone VFO Tax Planning program (program_id=4). Client-visible labels (invoice/receipt headers, Stripe line items, BoldSign agreement title) switch between "VFO Holistic Planning" and "VFO Tax Planning" via the `programLabel(programId)` helper in `utils/program-label.ts`.
 
 ### Original / scope
 | Column | Type | Notes |
@@ -76,7 +78,7 @@ State machine for the tax-planning engagement. **69 columns total** (4 original 
 | `retainer_invoice_email_sent` | boolean | default false. Idempotency on `automation_TAX_invoicereceipt`. |
 | `retainer_receipt_status` | text | `Sent` after email draft. (Mirror new `recN_status='Sent'` pattern from MAP1.) |
 
-### Retainer revenue share (Phase 6 — not yet wired)
+### Retainer revenue share
 | Column | Type | Notes |
 |---|---|---|
 | `retainer_rev_share` | text | `Pending` / `Completed - <type>`. |
@@ -109,7 +111,7 @@ The Tax 4 flow no longer fires money movement on admin click. Admin picks a 3-op
 | `post_review_decision` | text | Admin's pick: `Continue - Revenue Share` / `Undecided` / `Stop - Refund`. |
 | `post_review_decision_token` | text | 32-byte hex for `/tax-postreview-decide?token=`. Indexed. Generated on Continue + Undecided. |
 | `post_review_decision_email_sent_at` | timestamptz | When client email was drafted — sweep base for 24h (Continue lock-in) / 48h (Undecided reminder) / 96h (Undecided PF). |
-| `post_review_client_decision` | text | Client's click on the email button: `Proceed` (Undecided→Proceed → fires revshare) / `Refund` (fires refund) / `Auto-Locked` (sweep-set after 24h Continue grace). |
+| `post_review_client_decision` | text | Client's click on the email button: `Proceed` (Undecided→Proceed → fires revshare) / `Confirmed` (Continue-email green "Continue now" click → fires revshare immediately, skipping the 24h grace) / `Refund` (fires refund) / `Auto-Locked` (sweep-set after 24h Continue grace expires with no client click). |
 | `post_review_reminder_sent_at` | timestamptz | Undecided 48h reminder timestamp. |
 | `post_review_pf_notified_at` | timestamptz | Undecided 96h PF notification timestamp. |
 | `refund_status` | text | `succeeded` / `failed`. Set by `automation_TAX_refund` (PUBLIC, accepts service-role bearer OR admin session token). |
@@ -117,6 +119,18 @@ The Tax 4 flow no longer fires money movement on admin click. Admin picks a 3-op
 | `refund_amount` | numeric | What was actually refunded (BASE amount only — no card-fee gross-up). |
 | `refund_date` | date | |
 | `refund_email_sent` | boolean | default false. |
+
+### Setup phase — Deposit + refund
+Tax Planning (program_id=4) starts with a Setup phase containing 3 tasks: **Deposit Paid** (captures Stripe PI), **Tax Plan Greenlight** (Go / Stop), **Refund Paid** (active only when Greenlight = Stop, fires Stripe refund). Holistic Tax Priorities (program_id=1) doesn't render Setup (those clients arrive via MAP1 instead), but the same columns work for either program if populated.
+
+| Column | Type | Notes |
+|---|---|---|
+| `deposit_payment_intent_id` | text | Admin-pasted Stripe PaymentIntent ID (`pi_...`) captured on the Deposit Paid task before our system knows the client exists. Save handler extracts the last `pi_...` substring defensively against paste-over. |
+| `deposit_refund_id` | text | Stripe refund object id (`re_...`) from `automation_TAX_depositrefund`. |
+| `deposit_refund_amount` | text | Full PI amount refunded, fetched from Stripe (NOT admin-typed). |
+| `deposit_refund_date` | date | Set on successful refund. |
+| `deposit_refund_status` | text | `succeeded` / `failed`. |
+| `deposit_refund_email_sent` | boolean | default false. Idempotency on confirmation Gmail draft to client. |
 
 ### Tax 5 — Implementation flow (Phase 7 — BUILT) + client-email redesign
 Tax 5b "Implementation decision" mirrors Tax 4's 3-option pattern: Proceed picks DON'T charge immediately — they send a 24h grace email with a Decline button; Undecided sends 2 buttons + 48h/96h reminders; Not Implementing sends decline email only, no money movement.
@@ -127,7 +141,7 @@ Tax 5b "Implementation decision" mirrors Tax 4's 3-option pattern: Proceed picks
 | `implementation_token` | text | 32-byte hex for `/tax-implement-decide?token=`. Indexed. Generated on Proceed + Undecided. |
 | `implementation_decision_email_sent` | text | Stores the decision name (`Proceed`/`Undecided`/`Not Implementing`) once the matching email is drafted. Per-decision idempotency so admin re-picks re-send the right email. |
 | `implementation_decision_email_sent_at` | timestamptz | When email was drafted — sweep base for 24h Proceed lock-in / 48h Undecided reminder / 96h Undecided PF. |
-| `implementation_final_decision` | text | Client's click result: `Proceed` (fires off-session charge directly) / `Decline` (drafts decline email, no charge) / `Auto-Locked` (sweep at 24h on Proceed pick, fires charge). |
+| `implementation_final_decision` | text | Client's click result: `Proceed` (Undecided→Proceed → fires off-session charge directly) / `Confirmed` (Proceed-email green "Proceed now" click → fires off-session charge immediately, skipping the 24h grace) / `Decline` (drafts decline email, no charge) / `Auto-Locked` (sweep at 24h on Proceed pick with no client click, fires charge). |
 | `implementation_reminder_sent_at` | timestamptz | Undecided 48h reminder timestamp. |
 | `implementation_pf_notified_at` | timestamptz | Undecided 96h PF notification timestamp. |
 | `implementation_charge_status` | text | `succeeded` / `processing` / `declined` / `auth_required` / `manual_required` (no PI on retainer, e.g. check). |
@@ -152,7 +166,7 @@ Tax 5b "Implementation decision" mirrors Tax 4's 3-option pattern: Proceed picks
 - `idx_client_tax_plans_implementation_token` ON `implementation_token`
 - `idx_client_tax_plans_post_review_token` ON `post_review_decision_token`
 
-**Touched by:** `tax_load_plans`, `tax_start_plan`, `automation_TAX_readyfortax3`, `automation_TAX_decision`, `automation_TAX_finaldecision`, `automation_TAX_pricing`, `automation_TAX_extrameeting`, `automation_TAX_sendagreement`, `automation_TAX_ceocountersign`, `automation_TAX_stripecustomer`, `automation_TAX_paymentemail`, `automation_TAX_loadpayment`, `automation_TAX_stripecheckout`, `automation_TAX_confirmationemail`, `automation_TAX_invoicereceipt`, `automation_TAX_paidbycheck`, `automation_TAX_checkcleared`, `automation_load_tax_plans`, Stripe webhook (`maybeHandleStripeWebhook`), BoldSign webhook (`maybeHandleBoldSignWebhook` + standalone `boldsign-webhook` function). Frontend: [TaxPrioritiesTab.jsx](src/components/admin/tax/TaxPrioritiesTab.jsx), [TaxAutomationPanel.jsx](src/components/admin/TaxAutomationPanel.jsx), [TaxDecidePage.jsx](src/pages/TaxDecidePage.jsx), [TaxPayPage.jsx](src/pages/TaxPayPage.jsx).
+**Touched by:** `tax_load_plans`, `tax_start_plan` (now accepts `program_id`), `tax_save_deposit_pi`, `automation_TAX_readyfortax3`, `automation_TAX_decision`, `automation_TAX_finaldecision`, `automation_TAX_pricing`, `automation_TAX_extrameeting`, `automation_TAX_sendagreement`, `automation_TAX_ceocountersign`, `automation_TAX_stripecustomer`, `automation_TAX_paymentemail`, `automation_TAX_loadpayment`, `automation_TAX_stripecheckout`, `automation_TAX_confirmationemail`, `automation_TAX_invoicereceipt`, `automation_TAX_paidbycheck`, `automation_TAX_checkcleared`, `automation_TAX_postreviewdecision`, `automation_TAX_postreviewclientdecision`, `automation_TAX_refund`, `automation_TAX_revshare`, `automation_TAX_revshare_sweep`, `automation_TAX_implementdecision`, `automation_TAX_implementfinaldecision`, `automation_TAX_charge_implementation`, `automation_TAX_implementation_receipt`, `automation_TAX_save_meeting_date`, `automation_TAX_depositrefund`, `automation_load_tax_plans`, Stripe webhook (`maybeHandleStripeWebhook`), BoldSign webhook (`maybeHandleBoldSignWebhook` + standalone `boldsign-webhook` function). Frontend: [TaxPrioritiesTab.jsx](src/components/admin/tax/TaxPrioritiesTab.jsx), [TaxAutomationPanel.jsx](src/components/admin/TaxAutomationPanel.jsx), [TaxDecidePage.jsx](src/pages/TaxDecidePage.jsx), [TaxPayPage.jsx](src/pages/TaxPayPage.jsx), [TaxPostReviewDecidePage.jsx](src/pages/TaxPostReviewDecidePage.jsx), [TaxImplementDecidePage.jsx](src/pages/TaxImplementDecidePage.jsx).
 
 ---
 

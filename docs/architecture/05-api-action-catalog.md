@@ -1,6 +1,6 @@
 # API action catalog (`vfo-admin-api`)
 
-All **160 actions** dispatched by `vfo-admin-api` (MAP1 baseline of 134 + 26 tax handlers — 17 from Phases 1–5c + `automation_TAX_revshare`, `automation_TAX_refund`, `automation_TAX_revshare_sweep` from Phase 6 + `automation_TAX_implementdecision`, `automation_TAX_charge_implementation`, `automation_TAX_implementfinaldecision`, `automation_TAX_implementation_receipt` from Phase 7 + `automation_TAX_postreviewdecision`, `automation_TAX_postreviewclientdecision` from the Tax 4 post-review redesign + `automation_TAX_save_meeting_date` from the Tax 5 meeting-date nudge — see [../flows/tax-planning.md](../flows/tax-planning.md)). The post-refactor catalog cites file paths (not line numbers — line numbers shift across handler edits). Action names and behavior are byte-equivalent to v194 except for explicit follow-up changes noted in entries below.
+All **162 actions** dispatched by `vfo-admin-api` (MAP1 baseline of 134 + 28 tax handlers — 17 from Phases 1–5c + `automation_TAX_revshare`, `automation_TAX_refund`, `automation_TAX_revshare_sweep` from Phase 6 + `automation_TAX_implementdecision`, `automation_TAX_charge_implementation`, `automation_TAX_implementfinaldecision`, `automation_TAX_implementation_receipt` from Phase 7 + `automation_TAX_postreviewdecision`, `automation_TAX_postreviewclientdecision` from the Tax 4 post-review redesign + `automation_TAX_save_meeting_date` from the Tax 5 meeting-date nudge + `automation_TAX_depositrefund`, `tax_save_deposit_pi` from the Tax Planning alignment session — see [../flows/tax-planning.md](../flows/tax-planning.md)). The post-refactor catalog cites file paths (not line numbers — line numbers shift across handler edits). Action names and behavior are byte-equivalent to v194 except for explicit follow-up changes noted in entries below.
 
 Format: action · `file` · tables read / written · chains / external. Table prefix `pipeline_map1` is shortened to `pmap1` and `pipeline_sandbox_config` to `psbx_cfg` for brevity. All file references are relative to `C:\vfo-edge-functions\supabase\functions\vfo-admin-api\`.
 
@@ -198,11 +198,13 @@ All dispatched AFTER `middleware/auth.ts::authenticate()` validates body.token. 
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
 | `tax_load_plans` | `actions/tax/load-plans.ts` | `client_tax_plans` | — | — |
-| `tax_start_plan` | `actions/tax/start-plan.ts` | — | `client_tax_plans` | — |
+| `tax_start_plan` | `actions/tax/start-plan.ts` | — | `client_tax_plans` (client_id + optional `program_id`) | — |
 | `tax_load_progress` | `actions/tax/load-progress.ts` | `client_tax_progress` | — | — |
 | `tax_save_task` | `actions/tax/save-task.ts` | — | `client_tax_progress` (upsert) | — |
+| `tax_save_deposit_pi` | `actions/tax/save-deposit-pi.ts` | — | `client_tax_plans` (deposit_payment_intent_id), `client_tax_progress` (Deposit Paid status='Completed') | — (Setup phase Deposit Paid task. Extracts last `pi_...` substring defensively against paste-over; also accepts Stripe dashboard URLs containing `/payments/pi_...`) |
 | `tax_load_specialists` | `actions/tax/load-specialists.ts` | `client_tax_specialists` | — | — |
 | `tax_add_specialist` | `actions/tax/add-specialist.ts` | — | `client_tax_specialists` | — |
+| `automation_TAX_depositrefund` | `actions/tax/deposit-refund.ts` | `client_tax_plans` (deposit_payment_intent_id), `clients`, `members`, `psbx_cfg`(TAX) | `client_tax_plans` (deposit_refund_id, deposit_refund_amount, deposit_refund_date, deposit_refund_status, deposit_refund_email_sent), `notifications` | Stripe `GET /v1/payment_intents/<id>` (amount lookup) · Stripe `POST /v1/refunds` (full amount) · Gmail draft confirmation to client. Fires from Setup-phase "Send refund" button, only when Tax Plan Greenlight = Stop AND deposit_payment_intent_id is set. Idempotent on deposit_refund_status='succeeded'. |
 
 ### Client notes
 

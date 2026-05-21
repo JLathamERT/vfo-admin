@@ -96,7 +96,7 @@ function getView(status, decision, error) {
       message: error || 'An unexpected error occurred.',
     }
   }
-  if (decision === 'Yes') {
+  if (decision === 'Proceed' || decision === 'Confirmed' || decision === 'Yes') {
     return {
       icon: '✓',
       color: '#22c55e',

@@ -422,6 +422,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const [livePlan, setLivePlan] = useState(plan)
   const [extraMeetingPricingOpen, setExtraMeetingPricingOpen] = useState(false)
   const [submittingExtraNo, setSubmittingExtraNo] = useState(false)
+  const [depositPiDrafts, setDepositPiDrafts] = useState({})
 
   async function refreshLivePlan() {
     try {
@@ -560,6 +561,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     let tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
     if (phase.name === 'Tax 1 - Diagnostic' && !additionalInfoRequired) {
       tasks = tasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
+    }
+    if (phase.name === 'Set Up') {
+      // tax_refund only applies when greenlight === 'Stop'; otherwise it's greyed and shouldn't block 'done'
+      const greenlightTask = (phase.program_client_tasks || []).find(t => t.status_options === 'tax_greenlight')
+      const greenlightStatus = greenlightTask ? localProgress[greenlightTask.id]?.status : ''
+      if (greenlightStatus !== 'Stop') {
+        tasks = tasks.filter(t => t.status_options !== 'tax_refund')
+      }
     }
 
     // Phases that contain an AI-PC-Admin cascade aren't really "done" just
@@ -1077,19 +1086,71 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       </div>
     )
 
+    if (task.status_options === 'tax_deposit_pi') {
+      const savedPi = livePlan?.deposit_payment_intent_id || ''
+      const draftVal = depositPiDrafts[task.id]
+      const inputVal = draftVal !== undefined ? draftVal : savedPi
+      async function saveDepositPi() {
+        if (!inputVal || !inputVal.trim()) { alert('Enter a Stripe PaymentIntent ID (pi_...) or payment URL'); return }
+        const res = await callApi('tax_save_deposit_pi', { tax_plan_id: plan.id, payment_intent_id: inputVal.trim(), task_id: task.id })
+        if (res?.error) { alert(`Error: ${res.error}`); return }
+        await refreshLivePlan()
+        const pd = await callApi('tax_load_progress', { tax_plan_id: plan.id })
+        const map = {}
+        ;(pd.progress || []).forEach(pr => {
+          const k = pr.tax_specialist_id ? `${pr.task_id}_${pr.tax_specialist_id}` : pr.task_id
+          map[k] = pr
+        })
+        setLocalProgress(map)
+        setDepositPiDrafts(p => { const c = { ...p }; delete c[task.id]; return c })
+      }
+      return (
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone && savedPi ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone && savedPi ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+          <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
+          {readOnly ? (
+            savedPi && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#27ae6022', color: '#27ae60', border: '1px solid #27ae6044', fontFamily: 'monospace' }}>{savedPi}</span>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={inputVal}
+                placeholder="pi_..."
+                onChange={(e) => setDepositPiDrafts(p => ({ ...p, [task.id]: e.target.value }))}
+                style={{ ...inputStyle, fontFamily: 'monospace', minWidth: '240px' }}
+                title="Paste the Stripe PaymentIntent ID (pi_...) or a payment URL from the Stripe dashboard"
+              />
+              <button onClick={saveDepositPi} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6' }}>Save</button>
+            </>
+          )}
+          <span style={{ fontSize: '11px', color: '#8bacc8', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+        </div>
+      )
+    }
+
     if (task.status_options === 'tax_refund') {
       const greenlightTask = allTasks.find(t => t.name === 'Tax Plan Greenlight')
       const greenlightStatus = greenlightTask ? (localProgress[greenlightTask.id]?.status || '') : ''
-      const greyed = greenlightStatus !== 'Stop'
+      const hasPi = !!livePlan?.deposit_payment_intent_id
+      const refunded = livePlan?.deposit_refund_status === 'succeeded'
+      const greyed = greenlightStatus !== 'Stop' || !hasPi
+      async function sendDepositRefund() {
+        if (!confirm(`Refund the deposit ($${livePlan?.deposit_refund_amount || 'full PI amount'}) via Stripe?\n\nThis will refund the saved PaymentIntent in full and draft a confirmation email to the client. Cannot be undone.`)) return
+        const res = await callApi('automation_TAX_depositrefund', { tax_plan_id: plan.id })
+        if (res?.error) { alert(`Refund failed: ${res.error}`); return }
+        // Mark task as completed
+        await saveTask(task.id, 'Completed', new Date().toISOString().slice(0, 10), taxSpecialistId)
+        await refreshLivePlan()
+      }
       return (
-        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap', opacity: greyed ? 0.3 : 1, pointerEvents: greyed ? 'none' : 'auto' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'rgba(255,255,255,0.2)'}` }} />
-          <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
-          {isDone
-            ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
-            : <button onClick={() => saveTask(task.id, 'Completed', p.completed_date, taxSpecialistId)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6' }}>Send refund</button>
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap', opacity: greyed && !refunded ? 0.3 : 1 }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: refunded ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${refunded ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+          <span style={{ fontSize: '13px', color: refunded ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
+          {refunded
+            ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#27ae6022', color: '#27ae60', border: '1px solid #27ae6044' }}>Refunded ${livePlan?.deposit_refund_amount}</span>
+            : <button disabled={greyed || readOnly} onClick={sendDepositRefund} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: greyed ? 'not-allowed' : 'pointer', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6' }} title={!hasPi ? 'Enter the Deposit PaymentIntent ID first' : (greenlightStatus !== 'Stop' ? 'Available once Tax Plan Greenlight = Stop' : '')}>Send refund</button>
           }
-          <span style={{ fontSize: '11px', color: '#8bacc8', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+          <span style={{ fontSize: '11px', color: '#8bacc8', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{refunded && livePlan?.deposit_refund_date ? formatDate(livePlan.deposit_refund_date) : (isDone && p.completed_date ? formatDate(p.completed_date) : '')}</span>
         </div>
       )
     }
@@ -1344,7 +1405,19 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         if (phase.name === 'Tax 1 - Diagnostic' && !additionalInfoRequired) {
           nonAutoTasks = nonAutoTasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
         }
-        const doneTasks = nonAutoTasks.filter(t => localProgress[t.id]?.status).length
+        if (phase.name === 'Set Up') {
+          // tax_refund task only counts when greenlight === 'Stop' (otherwise it's greyed in the UI)
+          const greenlightTask = tasks.find(t => t.status_options === 'tax_greenlight')
+          const greenlightStatus = greenlightTask ? localProgress[greenlightTask.id]?.status : ''
+          if (greenlightStatus !== 'Stop') {
+            nonAutoTasks = nonAutoTasks.filter(t => t.status_options !== 'tax_refund')
+          }
+        }
+        const doneTasks = nonAutoTasks.filter(t => {
+          // tax_meeting_date writes to client_tax_plans.tax4_meeting_date, not client_tax_progress
+          if (t.status_options === 'tax_meeting_date') return !!livePlan?.tax4_meeting_date
+          return !!localProgress[t.id]?.status
+        }).length
         const borderColor = state === 'done' ? 'rgba(39,174,96,0.3)' : state === 'active' ? 'rgba(91,159,230,0.4)' : 'rgba(255,255,255,0.1)'
         const dotColor = state === 'done' ? '#27ae60' : state === 'active' ? '#5b9fe6' : 'transparent'
         const titleColor = state === 'active' ? '#5b9fe6' : '#fff'
@@ -1478,7 +1551,11 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         const isExpanded = expanded[phase.id] !== undefined ? expanded[phase.id] : (state === 'active')
         const tasks = phase.program_client_tasks || []
         const nonAutoTasks = tasks.filter(t => t.status_options !== 'auto')
-        const doneTasks = nonAutoTasks.filter(t => localProgress[t.id]?.status).length
+        const doneTasks = nonAutoTasks.filter(t => {
+          // tax_meeting_date writes to client_tax_plans.tax4_meeting_date, not client_tax_progress
+          if (t.status_options === 'tax_meeting_date') return !!livePlan?.tax4_meeting_date
+          return !!localProgress[t.id]?.status
+        }).length
         const borderColor = state === 'done' ? 'rgba(39,174,96,0.3)' : state === 'active' ? 'rgba(91,159,230,0.4)' : 'rgba(255,255,255,0.1)'
         const dotColor = state === 'done' ? '#27ae60' : state === 'active' ? '#5b9fe6' : 'transparent'
         const titleColor = state === 'active' ? '#5b9fe6' : '#fff'
@@ -1550,7 +1627,7 @@ function TaxPrioritiesTab({ clientId, programId, programName, client, specialist
 
   async function startPlan() {
     try {
-      await callApi('tax_start_plan', { client_id: clientId })
+      await callApi('tax_start_plan', { client_id: clientId, program_id: programId })
       loadData()
     } catch (err) { console.error(err) }
   }
