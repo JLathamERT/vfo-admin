@@ -1,10 +1,10 @@
 # Tax Planning flow (client_tax_plans)
 
-The master flow for the **Tax Planning** track inside the VFO Holistic Planning program (program_id=1). Parallel to [contract-and-payment.md](contract-and-payment.md) (MAP1) but operating on `client_tax_plans` rows. Touches every integration: Stripe, BoldSign, Gmail, Google Drive, Supabase Storage.
+The master flow for tax planning engagements. Originally built as the **Tax Priorities** track inside VFO Holistic Planning (program_id=1); since aligned to serve the standalone **VFO Tax Planning** program (program_id=4) byte-equivalently — same handlers, same DB shape, same chains. The only intentional difference is the **Set Up phase** that program_id=4 plans see at the top (program_id=1 plans skip it because Holistic clients arrive via MAP1 instead). Parallel to [contract-and-payment.md](contract-and-payment.md) (MAP1) but operating on `client_tax_plans` rows. Touches every integration: Stripe, BoldSign, Gmail, Google Drive, Supabase Storage.
 
-The state machine is the column values on a single `client_tax_plans` row — see [../tables/tax.md](../tables/tax.md). Each step in this flow either updates the row or branches based on column values.
+The state machine is the column values on a single `client_tax_plans` row — see [../tables/tax.md](../tables/tax.md). Each step in this flow either updates the row or branches based on column values. `client_tax_plans.program_id` is set at plan creation by `tax_start_plan` (legacy rows pre-dating the column may be NULL — treated as Holistic for label purposes).
 
-Standalone **VFO Tax Planning** program (id=4) is intentionally deferred. Same handlers will work for it later with minimal changes (program-aware where it matters).
+> **Program-aware client-visible labels** (added in the Tax Planning alignment session). The invoice/receipt PDF headers + footer, Stripe Checkout line items, the Stripe off-session implementation charge description, and the BoldSign agreement title all switch between "VFO Holistic Planning" (program_id=1 or NULL legacy) and "VFO Tax Planning" (program_id=4) via the `programLabel(programId)` helper in `utils/program-label.ts`. Internal-only labels (`notifications.pipeline='TAX'`, `email_templates.pipeline='TAX'`, sandbox-config `pipeline='TAX'`) stay program-agnostic — they're keys, not display names.
 
 > **Session-3 redesign note (2026-05-19).** Steps 13 (Tax 4 Continue/Stop) and 14 (Tax 5 implementation) below describe the **original** Phase 6/7 designs where admin clicks fire money movement directly. Both have since been **redesigned** to mirror a unified pattern: admin picks a 3-option dropdown → for the affirmative pick, the client gets an email with a back-out button + 24h grace; for Undecided, the client gets a buttons-email with a 48h reminder + 96h PF-call-the-client admin notification; for the decline pick, the engagement closes immediately. Daily sweep (`tax-revshare-sweep-daily`) drives all timers. Same pattern was also added to Tax 3 (Undecided email reminder, agreement-signing reminder, payment-link reminder). For the canonical current behavior of these steps see [TAX_BUILD_RESUME.md](C:/vfo-edge-functions/.claude/worktrees/thirsty-gould-06a64e/TAX_BUILD_RESUME.md) Phase index and [../architecture/05-api-action-catalog.md](../architecture/05-api-action-catalog.md) entries `automation_TAX_postreviewdecision`, `automation_TAX_postreviewclientdecision`, `automation_TAX_implementdecision`, `automation_TAX_implementfinaldecision`, `automation_TAX_revshare_sweep`. Notifications now carry a `dismissible` boolean — FYI notifications have a Done button; action-required ones (Tax 3 Yes → pricing form; Tax 3 ExtraMeeting → schedule meeting) clear only when admin completes the action.
 
@@ -22,6 +22,26 @@ Each arrow is either:
 - A token-link landing page (raw fetch, no session),
 - A webhook (Stripe / BoldSign), or
 - A server-to-server chain (admin-api → admin-api with service-role or admin-token auth).
+
+---
+
+## Step 0 — Set Up phase (VFO Tax Planning program_id=4 only)
+
+**Context:** standalone VFO Tax Planning clients pay a deposit BEFORE we even know they exist (typically via a public Stripe payment link, outside our system). Admin then creates the client record and binds them to the program. This phase has 3 tasks before the Tax 1 diagnostic begins. Holistic Tax Priorities (program_id=1) clients don't see this phase — they arrive via MAP1.
+
+| Task | status_options | What it does |
+|---|---|---|
+| Deposit Paid | `tax_deposit_pi` | Text input. Admin pastes the Stripe PaymentIntent ID (`pi_...`) or a Stripe dashboard URL containing it. `tax_save_deposit_pi` extracts the last `pi_...` substring (defensive against paste-over), writes it to `client_tax_plans.deposit_payment_intent_id`, and marks the task `Completed`. |
+| Tax Plan Greenlight | `tax_greenlight` | Two-button task: **Go** (proceed to Tax 1) or **Stop** (refund deposit + close engagement). |
+| Refund Paid | `tax_refund` | Greyed unless Greenlight = Stop. "Send refund" button fires `automation_TAX_depositrefund` which: (1) fetches the PaymentIntent from Stripe to get the amount, (2) POSTs to `/v1/refunds` with `payment_intent=<saved pi_>`, (3) writes `deposit_refund_id`/`deposit_refund_amount`/`deposit_refund_date`/`deposit_refund_status='succeeded'`, (4) drafts a Gmail confirmation to the client, (5) inserts an admin notification with the Stripe refund id. |
+
+**Handlers:** [`tax_save_deposit_pi`](../../supabase/functions/vfo-admin-api/actions/tax/save-deposit-pi.ts), [`automation_TAX_depositrefund`](../../supabase/functions/vfo-admin-api/actions/tax/deposit-refund.ts) — both AUTH (admin-only).
+
+**Tables read:** `client_tax_plans`, `clients`, `members`, `pipeline_sandbox_config`(pipeline=`TAX`).
+**Tables written:** `client_tax_plans`(deposit_payment_intent_id, deposit_refund_*, deposit_refund_email_sent), `client_tax_progress` (Deposit Paid + Refund Paid status), `notifications`.
+**External calls:** Stripe `GET /v1/payment_intents/<id>`, Stripe `POST /v1/refunds`, Gmail drafts API.
+
+> **Greenlight = Go path is the normal lifecycle entry point** — flow continues to Step 1 below. The Setup phase is informational once Greenlight is set.
 
 ---
 
@@ -278,7 +298,7 @@ BoldSign fires `event.eventType='Signed'` with CEO email AND eventually `event.e
 **For ACH retainer cleared** (subsequent `payment_intent.succeeded` with `metadata.payment_kind='retainer'` and `retainer_status='processing'`):
 - UPDATEs `retainer_status='succeeded'`, **chains** `automation_TAX_invoicereceipt`.
 
-> **No revshare chain on Stripe webhook for tax.** Tax revshare is admin-button-driven via the Tax 4 Continue/Stop decision (Phase 6, not yet built). MAP1 auto-chains revshare on payment; tax does not.
+> **No revshare chain on Stripe webhook for tax.** Tax retainer revshare is gated by the Tax 4 Continue path — admin records `post_review_decision='Continue - Revenue Share'`, then revshare fires when either (a) client clicks the green "Continue now" button in the post-review email (`post_review_client_decision='Confirmed'`), or (b) the 24h grace expires and the sweep auto-locks (`post_review_client_decision='Auto-Locked'`). MAP1 auto-chains revshare on payment; tax does not.
 
 ---
 
@@ -382,13 +402,17 @@ Visible when `payment_method_type='check'` AND `retainer_status='check_pending'`
 
 ---
 
-## Step 13 — Tax 4 Continue/Stop
+## Step 13 — Tax 4 Continue/Undecided/Stop
 
-**Trigger:** After Tax Plan Review meeting (Tax 4 phase, manual), admin clicks one of the buttons in the Tax 4 `Client decision 1` task:
-- `Continue - Revenue Share` → fires `automation_TAX_revshare` (Phase 6a — BUILT ✓)
-- `Stop - Refund` → fires `automation_TAX_refund` (Phase 6b — NOT YET BUILT)
+**Trigger:** After Tax Plan Review meeting (Tax 4 phase, manual), admin picks one of the 3-option `Client decision 1` values. Picks `automation_TAX_postreviewdecision` which sends the appropriate client email:
 
-### Revenue Share path (Phase 6a — BUILT)
+- **`Continue - Revenue Share`** → drafts client email with **two buttons**: green "Continue now" (skip the 24h wait → immediate revshare, writes `post_review_client_decision='Confirmed'`) + red "Refund my retainer" (fires refund chain). If 24h passes with no click → sweep auto-locks (`post_review_client_decision='Auto-Locked'`) and fires revshare.
+- **`Undecided`** → drafts client email with green "Proceed with planning" + red "Refund my retainer". 48h sweep reminder + 96h PF notification if neither clicked. Client Proceed click writes `post_review_client_decision='Proceed'` and fires revshare; client Refund click fires refund.
+- **`Stop - Refund`** → no client email; immediately chains `automation_TAX_refund` server-to-server. Engagement closes.
+
+Revshare + refund handler details follow below. The `tax-revshare-sweep-daily` cron (02:30 UTC) drives the 24h Continue auto-lock + 48h/96h Undecided timers.
+
+### Revenue Share path
 
 **Handler:** [`automation_TAX_revshare`](../../supabase/functions/vfo-admin-api/actions/tax/revshare.ts) — PUBLIC handler. Takes `tax_plan_id` + `payment_kind` (`'retainer'` | `'implementation'`). Mirrors MAP1's `automation_CONTRACT_revshare` with column-family branching by `payment_kind`.
 
@@ -419,7 +443,7 @@ Visible when `payment_method_type='check'` AND `retainer_status='check_pending'`
 
 > **Gotcha:** `members.stripe_account_id` must point to a Connect account with `transfers` capability ACTIVE. Failed transfers return `rev_paid='Failed'`; the actual Stripe error body is logged via `console.error` but NOT surfaced by `get_logs` MCP — diagnose via `dashboard.stripe.com/test/events`. Fix is to update the member row; no handler change needed.
 
-### Refund path (Phase 6b — BUILT)
+### Refund path
 
 **Handler:** [`automation_TAX_refund`](../../supabase/functions/vfo-admin-api/actions/tax/refund.ts) — AUTH admin-only handler (`ADMIN_ONLY_ACTIONS`).
 
@@ -444,7 +468,7 @@ Visible when `payment_method_type='check'` AND `retainer_status='check_pending'`
 
 > **Guard ordering matters:** Check-guard fires first, then rev-paid guard. If both apply (check payment AND rev_paid='Yes' which shouldn't happen in practice), check error is the surfaced one. Update guard order if business rules change.
 
-### Sweep extension (Phase 6c — BUILT)
+### Sweep extension
 
 **Handler:** [`automation_TAX_revshare_sweep`](../../supabase/functions/vfo-admin-api/actions/tax/revshare-sweep.ts) — PUBLIC handler with service-role auth required (`Bearer SUPABASE_SERVICE_ROLE_KEY` in Authorization header; non-service-role → 401).
 
@@ -453,8 +477,8 @@ Visible when `payment_method_type='check'` AND `retainer_status='check_pending'`
 **What it does:**
 1. Validates Authorization header matches `SUPABASE_SERVICE_ROLE_KEY` (401 otherwise).
 2. Enumerates `client_tax_plans` for both `retainer_*` and `implementation_*` payment kinds (Phase 7 future-proof — implementation_* rows currently never match since Phase 7 hasn't shipped).
-3. Candidate = receipt_number IS NOT NULL AND rev_paid NOT IN (`Yes`,`Money Mapping`,`N/A — No Share Due`). Catches NULL, `Pending`, and `Failed` states.
-4. For each candidate: POSTs to `automation_TAX_revshare` with `tax_plan_id` + `payment_kind` + service-role auth. Logs the fire reason (`never-attempted` / `still-pending` / `retry-failed`).
+3. Candidate = receipt_number IS NOT NULL AND (`rev_share='Pending'` OR `rev_paid='Failed'`). **Retry-only**: plans where revshare was never started are NOT picked up — they must wait for their natural trigger (Tax 4 Continue 24h auto-lock OR Undecided→Proceed/Confirmed client click) to set `Pending` first. This gate was added to prevent revshare from auto-firing on a paid plan as soon as Tracy's sheet was populated, bypassing the Tax 4 admin decision entirely.
+4. For each candidate: POSTs to `automation_TAX_revshare` with `tax_plan_id` + `payment_kind` + service-role auth. Logs the fire reason (`still-pending` / `retry-failed`).
 5. Returns `{ ok: true, swept: <count>, fired: [...candidates with results...] }`.
 
 **Tables read:** `client_tax_plans` (filtered by receipt_number presence + rev_paid not resolved).
@@ -466,20 +490,23 @@ Visible when `payment_method_type='check'` AND `retainer_status='check_pending'`
 
 ---
 
-## Step 14 — Implementation auto-charge (Phase 7 — NOT YET BUILT)
+## Step 14 — Implementation flow (Tax 5b — BUILT)
 
-**Trigger:** Admin clicks **Proceed with Implementation** on the FIRST specialist in Tax 5 (Specialist Allocation) `Implementing?` task.
+Mirrors Tax 4's 3-option pattern. Admin picks `implementation_decision` on the Tax 5 Post Allocation phase:
+- **Proceed** → drafts client email with **two buttons**: green "Proceed now" (skip the 24h wait → immediate charge, writes `implementation_final_decision='Confirmed'`) + red "Decline implementation" (no charge ever). If 24h passes with no click → sweep auto-locks (`implementation_final_decision='Auto-Locked'`) and fires the charge.
+- **Undecided** → drafts client email with green "Proceed with implementation" + red "Decline implementation". 48h sweep reminder + 96h PF notification if neither clicked.
+- **Not Implementing** → drafts immediate decline email. Engagement closes; no charge ever.
 
-**Handler:** `automation_TAX_charge_implementation` — INSTANT off-session charge against saved payment method.
+**Charge handler:** `automation_TAX_charge_implementation` — off-session charge against saved payment method.
 - Charge amount: `implementation_amount` (may differ from retainer per design — separate columns).
-- Stripe PaymentIntent with `confirm=true off_session=true`, `metadata.payment_kind='implementation'`, `metadata.tax_plan_id`, `Idempotency-Key: implementation-{tax_plan_id}-{YYYY-MM-DD}`.
+- Stripe PaymentIntent with `confirm=true off_session=true`, `metadata.payment_kind='implementation'`, `metadata.tax_plan_id`, `Idempotency-Key: tax-impl-{tax_plan_id}-{retainer_pi_last8}-{YYYY-MM-DD}` (PI suffix included so DB-reset retries don't collide with Stripe's idempotency cache).
 - Card amount uses same gross-up as retainer for card; ACH at base.
-- **First-specialist-only:** check `implementation_charge_status` — if already set, skip (subsequent specialists don't re-charge).
-- Failure → `implementation_charge_status='declined'` or `'auth_required'` + admin notification + Gmail asking client to use a fresh `/tax-pay` link.
+- Idempotent on `implementation_charge_status` — if already set, skip.
+- Failure → `implementation_charge_status='declined'` or `'auth_required'` + admin notification + Gmail asking client to use a fresh `/tax-pay` link (see Failure mode #9 below for the ACH-retainer special case).
 
-**Webhook chain on success** → `automation_TAX_confirmationemail` (implementation variant) + `automation_TAX_invoicereceipt` (receipt-only for implementation, no invoice — design decision) + `automation_TAX_revshare` (second share) + `automation_TAX_implementation_announce` (final wrap-up email to client + ATP + specialists, template `TAX_implementation_announce|Yes` — currently placeholder).
+**Webhook chain on charge success** → `automation_TAX_confirmationemail` (`payment_kind='implementation'`, single `|implementation` template) + `automation_TAX_implementation_receipt` (REC PDF + Gmail draft, no invoice — design decision). Implementation revshare is picked up by the next `tax-revshare-sweep-daily` tick once `implementation_receipt_number` is set.
 
-**Failure mode for zero implementations:** if client never marks any specialist as "Proceed with Implementation", no charge ever fires. No automatic refund — client absorbs the retainer cost (different rule from the Tax 4 Stop-Refund branch).
+**Failure mode for zero implementations:** if client picks Decline OR Not Implementing, no charge ever fires. No automatic refund — client absorbs the retainer cost (different rule from the Tax 4 Stop-Refund branch).
 
 ---
 
