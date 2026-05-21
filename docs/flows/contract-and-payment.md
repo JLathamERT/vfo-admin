@@ -60,16 +60,16 @@ Each arrow is implemented either as:
 1. UPDATEs `pipeline_map1` with priorities, undecided reasons, lite/core/max costs, extra_cc.
 2. Generates a fresh `c15_token` (32-byte hex) and saves to row.
 3. Loads `email_templates` row `'PCADMIN_followup|Undecided'`.
-4. Builds HTML buttons that link to `https://jlathamert.github.io/vfo-portal/decide?token=<c15_token>&clientRef=...&decision=Yes&serviceLevel=<Lite|Core|Max>` (and a No, and an ExtraMeeting button).
-5. Creates Gmail draft to client with the buttons. CC member + PF; BCC `aanderson` + `platham`.
-6. Marks `c14_email_sent='Yes'`.
+4. Builds HTML buttons that link to `https://jlathamert.github.io/vfo-portal/decide?token=<c15_token>&clientRef=...&decision=Yes&serviceLevel=<Lite|Core|Max>` (and a No, and an ExtraMeeting button). Max button is suppressed when `form_data.maxNA === true`.
+5. **Fetches three PDFs from the public `map1-agreements` Supabase Storage bucket** — `proactive-lite.pdf`, `proactive-core.pdf`, and (when `maxNA` is falsy) `proactive-max.pdf` — base64-encodes each as a `multipart/mixed` part. The Gmail draft is built as multipart with the email body as the first part and each PDF attached. CC member + PF; BCC `aanderson` + `platham`.
+6. Marks `c14_email_sent='Yes'` AND `c14_email_sent_at=now()`. The `_sent_at` write only happens on the Undecided branch — see [tables/pipeline.md](../tables/pipeline.md) and the reminder-ladder section below.
 
 ### Decision = "No"
 
 1. UPDATEs `pipeline_map1` with `c13_decision='No'` and `extra_cc`.
 2. Loads template `'PCADMIN_followup|No'`.
-3. Same Gmail draft pattern.
-4. Marks `c14_email_sent='Yes'`.
+3. Plain `text/html` Gmail draft (no PDFs attached on the No branch).
+4. Marks `c14_email_sent='Yes'`. **Does NOT write `c14_email_sent_at`** — the reminder ladder fires only for Undecided rows; a "No" client doesn't need nudging.
 
 **Tables read:** `pipeline_map1`, `clients`, `members`, `pipeline_sandbox_config`, `email_templates`.
 **Tables written:** `pipeline_map1` (insert if missing + update).
@@ -374,7 +374,7 @@ For each payment cycle (P1 for one-time, P1+P2+P3+P4 for quarterly), the row sho
 
 **Trigger (two paths, both automatic):**
 1. **Push chain from Stripe webhook:** `router/webhooks.ts` chains `_revshare` immediately after `_invoicereceipt` in all three Stripe webhook chain sites (MAP1 first-card, quarterly N succeeded, ACH cleared). First attempt usually returns `pending: true` because Tracy's Revenue Master sheet isn't updated yet — silent and non-fatal.
-2. **Daily sweep via `automation_CONTRACT_revshare_sweep`:** `pg_cron` runs at 02:00 UTC (see `vfo-edge-functions/supabase/cron/revshare-sweep.sql`). The sweep enumerates every `pipeline_map1` row where any `rec1-4_number` is set but `rev_paid` is not yet `Yes`/`Money Mapping`/`N/A` — and re-invokes `_revshare` for each. Includes previously-`Failed` transfers, so misconfigured Stripe Connect accounts auto-recover once fixed. No manual path.
+2. **Daily sweep via `automation_CONTRACT_revshare_sweep`:** `pg_cron` runs at 02:00 UTC (see `vfo-edge-functions/supabase/cron/revshare-sweep.sql`). The sweep enumerates every `pipeline_map1` row where any `rec1-4_number` is set but `rev_paid` is not yet `Yes`/`Money Mapping`/`N/A` — and re-invokes `_revshare` for each. Includes previously-`Failed` transfers, so misconfigured Stripe Connect accounts auto-recover once fixed. **The same sweep also drives the three-stall reminder ladder (PCADMIN Undecided, agreement signing, Pay1 link) — see "Reminder ladder" below.** No manual path.
 
 **Handler:** `automation_CONTRACT_revshare` ([actions/pipeline/contract-revshare.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/contract-revshare.ts)).
 
@@ -402,21 +402,26 @@ For each payment cycle (P1 for one-time, P1+P2+P3+P4 for quarterly), the row sho
 
 ---
 
-## Reminder followups (unimplemented?)
+## Reminder ladder (48h client reminder + 96h PF notification)
 
-These columns exist on `pipeline_map1` but **no observed code writes them**:
+The MAP 1 reminder ladder mirrors the tax-planning sweep's stall-handling pattern. It rides on the existing `automation_CONTRACT_revshare_sweep` daily job at 02:00 UTC — no separate cron. Three stalls, two tiers each (six independent checks total). All emails are **To-client-only** (matching `actions/tax/revshare-sweep.ts`'s `sendReminderEmailUnified`). All PF notifications are admin-bell rows with `pipeline='MAP 1'`, `link='/admin/client/<id>?tab=map1'`.
 
-- `c14_followup1_sent`, `c14_followup2_sent` (PIP follow-up reminder)
-- `c14_followup_sent_date`
-- `c17_followup1_sent`, `c17_followup2_sent` (BoldSign sign reminder)
-- `pay1_followup1_sent`, `pay1_followup2_sent` (payment reminder)
-- `pay1_followup_sent_date`
+| Stall | Timer base column | Stall condition | 48h reminder | 96h PF notification |
+|---|---|---|---|---|
+| **PCADMIN Undecided email** | `c14_email_sent_at` (written only on Undecided branch — see Step 2) | `c13_decision = 'Undecided'` | Gmail draft using `CONTRACT_pcadmin_undecided_reminder` template. Buttons rebuilt from `c15_token` + `client_ref` + Max-availability check (`max_membership != 'N/A'`). Idempotency: `c14_reminder_sent_at`. | "X hasn't responded to the MAP 1 decision email" admin notification. Idempotency: `c14_pf_notified_at`. |
+| **Agreement signing** | `c17_followup_sent_date` (DATE; written by `automation_CONTRACT_sendagreement` at send time) | `c17_client_signed != 'Yes'` | Gmail draft using `CONTRACT_signing_reminder`. BoldSign embedded sign link re-fetched with 3 retries. Idempotency: `c17_reminder_sent_at`. | "X hasn't signed the MAP 1 agreement" admin notification. Idempotency: `c17_pf_notified_at`. |
+| **Pay1 payment link** | `pay1_email_sent_at` (written by `automation_CONTRACT_paymentemail` after Gmail draft) | `pay1_status IS NULL` | Gmail draft using `CONTRACT_payment_reminder`. `/pay?token=<checkout_token>` button. Template body uses `[PAYMENT_LABEL]` substitution: `"first payment"` for Quarterly plans, `"payment"` for one-time. Idempotency: `pay1_reminder_sent_at`. | "X hasn't paid the MAP 1 first payment" admin notification. Idempotency: `pay1_pf_notified_at`. |
 
-The columns *are* read by [AutomationPanel.jsx:155-160, 213](src/components/admin/AutomationPanel.jsx) for display purposes. Possible interpretations:
-- Reminder cron is unimplemented (columns exist for a planned feature).
-- Reminders are sent externally (e.g., a Zapier or Make scenario) that updates these flags.
+**Tier semantics:** the 48h and 96h queries are independent — a row at 96h+ with neither tier fired will get BOTH on the same sweep run. Once each `_sent_at` / `_notified_at` guard is set, the row is filtered out of that block on subsequent runs.
 
-Confirm with user.
+**Templates** (inserted in `email_templates` with `pipeline='MAP 1'`, `active=true`):
+- `CONTRACT_pcadmin_undecided_reminder`
+- `CONTRACT_signing_reminder`
+- `CONTRACT_payment_reminder` (uses `[PAYMENT_LABEL]` placeholder)
+
+**Sandbox routing:** the helper reads `pipeline_sandbox_config WHERE pipeline='MAP 1'` and routes To: through `sandbox_email` when on.
+
+**Historical note:** prior to 2026-05-21 the table had legacy columns `c14_followup_sent_date`, `c14_followup1_sent`, `c14_followup2_sent`, `c17_followup1_sent`, `c17_followup2_sent`, `pay1_followup_sent_date`, `pay1_followup1_sent`, `pay1_followup2_sent` that were never written by any code path. These were dropped in migration `map1_reminder_ladder_columns` and replaced with the timestamptz columns documented in [tables/pipeline.md](../tables/pipeline.md).
 
 ---
 
@@ -441,12 +446,12 @@ The `pipeline_map1` row evolves through these column writes, in order:
 | Step | Columns written |
 |---|---|
 | 1 | `client_id`, `client_ref`, `pf`, `c81_decision`, `c81_email_sent`, `followup_meeting_date`, `sandbox` |
-| 2 | `c13_decision`, `current_priorities`, `parked_priorities`, pricing fields (Yes), undecided fields, `extra_cc`, `c14_email_sent`, `c15_token` |
+| 2 | `c13_decision`, `current_priorities`, `parked_priorities`, pricing fields (Yes), undecided fields, `extra_cc`, `c14_email_sent`, `c14_email_sent_at` (Undecided branch only — reminder-ladder timer base), `c15_token` |
 | 3a | `c15_final_decision`, `c15_service_level` |
 | 3b/3c | pricing fields, `c15_via_extra_meeting` |
 | 4 | `c16_sent`, `boldsign_doc_id`, `c17_client_signed`, `c18_ceo_signed` (initial 'No'/'No'), `c17_followup_sent_date` |
 | 5/7 | `c17_client_signed`, `c18_ceo_signed` (advanced via webhook) |
-| 8 | `stripe_customer_id`, `checkout_token` |
+| 8 | `stripe_customer_id`, `checkout_token`, `pay1_email_sent_at` (reminder-ladder timer base, written by `automation_CONTRACT_paymentemail`) |
 | 10 | `pay1_status`, `payment_method_type`, `acct_last4`, `card_processing_fee`, `pay1_date`, `pay2-4_date`, `confirmation_status` |
 | 11 | `confirmation_status='Sent'` |
 | 12 | `invoice_number`, `rec{N}_number`, `invoice_drive_id`, `rec{N}_drive_id`, `invoice_email_sent`, `rec{N}_email_sent` |
