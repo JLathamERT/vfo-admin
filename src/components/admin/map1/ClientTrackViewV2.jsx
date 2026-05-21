@@ -346,6 +346,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#27ae60', flexShrink: 0 }} />
                       <span style={{ fontSize: '13px', color: '#8bacc8', flex: 1 }}>{task.name}</span>
                       <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Done</span>
+                      <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
 
@@ -363,7 +364,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                           ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
                           : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>
                         }
-                        {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
+                        <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                       </div>
                     )
                   }
@@ -385,7 +386,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                               <button onClick={() => triggerC8(task.id, 'No')} disabled={c8Triggering} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }}>{c8Triggering ? '...' : 'Meeting declined - Email client'}</button>
                             </div>
                       }
-                      {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#8bacc8' }}>{formatDate(p.completed_date)}</span>}
+                      <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
 
@@ -398,7 +399,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                           <option value="">-- Select --</option>
                           {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
+                        <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                       </div>
                     </div>
                   )
@@ -415,7 +416,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                       <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: isDone ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: isDone ? '#27ae60' : '#8bacc8', border: `1px solid ${isDone ? 'rgba(39,174,96,0.3)' : 'rgba(255,255,255,0.1)'}` }}>
                         {isDone ? 'Completed' : 'Not completed'}
                       </span>
-                      {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
+                      <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
 
@@ -428,7 +429,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dc, flexShrink: 0 }} />
                           <span style={{ fontSize: '13px', color: '#8bacc8', flex: 1 }}>{task.name}</span>
                           <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${dc}22`, color: dc, border: `1px solid ${dc}44` }}>{dl}</span>
-                          {p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
+                          <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
                         </div>
                       )
                     }
@@ -438,6 +439,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid rgba(255,255,255,0.2)' }} />
                           <span style={{ fontSize: '13px', color: '#fff', flex: 1 }}>{task.name}</span>
                           <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>
+                          <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}></span>
                         </div>
                       )
                     }
@@ -453,7 +455,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? dc : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? dc : 'rgba(255,255,255,0.2)'}` }} />
                           <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1, fontWeight: '600' }}>{task.name}</span>
                           {isDone && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${dc}22`, color: dc, border: `1px solid ${dc}44` }}>{dl}</span>}
-                          {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
+                          <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                           {isDone && <span style={{ color: '#8bacc8', fontSize: '10px', transform: isFormShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>}
                         </div>
                         {isFormShown && (
@@ -479,7 +481,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                         <option value="">-- Select --</option>
                         {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
-                      {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
+                      <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
                 })}
