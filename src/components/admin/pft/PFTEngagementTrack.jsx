@@ -26,7 +26,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
 
       const expandState = {}
       loadedPhases.forEach(phase => {
-        const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !t.status_options?.startsWith('auto_') && t.name !== 'Set Up accountant on tracker')
+        const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !t.status_options?.startsWith('auto_'))
         const allDone = tasks.length === 0 || tasks.every(t => prog[t.id]?.status)
         expandState[phase.id] = !allDone
       })
@@ -46,16 +46,6 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
     finally { setSaving(p => ({ ...p, [taskId]: false })) }
   }
 
-  async function saveDate(taskId, date) {
-    const p = progress[taskId] || {}
-    setSaving(prev => ({ ...prev, [taskId]: true }))
-    try {
-      await callApi('msm_save_client_task', { client_id: clientId, task_id: taskId, status: p.status, completed_date: date || null, completed_by: null, notes: null })
-      setProgress(prev => ({ ...prev, [taskId]: { ...prev[taskId], completed_date: date } }))
-    } catch (err) { console.error(err) }
-    finally { setSaving(prev => ({ ...prev, [taskId]: false })) }
-  }
-
   function getA11Status() {
     const allTasks = phases.flatMap(p => p.program_client_tasks || [])
     const a8 = allTasks.find(t => t.name === 'Right clients?')
@@ -72,7 +62,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
   }
 
   function getPhaseState(phase) {
-    const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !t.status_options?.startsWith('auto_') && t.name !== 'Set Up accountant on tracker')
+    const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !t.status_options?.startsWith('auto_'))
     if (tasks.length === 0) return 'done'
     if (tasks.every(t => progress[t.id]?.status)) return 'done'
     if (tasks.some(t => progress[t.id]?.status)) return 'active'
@@ -85,13 +75,12 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
     return `${parts[1]}/${parts[2]}`
   }
 
-  const pftStatusColors = { Complete: '#27ae60', Completed: '#27ae60', 'Complete - Yes': '#27ae60', 'Complete - No': '#e74c3c', Yes: '#27ae60', No: '#e74c3c', Undecided: '#f39c12', New: '#5b9fe6', 'Re-Set': '#f39c12', 'VFO FT': '#27ae60', 'VFO Associate': '#27ae60', Stopped: '#e74c3c', 'No show': '#e74c3c', 'Meeting 1 scheduled': '#27ae60', 'Meeting 2 scheduled': '#27ae60', 'Meeting 3 scheduled': '#27ae60', 'Confirmation email sent': '#27ae60', 'Meeting declined': '#e74c3c', 'No response': '#e74c3c', 'Call arranged': '#27ae60', 'VFO FT confirmed': '#27ae60', 'VFO Associate confirmed': '#27ae60', 'No confirmed': '#e74c3c' }
+  const pftStatusColors = { Complete: '#27ae60', Completed: '#27ae60', 'Complete - Yes': '#27ae60', 'Complete - No': '#e74c3c', Yes: '#27ae60', No: '#e74c3c', Undecided: '#f39c12', New: '#27ae60', 'Re-Set': '#27ae60', 'VFO FT': '#27ae60', 'VFO Associate': '#27ae60', Stopped: '#e74c3c', 'No show': '#e74c3c', 'Meeting 1 scheduled': '#27ae60', 'Meeting 2 scheduled': '#27ae60', 'Meeting 3 scheduled': '#27ae60', 'Confirmation email sent': '#27ae60', 'Meeting declined': '#e74c3c', 'No response': '#e74c3c', 'Call arranged': '#27ae60', 'VFO FT confirmed': '#27ae60', 'VFO Associate confirmed': '#27ae60', 'No confirmed': '#e74c3c' }
   const inputStyle = { padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '12px', fontFamily: 'DM Sans, sans-serif' }
+  const dateSpanStyle = { fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }
 
   if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
 
-  const a23Task = phases.flatMap(p => p.program_client_tasks || []).find(t => t.name === 'Accountant decision')
-  const a23Status = a23Task ? progress[a23Task.id]?.status : null
   const confirmEmailTask = phases.flatMap(p => p.program_client_tasks || []).find(t => t.name === 'Accountant decision confirmation email')
   const confirmEmailStatus = confirmEmailTask ? progress[confirmEmailTask.id]?.status : null
 
@@ -101,7 +90,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
         // Phase 6 visibility based on A23
         const isAssociatePhase = phase.name.includes('VFO-Associate')
         const isFTPhase = phase.name.includes('VFO-FT Accountant')
-        const phaseGreyedOut = (isAssociatePhase || isFTPhase) && (!a23Status || (isAssociatePhase && a23Status !== 'VFO Associate') || (isFTPhase && a23Status !== 'VFO FT'))
+        const phaseGreyedOut = (isAssociatePhase || isFTPhase) && (!confirmEmailStatus || (isAssociatePhase && confirmEmailStatus !== 'VFO Associate confirmed') || (isFTPhase && confirmEmailStatus !== 'VFO FT confirmed'))
 
         const state = getPhaseState(phase)
         const isExpanded = expanded[phase.id]
@@ -137,13 +126,28 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
                   const isDone = !!p.status
                   const statusColor = pftStatusColors[p.status] || '#8bacc8'
 
-                  // A1 auto-complete
-                  if (task.name === 'Set Up accountant on tracker') {
+                  // Meeting-scheduled date input (replicates tax 'Date Scheduled for High Level Meeting' pattern)
+                  if (['Date scheduled for Meeting 1', 'Date scheduled for Meeting 2', 'Date scheduled for Meeting 3'].includes(task.name)) {
+                    const savedDate = p.completed_date || ''
+                    const statusValue = (task.status_options || '').split('|')[0]
+                    async function saveScheduledDate(value) {
+                      setSaving(prev => ({ ...prev, [task.id]: true }))
+                      try {
+                        const newStatus = value ? statusValue : null
+                        await callApi('msm_save_client_task', { client_id: clientId, task_id: task.id, status: newStatus, completed_date: value || null, completed_by: null, notes: null })
+                        setProgress(prev => ({ ...prev, [task.id]: { ...prev[task.id], task_id: task.id, status: newStatus, completed_date: value || null } }))
+                      } catch (err) { console.error(err) }
+                      finally { setSaving(prev => ({ ...prev, [task.id]: false })) }
+                    }
                     return (
-                      <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#27ae60', flexShrink: 0 }} />
-                        <span style={{ fontSize: '13px', color: '#8bacc8', flex: 1 }}>{task.name}</span>
-                        <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Done</span>
+                      <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: savedDate ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${savedDate ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+                        <span style={{ fontSize: '13px', color: savedDate ? '#8bacc8' : '#fff', flex: 1, fontWeight: '600' }}>{task.name}</span>
+                        {readOnly ? (
+                          savedDate && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#27ae6022', color: '#27ae60', border: '1px solid #27ae6044' }}>{savedDate}</span>
+                        ) : (
+                          <input type="date" value={savedDate} onChange={(e) => saveScheduledDate(e.target.value)} disabled={saving[task.id]} style={{ ...inputStyle, fontFamily: 'DM Sans, sans-serif' }} />
+                        )}
                       </div>
                     )
                   }
@@ -158,7 +162,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
                           ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
                           : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>
                         }
-                        {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
+                        <span style={dateSpanStyle}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                       </div>
                     )
                   }
@@ -191,14 +195,12 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
                                   ? (qDone
                                     ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${qColor}22`, color: qColor, border: `1px solid ${qColor}44` }}>{qp.status}</span>
                                     : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>)
-                                  : <>
-                                    <select value={qp.status || ''} onChange={e => saveTask(q.id, e.target.value, qp.completed_date)} disabled={saving[q.id]} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '100px', fontSize: '11px', borderColor: qDone ? `${qColor}66` : 'rgba(255,255,255,0.15)', color: qDone ? qColor : '#fff' }}>
+                                  : <select value={qp.status || ''} onChange={e => saveTask(q.id, e.target.value, qp.completed_date)} disabled={saving[q.id]} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '100px', fontSize: '11px', borderColor: qDone ? `${qColor}66` : 'rgba(255,255,255,0.15)', color: qDone ? qColor : '#fff' }}>
                                       <option value="">-- Select --</option>
                                       {(q.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
-                                    <input type="date" value={qp.completed_date || ''} onChange={e => saveDate(q.id, e.target.value)} style={{ ...inputStyle, width: '120px', fontSize: '11px' }} />
-                                  </>
                                 }
+                                <span style={dateSpanStyle}>{qDone && qp.completed_date ? formatDate(qp.completed_date) : ''}</span>
                               </div>
                             )
                           })}
@@ -224,7 +226,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
                             <button onClick={() => saveTask(task.id, 'Meeting declined', p.completed_date)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }}>Meeting declined - Email client</button>
                           </div>
                       }
-                      {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
+                      <span style={dateSpanStyle}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
 
@@ -240,7 +242,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
                             <button onClick={() => saveTask(task.id, 'Meeting declined', p.completed_date)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }}>Meeting declined - Email client</button>
                           </div>
                       }
-                      {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
+                      <span style={dateSpanStyle}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
 
@@ -257,7 +259,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
                             <button onClick={() => saveTask(task.id, 'No confirmed', p.completed_date)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }}>Email confirming No</button>
                           </div>
                       }
-                      {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
+                      <span style={dateSpanStyle}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
 
@@ -299,6 +301,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
                       <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
                       <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: isDone ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: isDone ? '#27ae60' : '#8bacc8', border: `1px solid ${isDone ? 'rgba(39,174,96,0.3)' : 'rgba(255,255,255,0.1)'}` }}>{isDone ? 'Completed' : 'Not completed'}</span>
+                      <span style={dateSpanStyle}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
 
@@ -310,7 +313,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
                         <option value="">-- Select --</option>
                         {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
-                      <input type="date" value={p.completed_date || ''} onChange={e => saveDate(task.id, e.target.value)} style={{ ...inputStyle, width: '130px' }} />
+                      <span style={dateSpanStyle}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
                 })}
