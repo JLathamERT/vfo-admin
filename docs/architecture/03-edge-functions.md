@@ -4,7 +4,7 @@ Two Supabase edge functions deployed to project `ejpsprsmhpufwogbmxjv`. Both are
 
 | Function | Layout | `verify_jwt` |
 |---|---|---|
-| `vfo-admin-api` | `supabase/functions/vfo-admin-api/` — 88-line `index.ts` orchestrator + `router/`, `middleware/`, `actions/`, `utils/`, `constants/`, `types/`, `integrations/` subdirs (~150 .ts files total) | `false` (config.toml + live registry, matched) |
+| `vfo-admin-api` | `supabase/functions/vfo-admin-api/` — 88-line `index.ts` orchestrator + `router/`, `middleware/`, `actions/`, `utils/`, `constants/`, `types/`, `integrations/` subdirs (~165 .ts files total — incl. `actions/advisor/` for Phase 1-4 Advisor Onboarding) | `false` (config.toml + live registry, matched) |
 | `boldsign-webhook` | `supabase/functions/boldsign-webhook/index.ts` (95 lines, single file) | `false` (live registry; config.toml says `true` — see note below) |
 
 > Live versions increment per deploy; see Supabase Dashboard → Edge Functions for the current value of each.
@@ -71,7 +71,7 @@ serve(req)
   │      • Returns Response or null
   │
   ├─ 5. PUBLIC_HANDLERS[action]  (from router/dispatch.ts)
-  │      • 9 entries: public-token + server-to-server chain-callable
+  │      • 43 entries: public-token + server-to-server chain-callable
   │      • Dispatched ctx: { body, supabase, json, req }
   │
   ├─ 6. await middleware/auth.ts::authenticate(action, body, supabase, json)
@@ -82,7 +82,7 @@ serve(req)
   │      • Applies MEMBER_SCOPED_ACTIONS gate (forces body.member_number to caller's own)
   │
   ├─ 7. AUTH_HANDLERS[action]  (from router/dispatch.ts)
-  │      • 116 entries
+  │      • 131 entries
   │      • Dispatched ctx: { body, supabase, json, auth, req }
   │      • Some handlers take auth (.auth.session.email etc.)
   │      • Three handlers take req for HTTP chain Authorization forwarding
@@ -93,7 +93,7 @@ serve(req)
          • else    → 400 { error: "Unknown action: <name>" }
 ```
 
-Total handler count: **134 unique action handlers** (3 logins + 12 public + 119 authed). Phase 6 mechanical of the modular refactor removed the dup `msm_update_client` handler and the dead `automation_CONTRACT_stripewebhook` handler, dropping the post-refactor baseline to 128. Subsequent features have added 6 actions: `_revshare_sweep`, `save_sandbox_config`, `_chargescheduled_sweep`, `_paidbycheck`, `_checkcleared`, `_checkreminder_sweep`. The authoritative count is the one published in [05-api-action-catalog.md](05-api-action-catalog.md).
+Total handler count: **177 actions** (3 logins + 43 PUBLIC + 131 AUTH). The post-refactor baseline was 128; subsequent features have added MAP1 sweeps, MAP1 check path, sandbox toggle, the full Tax Planning track (~27 handlers in `actions/tax/`), and the Advisor Onboarding pipeline (15 handlers in `actions/advisor/` — Phases 1-4). The authoritative count is the one published in [05-api-action-catalog.md](05-api-action-catalog.md).
 
 ### Key cross-cutting concerns
 
@@ -108,9 +108,13 @@ Handles two event types:
   2. **MAP1 first payment**: looks up `pipeline_map1` row by `stripe_customer_id`. Expands `payment_intent` to extract `payment_method.type` (card vs us_bank_account) and `last4`. Sets `pay1_status` to `"succeeded"` (card) or `"processing"` (ACH). Computes `card_processing_fee` from `amount_received` vs `net_invoice / payment_count`. Writes quarterly schedule (`pay2/3/4_date` = +91/182/273 days).
      - **Chains:** `automation_CONTRACT_confirmationemail` (always); for card only, also `automation_CONTRACT_invoicereceipt` and then `automation_CONTRACT_revshare` (P1). ACH waits for `payment_intent.succeeded` to chain invoicereceipt + revshare.
 
-- **`payment_intent.succeeded`** — two cases:
-  1. Quarterly subsequent payment (metadata `payment_number` is 2-4): sets `payN_status='succeeded'`, chains `automation_CONTRACT_invoicereceipt` then `automation_CONTRACT_revshare` for that payment number.
-  2. ACH first-payment cleared (`pay1_status === "processing"`): flips to `"succeeded"`, chains `automation_CONTRACT_invoicereceipt` then `automation_CONTRACT_revshare` for payment 1.
+- **`payment_intent.succeeded`** — four cases:
+  1. MAP 1 quarterly subsequent payment (metadata `payment_number` is 2-4): sets `payN_status='succeeded'`, chains `automation_CONTRACT_invoicereceipt` then `automation_CONTRACT_revshare` for that payment number.
+  2. MAP 1 ACH first-payment cleared (`pay1_status === "processing"`): flips to `"succeeded"`, chains `automation_CONTRACT_invoicereceipt` then `automation_CONTRACT_revshare` for payment 1.
+  3. Tax retainer ACH cleared OR tax implementation off-session charge succeeded (`metadata.payment_kind` in `retainer` / `implementation`): writes the appropriate `client_tax_plans` status columns and chains `automation_TAX_confirmationemail` + `automation_TAX_invoicereceipt` / `automation_TAX_implementation_receipt`.
+  4. Advisor onboarding ACH cleared (`metadata.pipeline === 'ADVISOR_ONBOARDING'`, `payment_status === 'processing'`): flips `advisor_onboarding.payment_status='succeeded'`, writes `payment_completed_at` + `renewal_date` (today + 6 months), chains `automation_ADVISOR_confirmationemail` (which chains `automation_ADVISOR_invoicereceipt`).
+
+The Stripe webhook handler additionally routes `checkout.session.completed` for advisor onboarding (lookup by `stripe_customer_id` after MAP1 + Tax misses, branching by `metadata.payment_kind='onboarding'`) — writes `payment_status`, `payment_method_type`, `card_processing_fee`, `acct_last4`, `stripe_payment_intent_id`, `payment_completed_at` (card path), and `renewal_date`.
 
 The revshare chain typically returns `pending: true` immediately after payment (Tracy's Revenue Master sheet not yet updated) — the daily `pg_cron` sweep (02:00 UTC, see `supabase/cron/revshare-sweep.sql`) retries until it succeeds or remains permanently failed.
 

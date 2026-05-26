@@ -6,7 +6,7 @@ Read-only architecture map of the VFO portal system. Documents what exists in th
 
 ## What's in this system
 
-Two repos, one Supabase project, four external integrations, one static-hosted SPA — held together by a single 4964-line edge function dispatching ~125 actions. See [architecture/01-system-map.md](architecture/01-system-map.md) for the high-level picture.
+Two repos, one Supabase project, four external integrations, one static-hosted SPA — held together by a modular `vfo-admin-api` edge function (88-line orchestrator + ~165 handler files) dispatching **177 actions** (3 logins + 43 PUBLIC + 131 AUTH). See [architecture/01-system-map.md](architecture/01-system-map.md) for the high-level picture.
 
 The central business flow is the **MAP1 contract-and-payment chain**: PIP1 reconfirmation → PF decision → PCADMIN pricing → BoldSign agreement → CEO countersign → Stripe payment → confirmation/invoice/receipt → revenue share. State lives in a single ~80-column row of `pipeline_map1`, with each handler advancing specific columns. See [flows/contract-and-payment.md](flows/contract-and-payment.md) for the end-to-end trace.
 
@@ -22,7 +22,7 @@ docs/
 │   ├── 02-frontend-shell.md          (routes + AdminPortal/MemberPortal/ClientDetail)
 │   ├── 03-edge-functions.md          (vfo-admin-api + boldsign-webhook structure)
 │   ├── 04-auth-and-sessions.md       (token model, session storage, role gates)
-│   ├── 05-api-action-catalog.md      (all ~125 actions, concise table format)
+│   ├── 05-api-action-catalog.md      (all 177 actions, concise table format)
 │   └── 06-orchestration-files.md     (file ranking by feature ownership)
 │
 ├── tables/                           (the "noun" layer — 51 public-schema tables)
@@ -110,7 +110,7 @@ These items are flagged across multiple docs and remain unresolved without exter
 This doc map can be audited against the source:
 
 - Every `file:line` citation should resolve to the claimed handler — try opening any link.
-- The action catalog count (130 in [05-api-action-catalog.md](architecture/05-api-action-catalog.md)) should match `grep -c 'if (action === ' vfo-admin-api/index.ts`.
+- The action catalog count (177 in [05-api-action-catalog.md](architecture/05-api-action-catalog.md)) is the sum of `if (action === ...` lines in `index.ts` (3) + dispatch entries in `router/dispatch.ts` (174).
 - The 51-table inventory in [tables/README.md](tables/README.md) should match `SELECT count(*) FROM information_schema.tables WHERE table_schema='public'`.
 - The 15-migration list in [integrations/supabase.md](integrations/supabase.md) should match Supabase's migration registry.
 - Pick any flow doc and trace a "Trigger → Step-by-step → Tables touched → Chains" sequence; every code reference should resolve.

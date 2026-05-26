@@ -21,6 +21,8 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | `/tax-pay` | [TaxPayPage](src/pages/TaxPayPage.jsx) | URL token | `automation_TAX_loadpayment` + Stripe checkout — branches between retainer and implementation-fee retry based on plan state |
 | `/tax-implement-decide` | [TaxImplementDecidePage](src/pages/TaxImplementDecidePage.jsx) | URL token | `automation_TAX_implementfinaldecision` — Tax 5 Proceed/Decline landing |
 | `/tax-postreview-decide` | [TaxPostReviewDecidePage](src/pages/TaxPostReviewDecidePage.jsx) | URL token | `automation_TAX_postreviewclientdecision` — Tax 4 post-review Refund / Proceed landing |
+| `/advisor-decide` | [AdvisorDecidePage](src/pages/AdvisorDecidePage.jsx) | URL token | `automation_ADVISOR_clientdecision` — Advisor Onboarding Undecided Yes/No landing |
+| `/advisor-pay` | [AdvisorPayPage](src/pages/AdvisorPayPage.jsx) | URL token | `automation_ADVISOR_loadpayment` + `automation_ADVISOR_stripecheckout` — Advisor Onboarding payment ($4,000–$8,600 dynamic based on checkbox picks) |
 | `*` | redirect to `/` | — | Catch-all |
 
 ## Top-level shells
