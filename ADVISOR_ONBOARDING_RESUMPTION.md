@@ -1,54 +1,81 @@
 # Advisor Onboarding — Resumption Notes
 
-**Branch:** `feature/admin-nav-tabs`
-**Worktrees:**
-- Frontend: `C:\vfo-react\.claude\worktrees\admin-nav-tabs\`
-- Backend: `C:\vfo-edge-functions\.claude\worktrees\admin-nav-tabs\`
+**Branch (next session):** start a fresh worktree off `main` after Phase 4 merges. Suggested: `feature/advisor-phase-5`.
+**Phase 4 worktrees (this session — to be merged):**
+- Frontend: `C:\vfo-react\.claude\worktrees\advisor-phase-4\`
+- Backend: `C:\vfo-edge-functions\.claude\worktrees\advisor-phase-4\`
 
-**Last working session:** 2026-05-22
+**Last working session:** 2026-05-26 (Phase 4 complete, deployed, E2E tested both $4,000 ACH + $8,600 card paths)
 
 ---
 
 ## TL;DR — Where We Are
 
-We're mid-build of a multi-phase Advisor Onboarding feature, modeled on MAP 1 / Tax automation. Phases 1, 2, and 3 are functionally complete; the backend is **deployed**, the frontend is **not deployed** (still running only in dev). Phase 3 is hitting a UX timing issue with BoldSign anchor-based field placement that needs a design choice before we can finish it cleanly. Phases 4, 5, 6 are queued.
+Multi-phase Advisor Onboarding feature, modeled on MAP 1 / Tax automation. **Phases 1–4 are functionally complete + deployed + E2E tested in sandbox.** Phases 5 and 6 plus deferred TODOs remain.
 
-**Currently blocked on:** picking between three options (B / D / A) to resolve the ~30-45s embedded-sign-link delay caused by anchor-based BoldSign field placement. See "Open Decisions" section.
+**Phase 4 (Stripe payment chain) delivered:**
+- 6 new PUBLIC handlers in `actions/advisor/` (`stripe-customer`, `payment-email`, `load-payment`, `stripe-checkout`, `confirmation-email`, `invoice-receipt`)
+- Stripe webhook routes by `metadata.pipeline='ADVISOR_ONBOARDING'` + `metadata.payment_kind='onboarding'`
+- BoldSign Completed branch chains to `_stripecustomer` (in BOTH the embedded handler and standalone `boldsign-webhook` function)
+- New `/advisor-pay` token page on the frontend mirroring `/tax-pay`
+- 4 new `email_templates` rows: `ADVISOR_payment_link` (id 50), `ADVISOR_payment_confirmation|card` (51), `ADVISOR_payment_confirmation|ach` (52), `ADVISOR_invoice_receipt` (53)
+- Invoice + receipt PDFs mirror MAP 1's `utils/html-templates.ts` layout (blue INVOICE / green RECEIPT headers, Engagement Details + Payment Schedule cards with `Engagement Term: 6 months` + `Renewal Review` rows, card-fee breakdown box)
+- Invoice/receipt numbering shares the GLOBAL `document_numbers` counter with MAP1 + Tax: `INV-ADV{onboarding_id}-{seq:0004}` / `REC-ADV{onboarding_id}-{seq:0004}`
+- Payment amount is DYNAMIC — Phase 3's `ceo-countersign.ts` reads BoldSign checkbox values (vfo_ft/pft/corporate) and computes $4,000 / $4,600 / $8,000 / $8,600
+- Plan label fix: "VFO FT" / "PFT" abbreviations replaced everywhere with "VFO Fast Track" / "Partnership Fast Track"
+- `setup_future_usage=off_session` set on the PaymentIntent so the card stays on file for the 6-month renewal review (no auto-renew cron yet — TBD)
+- ADVISOR_undecided + ADVISOR_decline + ADVISOR_agreement_sent + ADVISOR_ceo_countersign templates unchanged from Phase 1-3
+
+**Currently blocked on:** nothing. Ready for Phase 5 in a new worktree off `main` once Phase 4 PRs merge.
 
 ---
 
 ## What's Live in Production (Backend Deployed)
 
 ### Edge function `vfo-admin-api`
-- Deployed via `supabase functions deploy vfo-admin-api` from this worktree
-- All Phase 1+2+3 backend handlers are live
-- Verification gate: `deno check` shows exactly **7 baseline errors** (4 `existing-null` in `pipfu-decision.ts`, 3 `pipeRow null` in `router/webhooks.ts`)
-- Action count: **171** (3 logins + 168 dispatch entries) — was 162 pre-feature, +9 for advisor onboarding so far
-- Boldsign-webhook function: untouched (only `vfo-admin-api` edits)
+- Phases 1-4 all deployed to production (last deploy 2026-05-26)
+- Verification gate: `deno check` shows exactly **7 baseline errors** (4 `existing-null` in `pipfu-decision.ts`, 3 `pipeRow null` in `router/webhooks.ts`) — preserved
+- Action count: **177** (3 logins + 43 PUBLIC + 131 AUTH) — was 162 pre-feature, +15 for advisor onboarding so far
+- Standalone `boldsign-webhook`: extended twice (Phase 3 for advisor routing, Phase 4 for `_stripecustomer` chain on Completed). Deploys MUST pass `--no-verify-jwt`.
 
 ### Database (Supabase project `ejpsprsmhpufwogbmxjv`)
 - New table `advisor_onboarding` — full schema below
 - `pipeline_sandbox_config` row for `pipeline='ADVISOR_ONBOARDING'`, `sandbox_mode=true`, `sandbox_email='jlatham@elitert.com'`
 - `agreement_templates` row id=9 — `pipeline='ADVISOR_ONBOARDING'`, `service_level='Advisor'`, `payment_plan='Single'`, contains the full Advisor Onboarding Agreement HTML (user pasted in via Supabase Studio). `boldsign_template_id` NULL. `field_map` NULL.
-- `email_templates` rows 46-49 (all `pipeline='ADVISOR_ONBOARDING'`):
-  - 46 `ADVISOR_undecided` (Yes/No buttons)
-  - 47 `ADVISOR_decline`
-  - 48 `ADVISOR_agreement_sent` (BoldSign sign link)
-  - 49 `ADVISOR_ceo_countersign` (BoldSign countersign link to Anton)
+- `email_templates` rows 46-53 (all `pipeline='ADVISOR_ONBOARDING'`):
+  - 46 `ADVISOR_undecided` (Yes/No buttons) — Phase 2
+  - 47 `ADVISOR_decline` — Phase 2
+  - 48 `ADVISOR_agreement_sent` (BoldSign sign link) — Phase 3
+  - 49 `ADVISOR_ceo_countersign` (BoldSign countersign link to Anton, with `[Selected Plans]` + `[Total Amount]` substitutions) — Phase 3
+  - 50 `ADVISOR_payment_link` (Stripe Checkout link + plan list + total + `Engagement Term: 6 months`) — Phase 4
+  - 51 `ADVISOR_payment_confirmation|card` — Phase 4
+  - 52 `ADVISOR_payment_confirmation|ach` — Phase 4
+  - 53 `ADVISOR_invoice_receipt` (PDF attachments) — Phase 4
 
-## What's Live in Production (Frontend) — NONE for Advisor Onboarding
+### `advisor_onboarding` table columns added in Phase 4
+- `checkout_token` (text) — `/advisor-pay` token-lookup column
+- `payment_method_type` (text) — `card` / `ach`
+- `card_processing_fee` (numeric)
+- `acct_last4` (text)
+- `engagement_term_months` (integer, default 6, NOT NULL)
+- `renewal_date` (date) — computed as payment_completed_at + engagement_term_months
 
-The whole `feature/admin-nav-tabs` frontend branch is **not yet deployed**. Production frontend still has the Phase 0 "Coming soon" placeholder for Advisor Onboarding. **All visible UI work below requires `npm run deploy` from the `vfo-react` worktree** to ship.
+### `document_numbers` schema extended in Phase 4
+- `client_id` made nullable
+- Added `advisor_onboarding_id` (bigint, FK to advisor_onboarding.id, nullable)
+- CHECK constraint: exactly one of `client_id` / `advisor_onboarding_id` non-null
+- Partial index on `advisor_onboarding_id`
 
-Frontend changes ready to deploy:
-- `src/pages/AdminPortal.jsx` — top nav restructured from 3 dropdowns (Members / Specialists / Automation) to **4** (Advisors / Accountants / Specialists / Automation)
-- `src/pages/AdminLogin.jsx` — added cleanup of new sessionStorage keys
-- `src/components/admin/MembersPanel.jsx` — split routing into Advisors vs Accountants vs Onboarding sub-options; added `AccountantsPanel` shell + `AddAccountantForm` mirroring `AddAdvisorForm`; added `ACCOUNTANT_TYPES` list (Advanced/Plus/VFO FT/VFO Associate Direct+Advisor, Team Member, Survey #1-3, FAC Historic)
-- `src/components/admin/AdvisorOnboarding.jsx` — full rewrite from placeholder to functional list+detail UI with 3 stages
-- `src/components/admin/AccountantOnboarding.jsx` — NEW placeholder "Coming soon" file
-- `src/components/admin/AdvisorOnboarding.jsx` (also in above bullet)
-- `src/pages/AdvisorDecidePage.jsx` — NEW token page for `/advisor-decide?token=...&decision=Yes|No`
-- `src/App.jsx` — added route `/advisor-decide` and import
+## What's Live in Production (Frontend Deployed)
+
+All advisor onboarding UI was deployed at the end of the prior session (`feature/admin-nav-tabs` merge + `npm run deploy`). Phase 4 added `/advisor-pay` to that — deployed 2026-05-26.
+
+Frontend pages live in production:
+- 4-tab admin top nav (Advisors / Accountants / Specialists / Automation)
+- `src/components/admin/AdvisorOnboarding.jsx` — 3-stage detail UI
+- `src/components/admin/AccountantOnboarding.jsx` — placeholder
+- `src/pages/AdvisorDecidePage.jsx` — `/advisor-decide` token page (Phase 2)
+- `src/pages/AdvisorPayPage.jsx` — `/advisor-pay` token page (Phase 4 — mirrors `TaxPayPage.jsx`)
 
 ---
 
@@ -283,14 +310,17 @@ All wrapped in `<span class="tag-hidden">{{…}}</span>` (1pt white) for invisib
 
 ---
 
-## Phase 4 (Not Started) — Stripe $4,000 Payment
+## Phase 4 (Complete + Deployed 2026-05-26) — Stripe Payment Chain (dynamic $4,000-$8,600)
 
-### Spec
-- Trigger: after CEO countersigns (BoldSign webhook "Completed" event) → chain to `_stripecustomer`
-- Amount: $4,000 fixed
-- Same Stripe account as MAP 1 / Tax ("VFO Services Sandbox") — use the 4 existing env vars (`STRIPE_SECRET_KEY{,_SANDBOX}` + `STRIPE_WEBHOOK_SECRET{,_SANDBOX}`)
-- Sandbox-aware (respect the `ADVISOR_ONBOARDING` row in `pipeline_sandbox_config`)
-- Stripe metadata: `metadata.pipeline = 'ADVISOR'`, `metadata.payment_kind = 'onboarding'` (or similar) so the Stripe webhook handler can route
+### Delivered
+- Trigger: after CEO countersigns (BoldSign webhook "Completed" event) → chain to `_stripecustomer` (in BOTH the embedded handler in `router/webhooks.ts` AND the standalone `boldsign-webhook` function)
+- Amount: DYNAMIC, read from `advisor_onboarding.payment_amount` — populated in Phase 3's `ceo-countersign.ts` based on BoldSign checkbox values: vfo_ft=$4000, pft=$4000, corporate=+$600 (additive). Possible totals: $4,000 / $4,600 / $8,000 / $8,600.
+- Same Stripe account as MAP 1 / Tax ("VFO Services Sandbox") — uses the 4 existing env vars.
+- Sandbox-aware (respects the `ADVISOR_ONBOARDING` row in `pipeline_sandbox_config`)
+- Stripe metadata convention: `metadata.pipeline='ADVISOR_ONBOARDING'`, `metadata.payment_kind='onboarding'`, plus `onboarding_id`, `checkout_token`, `payment_method_type`
+- `setup_future_usage=off_session` on the PaymentIntent so the card is saved for 6-month renewal review (renewal logic itself is TBD — no auto-renew cron)
+
+### Spec — was
 
 ### Backend handlers to add (4 new PUBLIC actions)
 | Action | File (to create) | Purpose |
@@ -412,16 +442,28 @@ New file `supabase/cron/advisor-sweep.sql` (parallel to the 4 existing). One-tim
 There's one test onboarding in the DB for Jake Latham:
 - `advisor_onboarding.id = 1`
 - `first_name='Jake'`, `last_name='Latham'`, `email='jake.latham11@icloud.com'`
-- Multiple resets done during testing; full state-reset SQL (preserves the row, clears all phase 1-3 state) for future testing:
+- Multiple resets done during testing; full state-reset SQL (preserves the row, clears all phase 1-4 state) for future testing:
   ```sql
+  DELETE FROM document_numbers WHERE advisor_onboarding_id = 1;
+
   UPDATE advisor_onboarding SET
-    prelim_meeting_status = NULL, prelim_meeting_status_at = NULL,
     prelim_meeting_decision = NULL, prelim_meeting_decision_at = NULL,
     decision_email_sent_at = NULL, decision_token = NULL,
     final_decision = NULL, final_decision_at = NULL, decline_email_sent_at = NULL,
+    decision_reminder_sent_at = NULL, decision_pf_notified_at = NULL,
     boldsign_document_id = NULL, agreement_sent_at = NULL,
     agreement_signed_by_advisor_at = NULL, agreement_signed_by_ceo_at = NULL,
-    signing_reminder_sent_at = NULL, signing_pf_notified_at = NULL
+    signing_reminder_sent_at = NULL, signing_pf_notified_at = NULL,
+    selected_vfo_ft = NULL, selected_pft = NULL, selected_corporate = NULL,
+    payment_amount = 4000,
+    payment_link_sent_at = NULL, stripe_customer_id = NULL, stripe_payment_intent_id = NULL,
+    payment_status = NULL, payment_completed_at = NULL,
+    confirmation_email_sent_at = NULL, invoice_number = NULL, receipt_number = NULL,
+    invoice_sent_at = NULL, payment_method_type = NULL, card_processing_fee = NULL,
+    checkout_token = NULL, acct_last4 = NULL, renewal_date = NULL,
+    payment_reminder_sent_at = NULL, payment_pf_notified_at = NULL,
+    prelim_meeting_status = 'Completed',
+    prelim_meeting_status_at = now()
   WHERE id = 1;
   ```
 

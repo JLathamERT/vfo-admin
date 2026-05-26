@@ -1,8 +1,8 @@
 # System map
 
-The top-level picture. Two repos, one Supabase project, four external integrations, one static-hosted SPA. The whole system is held together by an **88-line orchestrator** in `vfo-admin-api/index.ts` that dispatches to **159 modular action handlers** plus two routers (`router/dispatch.ts`, `router/webhooks.ts`).
+The top-level picture. Two repos, one Supabase project, four external integrations, one static-hosted SPA. The whole system is held together by an **88-line orchestrator** in `vfo-admin-api/index.ts` that dispatches to **174 modular action handlers** plus two routers (`router/dispatch.ts`, `router/webhooks.ts`).
 
-> **Refactor history.** The edge function was a single 4371-line file as of `vfo-admin-api` v194 (deployed 2026-05-07). The modular extraction was completed in 18 phased commits and deployed as v196 on 2026-05-08. All 128 action handlers at that point preserved their original behavior byte-equivalently — the public API contract (action names, response shapes, DB writes) was unchanged. Post-refactor additions: MAP1 sweeps (`automation_CONTRACT_revshare_sweep`, `automation_CONTRACT_chargescheduled_sweep`, `automation_CONTRACT_checkreminder_sweep`), MAP1 check path, sandbox toggle, the full Tax Planning automation track (~25 new tax handlers in `actions/tax/`), and the Tax 4 meeting-date nudge (`automation_TAX_save_meeting_date` + `tax-revshare-sweep-daily` extension). **Current total: 160** (3 logins + 157 dispatch entries). See [03-edge-functions.md](03-edge-functions.md) for the new file layout and [../flows/tax-planning.md](../flows/tax-planning.md) for the tax track.
+> **Refactor + feature history.** The edge function was a single 4371-line file as of `vfo-admin-api` v194 (deployed 2026-05-07). The modular extraction was completed in 18 phased commits and deployed as v196 on 2026-05-08. All 128 action handlers at that point preserved their original behavior byte-equivalently — the public API contract (action names, response shapes, DB writes) was unchanged. Post-refactor additions: MAP1 sweeps (`automation_CONTRACT_revshare_sweep`, `automation_CONTRACT_chargescheduled_sweep`, `automation_CONTRACT_checkreminder_sweep`), MAP1 check path, sandbox toggle, the full Tax Planning automation track (~27 new tax handlers in `actions/tax/`), the Tax 4 meeting-date nudge, and the Advisor Onboarding pipeline (15 handlers in `actions/advisor/` — Phases 1-4 deployed 2026-05-22 through 2026-05-26). **Current total: 177** (3 logins + 43 PUBLIC + 131 AUTH). See [03-edge-functions.md](03-edge-functions.md) for the new file layout, [../flows/tax-planning.md](../flows/tax-planning.md) for the tax track, and `ADVISOR_ONBOARDING_RESUMPTION.md` (repo root) for the advisor onboarding state.
 
 ## High-level diagram
 
@@ -13,6 +13,8 @@ The top-level picture. Two repos, one Supabase project, four external integratio
 │                                                                                  │
 │   /          /admin       /admin/login   /admin/client/:id   /decide?token=...   │
 │              /member      /member/login  /member/client/:id  /pay?token=...      │
+│                                                              /tax-pay?token=...  │
+│                                                              /advisor-pay?token  │
 │                                                                                  │
 │   sessionStorage: vfo_session = { token, role, name, ... }                       │
 └──────────────────────────────┬─────────────────────────────────┬─────────────────┘
@@ -22,8 +24,8 @@ The top-level picture. Two repos, one Supabase project, four external integratio
                                ▼                                  ▼
                           ┌─────────────────────────────────────────────┐
                           │   SUPABASE EDGE FUNCTION: vfo-admin-api      │
-                          │   (130 actions, 88-line orchestrator         │
-                          │    + 130 handler files + 2 routers)          │
+                          │   (177 actions, 88-line orchestrator         │
+                          │    + ~165 handler files + 2 routers)         │
                           │                                              │
                           │   Three dispatch surfaces:                   │
                           │   1. Stripe webhook  (router/webhooks.ts —   │
@@ -98,7 +100,7 @@ The top-level picture. Two repos, one Supabase project, four external integratio
 ## Data direction
 
 - **Browser → admin-api**: every action via [src/lib/api.js](src/lib/api.js). Includes session token in body.
-- **Browser → admin-api (token-link pages)**: `/decide` and `/pay` use raw `fetch` with URL token (no session). Reach the public-token handlers via `PUBLIC_HANDLERS` in `router/dispatch.ts` (which is dispatched BEFORE the `middleware/auth.ts` gate). Public-token actions: `automation_PCADMIN_finaldecision`, `automation_CONTRACT_loadpayment`, `automation_CONTRACT_stripecheckout`.
+- **Browser → admin-api (token-link pages)**: `/decide`, `/pay`, `/tax-decide`, `/tax-pay`, `/tax-implement-decide`, `/tax-postreview-decide`, `/advisor-decide`, `/advisor-pay` use raw `fetch` with URL token (no session). Reach the public-token handlers via `PUBLIC_HANDLERS` in `router/dispatch.ts` (which is dispatched BEFORE the `middleware/auth.ts` gate). Public-token actions span MAP1, Tax, and Advisor Onboarding pipelines — see [05-api-action-catalog.md](05-api-action-catalog.md).
 - **admin-api → Postgres**: via `createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)` — service-role bypasses RLS. Auth is application-level.
 - **admin-api → admin-api (loopback chains)**: server-to-server `fetch` with `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>`. Used by webhooks and automation handlers to chain into other handlers. The chains route to public-token actions, so they bypass the user-session gate.
 - **admin-api → external APIs**: Stripe, BoldSign, Google OAuth, Gmail, Sheets, Drive, html2pdf.app. All via `fetch` with API-specific auth.
