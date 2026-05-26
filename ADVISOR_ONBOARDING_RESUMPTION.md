@@ -1,17 +1,35 @@
 # Advisor Onboarding — Resumption Notes
 
-**Branch (next session):** start a fresh worktree off `main` after Phase 4 merges. Suggested: `feature/advisor-phase-5`.
-**Phase 4 worktrees (this session — to be merged):**
-- Frontend: `C:\vfo-react\.claude\worktrees\advisor-phase-4\`
-- Backend: `C:\vfo-edge-functions\.claude\worktrees\advisor-phase-4\`
+**Branch (next session):** the full multi-phase build is complete. No active branch needed unless a new feature is requested. Start fresh worktrees off `main` for any follow-up.
+**Phase 5+6 worktrees (this session — to be merged):**
+- Frontend: `C:\vfo-react\.claude\worktrees\advisor-phase-5\`
+- Backend: `C:\vfo-edge-functions\.claude\worktrees\advisor-phase-5\`
 
-**Last working session:** 2026-05-26 (Phase 4 complete, deployed, E2E tested both $4,000 ACH + $8,600 card paths)
+**Last working session:** 2026-05-26 (Phase 5+6 complete, deployed, E2E tested — sweep ran with both 48h reminder + 96h PF-notify branches firing correctly on the Undecided and Payment stalls)
 
 ---
 
 ## TL;DR — Where We Are
 
-Multi-phase Advisor Onboarding feature, modeled on MAP 1 / Tax automation. **Phases 1–4 are functionally complete + deployed + E2E tested in sandbox.** Phases 5 and 6 plus deferred TODOs remain.
+Multi-phase Advisor Onboarding feature, modeled on MAP 1 / Tax automation. **Phases 1–6 are functionally complete + deployed + E2E tested in sandbox.** Only deferred follow-ups remain (BoldSign field-coordinate tightening on `agreement_templates.id=9`; user-side PDF upload to the `advisor-onboarding-agreements` bucket).
+
+**Phase 5 (Stage 3 Create Advisor) delivered (no Stripe Connect — direction changed mid-build):**
+- 1 new AUTH handler `automation_ADVISOR_createmember` at `actions/advisor/create-member.ts`. Generates next `member_number >= 60100` (cleanly separated from legacy 59xxx). Inserts `member_plugin_settings` + `members` row with `member_type='Implementation'`, `elite_status='Active'`, `advisor_model='New Model'`, `revenue_decision='Money Mapping'`, `onboarding_id=<advisor_onboarding.id>` FK. Writes back to `advisor_onboarding`.
+- `add_member_full` extended to accept + write `advisor_model`. `load_data` extended to expose `advisor_model` + `onboarding_id` in the merged member list.
+- DB migrations: `members_advisor_model_column` (new column + backfill all 19 existing rows to `'Legacy Model'`) + `members_onboarding_id_fk` (new FK + partial index).
+- Frontend: Stage 3 placeholder replaced with Create Advisor button. AddAdvisorForm gets a required Legacy/New Model radio (no default). Search Advisors list gains a 5th column showing `advisor_model`. AdvisorOnboarding list reorganized into 3 collapsible groups (In Progress visible / Completed collapsed / Stopped collapsed). Stage 2 rows show blue pills for plan picks (VFO FT / PFT / CM) and payment method (CARD / ACH).
+
+**Phase 6 (Reminder cron) delivered:**
+- 1 new PUBLIC handler `automation_ADVISOR_sweep` at `actions/advisor/sweep.ts`. 3 stalls × 2 tiers (48h reminder + 96h PF notification) — Undecided email, agreement signing, payment link. Plus 14-day implicit-No rule on Undecided (sets `final_decision='Auto-Declined'` and chains `_declineemail`).
+- 3 new email_templates rows: 54 `ADVISOR_undecided_reminder`, 55 `ADVISOR_signing_reminder`, 56 `ADVISOR_payment_reminder` — matched MAP 1's `CONTRACT_*_reminder` structure exactly with advisor-appropriate phrasing.
+- New cron `advisor-sweep-daily` at `0 5 * * *` UTC. **Fifth daily pg_cron job in the system** (was 4: revshare 02:00 / tax-revshare 02:30 / chargescheduled 03:00 / checkreminder 04:00). Setup file at `supabase/cron/advisor-sweep.sql`.
+- Payment-stall query gotcha: PostgREST `.neq('payment_status', 'succeeded')` excludes NULL rows (which is the common case). Fixed with `.or('payment_status.is.null,payment_status.neq.succeeded')`.
+- Notifications use `pipeline='ADVISOR_ONBOARDING'`, `link='/admin?tab=advisors&section=advisor_onboarding'`.
+
+**TODO 1 (Undecided PDF attachment) delivered:**
+- `actions/advisor/decision.ts` Undecided branch now fetches `implementation-agreement.pdf` from the new public Supabase Storage bucket `advisor-onboarding-agreements` and attaches via multipart/mixed. **Graceful fallback to plain HTML email if the PDF isn't uploaded yet** — the user uploads the actual PDF via Supabase Studio when ready.
+
+**Currently blocked on:** nothing. All advisor onboarding phases shipped + tested.
 
 **Phase 4 (Stripe payment chain) delivered:**
 - 6 new PUBLIC handlers in `actions/advisor/` (`stripe-customer`, `payment-email`, `load-payment`, `stripe-checkout`, `confirmation-email`, `invoice-receipt`)
@@ -33,9 +51,9 @@ Multi-phase Advisor Onboarding feature, modeled on MAP 1 / Tax automation. **Pha
 ## What's Live in Production (Backend Deployed)
 
 ### Edge function `vfo-admin-api`
-- Phases 1-4 all deployed to production (last deploy 2026-05-26)
+- Phases 1-6 all deployed to production (last deploy 2026-05-26)
 - Verification gate: `deno check` shows exactly **7 baseline errors** (4 `existing-null` in `pipfu-decision.ts`, 3 `pipeRow null` in `router/webhooks.ts`) — preserved
-- Action count: **177** (3 logins + 43 PUBLIC + 131 AUTH) — was 162 pre-feature, +15 for advisor onboarding so far
+- Action count: **179** (3 logins + 44 PUBLIC + 132 AUTH) — was 162 pre-feature, +17 for advisor onboarding total
 - Standalone `boldsign-webhook`: extended twice (Phase 3 for advisor routing, Phase 4 for `_stripecustomer` chain on Completed). Deploys MUST pass `--no-verify-jwt`.
 
 ### Database (Supabase project `ejpsprsmhpufwogbmxjv`)
@@ -48,6 +66,12 @@ Multi-phase Advisor Onboarding feature, modeled on MAP 1 / Tax automation. **Pha
   - 48 `ADVISOR_agreement_sent` (BoldSign sign link) — Phase 3
   - 49 `ADVISOR_ceo_countersign` (BoldSign countersign link to Anton, with `[Selected Plans]` + `[Total Amount]` substitutions) — Phase 3
   - 50 `ADVISOR_payment_link` (Stripe Checkout link + plan list + total + `Engagement Term: 6 months`) — Phase 4
+  - 51 `ADVISOR_payment_confirmation|card` — Phase 4
+  - 52 `ADVISOR_payment_confirmation|ach` — Phase 4
+  - 53 `ADVISOR_invoice_receipt` (with PDF attachments) — Phase 4
+  - 54 `ADVISOR_undecided_reminder` (48h 3-stall sweep) — Phase 6
+  - 55 `ADVISOR_signing_reminder` — Phase 6
+  - 56 `ADVISOR_payment_reminder` — Phase 6
   - 51 `ADVISOR_payment_confirmation|card` — Phase 4
   - 52 `ADVISOR_payment_confirmation|ach` — Phase 4
   - 53 `ADVISOR_invoice_receipt` (PDF attachments) — Phase 4
