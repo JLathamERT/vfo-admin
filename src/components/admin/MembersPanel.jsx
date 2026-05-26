@@ -213,7 +213,8 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, 
                 <span style={{ fontSize: '12px', color: '#8bacc8', width: '70px', flexShrink: 0, fontFamily: 'monospace' }}>{m.plugin_member_number}</span>
                 <span style={{ fontSize: '14px', color: '#fff', width: '200px', flexShrink: 0 }}>{m.name}</span>
                 <span style={{ fontSize: '12px', color: m.elite_status === 'Active' ? '#27ae60' : m.elite_status === 'Lost' ? '#e74c3c' : '#8bacc8', width: '80px', flexShrink: 0 }}>{m.elite_status || '—'}</span>
-                <span style={{ fontSize: '12px', color: '#8bacc8' }}>{m.member_type || '—'}</span>
+                <span style={{ fontSize: '12px', color: '#8bacc8', width: '160px', flexShrink: 0 }}>{m.member_type || '—'}</span>
+                <span style={{ fontSize: '12px', color: m.advisor_model === 'New Model' ? '#5b9fe6' : '#8bacc8' }}>{m.advisor_model || '—'}</span>
               </div>
             ))}
           </div>
@@ -263,6 +264,7 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
   const [email, setEmail] = useState('')
   const [eliteStatus, setEliteStatus] = useState('Active')
   const [revenueDecision, setRevenueDecision] = useState('Revenue Share')
+  const [advisorModel, setAdvisorModel] = useState('')
   const [connectedSearch, setConnectedSearch] = useState('')
   const [connectedMember, setConnectedMember] = useState(null)
   const [status, setStatus] = useState('')
@@ -286,6 +288,7 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
 
   async function submit() {
     if (!firstName || !lastName || !memberType) { setStatusType('error'); setStatus('First name, last name, and member type are required.'); return }
+    if (!advisorModel) { setStatusType('error'); setStatus('Please pick Legacy Model or New Model.'); return }
     if (isCorporate && !connectedMember) { setStatusType('error'); setStatus('Corporate members require a connected member.'); return }
     setLoading(true)
     try {
@@ -294,9 +297,9 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
         if (exists) { setStatusType('error'); setStatus(`Member number ${customMemberNumber.trim()} already exists.`); setLoading(false); return }
       }
       const member_number = customMemberNumber.trim() || generateMemberNumber()
-      await callApi('add_member_full', { name: `${firstName} ${lastName}`, member_number, first_name: firstName, last_name: lastName, member_type: memberType, elite_status: eliteStatus, email, revenue_decision: revenueDecision, connected_member_number: connectedMember?.plugin_member_number || null })
+      await callApi('add_member_full', { name: `${firstName} ${lastName}`, member_number, first_name: firstName, last_name: lastName, member_type: memberType, elite_status: eliteStatus, email, revenue_decision: revenueDecision, advisor_model: advisorModel, connected_member_number: connectedMember?.plugin_member_number || null })
       await onDataChange()
-      setFirstName(''); setLastName(''); setEmail(''); setMemberType(''); setConnectedMember(null); setConnectedSearch(''); setCustomMemberNumber('')
+      setFirstName(''); setLastName(''); setEmail(''); setMemberType(''); setConnectedMember(null); setConnectedSearch(''); setCustomMemberNumber(''); setAdvisorModel('')
       setStatusType('success'); setStatus(`Member created with number ${member_number}`)
     } catch (err) { setStatusType('error'); setStatus(err.message) }
     finally { setLoading(false) }
@@ -347,6 +350,17 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
             <option value="Revenue Share">Revenue Share</option>
             <option value="Money Mapping">Money Mapping</option>
           </select>
+        </div>
+      </div>
+      <div style={{ marginBottom: '16px' }}>
+        <label style={labelStyle}>Advisor Model *</label>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          {['Legacy Model', 'New Model'].map(m => (
+            <label key={m} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: `1px solid ${advisorModel === m ? 'rgba(91,159,230,0.5)' : 'rgba(255,255,255,0.15)'}`, background: advisorModel === m ? 'rgba(91,159,230,0.08)' : 'rgba(255,255,255,0.04)', cursor: 'pointer', fontSize: '13px', color: advisorModel === m ? '#fff' : '#8bacc8' }}>
+              <input type="radio" name="advisor_model" value={m} checked={advisorModel === m} onChange={() => setAdvisorModel(m)} style={{ accentColor: '#5b9fe6' }} />
+              {m}
+            </label>
+          ))}
         </div>
       </div>
       <div style={{ marginBottom: '16px' }}>
