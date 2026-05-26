@@ -13,6 +13,8 @@ export default function AdvisorOnboarding() {
   const [newLast, setNewLast] = useState('')
   const [newEmail, setNewEmail] = useState('')
   const [creating, setCreating] = useState(false)
+  const [showCompleted, setShowCompleted] = useState(false)
+  const [showStopped, setShowStopped] = useState(false)
   const session = getSession()
 
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
@@ -84,29 +86,75 @@ export default function AdvisorOnboarding() {
         <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>Loading...</div>
       ) : onboardings.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>No onboarding records yet. Click "+ New Onboarding" to start.</div>
-      ) : (
-        <div>
-          {onboardings.map(ob => {
-            const stage = ob.member_created_at ? 3 : ob.prelim_meeting_decision ? 2 : 1
-            const stageColor = ob.status === 'stopped' ? '#e74c3c' : ob.status === 'completed' ? '#27ae60' : '#5b9fe6'
-            return (
-              <div key={ob.id} onClick={() => { setSelectedId(ob.id); setView('detail') }} style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '18px', marginBottom: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(91,159,230,0.4)'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}>
-                <div>
-                  <div style={{ fontSize: '15px', color: '#fff', fontWeight: '500', marginBottom: '4px' }}>{ob.first_name} {ob.last_name}</div>
-                  <div style={{ fontSize: '12px', color: '#8bacc8' }}>{ob.email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: ob.status === 'stopped' ? 'rgba(231,76,60,0.15)' : ob.status === 'completed' ? 'rgba(39,174,96,0.15)' : 'rgba(91,159,230,0.15)', color: stageColor, border: `1px solid ${ob.status === 'stopped' ? 'rgba(231,76,60,0.3)' : ob.status === 'completed' ? 'rgba(39,174,96,0.3)' : 'rgba(91,159,230,0.3)'}` }}>
-                    {ob.status === 'stopped' ? 'Stopped' : ob.status === 'completed' ? 'Completed' : `Stage ${stage} · ${STAGE_NAMES[stage]}`}
-                  </span>
-                </div>
+      ) : (() => {
+        const classify = ob => {
+          if (ob.member_created_at) return 'completed'
+          const finalDec = ob.final_decision || (ob.prelim_meeting_decision === 'Yes' ? 'Yes' : ob.prelim_meeting_decision === 'No' ? 'No' : null)
+          if (finalDec === 'No' || ob.prelim_meeting_status === 'No Show') return 'stopped'
+          return 'in_progress'
+        }
+        const inProgress = onboardings.filter(o => classify(o) === 'in_progress')
+        const completed = onboardings.filter(o => classify(o) === 'completed')
+        const stopped = onboardings.filter(o => classify(o) === 'stopped')
+
+        const renderRow = (ob, variant) => {
+          const stage = ob.member_created_at ? 3 : ob.prelim_meeting_decision ? 2 : 1
+          const isDone = variant === 'completed'
+          const isStopped = variant === 'stopped'
+          const stageColor = isStopped ? '#e74c3c' : isDone ? '#27ae60' : '#5b9fe6'
+          const labelText = isDone ? 'Done' : isStopped ? 'Stopped' : `Stage ${stage} · ${STAGE_NAMES[stage]}`
+          const bg = isStopped ? 'rgba(231,76,60,0.15)' : isDone ? 'rgba(39,174,96,0.15)' : 'rgba(91,159,230,0.15)'
+          const border = isStopped ? 'rgba(231,76,60,0.3)' : isDone ? 'rgba(39,174,96,0.3)' : 'rgba(91,159,230,0.3)'
+          return (
+            <div key={ob.id} onClick={() => { setSelectedId(ob.id); setView('detail') }} style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '18px', marginBottom: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(91,159,230,0.4)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}>
+              <div>
+                <div style={{ fontSize: '15px', color: '#fff', fontWeight: '500', marginBottom: '4px' }}>{ob.first_name} {ob.last_name}{ob.member_number ? <span style={{ fontSize: '12px', color: '#8bacc8', fontFamily: 'monospace', marginLeft: '8px' }}>#{ob.member_number}</span> : null}</div>
+                <div style={{ fontSize: '12px', color: '#8bacc8' }}>{ob.email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
               </div>
-            )
-          })}
-        </div>
-      )}
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: bg, color: stageColor, border: `1px solid ${border}` }}>
+                  {labelText}
+                </span>
+              </div>
+            </div>
+          )
+        }
+
+        const SectionHeader = ({ title, count, open, onToggle, color }) => (
+          <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', marginTop: '20px', marginBottom: '10px', borderRadius: '8px', cursor: 'pointer', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ color: '#8bacc8', fontSize: '10px', transform: open ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: color, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{title}</span>
+              <span style={{ fontSize: '11px', color: '#8bacc8' }}>({count})</span>
+            </div>
+          </div>
+        )
+
+        return (
+          <div>
+            {inProgress.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#8bacc8', fontSize: '13px' }}>No active onboardings in progress.</div>
+            )}
+            {inProgress.map(ob => renderRow(ob, 'in_progress'))}
+
+            {completed.length > 0 && (
+              <>
+                <SectionHeader title="Completed" count={completed.length} open={showCompleted} onToggle={() => setShowCompleted(v => !v)} color="#27ae60" />
+                {showCompleted && completed.map(ob => renderRow(ob, 'completed'))}
+              </>
+            )}
+
+            {stopped.length > 0 && (
+              <>
+                <SectionHeader title="Stopped" count={stopped.length} open={showStopped} onToggle={() => setShowStopped(v => !v)} color="#e74c3c" />
+                {showStopped && stopped.map(ob => renderRow(ob, 'stopped'))}
+              </>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }
@@ -116,6 +164,7 @@ function OnboardingDetail({ id, onBack }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [pendingDecision, setPendingDecision] = useState(null)
+  const [creatingMember, setCreatingMember] = useState(false)
   const [expanded, setExpanded] = useState({ 1: true, 2: true, 3: true })
 
   useEffect(() => { loadDetail() }, [id])
@@ -145,6 +194,16 @@ function OnboardingDetail({ id, onBack }) {
       if (res?.onboarding) setOb(res.onboarding)
     } catch (err) { console.error(err); alert('Error: ' + err.message) }
     finally { setPendingDecision(null) }
+  }
+
+  async function createAdvisor() {
+    setCreatingMember(true)
+    try {
+      const res = await callApi('automation_ADVISOR_createmember', { onboarding_id: id })
+      if (res?.error) { alert('Error: ' + res.error); return }
+      await loadDetail()
+    } catch (err) { console.error(err); alert('Error: ' + err.message) }
+    finally { setCreatingMember(false) }
   }
 
   if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
@@ -211,10 +270,10 @@ function OnboardingDetail({ id, onBack }) {
         {decision === 'Yes' && (
           <>
             <AutoRow label="Agreement sent" done={!!ob.agreement_sent_at} date={ob.agreement_sent_at} />
-            <AutoRow label="Agreement signed by advisor" done={!!ob.agreement_signed_by_advisor_at} date={ob.agreement_signed_by_advisor_at} />
+            <AutoRow label="Agreement signed by advisor" done={!!ob.agreement_signed_by_advisor_at} date={ob.agreement_signed_by_advisor_at} tag={[ob.selected_vfo_ft && 'VFO FT', ob.selected_pft && 'PFT', ob.selected_corporate && 'CM']} />
             <AutoRow label="Agreement signed by CEO" done={!!ob.agreement_signed_by_ceo_at} date={ob.agreement_signed_by_ceo_at} />
             <AutoRow label="Payment link sent" done={!!ob.payment_link_sent_at} date={ob.payment_link_sent_at} />
-            <AutoRow label="Payment made" done={ob.payment_status === 'succeeded'} date={ob.payment_completed_at} />
+            <AutoRow label="Payment made" done={ob.payment_status === 'succeeded'} date={ob.payment_completed_at} tag={ob.payment_method_type ? ob.payment_method_type.toUpperCase() : null} />
             <AutoRow label="Confirmation email sent" done={!!ob.confirmation_email_sent_at} date={ob.confirmation_email_sent_at} />
             <AutoRow label="Invoice/receipt sent" done={!!ob.invoice_sent_at} date={ob.invoice_sent_at} />
           </>
@@ -261,9 +320,18 @@ function OnboardingDetail({ id, onBack }) {
           <div style={{ padding: '12px', color: '#8bacc8', fontSize: '13px' }}>
             Available once the invoice/receipt has been sent in Stage 2.
           </div>
+        ) : ob.member_created_at ? (
+          <>
+            <AutoRow label="Advisor created" done={true} date={ob.member_created_at} />
+            <div style={{ marginLeft: '14px', paddingLeft: '12px', marginTop: '6px', borderLeft: '1px solid rgba(255,255,255,0.08)', fontSize: '12px', color: '#8bacc8' }}>
+              Member number: <span style={{ color: '#fff', fontFamily: 'monospace' }}>{ob.member_number}</span> &middot; Implementation &middot; New Model &middot; Money Mapping
+            </div>
+          </>
         ) : (
-          <div style={{ padding: '8px 0', color: '#8bacc8', fontSize: '13px' }}>
-            Stage 3 UI (Revenue Decision + Create Advisor) wires up in Phase 5.
+          <div style={{ padding: '4px 0' }}>
+            <button onClick={createAdvisor} disabled={creatingMember} style={{ padding: '10px 24px', borderRadius: '8px', background: creatingMember ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: creatingMember ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+              {creatingMember ? 'Creating...' : 'Create Advisor'}
+            </button>
           </div>
         )}
       </StageBlock>
@@ -314,11 +382,15 @@ function Row({ label, done, date, children }) {
   )
 }
 
-function AutoRow({ label, done, date }) {
+function AutoRow({ label, done, date, tag }) {
+  const tags = tag == null ? [] : Array.isArray(tag) ? tag.filter(Boolean) : [tag]
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
       <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
       <span style={{ fontSize: '12px', color: done ? '#27ae60' : '#8bacc8', flex: 1 }}>{label}</span>
+      {done && tags.length > 0 && tags.map((t, i) => (
+        <span key={i} style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>{t}</span>
+      ))}
       <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: done ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: done ? '#27ae60' : '#8bacc8' }}>{done ? 'Done' : 'Not completed'}</span>
       <span style={dateSpanStyle}>{done && date ? formatDate(date) : ''}</span>
     </div>

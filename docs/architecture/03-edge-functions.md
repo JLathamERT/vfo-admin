@@ -4,7 +4,7 @@ Two Supabase edge functions deployed to project `ejpsprsmhpufwogbmxjv`. Both are
 
 | Function | Layout | `verify_jwt` |
 |---|---|---|
-| `vfo-admin-api` | `supabase/functions/vfo-admin-api/` — 88-line `index.ts` orchestrator + `router/`, `middleware/`, `actions/`, `utils/`, `constants/`, `types/`, `integrations/` subdirs (~165 .ts files total — incl. `actions/advisor/` for Phase 1-4 Advisor Onboarding) | `false` (config.toml + live registry, matched) |
+| `vfo-admin-api` | `supabase/functions/vfo-admin-api/` — 88-line `index.ts` orchestrator + `router/`, `middleware/`, `actions/`, `utils/`, `constants/`, `types/`, `integrations/` subdirs (~168 .ts files total — incl. `actions/advisor/` for Phase 1-6 Advisor Onboarding) | `false` (config.toml + live registry, matched) |
 | `boldsign-webhook` | `supabase/functions/boldsign-webhook/index.ts` (95 lines, single file) | `false` (live registry; config.toml says `true` — see note below) |
 
 > Live versions increment per deploy; see Supabase Dashboard → Edge Functions for the current value of each.
@@ -71,7 +71,7 @@ serve(req)
   │      • Returns Response or null
   │
   ├─ 5. PUBLIC_HANDLERS[action]  (from router/dispatch.ts)
-  │      • 43 entries: public-token + server-to-server chain-callable
+  │      • 44 entries: public-token + server-to-server chain-callable
   │      • Dispatched ctx: { body, supabase, json, req }
   │
   ├─ 6. await middleware/auth.ts::authenticate(action, body, supabase, json)
@@ -82,7 +82,7 @@ serve(req)
   │      • Applies MEMBER_SCOPED_ACTIONS gate (forces body.member_number to caller's own)
   │
   ├─ 7. AUTH_HANDLERS[action]  (from router/dispatch.ts)
-  │      • 131 entries
+  │      • 132 entries
   │      • Dispatched ctx: { body, supabase, json, auth, req }
   │      • Some handlers take auth (.auth.session.email etc.)
   │      • Three handlers take req for HTTP chain Authorization forwarding
@@ -93,7 +93,7 @@ serve(req)
          • else    → 400 { error: "Unknown action: <name>" }
 ```
 
-Total handler count: **177 actions** (3 logins + 43 PUBLIC + 131 AUTH). The post-refactor baseline was 128; subsequent features have added MAP1 sweeps, MAP1 check path, sandbox toggle, the full Tax Planning track (~27 handlers in `actions/tax/`), and the Advisor Onboarding pipeline (15 handlers in `actions/advisor/` — Phases 1-4). The authoritative count is the one published in [05-api-action-catalog.md](05-api-action-catalog.md).
+Total handler count: **179 actions** (3 logins + 44 PUBLIC + 132 AUTH). The post-refactor baseline was 128; subsequent features have added MAP1 sweeps, MAP1 check path, sandbox toggle, the full Tax Planning track (~27 handlers in `actions/tax/`), and the Advisor Onboarding pipeline (17 handlers in `actions/advisor/` — Phases 1-6). The authoritative count is the one published in [05-api-action-catalog.md](05-api-action-catalog.md).
 
 ### Key cross-cutting concerns
 
