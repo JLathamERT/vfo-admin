@@ -12,6 +12,7 @@ import TaxPostReviewDecidePage from './pages/TaxPostReviewDecidePage'
 import AdvisorDecidePage from './pages/AdvisorDecidePage'
 import PayPage from './pages/PayPage'
 import TaxPayPage from './pages/TaxPayPage'
+import AdvisorPayPage from './pages/AdvisorPayPage'
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
       <Route path="/advisor-decide" element={<AdvisorDecidePage />} />
       <Route path="/pay" element={<PayPage />} />
       <Route path="/tax-pay" element={<TaxPayPage />} />
+      <Route path="/advisor-pay" element={<AdvisorPayPage />} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   )
