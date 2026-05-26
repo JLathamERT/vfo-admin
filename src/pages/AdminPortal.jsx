@@ -63,10 +63,14 @@ export default function AdminPortal() {
   const navigate = useNavigate()
   const location = useLocation()
   const session = getSession()
-  const [activeTab, setActiveTab] = useState(sessionStorage.getItem('adminActiveTab') || null)
-  const [membersSection, setMembersSection] = useState(sessionStorage.getItem('adminMembersSection') || 'search_advisors')
+  const [activeTab, setActiveTab] = useState(() => {
+    const t = sessionStorage.getItem('adminActiveTab')
+    return t === 'members' ? 'advisors' : (t || null)
+  })
+  const [advisorsSection, setAdvisorsSection] = useState(sessionStorage.getItem('adminAdvisorsSection') || 'advisor_search')
+  const [accountantsSection, setAccountantsSection] = useState(sessionStorage.getItem('adminAccountantsSection') || 'accountant_search')
   const [navClickCount, setNavClickCount] = useState(0)
-const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getItem('adminSpecialistsSection') || 'search_specialists')
+  const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getItem('adminSpecialistsSection') || 'specialist_search')
   const [automationSection, setAutomationSection] = useState(sessionStorage.getItem('adminAutomationSection') || 'map1_pipeline')
   const [showEditor, setShowEditor] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -115,11 +119,23 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
   function signOut() { clearSession(); navigate('/') }
   function handleTitleClick() { setShowEditor(false); setShowSettings(false); setActiveTab(null) }
 
-  function selectMembersSection(key) {
-    setActiveTab('members')
-    sessionStorage.setItem('adminActiveTab', 'members')
-    setMembersSection(key)
-    sessionStorage.setItem('adminMembersSection', key)
+  function selectAdvisorsSection(key) {
+    setActiveTab('advisors')
+    sessionStorage.setItem('adminActiveTab', 'advisors')
+    setAdvisorsSection(key)
+    sessionStorage.setItem('adminAdvisorsSection', key)
+    sessionStorage.removeItem('adminSelectedMember')
+    sessionStorage.removeItem('adminMemberFeatureTab')
+    setNavClickCount(c => c + 1)
+    setShowEditor(false)
+    setShowSettings(false)
+  }
+
+  function selectAccountantsSection(key) {
+    setActiveTab('accountants')
+    sessionStorage.setItem('adminActiveTab', 'accountants')
+    setAccountantsSection(key)
+    sessionStorage.setItem('adminAccountantsSection', key)
     sessionStorage.removeItem('adminSelectedMember')
     sessionStorage.removeItem('adminMemberFeatureTab')
     setNavClickCount(c => c + 1)
@@ -157,19 +173,24 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
     justifyContent: 'space-between', height: '56px', position: 'sticky', top: 0, zIndex: 100
   }
 
-  const membersDropdownItems = [
+  const advisorsDropdownItems = [
     {
-      key: 'advisors', header: 'Advisors',
+      key: 'advisors', header: null,
       options: [
-        { key: 'search_advisors', label: 'Search Advisors' },
+        { key: 'advisor_search', label: 'Advisor Search' },
         { key: 'add_advisor', label: 'Add Advisor' },
+        { key: 'advisor_onboarding', label: 'Advisor Onboarding' },
       ]
     },
+  ]
+
+  const accountantsDropdownItems = [
     {
-      key: 'accountants', header: 'Accountants',
+      key: 'accountants', header: null,
       options: [
-        { key: 'search_accountants', label: 'Search Accountants' },
+        { key: 'accountant_search', label: 'Accountant Search' },
         { key: 'add_accountant', label: 'Add Accountant' },
+        { key: 'accountant_onboarding', label: 'Accountant Onboarding' },
       ]
     },
   ]
@@ -178,9 +199,9 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
     {
       key: 'specialists', header: null,
       options: [
-        { key: 'search_specialists', label: 'Search Specialists' },
+        { key: 'specialist_search', label: 'Specialist Search' },
         { key: 'add_specialist', label: 'Add Specialist' },
-        { key: 'specialist_onboarding', label: 'Onboarding' },
+        { key: 'specialist_onboarding', label: 'Specialist Onboarding' },
       ]
     },
   ]
@@ -229,10 +250,16 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
         <>
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', padding: '0 24px', background: '#0a2260' }}>
             <NavDropdown
-              label="Members"
-              items={membersDropdownItems}
-              onSelect={selectMembersSection}
-              isActive={activeTab === 'members'}
+              label="Advisors"
+              items={advisorsDropdownItems}
+              onSelect={selectAdvisorsSection}
+              isActive={activeTab === 'advisors'}
+            />
+            <NavDropdown
+              label="Accountants"
+              items={accountantsDropdownItems}
+              onSelect={selectAccountantsSection}
+              isActive={activeTab === 'accountants'}
             />
             <NavDropdown
               label="Specialists"
@@ -260,11 +287,19 @@ const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getI
             <SpecialistsPanel allExperts={allExperts} ecoMap={ecoMap} ciqMap={ciqMap} onDataChange={loadAllData} section={specialistsSection} />
           )}
 
-          {activeTab === 'members' && !loading && (
+          {activeTab === 'advisors' && !loading && (
             <MembersPanel
               allMembers={allMembers} allExperts={allExperts}
               allExclusionMap={allExclusionMap} ecoMap={ecoMap} ciqMap={ciqMap}
-              onDataChange={loadAllData} section={membersSection} navClickCount={navClickCount}
+              onDataChange={loadAllData} section={advisorsSection} navClickCount={navClickCount}
+            />
+          )}
+
+          {activeTab === 'accountants' && !loading && (
+            <MembersPanel
+              allMembers={allMembers} allExperts={allExperts}
+              allExclusionMap={allExclusionMap} ecoMap={ecoMap} ciqMap={ciqMap}
+              onDataChange={loadAllData} section={accountantsSection} navClickCount={navClickCount}
             />
           )}
 

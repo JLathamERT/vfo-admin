@@ -16,6 +16,8 @@ export default function AdminLogin() {
     try {
       const data = await callApi('admin_login', { email, passcode })
       sessionStorage.removeItem('adminActiveTab')
+      sessionStorage.removeItem('adminAdvisorsSection')
+      sessionStorage.removeItem('adminAccountantsSection')
       sessionStorage.removeItem('adminMembersSection')
       sessionStorage.removeItem('adminSelectedMember')
       sessionStorage.removeItem('adminMemberFeatureTab')

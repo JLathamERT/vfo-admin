@@ -4,6 +4,8 @@ import MemberWebsitePlugin from '../shared/MemberWebsitePlugin'
 import MemberVault from '../shared/MemberVault'
 import MemberCIQ from '../shared/MemberCIQ'
 import MSMTracking from './MSMTracking'
+import AdvisorOnboarding from './AdvisorOnboarding'
+import AccountantOnboarding from './AccountantOnboarding'
 
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
 import vfoCertifiedSeal from '../../assets/vfo-certified-emblem.png'
@@ -19,14 +21,23 @@ const MEMBER_TYPES = [
 
 const CORPORATE_TYPES = ['Corporate Member', 'Free Corporate Member', 'Free Corporate Member (Legacy)']
 
+const ACCOUNTANT_TYPES = [
+  'Advanced (Direct)', 'Advanced (Advisor)',
+  'Plus (Direct)', 'Plus (Advisor)',
+  'VFO FT (Direct)', 'VFO FT (Advisor)',
+  'VFO Associate (Direct)', 'VFO Associate (Advisor)',
+  'Team Member',
+  'Survey #1', 'Survey #2', 'Survey #3',
+  'FAC Historic',
+]
+
 export default function MembersPanel({ allMembers, allExperts, allExclusionMap, onDataChange, section, navClickCount }) {
-  if (section === 'search_accountants' || section === 'add_accountant') {
+  if (section === 'advisor_onboarding') return <AdvisorOnboarding />
+  if (section === 'accountant_onboarding') return <AccountantOnboarding />
+  if (section === 'accountant_search' || section === 'add_accountant') {
     return (
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-          <p style={{ fontFamily: 'Playfair Display, serif', fontSize: '22px', color: '#fff', marginBottom: '12px' }}>Accountants</p>
-          <p style={{ fontSize: '14px', color: '#8bacc8' }}>Coming soon.</p>
-        </div>
+        <AccountantsPanel initialTab={section === 'add_accountant' ? 'add' : 'search'} section={section} navClickCount={navClickCount} />
       </div>
     )
   }
@@ -34,6 +45,85 @@ export default function MembersPanel({ allMembers, allExperts, allExclusionMap, 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
       <AdvisorsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} initialTab={section === 'add_advisor' ? 'add' : 'search'} section={section} navClickCount={navClickCount} />
+    </div>
+  )
+}
+
+function AccountantsPanel({ initialTab, section, navClickCount }) {
+  const [activeTab, setActiveTab] = useState(initialTab || 'search')
+  useEffect(() => { setActiveTab(initialTab || 'search') }, [initialTab])
+  const [search, setSearch] = useState('')
+
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
+
+  return (
+    <div>
+      {activeTab === 'add' && <AddAccountantForm />}
+
+      {activeTab === 'search' && (
+        <>
+          <div style={{ marginBottom: '16px' }}>
+            <input placeholder="Search by name or accountant number..." style={inputStyle} onChange={e => setSearch(e.target.value.toLowerCase())} value={search} />
+          </div>
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#8bacc8', fontSize: '13px', fontStyle: 'italic' }}>
+            No accountants yet.
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function AddAccountantForm() {
+  const [memberType, setMemberType] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [email, setEmail] = useState('')
+  const [eliteStatus, setEliteStatus] = useState('Active')
+  const [status, setStatus] = useState('')
+  const [statusType, setStatusType] = useState('success')
+  const [customMemberNumber, setCustomMemberNumber] = useState('')
+
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
+  const labelStyle = { fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }
+  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
+
+  function submit() {
+    if (!firstName || !lastName || !memberType) { setStatusType('error'); setStatus('First name, last name, and member type are required.'); return }
+    setStatusType('error')
+    setStatus('Accountant create flow is not wired up yet.')
+  }
+
+  return (
+    <div style={sectionStyle}>
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: '160px' }}><label style={labelStyle}>First Name *</label><input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} /></div>
+        <div style={{ flex: 1, minWidth: '160px' }}><label style={labelStyle}>Last Name *</label><input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} /></div>
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <label style={labelStyle}>Member Type *</label>
+          <select value={memberType} onChange={e => setMemberType(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+            <option value="">-- Select --</option>
+            {ACCOUNTANT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Email</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
+        <div style={{ flex: 1, minWidth: '160px' }}>
+          <label style={labelStyle}>Status</label>
+          <select value={eliteStatus} onChange={e => setEliteStatus(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+            {['Active', 'Lost', 'Removed'].map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{ marginBottom: '16px' }}>
+        <label style={labelStyle}>Member Number <span style={{ fontSize: '11px', color: '#5a8ab5', fontStyle: 'italic', textTransform: 'none', letterSpacing: 0 }}>— leave blank to auto-generate</span></label>
+        <input value={customMemberNumber} onChange={e => setCustomMemberNumber(e.target.value)} placeholder="e.g. 59452" style={{ ...inputStyle, maxWidth: '200px' }} />
+      </div>
+      <button onClick={submit} style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
+        Create Accountant
+      </button>
+      {status && <p style={{ color: statusType === 'success' ? '#27ae60' : '#ff6b6b', fontSize: '13px', marginTop: '12px' }}>{status}</p>}
     </div>
   )
 }
