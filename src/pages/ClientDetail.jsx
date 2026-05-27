@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { getSession, callApi, loadCachedData } from '../lib/api'
 import ClientTrackViewV2 from '../components/admin/map1/ClientTrackViewV2'
 import RegularPrioritiesTab from '../components/admin/regular/RegularPrioritiesTab'
+import PipMeetingsTab from '../components/admin/pip/PipMeetingsTab'
 import PFTEngagementTrack from '../components/admin/pft/PFTEngagementTrack'
 import TaxPrioritiesTab from '../components/admin/tax/TaxPrioritiesTab'
 import AddGeneralNote from '../components/shared/AddGeneralNote'
@@ -157,6 +158,7 @@ export default function ClientDetail() {
                   <button style={tabStyle(activeTab === 'map1')} onClick={() => setActiveTab('map1')}>MAP 1</button>
                   <button style={tabStyle(activeTab === 'regular')} onClick={() => setActiveTab('regular')}>Regular Priorities</button>
                   <button style={tabStyle(activeTab === 'tax')} onClick={() => setActiveTab('tax')}>Tax Priorities</button>
+                  <button style={tabStyle(activeTab === 'pip')} onClick={() => setActiveTab('pip')}>PIP Meetings</button>
                 </>
               )}
             </>
@@ -173,6 +175,7 @@ export default function ClientDetail() {
             {activeTab === 'pft' && program && <PFTEngagementTrack clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
             {activeTab === 'regular' && program && <RegularPrioritiesTab clientId={parseInt(clientId)} programId={program.id} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
             {activeTab === 'tax' && program && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} programName={program.name} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+            {activeTab === 'pip' && program && <PipMeetingsTab clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
           </>
         )}
       </div>

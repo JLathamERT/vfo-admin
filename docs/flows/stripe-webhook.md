@@ -36,6 +36,8 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
 
 ## Branch A — `checkout.session.completed`
 
+> **Multi-pipeline routing.** As of 2026-05-27 the handler cascades through four pipeline lookups by `stripe_customer_id`: MAP1 (`pipeline_map1`) → Tax (`client_tax_plans`) → Advisor (`advisor_onboarding`) → **PIP Meetings** (`client_priority_tracks` WHERE `track_type='pip'`). The PIP branch additionally gates `pi.metadata.pipeline === "PIP"` on the `payment_intent.succeeded` path for ACH-clearing. PIP chains fire `automation_PIP_confirmationemail` + `automation_PIP_invoicereceipt` + `automation_PIP_revshare`. See [pip-meetings.md](pip-meetings.md) for the full PIP routing detail.
+
 ### Sub-branch A1 — GC credit purchase ([lines 270-288](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts))
 
 **Trigger:** customer paid for a GC credit purchase (initiated via `gc_create_checkout`).

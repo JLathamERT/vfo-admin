@@ -137,6 +137,67 @@ export function AdvisorOnboardingDetailSkeleton({ onBack }) {
   )
 }
 
+export function PipMeetingsListSkeleton({ yearCount = 1, meetingsPerYear = 3 }) {
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <Skeleton width={90} height={12} />
+        <Skeleton width={110} height={32} style={{ borderRadius: '8px' }} />
+      </div>
+      {Array.from({ length: yearCount }).map((_, y) => (
+        <div key={y} style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', background: 'rgba(91,159,230,0.08)', border: '1px solid rgba(91,159,230,0.2)', borderRadius: '10px', marginBottom: '6px' }}>
+            <Skeleton width={10} height={10} />
+            <Skeleton width={60} height={14} />
+            <Skeleton width={100} height={12} />
+          </div>
+          {Array.from({ length: meetingsPerYear }).map((_, i) => (
+            <div key={i} style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '14px 18px', marginBottom: '8px', marginLeft: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <Skeleton width={200} height={14} />
+                <Skeleton width={120} height={11} />
+              </div>
+              <Skeleton width={50} height={13} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function PipMeetingDetailSkeleton() {
+  return (
+    <div>
+      <Skeleton width={150} height={13} style={{ marginBottom: '20px' }} />
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', marginBottom: '10px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Skeleton width={9} height={9} style={{ borderRadius: '50%' }} />
+              <Skeleton width={180} height={13} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Skeleton width={60} height={20} style={{ borderRadius: '4px' }} />
+              <Skeleton width={70} height={20} style={{ borderRadius: '4px' }} />
+              <Skeleton width={10} height={10} />
+            </div>
+          </div>
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '12px 18px' }}>
+            {Array.from({ length: i === 1 ? 4 : 2 }).map((_, j) => (
+              <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <Skeleton width={8} height={8} style={{ borderRadius: '50%' }} />
+                <Skeleton width="50%" height={13} style={{ flex: 1 }} />
+                <Skeleton width={130} height={26} style={{ borderRadius: '6px' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function AdvisorOnboardingListSkeleton({ rows = 2 }) {
   return (
     <div>

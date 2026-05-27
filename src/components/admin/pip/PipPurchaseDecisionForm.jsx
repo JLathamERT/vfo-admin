@@ -1,0 +1,191 @@
+import { useState } from 'react'
+import { callApi } from '../../../lib/api'
+
+const DECISION_OPTIONS = [
+  'No',
+  'Tax Planning (if not purchased already)',
+  'Additional PIP meeting(s)',
+]
+
+function PipPurchaseDecisionForm({ task, priorityTrackId, clientId, engagementYear, existingData, onSubmitted }) {
+  const existing = existingData || {}
+  const isViewMode = !!existingData
+
+  const [decision, setDecision] = useState(existing.decision || '')
+  const [additionalCount, setAdditionalCount] = useState(existing.additionalCount || '')
+  const [grossServiceValue, setGrossServiceValue] = useState(existing.grossServiceValue || '')
+  const [memberContribution, setMemberContribution] = useState(existing.memberContribution || '')
+  const netInvoiceValue = ((parseFloat(grossServiceValue) || 0) - (parseFloat(memberContribution) || 0)).toFixed(2)
+  const [memberShare, setMemberShare] = useState(existing.memberShare || '')
+  const [vfosShare, setVfosShare] = useState(existing.vfosShare || '')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
+  const labelStyle = { fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }
+  const sectionStyle = { background: 'rgba(0,0,0,0.15)', borderRadius: '8px', padding: '16px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.06)' }
+  const readOnlyInput = { ...inputStyle, opacity: 0.6, pointerEvents: 'none' }
+
+  const showPricing = decision === 'Tax Planning (if not purchased already)' || decision === 'Additional PIP meeting(s)'
+
+  const isAdditionalPip = decision === 'Additional PIP meeting(s)'
+
+  async function handleSubmit() {
+    if (!decision) { setSubmitError('Please select a decision'); return }
+    if (isAdditionalPip) {
+      const c = parseInt(additionalCount, 10)
+      if (!Number.isFinite(c) || c < 1 || c > 50) { setSubmitError('Enter number of additional PIP meetings (1-50)'); return }
+    }
+    if (showPricing) {
+      if (!grossServiceValue) { setSubmitError('Please enter gross service value'); return }
+      const splitTotal = (parseFloat(memberShare) || 0) + (parseFloat(vfosShare) || 0)
+      const netVal = parseFloat(netInvoiceValue) || 0
+      if (Math.abs(splitTotal - netVal) > 0.01) {
+        setSubmitError(`Revenue split ($${splitTotal.toFixed(2)}) must equal Net Invoice Value ($${netVal.toFixed(2)})`)
+        return
+      }
+    }
+    setSubmitError('')
+    setSubmitting(true)
+    const formData = { decision }
+    if (isAdditionalPip) formData.additionalCount = additionalCount
+    if (showPricing) {
+      formData.grossServiceValue = grossServiceValue
+      formData.memberContribution = memberContribution
+      formData.netInvoiceValue = netInvoiceValue.toString()
+      formData.memberShare = memberShare
+      formData.vfosShare = vfosShare
+    }
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      await callApi('msm_save_priority_task', {
+        priority_track_id: priorityTrackId,
+        task_id: task.id,
+        status: `Completed - ${decision}`,
+        completed_date: today,
+        notes: JSON.stringify(formData),
+      })
+      await callApi('msm_update_pip_meeting', {
+        priority_track_id: priorityTrackId,
+        pip_completed_date: today,
+      })
+      if (showPricing) {
+        await callApi('msm_save_pip_purchase', {
+          priority_track_id: priorityTrackId,
+          purchase_kind: isAdditionalPip ? 'additional_pip' : 'tax_planning',
+          purchase_pip_count: isAdditionalPip ? parseInt(additionalCount, 10) : null,
+          gross_service_value: grossServiceValue,
+          member_contribution: memberContribution,
+          purchase_amount: netInvoiceValue,
+          member_share: memberShare,
+          vfos_share: vfosShare,
+        })
+      }
+      if (isAdditionalPip && clientId && engagementYear) {
+        await callApi('msm_add_pip_meetings_for_year', {
+          client_id: clientId,
+          engagement_year: engagementYear,
+          count: parseInt(additionalCount, 10),
+          paid: false,
+          source_track_id: priorityTrackId,
+        })
+      }
+      if (showPricing) {
+        // Kick off the payment chain (creates Stripe customer + drafts payment email)
+        await callApi('automation_PIP_stripecustomer', { priority_track_id: priorityTrackId })
+      }
+      if (onSubmitted) onSubmitted(`Completed - ${decision}`, formData, today)
+    } catch (err) {
+      console.error(err)
+      setSubmitError(err?.message || 'Save failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div style={{ marginLeft: '18px', padding: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', marginTop: '4px', marginBottom: '8px' }}>
+      <div style={{ marginBottom: '16px' }}>
+        <label style={labelStyle}>Client decision</label>
+        {isViewMode
+          ? <div style={{ ...inputStyle, opacity: 0.6 }}>{decision}</div>
+          : <select value={decision} onChange={e => setDecision(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+              <option value="">-- Select --</option>
+              {DECISION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+        }
+      </div>
+
+      {isAdditionalPip && (
+        <div style={sectionStyle}>
+          <label style={labelStyle}>How many PIP meetings?</label>
+          {isViewMode
+            ? <div style={readOnlyInput}>{additionalCount || '—'}</div>
+            : <input type="number" min="1" max="50" value={additionalCount} onChange={e => setAdditionalCount(e.target.value)} placeholder="e.g. 2" style={inputStyle} />
+          }
+          <div style={{ fontSize: '11px', color: '#5a8ab5', marginTop: '6px', fontStyle: 'italic' }}>These meetings will be added to Year {engagementYear ?? '?'} but locked until payment + revenue share are recorded.</div>
+        </div>
+      )}
+
+      {showPricing && (
+        <>
+          <div style={sectionStyle}>
+            <div style={{ fontSize: '12px', color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Pricing</div>
+            <div style={{ marginBottom: '10px' }}>
+              <label style={labelStyle}>Gross service value</label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#8bacc8', fontSize: '14px' }}>$</span>
+                <input value={grossServiceValue} onChange={e => setGrossServiceValue(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+              </div>
+            </div>
+            <div style={{ marginBottom: '10px' }}>
+              <label style={labelStyle}>Member contribution <span style={{ textTransform: 'none', opacity: 0.6 }}>(if applicable)</span></label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#8bacc8', fontSize: '14px' }}>$</span>
+                <input value={memberContribution} onChange={e => setMemberContribution(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>Net invoice value</label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#8bacc8', fontSize: '14px' }}>$</span>
+                <input value={isViewMode ? (existing.netInvoiceValue || '0.00') : netInvoiceValue} readOnly style={{ ...readOnlyInput, paddingLeft: '28px', background: 'rgba(39,174,96,0.08)', borderColor: 'rgba(39,174,96,0.2)' }} />
+              </div>
+            </div>
+          </div>
+
+          <div style={sectionStyle}>
+            <div style={{ fontSize: '12px', color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Revenue split</div>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '120px' }}>
+                <label style={labelStyle}>Member share</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#8bacc8', fontSize: '14px' }}>$</span>
+                  <input value={memberShare} onChange={e => setMemberShare(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+                </div>
+              </div>
+              <div style={{ flex: 1, minWidth: '120px' }}>
+                <label style={labelStyle}>VFOS share</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#8bacc8', fontSize: '14px' }}>$</span>
+                  <input value={vfosShare} onChange={e => setVfosShare(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {decision && !isViewMode && (
+        <>
+          {submitError && <div style={{ color: '#e74c3c', fontSize: '13px', marginBottom: '8px' }}>{submitError}</div>}
+          <button onClick={handleSubmit} disabled={submitting} style={{ width: '100%', padding: '12px', borderRadius: '8px', background: submitting ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '15px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+            {submitting ? 'Submitting...' : 'Submit Outcome - Meeting Complete'}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+export default PipPurchaseDecisionForm
