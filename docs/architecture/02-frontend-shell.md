@@ -1,6 +1,8 @@
 # Frontend shell
 
-The frontend is a single Vite + React 18 + react-router-dom v6 SPA. No state library — each top-level page does its own load via [callApi](src/lib/api.js) and passes data down via props. There is **no shared context provider** — components re-fetch on mount.
+The frontend is a single Vite + React 18 + react-router-dom v6 SPA. No state library — each top-level page does its own load via [callApi](src/lib/api.js) and passes data down via props. There is **no React Context provider**, but [`src/lib/api.js`](src/lib/api.js) holds a small **module-level promise cache** for `load_data` and other read-only actions (anything matching `^load_|_load(_|$)`), so re-mounts within a session reuse the first response. Cache invalidates on `clearSession`.
+
+**Loading UX**: each top-level page renders its real chrome (header, tabs, name, etc.) immediately and shows page-shaped placeholders from [`src/components/shared/Skeleton.jsx`](src/components/shared/Skeleton.jsx) in the content area until data lands — no full-screen "Loading…" text. Skeletons are bespoke per page (e.g. `MsmHomeSkeleton`, `Map1TrackSkeleton`, `TaxPlanListSkeleton`, `CoachingMeetingsSkeleton`).
 
 Built and deployed as a static site to GitHub Pages at `https://jlathamert.github.io/vfo-portal/` (per [package.json:9](package.json) — `gh-pages -d dist`).
 

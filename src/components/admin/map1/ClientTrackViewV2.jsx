@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { callApi } from '../../../lib/api'
+import { callApi, loadCachedAction } from '../../../lib/api'
+import { Map1TrackSkeleton } from '../../shared/Skeleton'
 import PFPricingForm from './PFPricingForm'
 import PFExtraMeetingForm from './PFExtraMeetingForm'
 import PIPDecisionForm from './PIPDecisionForm'
@@ -24,7 +25,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
     setLoading(true)
     try {
       const [trackData, progressData] = await Promise.all([
-        callApi('msm_load_client_track', { program_id: programId }),
+        loadCachedAction('msm_load_client_track', { program_id: programId }),
         callApi('msm_load_client_progress', { client_id: clientId }),
       ])
       const loadedPhases = trackData.phases || []
@@ -128,7 +129,8 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
 
   const inputStyle = { padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '12px', fontFamily: 'DM Sans, sans-serif' }
 
-  if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
+  if (loading) return <Map1TrackSkeleton />
+
 
   const totalTasks = phases.reduce((s, p) => s + (p.program_client_tasks || []).filter(t => t.status_options !== 'auto').length, 0)
   const completedTasks = phases.reduce((s, phase) => {

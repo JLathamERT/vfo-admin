@@ -23,3 +23,16 @@ body {
 #root {
   width: 100%;
 }
+
+@keyframes vfo-skeleton-pulse {
+  0%   { opacity: 0.45; }
+  50%  { opacity: 0.85; }
+  100% { opacity: 0.45; }
+}
+
+.vfo-skeleton {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  animation: vfo-skeleton-pulse 1.4s ease-in-out infinite;
+  display: inline-block;
+}

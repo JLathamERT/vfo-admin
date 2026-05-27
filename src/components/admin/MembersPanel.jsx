@@ -6,6 +6,7 @@ import MemberCIQ from '../shared/MemberCIQ'
 import MSMTracking from './MSMTracking'
 import AdvisorOnboarding from './AdvisorOnboarding'
 import AccountantOnboarding from './AccountantOnboarding'
+import { MemberProfileDetailsSkeleton, Skeleton } from '../shared/Skeleton'
 
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
 import vfoCertifiedSeal from '../../assets/vfo-certified-emblem.png'
@@ -262,8 +263,8 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
-  const [eliteStatus, setEliteStatus] = useState('Active')
-  const [revenueDecision, setRevenueDecision] = useState('Revenue Share')
+  const [eliteStatus, setEliteStatus] = useState('')
+  const [revenueDecision, setRevenueDecision] = useState('')
   const [advisorModel, setAdvisorModel] = useState('')
   const [connectedSearch, setConnectedSearch] = useState('')
   const [connectedMember, setConnectedMember] = useState(null)
@@ -288,6 +289,9 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
 
   async function submit() {
     if (!firstName || !lastName || !memberType) { setStatusType('error'); setStatus('First name, last name, and member type are required.'); return }
+    if (!email.trim()) { setStatusType('error'); setStatus('Email is required.'); return }
+    if (!eliteStatus) { setStatusType('error'); setStatus('Please pick a status.'); return }
+    if (!revenueDecision) { setStatusType('error'); setStatus('Please pick a revenue decision.'); return }
     if (!advisorModel) { setStatusType('error'); setStatus('Please pick Legacy Model or New Model.'); return }
     if (isCorporate && !connectedMember) { setStatusType('error'); setStatus('Corporate members require a connected member.'); return }
     setLoading(true)
@@ -299,7 +303,7 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
       const member_number = customMemberNumber.trim() || generateMemberNumber()
       await callApi('add_member_full', { name: `${firstName} ${lastName}`, member_number, first_name: firstName, last_name: lastName, member_type: memberType, elite_status: eliteStatus, email, revenue_decision: revenueDecision, advisor_model: advisorModel, connected_member_number: connectedMember?.plugin_member_number || null })
       await onDataChange()
-      setFirstName(''); setLastName(''); setEmail(''); setMemberType(''); setConnectedMember(null); setConnectedSearch(''); setCustomMemberNumber(''); setAdvisorModel('')
+      setFirstName(''); setLastName(''); setEmail(''); setMemberType(''); setConnectedMember(null); setConnectedSearch(''); setCustomMemberNumber(''); setAdvisorModel(''); setEliteStatus(''); setRevenueDecision('')
       setStatusType('success'); setStatus(`Member created with number ${member_number}`)
     } catch (err) { setStatusType('error'); setStatus(err.message) }
     finally { setLoading(false) }
@@ -337,16 +341,18 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
         </div>
       )}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Email</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
+        <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
         <div style={{ flex: 1, minWidth: '160px' }}>
-          <label style={labelStyle}>Status</label>
+          <label style={labelStyle}>Status *</label>
           <select value={eliteStatus} onChange={e => setEliteStatus(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+            <option value="">-- Select --</option>
             {['Active', 'Lost', 'Removed'].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div style={{ flex: 1, minWidth: '180px' }}>
-          <label style={labelStyle}>Revenue Decision</label>
+          <label style={labelStyle}>Revenue Decision *</label>
           <select value={revenueDecision} onChange={e => setRevenueDecision(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+            <option value="">-- Select --</option>
             <option value="Revenue Share">Revenue Share</option>
             <option value="Money Mapping">Money Mapping</option>
           </select>
@@ -431,7 +437,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection }) {
   const CONNECTION_TYPES = ['5% - Regular Advisor', '10% - Accredited Introducer', '10% - Accredited Mentor', '20% - Accredited Introducer + Mentor']
   const statusColors = { Active: '#27ae60', Lost: '#e74c3c', Removed: '#8bacc8' }
 
-  if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading profile...</div>
+  if (loading) return <MemberProfileDetailsSkeleton />
   if (!profile) return null
 
   const connectedMemberObj = allMembers.find(m => m.plugin_member_number === profile.connected_member_number)
@@ -703,9 +709,9 @@ function MemberSpecialists({ member, allExperts, allExclusionMap, onDataChange }
 
 function MemberGC({ member }) {
   const [gcTab, setGcTab] = useState('dashboard')
-  const [balance, setBalance] = useState(0)
-  const [transactions, setTransactions] = useState([])
-  const [redemptions, setRedemptions] = useState([])
+  const [balance, setBalance] = useState(null)
+  const [transactions, setTransactions] = useState(null)
+  const [redemptions, setRedemptions] = useState(null)
   const [addAmount, setAddAmount] = useState('')
   const [addDesc, setAddDesc] = useState('')
   const [status, setStatus] = useState('')
@@ -752,12 +758,20 @@ function MemberGC({ member }) {
           <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
             <div style={{ ...sectionStyle, flex: 1, textAlign: 'center' }}>
               <p style={{ color: '#8bacc8', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Credit Balance</p>
-              <p style={{ fontFamily: 'Playfair Display, serif', fontSize: '42px', color: '#fff', margin: 0 }}>{balance}</p>
+              <p style={{ fontFamily: 'Playfair Display, serif', fontSize: '42px', color: '#fff', margin: 0, minHeight: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {balance === null ? <Skeleton width={70} height={36} /> : balance}
+              </p>
             </div>
             <div style={{ ...sectionStyle, flex: 1 }}>
               <p style={{ color: '#8bacc8', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Quick Stats</p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}><span style={{ color: '#8bacc8', fontSize: '13px' }}>Total Redemptions</span><span style={{ color: '#fff', fontWeight: '600' }}>{redemptions.length}</span></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}><span style={{ color: '#8bacc8', fontSize: '13px' }}>Total Spent</span><span style={{ color: '#fff', fontWeight: '600' }}>{redemptions.reduce((s, r) => s + (r.credits || 0), 0)}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                <span style={{ color: '#8bacc8', fontSize: '13px' }}>Total Redemptions</span>
+                {redemptions === null ? <Skeleton width={30} height={14} /> : <span style={{ color: '#fff', fontWeight: '600' }}>{redemptions.length}</span>}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
+                <span style={{ color: '#8bacc8', fontSize: '13px' }}>Total Spent</span>
+                {redemptions === null ? <Skeleton width={30} height={14} /> : <span style={{ color: '#fff', fontWeight: '600' }}>{redemptions.reduce((s, r) => s + (r.credits || 0), 0)}</span>}
+              </div>
             </div>
           </div>
           <div style={sectionStyle}>
@@ -775,7 +789,16 @@ function MemberGC({ member }) {
         <>
           <div style={sectionStyle}>
             <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Transaction History</div>
-            {transactions.length === 0 ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No transactions yet.</p> : transactions.map(t => (
+            {transactions === null
+              ? Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                  <div style={{ textAlign: 'left' }}><Skeleton width={140} height={14} /><Skeleton width={70} height={11} style={{ marginLeft: '8px' }} /></div>
+                  <Skeleton width={40} height={14} />
+                </div>
+              ))
+              : transactions.length === 0
+              ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No transactions yet.</p>
+              : transactions.map(t => (
               <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
                 <div style={{ textAlign: 'left' }}><span style={{ fontSize: '13px', color: '#fff' }}>{t.description}</span><span style={{ fontSize: '11px', color: '#8bacc8', marginLeft: '8px' }}>{new Date(t.created_at).toLocaleDateString()}</span></div>
                 <span style={{ color: t.amount > 0 ? '#27ae60' : '#e74c3c', fontWeight: '600', fontSize: '14px' }}>{t.amount > 0 ? '+' : ''}{t.amount}</span>
@@ -784,7 +807,16 @@ function MemberGC({ member }) {
           </div>
           <div style={sectionStyle}>
             <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Redemption History</div>
-            {redemptions.length === 0 ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No redemptions yet.</p> : redemptions.map(r => (
+            {redemptions === null
+              ? Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                  <div style={{ textAlign: 'left' }}><Skeleton width={140} height={14} /><Skeleton width={70} height={11} style={{ marginLeft: '8px' }} /></div>
+                  <Skeleton width={40} height={14} />
+                </div>
+              ))
+              : redemptions.length === 0
+              ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No redemptions yet.</p>
+              : redemptions.map(r => (
               <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
                 <div style={{ textAlign: 'left' }}><span style={{ fontSize: '13px', color: '#fff' }}>{r.service_name || 'Service'}</span><span style={{ fontSize: '11px', color: '#8bacc8', marginLeft: '8px' }}>{new Date(r.created_at).toLocaleDateString()}</span></div>
                 <span style={{ color: '#e74c3c', fontWeight: '600', fontSize: '14px' }}>-{r.credits}</span>
