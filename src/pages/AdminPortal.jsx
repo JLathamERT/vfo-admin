@@ -7,6 +7,7 @@ import AdminEditor from '../components/admin/AdminEditor'
 import AdminSettings from '../components/admin/AdminSettings'
 import AutomationPanel from '../components/admin/AutomationPanel'
 import TaxAutomationPanel from '../components/admin/TaxAutomationPanel'
+import PipAutomationPanel from '../components/admin/PipAutomationPanel'
 import NotificationBell from '../components/NotificationBell'
 import EmailTemplatesPanel from '../components/admin/EmailTemplatesPanel'
 
@@ -212,6 +213,7 @@ export default function AdminPortal() {
       options: [
         { key: 'map1_pipeline', label: 'Holistic Planning - MAP 1' },
         { key: 'tax_pipeline', label: 'Holistic Planning - Tax Planning' },
+        { key: 'pip_pipeline', label: 'Holistic Planning - PIP Meetings' },
         { key: 'email_templates', label: 'Email Templates' },
       ]
     },
@@ -308,6 +310,9 @@ export default function AdminPortal() {
           )}
           {activeTab === 'automation' && !loading && automationSection === 'tax_pipeline' && (
             <TaxAutomationPanel />
+          )}
+          {activeTab === 'automation' && !loading && automationSection === 'pip_pipeline' && (
+            <PipAutomationPanel />
           )}
           {activeTab === 'automation' && !loading && automationSection === 'email_templates' && (
             <EmailTemplatesPanel />

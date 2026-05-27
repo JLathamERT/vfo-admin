@@ -314,7 +314,7 @@ function RegularPrioritiesTab({ clientId, programId, client, specialists, readOn
         callApi('msm_load_regular_phases', { program_id: programId }),
         callApi('msm_load_client_progress', { client_id: clientId }),
       ])
-      setPriorityTracks(tracksData.tracks || [])
+      setPriorityTracks((tracksData.tracks || []).filter(t => t.track_type !== 'pip'))
       setPhases(phasesData.phases || [])
 
       // Check if C25 is enabled

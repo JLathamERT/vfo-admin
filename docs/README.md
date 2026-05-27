@@ -6,9 +6,11 @@ Read-only architecture map of the VFO portal system. Documents what exists in th
 
 ## What's in this system
 
-Two repos, one Supabase project, four external integrations, one static-hosted SPA — held together by a modular `vfo-admin-api` edge function (88-line orchestrator + ~168 handler files) dispatching **179 actions** (3 logins + 44 PUBLIC + 132 AUTH). See [architecture/01-system-map.md](architecture/01-system-map.md) for the high-level picture.
+Two repos, one Supabase project, four external integrations, one static-hosted SPA — held together by a modular `vfo-admin-api` edge function (88-line orchestrator + ~181 handler files) dispatching **192 actions** (3 logins + 51 PUBLIC + 138 AUTH). See [architecture/01-system-map.md](architecture/01-system-map.md) for the high-level picture.
 
 The central business flow is the **MAP1 contract-and-payment chain**: PIP1 reconfirmation → PF decision → PCADMIN pricing → BoldSign agreement → CEO countersign → Stripe payment → confirmation/invoice/receipt → revenue share. State lives in a single ~80-column row of `pipeline_map1`, with each handler advancing specific columns. See [flows/contract-and-payment.md](flows/contract-and-payment.md) for the end-to-end trace.
+
+Three parallel automation chains follow the same pattern: **Tax Planning** ([flows/tax-planning.md](flows/tax-planning.md) — on `client_tax_plans`), **Advisor Onboarding** (`ADVISOR_ONBOARDING_RESUMPTION.md` at repo root — on `advisor_onboarding`), and **PIP Meetings** ([flows/pip-meetings.md](flows/pip-meetings.md) — on `client_priority_tracks` rows with `track_type='pip'`; mirrors MAP1 payment + invoice/receipt + revshare but without BoldSign + with 1-time payment only).
 
 ## Doc tree
 
@@ -51,6 +53,7 @@ docs/
 │   ├── msm-tracking.md               (32-action MSM subsystem map)
 │   ├── coaching-renewals.md          (coaching meeting + renewal log)
 │   ├── gift-credits.md               (GC marketplace buy/redeem)
+│   ├── pip-meetings.md               (PIP Meetings purchase + payment + invoice/receipt + revshare + unlock)
 │   └── notifications.md              (in-portal bell feed)
 │
 └── integrations/                     (the "external" layer — APIs and secrets)

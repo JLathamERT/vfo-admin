@@ -25,6 +25,7 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | `/tax-postreview-decide` | [TaxPostReviewDecidePage](src/pages/TaxPostReviewDecidePage.jsx) | URL token | `automation_TAX_postreviewclientdecision` — Tax 4 post-review Refund / Proceed landing |
 | `/advisor-decide` | [AdvisorDecidePage](src/pages/AdvisorDecidePage.jsx) | URL token | `automation_ADVISOR_clientdecision` — Advisor Onboarding Undecided Yes/No landing |
 | `/advisor-pay` | [AdvisorPayPage](src/pages/AdvisorPayPage.jsx) | URL token | `automation_ADVISOR_loadpayment` + `automation_ADVISOR_stripecheckout` — Advisor Onboarding payment ($4,000–$8,600 dynamic based on checkbox picks) |
+| `/pip-pay` | [PipPayPage](src/pages/PipPayPage.jsx) | URL token | `automation_PIP_loadpayment` + `automation_PIP_stripecheckout` — PIP Meetings purchase payment (one-time; Tax Planning or Additional PIP meetings) |
 | `*` | redirect to `/` | — | Catch-all |
 
 ## Top-level shells
@@ -48,7 +49,9 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 - Search Specialists / Add Specialist / Onboarding
 
 **Automation dropdown items (line 186-194):**
-- MAP 1 Pipeline / Email Templates
+- Holistic Planning - MAP 1 / Holistic Planning - Tax Planning / Holistic Planning - PIP Meetings / Email Templates
+
+(The PIP Meetings option mounts [PipAutomationPanel](src/components/admin/PipAutomationPanel.jsx) — one row per `client_priority_tracks` track where `track_type='pip'` AND a purchase has been made. Each row collapses/expands to show Purchase Details → Payment → Confirmation → Invoice & Receipt → Revenue Share, mirroring MAP 1's `AutomationPanel` layout for the same chain stages.)
 
 **Modal-style overlays:**
 - `showEditor` (Admin Editor — superadmin only): mounts [AdminEditor](src/components/admin/AdminEditor.jsx) — manages `allowed_admins`
@@ -105,7 +108,7 @@ A **dual-mode** page rendered by both `/admin/client/:clientId` and `/member/cli
 | Tabs | branched on `program?.name`: |
 |  | • Partnership Fast Track → "PFT Engagement Process" only |
 |  | • VFO Tax Planning → "Tax Priorities" only |
-|  | • else → MAP 1 / Regular Priorities / Tax Priorities (all three) |
+|  | • else (Holistic Planning) → MAP 1 / Regular Priorities / Tax Priorities / **PIP Meetings** (4 tabs) — see [../flows/pip-meetings.md](../flows/pip-meetings.md) |
 | Profile dropdown | admin: dropdown with Profile + Edit Profile; member: Profile only (line 130-132) |
 | Mutations from ClientHome | `update_client_note`, `delete_client_note`, `msm_update_client` (status, PF assignment) (lines 169, 177, 185, 198) |
 | Mutations from ClientDetails | `msm_update_client` (name/email/phone), `msm_add_client_contact`, `msm_delete_client_contact` (lines 306, 316, 325) |

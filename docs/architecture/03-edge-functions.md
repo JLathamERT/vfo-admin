@@ -4,7 +4,7 @@ Two Supabase edge functions deployed to project `ejpsprsmhpufwogbmxjv`. Both are
 
 | Function | Layout | `verify_jwt` |
 |---|---|---|
-| `vfo-admin-api` | `supabase/functions/vfo-admin-api/` — 88-line `index.ts` orchestrator + `router/`, `middleware/`, `actions/`, `utils/`, `constants/`, `types/`, `integrations/` subdirs (~168 .ts files total — incl. `actions/advisor/` for Phase 1-6 Advisor Onboarding) | `false` (config.toml + live registry, matched) |
+| `vfo-admin-api` | `supabase/functions/vfo-admin-api/` — 88-line `index.ts` orchestrator + `router/`, `middleware/`, `actions/`, `utils/`, `constants/`, `types/`, `integrations/` subdirs (~181 .ts files total — incl. `actions/advisor/` for Phase 1-6 Advisor Onboarding + `actions/msm/pip-*.ts` for the PIP Meetings purchase chain) | `false` (config.toml + live registry, matched) |
 | `boldsign-webhook` | `supabase/functions/boldsign-webhook/index.ts` (95 lines, single file) | `false` (live registry; config.toml says `true` — see note below) |
 
 > Live versions increment per deploy; see Supabase Dashboard → Edge Functions for the current value of each.
