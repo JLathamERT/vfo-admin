@@ -444,7 +444,7 @@ function MemberClientsView({ enrollment, member, program }) {
         ? <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No clients added yet.</div>
         : clients.map(client => (
           <div key={client.id} style={{ ...sectionStyle, cursor: 'pointer' }}
-            onClick={() => navigate(`/member/client/${client.id}`)}
+            onClick={() => navigate(`/member/client/${client.id}`, { state: { enrollment_id: enrollment.id } })}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
             onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.12)'}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
