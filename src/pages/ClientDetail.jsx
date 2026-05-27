@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { getSession, callApi } from '../lib/api'
+import { getSession, callApi, loadCachedData } from '../lib/api'
 import ClientTrackViewV2 from '../components/admin/map1/ClientTrackViewV2'
 import RegularPrioritiesTab from '../components/admin/regular/RegularPrioritiesTab'
 import PFTEngagementTrack from '../components/admin/pft/PFTEngagementTrack'
 import TaxPrioritiesTab from '../components/admin/tax/TaxPrioritiesTab'
 import AddGeneralNote from '../components/shared/AddGeneralNote'
 import { PhaseNotesButton, PhaseNotesPanel } from '../components/shared/PhaseNotes'
+import { Skeleton, ProfileTabSkeleton } from '../components/shared/Skeleton'
 
 const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael', 'Bridger Silvester', 'Tracy Miller', 'Evan Anderson']
 const statusColors = { Completed: '#27ae60', Confirmed: '#27ae60', Yes: '#27ae60', 'In Progress': '#f39c12', Scheduled: '#5b9fe6', No: '#e74c3c', 'N/A': '#8bacc8', Pending: '#f39c12' }
@@ -66,7 +67,7 @@ export default function ClientDetail() {
       const passedEnrollmentId = location.state?.enrollment_id || null
       const [data, expertsData] = await Promise.all([
         callApi('msm_load_client_home', { client_id: parseInt(clientId), enrollment_id: passedEnrollmentId }),
-        callApi('load_data'),
+        loadCachedData(),
       ])
       setClient(data.client)
       setProgram(data.program)
@@ -91,12 +92,6 @@ export default function ClientDetail() {
   const tabStyle = (active) => ({ padding: '10px 18px', background: 'transparent', border: 'none', borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent', color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' })
   const statusColors2 = { active: '#27ae60', pending: '#f39c12', lost: '#e74c3c' }
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#073991', color: '#fff', fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: '#8bacc8' }}>Loading...</div>
-    </div>
-  )
-
   return (
     <div style={{ minHeight: '100vh', background: '#073991', color: '#fff', fontFamily: 'DM Sans, sans-serif' }}>
       <div style={{ background: '#0a2260', borderBottom: '1px solid rgba(255,255,255,0.1)', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '56px', position: 'sticky', top: 0, zIndex: 100 }}>
@@ -112,43 +107,74 @@ export default function ClientDetail() {
 
         {/* Client header */}
         <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-            <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '28px', color: '#fff' }}>{client?.first_name} {client?.last_name}</div>
-            {contacts?.length > 0 && <div style={{ fontSize: '14px', color: '#5a8ab5', fontStyle: 'italic' }}>with {contacts.map(c => `${c.first_name} ${c.last_name}`).join(', ')}</div>}
-          </div>
-          <div style={{ display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: '#8bacc8', fontFamily: 'monospace' }}>{client?.client_ref}</span>
-            {program && <span style={{ fontSize: '13px', color: '#5b9fe6' }}>{program.name}</span>}
-            {client?.member_name && <span style={{ fontSize: '13px', color: '#8bacc8' }}>Member: {client.member_name}</span>}
-            <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: '600', background: `${statusColors2[client?.status] || '#8bacc8'}22`, color: statusColors2[client?.status] || '#8bacc8', border: `1px solid ${statusColors2[client?.status] || '#8bacc8'}44` }}>{client?.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : ''}</span>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px' }}>
-          {isMember
-            ? <button style={tabStyle(activeTab === 'home')} onClick={() => setActiveTab('home')}>Profile</button>
-            : <ClientTabDropdown label="Profile" isActive={activeTab === 'home' || activeTab === 'details'} options={[{key:'home',label:'Profile'},{key:'details',label:'Edit Profile'}]} onSelect={setActiveTab} />
-          }
-          {program?.name === 'Partnership Fast Track' ? (
-            <button style={tabStyle(activeTab === 'pft')} onClick={() => setActiveTab('pft')}>PFT Engagement Process</button>
-          ) : program?.name === 'VFO Tax Planning' ? (
-            <button style={tabStyle(activeTab === 'tax')} onClick={() => setActiveTab('tax')}>Tax Priorities</button>
+          {loading ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+                <Skeleton width={260} height={32} />
+              </div>
+              <div style={{ display: 'flex', gap: '16px', marginTop: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <Skeleton width={90} height={14} />
+                <Skeleton width={130} height={14} />
+                <Skeleton width={70} height={20} style={{ borderRadius: '4px' }} />
+              </div>
+            </>
           ) : (
             <>
-              <button style={tabStyle(activeTab === 'map1')} onClick={() => setActiveTab('map1')}>MAP 1</button>
-              <button style={tabStyle(activeTab === 'regular')} onClick={() => setActiveTab('regular')}>Regular Priorities</button>
-              <button style={tabStyle(activeTab === 'tax')} onClick={() => setActiveTab('tax')}>Tax Priorities</button>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+                <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '28px', color: '#fff' }}>{client?.first_name} {client?.last_name}</div>
+                {contacts?.length > 0 && <div style={{ fontSize: '14px', color: '#5a8ab5', fontStyle: 'italic' }}>with {contacts.map(c => `${c.first_name} ${c.last_name}`).join(', ')}</div>}
+              </div>
+              <div style={{ display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', color: '#8bacc8', fontFamily: 'monospace' }}>{client?.client_ref}</span>
+                {program && <span style={{ fontSize: '13px', color: '#5b9fe6' }}>{program.name}</span>}
+                {client?.member_name && <span style={{ fontSize: '13px', color: '#8bacc8' }}>Member: {client.member_name}</span>}
+                <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: '600', background: `${statusColors2[client?.status] || '#8bacc8'}22`, color: statusColors2[client?.status] || '#8bacc8', border: `1px solid ${statusColors2[client?.status] || '#8bacc8'}44` }}>{client?.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : ''}</span>
+              </div>
             </>
           )}
         </div>
 
-        {activeTab === 'home' && <ClientHome client={client} contacts={contacts} onUpdate={loadData} sectionStyle={sectionStyle} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} program={program} />}
-        {activeTab === 'details' && !isMember && <ClientDetails client={client} contacts={contacts} onUpdate={loadData} onReloadContacts={reloadContacts} sectionStyle={sectionStyle} />}
-        {activeTab === 'map1' && program && <ClientTrackViewV2 clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
-        {activeTab === 'pft' && program && <PFTEngagementTrack clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
-        {activeTab === 'regular' && program && <RegularPrioritiesTab clientId={parseInt(clientId)} programId={program.id} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
-        {activeTab === 'tax' && program && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} programName={program.name} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+        {/* Tabs */}
+        <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px', gap: '8px', paddingBottom: '10px' }}>
+          {loading ? (
+            <>
+              <Skeleton width={70} height={20} />
+              <Skeleton width={80} height={20} />
+              <Skeleton width={110} height={20} />
+            </>
+          ) : (
+            <>
+              {isMember
+                ? <button style={tabStyle(activeTab === 'home')} onClick={() => setActiveTab('home')}>Profile</button>
+                : <ClientTabDropdown label="Profile" isActive={activeTab === 'home' || activeTab === 'details'} options={[{key:'home',label:'Profile'},{key:'details',label:'Edit Profile'}]} onSelect={setActiveTab} />
+              }
+              {program?.name === 'Partnership Fast Track' ? (
+                <button style={tabStyle(activeTab === 'pft')} onClick={() => setActiveTab('pft')}>PFT Engagement Process</button>
+              ) : program?.name === 'VFO Tax Planning' ? (
+                <button style={tabStyle(activeTab === 'tax')} onClick={() => setActiveTab('tax')}>Tax Priorities</button>
+              ) : (
+                <>
+                  <button style={tabStyle(activeTab === 'map1')} onClick={() => setActiveTab('map1')}>MAP 1</button>
+                  <button style={tabStyle(activeTab === 'regular')} onClick={() => setActiveTab('regular')}>Regular Priorities</button>
+                  <button style={tabStyle(activeTab === 'tax')} onClick={() => setActiveTab('tax')}>Tax Priorities</button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+
+        {loading ? (
+          <ProfileTabSkeleton sections={isMember ? 3 : 4} />
+        ) : (
+          <>
+            {activeTab === 'home' && <ClientHome client={client} contacts={contacts} onUpdate={loadData} sectionStyle={sectionStyle} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} program={program} />}
+            {activeTab === 'details' && !isMember && <ClientDetails client={client} contacts={contacts} onUpdate={loadData} onReloadContacts={reloadContacts} sectionStyle={sectionStyle} />}
+            {activeTab === 'map1' && program && <ClientTrackViewV2 clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+            {activeTab === 'pft' && program && <PFTEngagementTrack clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+            {activeTab === 'regular' && program && <RegularPrioritiesTab clientId={parseInt(clientId)} programId={program.id} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+            {activeTab === 'tax' && program && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} programName={program.name} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+          </>
+        )}
       </div>
     </div>
   )

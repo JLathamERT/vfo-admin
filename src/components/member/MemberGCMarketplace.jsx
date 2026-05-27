@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
+import { Skeleton } from '../shared/Skeleton'
 
 function formatServiceDetails(description) {
   if (!description) return ''
@@ -10,10 +11,10 @@ function formatServiceDetails(description) {
 
 export default function MemberGCMarketplace({ memberNumber }) {
   const [gcTab, setGcTab] = useState('dashboard')
-  const [balance, setBalance] = useState(0)
-  const [transactions, setTransactions] = useState([])
+  const [balance, setBalance] = useState(null)
+  const [transactions, setTransactions] = useState(null)
   const [services, setServices] = useState([])
-  const [totalRedeemed, setTotalRedeemed] = useState(0)
+  const [totalRedeemed, setTotalRedeemed] = useState(null)
   const [showBuyModal, setShowBuyModal] = useState(false)
   const [confirmService, setConfirmService] = useState(null)
   const [openDetails, setOpenDetails] = useState({})
@@ -95,18 +96,20 @@ export default function MemberGCMarketplace({ memberNumber }) {
           <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
             <div style={{ ...sectionStyle, flex: 1, textAlign: 'center' }}>
               <p style={{ color: '#8bacc8', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Credit Balance</p>
-              <p style={{ fontFamily: 'Playfair Display, serif', fontSize: '42px', color: '#fff', margin: '0 0 16px', lineHeight: '1' }}>{balance}</p>
+              <p style={{ fontFamily: 'Playfair Display, serif', fontSize: '42px', color: '#fff', margin: '0 0 36px', lineHeight: '1', minHeight: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {balance === null ? <Skeleton width={70} height={36} /> : balance}
+              </p>
               <button onClick={() => setShowBuyModal(true)} style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>Buy Credits</button>
             </div>
             <div style={{ ...sectionStyle, flex: 1 }}>
               <p style={{ color: '#8bacc8', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Quick Stats</p>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
                 <span style={{ color: '#8bacc8', fontSize: '13px' }}>Total Transactions</span>
-                <span style={{ color: '#fff', fontWeight: '600' }}>{transactions.length}</span>
+                {transactions === null ? <Skeleton width={30} height={14} /> : <span style={{ color: '#fff', fontWeight: '600' }}>{transactions.length}</span>}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
                 <span style={{ color: '#8bacc8', fontSize: '13px' }}>Total Redeemed</span>
-                <span style={{ color: '#fff', fontWeight: '600' }}>{totalRedeemed}</span>
+                {totalRedeemed === null ? <Skeleton width={30} height={14} /> : <span style={{ color: '#fff', fontWeight: '600' }}>{totalRedeemed}</span>}
               </div>
             </div>
           </div>
@@ -182,7 +185,17 @@ export default function MemberGCMarketplace({ memberNumber }) {
       {gcTab === 'history' && (
         <div style={sectionStyle}>
           <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Transaction History</div>
-          {transactions.length === 0
+          {transactions === null
+            ? Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ flex: 1, textAlign: 'left' }}>
+                  <Skeleton width={160} height={14} />
+                  <Skeleton width={90} height={11} style={{ marginTop: '4px' }} />
+                </div>
+                <Skeleton width={70} height={20} style={{ borderRadius: '6px' }} />
+              </div>
+            ))
+            : transactions.length === 0
             ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No transactions yet.</p>
             : transactions.map(tx => (
               <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>

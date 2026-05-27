@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { callApi } from '../../../lib/api'
+import { callApi, loadCachedAction } from '../../../lib/api'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 
 function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [], onNotesChange }) {
@@ -15,7 +15,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
     setLoading(true)
     try {
       const [trackData, progressData] = await Promise.all([
-        callApi('msm_load_client_track', { program_id: programId, track_type: 'partnership_fast_track' }),
+        loadCachedAction('msm_load_client_track', { program_id: programId, track_type: 'partnership_fast_track' }),
         callApi('msm_load_client_progress', { client_id: clientId }),
       ])
       const loadedPhases = trackData.phases || []

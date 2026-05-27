@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { callApi } from '../../lib/api'
+import { callApi, loadCachedAction } from '../../lib/api'
+import { Skeleton, ClientsListSkeleton, TrainingTrackSkeleton, CoachingMeetingsSkeleton, CoachingRenewalSkeleton, MsmHomeSkeleton } from '../shared/Skeleton'
 
 const PROGRAMS = [
   { key: 'holistic', name: 'VFO Holistic Planning' },
@@ -24,7 +25,7 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
     setLoading(true)
     try {
       const [progData, enrollData, enabledData, meetData] = await Promise.all([
-        callApi('msm_load_programs'),
+        loadCachedAction('msm_load_programs'),
         callApi('msm_load_enrollments', { member_number: member.member_number }),
         callApi('msm_load_enabled_programs', { member_number: member.member_number }),
         callApi('msm_load_meetings', { member_number: member.member_number }),
@@ -39,7 +40,7 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
       const holisticEnroll = (enrollData.enrollments || []).find(e => e.programs?.name === 'VFO Holistic Planning')
       if (holisticProg && holisticEnroll) {
         const [trackData, progressData] = await Promise.all([
-          callApi('msm_load_training_track', { program_id: holisticProg.id }),
+          loadCachedAction('msm_load_training_track', { program_id: holisticProg.id }),
           callApi('msm_load_training_progress', { enrollment_id: holisticEnroll.id }),
         ])
         const phases = trackData.phases || []
@@ -66,7 +67,39 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
   const advancedCount = meetings.filter(m => m.meeting_type === 'Advanced Meeting').length
   const pft90Count = meetings.filter(m => m.meeting_type === 'PFT 90 Day Plan Meeting').length
 
-  if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
+  if (loading) {
+    if (activeTab === 'msm_home') return <MsmHomeSkeleton />
+    const isCoach = activeTab === 'msm_coaching'
+    const inner =
+      isCoach ? <CoachingMeetingsSkeleton /> :
+      activeTab === 'msm_tax' ? <ClientsListSkeleton /> :
+      (activeTab === 'msm_holistic' || activeTab === 'msm_partnership') ? <TrainingTrackSkeleton /> :
+      <TrainingTrackSkeleton phaseCount={3} rowsPerPhase={3} />
+    return (
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
+        <Skeleton width={240} height={28} style={{ marginBottom: '20px' }} />
+        <div style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <Skeleton width={90} height={11} />
+              <Skeleton width={100} height={15} />
+            </div>
+            {!isCoach && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <Skeleton width={110} height={11} />
+                <Skeleton width={100} height={15} />
+              </div>
+            )}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '24px', marginBottom: '24px', paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <Skeleton width={80} height={20} />
+          {activeTab !== 'msm_tax' && <Skeleton width={80} height={20} />}
+        </div>
+        {inner}
+      </div>
+    )
+  }
 
   const activeProgramKey = activeTab === 'msm_home' ? null
     : activeTab === 'msm_holistic' ? 'holistic'
@@ -167,7 +200,9 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
 
 function MemberEnrolledView({ enrollment, program, member }) {
   const isCoaching = program.name === 'Advanced Coaching'
-  const [activeTab, setActiveTab] = useState(isCoaching ? 'meetings' : program.name === 'VFO Tax Planning' ? 'clients' : 'training')
+  const defaultTab = isCoaching ? 'meetings' : program.name === 'VFO Tax Planning' ? 'clients' : 'training'
+  const [activeTab, setActiveTab] = useState(defaultTab)
+  useEffect(() => { setActiveTab(defaultTab) }, [program.id])
   const tabStyle = (active) => ({ padding: '10px 18px', background: 'transparent', border: 'none', borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent', color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' })
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
   const statusColors = { 'On Fast Track': '#27ae60', 'Paused Fast Track': '#f39c12', 'Lost/Removed': '#e74c3c', 'Revert to Legacy': '#8bacc8', 'Active': '#27ae60' }
@@ -220,7 +255,7 @@ function MemberTrainingView({ enrollment, program }) {
     setLoading(true)
     try {
       const [trackData, progressData] = await Promise.all([
-        callApi('msm_load_training_track', { program_id: program.id }),
+        loadCachedAction('msm_load_training_track', { program_id: program.id }),
         callApi('msm_load_training_progress', { enrollment_id: enrollment.id }),
       ])
       setPhases(trackData.phases || [])
@@ -235,7 +270,7 @@ function MemberTrainingView({ enrollment, program }) {
   const statusColors = { Completed: '#27ae60', 'Have Watched': '#27ae60', 'In Progress': '#f39c12', 'N/A': '#8bacc8', Pending: '#e74c3c' }
   const statusBg = { Completed: 'rgba(39,174,96,0.15)', 'Have Watched': 'rgba(39,174,96,0.15)', 'In Progress': 'rgba(243,156,18,0.15)', 'N/A': 'rgba(139,172,200,0.15)', Pending: 'rgba(231,76,60,0.15)' }
 
-  if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
+  if (loading) return <TrainingTrackSkeleton />
   if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No training track defined yet.</div>
 
   const totalTasks = phases.reduce((s, p) => s + (p.program_training_tasks?.length || 0), 0)
@@ -243,7 +278,7 @@ function MemberTrainingView({ enrollment, program }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '24px', marginBottom: '20px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '24px', marginBottom: '20px', flexWrap: 'wrap', paddingLeft: '24px' }}>
         <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{completedTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>COMPLETED</div></div>
         <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{totalTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>TOTAL</div></div>
         <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#27ae60' }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>PROGRESS</div></div>
@@ -395,12 +430,13 @@ function MemberClientsView({ enrollment, member, program }) {
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '16px' }
   const statusColors = { pending: '#f39c12', active: '#27ae60', declined: '#e74c3c' }
 
-  if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading clients...</div>
+  if (loading) return <ClientsListSkeleton />
+
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', width: '100%' }}>
-        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-end', paddingLeft: '24px' }}>
           <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff', lineHeight: 1 }}>{clients.length}</div><div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '4px' }}>TOTAL</div></div>
           <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff', lineHeight: 1 }}>{clients.filter(c => c.status === 'active').length}</div><div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '4px' }}>ACTIVE</div></div>
         </div>
@@ -479,7 +515,7 @@ function MemberClientTrackView({ client, program }) {
     setLoading(true)
     try {
       const [trackData, progressData, pipelineRes] = await Promise.all([
-        callApi('msm_load_client_track', { program_id: program.id }),
+        loadCachedAction('msm_load_client_track', { program_id: program.id }),
         callApi('msm_load_client_progress', { client_id: client.id }),
         callApi('member_load_pipeline', { client_id: client.id }),
       ])
@@ -525,7 +561,7 @@ function MemberClientTrackView({ client, program }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '24px', marginBottom: '20px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '24px', marginBottom: '20px', flexWrap: 'wrap', paddingLeft: '24px' }}>
         <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{completedTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>COMPLETED</div></div>
         <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{totalTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>TOTAL</div></div>
         <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#27ae60' }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>PROGRESS</div></div>
@@ -718,11 +754,11 @@ function MemberCoachingMeetings({ enrollment }) {
   const scheduledMeetings = meetings.filter(m => m.status === 'scheduled').sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))
   const nextScheduled = scheduledMeetings[0]
 
-  if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
+  if (loading) return <CoachingMeetingsSkeleton />
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '32px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: '32px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'flex-end', paddingLeft: '24px' }}>
         <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{completedMeetings.length}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>COMPLETED</div></div>
         <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#5b9fe6' }}>{scheduledMeetings.length}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>SCHEDULED</div></div>
         {nextScheduled && (
@@ -810,7 +846,8 @@ function MemberCoachingRenewal({ enrollment }) {
 
   const actionColors = { renewed: '#27ae60', cancelled: '#e74c3c' }
 
-  if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
+  if (loading) return <CoachingRenewalSkeleton />
+
 
   return (
     <div>

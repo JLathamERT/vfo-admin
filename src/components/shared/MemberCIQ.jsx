@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
+import { CiqListSkeleton } from './Skeleton'
 
 export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true, ciqVfosManaged = true, isAdmin = false }) {
   const [ciqs, setCiqs] = useState([])
@@ -1380,7 +1381,8 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
   }
 
   // ─── CIQ access gate ──────────────────────────────────
-  if (!settingsLoaded) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
+  if (!settingsLoaded) return <CiqListSkeleton />
+
 
   if (!isAdmin && !localCiqEnabled) {
     return (
@@ -1392,7 +1394,8 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
   }
 
   // ─── CIQ list view ────────────────────────────────────
-  if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
+  if (loading) return <CiqListSkeleton />
+
 
   // Group CIQs by client
   const byClient = {}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { callApi } from '../../../lib/api'
+import { callApi, loadCachedAction } from '../../../lib/api'
+import { TaxPlanListSkeleton } from '../../shared/Skeleton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 
 function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, onSubmitted }) {
@@ -447,17 +448,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   async function loadSpecialists() {
     setLoadingSpecs(true)
     try {
-      const [specData, progData] = await Promise.all([
-        callApi('tax_load_specialists', { tax_plan_id: plan.id }),
-        callApi('tax_load_progress', { tax_plan_id: plan.id }),
-      ])
+      const specData = await callApi('tax_load_specialists', { tax_plan_id: plan.id })
       setTaxSpecialists(specData.specialists || [])
-      const prog = {}
-      ;(progData.progress || []).forEach(p => {
-        const key = p.tax_specialist_id ? `${p.task_id}_${p.tax_specialist_id}` : p.task_id
-        prog[key] = p
-      })
-      setLocalProgress(prog)
     } catch (err) { console.error(err) }
     finally { setLoadingSpecs(false) }
   }
@@ -638,6 +630,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid rgba(255,255,255,0.2)' }} />
               <span style={{ fontSize: '13px', color: '#fff', flex: 1 }}>{task.name}</span>
               <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>
+              <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}></span>
             </div>
           )
         }
@@ -682,6 +675,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid rgba(255,255,255,0.2)' }} />
           <span style={{ fontSize: '13px', color: '#fff', flex: 1, fontWeight: '600' }}>{task.name}</span>
           <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8', border: '1px solid rgba(255,255,255,0.1)' }}>Waiting for details</span>
+          <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}></span>
         </div>
       )
       // Cascade is done when invoice/receipt sent (Yes path) OR decline state
@@ -1602,7 +1596,7 @@ function TaxPrioritiesTab({ clientId, programId, programName, client, specialist
     try {
       const [plansData, phasesData, map1Progress] = await Promise.all([
         callApi('tax_load_plans', { client_id: clientId }),
-        callApi('msm_load_client_track', { program_id: programId, track_type: 'tax' }),
+        loadCachedAction('msm_load_client_track', { program_id: programId, track_type: 'tax' }),
         callApi('msm_load_client_progress', { client_id: clientId }),
       ])
       setTaxPlans(plansData.plans || [])
@@ -1644,7 +1638,7 @@ function TaxPrioritiesTab({ clientId, programId, programName, client, specialist
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '16px' }
   const stateColors = { 'not started': '#8bacc8', 'in progress': '#5b9fe6', 'completed': '#27ae60' }
 
-  if (loading) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
+  if (loading) return <TaxPlanListSkeleton />
 
   if (selectedPlan) {
     return (

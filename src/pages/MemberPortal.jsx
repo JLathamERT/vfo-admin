@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getSession, clearSession, callApi } from '../lib/api'
+import { getSession, clearSession, callApi, loadCachedData, loadCachedAction } from '../lib/api'
 import MemberWebsitePlugin from '../components/shared/MemberWebsitePlugin'
 import MemberVault from '../components/shared/MemberVault'
 import MemberCIQ from '../components/shared/MemberCIQ'
@@ -31,8 +31,8 @@ export default function MemberPortal() {
   async function loadData() {
     try {
       const [data, progData, enabledData] = await Promise.all([
-        callApi('load_data'),
-        callApi('msm_load_programs'),
+        loadCachedData(),
+        loadCachedAction('msm_load_programs'),
         callApi('msm_load_enabled_programs', { member_number: session.member_number }),
       ])
       const me = (data.members || []).find(m => m.member_number === session.member_number)
