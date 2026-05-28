@@ -2,7 +2,9 @@
 
 **Status:** Shipped. Phases 1–6 + member-portal login setup chain + admin Automation Panel all live in production. No active build branch; this doc is a current-state reference, not a resumption handoff.
 
-**Last material change:** 2026-05-28 — added member-portal login setup, admin Automation Panel ("Advisor Onboarding" tab), always-15th-of-month `renewal_date` rule, BoldSign address field made required, Undecided email PDF filename corrected to `Advisor_Implementation_Agreement.pdf`.
+**Last material change:** 2026-05-28 — added member-portal login setup, admin Automation Panel ("Advisor Onboarding" tab), always-15th-of-month `renewal_date` rule, BoldSign address field made required, Undecided email PDF filename corrected to `Advisor_Implementation_Agreement.pdf`. Also 2026-05-28: fixed a latent bug in `actions/advisor/ceo-countersign.ts` where the BoldSign field-read parser used `s.order === 1` which never matched — every prior advisor onboarding silently wrote `selected_*=false, payment_amount=0`. Permissive multi-key signer lookup + multi-key field-id match + soft-fail with admin notification + diagnostic shape dump now ships. See SESSION_REFERENCE.md gotcha #38.
+
+**Parallel pipeline:** Accountant Onboarding (mirror of this pipeline + new Stage 1 Partnership? step) shipped same day. See `ACCOUNTANT_ONBOARDING_RESUMPTION.md` at repo root for accountant-specific details.
 
 ---
 

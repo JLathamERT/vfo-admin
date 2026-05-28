@@ -4,8 +4,8 @@ Two Supabase edge functions deployed to project `ejpsprsmhpufwogbmxjv`. Both are
 
 | Function | Layout | `verify_jwt` |
 |---|---|---|
-| `vfo-admin-api` | `supabase/functions/vfo-admin-api/` — 88-line `index.ts` orchestrator + `router/`, `middleware/`, `actions/`, `utils/`, `constants/`, `types/`, `integrations/` subdirs (~181 .ts files total — incl. `actions/advisor/` for Phase 1-6 Advisor Onboarding + `actions/msm/pip-*.ts` for the PIP Meetings purchase chain) | `false` (config.toml + live registry, matched) |
-| `boldsign-webhook` | `supabase/functions/boldsign-webhook/index.ts` (95 lines, single file) | `false` (live registry; config.toml says `true` — see note below) |
+| `vfo-admin-api` | `supabase/functions/vfo-admin-api/` — 88-line `index.ts` orchestrator + `router/`, `middleware/`, `actions/`, `utils/`, `constants/`, `types/`, `integrations/` subdirs (~202 .ts files total — incl. `actions/advisor/` for Phase 1-6 Advisor Onboarding, `actions/accountant/` for Accountant Onboarding + `actions/msm/pip-*.ts` for the PIP Meetings purchase chain) | `false` (config.toml + live registry, matched) |
+| `boldsign-webhook` | `supabase/functions/boldsign-webhook/index.ts` (single file; extended four times — tax / advisor / advisor `_stripecustomer` chain / accountant fallthrough + `_stripecustomer` + `_ceocountersign` chains) | `false` (live registry; config.toml says `true` — see note below) |
 
 > Live versions increment per deploy; see Supabase Dashboard → Edge Functions for the current value of each.
 
@@ -93,7 +93,7 @@ serve(req)
          • else    → 400 { error: "Unknown action: <name>" }
 ```
 
-Total handler count: **196 actions** (3 logins + 54 PUBLIC + 139 AUTH). The post-refactor baseline was 128; subsequent features have added MAP1 sweeps, MAP1 check path, sandbox toggle, the full Tax Planning track (~27 handlers in `actions/tax/`), the Advisor Onboarding pipeline (21 handlers in `actions/advisor/` — Phases 1-6 + member-portal login setup chain + admin Automation Panel loader), and the PIP Meetings purchase chain (14 handlers in `actions/msm/pip-*.ts`). The authoritative count is the one published in [05-api-action-catalog.md](05-api-action-catalog.md).
+Total handler count: **218 actions** (3 logins + 68 PUBLIC + 147 AUTH). The post-refactor baseline was 128; subsequent features have added MAP1 sweeps, MAP1 check path, sandbox toggle, the full Tax Planning track (~27 handlers in `actions/tax/`), the Advisor Onboarding pipeline (21 handlers in `actions/advisor/` — Phases 1-6 + member-portal login setup chain + admin Automation Panel loader), the PIP Meetings purchase chain (14 handlers in `actions/msm/pip-*.ts`), and the Accountant Onboarding pipeline (21 handlers in `actions/accountant/` cloned from advisor + new `save-partnership` for Stage 1 Partnership? step). The authoritative count is the one published in [05-api-action-catalog.md](05-api-action-catalog.md).
 
 ### Key cross-cutting concerns
 
@@ -116,6 +116,8 @@ Handles two event types:
 
 The Stripe webhook handler additionally routes `checkout.session.completed` for advisor onboarding (lookup by `stripe_customer_id` after MAP1 + Tax misses, branching by `metadata.payment_kind='onboarding'`) — writes `payment_status`, `payment_method_type`, `card_processing_fee`, `acct_last4`, `stripe_payment_intent_id`, `payment_completed_at` (card path), and `renewal_date` (same always-15th rule).
 
+The cascade extends further: after Advisor miss → PIP lookup on `client_priority_tracks` by `pip_stripe_customer_id` (branched by `metadata.pipeline='PIP'` + `metadata.payment_kind='purchase'`), then after PIP miss → Accountant lookup on `accountant_onboarding` by `stripe_customer_id` (branched by `metadata.pipeline='ACCOUNTANT_ONBOARDING'` + `metadata.payment_kind='onboarding'`). The Accountant branch writes the same shape as Advisor (status, method, fee, renewal_date) and chains `automation_ACCOUNTANT_confirmationemail` (which chains `automation_ACCOUNTANT_invoicereceipt`). No revshare chain on accountant payment — accountants don't have a `revenue_decision`, so VFO holds the share internally. `payment_intent.succeeded` has a parallel branch on `metadata.pipeline='ACCOUNTANT_ONBOARDING'` for the ACH-clears path, using `computeAccountantRenewalDate` (same algorithm as advisor).
+
 The revshare chain typically returns `pending: true` immediately after payment (Tracy's Revenue Master sheet not yet updated) — the daily `pg_cron` sweep (02:00 UTC, see `supabase/cron/revshare-sweep.sql`) retries until it succeeds or remains permanently failed.
 
 #### BoldSign webhook (`router/webhooks.ts::maybeHandleBoldSignWebhook`)
@@ -126,7 +128,7 @@ Triggered by `body.event.eventType` shape. Looks up `pipeline_map1` row by `bold
 - `eventType === "Signed"` with signer email matching CEO (`aanderson@elitert.com`, hardcoded) → set `c18_ceo_signed='Yes'`.
 - `eventType === "Signed"` with any other signer → set `c17_client_signed='Yes'`.
 
-> **Important:** This embedded handler **does not chain** to any downstream action. The standalone `boldsign-webhook` function (below) does. It is unclear which one is the live BoldSign webhook target — the chained behavior only fires if BoldSign is calling the standalone function.
+If the document doesn't match a MAP1 row, the handler falls through to tax (`client_tax_plans`), then advisor (`advisor_onboarding`), then accountant (`accountant_onboarding`) — each level looks up by document id and applies the equivalent signing logic + chains the appropriate `_stripecustomer` / `_ceocountersign` actions. Returns `{ok:true, branch:'<pipeline>'}` so the chain reason is visible in net._http_response. (Initial implementation chained downstream only for advisor + accountant; tax CEO countersign was already chained by the standalone webhook.)
 
 #### Token auth gate (`middleware/auth.ts`)
 
@@ -169,28 +171,37 @@ Behavior change observable from outside: an explicit POST with `{ "action": "aut
 
 - `headshots` — `actions/specialists/upload-headshot.ts`. Migration `lock_down_headshots_storage` indicates RLS-locked.
 - `member-vault` — `actions/vault/list.ts`, `actions/vault/upload.ts`, `actions/vault/delete.ts`.
+- `tax-agreements` — `actions/tax/decision.ts` (static `tax-planning.pdf` attachment for Tax 3 Undecided email).
+- `map1-agreements` — `actions/pipeline/pcadmin-final-decision.ts` (`proactive-lite.pdf` / `proactive-core.pdf` / `proactive-max.pdf` Undecided attachments per service level).
+- `advisor-onboarding-agreements` — `actions/advisor/decision.ts` (`implementation-agreement.pdf` Undecided attachment).
+- `accountant-onboarding-agreements` — `actions/accountant/decision.ts` (intended `Accountant_Implementation_Agreement.pdf` Undecided attachment; currently empty — handler degrades to no-attachment email).
 
 ---
 
 ## `boldsign-webhook` — overall shape
 
-A 95-line `Deno.serve` that handles BoldSign webhook POSTs. **Untouched by the refactor** (separate function, per safety rules).
+A `Deno.serve` that handles BoldSign webhook POSTs. **Untouched by the original refactor** but extended four times since with explicit per-extension user approval:
+
+1. **Tax** — fallback routing after MAP1 miss to `client_tax_plans`.
+2. **Advisor** — fallback after Tax miss to `advisor_onboarding`.
+3. **Advisor `_stripecustomer` chain** — fires on Completed event after both signed.
+4. **Accountant** — fallback after Advisor miss to `accountant_onboarding`; chains `automation_ACCOUNTANT_stripecustomer` on Completed and `automation_ACCOUNTANT_ceocountersign` on the non-CEO Signed event.
+
+Cascade order:
 
 ```
 POST → parse body → look up pipeline_map1 by boldsign_doc_id
-  ├─ event.eventType === "Completed":
-  │     UPDATE pipeline_map1 SET c17_client_signed='Yes', c18_ceo_signed='Yes'
-  │     CHAIN: POST /vfo-admin-api action=automation_CONTRACT_stripecustomer
-  └─ event.eventType === "Signed":
-        ├─ signer == CEO (aanderson@elitert.com — hardcoded line 64):
-        │     UPDATE pipeline_map1 SET c18_ceo_signed='Yes'
-        └─ else (client):
-              if c17_client_signed already 'Yes' → idempotent skip
-              else UPDATE c17_client_signed='Yes'
-                   CHAIN: POST /vfo-admin-api action=automation_CONTRACT_ceocountersign
+  ├─ MAP1 match: update c17/c18 (no chain — pre-refactor behavior)
+  └─ MAP1 miss → look up client_tax_plans by boldsign_doc_id
+        ├─ Tax match: update client_signed/ceo_signed; chain TAX_stripecustomer / TAX_ceocountersign
+        └─ Tax miss → look up advisor_onboarding by boldsign_document_id
+              ├─ Advisor match: update agreement_signed_by_advisor_at / _ceo_at; chain ADVISOR_stripecustomer / ADVISOR_ceocountersign
+              └─ Advisor miss → look up accountant_onboarding by boldsign_document_id
+                    ├─ Accountant match: update agreement_signed_by_accountant_at / _ceo_at; chain ACCOUNTANT_stripecustomer / ACCOUNTANT_ceocountersign
+                    └─ Accountant miss → log "No pipeline, tax plan, advisor, or accountant onboarding found" + return 200 OK
 ```
 
-The two functions write to identical columns. The standalone version is the only one that chains downstream (creating the Stripe customer + sending the CEO countersign email). If both are configured as BoldSign webhook targets, the second invocation would idempotent-skip but still chain; if only the embedded handler is configured, the chains never fire and `automation_CONTRACT_ceocountersign` / `_stripecustomer` would have to be invoked manually.
+Deploys MUST pass `--no-verify-jwt`. The config.toml says `verify_jwt = true` for safety in case `config.toml` is ever re-applied; the live registry value is `false`. If a deploy regresses this, BoldSign webhooks 401-silently and signed documents go nowhere.
 
 ---
 

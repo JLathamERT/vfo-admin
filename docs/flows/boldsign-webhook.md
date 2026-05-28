@@ -10,14 +10,43 @@ BoldSign POSTs JSON with `body.event.eventType` and `body.context.documentId` (o
 
 The BoldSign webhook URL is configured **outside this codebase** in the BoldSign account settings.
 
+## Current cascade (4-level lookup as of 2026-05-28)
+
+Both handlers (standalone `boldsign-webhook` function AND the embedded `maybeHandleBoldSignWebhook` in `vfo-admin-api/router/webhooks.ts`) now cascade through four onboarding-flow tables, looking up the document ID at each level. First match wins; subsequent levels are skipped.
+
+```
+parse body → eventType + documentId
+  ├─ Level 1: pipeline_map1 WHERE boldsign_doc_id = documentId
+  │     match: update c17/c18; no chain (pre-refactor behavior preserved)
+  ├─ Level 2 (MAP1 miss): client_tax_plans WHERE boldsign_doc_id = documentId
+  │     match: update client_signed/ceo_signed
+  │       chain TAX_ceocountersign on non-CEO Signed
+  │       chain TAX_stripecustomer on Completed
+  ├─ Level 3 (Tax miss): advisor_onboarding WHERE boldsign_document_id = documentId
+  │     match: update agreement_signed_by_advisor_at / _ceo_at
+  │       chain ADVISOR_ceocountersign on non-CEO Signed
+  │       chain ADVISOR_stripecustomer on Completed
+  └─ Level 4 (Advisor miss): accountant_onboarding WHERE boldsign_document_id = documentId
+        match: update agreement_signed_by_accountant_at / _ceo_at
+          chain ACCOUNTANT_ceocountersign on non-CEO Signed
+          chain ACCOUNTANT_stripecustomer on Completed
+        no match: return 200 OK { ok: true, note: 'No pipeline, tax plan, advisor, or accountant onboarding found' }
+```
+
+Return shape: `{ ok: true, branch: 'tax' | 'advisor' | 'accountant' }` so the matched pipeline shows up in `net._http_response` for debugging. MAP1 branch returns plain `{ ok: true }` (legacy).
+
+**CEO signer email is hardcoded `aanderson@elitert.com` in every branch.** Any other signer email on a `Signed` event is treated as the counterparty (client / advisor / accountant).
+
+The pre-CEO-countersign parser in `ceo-countersign.ts` (both advisor and accountant) had a latent bug where the BoldSign field-read lookup never matched. Fixed 2026-05-28 with a permissive multi-key lookup + fallback to `signerDetails[0]` + multi-key field-id match + multi-value truthy + soft-fail with admin notification + diagnostic shape dump on read failure. The Gmail draft to Anton always sends now — read failures only block the silent `payment_amount=0` writeback. See SESSION_REFERENCE.md gotcha #38.
+
 ## Two possible handlers (only ONE should be the live target)
 
 | Handler | URL | Source | Chains downstream? |
 |---|---|---|---|
 | **Standalone function** | `https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/boldsign-webhook` | [`C:\vfo-edge-functions\supabase\functions\boldsign-webhook\index.ts`](C:/vfo-edge-functions/supabase/functions/boldsign-webhook/index.ts) | **Yes** |
-| **Embedded in admin-api** | `https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api` (gated by `body.event?.eventType` shape) | [`vfo-admin-api/index.ts:544-583`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts) | **No** |
+| **Embedded in admin-api** | `https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api` (gated by `body.event?.eventType` shape) | `vfo-admin-api/router/webhooks.ts::maybeHandleBoldSignWebhook` | **Yes (since 2026-05-28)** — Tax + Advisor + Accountant branches all chain. Only the original MAP1 branch is no-chain. |
 
-Both handlers do the same database writes. Only the standalone version chains into the rest of the contract flow. **Confirm the live URL with the BoldSign account owner.**
+Both handlers do the same database writes AND chain pattern except for the MAP1 branch where only the standalone chains. **Standalone is the BoldSign-configured target per recent testing** (request id `319f951c-...` traced 2026-05-28); embedded handler is the safety net if a future webhook config change misroutes.
 
 ## Standalone handler step-by-step
 

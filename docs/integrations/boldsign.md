@@ -71,11 +71,11 @@ BoldSign-side configuration of the webhook URL is **outside this codebase** — 
 1. **Standalone function**: `https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/boldsign-webhook` ([file](C:/vfo-edge-functions/supabase/functions/boldsign-webhook/index.ts))
 2. **Embedded handler in admin-api**: `https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api` (gated by `body.event?.eventType` — [admin-api line 544](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts))
 
-> **Chain behavior (as of Phase 4 advisor onboarding):** Both the standalone function AND the embedded handler now chain downstream for the Tax + Advisor branches. The MAP1 branch in the embedded handler historically did NOT chain; only the standalone version chained `automation_CONTRACT_ceocountersign` + `automation_CONTRACT_stripecustomer`. If BoldSign's webhook URL is configured to point at the admin-api endpoint instead of the standalone function, the **MAP1** contract → payment chain stalls after the client signs (Tax + Advisor are safe). Confirm webhook URL with user during Phase E flow doc.
+> **Chain behavior (as of 2026-05-28 accountant onboarding extension):** Both the standalone function AND the embedded handler now chain downstream for the Tax + Advisor + Accountant branches. The MAP1 branch in the embedded handler historically did NOT chain; only the standalone version chained `automation_CONTRACT_ceocountersign` + `automation_CONTRACT_stripecustomer`. If BoldSign's webhook URL is configured to point at the admin-api endpoint instead of the standalone function, the **MAP1** contract → payment chain stalls after the client signs (Tax + Advisor + Accountant are safe). Live testing 2026-05-28 confirmed BoldSign hits the standalone function for accountant docs (function_id `319f951c-...`).
 
 ### Event handling
 
-Both handlers listen for two `event.eventType` values. The handler resolves the document type by table lookup on `boldsign_doc_id` (MAP1 `pipeline_map1`) → `boldsign_doc_id` (Tax `client_tax_plans`) → `boldsign_document_id` (Advisor `advisor_onboarding`). Behavior per type:
+Both handlers listen for two `event.eventType` values. The handler resolves the document type by 4-level cascade: `boldsign_doc_id` (MAP1 `pipeline_map1`) → `boldsign_doc_id` (Tax `client_tax_plans`) → `boldsign_document_id` (Advisor `advisor_onboarding`) → `boldsign_document_id` (Accountant `accountant_onboarding`). First-match wins. Behavior per type:
 
 **MAP 1 branch:**
 
@@ -100,6 +100,14 @@ Both handlers listen for two `event.eventType` values. The handler resolves the 
 | `Signed` (CEO email) | Set `agreement_signed_by_ceo_at` |
 | `Signed` (any other) | Set `agreement_signed_by_advisor_at`. Both standalone + embedded chain `automation_ADVISOR_ceocountersign`. |
 | `Completed` | Set both timestamps. Both standalone + embedded chain `automation_ADVISOR_stripecustomer` (which chains `_paymentemail`). |
+
+**Accountant branch (added 2026-05-28):**
+
+| Event | Behavior |
+|---|---|
+| `Signed` (CEO email) | Set `agreement_signed_by_ceo_at` |
+| `Signed` (any other) | Set `agreement_signed_by_accountant_at`. Both standalone + embedded chain `automation_ACCOUNTANT_ceocountersign`. |
+| `Completed` | Set both timestamps. Both standalone + embedded chain `automation_ACCOUNTANT_stripecustomer` (which chains `_paymentemail`). |
 
 The standalone function is idempotent on the client-signed path (`c17_client_signed === 'Yes'` → returns 200 OK without re-chaining) ([boldsign-webhook/index.ts:71](C:/vfo-edge-functions/supabase/functions/boldsign-webhook/index.ts)).
 
