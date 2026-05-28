@@ -10,9 +10,11 @@ import TaxDecidePage from './pages/TaxDecidePage'
 import TaxImplementDecidePage from './pages/TaxImplementDecidePage'
 import TaxPostReviewDecidePage from './pages/TaxPostReviewDecidePage'
 import AdvisorDecidePage from './pages/AdvisorDecidePage'
+import AccountantDecidePage from './pages/AccountantDecidePage'
 import PayPage from './pages/PayPage'
 import TaxPayPage from './pages/TaxPayPage'
 import AdvisorPayPage from './pages/AdvisorPayPage'
+import AccountantPayPage from './pages/AccountantPayPage'
 import PipPayPage from './pages/PipPayPage'
 import MemberSetupPage from './pages/MemberSetupPage'
 
@@ -31,9 +33,11 @@ export default function App() {
       <Route path="/tax-implement-decide" element={<TaxImplementDecidePage />} />
       <Route path="/tax-postreview-decide" element={<TaxPostReviewDecidePage />} />
       <Route path="/advisor-decide" element={<AdvisorDecidePage />} />
+      <Route path="/accountant-decide" element={<AccountantDecidePage />} />
       <Route path="/pay" element={<PayPage />} />
       <Route path="/tax-pay" element={<TaxPayPage />} />
       <Route path="/advisor-pay" element={<AdvisorPayPage />} />
+      <Route path="/accountant-pay" element={<AccountantPayPage />} />
       <Route path="/pip-pay" element={<PipPayPage />} />
       <Route path="/member-setup" element={<MemberSetupPage />} />
       <Route path="*" element={<Navigate to="/" />} />

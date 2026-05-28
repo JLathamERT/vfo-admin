@@ -9,6 +9,10 @@ export default function MemberSetupPage() {
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
   const [data, setData] = useState(null)
+  // Which onboarding pipeline matched the token — used to pick the matching
+  // submit action. 'advisor' if the token lives in advisor_onboarding,
+  // 'accountant' if it lives in accountant_onboarding.
+  const [kind, setKind] = useState(null)
   const [passcode, setPasscode] = useState('')
   const [confirm, setConfirm] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -20,16 +24,30 @@ export default function MemberSetupPage() {
   }, [])
 
   async function loadSetup(token) {
+    // Try advisor first; if invalid, fall through to accountant. Either way
+    // remember which pipeline matched so submit fires the right action.
     try {
-      const res = await fetch(API_URL, {
+      const advRes = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'automation_ADVISOR_loadloginsetup', token }),
       })
-      const d = await res.json()
-      if (d.state === 'ready') { setData(d); setStatus('ready'); return }
-      if (d.state === 'already_setup') { setStatus('already_setup'); return }
-      setError(d.error || 'This setup link is no longer valid.')
+      const advData = await advRes.json()
+      if (advData.state === 'ready') { setData(advData); setKind('advisor'); setStatus('ready'); return }
+      if (advData.state === 'already_setup') { setKind('advisor'); setStatus('already_setup'); return }
+
+      // Advisor table didn't match — try accountant.
+      const acctRes = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'automation_ACCOUNTANT_loadloginsetup', token }),
+      })
+      const acctData = await acctRes.json()
+      if (acctData.state === 'ready') { setData(acctData); setKind('accountant'); setStatus('ready'); return }
+      if (acctData.state === 'already_setup') { setKind('accountant'); setStatus('already_setup'); return }
+
+      // Neither table had the token.
+      setError(acctData.error || advData.error || 'This setup link is no longer valid.')
       setStatus('error')
     } catch {
       setError('Unable to connect. Please try again later.')
@@ -46,11 +64,14 @@ export default function MemberSetupPage() {
 
     setSubmitting(true)
     try {
+      const action = kind === 'accountant'
+        ? 'automation_ACCOUNTANT_submitloginsetup'
+        : 'automation_ADVISOR_submitloginsetup'
       const res = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'automation_ADVISOR_submitloginsetup',
+          action,
           token: searchParams.get('token'),
           passcode,
         }),
