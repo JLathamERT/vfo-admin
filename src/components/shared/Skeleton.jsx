@@ -214,6 +214,54 @@ export function AdvisorOnboardingListSkeleton({ rows = 2 }) {
   )
 }
 
+export function AccountantOnboardingDetailSkeleton({ onBack }) {
+  return (
+    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
+      {onBack && (
+        <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#5b9fe6', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
+      )}
+      <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <Skeleton width={220} height={32} style={{ marginBottom: '8px' }} />
+        <Skeleton width={180} height={14} />
+      </div>
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '18px 24px', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Skeleton width={10} height={10} style={{ borderRadius: '50%' }} />
+              <Skeleton width={220} height={14} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Skeleton width={70} height={20} style={{ borderRadius: '4px' }} />
+              <Skeleton width={10} height={10} />
+            </div>
+          </div>
+          <div style={{ paddingLeft: '20px' }}>
+            <SkeletonRow withPill withDate />
+            <SkeletonRow withPill withDate />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function AccountantOnboardingListSkeleton({ rows = 2 }) {
+  return (
+    <div>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '18px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <Skeleton width={150} height={16} />
+            <Skeleton width={240} height={12} />
+          </div>
+          <Skeleton width={130} height={20} style={{ borderRadius: '4px' }} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function AdminProgramViewSkeleton() {
   return (
     <div>

@@ -25,8 +25,10 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | `/tax-postreview-decide` | [TaxPostReviewDecidePage](src/pages/TaxPostReviewDecidePage.jsx) | URL token | `automation_TAX_postreviewclientdecision` — Tax 4 post-review Refund / Proceed landing |
 | `/advisor-decide` | [AdvisorDecidePage](src/pages/AdvisorDecidePage.jsx) | URL token | `automation_ADVISOR_clientdecision` — Advisor Onboarding Undecided Yes/No landing |
 | `/advisor-pay` | [AdvisorPayPage](src/pages/AdvisorPayPage.jsx) | URL token | `automation_ADVISOR_loadpayment` + `automation_ADVISOR_stripecheckout` — Advisor Onboarding payment ($4,000–$8,600 dynamic based on checkbox picks) |
+| `/accountant-decide` | [AccountantDecidePage](src/pages/AccountantDecidePage.jsx) | URL token | `automation_ACCOUNTANT_clientdecision` — Accountant Onboarding Undecided Yes/No landing |
+| `/accountant-pay` | [AccountantPayPage](src/pages/AccountantPayPage.jsx) | URL token | `automation_ACCOUNTANT_loadpayment` + `automation_ACCOUNTANT_stripecheckout` — Accountant Onboarding payment ($4,000 / $4,600 / $2,000 / $2,600 based on Partnership? choice + corporate add-on) |
 | `/pip-pay` | [PipPayPage](src/pages/PipPayPage.jsx) | URL token | `automation_PIP_loadpayment` + `automation_PIP_stripecheckout` — PIP Meetings purchase payment (one-time; Tax Planning or Additional PIP meetings) |
-| `/member-setup` | [MemberSetupPage](src/pages/MemberSetupPage.jsx) | URL token | `automation_ADVISOR_loadloginsetup` + `automation_ADVISOR_submitloginsetup` — advisor's member-portal passcode setup. On success, redirects to `/member/login` with email pre-filled via `location.state.email`. |
+| `/member-setup` | [MemberSetupPage](src/pages/MemberSetupPage.jsx) | URL token | Tries `automation_ADVISOR_loadloginsetup` first; on `state: 'invalid'` falls through to `automation_ACCOUNTANT_loadloginsetup`. Remembers matched pipeline ('advisor' / 'accountant') and fires the corresponding `_submitloginsetup`. On success, redirects to `/member/login` with email pre-filled via `location.state.email`. One shared page handles both onboarding pipelines. |
 | `*` | redirect to `/` | — | Catch-all |
 
 ## Top-level shells
@@ -42,25 +44,29 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | Active tab/section state | tracked in both React state AND `sessionStorage` (keys `adminActiveTab`, `adminMembersSection`, etc.) so refresh preserves location |
 | Body routing | lines 256-273: `activeTab === 'specialists'` → SpecialistsPanel; `'members'` → MembersPanel; `'automation' && automationSection === 'map1_pipeline'` → AutomationPanel; `'automation' && automationSection === 'email_templates'` → EmailTemplatesPanel |
 
-**Members dropdown items (line 158-173):**
-- Advisors → Search Advisors / Add Advisor
-- Accountants → Search Accountants / Add Accountant
+**Advisors dropdown items:**
+- Advisor Search / Add Advisor / Advisor Onboarding
 
-**Specialists dropdown items (line 175-184):**
+**Accountants dropdown items:**
+- Accountant Search / Add Accountant / Accountant Onboarding
+
+**Specialists dropdown items:**
 - Search Specialists / Add Specialist / Onboarding
 
-**Automation dropdown items (line 186-194):**
-- Holistic Planning - MAP 1 / Holistic Planning - Tax Planning / Holistic Planning - PIP Meetings / Email Templates
+**Automation dropdown items:**
+- Holistic Planning - MAP 1 / Holistic Planning - Tax Planning / Holistic Planning - PIP Meetings / Advisor Onboarding / Accountant Onboarding / Email Templates
 
 (The PIP Meetings option mounts [PipAutomationPanel](src/components/admin/PipAutomationPanel.jsx) — one row per `client_priority_tracks` track where `track_type='pip'` AND a purchase has been made. Each row collapses/expands to show Purchase Details → Payment → Confirmation → Invoice & Receipt → Revenue Share, mirroring MAP 1's `AutomationPanel` layout for the same chain stages.)
 
 (The Advisor Onboarding option — labeled "Advisor Onboarding" with no Holistic Planning prefix — mounts [AdvisorAutomationPanel](src/components/admin/AdvisorAutomationPanel.jsx). One row per `advisor_onboarding` record. Top-of-row stage badge cascades through `new` → `decision_sent` → `declined` → `agreement_sent` → `agreement_signing` → `payment_pending` → `paid` → `advisor_created` → `complete`. Expanded body shows 6 step blocks: Decision (Yes/No/Undecided + Undecided email sent when applicable) → Agreement → Payment (incl. renewal_date) → Confirmation / Invoice & Receipt → Advisor Creation → Member Login Setup. Loads via `automation_load_advisor_pipelines`. Added 2026-05-28.)
 
+(The Accountant Onboarding option — labeled "Accountant Onboarding" — mounts [AccountantAutomationPanel](src/components/admin/AccountantAutomationPanel.jsx). Same shape as advisor's panel against `accountant_onboarding` rows. Loads via `automation_load_accountant_pipelines`. Added 2026-05-28.)
+
 **Modal-style overlays:**
 - `showEditor` (Admin Editor — superadmin only): mounts [AdminEditor](src/components/admin/AdminEditor.jsx) — manages `allowed_admins`
 - `showSettings`: mounts [AdminSettings](src/components/admin/AdminSettings.jsx) — calls `update_my_passcode`
 
-> **Note:** `MembersPanel` has 3 sections (`search_advisors`, `add_advisor`, `search_accountants`) per [MembersPanel.jsx:22-36](src/components/admin/MembersPanel.jsx). It internally branches: accountants render a placeholder, advisors render `AdvisorsPanel` with `initialTab` derived from `section`. There is no separate accountants UI implemented — flagged.
+> **Note:** `MembersPanel` was refactored 2026-05-28 to share a `MemberDirectoryView` between Advisors and Accountants. Both `AdvisorsPanel` and `AccountantsPanel` are now thin wrappers around that shared view (search input + member list + click-into-profile with the full Profile / MSM / Specialists / Showroom / Website Plugin / CIQ / Growth Plan / GC Marketplace / The Vault / Settings multi-tab profile). Type-specific props the wrappers pass: `displayMembers` (filtered list — accountants filter by `accountant_onboarding_id` set OR (`onboarding_id` null AND `member_type` in ACCOUNTANT_TYPES) to keep advisor-onboarded rows out), `addForm` (`<AddAdvisorForm/>` vs `<AddAccountantForm/>`), `selectedKey` and `featureTabKey` (separate sessionStorage keys so advisor + accountant selections don't collide), and `hiddenFields` (array of field names to suppress in `MemberProfile` — accountants pass `['revenue_decision']` because accountants don't have a revenue decision). To hide more tabs/fields per type later, just add the key to the array. There's also an `AccountantOnboarding` section that mounts the dedicated onboarding panel (separate from the search list).
 
 #### AdminPortal `callApi` chain
 

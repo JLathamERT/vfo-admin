@@ -1,8 +1,8 @@
 # System map
 
-The top-level picture. Two repos, one Supabase project, four external integrations, one static-hosted SPA. The whole system is held together by an **88-line orchestrator** in `vfo-admin-api/index.ts` that dispatches to **~185 modular action handlers** plus two routers (`router/dispatch.ts`, `router/webhooks.ts`).
+The top-level picture. Two repos, one Supabase project, four external integrations, one static-hosted SPA. The whole system is held together by an **88-line orchestrator** in `vfo-admin-api/index.ts` that dispatches to **~206 modular action handlers** plus two routers (`router/dispatch.ts`, `router/webhooks.ts`).
 
-> **Refactor + feature history.** The edge function was a single 4371-line file as of `vfo-admin-api` v194 (deployed 2026-05-07). The modular extraction was completed in 18 phased commits and deployed as v196 on 2026-05-08. All 128 action handlers at that point preserved their original behavior byte-equivalently — the public API contract (action names, response shapes, DB writes) was unchanged. Post-refactor additions: MAP1 sweeps (`automation_CONTRACT_revshare_sweep`, `automation_CONTRACT_chargescheduled_sweep`, `automation_CONTRACT_checkreminder_sweep`), MAP1 check path, sandbox toggle, the full Tax Planning automation track (~27 new tax handlers in `actions/tax/`), the Tax 4 meeting-date nudge, the Advisor Onboarding pipeline (21 handlers in `actions/advisor/` — Phases 1-6 deployed 2026-05-22 through 2026-05-26 + member-portal login setup chain + admin Automation Panel loader added 2026-05-28 + always-15th renewal-date rule), and the PIP Meetings automation chain (13 handlers in `actions/msm/pip-*.ts` + 1 panel loader — deployed 2026-05-27). **Current total: 196** (3 logins + 54 PUBLIC + 139 AUTH). See [03-edge-functions.md](03-edge-functions.md) for the new file layout, [../flows/tax-planning.md](../flows/tax-planning.md) for the tax track, [../flows/pip-meetings.md](../flows/pip-meetings.md) for the PIP Meetings track, and `ADVISOR_ONBOARDING_RESUMPTION.md` (repo root) for the advisor onboarding state.
+> **Refactor + feature history.** The edge function was a single 4371-line file as of `vfo-admin-api` v194 (deployed 2026-05-07). The modular extraction was completed in 18 phased commits and deployed as v196 on 2026-05-08. All 128 action handlers at that point preserved their original behavior byte-equivalently — the public API contract (action names, response shapes, DB writes) was unchanged. Post-refactor additions: MAP1 sweeps (`automation_CONTRACT_revshare_sweep`, `automation_CONTRACT_chargescheduled_sweep`, `automation_CONTRACT_checkreminder_sweep`), MAP1 check path, sandbox toggle, the full Tax Planning automation track (~27 new tax handlers in `actions/tax/`), the Tax 4 meeting-date nudge, the Advisor Onboarding pipeline (21 handlers in `actions/advisor/` — Phases 1-6 deployed 2026-05-22 through 2026-05-26 + member-portal login setup chain + admin Automation Panel loader added 2026-05-28 + always-15th renewal-date rule), the PIP Meetings automation chain (13 handlers in `actions/msm/pip-*.ts` + 1 panel loader — deployed 2026-05-27), and the Accountant Onboarding pipeline (21 handlers in `actions/accountant/` + new Partnership? step — deployed 2026-05-28 as v323→v330, mirrors advisor pattern with conditional $4,000/$2,000 pricing per partnership, dual `agreement_templates` rows, no revenue_decision on member, 30000+ member_number namespace, 06:00 UTC reminder cron). **Current total: 218** (3 logins + 68 PUBLIC + 147 AUTH). See [03-edge-functions.md](03-edge-functions.md) for the new file layout, [../flows/tax-planning.md](../flows/tax-planning.md) for the tax track, [../flows/pip-meetings.md](../flows/pip-meetings.md) for the PIP Meetings track, `ADVISOR_ONBOARDING_RESUMPTION.md` for the advisor onboarding state, and `ACCOUNTANT_ONBOARDING_RESUMPTION.md` (both at repo root) for the accountant onboarding state.
 
 ## High-level diagram
 
@@ -15,7 +15,9 @@ The top-level picture. Two repos, one Supabase project, four external integratio
 │              /member      /member/login  /member/client/:id  /pay?token=...      │
 │                                                              /tax-pay?token=...  │
 │                                                              /advisor-pay?token  │
+│                                                              /accountant-pay?... │
 │                                                              /pip-pay?token=...  │
+│                                                              /member-setup?token │
 │                                                                                  │
 │   sessionStorage: vfo_session = { token, role, name, ... }                       │
 └──────────────────────────────┬─────────────────────────────────┬─────────────────┘
@@ -25,8 +27,8 @@ The top-level picture. Two repos, one Supabase project, four external integratio
                                ▼                                  ▼
                           ┌─────────────────────────────────────────────┐
                           │   SUPABASE EDGE FUNCTION: vfo-admin-api      │
-                          │   (177 actions, 88-line orchestrator         │
-                          │    + ~165 handler files + 2 routers)         │
+                          │   (218 actions, 88-line orchestrator         │
+                          │    + ~206 handler files + 2 routers)         │
                           │                                              │
                           │   Three dispatch surfaces:                   │
                           │   1. Stripe webhook  (router/webhooks.ts —   │
@@ -101,7 +103,7 @@ The top-level picture. Two repos, one Supabase project, four external integratio
 ## Data direction
 
 - **Browser → admin-api**: every action via [src/lib/api.js](src/lib/api.js). Includes session token in body.
-- **Browser → admin-api (token-link pages)**: `/decide`, `/pay`, `/tax-decide`, `/tax-pay`, `/tax-implement-decide`, `/tax-postreview-decide`, `/advisor-decide`, `/advisor-pay` use raw `fetch` with URL token (no session). Reach the public-token handlers via `PUBLIC_HANDLERS` in `router/dispatch.ts` (which is dispatched BEFORE the `middleware/auth.ts` gate). Public-token actions span MAP1, Tax, and Advisor Onboarding pipelines — see [05-api-action-catalog.md](05-api-action-catalog.md).
+- **Browser → admin-api (token-link pages)**: `/decide`, `/pay`, `/tax-decide`, `/tax-pay`, `/tax-implement-decide`, `/tax-postreview-decide`, `/advisor-decide`, `/advisor-pay`, `/accountant-decide`, `/accountant-pay`, `/pip-pay`, `/member-setup` use raw `fetch` with URL token (no session). Reach the public-token handlers via `PUBLIC_HANDLERS` in `router/dispatch.ts` (which is dispatched BEFORE the `middleware/auth.ts` gate). Public-token actions span MAP1, Tax, Advisor Onboarding, Accountant Onboarding, and PIP pipelines — see [05-api-action-catalog.md](05-api-action-catalog.md). The `/member-setup` page falls through advisor → accountant token lookup so one shared page handles login-setup for both onboarding pipelines.
 - **admin-api → Postgres**: via `createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)` — service-role bypasses RLS. Auth is application-level.
 - **admin-api → admin-api (loopback chains)**: server-to-server `fetch` with `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>`. Used by webhooks and automation handlers to chain into other handlers. The chains route to public-token actions, so they bypass the user-session gate.
 - **admin-api → external APIs**: Stripe, BoldSign, Google OAuth, Gmail, Sheets, Drive, html2pdf.app. All via `fetch` with API-specific auth.
@@ -191,11 +193,12 @@ These are explicitly absent from the codebase (read-only observation, no judgeme
 - **No TypeScript** in the React app (only in the Deno edge functions).
 - **No environment-specific configs** for the frontend (Supabase ANON_KEY is hardcoded). `VITE_API_URL` IS honored by `src/lib/api.js`, `src/pages/PayPage.jsx`, and `src/pages/DecidePage.jsx` — production behavior unchanged via fallback to the hardcoded prod URL when the env var is unset. (Added on `test/frontend-vs-local-function` branch, commit `3bf0963`, for local-function smoke testing.)
 - **No observability beyond `console.log`/`console.error`** in either edge function. No structured logging, no metrics export.
-- **Five background jobs via `pg_cron` + `pg_net.http_post`** (staggered to avoid races on the same row):
+- **Six background jobs via `pg_cron` + `pg_net.http_post`** (staggered to avoid races on the same row):
   1. **Daily MAP 1 revshare sweep** — `automation_CONTRACT_revshare_sweep` at 02:00 UTC. Setup: `vfo-edge-functions/supabase/cron/revshare-sweep.sql`.
   2. **Daily Tax revshare sweep** — `automation_TAX_revshare_sweep` at 02:30 UTC. Retries Pending/Failed tax revshare AND drives Tax 3/4/5 reminder timers + Tax 4 meeting-date nudge. Setup: `vfo-edge-functions/supabase/cron/tax-revshare-sweep.sql`.
   3. **Daily scheduled-payment charger** — `automation_CONTRACT_chargescheduled_sweep` at 03:00 UTC. Creates off-session Stripe PaymentIntents for MAP1 quarterly card/ACH payments 2-4 once `payN_date` arrives. Setup: `vfo-edge-functions/supabase/cron/chargescheduled-sweep.sql`.
   4. **Daily check-payment reminder sweep** — `automation_CONTRACT_checkreminder_sweep` at 04:00 UTC. Drafts Gmail reminders for MAP1 quarterly check clients ~7 days before each P2/P3/P4 due date. Setup: `vfo-edge-functions/supabase/cron/check-reminder-sweep.sql`.
   5. **Daily Advisor Onboarding sweep** — `automation_ADVISOR_sweep` at 05:00 UTC. Three stalls × (48h reminder + 96h PF notification): Undecided email, agreement signing, payment link. Also runs a 14-day implicit-No auto-decline on stalled Undecided rows. Setup: `vfo-edge-functions/supabase/cron/advisor-sweep.sql`.
+  6. **Daily Accountant Onboarding sweep** — `automation_ACCOUNTANT_sweep` at 06:00 UTC. Same three stalls + 14-day implicit-No pattern as advisor, against `accountant_onboarding`. Chains `automation_ACCOUNTANT_declineemail` on auto-decline. Setup: `vfo-edge-functions/supabase/cron/accountant-sweep.sql`.
 
   The MAP 1 revshare sweep (#1 above) also drives a three-stall reminder ladder (PCADMIN Undecided email, agreement signing, Pay1 link) — 48h client reminder + 96h PF notification per stall. Timer-base columns are `c14_email_sent_at`, `c17_followup_sent_date`, `pay1_email_sent_at`; idempotency guards are `*_reminder_sent_at` / `*_pf_notified_at`. The older `c14_followup*` / `c17_followup1/2_sent` / `pay1_followup*` columns were dropped in migration `map1_reminder_ladder_columns` (2026-05-21). The `pay{2,3,4}_reminder_sent` columns are unrelated to this ladder — they're the 7-day pre-due-date nudges for check clients, written by sweep #3.

@@ -2,6 +2,8 @@
 
 The portal's bell-icon notification feed. A small, simple flow: handlers insert rows; the bell polls and displays; click marks read; admin actions clear them in bulk.
 
+> Pipelines that emit notifications: `MAP 1`, `TAX`, `ADVISOR_ONBOARDING`, `ACCOUNTANT_ONBOARDING`, `PIP`. Each pipeline uses a distinct `link` value pointing back at the relevant admin section so a click lands the admin on the right page (e.g. accountant 96h PF notifications link to `/admin?tab=accountants&section=accountant_onboarding`).
+
 ## Data model
 
 Single table: [`notifications`](../tables/notifications.md). Key columns:

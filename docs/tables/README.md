@@ -17,7 +17,7 @@ Read-only schema mapping — column lists, types, defaults, FKs, and which actio
 | [specialists.md](specialists.md) | `experts`, `vfo_ecosystem_assignments`, `specialist_onboarding`, `specialist_onboarding_meetings`, `specialist_onboarding_progress`, `specialist_onboarding_votes` | Specialist roster, ecosystem tags, onboarding workflow |
 | [coaching.md](coaching.md) | `coaching_meetings`, `coaching_renewals` | Member-coaching meetings and renewal log |
 | [marketplace-gc.md](marketplace-gc.md) | `gc_balances`, `gc_redemptions`, `gc_services`, `gc_transactions` | "Gift credit" marketplace — credits balance, services catalog, ledger |
-| [pipeline.md](pipeline.md) | `pipelines`, `pipeline_map1`, `pipeline_sandbox_config` | The automation pipeline registry + the **central MAP1 row** (`pipeline_map1`) driving the contract/payment chain |
+| [pipeline.md](pipeline.md) | `pipelines`, `pipeline_map1`, `pipeline_sandbox_config`, `advisor_onboarding`, `accountant_onboarding` | The automation pipeline registry + the **central MAP1 row** (`pipeline_map1`) driving the contract/payment chain + the Advisor & Accountant onboarding state rows |
 | [documents.md](documents.md) | `agreement_templates`, `email_templates`, `document_numbers` | BoldSign agreement templates, automation email copy, sequential invoice/receipt numbers |
 | [notifications.md](notifications.md) | `notifications` | In-portal notification feed |
 

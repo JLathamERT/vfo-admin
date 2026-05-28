@@ -1,24 +1,26 @@
 # Stripe integration
 
-Stripe handles **four** distinct payment flows in this system:
+Stripe handles **six** distinct payment flows in this system:
 
 1. **MAP1 service payments** — recurring quarterly or one-time payment for the VFO membership engagement. Customers, Checkout Sessions, PaymentIntents, and Transfers (revenue share to advisors).
 2. **Tax Planning payments** — retainer (Tax 3) + implementation off-session charge (Tax 5). Routed by `metadata.payment_kind` in `retainer` / `implementation`. See [../flows/tax-planning.md](../flows/tax-planning.md).
 3. **Advisor Onboarding payments** — one-time charge for advisor's chosen plan combo (dynamic $4,000–$8,600 based on vfo_ft / pft / corporate checkbox picks at BoldSign sign time). `setup_future_usage=off_session` so the card is saved for 6-month renewal review (no auto-renew cron yet). See `ADVISOR_ONBOARDING_RESUMPTION.md` at repo root.
-4. **GC marketplace purchases** — one-shot Stripe Checkout for buying gift credits.
+4. **Accountant Onboarding payments** — one-time charge for accountant's plan combo (dynamic $2,000 / $2,600 / $4,000 / $4,600 based on partnership choice + corporate add-on). `setup_future_usage=off_session` so the card is saved for 6-month renewal review (no auto-renew cron yet). See `ACCOUNTANT_ONBOARDING_RESUMPTION.md` at repo root.
+5. **PIP Meetings purchases** — one-shot purchase for Tax Planning or N Additional PIP meetings. See [../flows/pip-meetings.md](../flows/pip-meetings.md).
+6. **GC marketplace purchases** — one-shot Stripe Checkout for buying gift credits.
 
-All four flows route through the same webhook endpoint (the `vfo-admin-api` function gated by `stripe-signature`). They are disambiguated by Checkout-Session metadata. The webhook handler verifies the incoming signature against BOTH `STRIPE_WEBHOOK_SECRET` and `STRIPE_WEBHOOK_SECRET_SANDBOX` — whichever validates wins, so live and sandbox Stripe accounts can both deliver to the same URL.
+All six flows route through the same webhook endpoint (the `vfo-admin-api` function gated by `stripe-signature`). They are disambiguated by Checkout-Session metadata. The webhook handler verifies the incoming signature against BOTH `STRIPE_WEBHOOK_SECRET` and `STRIPE_WEBHOOK_SECRET_SANDBOX` — whichever validates wins, so live and sandbox Stripe accounts can both deliver to the same URL.
 
 ### Metadata convention
 
-| Field | MAP1 | Tax | Advisor | GC |
-|---|---|---|---|---|
-| `metadata.pipeline` | (none) | `TAX` | `ADVISOR_ONBOARDING` | (none) |
-| `metadata.payment_kind` | (none — uses `payment_number` for quarterly) | `retainer` / `implementation` | `onboarding` | (none — uses `member_number` + `credits`) |
-| `metadata.payment_number` | `1` (P1) / `2-4` (chargescheduled sweep) | — | — | — |
-| `metadata.client_id` / `metadata.onboarding_id` | `client_id` | `tax_plan_id` (via `client_tax_plans`) | `onboarding_id` | — |
+| Field | MAP1 | Tax | Advisor | Accountant | PIP | GC |
+|---|---|---|---|---|---|---|
+| `metadata.pipeline` | (none) | `TAX` | `ADVISOR_ONBOARDING` | `ACCOUNTANT_ONBOARDING` | `PIP` | (none) |
+| `metadata.payment_kind` | (none — uses `payment_number` for quarterly) | `retainer` / `implementation` | `onboarding` | `onboarding` | `purchase` | (none — uses `member_number` + `credits`) |
+| `metadata.payment_number` | `1` (P1) / `2-4` (chargescheduled sweep) | — | — | — | — | — |
+| `metadata.client_id` / `metadata.onboarding_id` | `client_id` | `tax_plan_id` (via `client_tax_plans`) | `onboarding_id` | `onboarding_id` | `priority_track_id` | — |
 
-The webhook router uses these fields to pick the right DB table on `checkout.session.completed` and `payment_intent.succeeded`. Fallback chain: MAP1 lookup by `stripe_customer_id` → Tax lookup → Advisor lookup.
+The webhook router uses these fields to pick the right DB table on `checkout.session.completed` and `payment_intent.succeeded`. Fallback chain: MAP1 lookup by `stripe_customer_id` → Tax lookup → Advisor lookup → PIP lookup → Accountant lookup.
 
 ## Env vars
 

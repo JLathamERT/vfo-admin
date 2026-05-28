@@ -20,6 +20,8 @@ Acronyms and domain terms used across the codebase and this documentation. Defin
 | **CEO** | Chief Executive Officer | Hardcoded as `aanderson@elitert.com` in code. Second signer on every BoldSign agreement. |
 | **GC** | Growth Credits (inferred from product copy) | Marketplace credits. Tables: `gc_balances`, `gc_redemptions`, `gc_services`, `gc_transactions`. The Stripe checkout product description reads `<amount> Growth Credits`. |
 | **D&B** | Details & Benefits | Public-facing marketing copy for specialists. Stored in `experts.D&B_*` columns. |
+| **Accountant Onboarding** | The accountant-side parallel to Advisor Onboarding. | Added 2026-05-28. Mirrors advisor structure with a Stage 1 "Partnership?" step inserted between Prelim Meeting and Decision. Partnership choice (`'No accountant partnership'` or `'Accountant Partnership'`) gates which of two `agreement_templates` rows is sent and whether the required `vfo_ft_checkbox` prices at $4,000 or $2,000. Optional `corporate_checkbox` is +$600 either way. Onboarding-created accountants land in member-number namespace `[30000, 90000)` as New Model; manual Add Accountant Legacy Model goes into `[90000, ∞)`. No `revenue_decision` on the created member row (accountants don't have one). See `ACCOUNTANT_ONBOARDING_RESUMPTION.md` at repo root. |
+| **Partnership?** | The Stage 1 dropdown specific to Accountant Onboarding. | Two values: `'No accountant partnership'` (default-priced agreement, $4,000) or `'Accountant Partnership'` (partnership-discounted agreement, $2,000). Required before the admin can pick a Decision. Stored on `accountant_onboarding.accountant_partnership` + `accountant_partnership_at`. |
 
 ## Service-tier terms
 

@@ -23,6 +23,7 @@ const MEMBER_TYPES = [
 const CORPORATE_TYPES = ['Corporate Member', 'Free Corporate Member', 'Free Corporate Member (Legacy)']
 
 const ACCOUNTANT_TYPES = [
+  'Implementation',
   'Advanced (Direct)', 'Advanced (Advisor)',
   'Plus (Direct)', 'Plus (Advisor)',
   'VFO FT (Direct)', 'VFO FT (Advisor)',
@@ -38,7 +39,7 @@ export default function MembersPanel({ allMembers, allExperts, allExclusionMap, 
   if (section === 'accountant_search' || section === 'add_accountant') {
     return (
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-        <AccountantsPanel initialTab={section === 'add_accountant' ? 'add' : 'search'} section={section} navClickCount={navClickCount} />
+        <AccountantsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} initialTab={section === 'add_accountant' ? 'add' : 'search'} section={section} navClickCount={navClickCount} />
       </div>
     )
   }
@@ -50,49 +51,100 @@ export default function MembersPanel({ allMembers, allExperts, allExclusionMap, 
   )
 }
 
-function AccountantsPanel({ initialTab, section, navClickCount }) {
-  const [activeTab, setActiveTab] = useState(initialTab || 'search')
-  useEffect(() => { setActiveTab(initialTab || 'search') }, [initialTab])
-  const [search, setSearch] = useState('')
-
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
+function AccountantsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, initialTab, section, navClickCount }) {
+  // Accountants = members linked to an accountant_onboarding row
+  // OR members whose member_type is in ACCOUNTANT_TYPES BUT not linked
+  // to an advisor onboarding row (advisor-onboarding-created members also
+  // have member_type='Implementation' which would otherwise dual-count).
+  const accountantMembers = allMembers.filter(m =>
+    m.accountant_onboarding_id != null ||
+    (m.onboarding_id == null && ACCOUNTANT_TYPES.includes(m.member_type))
+  )
 
   return (
-    <div>
-      {activeTab === 'add' && <AddAccountantForm />}
-
-      {activeTab === 'search' && (
-        <>
-          <div style={{ marginBottom: '16px' }}>
-            <input placeholder="Search by name or accountant number..." style={inputStyle} onChange={e => setSearch(e.target.value.toLowerCase())} value={search} />
-          </div>
-          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#8bacc8', fontSize: '13px', fontStyle: 'italic' }}>
-            No accountants yet.
-          </div>
-        </>
-      )}
-    </div>
+    <MemberDirectoryView
+      displayMembers={accountantMembers}
+      allMembers={allMembers}
+      allExperts={allExperts}
+      allExclusionMap={allExclusionMap}
+      onDataChange={onDataChange}
+      addForm={<AddAccountantForm allMembers={allMembers} onDataChange={onDataChange} />}
+      selectedKey="adminSelectedAccountant"
+      featureTabKey="adminAccountantFeatureTab"
+      initialTab={initialTab}
+      navClickCount={navClickCount}
+      hiddenFields={['revenue_decision']}
+    />
   )
 }
 
-function AddAccountantForm() {
+function AddAccountantForm({ allMembers, onDataChange }) {
   const [memberType, setMemberType] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
-  const [eliteStatus, setEliteStatus] = useState('Active')
+  const [eliteStatus, setEliteStatus] = useState('')
+  const [advisorModel, setAdvisorModel] = useState('')
   const [status, setStatus] = useState('')
   const [statusType, setStatusType] = useState('success')
+  const [loading, setLoading] = useState(false)
   const [customMemberNumber, setCustomMemberNumber] = useState('')
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
   const labelStyle = { fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
 
-  function submit() {
+  function generateAccountantMemberNumber() {
+    // Two namespaces:
+    //   Legacy Model accountants → [90000, ∞), starts at 90000
+    //   New Model  accountants  → [30000, 90000), starts at 30000
+    // Filter to ONLY accountants (so legacy 59xxx advisors don't pollute
+    // the New Model range). Accountant = accountant_onboarding_id set
+    // OR (onboarding_id NULL AND member_type in ACCOUNTANT_TYPES).
+    const isLegacy = advisorModel === 'Legacy Model'
+    const rangeStart = isLegacy ? 90000 : 30000
+    const rangeEnd = isLegacy ? Infinity : 90000
+    const isAccountantMember = (m) => {
+      if (m.accountant_onboarding_id != null) return true
+      if (m.onboarding_id != null) return false
+      return ACCOUNTANT_TYPES.includes(m.member_type)
+    }
+    const nums = (allMembers || [])
+      .filter(isAccountantMember)
+      .map(m => parseInt(m.plugin_member_number, 10))
+      .filter(n => !isNaN(n) && n >= rangeStart && n < rangeEnd)
+    if (nums.length === 0) return String(rangeStart)
+    return String(Math.max(...nums) + 1)
+  }
+
+  async function submit() {
     if (!firstName || !lastName || !memberType) { setStatusType('error'); setStatus('First name, last name, and member type are required.'); return }
-    setStatusType('error')
-    setStatus('Accountant create flow is not wired up yet.')
+    if (!email.trim()) { setStatusType('error'); setStatus('Email is required.'); return }
+    if (!eliteStatus) { setStatusType('error'); setStatus('Please pick a status.'); return }
+    if (!advisorModel) { setStatusType('error'); setStatus('Please pick Legacy Model or New Model.'); return }
+    setLoading(true)
+    try {
+      if (customMemberNumber.trim()) {
+        const exists = (allMembers || []).find(m => m.plugin_member_number === customMemberNumber.trim())
+        if (exists) { setStatusType('error'); setStatus(`Member number ${customMemberNumber.trim()} already exists.`); setLoading(false); return }
+      }
+      const member_number = customMemberNumber.trim() || generateAccountantMemberNumber()
+      await callApi('add_member_full', {
+        name: `${firstName} ${lastName}`,
+        member_number,
+        first_name: firstName,
+        last_name: lastName,
+        member_type: memberType,
+        elite_status: eliteStatus,
+        email,
+        advisor_model: advisorModel,
+        connected_member_number: null,
+      })
+      await onDataChange()
+      setFirstName(''); setLastName(''); setEmail(''); setMemberType(''); setCustomMemberNumber(''); setAdvisorModel(''); setEliteStatus('')
+      setStatusType('success'); setStatus(`Accountant created with number ${member_number}`)
+    } catch (err) { setStatusType('error'); setStatus(err.message) }
+    finally { setLoading(false) }
   }
 
   return (
@@ -109,20 +161,32 @@ function AddAccountantForm() {
         </div>
       </div>
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Email</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
+        <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
         <div style={{ flex: 1, minWidth: '160px' }}>
-          <label style={labelStyle}>Status</label>
+          <label style={labelStyle}>Status *</label>
           <select value={eliteStatus} onChange={e => setEliteStatus(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+            <option value="">-- Select --</option>
             {['Active', 'Lost', 'Removed'].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
+        </div>
+      </div>
+      <div style={{ marginBottom: '16px' }}>
+        <label style={labelStyle}>Advisor Model *</label>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          {['Legacy Model', 'New Model'].map(m => (
+            <label key={m} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: `1px solid ${advisorModel === m ? 'rgba(91,159,230,0.5)' : 'rgba(255,255,255,0.15)'}`, background: advisorModel === m ? 'rgba(91,159,230,0.08)' : 'rgba(255,255,255,0.04)', cursor: 'pointer', fontSize: '13px', color: advisorModel === m ? '#fff' : '#8bacc8' }}>
+              <input type="radio" name="add_acct_advisor_model" value={m} checked={advisorModel === m} onChange={() => setAdvisorModel(m)} style={{ accentColor: '#5b9fe6' }} />
+              {m}
+            </label>
+          ))}
         </div>
       </div>
       <div style={{ marginBottom: '16px' }}>
         <label style={labelStyle}>Member Number <span style={{ fontSize: '11px', color: '#5a8ab5', fontStyle: 'italic', textTransform: 'none', letterSpacing: 0 }}>— leave blank to auto-generate</span></label>
         <input value={customMemberNumber} onChange={e => setCustomMemberNumber(e.target.value)} placeholder="e.g. 59452" style={{ ...inputStyle, maxWidth: '200px' }} />
       </div>
-      <button onClick={submit} style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
-        Create Accountant
+      <button onClick={submit} disabled={loading} style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}>
+        {loading ? 'Creating...' : 'Create Accountant'}
       </button>
       {status && <p style={{ color: statusType === 'success' ? '#27ae60' : '#ff6b6b', fontSize: '13px', marginTop: '12px' }}>{status}</p>}
     </div>
@@ -157,17 +221,42 @@ function FeatureTabDropdown({ label, isActive, options, onSelect }) {
   )
 }
 
-function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, initialTab, section, navClickCount }) {
+// Shared search-list + click-into-profile view used by both AdvisorsPanel
+// and AccountantsPanel. Type-specific bits are passed in as props:
+//   - displayMembers : the filtered list rendered in the search results
+//     (e.g. allMembers for advisors, accountant-filtered for accountants)
+//   - allMembers     : the FULL unfiltered list, needed by shared inner
+//     components (Connected Member lookup, corporate roster, etc.)
+//   - addForm        : the type-specific Add form rendered when activeTab='add'
+//   - selectedKey    : sessionStorage key for "which member is selected"
+//                      (advisors use 'adminSelectedMember', accountants
+//                       use 'adminSelectedAccountant')
+//   - featureTabKey  : sessionStorage key for the active feature sub-tab
+//   - hiddenFields   : list of profile field strings to suppress in the
+//                      profile view (e.g. ['revenue_decision'] for accountants)
+function MemberDirectoryView({
+  displayMembers,
+  allMembers,
+  allExperts,
+  allExclusionMap,
+  onDataChange,
+  addForm,
+  selectedKey,
+  featureTabKey,
+  initialTab,
+  navClickCount,
+  hiddenFields = [],
+}) {
   const [activeTab, setActiveTab] = useState(initialTab || 'search')
   useEffect(() => { setActiveTab(initialTab || 'search') }, [initialTab])
   const [selectedMember, setSelectedMember] = useState(() => {
-    const saved = sessionStorage.getItem('adminSelectedMember')
+    const saved = sessionStorage.getItem(selectedKey)
     if (saved && allMembers.length) return allMembers.find(m => m.plugin_member_number === saved) || null
     return null
   })
 
   useEffect(() => {
-    const saved = sessionStorage.getItem('adminSelectedMember')
+    const saved = sessionStorage.getItem(selectedKey)
     if (!saved) { setSelectedMember(null); setMemberFeatureTab('profile_details') }
   }, [navClickCount])
 
@@ -178,26 +267,19 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, 
       if (fresh && fresh !== selectedMember) setSelectedMember(fresh)
     }
   }, [allMembers])
-  const [memberFeatureTab, setMemberFeatureTab] = useState(sessionStorage.getItem('adminMemberFeatureTab') || 'profile')
+  const [memberFeatureTab, setMemberFeatureTab] = useState(sessionStorage.getItem(featureTabKey) || 'profile')
   const [memberSearch, setMemberSearch] = useState('')
-
-  const subTabStyle = (active) => ({
-    padding: '10px 18px', background: 'transparent', border: 'none',
-    borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent',
-    color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400',
-    cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap'
-  })
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
 
   const filteredMembers = memberSearch
-    ? allMembers.filter(m => m.name?.toLowerCase().includes(memberSearch) || m.plugin_member_number?.toLowerCase().includes(memberSearch))
-    : allMembers
+    ? displayMembers.filter(m => m.name?.toLowerCase().includes(memberSearch) || m.plugin_member_number?.toLowerCase().includes(memberSearch))
+    : displayMembers
 
   return (
     <div>
 
-      {activeTab === 'add' && <AddAdvisorForm allMembers={allMembers} onDataChange={onDataChange} />}
+      {activeTab === 'add' && addForm}
 
       {activeTab === 'search' && !selectedMember && (
         <>
@@ -207,7 +289,7 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, 
           <div>
             {filteredMembers.map(m => (
               <div key={m.plugin_member_number}
-                onClick={() => { setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem('adminSelectedMember', m.plugin_member_number); sessionStorage.setItem('adminMemberFeatureTab', 'profile_details') }}
+                onClick={() => { setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem(selectedKey, m.plugin_member_number); sessionStorage.setItem(featureTabKey, 'profile_details') }}
                 style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', marginBottom: '4px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', cursor: 'pointer' }}
                 onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}>
@@ -224,7 +306,7 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, 
 
       {activeTab === 'search' && selectedMember && (
         <>
-          <button onClick={() => { setSelectedMember(null); sessionStorage.removeItem('adminSelectedMember'); sessionStorage.removeItem('adminMemberFeatureTab') }} style={{ background: 'none', border: 'none', color: '#5b9fe6', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
+          <button onClick={() => { setSelectedMember(null); sessionStorage.removeItem(selectedKey); sessionStorage.removeItem(featureTabKey) }} style={{ background: 'none', border: 'none', color: '#5b9fe6', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
           <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
             <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '28px', color: '#fff' }}>{selectedMember.name}</div>
             <div style={{ fontSize: '13px', color: '#8bacc8', marginTop: '4px' }}>{selectedMember.plugin_member_number}</div>
@@ -233,17 +315,16 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, 
               {selectedMember.elite_status && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${selectedMember.elite_status === 'Active' ? 'rgba(39,174,96,0.15)' : selectedMember.elite_status === 'Lost' ? 'rgba(231,76,60,0.15)' : 'rgba(255,255,255,0.06)'}`, color: selectedMember.elite_status === 'Active' ? '#27ae60' : selectedMember.elite_status === 'Lost' ? '#e74c3c' : '#8bacc8', border: `1px solid ${selectedMember.elite_status === 'Active' ? 'rgba(39,174,96,0.3)' : selectedMember.elite_status === 'Lost' ? 'rgba(231,76,60,0.3)' : 'rgba(255,255,255,0.1)'}` }}>{selectedMember.elite_status}</span>}
               {selectedMember.paused && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(243,156,18,0.15)', color: '#f39c12', border: '1px solid rgba(243,156,18,0.3)' }}>Paused</span>}
               {selectedMember.suspended && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', border: '1px solid rgba(231,76,60,0.3)' }}>Suspended</span>}
-              
             </div>
           </div>
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px', flexWrap: 'wrap', position: 'relative', zIndex: 50 }}>
           <FeatureTabDropdown label="Profile" isActive={['profile_details','profile_edit','profile_history'].includes(memberFeatureTab)} options={[{key:'profile_details',label:'Profile'},{key:'profile_edit',label:'Edit Profile'},{key:'profile_history',label:'Type History'}]} onSelect={setMemberFeatureTab} />
-          <FeatureTabDropdown label="MSM" isActive={['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab)} options={[{key:'msm_meetings',label:'MSM'},{key:'msm_program_holistic',label:'VFO Holistic Planning'},{key:'msm_program_partnership',label:'Partnership Fast Track'},{key:'msm_program_tax',label:'VFO Tax Planning'},{key:'msm_program_coaching',label:'Advanced Coaching'}]} onSelect={k => { setMemberFeatureTab(k); sessionStorage.setItem('adminMemberFeatureTab', k) }} />
+          <FeatureTabDropdown label="MSM" isActive={['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab)} options={[{key:'msm_meetings',label:'MSM'},{key:'msm_program_holistic',label:'VFO Holistic Planning'},{key:'msm_program_partnership',label:'Partnership Fast Track'},{key:'msm_program_tax',label:'VFO Tax Planning'},{key:'msm_program_coaching',label:'Advanced Coaching'}]} onSelect={k => { setMemberFeatureTab(k); sessionStorage.setItem(featureTabKey, k) }} />
             {[['specialists','Specialists'],['showroom','Showroom'],['website','Website Plugin'],['ciq','CIQ'],['growthplan','Growth Plan'],['gc','GC Marketplace'],['vault','The Vault'],['settings','Settings']].map(([key, label]) => (
-            <button key={key} style={{ padding: '10px 16px', background: 'transparent', border: 'none', borderBottom: memberFeatureTab === key ? '2px solid #5b9fe6' : '2px solid transparent', color: memberFeatureTab === key ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: memberFeatureTab === key ? '600' : '400', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' }} onClick={() => { setMemberFeatureTab(key); sessionStorage.setItem('adminMemberFeatureTab', key) }}>{label}</button>
+            <button key={key} style={{ padding: '10px 16px', background: 'transparent', border: 'none', borderBottom: memberFeatureTab === key ? '2px solid #5b9fe6' : '2px solid transparent', color: memberFeatureTab === key ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: memberFeatureTab === key ? '600' : '400', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' }} onClick={() => { setMemberFeatureTab(key); sessionStorage.setItem(featureTabKey, key) }}>{label}</button>
           ))}
           </div>
-          {['profile_details','profile_edit','profile_history'].includes(memberFeatureTab) && <MemberProfile member={selectedMember} allMembers={allMembers} onDataChange={onDataChange} activeSection={memberFeatureTab} />}
+          {['profile_details','profile_edit','profile_history'].includes(memberFeatureTab) && <MemberProfile member={selectedMember} allMembers={allMembers} onDataChange={onDataChange} activeSection={memberFeatureTab} hiddenFields={hiddenFields} />}
           {['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab) && <MSMTracking member={selectedMember} activeSection={memberFeatureTab} onDataChange={onDataChange} />}          {memberFeatureTab === 'specialists' && <MemberSpecialists member={selectedMember} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} />}
           {memberFeatureTab === 'showroom' && <ComingSoon title="Showroom" />}
           {memberFeatureTab === 'website' && <MemberWebsitePlugin member={selectedMember} onDataChange={onDataChange} readOnly={false} />}
@@ -255,6 +336,24 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, 
         </>
       )}
     </div>
+  )
+}
+
+function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, initialTab, section, navClickCount }) {
+  return (
+    <MemberDirectoryView
+      displayMembers={allMembers}
+      allMembers={allMembers}
+      allExperts={allExperts}
+      allExclusionMap={allExclusionMap}
+      onDataChange={onDataChange}
+      addForm={<AddAdvisorForm allMembers={allMembers} onDataChange={onDataChange} />}
+      selectedKey="adminSelectedMember"
+      featureTabKey="adminMemberFeatureTab"
+      initialTab={initialTab}
+      navClickCount={navClickCount}
+      hiddenFields={[]}
+    />
   )
 }
 
@@ -381,7 +480,7 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
   )
 }
 
-function MemberProfile({ member, allMembers, onDataChange, activeSection }) {
+function MemberProfile({ member, allMembers, onDataChange, activeSection, hiddenFields = [] }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -458,7 +557,9 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection }) {
               <div style={{ flex: 1, minWidth: '140px' }}><div style={labelStyle}>Join Date</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{profile.join_date ? profile.join_date.split('T')[0] : '—'}</div></div>
               {(profile.elite_status === 'Lost' || profile.elite_status === 'Removed') && <div style={{ flex: 1, minWidth: '140px' }}><div style={labelStyle}>Leave Date</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{profile.leave_date ? profile.leave_date.split('T')[0] : '—'}</div></div>}
               <div style={{ flex: 2, minWidth: '200px' }}><div style={labelStyle}>Email</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{profile.email || '—'}</div></div>
-              <div style={{ flex: 1, minWidth: '160px' }}><div style={labelStyle}>Revenue Decision</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{profile.revenue_decision || '—'}</div></div>
+              {!hiddenFields.includes('revenue_decision') && (
+                <div style={{ flex: 1, minWidth: '160px' }}><div style={labelStyle}>Revenue Decision</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{profile.revenue_decision || '—'}</div></div>
+              )}
             </div>
             {(profile.vfo_certified_date || profile.vfo_accredited_date) && (
               <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.07)', marginTop: '16px' }}>
@@ -547,14 +648,16 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection }) {
           </div>
           <div style={sectionStyle}>
             <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Revenue & Stripe</div>
-            <div style={{ marginBottom: '16px' }}>
-              <label style={labelStyle}>Revenue Decision</label>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                {['Revenue Share', 'Money Mapping'].map(v => (
-                  <button key={v} onClick={() => update('revenue_decision', v)} style={{ padding: '8px 18px', borderRadius: '6px', border: `1px solid ${profile.revenue_decision === v ? '#5b9fe6' : 'rgba(255,255,255,0.2)'}`, background: profile.revenue_decision === v ? 'rgba(91,159,230,0.15)' : 'transparent', color: profile.revenue_decision === v ? '#5b9fe6' : '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>{v}</button>
-                ))}
+            {!hiddenFields.includes('revenue_decision') && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={labelStyle}>Revenue Decision</label>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                  {['Revenue Share', 'Money Mapping'].map(v => (
+                    <button key={v} onClick={() => update('revenue_decision', v)} style={{ padding: '8px 18px', borderRadius: '6px', border: `1px solid ${profile.revenue_decision === v ? '#5b9fe6' : 'rgba(255,255,255,0.2)'}`, background: profile.revenue_decision === v ? 'rgba(91,159,230,0.15)' : 'transparent', color: profile.revenue_decision === v ? '#5b9fe6' : '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>{v}</button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
             <div>
               <label style={labelStyle}>Stripe Account ID</label>
               <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
