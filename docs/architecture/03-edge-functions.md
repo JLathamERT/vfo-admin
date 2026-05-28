@@ -93,7 +93,7 @@ serve(req)
          • else    → 400 { error: "Unknown action: <name>" }
 ```
 
-Total handler count: **179 actions** (3 logins + 44 PUBLIC + 132 AUTH). The post-refactor baseline was 128; subsequent features have added MAP1 sweeps, MAP1 check path, sandbox toggle, the full Tax Planning track (~27 handlers in `actions/tax/`), and the Advisor Onboarding pipeline (17 handlers in `actions/advisor/` — Phases 1-6). The authoritative count is the one published in [05-api-action-catalog.md](05-api-action-catalog.md).
+Total handler count: **196 actions** (3 logins + 54 PUBLIC + 139 AUTH). The post-refactor baseline was 128; subsequent features have added MAP1 sweeps, MAP1 check path, sandbox toggle, the full Tax Planning track (~27 handlers in `actions/tax/`), the Advisor Onboarding pipeline (21 handlers in `actions/advisor/` — Phases 1-6 + member-portal login setup chain + admin Automation Panel loader), and the PIP Meetings purchase chain (14 handlers in `actions/msm/pip-*.ts`). The authoritative count is the one published in [05-api-action-catalog.md](05-api-action-catalog.md).
 
 ### Key cross-cutting concerns
 
@@ -112,9 +112,9 @@ Handles two event types:
   1. MAP 1 quarterly subsequent payment (metadata `payment_number` is 2-4): sets `payN_status='succeeded'`, chains `automation_CONTRACT_invoicereceipt` then `automation_CONTRACT_revshare` for that payment number.
   2. MAP 1 ACH first-payment cleared (`pay1_status === "processing"`): flips to `"succeeded"`, chains `automation_CONTRACT_invoicereceipt` then `automation_CONTRACT_revshare` for payment 1.
   3. Tax retainer ACH cleared OR tax implementation off-session charge succeeded (`metadata.payment_kind` in `retainer` / `implementation`): writes the appropriate `client_tax_plans` status columns and chains `automation_TAX_confirmationemail` + `automation_TAX_invoicereceipt` / `automation_TAX_implementation_receipt`.
-  4. Advisor onboarding ACH cleared (`metadata.pipeline === 'ADVISOR_ONBOARDING'`, `payment_status === 'processing'`): flips `advisor_onboarding.payment_status='succeeded'`, writes `payment_completed_at` + `renewal_date` (today + 6 months), chains `automation_ADVISOR_confirmationemail` (which chains `automation_ADVISOR_invoicereceipt`).
+  4. Advisor onboarding ACH cleared (`metadata.pipeline === 'ADVISOR_ONBOARDING'`, `payment_status === 'processing'`): flips `advisor_onboarding.payment_status='succeeded'`, writes `payment_completed_at` + `renewal_date` (via `computeAdvisorRenewalDate`: payment date + `engagement_term_months` rounded UP to the next 15th — never less than the term), chains `automation_ADVISOR_confirmationemail` (which chains `automation_ADVISOR_invoicereceipt`).
 
-The Stripe webhook handler additionally routes `checkout.session.completed` for advisor onboarding (lookup by `stripe_customer_id` after MAP1 + Tax misses, branching by `metadata.payment_kind='onboarding'`) — writes `payment_status`, `payment_method_type`, `card_processing_fee`, `acct_last4`, `stripe_payment_intent_id`, `payment_completed_at` (card path), and `renewal_date`.
+The Stripe webhook handler additionally routes `checkout.session.completed` for advisor onboarding (lookup by `stripe_customer_id` after MAP1 + Tax misses, branching by `metadata.payment_kind='onboarding'`) — writes `payment_status`, `payment_method_type`, `card_processing_fee`, `acct_last4`, `stripe_payment_intent_id`, `payment_completed_at` (card path), and `renewal_date` (same always-15th rule).
 
 The revshare chain typically returns `pending: true` immediately after payment (Tracy's Revenue Master sheet not yet updated) — the daily `pg_cron` sweep (02:00 UTC, see `supabase/cron/revshare-sweep.sql`) retries until it succeeds or remains permanently failed.
 

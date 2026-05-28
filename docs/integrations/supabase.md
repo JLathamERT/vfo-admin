@@ -91,7 +91,7 @@ Five storage buckets in use:
 | `member-vault` | private | `vault_list` / `vault_upload` / `vault_delete` | Per-member files under `<member_number>/`, signed URLs (1h). |
 | `tax-agreements` | public | `actions/tax/decision.ts` (Undecided branch) | Holds the static **Tax Planning Engagement Agreement** PDF (`tax-planning.pdf`). Fetched no-auth at email-draft time and attached as a multipart MIME part to the client's Undecided email. |
 | `map1-agreements` | public | `actions/pipeline/pipfu-decision.ts` (Undecided branch) | Holds the three MAP 1 service-level agreements: `proactive-lite.pdf`, `proactive-core.pdf`, `proactive-max.pdf`. All three are attached on Undecided emails by default; the Max PDF is suppressed when `form_data.maxNA === true` (admin ticked "N/A" for Max in the PIP Follow Up form). Created 2026-05-21. |
-| `advisor-onboarding-agreements` | public | `actions/advisor/decision.ts` (Undecided branch) | Holds the static **Advisor Onboarding Agreement** PDF (`implementation-agreement.pdf`). Fetched no-auth at email-draft time and attached via multipart/mixed. Graceful fallback to plain HTML email if the PDF isn't uploaded yet. Created 2026-05-26. |
+| `advisor-onboarding-agreements` | public | `actions/advisor/decision.ts` (Undecided branch) | Holds the static **Advisor Onboarding Agreement** PDF (`Advisor_Implementation_Agreement.pdf`). Fetched no-auth at email-draft time and attached via multipart/mixed. Graceful fallback to plain HTML email if the PDF isn't uploaded yet. Created 2026-05-26; filename rename + made `advisor_address` required field on 2026-05-28. |
 
 ### `headshots`
 

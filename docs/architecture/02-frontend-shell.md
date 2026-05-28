@@ -26,6 +26,7 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | `/advisor-decide` | [AdvisorDecidePage](src/pages/AdvisorDecidePage.jsx) | URL token | `automation_ADVISOR_clientdecision` — Advisor Onboarding Undecided Yes/No landing |
 | `/advisor-pay` | [AdvisorPayPage](src/pages/AdvisorPayPage.jsx) | URL token | `automation_ADVISOR_loadpayment` + `automation_ADVISOR_stripecheckout` — Advisor Onboarding payment ($4,000–$8,600 dynamic based on checkbox picks) |
 | `/pip-pay` | [PipPayPage](src/pages/PipPayPage.jsx) | URL token | `automation_PIP_loadpayment` + `automation_PIP_stripecheckout` — PIP Meetings purchase payment (one-time; Tax Planning or Additional PIP meetings) |
+| `/member-setup` | [MemberSetupPage](src/pages/MemberSetupPage.jsx) | URL token | `automation_ADVISOR_loadloginsetup` + `automation_ADVISOR_submitloginsetup` — advisor's member-portal passcode setup. On success, redirects to `/member/login` with email pre-filled via `location.state.email`. |
 | `*` | redirect to `/` | — | Catch-all |
 
 ## Top-level shells
@@ -52,6 +53,8 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 - Holistic Planning - MAP 1 / Holistic Planning - Tax Planning / Holistic Planning - PIP Meetings / Email Templates
 
 (The PIP Meetings option mounts [PipAutomationPanel](src/components/admin/PipAutomationPanel.jsx) — one row per `client_priority_tracks` track where `track_type='pip'` AND a purchase has been made. Each row collapses/expands to show Purchase Details → Payment → Confirmation → Invoice & Receipt → Revenue Share, mirroring MAP 1's `AutomationPanel` layout for the same chain stages.)
+
+(The Advisor Onboarding option — labeled "Advisor Onboarding" with no Holistic Planning prefix — mounts [AdvisorAutomationPanel](src/components/admin/AdvisorAutomationPanel.jsx). One row per `advisor_onboarding` record. Top-of-row stage badge cascades through `new` → `decision_sent` → `declined` → `agreement_sent` → `agreement_signing` → `payment_pending` → `paid` → `advisor_created` → `complete`. Expanded body shows 6 step blocks: Decision (Yes/No/Undecided + Undecided email sent when applicable) → Agreement → Payment (incl. renewal_date) → Confirmation / Invoice & Receipt → Advisor Creation → Member Login Setup. Loads via `automation_load_advisor_pipelines`. Added 2026-05-28.)
 
 **Modal-style overlays:**
 - `showEditor` (Admin Editor — superadmin only): mounts [AdminEditor](src/components/admin/AdminEditor.jsx) — manages `allowed_admins`
