@@ -331,7 +331,7 @@ function OnboardingDetail({ id, onBack }) {
         ) : (
           <div style={{ padding: '4px 0' }}>
             <button onClick={createAdvisor} disabled={creatingMember} style={{ padding: '10px 24px', borderRadius: '8px', background: creatingMember ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: creatingMember ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
-              {creatingMember ? 'Creating...' : 'Create Advisor'}
+              {creatingMember ? 'Creating & sending...' : 'Create Advisor & Send Setup Link'}
             </button>
           </div>
         )}
@@ -370,15 +370,17 @@ function formatDate(d) {
   return `${parts[1]}/${parts[2]}`
 }
 
-const dateSpanStyle = { fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }
+const dateTextStyle = { fontSize: '11px', color: '#5a8ab5', flexShrink: 0, display: 'inline-block', width: '32px' }
 
 function Row({ label, done, date, children }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
       <span style={{ fontSize: '13px', color: done ? '#8bacc8' : '#fff', flex: 1 }}>{label}</span>
-      {children}
-      <span style={dateSpanStyle}>{done && date ? formatDate(date) : ''}</span>
+      <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {children}
+        <span style={dateTextStyle}>{done && date ? formatDate(date) : ''}</span>
+      </span>
     </div>
   )
 }
@@ -389,11 +391,13 @@ function AutoRow({ label, done, date, tag }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
       <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
       <span style={{ fontSize: '12px', color: done ? '#27ae60' : '#8bacc8', flex: 1 }}>{label}</span>
-      {done && tags.length > 0 && tags.map((t, i) => (
-        <span key={i} style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>{t}</span>
-      ))}
-      <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: done ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: done ? '#27ae60' : '#8bacc8' }}>{done ? 'Done' : 'Not completed'}</span>
-      <span style={dateSpanStyle}>{done && date ? formatDate(date) : ''}</span>
+      <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {done && tags.length > 0 && tags.map((t, i) => (
+          <span key={i} style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>{t}</span>
+        ))}
+        <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: done ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: done ? '#27ae60' : '#8bacc8' }}>{done ? 'Done' : 'Not completed'}</span>
+        <span style={dateTextStyle}>{done && date ? formatDate(date) : ''}</span>
+      </span>
     </div>
   )
 }

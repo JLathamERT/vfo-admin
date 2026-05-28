@@ -1,10 +1,13 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { callApi, setSession } from '../lib/api'
 
 export default function MemberLogin() {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
+  const location = useLocation()
+  const prefilledEmail = location.state?.email || ''
+  const fromSetup = !!location.state?.fromSetup
+  const [email, setEmail] = useState(prefilledEmail)
   const [passcode, setPasscode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -30,6 +33,7 @@ export default function MemberLogin() {
       <div style={{background:'#0d2a6e',padding:'40px',borderRadius:'16px',width:'360px',border:'1px solid rgba(255,255,255,0.1)'}}>
         <h2 style={{fontFamily:'Playfair Display, serif',color:'#fff',marginBottom:'8px',fontSize:'24px'}}>Member Login</h2>
         <p style={{color:'#8bacc8',fontSize:'13px',marginBottom:'24px'}}>VFO Portal</p>
+        {fromSetup && <p style={{color:'#4ade80',fontSize:'13px',marginBottom:'16px'}}>Login created. Sign in with your new passcode.</p>}
         <form onSubmit={handleLogin} style={{display:'flex',flexDirection:'column',gap:'12px'}}>
           <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" required style={{padding:'10px 14px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.15)',background:'rgba(255,255,255,0.06)',color:'#fff',fontSize:'14px'}} />
           <input value={passcode} onChange={e=>setPasscode(e.target.value)} placeholder="Passcode" type="password" required style={{padding:'10px 14px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.15)',background:'rgba(255,255,255,0.06)',color:'#fff',fontSize:'14px'}} />
