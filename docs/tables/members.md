@@ -10,15 +10,16 @@ The advisor/accountant roster. PK is `member_number` (text), not an integer — 
 |---|---|---|
 | `member_number` | text | pk |
 | `first_name` / `last_name` | text | |
-| `member_type` | text | e.g., `"advisor"`, `"accountant"`. Drives portal/UI behavior. |
+| `member_type` | text | The product/service tier, e.g. `"Implementation"`, `"Catalyst"`, `"Fusion A"`, `"VFO Reconciliation (Free)"` — NOT advisor-vs-accountant (that's `member_category`). Drives portal/UI behavior. |
+| `member_category` | text | `'advisor'` \| `'accountant'` \| NULL (CHECK-constrained). Added 2026-05-29 (gotcha #48). The durable advisor-vs-accountant tag — replaces the old `ACCOUNTANT_TYPES`/`onboarding_id` heuristic. NULL = uncategorized (incl. corporate `<parent>-C<n>` members, which stay out of the integer numbering buckets). With `advisor_model` it forms the 4 numbering buckets used by `nextMemberNumber()`. Backfill: onboarding FKs → their category, the 20 legacy advisors → `advisor`. Drives the member-side Revenue-Decision hide + the admin AccountantsPanel/AdvisorsPanel filters. |
 | `elite_status` | text | default `'Active'`. Status field. |
-| `advisor_model` | text | `'Legacy Model'` or `'New Model'`. Added 2026-05-26 (Phase 5 advisor onboarding). All 19 pre-existing rows backfilled to `'Legacy Model'`. New rows from `automation_ADVISOR_createmember` get `'New Model'`; manual Add Advisor rows take whichever the admin picks (required, no default). Surfaced in the Search Advisors list as the 5th column. |
+| `advisor_model` | text | `'Legacy Model'` or `'New Model'`. Added 2026-05-26 (Phase 5 advisor onboarding). All 19 pre-existing rows backfilled to `'Legacy Model'`. New rows from `automation_ADVISOR_createmember` get `'New Model'`; manual Add Advisor rows take whichever the admin picks (required, no default). Surfaced in the Search Advisors list as the 5th column. Second axis of the numbering buckets (with `member_category`). |
 | `onboarding_id` | bigint | nullable FK → `advisor_onboarding(id)` `ON DELETE SET NULL`, partial index on non-null. Added 2026-05-26 (Phase 5). Set by `automation_ADVISOR_createmember`; remains NULL for legacy/manual advisors. Lets you trace a `members` row back to its onboarding record. |
 | `accountant_onboarding_id` | bigint | nullable FK → `accountant_onboarding(id)` `ON DELETE SET NULL`. Added 2026-05-28 (Accountant Onboarding pipeline). Set by `automation_ACCOUNTANT_createmember`; remains NULL for advisors and manually-added accountants. Lets you trace a `members` row back to its accountant onboarding record. |
 | `join_date` / `renewal_date` / `leave_date` | date | |
 | `suspended` | boolean | default `false`. Status field. |
 | `paused` | boolean | default `false`. Status field. |
-| `revenue_decision` | text | Whether they share revenue. |
+| `revenue_decision` | text | Whether they share revenue (`'Revenue Share'` / `'Money Mapping'`). Accountants have NONE — `add_member_full` and `automation_ACCOUNTANT_createmember` leave it NULL when `member_category='accountant'` (gotcha #48). |
 | `stripe_account_id` | text | **Stripe Connect ID** — used by `automation_CONTRACT_revshare` for Transfers. |
 | `primary_relationship` / `advisor_engagement` | text | |
 | `connected_member_number` | text | fk → `members.member_number` (SET NULL). Self-referencing — links a junior member to a senior. |
@@ -35,6 +36,22 @@ The advisor/accountant roster. PK is `member_number` (text), not an integer — 
 **Automation fields:** `stripe_account_id` (revshare), `ciq_enabled` / `ciq_vfos_managed` (CIQ feature gate).
 
 **Touched by:** `load_data`, `add_member`, `add_member_full`, `save_member`, `delete_member`, `member_profile_load`, `member_profile_save`, `automation_CONTRACT_revshare`. Frontend: [MembersPanel.jsx](src/components/admin/MembersPanel.jsx).
+
+---
+
+## `member_number_baselines`
+
+Admin-controlled starting member numbers per (`member_category` × `advisor_model`) bucket. Added 2026-05-29 (gotcha #48). Read by the `nextMemberNumber()` helper (`utils/member-number.ts`) ONLY when a bucket has no existing integer-numbered members — the baseline becomes the first number assigned. An empty bucket with no baseline row is a hard-block: the helper returns an actionable error rather than guessing a start range.
+
+| Column | Type | Notes |
+|---|---|---|
+| `member_category` | text | not null, `'advisor'` or `'accountant'` (CHECK). Part of PK. |
+| `advisor_model` | text | not null, `'Legacy Model'` or `'New Model'` (CHECK). Part of PK. |
+| `baseline` | bigint | not null. First number assigned when the bucket is empty. |
+
+PK: (`member_category`, `advisor_model`). Seeded 2026-05-29: `advisor`/`New Model`=60000, `accountant`/`New Model`=30000, `accountant`/`Legacy Model`=90000. `advisor`/`Legacy Model` has 20 existing members so it self-derives (max+1) and needs no baseline row.
+
+**Touched by:** the `nextMemberNumber()` helper, invoked from `add_member_full`, `automation_ADVISOR_createmember`, `automation_ACCOUNTANT_createmember`.
 
 ---
 
