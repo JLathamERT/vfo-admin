@@ -94,7 +94,7 @@ All 6 handlers PUBLIC. Trigger graph: BoldSign Completed (advisor branch in embe
 |---|---|---|---|---|
 | `automation_ADVISOR_loginsetupemail` | `actions/advisor/login-setup-email.ts` | `advisor_onboarding`, `psbx_cfg`(ADVISOR_ONBOARDING), `email_templates`(`ADVISOR_login_setup`) | `advisor_onboarding.login_setup_email_sent_at` | Gmail draft to advisor with `/member-setup?token=<>` button. Idempotent on `login_setup_email_sent_at`. Subject: "Elite Resource Team / VFO Services - Set Up Your Member Portal Login - [Advisor Name]". |
 | `automation_ADVISOR_loadloginsetup` | `actions/advisor/load-login-setup.ts` | `advisor_onboarding`(by login_setup_token), `member_logins`(by email) | — | Returns `{state: 'ready'\|'already_setup'\|'invalid', advisor_name, email, member_number}`. `already_setup` if a `member_logins` row exists for this email OR `login_setup_completed_at` is set. `invalid` on token-not-found OR token-expired. |
-| `automation_ADVISOR_submitloginsetup` | `actions/advisor/submit-login-setup.ts` | `advisor_onboarding`(by login_setup_token), `member_logins`(by email for race-check) | `member_logins`(insert with SHA-256 passcode hash, `member_number` from onboarding row), `advisor_onboarding.login_setup_completed_at` | Validates token + expiry + passcode (min 6 chars, matches confirm). Returns `{success: true, email}` so the frontend redirects to `/member/login` with email pre-filled. |
+| `automation_ADVISOR_submitloginsetup` | `actions/advisor/submit-login-setup.ts` | `advisor_onboarding`(by login_setup_token), `member_logins`(by email for race-check) | `member_logins`(insert with salted PBKDF2 `passcode_hash`, `member_number` from onboarding row), `advisor_onboarding.login_setup_completed_at` | Validates token + expiry + passcode (min 6 chars, matches confirm). Returns `{success: true, email}` so the frontend redirects to `/member/login` with email pre-filled. |
 
 ### Accountant Onboarding chain (added 2026-05-28 — cloned from Advisor + Partnership? step)
 
@@ -185,9 +185,9 @@ All dispatched AFTER `middleware/auth.ts::authenticate()` validates body.token. 
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
 | `load_admins` | `actions/admins/load.ts` | `allowed_admins` | — | — |
-| `create_admin` | `actions/admins/create.ts` | — | `allowed_admins` (with hashed passcode) | — |
+| `create_admin` | `actions/admins/create.ts` | — | `allowed_admins` (salted `passcode_hash`) | — |
 | `delete_admin` | `actions/admins/delete.ts` | — | `allowed_admins` (delete) | — |
-| `update_my_passcode` | `actions/admins/update-passcode.ts` | — | `allowed_admins.passcode` (re-hashed) | — |
+| `update_my_passcode` | `actions/admins/update-passcode.ts` | — | `allowed_admins.passcode_hash` / `member_logins.passcode_hash` (salted PBKDF2) | — |
 
 ### Member logins
 

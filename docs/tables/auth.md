@@ -19,14 +19,14 @@ Stores live admin tokens. Cleaned up by the `auto_cleanup_expired_sessions` migr
 
 ## `allowed_admins`
 
-The admin allow-list with hashed passcodes. Migration `hash_passcodes_and_cleanup_sessions` indicates `passcode` is hashed.
+The admin allow-list. Passcodes are stored as a salted PBKDF2 hash in `passcode_hash` (the unsalted-SHA-256 `passcode` column was dropped 2026-05-29 — see SESSION_REFERENCE gotcha #47).
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | integer | pk |
 | `email` | text | not null |
 | `name` | text | |
-| `passcode` | text | not null. Hashed. |
+| `passcode_hash` | text | Salted PBKDF2-HMAC-SHA256, format `pbkdf2$sha256$<iter>$<salt>$<hash>`. (Replaced the dropped unsalted `passcode` column.) |
 | `role` | text | default `'admin'`. Values seen in code: `'admin'`, `'superadmin'` (gates Admin Editor button). |
 | `member_number` | text | Optional link to `members.member_number` (admin-as-member case). |
 | `created_at` | timestamptz | default `now()` |
@@ -46,7 +46,7 @@ Per-member portal logins (separate from `allowed_admins`).
 | `id` | integer | pk |
 | `email` | text | not null |
 | `name` | text | not null |
-| `passcode` | text | not null. Hashed. |
+| `passcode_hash` | text | Salted PBKDF2-HMAC-SHA256, format `pbkdf2$sha256$<iter>$<salt>$<hash>`. (Replaced the dropped unsalted `passcode` column.) |
 | `member_number` | text | not null. fk → `member_plugin_settings.plugin_member_number` (cascade). |
 | `created_at` | timestamptz | default `now()` |
 
@@ -57,7 +57,7 @@ Per-member portal logins (separate from `allowed_admins`).
 ## Token flow
 
 1. Client calls `admin_login` / `member_login` with `{email, passcode}`.
-2. Edge function verifies hash against `allowed_admins.passcode` / `member_logins.passcode`, inserts a row into `admin_sessions` with a generated token + 24h expiry, returns the token.
+2. Edge function fetches the row by email, verifies the passcode against the salted `passcode_hash` (PBKDF2) via `verifyPasscode()`, inserts a row into `admin_sessions` with a generated token + **8h** expiry, returns the token.
 3. Frontend stashes `{token, email, name, role, ...}` in `sessionStorage` under key `vfo_session` ([api.js:5](src/lib/api.js)).
 4. Every subsequent `callApi(action, payload)` includes `token` in the request body.
 5. Edge function does its own session check on each action. On 401, `callApi` clears the session and hard-redirects to `/vfo-portal/` ([api.js:17-21](src/lib/api.js)).

@@ -75,6 +75,8 @@ Therefore: every authorization decision is enforced in the edge-function dispatc
 20260505141059  create_agreement_templates_table
 ```
 
+> **This list is a 2026-05-05 snapshot and is no longer complete** — many migrations have been applied since (MAP 1 reminder ladder, unique-client-id, advisor/accountant onboarding, PIP, etc.). Run the Supabase MCP `list_migrations` for the authoritative current list. Notably for auth: the `hash_passcodes_and_cleanup_sessions` unsalted-SHA-256 scheme above was **superseded on 2026-05-29** by salted PBKDF2 (`passcode_hash`) via migrations `add_passcode_hash_columns`, `passcode_drop_not_null`, and `drop_legacy_passcode_column` (the unsalted `passcode` column no longer exists).
+
 Local `supabase/migrations/` directory does **not exist** — migrations live remotely only. Schema changes are presumably authored via Supabase Studio or applied directly.
 
 ### Auto-cleanup of expired sessions
