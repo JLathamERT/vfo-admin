@@ -16,7 +16,7 @@ Top-level stages on the admin `AdvisorOnboarding.jsx` panel:
 
 1. **Preliminary Meeting & Decision** — admin records the meeting outcome and picks Yes / No / Undecided. Undecided drafts a Gmail to the advisor with Yes/No buttons; No drafts a decline email; Yes proceeds straight to Stage 2.
 2. **PC Admin (Agreement → Payment → Invoice/Receipt)** — auto-fires the BoldSign agreement send, awaits advisor signature + CEO countersign, then auto-fires the Stripe customer + payment-link email. After payment succeeds the chain drafts the confirmation email + invoice/receipt PDFs and uploads them. Plan pricing is dynamic ($4,000 / $4,600 / $8,000 / $8,600) based on which plan checkboxes the advisor ticked in BoldSign.
-3. **Add New Advisor** — admin clicks "Create Advisor & Send Setup Link". Backend creates the `members` + `member_plugin_settings` rows (member_number ≥ 60100 namespace, kept separate from legacy 59xxx), then chains the member-portal login-setup email. Advisor clicks the link → `/member-setup` token page → picks a passcode → redirected to `/member/login` with email pre-filled. Login is created, advisor is in the portal.
+3. **Add New Advisor** — admin clicks "Create Advisor & Send Setup Link". Backend creates the `members` + `member_plugin_settings` rows (member_number assigned by the category-relative `nextMemberNumber('advisor','New Model')` helper — see SESSION_REFERENCE gotcha #48; the old fixed ≥60100 namespace is gone), then chains the member-portal login-setup email. Advisor clicks the link → `/member-setup` token page → picks a passcode → redirected to `/member/login` with email pre-filled. Login is created, advisor is in the portal.
 
 Reminder cron `advisor-sweep-daily` (05:00 UTC) drives 3 reminder ladders × (48h reminder + 96h PF notification) on the Undecided email, BoldSign signing, and payment-link stalls, plus a 14-day implicit-No rule that auto-declines stale Undecideds.
 
@@ -118,7 +118,7 @@ This table is not documented in `docs/tables/` — this is the only source-of-tr
 | `receipt_number` | text | — | `REC-ADV{onboarding_id}-{seq:0004}` |
 | `invoice_sent_at` | timestamptz | — | |
 | `revenue_decision` | text | — | `'Money Mapping'` (Money Mapping is the only path now — `'Revenue Share'` deferred) |
-| `member_number` | text | — | written by `automation_ADVISOR_createmember`; ≥ 60100 |
+| `member_number` | text | — | written by `automation_ADVISOR_createmember`; assigned via `nextMemberNumber('advisor','New Model')` (gotcha #48 — no fixed 60100) |
 | `member_created_at` | timestamptz | — | |
 | `stripe_connect_link_sent_at` | timestamptz | — | unused (Revenue Share path deferred) |
 | `login_setup_token` | text | — | UUID for `/member-setup?token=…`; unique partial index where not null |

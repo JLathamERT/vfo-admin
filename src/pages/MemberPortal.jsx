@@ -261,6 +261,9 @@ function MemberSpecialists({ member, allExperts, exclusions, onDataChange }) {
 function MemberProfile({ member }) {
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
   const labelStyle = { fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }
+  // Accountants have no revenue decision — hide the field for them. Advisors
+  // and uncategorized members keep it. Mirrors the admin-side hiddenFields.
+  const isAccountant = member.member_category === 'accountant'
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
@@ -294,7 +297,7 @@ function MemberProfile({ member }) {
         <div style={{ ...sectionStyle, display: 'inline-flex', gap: '32px', flexWrap: 'wrap' }}>
           <div style={{ textAlign: 'left' }}><div style={labelStyle}>Member Number</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px', fontFamily: 'monospace' }}>{member.member_number}</div></div>
           <div style={{ textAlign: 'left' }}><div style={labelStyle}>Join Date</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{member.join_date ? member.join_date.split('T')[0] : '—'}</div></div>
-          <div style={{ textAlign: 'left' }}><div style={labelStyle}>Revenue Decision</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{member.revenue_decision || '—'}</div></div>
+          {!isAccountant && <div style={{ textAlign: 'left' }}><div style={labelStyle}>Revenue Decision</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{member.revenue_decision || '—'}</div></div>}
         </div>
       </div>
     </div>

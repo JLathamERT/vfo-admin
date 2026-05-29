@@ -45,6 +45,7 @@ All previously-inline helpers have been extracted to per-file modules:
 | `jsonResponse(data, status, corsHeaders)` | `utils/json.ts` | Response helper. **Phase 1 fixed the previous module-level mutable `corsHeaders` global** — now scoped per-request via a closure created in `index.ts::serve()`. |
 | `buildCorsHeaders(req)` | `utils/cors.ts` | Builds CORS headers for a single request (origin echo if allowed). |
 | `formatLongDate(isoDate)` | `utils/format-date.ts` | Formats a `YYYY-MM-DD` string as `"August 18, 2026"` (en-US long month/day/year, parsed + rendered in UTC to avoid local-tz drift). Returns input unchanged for non-date strings like `"TBD"`. Used by `automation_CONTRACT_checkreminder_sweep` and `automation_PIP1_reconfirmationemail`. |
+| `nextMemberNumber(supabase, category, model)` | `utils/member-number.ts` | Single source of truth for member-number assignment (added 2026-05-29, gotcha #48). Scans `members` for the max integer number in the (`member_category` × `advisor_model`) bucket → +1; falls back to the `member_number_baselines` seed when the bucket is empty; returns an actionable error if empty with no baseline. Used by `add_member_full` + advisor/accountant `create-member`. |
 | `ADMIN_ONLY_ACTIONS` / `MEMBER_SCOPED_ACTIONS` | `constants/role-gates.ts` | Action-name arrays consumed by the auth middleware. |
 | `JsonResponder`, `AuthContext`, `PublicHandlerCtx`, `AuthedHandlerCtx` | `types/index.ts` | Shared TS types for handler signatures. |
 
