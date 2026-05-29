@@ -127,7 +127,11 @@ The `'/vfo-portal/'` path is the gh-pages base path. On localhost dev (Vite at p
 
 ## Passcode hashing
 
-`hashPasscode()` lives in `vfo-admin-api/utils/crypto.ts`. **Plain SHA-256, no salt.** All `allowed_admins.passcode` and `member_logins.passcode` values are stored as a 64-char hex digest. This is the result of migration `hash_passcodes_and_cleanup_sessions` (2026-04-28). Trade-offs (rainbow-table susceptibility, no per-user salt) are observable but not corrected in this doc.
+**Salted PBKDF2-HMAC-SHA256** (210,000 iterations, 16-byte random salt), stored as `pbkdf2$sha256$<iter>$<saltB64>$<hashB64>` in `allowed_admins.passcode_hash` / `member_logins.passcode_hash`. Helpers live in `vfo-admin-api/utils/crypto.ts` (`hashPasscodeSalted`, `verifyPasscodeSalted`, `isSaltedHash`); the shared `verifyPasscode()` is in `utils/passcode-verify.ts`.
+
+Because each row has its own salt, the login handlers (`admin_login`, `member_login`, legacy `login`) **fetch the row by email, then verify the passcode in code** — they can no longer match the hash inside the SQL query. Writers (`create_member_login`, `update_member_login`, `create_admin`, `update_my_passcode`, advisor/accountant `submit-login-setup`) write only `passcode_hash`.
+
+History: passcodes were unsalted SHA-256 (migration `hash_passcodes_and_cleanup_sessions`, 2026-04-28) until the 2026-05-29 salted rollout (v335) — add nullable `passcode_hash`, dual-write + transparently re-hash each row on its next successful login, then drop the legacy `passcode` column once all rows were salted (migrations `add_passcode_hash_columns`, `passcode_drop_not_null`, `drop_legacy_passcode_column`). The legacy `passcode` column no longer exists.
 
 ## Notification polling
 
