@@ -102,7 +102,7 @@ export default function MemberPortal() {
               ]}
               onSelect={setActiveTab}
             />
-            {['specialists','showroom','website','ciq','growthplan','gc','vault'].map(tab => (
+            {['specialists','showroom','website','ciq','growthplan','gc','vault'].filter(tab => tab !== 'website' || memberData?.website_enabled).map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '14px 20px', background: 'transparent', border: 'none', borderBottom: activeTab === tab ? '2px solid #5b9fe6' : '2px solid transparent', color: activeTab === tab ? '#fff' : '#8bacc8', fontSize: '14px', fontWeight: activeTab === tab ? '600' : '400', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' }}>
                 {tabLabels[tab]}
               </button>
@@ -122,7 +122,7 @@ export default function MemberPortal() {
             <MemberSpecialists member={memberData} allExperts={allExperts} exclusions={exclusions} onDataChange={loadData} />
           )}
           {!loading && activeTab === 'showroom' && <ComingSoon title="Showroom" />}
-          {!loading && activeTab === 'website' && memberData && (
+          {!loading && activeTab === 'website' && memberData && memberData.website_enabled && (
             <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
               <MemberWebsitePlugin member={memberData} onDataChange={loadData} />
             </div>

@@ -70,6 +70,16 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
     finally { setSaving(p => ({ ...p, [taskId]: false })) }
   }
 
+  async function saveDateEntry(taskId, date) {
+    const status = date ? 'Scheduled' : ''
+    setSaving(p => ({ ...p, [taskId]: true }))
+    try {
+      await callApi('msm_save_client_task', { client_id: clientId, task_id: taskId, status, completed_date: date || null, completed_by: null, notes: null })
+      setProgress(p => ({ ...p, [taskId]: { ...p[taskId], task_id: taskId, status, completed_date: date || null } }))
+    } catch (err) { console.error(err) }
+    finally { setSaving(p => ({ ...p, [taskId]: false })) }
+  }
+
   async function triggerC8(taskId, decision, date) {
     setC8Triggering(true)
     try {
@@ -86,7 +96,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
   async function completePhase(phase) {
     const today = new Date().toISOString().split('T')[0]
     const autoCompleteCodes = {
-          'MAP 1 - Initial Contact': ['Call outcome', 'PIP 1 scheduled', 'PIP Follow-Up scheduled'],
+          'MAP 1 - Initial Contact': ['Call outcome'],
           'MAP 1 - PIP 1': ['PIP Initial presentation', 'CIQ complete', 'Prioritization complete'],
           'MAP 1 - PIP Follow Up': ['PIP Follow up presentation', 'Client PIP decision'],
         }
@@ -351,6 +361,22 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                       <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
+
+                  if (task.status_options === 'date_entry') {
+                    const dateVal = p.completed_date || ''
+                    return (
+                      <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dateVal ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${dateVal ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+                        <span style={{ fontSize: '13px', color: dateVal ? '#8bacc8' : '#fff', flex: 1, fontWeight: '600' }}>{task.name}</span>
+                        {readOnly
+                          ? (dateVal
+                              ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#27ae6022', color: '#27ae60', border: '1px solid #27ae6044' }}>{formatDate(dateVal)}</span>
+                              : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not scheduled</span>)
+                          : <input type="date" value={dateVal} onChange={e => saveDateEntry(task.id, e.target.value)} disabled={saving[task.id]} style={inputStyle} />
+                        }
+                      </div>
+                    )
+                  }
 
                   // READ-ONLY MODE (member side)
                   if (readOnly) {
