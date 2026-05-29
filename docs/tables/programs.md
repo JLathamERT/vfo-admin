@@ -39,12 +39,13 @@ Each member enrolls into a program (`member_enrollments`), then training-progres
 |---|---|---|
 | `id` | integer | pk |
 | `phase_id` | integer | fk → `program_training_phases.id` (NO ACTION) |
-| `task_code` | text | |
 | `name` | text | not null |
 | `task_type` | text | default `'dropdown'` |
 | `task_order` | integer | not null |
 | `status_options` | text | Comma/JSON-encoded list of allowed `status` values for `member_training_progress.status`. |
 | `video_url` | text | Optional training video. |
+
+> The `task_code` column (the visible `M#`/`P#` step IDs) was **dropped** for the 90-Day-Plan cleanup — codes are no longer stored or displayed. The 3 per-program "Review" checkpoint phases (MSM 4/8/12 Review) were also deleted; the training track now runs MSM 1 Training → MSM 12 Activity only. (`program_client_tasks.task_code` below — the MAP 1 C-codes — is unaffected.)
 
 ---
 

@@ -70,7 +70,7 @@ Per-member website-widget configuration. PK `plugin_member_number` is a separate
 | `display_mode` | text | default `'filter'` |
 | `font` | text | default `'Playfair Display'` |
 | `show_count` / `show_search` | boolean | default `true` |
-| `website_enabled` | boolean | default `false`. Status field — gates whether the public widget is live. |
+| `website_enabled` | boolean | default `false`. Status field — gates whether the public widget is live AND whether the member-portal "Website Plugin" tab is shown (tab hidden + page un-rendered when `false`). **Admin-controlled only** — the member-side enable toggle was removed; the `MemberWebsitePlugin` enable toggle renders only when `isAdmin`, so only the admin Members panel can flip it. |
 | `widget_font_size` | integer | default `14`. (Migration `change_widget_font_size_to_integer` indicates this was previously text.) |
 
 **Touched by:** `load_data`, `save_member` (settings payload), `member_profile_save`. Frontend: [MemberWebsitePlugin.jsx](src/components/shared/MemberWebsitePlugin.jsx).
