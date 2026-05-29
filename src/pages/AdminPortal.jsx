@@ -214,7 +214,7 @@ export default function AdminPortal() {
       key: 'automation', header: null,
       options: [
         { key: 'map1_pipeline', label: 'Holistic Planning - MAP 1' },
-        { key: 'tax_pipeline', label: 'Holistic Planning - Tax Planning' },
+        { key: 'tax_pipeline', label: 'Holistic Planning - Tax Priorities' },
         { key: 'pip_pipeline', label: 'Holistic Planning - PIP Meetings' },
         { key: 'advisor_pipeline', label: 'Advisor Onboarding' },
         { key: 'accountant_pipeline', label: 'Accountant Onboarding' },
