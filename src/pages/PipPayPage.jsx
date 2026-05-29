@@ -96,7 +96,7 @@ export default function PipPayPage() {
           onHover={() => setHoveredOption('ach')}
           onLeave={() => setHoveredOption(null)}
           onClick={() => handleChoice('ach')}
-          title="🏦 ACH Bank Transfer"
+          title="ACH Bank Transfer"
           badgeText="No Fee"
           badgeClass="green"
           amount={baseAmount}
@@ -114,7 +114,7 @@ export default function PipPayPage() {
           onHover={() => setHoveredOption('card')}
           onLeave={() => setHoveredOption(null)}
           onClick={() => handleChoice('card')}
-          title="💳 Credit / Debit Card"
+          title="Credit / Debit Card"
           badgeText="2.9% + $0.30 Fee"
           badgeClass="blue"
           amount={cardTotal}
