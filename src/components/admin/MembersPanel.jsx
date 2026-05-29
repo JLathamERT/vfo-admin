@@ -52,14 +52,8 @@ export default function MembersPanel({ allMembers, allExperts, allExclusionMap, 
 }
 
 function AccountantsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, initialTab, section, navClickCount }) {
-  // Accountants = members linked to an accountant_onboarding row
-  // OR members whose member_type is in ACCOUNTANT_TYPES BUT not linked
-  // to an advisor onboarding row (advisor-onboarding-created members also
-  // have member_type='Implementation' which would otherwise dual-count).
-  const accountantMembers = allMembers.filter(m =>
-    m.accountant_onboarding_id != null ||
-    (m.onboarding_id == null && ACCOUNTANT_TYPES.includes(m.member_type))
-  )
+  // Accountants are tagged durably by member_category (set at create time).
+  const accountantMembers = allMembers.filter(m => m.member_category === 'accountant')
 
   return (
     <MemberDirectoryView
@@ -94,29 +88,6 @@ function AddAccountantForm({ allMembers, onDataChange }) {
   const labelStyle = { fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
 
-  function generateAccountantMemberNumber() {
-    // Two namespaces:
-    //   Legacy Model accountants → [90000, ∞), starts at 90000
-    //   New Model  accountants  → [30000, 90000), starts at 30000
-    // Filter to ONLY accountants (so legacy 59xxx advisors don't pollute
-    // the New Model range). Accountant = accountant_onboarding_id set
-    // OR (onboarding_id NULL AND member_type in ACCOUNTANT_TYPES).
-    const isLegacy = advisorModel === 'Legacy Model'
-    const rangeStart = isLegacy ? 90000 : 30000
-    const rangeEnd = isLegacy ? Infinity : 90000
-    const isAccountantMember = (m) => {
-      if (m.accountant_onboarding_id != null) return true
-      if (m.onboarding_id != null) return false
-      return ACCOUNTANT_TYPES.includes(m.member_type)
-    }
-    const nums = (allMembers || [])
-      .filter(isAccountantMember)
-      .map(m => parseInt(m.plugin_member_number, 10))
-      .filter(n => !isNaN(n) && n >= rangeStart && n < rangeEnd)
-    if (nums.length === 0) return String(rangeStart)
-    return String(Math.max(...nums) + 1)
-  }
-
   async function submit() {
     if (!firstName || !lastName || !memberType) { setStatusType('error'); setStatus('First name, last name, and member type are required.'); return }
     if (!email.trim()) { setStatusType('error'); setStatus('Email is required.'); return }
@@ -124,25 +95,28 @@ function AddAccountantForm({ allMembers, onDataChange }) {
     if (!advisorModel) { setStatusType('error'); setStatus('Please pick Legacy Model or New Model.'); return }
     setLoading(true)
     try {
-      if (customMemberNumber.trim()) {
-        const exists = (allMembers || []).find(m => m.plugin_member_number === customMemberNumber.trim())
-        if (exists) { setStatusType('error'); setStatus(`Member number ${customMemberNumber.trim()} already exists.`); setLoading(false); return }
+      const customNum = customMemberNumber.trim()
+      if (customNum) {
+        const exists = (allMembers || []).find(m => m.plugin_member_number === customNum)
+        if (exists) { setStatusType('error'); setStatus(`Member number ${customNum} already exists.`); setLoading(false); return }
       }
-      const member_number = customMemberNumber.trim() || generateAccountantMemberNumber()
-      await callApi('add_member_full', {
+      // Member number: explicit custom value, or omit so the backend auto-generates
+      // for the (accountant × advisorModel) bucket — single source of truth.
+      const res = await callApi('add_member_full', {
         name: `${firstName} ${lastName}`,
-        member_number,
+        member_number: customNum || undefined,
         first_name: firstName,
         last_name: lastName,
         member_type: memberType,
         elite_status: eliteStatus,
         email,
         advisor_model: advisorModel,
+        member_category: 'accountant',
         connected_member_number: null,
       })
       await onDataChange()
       setFirstName(''); setLastName(''); setEmail(''); setMemberType(''); setCustomMemberNumber(''); setAdvisorModel(''); setEliteStatus('')
-      setStatusType('success'); setStatus(`Accountant created with number ${member_number}`)
+      setStatusType('success'); setStatus(`Accountant created with number ${res.member_number}`)
     } catch (err) { setStatusType('error'); setStatus(err.message) }
     finally { setLoading(false) }
   }
@@ -342,7 +316,7 @@ function MemberDirectoryView({
 function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, initialTab, section, navClickCount }) {
   return (
     <MemberDirectoryView
-      displayMembers={allMembers}
+      displayMembers={allMembers.filter(m => m.member_category !== 'accountant')}
       allMembers={allMembers}
       allExperts={allExperts}
       allExclusionMap={allExclusionMap}
@@ -377,13 +351,12 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
   const labelStyle = { fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
 
-  function generateMemberNumber() {
-    if (isCorporate && connectedMember) {
-      const existing = allMembers.filter(m => m.plugin_member_number?.startsWith(connectedMember.plugin_member_number + '-C'))
-      return `${connectedMember.plugin_member_number}-C${existing.length + 1}`
-    }
-    const nums = allMembers.map(m => parseInt(m.plugin_member_number)).filter(n => !isNaN(n))
-    return String(Math.max(...nums, 0) + 1)
+  // Corporate members keep their parent-linked "<parent>-C<n>" numbering and
+  // stay uncategorized (member_category=null), so they never enter the integer
+  // numbering buckets. Standard advisors are auto-numbered by the backend.
+  function corporateMemberNumber() {
+    const existing = allMembers.filter(m => m.plugin_member_number?.startsWith(connectedMember.plugin_member_number + '-C'))
+    return `${connectedMember.plugin_member_number}-C${existing.length + 1}`
   }
 
   async function submit() {
@@ -399,11 +372,14 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
         const exists = allMembers.find(m => m.plugin_member_number === customMemberNumber.trim())
         if (exists) { setStatusType('error'); setStatus(`Member number ${customMemberNumber.trim()} already exists.`); setLoading(false); return }
       }
-      const member_number = customMemberNumber.trim() || generateMemberNumber()
-      await callApi('add_member_full', { name: `${firstName} ${lastName}`, member_number, first_name: firstName, last_name: lastName, member_type: memberType, elite_status: eliteStatus, email, revenue_decision: revenueDecision, advisor_model: advisorModel, connected_member_number: connectedMember?.plugin_member_number || null })
+      // Explicit number for a custom override or corporate -C; otherwise omit
+      // so the backend auto-generates for the (advisor × advisorModel) bucket.
+      const customNum = customMemberNumber.trim()
+      const member_number = customNum || (isCorporate && connectedMember ? corporateMemberNumber() : undefined)
+      const res = await callApi('add_member_full', { name: `${firstName} ${lastName}`, member_number, first_name: firstName, last_name: lastName, member_type: memberType, elite_status: eliteStatus, email, revenue_decision: revenueDecision, advisor_model: advisorModel, member_category: isCorporate ? null : 'advisor', connected_member_number: connectedMember?.plugin_member_number || null })
       await onDataChange()
       setFirstName(''); setLastName(''); setEmail(''); setMemberType(''); setConnectedMember(null); setConnectedSearch(''); setCustomMemberNumber(''); setAdvisorModel(''); setEliteStatus(''); setRevenueDecision('')
-      setStatusType('success'); setStatus(`Member created with number ${member_number}`)
+      setStatusType('success'); setStatus(`Member created with number ${res.member_number}`)
     } catch (err) { setStatusType('error'); setStatus(err.message) }
     finally { setLoading(false) }
   }
