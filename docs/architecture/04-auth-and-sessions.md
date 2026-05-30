@@ -87,8 +87,10 @@ The function returns either an `AuthResult` of kind `"response"` (early-return 4
 
 | Gate | File | Behavior |
 |---|---|---|
-| `ADMIN_ONLY_ACTIONS` array (~52 entries) | `constants/role-gates.ts` | Member callers get `403 Forbidden` |
-| `MEMBER_SCOPED_ACTIONS` array (~17 entries) | `constants/role-gates.ts` | For member callers, `body.member_number` is overwritten with the caller's own value before dispatch |
+| `ADMIN_ONLY_ACTIONS` array (73 entries) | `constants/role-gates.ts` | Member callers get `403 Forbidden` |
+| `MEMBER_SCOPED_ACTIONS` array (23 entries) | `constants/role-gates.ts` | For member callers, `body.member_number` is overwritten with the caller's own value before dispatch |
+
+> **Member client-add (v337):** `msm_add_client` (Holistic / Tax / Partnership Fast Track "+ Add Client") and `msm_add_client_contact` are in `MEMBER_SCOPED_ACTIONS`, so a member caller's `body.member_number` is forced to their own. The middleware rewrite is only the first layer — the **handlers themselves add an ownership guard** because `enrollment_id` / `client_id` are NOT scoped by the middleware: `add-client.ts` rejects (`403`) when `enrollment.member_number !== member_number` (applies to all callers; no-op for admins who pass matching pairs), and `add-client-contact.ts` rejects when the target client isn't the caller's (member callers only — keyed on `body.member_number` being present). This is the pattern to follow for any other member-allowed write that takes a foreign-key the middleware can't scope.
 
 **Gaps explicitly visible:**
 - `add_client_note`, `update_client_note`, `delete_client_note` are in **neither** list — both admin and member can call them, with no DB-level scoping. Security relies on the caller knowing a `note_id` they're allowed to touch.

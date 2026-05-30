@@ -154,10 +154,10 @@ The top-level picture. Two repos, one Supabase project, four external integratio
               │     (member_logins).                                   │
               │                                                        │
               │  ADMIN_ONLY_ACTIONS (constants/role-gates.ts):         │
-              │     ~52 mutations → 403 for member callers             │
+              │     73 mutations → 403 for member callers              │
               │                                                        │
               │  MEMBER_SCOPED_ACTIONS (constants/role-gates.ts):      │
-              │     ~17 reads/writes → body.member_number forced       │
+              │     23 reads/writes → body.member_number forced        │
               │     to caller's own                                    │
               │                                                        │
               │  4. AUTH_HANDLERS map (router/dispatch.ts):            │
