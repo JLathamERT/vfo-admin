@@ -7,7 +7,7 @@
 
 | Item | Value |
 |------|-------|
-| `vfo-admin-api` version | v336 |
+| `vfo-admin-api` version | v337 |
 | `boldsign-webhook` version | v37 |
 | Action count | **218** (3 logins + 68 PUBLIC + 147 AUTH dispatched handlers) |
 | `deno check` baseline errors | **0** — cleared 2026-05-29 (was 7: 4 `existing-null` in `actions/pipeline/pipfu-decision.ts` + 3 `pipeRow null` in `router/webhooks.ts`; both fixed with explicit null-guards, see gotcha #45). Going-forward gate: any error = fail. |
@@ -372,3 +372,9 @@ This accepts BOTH service-role bearer (used by the chain) AND admin session toke
 **51. Website Plugin — page gated on `website_enabled`; enable toggle is admin-only (2026-05-29).** Frontend only (`MemberWebsitePlugin.jsx`, `MemberPortal.jsx`, `MembersPanel.jsx`).
 - `member_plugin_settings.website_enabled=false` now **hides the member-portal "Website Plugin" tab entirely** (`MemberPortal` filters the tab button + guards the render on `memberData.website_enabled`). Previously the page rendered regardless of the flag — that was the bug.
 - The member-facing **"Enable Website Plugin" toggle was removed**. `MemberWebsitePlugin` gained an `isAdmin` prop and shows the toggle only when `isAdmin` (admin `MembersPanel` passes `isAdmin={true}`; member portal passes nothing). The component's not-enabled gate changed from `&& readOnly` to `&& !isAdmin`. `website_enabled` is merged into member objects by `load_data` (from `member_plugin_settings.*`), so it's available client-side without a re-login.
+
+**52. Members can add clients/accountants on the member side; `msm_add_client` ungated + ownership-guarded (2026-05-30, v337).** Backend only (`constants/role-gates.ts`, `actions/msm/add-client.ts`, `actions/msm/add-client-contact.ts`). The member-side "+ Add Client" button (Holistic / Tax / Partnership Fast Track — Partnership's "clients" are accountants, same `msm_add_client` action with an `-PFT` ref) was returning **403 "Forbidden — admin access required"** because `msm_add_client` was in `ADMIN_ONLY_ACTIONS`. Two-layer fix that opens it up WITHOUT a privilege-escalation hole:
+- **`msm_add_client` moved** `ADMIN_ONLY_ACTIONS` → `MEMBER_SCOPED_ACTIONS`, and **`msm_add_client_contact` added** to `MEMBER_SCOPED_ACTIONS`. The middleware now force-overwrites `body.member_number` with the caller's own for member callers (kills member_number spoofing; admins unaffected — the rewrite only fires for role `member`).
+- **`add-client.ts` ownership guard** (applies to ALL callers): after the existing enrollment fetch, `400` if the enrollment is missing, `403` if `String(enrollment.member_number) !== String(member_number)`. Confines a member to their own enrollments (can't attach a client to another member's enrollment); a no-op for admins, who always pass a matching `(enrollment_id, member_number)` pair. Also enforces a real data-integrity invariant: a client's `member_number` must match its enrollment's owner.
+- **`add-client-contact.ts` ownership guard** (member callers only): if `body.member_number` is present (set = scoped member caller), `403` unless the target `client_id`'s `member_number` matches. Admins don't send `member_number`, so it's skipped for them. Closes a pre-existing gap (the action was ungated with zero ownership check).
+- Verified live on v337: member positive add (own Holistic/Partnership/Tax enrollment) → 200; foreign enrollment → 403; spoofed `member_number` → 403; foreign-client contact → 403; own-client contact → 200. Admin add-client unchanged. Pipeline smoke 5/5, `deno check` 0. Gate counts now: `ADMIN_ONLY_ACTIONS` **73**, `MEMBER_SCOPED_ACTIONS` **23**.

@@ -72,16 +72,19 @@ The 32 `msm_*` actions fall into 5 subsystems. Each is a small CRUD island — n
 
 ## Member-side view
 
-Members can call all `msm_load_*` reads — but they are scoped server-side: `MEMBER_SCOPED_ACTIONS` ([admin-api:2261](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) overwrites `body.member_number` with the caller's own. Specifically scoped:
+Members can call all `msm_load_*` reads — but they are scoped server-side: `MEMBER_SCOPED_ACTIONS` (`constants/role-gates.ts`) overwrites `body.member_number` with the caller's own. Specifically scoped:
 
 ```
+msm_add_client, msm_add_client_contact,
 msm_load_enrollments, msm_load_clients, msm_load_member_clients,
 msm_load_enabled_programs, msm_load_meetings,
 msm_load_training_progress, msm_load_training_track,
 load_exclusions, load_member_contacts
 ```
 
-Mutations are admin-only (in `ADMIN_ONLY_ACTIONS` array — [admin-api:2226-2252](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)). Notably:
+**Adding clients is member-allowed (v337).** `msm_add_client` (the member-side "+ Add Client" on Holistic / Tax / Partnership Fast Track — on Partnership the "clients" are accountants, same action with an `-PFT` ref) and `msm_add_client_contact` are in `MEMBER_SCOPED_ACTIONS`. Because the middleware only scopes `member_number` (not `enrollment_id` / `client_id`), the **handlers add their own ownership guard**: `add-client.ts` returns `403` unless `enrollment.member_number === member_number` (all callers; no-op for admins), and `add-client-contact.ts` returns `403` unless the target client belongs to the caller (member callers only). See [04-auth-and-sessions.md](../architecture/04-auth-and-sessions.md#role-gates).
+
+Other mutations are admin-only (in `ADMIN_ONLY_ACTIONS` array — `constants/role-gates.ts`). Notably:
 - `msm_save_training_task` and `msm_save_client_task` are NOT in either list. The handler doesn't enforce role. Members could in theory write training/client progress for any enrollment/client they know the ID of. Application-level (UI-level) ownership is the only guard.
 
 ## Cross-talk with other flows
@@ -102,7 +105,7 @@ Mutations are admin-only (in `ADMIN_ONLY_ACTIONS` array — [admin-api:2226-2252
 
 1. **No DB transactions** — `msm_add_client` does 3 inserts (`clients`, `client_contacts`, `client_enrollments`) sequentially, not in a transaction. A failure between #1 and #2 leaves an orphan `clients` row.
 2. **`msm_update_client` duplicate handler** — see [05-api-action-catalog.md](../architecture/05-api-action-catalog.md). The duplicate at line 3216 is dead code.
-3. **Cross-tenant write** — for actions not in `ADMIN_ONLY_ACTIONS` and not in `MEMBER_SCOPED_ACTIONS` (notably `msm_save_training_task`, `msm_save_client_task`, `msm_save_priority_task`), there's no server-side ownership check. Relies on UI not exposing other members' enrollment/client IDs.
+3. **Cross-tenant write** — for actions not in `ADMIN_ONLY_ACTIONS` and not in `MEMBER_SCOPED_ACTIONS` (notably `msm_save_training_task`, `msm_save_client_task`, `msm_save_priority_task`), there's no server-side ownership check. Relies on UI not exposing other members' enrollment/client IDs. (`msm_add_client` / `msm_add_client_contact` are NO LONGER in this gap as of v337 — they're member-scoped AND carry handler-level ownership guards on `enrollment_id` / `client_id`.)
 4. **`msm_link_existing_client`** could in theory let an admin link a client to any enrollment without ownership validation. No checks observed.
 
 ## Cross-references
