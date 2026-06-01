@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
 import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate } from './automation/StepKit'
+import SandboxModeToggle from './SandboxModeToggle'
 
 const STAGE_LABELS = {
   new: 'New',
@@ -203,17 +204,12 @@ export default function AdvisorAutomationPanel() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '24px', color: '#fff', margin: 0 }}>Advisor Onboarding Pipeline</h2>
-          {sandboxConfig && (
-            <span style={{
-              padding: '4px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: '600',
-              background: sandboxConfig.sandbox_mode ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
-              color: sandboxConfig.sandbox_mode ? '#f59e0b' : '#ef4444',
-              border: `1px solid ${sandboxConfig.sandbox_mode ? 'rgba(245,158,11,0.4)' : 'rgba(239,68,68,0.4)'}`,
-              letterSpacing: '0.5px',
-            }}>
-              {sandboxConfig.sandbox_mode ? 'SANDBOX MODE' : 'LIVE MODE'}
-            </span>
-          )}
+          <SandboxModeToggle
+            pipeline="ADVISOR_ONBOARDING"
+            label="Advisor Onboarding"
+            sandboxConfig={sandboxConfig}
+            onChange={setSandboxConfig}
+          />
         </div>
       </div>
 
