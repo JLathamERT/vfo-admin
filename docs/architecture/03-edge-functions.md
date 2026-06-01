@@ -175,8 +175,8 @@ Behavior change observable from outside: an explicit POST with `{ "action": "aut
 - `member-vault` — `actions/vault/list.ts`, `actions/vault/upload.ts`, `actions/vault/delete.ts`.
 - `tax-agreements` — `actions/tax/decision.ts` (static `tax-planning.pdf` attachment for Tax 3 Undecided email).
 - `map1-agreements` — `actions/pipeline/pcadmin-final-decision.ts` (`proactive-lite.pdf` / `proactive-core.pdf` / `proactive-max.pdf` Undecided attachments per service level).
-- `advisor-onboarding-agreements` — `actions/advisor/decision.ts` (`implementation-agreement.pdf` Undecided attachment).
-- `accountant-onboarding-agreements` — `actions/accountant/decision.ts` (intended `Accountant_Implementation_Agreement.pdf` Undecided attachment; currently empty — handler degrades to no-attachment email).
+- `advisor-onboarding-agreements` — `actions/advisor/decision.ts` (`Advisor_Implementation_Agreement.pdf` Undecided attachment; uploaded 2026-06-01).
+- `accountant-onboarding-agreements` — `actions/accountant/decision.ts` (TWO partnership-branched Undecided attachments — `Accountant_Implementation_Agreement_Partnership.pdf` / `_No_Partnership.pdf`, picked by `ob.accountant_partnership`; both uploaded 2026-06-01, gotcha #58).
 
 ---
 
