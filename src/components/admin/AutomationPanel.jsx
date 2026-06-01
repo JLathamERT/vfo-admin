@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
- 
+import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate } from './automation/StepKit'
+
 const STAGE_LABELS = {
   c81: 'PIP 1 — Reconfirmation Email',
   c13: 'PIP Follow Up — Decision',
@@ -17,16 +18,14 @@ const STAGE_LABELS = {
   complete: 'Complete',
   closed: 'Closed'
 }
- 
+
 const STAGE_COLORS = {
   c81: '#3b82f6', c13: '#8b5cf6', c14: '#f59e0b', c15: '#f59e0b',
   c16: '#6366f1', c17: '#6366f1', c18: '#6366f1',
   payment: '#ec4899', confirmation: '#14b8a6', invoice: '#14b8a6',
   receipts: '#14b8a6', revshare: '#22c55e', complete: '#22c55e', closed: '#ef4444'
 }
- 
-const DECISION_COLORS = { Yes: '#27ae60', No: '#e74c3c', Undecided: '#f59e0b', ExtraMeeting: '#5b9fe6' }
- 
+
 function getCurrentStage(row) {
   if (row.c24_email_sent) return 'complete'
   if (row.c13_decision === 'No' && row.c14_email_sent === 'Yes') return 'closed'
@@ -43,33 +42,17 @@ function getCurrentStage(row) {
   if (row.c81_decision) return 'c81'
   return 'c81'
 }
- 
+
 function tryParseJSON(str) {
   if (!str) return null
   try { return JSON.parse(str) } catch { return str }
 }
- 
-const F = ({ l, v, hide }) => {
-  if (hide) return null
-  return (
-    <div style={{ display: 'flex', padding: '2px 0' }}>
-      <span style={{ fontSize: '12px', color: '#5a8ab5', width: '160px', flexShrink: 0 }}>{l}</span>
-      <span style={{ fontSize: '12px', color: v ? '#d1dce8' : '#3d5a7a' }}>{v || '—'}</span>
-    </div>
-  )
+
+// true if any of the given values is present (non-empty)
+function has(...vals) {
+  return vals.some(v => v !== null && v !== undefined && v !== '')
 }
- 
-function Badge({ text, color }) {
-  if (!text) return null
-  const c = color || DECISION_COLORS[text] || '#8bacc8'
-  return (
-    <span style={{
-      fontSize: '11px', padding: '2px 10px', borderRadius: '4px', fontWeight: '600',
-      background: `${c}15`, color: c, border: `1px solid ${c}30`
-    }}>{text}</span>
-  )
-}
- 
+
 function PaymentButtons({ row, onRefresh }) {
   const [busy, setBusy] = useState(null)
   const [err, setErr] = useState('')
@@ -139,200 +122,230 @@ function PaymentButtons({ row, onRefresh }) {
   )
 }
 
-function Step({ title, done, children }) {
-  return (
-    <div style={{ display: 'flex', gap: '14px', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '14px', paddingTop: '3px' }}>
-        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', border: `2px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.12)'}`, flexShrink: 0 }} />
-        <div style={{ flex: 1, width: '1px', background: 'rgba(255,255,255,0.06)', marginTop: '4px' }} />
-      </div>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: '11px', fontWeight: '600', color: done ? '#fff' : '#5a8ab5', letterSpacing: '0.4px', marginBottom: '4px', textTransform: 'uppercase' }}>{title}</div>
-        <div style={{ paddingLeft: '2px' }}>{children}</div>
-      </div>
-    </div>
-  )
-}
- 
 function ExpandedRow({ row, onRefresh }) {
   const currentPriorities = tryParseJSON(row.current_priorities)
   const parkedPriorities = tryParseJSON(row.parked_priorities)
   const undecidedReasons = tryParseJSON(row.undecided_reason)
   const extraCc = tryParseJSON(row.extra_cc)
- 
+
+  // ---- derived fields ----
+  const revDecision = (paidVal, share) => {
+    if (paidVal === 'Money Mapping') return 'Money Mapping'
+    if (paidVal === 'N/A — No Share Due') return 'No share due'
+    if (share || paidVal === 'Yes' || paidVal === 'Failed') return 'Revenue Share'
+    return null
+  }
+  const isQuarterly = /quarter/i.test(row.payment_plan || '')
+  const perPaymentAmount = (() => {
+    const n = parseFloat(String(row.gross_fee || '').replace(/[^0-9.]/g, ''))
+    if (isNaN(n)) return null
+    return isQuarterly ? n / 4 : n
+  })()
+  const priceRows = () => (
+    <>
+      <Detail l="Service level" v={row.service_level || row.c15_service_level} />
+      <Detail l="Gross fee" v={fmtMoney(row.gross_fee)} />
+      <Detail l="Member contribution" v={fmtMoney(row.member_contribution)} />
+      <Detail l="Net invoice" v={fmtMoney(row.net_invoice)} />
+      <Detail l="Member share" v={fmtMoney(row.member_share)} />
+      <Detail l="VFOs share" v={fmtMoney(row.vfos_share)} />
+      <Detail l="Payment plan" v={row.payment_plan} />
+    </>
+  )
+
+  // ---- per-step status ----
+  const s81 = !row.c81_decision ? 'pending'
+    : row.c81_decision === 'No' ? 'declined'
+    : row.c81_email_sent === 'Skipped' ? 'skipped' : 'done'
+
+  const s13 = !row.c13_decision ? 'pending'
+    : row.c13_decision === 'No' ? 'declined' : 'done'
+
+  const c14Sent = row.c14_email_sent === 'Yes'
+  const s14 = !c14Sent ? 'pending'
+    : row.c15_final_decision ? 'done' : 'awaiting'
+
+  const s15 = !row.c15_final_decision ? 'pending'
+    : row.c15_final_decision === 'No' ? 'declined' : 'done'
+
+  const contractSent = row.c16_sent && row.c16_sent !== 'No'
+  const ceoSigned = row.c18_ceo_signed === 'Yes'
+  const sContract = !contractSent ? 'pending' : ceoSigned ? 'done' : 'awaiting'
+
+  const paid = row.pay1_status === 'succeeded'
+  const payStarted = has(row.pay1_status, row.pay1_email_sent_at, row.checkout_token)
+  const sPay = paid ? 'done' : payStarted ? 'awaiting' : 'pending'
+
+  const sConfirm = (row.confirmation_email_sent_at || row.confirmation_status === 'Sent') ? 'done' : 'pending'
+
+  const sInvoice = row.invoice_email_sent ? 'done' : row.invoice_number ? 'sent' : 'pending'
+
+  const sRev = (row.c24_email_sent || row.rec1_rev_email_sent_at) ? 'done' : has(row.rec1_rev_share) ? 'awaiting' : 'pending'
+
   return (
-    <div style={{ padding: '4px 24px 16px 48px', background: 'rgba(0,0,0,0.06)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
- 
-      {/* PIP 1 */}
-      <Step title="PIP 1 — Reconfirmation Email" done={!!row.c81_decision}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-          <Badge text={row.c81_decision} />
-          {row.c81_email_sent && <Badge text={row.c81_email_sent === 'Skipped' ? 'Email Skipped' : 'Email Sent'} color={row.c81_email_sent === 'Skipped' ? '#f59e0b' : '#27ae60'} />}
-        </div>
-        <F l="Follow-up meeting" v={row.followup_meeting_date} />
-      </Step>
- 
-      {/* PIP Follow Up */}
-      <Step title="PIP Follow Up — Decision" done={!!row.c13_decision}>
+    <div style={{ padding: '12px 24px 18px 48px', background: 'rgba(0,0,0,0.10)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+
+      {/* 1 — PIP 1 reconfirmation / declined email */}
+      <StepCard title="PIP 1 — Reconfirmation / Declined Email" status={s81}>
+        {row.c81_decision ? (
+          <>
+            <Detail l="Re-confirmation decision" v={<Badge text={row.c81_decision} />} showEmpty />
+            <Detail l="Follow-up meeting date" v={fmtDate(row.followup_meeting_date)} />
+            <Detail l={row.c81_decision === 'No' ? 'Declined email' : 'Re-confirmation email'}
+              v={row.c81_email_sent === 'Skipped' ? 'Skipped' : (row.c81_email_sent ? 'Sent' : null)} showEmpty />
+          </>
+        ) : <Pending />}
+      </StepCard>
+
+      {/* 2 — PIP Follow Up decision (PF fills the form) */}
+      <StepCard title="PIP Follow-Up — Decision" status={s13}>
         {row.c13_decision ? (
           <>
-            <div style={{ marginBottom: '6px' }}><Badge text={row.c13_decision} /></div>
-            {row.c13_decision === 'Yes' && (
-              <>
-                <F l="Service level" v={row.service_level} />
-                <F l="Gross fee" v={row.gross_fee ? `$${row.gross_fee}` : null} />
-                <F l="Member contribution" v={row.member_contribution ? `$${row.member_contribution}` : null} />
-                <F l="Net invoice" v={row.net_invoice ? `$${row.net_invoice}` : null} />
-                <F l="Member share" v={row.member_share ? `$${row.member_share}` : null} />
-                <F l="VFOs share" v={row.vfos_share ? `$${row.vfos_share}` : null} />
-                <F l="Payment plan" v={row.payment_plan} />
-              </>
-            )}
+            <Detail l="Decision" v={<Badge text={row.c13_decision} />} showEmpty />
+            {row.c13_decision === 'Yes' && priceRows()}
             {row.c13_decision === 'Undecided' && (
               <>
-                {Array.isArray(undecidedReasons) && undecidedReasons.length > 0 && (
-                  <div style={{ marginBottom: '4px' }}>
-                    <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Reasons: </span>
-                    <span style={{ fontSize: '12px', color: '#d1dce8' }}>{undecidedReasons.join('; ')}</span>
-                  </div>
-                )}
-                <F l="Lite" v={row.lite_membership ? `$${row.lite_membership}` : null} />
-                <F l="Core" v={row.core_membership ? `$${row.core_membership}` : null} />
-                <F l="Max" v={row.max_membership} />
+                <Detail l="Reasons" v={Array.isArray(undecidedReasons) ? undecidedReasons.join('; ') : undecidedReasons} />
+                <Detail l="Lite" v={fmtMoney(row.lite_membership)} />
+                <Detail l="Core" v={fmtMoney(row.core_membership)} />
+                <Detail l="Max" v={row.max_membership} />
               </>
             )}
-            {Array.isArray(currentPriorities) && currentPriorities.length > 0 && (
-              <div style={{ marginTop: '4px' }}>
-                <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Current priorities: </span>
-                <span style={{ fontSize: '12px', color: '#d1dce8' }}>{currentPriorities.join(', ')}</span>
-              </div>
-            )}
-            {Array.isArray(parkedPriorities) && parkedPriorities.length > 0 && (
-              <div>
-                <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Parked: </span>
-                <span style={{ fontSize: '12px', color: '#d1dce8' }}>{parkedPriorities.join(', ')}</span>
-              </div>
-            )}
-            {Array.isArray(extraCc) && extraCc.length > 0 && <F l="Extra CC" v={extraCc.join(', ')} />}
+            <Detail l="Current priorities" v={Array.isArray(currentPriorities) ? currentPriorities.join(', ') : null} />
+            <Detail l="Parked priorities" v={Array.isArray(parkedPriorities) ? parkedPriorities.join(', ') : null} />
+            <Detail l="Extra CC" v={Array.isArray(extraCc) ? extraCc.join(', ') : null} />
           </>
-        ) : (
-          <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
-        )}
-      </Step>
- 
-      {/* Follow-up Email */}
-      <Step title="PC Admin — Follow-up Email" done={row.c14_email_sent === 'Yes'}>
-        {row.c14_email_sent === 'Yes' ? (
+        ) : <Pending />}
+      </StepCard>
+
+      {/* 3 — PC Admin undecided email (automated, to client) */}
+      <StepCard title="PC Admin — Undecided Email" status={s14}>
+        {c14Sent ? (
           <>
-            <Badge text="Email Sent" color="#27ae60" />
-            {row.c14_followup1_sent && <F l="Followup 1" v="Sent" />}
-            {row.c14_followup2_sent && <F l="Followup 2" v="Sent" />}
+            <Detail l="Undecided email" v={fmtDate(row.c14_email_sent_at) || 'Sent'} />
+            <Detail l="48h reminder sent" v={fmtDate(row.c14_reminder_sent_at)} />
+            <Detail l="96h PF notified" v={fmtDate(row.c14_pf_notified_at)} />
+            {!row.c15_final_decision && <Detail l="Client reply" v="Awaiting client" showEmpty />}
           </>
-        ) : (
-          <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
-        )}
-      </Step>
- 
-      {/* Final Decision */}
-      <Step title="PC Admin — Final Decision" done={!!row.c15_final_decision}>
+        ) : <Pending text="Not applicable / not sent yet" />}
+      </StepCard>
+
+      {/* 4 — PC Admin final decision (client's reply / extra-meeting outcome) */}
+      <StepCard title="PC Admin — Final Decision" status={s15}>
         {row.c15_final_decision ? (
           <>
-            {row.c15_via_extra_meeting && (
-              <div style={{ fontSize: '11px', color: '#5b9fe6', marginBottom: '6px' }}>Via extra meeting</div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <Badge text={row.c15_final_decision} />
-              {row.c15_service_level && <span style={{ fontSize: '12px', color: '#d1dce8' }}>{row.c15_service_level}</span>}
-            </div>
-            {row.c15_final_decision === 'Yes' && (
-              <>
-                <F l="Gross fee" v={`$${row.gross_fee}`} />
-                <F l="Member contribution" v={row.member_contribution ? `$${row.member_contribution}` : null} />
-                <F l="Net invoice" v={row.net_invoice ? `$${row.net_invoice}` : null} />
-                <F l="Member share" v={row.member_share ? `$${row.member_share}` : null} />
-                <F l="VFOs share" v={row.vfos_share ? `$${row.vfos_share}` : null} />
-                <F l="Payment plan" v={row.payment_plan} />
-              </>
-            )}
+            <Detail l="Final decision" v={<Badge text={row.c15_final_decision} />} showEmpty />
+            {row.c15_via_extra_meeting && <Detail l="Resolved" v="Via extra meeting" />}
+            {row.c15_final_decision === 'Yes' && priceRows()}
           </>
-        ) : (
-          <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
-        )}
-      </Step>
- 
-      {/* Contract */}
-      <Step title="Contract" done={row.c18_ceo_signed === 'Yes'}>
-        {row.c16_sent && row.c16_sent !== 'No' ? (
+        ) : <Pending />}
+      </StepCard>
+
+      {/* 5 — Agreement / contract */}
+      <StepCard title="Agreement" status={sContract}>
+        {contractSent ? (
           <>
-            <F l="Agreement sent" v={row.c16_sent} />
-            <F l="Client signed" v={row.c17_client_signed} />
-            <F l="CEO signed" v={row.c18_ceo_signed} />
+            <Detail l="Agreement sent" v={fmtDate(row.c16_sent)} showEmpty />
+            <Detail l="Signing follow-up" v={fmtDate(row.c17_followup_sent_date)} />
+            <Detail l="48h reminder sent" v={fmtDate(row.c17_reminder_sent_at)} />
+            <Detail l="96h PF notified" v={fmtDate(row.c17_pf_notified_at)} />
+            <Detail l="Client signed" v={fmtDate(row.c17_client_signed)} showEmpty />
+            <Detail l="CEO countersigned" v={fmtDate(row.c18_ceo_signed)} showEmpty />
           </>
-        ) : (
-          <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
-        )}
-      </Step>
- 
-      {/* Payment */}
-      <Step title="Payment" done={!!row.pay1_status}>
-        {row.pay1_status ? (
+        ) : <Pending />}
+      </StepCard>
+
+      {/* 6 — Payment (P1) */}
+      <StepCard title="Payment" status={sPay}>
+        {payStarted ? (
           <>
-            <F l="Method" v={row.payment_method_type} />
-            <F l="Account" v={row.acct_last4 ? `****${row.acct_last4}` : null} />
-            <F l="Pay 1" v={row.pay1_status ? `${row.pay1_status}${row.pay1_date ? ' — ' + row.pay1_date : ''}` : null} />
-            {row.pay2_status && <F l="Pay 2" v={`${row.pay2_status}${row.pay2_date ? ' — ' + row.pay2_date : ''}`} />}
-            {row.pay3_status && <F l="Pay 3" v={`${row.pay3_status}${row.pay3_date ? ' — ' + row.pay3_date : ''}`} />}
-            {row.pay4_status && <F l="Pay 4" v={`${row.pay4_status}${row.pay4_date ? ' — ' + row.pay4_date : ''}`} />}
+            <Detail l="Payment link emailed" v={fmtDate(row.pay1_email_sent_at)} />
+            <Detail l="48h reminder sent" v={fmtDate(row.pay1_reminder_sent_at)} />
+            <Detail l="96h PF notified" v={fmtDate(row.pay1_pf_notified_at)} />
+            <Detail l="Method" v={row.payment_method_type} />
+            <Detail l="Account" v={row.acct_last4 ? `****${row.acct_last4}` : null} />
+            <Detail l="Payment amount" v={fmtMoney(perPaymentAmount)} />
+            <Detail l="Payment 1 status" v={row.pay1_status} />
+            <Detail l="Payment 1 received" v={fmtDate(row.pay1_date)} />
             <PaymentButtons row={row} onRefresh={onRefresh} />
           </>
         ) : (
           <>
-            <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
+            <Pending />
             <PaymentButtons row={row} onRefresh={onRefresh} />
           </>
         )}
-      </Step>
- 
-      {/* Invoice & Receipts */}
-      <Step title="Invoice & Receipts" done={!!row.invoice_number}>
+      </StepCard>
+
+      {/* 7 — Confirmation email */}
+      <StepCard title="Confirmation Email" status={sConfirm}>
+        {(row.confirmation_email_sent_at || row.confirmation_status) ? (
+          <Detail l="Confirmation email" v={fmtDate(row.confirmation_email_sent_at) || row.confirmation_status} />
+        ) : <Pending />}
+      </StepCard>
+
+      {/* 8 — Invoice & receipts */}
+      <StepCard title="Invoice & Receipts" status={sInvoice}>
         {row.invoice_number ? (
           <>
-            <F l="Invoice #" v={row.invoice_number} />
-            <F l="Invoice emailed" v={row.invoice_email_sent ? 'Yes' : null} />
-            {[1,2,3,4].map(n => {
+            <Detail l="Invoice emailed" v={fmtDate(row.invoice_email_sent_at) || (row.invoice_email_sent ? 'Yes' : null)} showEmpty />
+            <Detail l="Invoice #" v={row.invoice_number} mono />
+            {[1, 2, 3, 4].map(n => {
               const num = row[`rec${n}_number`]
               if (!num) return null
-              return <F key={n} l={`Receipt ${n}`} v={`${num} — ${row[`rec${n}_status`] || 'pending'}`} />
+              return <Detail key={n} l={`Receipt ${n}`} v={num} mono />
             })}
           </>
-        ) : (
-          <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
-        )}
-      </Step>
- 
-      {/* Rev Share */}
-      <Step title="Revenue Share" done={row.c24_email_sent}>
-        {row.rec1_rev_share ? (
+        ) : <Pending />}
+      </StepCard>
+
+      {/* 9 — Revenue share (P1) */}
+      <StepCard title="Revenue Share" status={sRev}>
+        {has(row.rec1_rev_share, revDecision(row.rec1_rev_paid, row.rec1_rev_share)) ? (
           <>
-            {[1,2,3,4].map(n => {
-              const share = row[`rec${n}_rev_share`]
-              if (!share) return null
-              return <F key={n} l={`Rev share ${n}`} v={`$${share} — ${row[`rec${n}_rev_paid`] || 'unpaid'}`} />
-            })}
-            <F l="Member contrib" v={row.member_contrib_status} />
+            <Detail l="Revenue decision" v={revDecision(row.rec1_rev_paid, row.rec1_rev_share)} showEmpty />
+            <Detail l="Revenue share completed" v={fmtDate(row.rec1_rev_completed_at)} />
+            <Detail l="Revenue share amount" v={fmtMoney(row.rec1_rev_share)} />
+            <Detail l="Rev share confirmation email"
+              v={fmtDate(row.rec1_rev_email_sent_at) || fmtDate(row.c24_email_sent_at) || (row.c24_email_sent ? 'Sent' : null)} showEmpty />
           </>
-        ) : (
-          <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
-        )}
-      </Step>
- 
-      <div style={{ marginTop: '6px', fontSize: '10px', color: '#4a7a9e' }}>
-        Created {row.created_at?.split('T')[0]} · Updated {row.updated_at?.split('T')[0]}
+        ) : <Pending />}
+      </StepCard>
+
+      {/* Future / remaining quarterly payments (P2–P4) */}
+      {(isQuarterly || has(row.pay2_status, row.pay2_date, row.pay3_status, row.pay4_status)) && (
+        <div style={{ marginTop: '14px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: '#5a8ab5', margin: '4px 0 8px' }}>
+            Quarterly Payments 2–4
+          </div>
+          {[2, 3, 4].map(n => {
+            const due = row[`pay${n}_date`]
+            const received = row[`pay${n}_paid_at`]
+            const status = row[`pay${n}_status`]
+            const recNum = row[`rec${n}_number`]
+            const recAt = row[`rec${n}_email_sent_at`]
+            const st = status === 'succeeded' ? 'done' : (due ? 'awaiting' : 'pending')
+            return (
+              <StepCard key={n} title={`Payment ${n}`} status={st}>
+                <Detail l="Date due" v={fmtDate(due)} showEmpty />
+                <Detail l="Date received" v={fmtDate(received)} showEmpty />
+                <Detail l="Payment amount" v={fmtMoney(perPaymentAmount)} />
+                <Detail l="Receipt sent" v={recNum ? `${recNum}${recAt ? ' · ' + fmtDate(recAt) : ''}` : null} mono />
+                <Detail l="Revenue share decision" v={revDecision(row[`rec${n}_rev_paid`], row[`rec${n}_rev_share`])} />
+                <Detail l="Revenue share sent" v={fmtDate(row[`rec${n}_rev_email_sent_at`]) || fmtDate(row[`rec${n}_rev_completed_at`])} />
+              </StepCard>
+            )
+          })}
+        </div>
+      )}
+
+      <div style={{ marginTop: '10px', fontSize: '10px', color: '#4a7a9e' }}>
+        Created {fmtDate(row.created_at)} · Updated {fmtDate(row.updated_at)}
       </div>
     </div>
   )
 }
- 
+
 function SandboxBadge({ config, onClick }) {
   const sandbox = !!config?.sandbox_mode
   const palette = sandbox
@@ -407,7 +420,7 @@ function SandboxToggleModal({ currentlySandbox, onConfirm, onCancel, saving }) {
     </div>
   )
 }
- 
+
 export default function AutomationPanel({ section }) {
   const [pipelines, setPipelines] = useState([])
   const [selectedPipeline, setSelectedPipeline] = useState(null)
@@ -418,10 +431,10 @@ export default function AutomationPanel({ section }) {
   const [expandedRow, setExpandedRow] = useState(null)
   const [showModeModal, setShowModeModal] = useState(false)
   const [savingMode, setSavingMode] = useState(false)
- 
+
   useEffect(() => { loadPipelines() }, [])
   useEffect(() => { if (selectedPipeline) loadPipelineData(selectedPipeline) }, [selectedPipeline])
- 
+
   async function loadPipelines() {
     try {
       const data = await callApi('automation_load_pipelines')
@@ -430,7 +443,7 @@ export default function AutomationPanel({ section }) {
     } catch (err) { setError(err.message) }
     finally { setLoading(false) }
   }
- 
+
   async function loadPipelineData(pipeline) {
     try {
       const data = await callApi('automation_load_pipeline_data', { table_name: pipeline.table_name })
@@ -457,14 +470,14 @@ export default function AutomationPanel({ section }) {
       setSavingMode(false)
     }
   }
- 
+
   if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>Loading...</div>
- 
+
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '24px', color: '#fff', margin: 0 }}>Automation Pipeline</h2>
+          <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '24px', color: '#fff', margin: 0 }}>MAP 1 Pipeline</h2>
           <SandboxBadge config={sandboxConfig} onClick={() => setShowModeModal(true)} />
         </div>
         {pipelines.length > 1 && (
@@ -474,9 +487,9 @@ export default function AutomationPanel({ section }) {
           </select>
         )}
       </div>
- 
+
       {error && <div style={{ color: '#ff6b6b', fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
- 
+
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
         {[
           { label: 'TOTAL', value: pipelineData.length, color: '#fff' },
@@ -491,7 +504,7 @@ export default function AutomationPanel({ section }) {
           </div>
         ))}
       </div>
- 
+
       {pipelineData.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
           <p style={{ color: '#8bacc8', fontSize: '15px', marginBottom: '8px' }}>No clients in pipeline yet</p>

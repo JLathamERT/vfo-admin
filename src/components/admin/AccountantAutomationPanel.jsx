@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
+import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate } from './automation/StepKit'
+import SandboxModeToggle from './SandboxModeToggle'
 
 const STAGE_LABELS = {
   new: 'New',
@@ -40,50 +42,6 @@ function getCurrentStage(row) {
   return 'new'
 }
 
-const F = ({ l, v, hide }) => {
-  if (hide) return null
-  return (
-    <div style={{ display: 'flex', padding: '2px 0' }}>
-      <span style={{ fontSize: '12px', color: '#5a8ab5', width: '180px', flexShrink: 0 }}>{l}</span>
-      <span style={{ fontSize: '12px', color: v ? '#d1dce8' : '#3d5a7a' }}>{v || '—'}</span>
-    </div>
-  )
-}
-
-function Badge({ text, color }) {
-  if (!text) return null
-  const c = color || '#8bacc8'
-  return (
-    <span style={{
-      fontSize: '11px', padding: '2px 10px', borderRadius: '4px', fontWeight: '600',
-      background: `${c}15`, color: c, border: `1px solid ${c}30`,
-    }}>{text}</span>
-  )
-}
-
-function Step({ title, done, children }) {
-  return (
-    <div style={{ marginBottom: '14px', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#22c55e' : 'rgba(255,255,255,0.2)' }} />
-        <span style={{ fontSize: '12px', fontWeight: '600', color: done ? '#22c55e' : '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{title}</span>
-      </div>
-      <div style={{ paddingLeft: '16px' }}>{children}</div>
-    </div>
-  )
-}
-
-function fmtMoney(n) {
-  const v = parseFloat(n)
-  if (!Number.isFinite(v)) return null
-  return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-
-function fmtDate(s) {
-  if (!s) return null
-  return new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
 function selectedPlansLabel(row) {
   const parts = []
   if (row.selected_vfo_ft) parts.push('VFO Fast Track')
@@ -102,6 +60,17 @@ function AccountantPipelineRow({ row, expanded, onToggle }) {
   const stageColor = STAGE_COLORS[stage]
   const plans = selectedPlansLabel(row)
 
+  const decisionStatus = (row.final_decision === 'No' || row.final_decision === 'Auto-Declined') ? 'declined'
+    : (row.final_decision || row.prelim_meeting_decision) ? 'done' : 'pending'
+  const agreementStatus = row.agreement_signed_by_ceo_at ? 'done'
+    : (row.agreement_sent_at || row.boldsign_document_id) ? 'awaiting' : 'pending'
+  const payStatus = row.payment_status === 'succeeded' ? 'done'
+    : (row.payment_link_sent_at || row.stripe_customer_id) ? 'awaiting' : 'pending'
+  const invStatus = row.invoice_sent_at ? 'done' : (row.confirmation_email_sent_at || row.invoice_number) ? 'sent' : 'pending'
+  const createStatus = row.member_number ? 'done' : 'pending'
+  const loginStatus = row.login_setup_completed_at ? 'done'
+    : (row.login_setup_email_sent_at || row.login_setup_token) ? 'awaiting' : 'pending'
+
   return (
     <div style={{ background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
       <div onClick={onToggle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', cursor: 'pointer' }}>
@@ -118,90 +87,79 @@ function AccountantPipelineRow({ row, expanded, onToggle }) {
       </div>
 
       {expanded && (
-        <div style={{ padding: '4px 18px 18px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <Step title="Decision" done={!!(row.final_decision || row.prelim_meeting_decision)}>
-            <F l="Decision" v={row.final_decision || row.prelim_meeting_decision} />
-            {row.prelim_meeting_decision === 'Undecided' && (
-              <F l="Undecided email sent" v={fmtDate(row.decision_email_sent_at)} />
-            )}
-          </Step>
+        <div style={{ padding: '8px 18px 18px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <StepCard title="Decision" status={decisionStatus}>
+            <Detail l="Decision" v={<Badge text={row.final_decision || row.prelim_meeting_decision} />} showEmpty />
+            <Detail l="Partnership" v={row.accountant_partnership} />
+            <Detail l="Undecided email sent" v={fmtDate(row.decision_email_sent_at)} />
+            <Detail l="48h reminder sent" v={fmtDate(row.decision_reminder_sent_at)} />
+            <Detail l="96h PF notified" v={fmtDate(row.decision_pf_notified_at)} />
+          </StepCard>
 
-          <Step title="Agreement" done={!!row.agreement_signed_by_ceo_at}>
+          <StepCard title="Agreement" status={agreementStatus}>
             {row.boldsign_document_id ? (
               <>
-                <F l="BoldSign doc id" v={row.boldsign_document_id} />
-                <F l="Sent at" v={fmtDate(row.agreement_sent_at)} />
-                <F l="Signed by accountant" v={fmtDate(row.agreement_signed_by_accountant_at)} />
-                <F l="Countersigned by CEO" v={fmtDate(row.agreement_signed_by_ceo_at)} />
-                <F l="Signing reminder sent" v={fmtDate(row.signing_reminder_sent_at)} />
-                <F l="Selected plans" v={plans} hide={!plans} />
-                <F l="Payment amount" v={fmtMoney(row.payment_amount)} hide={!plans} />
-                <F l="Engagement term" v={row.engagement_term_months ? `${row.engagement_term_months} months` : null} hide={!plans} />
+                <Detail l="Agreement sent" v={fmtDate(row.agreement_sent_at)} showEmpty />
+                <Detail l="48h reminder sent" v={fmtDate(row.signing_reminder_sent_at)} />
+                <Detail l="96h PF notified" v={fmtDate(row.signing_pf_notified_at)} />
+                <Detail l="Signed by accountant" v={fmtDate(row.agreement_signed_by_accountant_at)} showEmpty />
+                <Detail l="CEO countersigned" v={fmtDate(row.agreement_signed_by_ceo_at)} showEmpty />
+                <Detail l="Selected plans" v={plans} />
+                <Detail l="Payment amount" v={fmtMoney(row.payment_amount)} />
+                <Detail l="Engagement term" v={row.engagement_term_months ? `${row.engagement_term_months} months` : null} />
               </>
-            ) : (
-              <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
-            )}
-          </Step>
+            ) : <Pending />}
+          </StepCard>
 
-          <Step title="Payment" done={row.payment_status === 'succeeded'}>
+          <StepCard title="Payment" status={payStatus}>
             {row.stripe_customer_id || row.payment_link_sent_at ? (
               <>
-                <F l="Stripe customer" v={row.stripe_customer_id} />
-                <F l="Checkout token" v={row.checkout_token} />
-                <F l="Payment link sent" v={fmtDate(row.payment_link_sent_at)} />
-                <F l="Payment reminder sent" v={fmtDate(row.payment_reminder_sent_at)} />
-                <F l="Status" v={row.payment_status} />
-                <F l="Method" v={row.payment_method_type} />
-                <F l="Account" v={row.acct_last4 ? `****${row.acct_last4}` : null} />
-                <F l="Card fee" v={fmtMoney(row.card_processing_fee)} />
-                <F l="Payment intent" v={row.stripe_payment_intent_id} />
-                <F l="Completed at" v={fmtDate(row.payment_completed_at)} />
-                <F l="Renewal review" v={fmtDate(row.renewal_date)} />
+                <Detail l="Payment link emailed" v={fmtDate(row.payment_link_sent_at)} />
+                <Detail l="48h reminder sent" v={fmtDate(row.payment_reminder_sent_at)} />
+                <Detail l="96h PF notified" v={fmtDate(row.payment_pf_notified_at)} />
+                <Detail l="Method" v={row.payment_method_type} />
+                <Detail l="Account" v={row.acct_last4 ? `****${row.acct_last4}` : null} />
+                <Detail l="Payment amount" v={fmtMoney(row.payment_amount)} />
+                <Detail l="Status" v={row.payment_status} />
+                <Detail l="Payment received" v={fmtDate(row.payment_completed_at)} />
+                <Detail l="Renewal review" v={fmtDate(row.renewal_date)} />
               </>
-            ) : (
-              <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
-            )}
-          </Step>
+            ) : <Pending />}
+          </StepCard>
 
-          <Step title="Confirmation, Invoice & Receipt" done={!!row.invoice_sent_at}>
+          <StepCard title="Confirmation, Invoice & Receipt" status={invStatus}>
             {row.confirmation_email_sent_at || row.invoice_number ? (
               <>
-                <F l="Confirmation email sent" v={fmtDate(row.confirmation_email_sent_at)} />
-                <F l="Invoice #" v={row.invoice_number} />
-                <F l="Receipt #" v={row.receipt_number} />
-                <F l="Invoice/receipt emailed" v={fmtDate(row.invoice_sent_at)} />
+                <Detail l="Confirmation email sent" v={fmtDate(row.confirmation_email_sent_at)} />
+                <Detail l="Invoice emailed" v={fmtDate(row.invoice_sent_at)} showEmpty />
+                <Detail l="Invoice #" v={row.invoice_number} mono />
+                <Detail l="Receipt #" v={row.receipt_number} mono />
               </>
-            ) : (
-              <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
-            )}
-          </Step>
+            ) : <Pending />}
+          </StepCard>
 
-          <Step title="Accountant Creation" done={!!row.member_number}>
+          <StepCard title="Accountant Creation" status={createStatus}>
             {row.member_number ? (
               <>
-                <F l="Member number" v={row.member_number} />
-                <F l="Created at" v={fmtDate(row.member_created_at)} />
-                <F l="Revenue decision" v={row.revenue_decision} />
+                <Detail l="Member number" v={row.member_number} />
+                <Detail l="Created" v={fmtDate(row.member_created_at)} />
+                <Detail l="Revenue decision" v={row.revenue_decision} />
               </>
-            ) : (
-              <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
-            )}
-          </Step>
+            ) : <Pending />}
+          </StepCard>
 
-          <Step title="Member Login Setup" done={!!row.login_setup_completed_at}>
+          <StepCard title="Member Login Setup" status={loginStatus}>
             {row.login_setup_token || row.login_setup_email_sent_at ? (
               <>
-                <F l="Setup email sent" v={fmtDate(row.login_setup_email_sent_at)} />
-                <F l="Token expires" v={fmtDate(row.login_setup_token_expires_at)} />
-                <F l="Completed at" v={fmtDate(row.login_setup_completed_at)} />
+                <Detail l="Setup email sent" v={fmtDate(row.login_setup_email_sent_at)} />
+                <Detail l="Token expires" v={fmtDate(row.login_setup_token_expires_at)} />
+                <Detail l="Completed" v={fmtDate(row.login_setup_completed_at)} showEmpty />
               </>
-            ) : (
-              <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
-            )}
-          </Step>
+            ) : <Pending />}
+          </StepCard>
 
-          <div style={{ marginTop: '6px', fontSize: '10px', color: '#4a7a9e' }}>
-            Onboarding #{row.id} · Started {row.created_at?.split('T')[0]} · {row.email || 'no email'}
+          <div style={{ marginTop: '10px', fontSize: '10px', color: '#4a7a9e' }}>
+            Onboarding #{row.id} · Started {fmtDate(row.created_at)} · {row.email || 'no email'}
           </div>
         </div>
       )}
@@ -247,17 +205,12 @@ export default function AccountantAutomationPanel() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '24px', color: '#fff', margin: 0 }}>Accountant Onboarding Pipeline</h2>
-          {sandboxConfig && (
-            <span style={{
-              padding: '4px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: '600',
-              background: sandboxConfig.sandbox_mode ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
-              color: sandboxConfig.sandbox_mode ? '#f59e0b' : '#ef4444',
-              border: `1px solid ${sandboxConfig.sandbox_mode ? 'rgba(245,158,11,0.4)' : 'rgba(239,68,68,0.4)'}`,
-              letterSpacing: '0.5px',
-            }}>
-              {sandboxConfig.sandbox_mode ? 'SANDBOX MODE' : 'LIVE MODE'}
-            </span>
-          )}
+          <SandboxModeToggle
+            pipeline="ACCOUNTANT_ONBOARDING"
+            label="Accountant Onboarding"
+            sandboxConfig={sandboxConfig}
+            onChange={setSandboxConfig}
+          />
         </div>
       </div>
 

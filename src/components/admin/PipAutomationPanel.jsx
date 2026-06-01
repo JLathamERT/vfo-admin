@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
+import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate } from './automation/StepKit'
+import SandboxModeToggle from './SandboxModeToggle'
 
 const STAGE_LABELS = {
   purchase: 'Purchase',
@@ -28,50 +30,6 @@ function getCurrentStage(row) {
   return 'purchase'
 }
 
-const F = ({ l, v, hide }) => {
-  if (hide) return null
-  return (
-    <div style={{ display: 'flex', padding: '2px 0' }}>
-      <span style={{ fontSize: '12px', color: '#5a8ab5', width: '160px', flexShrink: 0 }}>{l}</span>
-      <span style={{ fontSize: '12px', color: v ? '#d1dce8' : '#3d5a7a' }}>{v || '—'}</span>
-    </div>
-  )
-}
-
-function Badge({ text, color }) {
-  if (!text) return null
-  const c = color || '#8bacc8'
-  return (
-    <span style={{
-      fontSize: '11px', padding: '2px 10px', borderRadius: '4px', fontWeight: '600',
-      background: `${c}15`, color: c, border: `1px solid ${c}30`,
-    }}>{text}</span>
-  )
-}
-
-function Step({ title, done, children }) {
-  return (
-    <div style={{ marginBottom: '14px', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#22c55e' : 'rgba(255,255,255,0.2)' }} />
-        <span style={{ fontSize: '12px', fontWeight: '600', color: done ? '#22c55e' : '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{title}</span>
-      </div>
-      <div style={{ paddingLeft: '16px' }}>{children}</div>
-    </div>
-  )
-}
-
-function fmtMoney(n) {
-  const v = parseFloat(n)
-  if (!Number.isFinite(v)) return null
-  return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-
-function fmtDate(s) {
-  if (!s) return null
-  return new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
 function purchaseLabel(row) {
   if (row.pip_purchase_kind === 'tax_planning') return 'Tax Planning'
   if (row.pip_purchase_kind === 'additional_pip') {
@@ -87,6 +45,14 @@ function PipPipelineRow({ row, expanded, onToggle }) {
   const stage = getCurrentStage(row)
   const stageLabel = STAGE_LABELS[stage]
   const stageColor = STAGE_COLORS[stage]
+
+  const payStatus = row.pip_payment_status === 'succeeded' ? 'done'
+    : (row.pip_payment_status === 'pending' || row.pip_payment_status === 'processing' || row.pip_payment_email_sent_at) ? 'awaiting' : 'pending'
+  const invStatus = row.pip_invoice_receipt_email_sent_at ? 'done' : row.pip_invoice_number ? 'sent' : 'pending'
+  const revStatus = (row.pip_rev_member_email_sent_at || (row.pip_rev_share_status || '').startsWith('Completed')) ? 'done'
+    : row.pip_rev_share_status ? 'awaiting' : 'pending'
+  const revDecision = /money mapping/i.test(row.pip_rev_share_status || '') ? 'Money Mapping'
+    : (row.pip_rev_share_amount || /revenue share/i.test(row.pip_rev_share_status || '')) ? 'Revenue Share' : null
 
   return (
     <div style={{ background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
@@ -105,70 +71,61 @@ function PipPipelineRow({ row, expanded, onToggle }) {
       </div>
 
       {expanded && (
-        <div style={{ padding: '4px 18px 18px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <Step title="Purchase Details" done>
-            <F l="Kind" v={purchaseLabel(row)} />
-            <F l="Gross service value" v={fmtMoney(row.pip_purchase_gross)} />
-            <F l="Member contribution" v={fmtMoney(row.pip_purchase_member_contribution)} />
-            <F l="Net amount due" v={fmtMoney(row.pip_purchase_amount)} />
-            <F l="Member share" v={fmtMoney(row.pip_purchase_member_share)} />
-            <F l="VFOs share" v={fmtMoney(row.pip_purchase_vfos_share)} />
-            <F l="Engagement year" v={row.pip_engagement_year ? `Year ${row.pip_engagement_year}` : null} />
-            <F l="Purchased via" v={row.pip_completed_date ? fmtDate(row.pip_completed_date) : null} />
-          </Step>
+        <div style={{ padding: '8px 18px 18px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <StepCard title="Purchase Details" status="done">
+            <Detail l="Kind" v={purchaseLabel(row)} />
+            <Detail l="Gross service value" v={fmtMoney(row.pip_purchase_gross)} />
+            <Detail l="Member contribution" v={fmtMoney(row.pip_purchase_member_contribution)} />
+            <Detail l="Net amount due" v={fmtMoney(row.pip_purchase_amount)} />
+            <Detail l="Member share" v={fmtMoney(row.pip_purchase_member_share)} />
+            <Detail l="VFOs share" v={fmtMoney(row.pip_purchase_vfos_share)} />
+            <Detail l="Engagement year" v={row.pip_engagement_year ? `Year ${row.pip_engagement_year}` : null} />
+            <Detail l="Purchased" v={fmtDate(row.pip_completed_date)} />
+          </StepCard>
 
-          <Step title="Payment" done={row.pip_payment_status === 'succeeded'}>
+          <StepCard title="Payment" status={payStatus}>
             {row.pip_payment_status ? (
               <>
-                <F l="Status" v={row.pip_payment_status} />
-                <F l="Method" v={row.pip_payment_method_type} />
-                <F l="Account" v={row.pip_acct_last4 ? `****${row.pip_acct_last4}` : null} />
-                <F l="Card fee" v={fmtMoney(row.pip_card_processing_fee)} />
-                <F l="Payment intent" v={row.pip_payment_intent_id} />
-                <F l="Email sent" v={fmtDate(row.pip_payment_email_sent_at)} />
-                <F l="Completed at" v={fmtDate(row.pip_payment_completed_at)} />
+                <Detail l="Payment link emailed" v={fmtDate(row.pip_payment_email_sent_at)} />
+                <Detail l="Method" v={row.pip_payment_method_type} />
+                <Detail l="Account" v={row.pip_acct_last4 ? `****${row.pip_acct_last4}` : null} />
+                <Detail l="Payment amount" v={fmtMoney(row.pip_purchase_amount)} />
+                <Detail l="Status" v={row.pip_payment_status} />
+                <Detail l="Payment received" v={fmtDate(row.pip_payment_completed_at)} />
               </>
-            ) : (
-              <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
-            )}
-          </Step>
+            ) : <Pending />}
+          </StepCard>
 
-          <Step title="Confirmation" done={!!row.pip_confirmation_email_sent_at}>
-            {row.pip_confirmation_email_sent_at ? (
-              <F l="Sent at" v={fmtDate(row.pip_confirmation_email_sent_at)} />
-            ) : (
-              <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
-            )}
-          </Step>
+          <StepCard title="Confirmation Email" status={row.pip_confirmation_email_sent_at ? 'done' : 'pending'}>
+            {row.pip_confirmation_email_sent_at
+              ? <Detail l="Confirmation email" v={fmtDate(row.pip_confirmation_email_sent_at)} />
+              : <Pending />}
+          </StepCard>
 
-          <Step title="Invoice & Receipt" done={!!row.pip_invoice_receipt_email_sent_at}>
+          <StepCard title="Invoice & Receipt" status={invStatus}>
             {row.pip_invoice_number ? (
               <>
-                <F l="Invoice #" v={row.pip_invoice_number} />
-                <F l="Receipt #" v={row.pip_receipt_number} />
-                <F l="Emailed at" v={fmtDate(row.pip_invoice_receipt_email_sent_at)} />
+                <Detail l="Invoice emailed" v={fmtDate(row.pip_invoice_receipt_email_sent_at)} showEmpty />
+                <Detail l="Invoice #" v={row.pip_invoice_number} mono />
+                <Detail l="Receipt #" v={row.pip_receipt_number} mono />
               </>
-            ) : (
-              <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
-            )}
-          </Step>
+            ) : <Pending />}
+          </StepCard>
 
-          <Step title="Revenue Share" done={!!row.pip_rev_member_email_sent_at}>
+          <StepCard title="Revenue Share" status={revStatus}>
             {row.pip_rev_share_status ? (
               <>
-                <F l="Status" v={row.pip_rev_share_status} />
-                <F l="Amount" v={fmtMoney(row.pip_rev_share_amount)} />
-                <F l="Transfer" v={row.pip_rev_share_transfer_id} />
-                <F l="Completed at" v={fmtDate(row.pip_rev_share_completed_at)} />
-                <F l="Member email sent" v={fmtDate(row.pip_rev_member_email_sent_at)} />
+                <Detail l="Revenue decision" v={revDecision} showEmpty />
+                <Detail l="Revenue share completed" v={fmtDate(row.pip_rev_share_completed_at)} />
+                <Detail l="Revenue share amount" v={fmtMoney(row.pip_rev_share_amount)} />
+                <Detail l="Transfer id" v={row.pip_rev_share_transfer_id} mono />
+                <Detail l="Rev share confirmation email" v={fmtDate(row.pip_rev_member_email_sent_at)} />
               </>
-            ) : (
-              <span style={{ fontSize: '12px', color: '#5a8ab5' }}>Awaiting</span>
-            )}
-          </Step>
+            ) : <Pending />}
+          </StepCard>
 
-          <div style={{ marginTop: '6px', fontSize: '10px', color: '#4a7a9e' }}>
-            Track #{row.id} · Created {row.created_at?.split('T')[0]}
+          <div style={{ marginTop: '10px', fontSize: '10px', color: '#4a7a9e' }}>
+            Track #{row.id} · Created {fmtDate(row.created_at)}
           </div>
         </div>
       )}
@@ -210,17 +167,13 @@ export default function PipAutomationPanel() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '24px', color: '#fff', margin: 0 }}>PIP Meetings Pipeline</h2>
-          {sandboxConfig && (
-            <span style={{
-              padding: '4px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: '600',
-              background: sandboxConfig.sandbox_mode ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
-              color: sandboxConfig.sandbox_mode ? '#f59e0b' : '#ef4444',
-              border: `1px solid ${sandboxConfig.sandbox_mode ? 'rgba(245,158,11,0.4)' : 'rgba(239,68,68,0.4)'}`,
-              letterSpacing: '0.5px',
-            }}>
-              {sandboxConfig.sandbox_mode ? 'SANDBOX MODE' : 'LIVE MODE'}
-            </span>
-          )}
+          <SandboxModeToggle
+            pipeline="MAP 1"
+            label="PIP Meetings"
+            sandboxConfig={sandboxConfig}
+            onChange={setSandboxConfig}
+            note="PIP Meetings shares the MAP 1 sandbox flag — switching here also switches the MAP 1 pipeline."
+          />
         </div>
       </div>
 
