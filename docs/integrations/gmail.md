@@ -98,15 +98,13 @@ Every automation email follows the same routing:
 
 ```
 toEmail   = isSandbox ? sandboxEmail : <real recipient (typically client.email)>
-ccEmails  = isSandbox ? [] : [<member email, PF email>]
-bccEmails = isSandbox ? [] : ["aanderson@elitert.com", "platham@elitert.com"]
+ccEmails  = isSandbox ? [] : dedupeEmails([<member email, PF email, ...extra_cc>, ...tplCc])
+bccEmails = dedupeEmails(tplBcc)   // from the template's bcc_list; [] in sandbox
 ```
 
 In sandbox mode, ALL emails go to a single `pipeline_sandbox_config.sandbox_email` with no CC/BCC.
 
-The `automation_CONTRACT_sendagreement` flow additionally appends `pipeline_map1.extra_cc` to the CC list (comma-separated string from the PIPDecisionForm).
-
-The `automation_CONTRACT_invoicereceipt` flow CCs `tracy@vfo-services.com` ([admin-api:2104](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) — the only place that hardcoded address is used.
+**Internal CC/BCC is template-driven (Email Templates Phase 2, 2026-06-01).** Across all 5 pipelines, every send-handler sources its internal CC/BCC from `email_templates.cc_list` / `bcc_list` (jsonb) via `utils/email-recipients.ts` — `templateRecipients(tmpl, isSandbox)` (returns `{cc:[],bcc:[]}` in sandbox) + `dedupeEmails()` (trims/dedupes, **drops non-email junk** — kills the `extra_cc="[]"` "Invalid Cc header" bug). The **counterparty** CC (member/PF, plus `tracy@vfo-services.com` hardcoded on MAP 1 + Tax invoice/receipt) stays in the handler; the template's `cc_list` is **additive**. The internal `aanderson@elitert.com` + `platham@elitert.com` BCC, previously hardcoded per handler, now comes entirely from each template's `bcc_list` (28 templates seed it; all other bcc_lists + every cc_list are `[]`). The `ceoEmail = "aanderson@elitert.com"` in `*/ceo-countersign.ts` + `*/send-agreement.ts` is a BoldSign **signer** address, unrelated. Templates are editable from the admin Email Templates tab; a handler's `.select()` must include `cc_list, bcc_list` or the BCC silently drops. The `automation_CONTRACT_sendagreement` flow still appends `pipeline_map1.extra_cc` (comma-separated, from the PIPDecisionForm). The inline member-confirmation emails in `*/revshare.ts` keep their hardcoded BCC (no `email_templates` row). See SESSION_REFERENCE gotcha #53.
 
 ## Email-template substitution
 
