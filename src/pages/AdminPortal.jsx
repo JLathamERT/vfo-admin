@@ -216,6 +216,7 @@ export default function AdminPortal() {
         { key: 'map1_pipeline', label: 'Holistic Planning - MAP 1' },
         { key: 'tax_pipeline', label: 'Holistic Planning - Tax Priorities' },
         { key: 'pip_pipeline', label: 'Holistic Planning - PIP Meetings' },
+        { key: 'standalone_tax_pipeline', label: 'Tax Planning' },
         { key: 'advisor_pipeline', label: 'Advisor Onboarding' },
         { key: 'accountant_pipeline', label: 'Accountant Onboarding' },
         { key: 'email_templates', label: 'Email Templates' },
@@ -313,10 +314,13 @@ export default function AdminPortal() {
             <AutomationPanel section={automationSection} />
           )}
           {activeTab === 'automation' && !loading && automationSection === 'tax_pipeline' && (
-            <TaxAutomationPanel />
+            <TaxAutomationPanel programScope="holistic" />
           )}
           {activeTab === 'automation' && !loading && automationSection === 'pip_pipeline' && (
             <PipAutomationPanel />
+          )}
+          {activeTab === 'automation' && !loading && automationSection === 'standalone_tax_pipeline' && (
+            <TaxAutomationPanel programScope="standalone" />
           )}
           {activeTab === 'automation' && !loading && automationSection === 'advisor_pipeline' && (
             <AdvisorAutomationPanel />

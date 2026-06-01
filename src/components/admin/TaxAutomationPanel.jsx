@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
+import { StepCard, Detail, Badge, Pending, fmtDate } from './automation/StepKit'
 
 const STAGE_LABELS = {
   not_started:     'Not Started',
@@ -57,41 +58,8 @@ function getCurrentStage(p) {
   return 'not_started'
 }
 
-const F = ({ l, v, hide }) => {
-  if (hide) return null
-  return (
-    <div style={{ display: 'flex', padding: '2px 0' }}>
-      <span style={{ fontSize: 12, color: '#5a8ab5', width: 180, flexShrink: 0 }}>{l}</span>
-      <span style={{ fontSize: 12, color: v ? '#d1dce8' : '#3d5a7a' }}>{v || '—'}</span>
-    </div>
-  )
-}
-
-function Badge({ text, color }) {
-  if (!text) return null
-  const c = color || DECISION_COLORS[text] || '#8bacc8'
-  return (
-    <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 4, fontWeight: 600, background: `${c}15`, color: c, border: `1px solid ${c}30` }}>{text}</span>
-  )
-}
-
 function fmtMoney(n) {
   return n != null ? Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null
-}
-
-function Step({ title, done, children }) {
-  return (
-    <div style={{ display: 'flex', gap: 14, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 14, paddingTop: 3 }}>
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: done ? '#27ae60' : 'transparent', border: `2px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.12)'}`, flexShrink: 0 }} />
-        <div style={{ flex: 1, width: 1, background: 'rgba(255,255,255,0.06)', marginTop: 4 }} />
-      </div>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: done ? '#fff' : '#5a8ab5', letterSpacing: '0.4px', marginBottom: 4, textTransform: 'uppercase' }}>{title}</div>
-        <div style={{ paddingLeft: 2 }}>{children}</div>
-      </div>
-    </div>
-  )
 }
 
 function PaymentButtons({ plan, onRefresh }) {
@@ -128,180 +96,196 @@ function PaymentButtons({ plan, onRefresh }) {
 }
 
 function ExpandedRow({ row, onRefresh }) {
+  const money = (v) => fmtMoney(v) ? `$${fmtMoney(v)}` : null
+
+  const sReady = !row.ready_for_tax3_decision ? 'pending' : (row.ready_for_tax3_email_sent === 'Yes' ? 'done' : 'awaiting')
+  const sDecision = !row.tax_decision ? 'pending' : row.tax_decision === 'No' ? 'declined' : 'done'
+  const sFinal = !row.tax_final_decision ? (row.tax_decision === 'Undecided' ? 'awaiting' : 'pending')
+    : row.tax_final_decision === 'No' ? 'declined' : 'done'
+  const sContract = row.agreement_sent === 'Yes' ? (row.ceo_signed === 'Yes' ? 'done' : 'awaiting') : 'pending'
+  const sPay = row.retainer_status === 'succeeded' ? 'done' : (row.checkout_token || row.retainer_status) ? 'awaiting' : 'pending'
+  const sConfirm = (row.retainer_confirmation_email_sent_at || row.retainer_confirmation_status === 'Sent') ? 'done' : 'pending'
+  const sInvoice = row.retainer_invoice_email_sent ? 'done' : row.retainer_invoice_number ? 'sent' : 'pending'
+  const sTax4 = !row.post_review_decision ? 'pending' : (/refund|stop/i.test(row.post_review_decision) ? 'declined' : 'done')
+  const sRetRev = (row.retainer_rev_paid === 'Yes' || row.retainer_rev_paid === 'Money Mapping') ? 'done' : row.retainer_rev_share ? 'awaiting' : 'pending'
+  const sImpl = row.implementation_charge_status === 'succeeded' ? 'done' : row.implementation_charge_status ? 'awaiting' : 'pending'
+  const sImplRev = (row.implementation_rev_paid === 'Yes' || row.implementation_rev_paid === 'Money Mapping') ? 'done' : row.implementation_rev_share ? 'awaiting' : 'pending'
+  const sWrap = row.implementation_announcement_email_sent ? 'done' : 'pending'
+
+  const retRevDecision = row.retainer_rev_paid === 'Money Mapping' ? 'Money Mapping'
+    : (row.retainer_rev_paid === 'Yes' || row.retainer_rev_paid === 'Failed' || row.member_share) ? 'Revenue Share' : null
+  const implRevDecision = row.implementation_rev_paid === 'Money Mapping' ? 'Money Mapping'
+    : (row.implementation_rev_paid === 'Yes' || row.implementation_rev_paid === 'Failed') ? 'Revenue Share' : null
+
+  const pricing = () => (
+    <>
+      <Detail l="Risk mindset" v={row.risk_mindset} />
+      <Detail l="Retainer" v={money(row.retainer_amount)} />
+      <Detail l="Implementation fee" v={money(row.implementation_amount)} />
+      <Detail l="Total fee" v={money(row.total_fee)} />
+      <Detail l="Split type" v={row.split_type} />
+      <Detail l="Member share" v={money(row.member_share)} />
+      <Detail l="VFOS share" v={money(row.vfos_share)} />
+    </>
+  )
+
   return (
-    <div style={{ padding: '4px 24px 16px 48px', background: 'rgba(0,0,0,0.06)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+    <div style={{ padding: '12px 24px 18px 48px', background: 'rgba(0,0,0,0.10)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
 
-      <Step title="Ready for Tax 3 — Email" done={!!row.ready_for_tax3_decision}>
+      <StepCard title="Ready for Tax 3 — Email" status={sReady}>
         {row.ready_for_tax3_decision ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Badge text={row.ready_for_tax3_decision} />
-            {row.ready_for_tax3_email_sent === 'Yes' && <Badge text="Email Sent" color="#27ae60" />}
-          </div>
-        ) : <span style={{ fontSize: 12, color: '#5a8ab5' }}>Awaiting</span>}
-      </Step>
+          <>
+            <Detail l="Decision" v={<Badge text={row.ready_for_tax3_decision} />} showEmpty />
+            <Detail l="Email" v={fmtDate(row.ready_for_tax3_email_sent_at) || (row.ready_for_tax3_email_sent === 'Yes' ? 'Sent' : null)} showEmpty />
+          </>
+        ) : <Pending />}
+      </StepCard>
 
-      <Step title="Tax 3 — Decision" done={!!row.tax_decision}>
+      <StepCard title="Tax 3 — Decision" status={sDecision}>
         {row.tax_decision ? (
           <>
-            <div style={{ marginBottom: 6 }}><Badge text={row.tax_decision} /></div>
-            {row.tax_decision === 'Yes' && (
-              <>
-                <F l="Risk mindset" v={row.risk_mindset} />
-                <F l="Retainer" v={fmtMoney(row.retainer_amount) ? `$${fmtMoney(row.retainer_amount)}` : null} />
-                <F l="Implementation fee" v={fmtMoney(row.implementation_amount) ? `$${fmtMoney(row.implementation_amount)}` : null} />
-                <F l="Total fee" v={fmtMoney(row.total_fee) ? `$${fmtMoney(row.total_fee)}` : null} />
-                <F l="Split type" v={row.split_type} />
-                <F l="Member share" v={fmtMoney(row.member_share) ? `$${fmtMoney(row.member_share)}` : null} />
-                <F l="VFOS share" v={fmtMoney(row.vfos_share) ? `$${fmtMoney(row.vfos_share)}` : null} />
-              </>
-            )}
+            <Detail l="Decision" v={<Badge text={row.tax_decision} />} showEmpty />
+            {row.tax_decision === 'Yes' && pricing()}
             {row.tax_decision === 'Undecided' && (
               <>
-                <F l="Potential tax savings" v={fmtMoney(row.potential_tax_savings) ? `$${fmtMoney(row.potential_tax_savings)}` : null} />
-                <F l="Initial retainer quoted" v={fmtMoney(row.initial_retainer_quoted) ? `$${fmtMoney(row.initial_retainer_quoted)}` : null} />
-                <F l="Token generated" v={row.tax_token ? 'Yes' : null} />
-                <F l="Email sent" v={row.tax_decision_email_sent} />
+                <Detail l="Potential tax savings" v={money(row.potential_tax_savings)} />
+                <Detail l="Initial retainer quoted" v={money(row.initial_retainer_quoted)} />
               </>
             )}
-            <F l="Presentation link" v={row.presentation_link} />
-            <F l="Meeting notes" v={row.meeting_notes} />
-            <F l="Extra CC" v={row.extra_cc} />
+            <Detail l="Decision email sent" v={fmtDate(row.tax_decision_email_sent_at) || row.tax_decision_email_sent} />
+            <Detail l="48h reminder sent" v={fmtDate(row.tax_decision_reminder_sent_at)} />
+            <Detail l="96h PF notified" v={fmtDate(row.tax_decision_pf_notified_at)} />
+            <Detail l="Presentation link" v={row.presentation_link} />
+            <Detail l="Meeting notes" v={row.meeting_notes} />
+            <Detail l="Extra CC" v={row.extra_cc} />
           </>
-        ) : <span style={{ fontSize: 12, color: '#5a8ab5' }}>Awaiting</span>}
-      </Step>
+        ) : <Pending />}
+      </StepCard>
 
-      <Step title="Client — Final Decision (Undecided path)" done={!!row.tax_final_decision}>
+      <StepCard title="Client — Final Decision (Undecided path)" status={sFinal}>
         {row.tax_final_decision ? (
           <>
-            {row.tax_via_extra_meeting && <div style={{ fontSize: 11, color: '#5b9fe6', marginBottom: 6 }}>Via extra meeting</div>}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-              <Badge text={row.tax_final_decision} />
-            </div>
-            {(row.tax_final_decision === 'Yes' || (row.tax_final_decision === 'ExtraMeeting' && row.retainer_amount)) && (
-              <>
-                <F l="Risk mindset" v={row.risk_mindset} />
-                <F l="Retainer" v={fmtMoney(row.retainer_amount) ? `$${fmtMoney(row.retainer_amount)}` : null} />
-                <F l="Implementation fee" v={fmtMoney(row.implementation_amount) ? `$${fmtMoney(row.implementation_amount)}` : null} />
-                <F l="Total fee" v={fmtMoney(row.total_fee) ? `$${fmtMoney(row.total_fee)}` : null} />
-                <F l="Split type" v={row.split_type} />
-                <F l="Member share" v={fmtMoney(row.member_share) ? `$${fmtMoney(row.member_share)}` : null} />
-                <F l="VFOS share" v={fmtMoney(row.vfos_share) ? `$${fmtMoney(row.vfos_share)}` : null} />
-              </>
-            )}
+            {row.tax_via_extra_meeting && <Detail l="Resolved" v="Via extra meeting" />}
+            <Detail l="Final decision" v={<Badge text={row.tax_final_decision} />} showEmpty />
+            {(row.tax_final_decision === 'Yes' || (row.tax_final_decision === 'ExtraMeeting' && row.retainer_amount)) && pricing()}
           </>
-        ) : <span style={{ fontSize: 12, color: '#5a8ab5' }}>{row.tax_decision === 'Undecided' ? 'Awaiting client decision via /tax-decide' : 'N/A (direct Yes/No path)'}</span>}
-      </Step>
+        ) : <Pending text={row.tax_decision === 'Undecided' ? 'Awaiting client decision via /tax-decide' : 'N/A (direct Yes/No path)'} />}
+      </StepCard>
 
-      <Step title="Contract" done={row.ceo_signed === 'Yes'}>
+      <StepCard title="Agreement" status={sContract}>
         {row.agreement_sent === 'Yes' ? (
           <>
-            <F l="Agreement sent" v={row.agreement_sent} />
-            <F l="BoldSign doc id" v={row.boldsign_doc_id} />
-            <F l="Client signed" v={row.client_signed} />
-            <F l="CEO signed" v={row.ceo_signed} />
-            <F l="Sent date" v={row.signed_followup_sent_date} />
+            <Detail l="Agreement sent" v={fmtDate(row.agreement_sent_at) || 'Sent'} showEmpty />
+            <Detail l="Signing follow-up" v={fmtDate(row.signed_followup_sent_date)} />
+            <Detail l="48h reminder sent" v={fmtDate(row.signed_reminder_sent_at)} />
+            <Detail l="96h PF notified" v={fmtDate(row.signed_pf_notified_at)} />
+            <Detail l="Client signed" v={fmtDate(row.client_signed_at) || (row.client_signed === 'Yes' ? 'Signed' : null)} showEmpty />
+            <Detail l="CEO countersigned" v={fmtDate(row.ceo_signed_at) || (row.ceo_signed === 'Yes' ? 'Signed' : null)} showEmpty />
           </>
-        ) : <span style={{ fontSize: 12, color: '#5a8ab5' }}>Awaiting</span>}
-      </Step>
+        ) : <Pending />}
+      </StepCard>
 
-      <Step title="Payment" done={row.retainer_status === 'succeeded'}>
+      <StepCard title="Payment" status={sPay}>
         {row.checkout_token || row.retainer_status ? (
           <>
-            <F l="Stripe customer" v={row.stripe_customer_id} />
-            <F l="Checkout token" v={row.checkout_token ? 'Generated' : null} />
-            <F l="Method" v={row.payment_method_type} />
-            <F l="Account" v={row.acct_last4 ? `****${row.acct_last4}` : null} />
-            <F l="Retainer status" v={row.retainer_status} />
-            <F l="Retainer date" v={row.retainer_date} />
-            <F l="Card processing fee" v={fmtMoney(row.card_processing_fee) ? `$${fmtMoney(row.card_processing_fee)}` : null} />
-            <F l="Payment intent" v={row.retainer_payment_intent_id} />
+            <Detail l="Payment link emailed" v={fmtDate(row.payment_email_sent_at)} />
+            <Detail l="48h reminder sent" v={fmtDate(row.payment_reminder_sent_at)} />
+            <Detail l="96h PF notified" v={fmtDate(row.payment_pf_notified_at)} />
+            <Detail l="Method" v={row.payment_method_type} />
+            <Detail l="Account" v={row.acct_last4 ? `****${row.acct_last4}` : null} />
+            <Detail l="Payment amount" v={money(row.retainer_amount)} />
+            <Detail l="Retainer status" v={row.retainer_status} />
+            <Detail l="Retainer paid" v={fmtDate(row.retainer_date)} />
             <PaymentButtons plan={row} onRefresh={onRefresh} />
           </>
         ) : (
           <>
-            <span style={{ fontSize: 12, color: '#5a8ab5' }}>Awaiting</span>
+            <Pending />
             <PaymentButtons plan={row} onRefresh={onRefresh} />
           </>
         )}
-      </Step>
+      </StepCard>
 
-      <Step title="Confirmation" done={row.retainer_confirmation_status === 'Sent'}>
-        <F l="Confirmation status" v={row.retainer_confirmation_status} />
-      </Step>
+      <StepCard title="Confirmation Email" status={sConfirm}>
+        {(row.retainer_confirmation_email_sent_at || row.retainer_confirmation_status)
+          ? <Detail l="Confirmation email" v={fmtDate(row.retainer_confirmation_email_sent_at) || row.retainer_confirmation_status} />
+          : <Pending />}
+      </StepCard>
 
-      <Step title="Invoice & Receipt" done={!!row.retainer_invoice_email_sent}>
+      <StepCard title="Invoice & Receipt" status={sInvoice}>
         {row.retainer_invoice_number ? (
           <>
-            <F l="Invoice #" v={row.retainer_invoice_number} />
-            <F l="Receipt #" v={row.retainer_receipt_number} />
-            <F l="Invoice drive id" v={row.retainer_invoice_drive_id} />
-            <F l="Receipt drive id" v={row.retainer_receipt_drive_id} />
-            <F l="Email sent" v={row.retainer_invoice_email_sent ? 'Yes' : null} />
-            <F l="Receipt status" v={row.retainer_receipt_status} />
+            <Detail l="Invoice emailed" v={fmtDate(row.retainer_invoice_email_sent_at) || (row.retainer_invoice_email_sent ? 'Yes' : null)} showEmpty />
+            <Detail l="Invoice #" v={row.retainer_invoice_number} mono />
+            <Detail l="Receipt #" v={row.retainer_receipt_number} mono />
+            <Detail l="Receipt status" v={row.retainer_receipt_status} />
           </>
-        ) : <span style={{ fontSize: 12, color: '#5a8ab5' }}>Awaiting</span>}
-      </Step>
+        ) : <Pending />}
+      </StepCard>
 
-      <Step title="Tax 4 — Continue / Stop" done={!!row.post_review_decision}>
+      <StepCard title="Tax 4 — Continue / Stop" status={sTax4}>
         {row.post_review_decision ? (
           <>
-            <Badge text={row.post_review_decision} color={row.post_review_decision?.includes('Refund') ? '#e74c3c' : '#27ae60'} />
+            <Detail l="Decision" v={<Badge text={row.post_review_decision} color={/refund|stop/i.test(row.post_review_decision) ? '#e74c3c' : '#27ae60'} />} showEmpty />
+            <Detail l="Decision email sent" v={fmtDate(row.post_review_decision_email_sent_at)} />
+            <Detail l="48h reminder sent" v={fmtDate(row.post_review_reminder_sent_at)} />
+            <Detail l="96h PF notified" v={fmtDate(row.post_review_pf_notified_at)} />
+            <Detail l="Client decision" v={row.post_review_client_decision} />
             {row.refund_status && (
               <>
-                <F l="Refund status" v={row.refund_status} />
-                <F l="Refund id" v={row.refund_id} />
-                <F l="Refund amount" v={fmtMoney(row.refund_amount) ? `$${fmtMoney(row.refund_amount)}` : null} />
-                <F l="Refund date" v={row.refund_date} />
-                <F l="Refund email sent" v={row.refund_email_sent ? 'Yes' : null} />
+                <Detail l="Refund status" v={row.refund_status} />
+                <Detail l="Refund amount" v={money(row.refund_amount)} />
+                <Detail l="Refund date" v={fmtDate(row.refund_date)} />
+                <Detail l="Refund email sent" v={row.refund_email_sent ? 'Sent' : null} />
               </>
             )}
           </>
-        ) : <span style={{ fontSize: 12, color: '#5a8ab5' }}>Awaiting Tax 4 meeting + admin decision</span>}
-      </Step>
+        ) : <Pending text="Awaiting Tax 4 meeting + admin decision" />}
+      </StepCard>
 
-      <Step title="Retainer Revenue Share" done={row.retainer_rev_paid === 'Yes'}>
+      <StepCard title="Retainer Revenue Share" status={sRetRev}>
         {row.retainer_rev_share ? (
           <>
-            <F l="Rev share status" v={row.retainer_rev_share} />
-            <F l="Rev paid" v={row.retainer_rev_paid} />
-            <F l="Member email sent" v={row.retainer_rev_email_sent ? 'Yes' : null} />
-            <F l="Member contrib" v={row.member_contrib_status} />
-            <F l="Tracy intro sent" v={row.tracy_intro_email_sent ? 'Yes' : null} />
+            <Detail l="Revenue decision" v={retRevDecision} showEmpty />
+            <Detail l="Revenue share completed" v={fmtDate(row.retainer_rev_completed_at) || ((row.retainer_rev_paid === 'Yes' || row.retainer_rev_paid === 'Money Mapping') ? row.retainer_rev_paid : null)} />
+            <Detail l="Revenue share amount" v={money(row.member_share)} />
+            <Detail l="Rev share confirmation email" v={fmtDate(row.retainer_rev_email_sent_at) || (row.retainer_rev_email_sent ? 'Sent' : null)} showEmpty />
+            <Detail l="Member contribution" v={row.member_contrib_status} />
+            <Detail l="Tracy intro sent" v={row.tracy_intro_email_sent ? 'Sent' : null} />
           </>
-        ) : <span style={{ fontSize: 12, color: '#5a8ab5' }}>Awaiting</span>}
-      </Step>
+        ) : <Pending />}
+      </StepCard>
 
-      <Step title="Implementation Fee" done={row.implementation_charge_status === 'succeeded'}>
+      <StepCard title="Implementation Fee" status={sImpl}>
         {row.implementation_charge_status ? (
           <>
-            <F l="Charge status" v={row.implementation_charge_status} />
-            <F l="Payment intent" v={row.implementation_payment_intent_id} />
-            <F l="Charge date" v={row.implementation_charge_date} />
-            <F l="Confirmation status" v={row.implementation_confirmation_status} />
-            <F l="Receipt #" v={row.implementation_receipt_number} />
-            <F l="Receipt drive id" v={row.implementation_receipt_drive_id} />
-            <F l="Receipt status" v={row.implementation_receipt_status} />
-            <F l="Triggering specialist" v={row.implementing_specialist_id} />
+            <Detail l="Charge status" v={row.implementation_charge_status} />
+            <Detail l="Charged" v={fmtDate(row.implementation_charge_date)} />
+            <Detail l="Confirmation status" v={row.implementation_confirmation_status} />
+            <Detail l="Receipt #" v={row.implementation_receipt_number} mono />
+            <Detail l="Receipt status" v={row.implementation_receipt_status} />
           </>
-        ) : <span style={{ fontSize: 12, color: '#5a8ab5' }}>Awaiting first "Proceed with Implementation" in Tax 5</span>}
-      </Step>
+        ) : <Pending text={'Awaiting first "Proceed with Implementation" in Tax 5'} />}
+      </StepCard>
 
-      <Step title="Implementation Revenue Share" done={row.implementation_rev_paid === 'Yes'}>
+      <StepCard title="Implementation Revenue Share" status={sImplRev}>
         {row.implementation_rev_share ? (
           <>
-            <F l="Rev share status" v={row.implementation_rev_share} />
-            <F l="Rev paid" v={row.implementation_rev_paid} />
-            <F l="Member email sent" v={row.implementation_rev_email_sent ? 'Yes' : null} />
+            <Detail l="Revenue decision" v={implRevDecision} showEmpty />
+            <Detail l="Revenue share completed" v={fmtDate(row.implementation_rev_completed_at) || ((row.implementation_rev_paid === 'Yes' || row.implementation_rev_paid === 'Money Mapping') ? row.implementation_rev_paid : null)} />
+            <Detail l="Rev share confirmation email" v={fmtDate(row.implementation_rev_email_sent_at) || (row.implementation_rev_email_sent ? 'Sent' : null)} showEmpty />
           </>
-        ) : <span style={{ fontSize: 12, color: '#5a8ab5' }}>Awaiting</span>}
-      </Step>
+        ) : <Pending />}
+      </StepCard>
 
-      <Step title="Wrap-up Announcement" done={!!row.implementation_announcement_email_sent}>
-        <F l="Announcement email sent" v={row.implementation_announcement_email_sent ? 'Yes' : null} />
-      </Step>
+      <StepCard title="Wrap-up Announcement" status={sWrap}>
+        {row.implementation_announcement_email_sent
+          ? <Detail l="Announcement email" v={fmtDate(row.implementation_announcement_email_sent_at) || 'Sent'} />
+          : <Pending />}
+      </StepCard>
 
-      <div style={{ marginTop: 6, fontSize: 10, color: '#4a7a9e' }}>
-        Plan #{row.id} · Created {row.created_at?.split('T')[0]}
+      <div style={{ marginTop: '10px', fontSize: '10px', color: '#4a7a9e' }}>
+        Plan #{row.id} · Created {fmtDate(row.created_at)}
       </div>
     </div>
   )
@@ -341,7 +325,7 @@ function SandboxToggleModal({ currentlySandbox, onConfirm, onCancel, saving }) {
   )
 }
 
-export default function TaxAutomationPanel() {
+export default function TaxAutomationPanel({ programScope = 'holistic' }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -350,11 +334,20 @@ export default function TaxAutomationPanel() {
   const [showModeModal, setShowModeModal] = useState(false)
   const [savingMode, setSavingMode] = useState(false)
 
+  // Both views share the same backend tax pipeline; program_id is the only
+  // thing that distinguishes the standalone Tax Planning program (4) from the
+  // Holistic Planning tax track (1, or legacy NULL).
+  function inScope(p) {
+    return programScope === 'standalone'
+      ? p.program_id === 4
+      : p.program_id == null || p.program_id === 1
+  }
+
   async function load() {
     setLoading(true); setError('')
     try {
       const data = await callApi('automation_load_tax_plans')
-      setRows(data.rows || [])
+      setRows((data.rows || []).filter(inScope))
       setSandboxConfig(data.sandbox_config || null)
     } catch (err) { setError(err.message || String(err)) }
     finally { setLoading(false) }
@@ -393,7 +386,7 @@ export default function TaxAutomationPanel() {
     <div style={{ padding: 24, maxWidth: 1400, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 24, color: '#fff', margin: 0 }}>Tax Planning Automation</h2>
+          <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 24, color: '#fff', margin: 0 }}>{programScope === 'standalone' ? 'Tax Planning Automation' : 'Holistic Tax Priorities Automation'}</h2>
           <SandboxBadge config={sandboxConfig} onClick={() => setShowModeModal(true)} />
         </div>
       </div>
