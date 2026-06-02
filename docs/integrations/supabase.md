@@ -85,7 +85,7 @@ Migration `auto_cleanup_expired_sessions` (2026-04-28) presumably installs a per
 
 ## Storage
 
-Five storage buckets in use:
+Seven storage buckets in use:
 
 | Bucket | Visibility | Used by | Notes |
 |---|---|---|---|
@@ -95,6 +95,7 @@ Five storage buckets in use:
 | `map1-agreements` | public | `actions/pipeline/pipfu-decision.ts` (Undecided branch) | Holds the three MAP 1 service-level agreements: `proactive-lite.pdf`, `proactive-core.pdf`, `proactive-max.pdf`. All three are attached on Undecided emails by default; the Max PDF is suppressed when `form_data.maxNA === true` (admin ticked "N/A" for Max in the PIP Follow Up form). Created 2026-05-21. |
 | `advisor-onboarding-agreements` | public | `actions/advisor/decision.ts` (Undecided branch) | Holds the static **Advisor Onboarding Agreement** PDF (`Advisor_Implementation_Agreement.pdf`, uploaded 2026-06-01). Fetched no-auth at email-draft time and attached via multipart/mixed. Graceful fallback to plain HTML email if the PDF is missing. Created 2026-05-26; filename rename + made `advisor_address` required field on 2026-05-28. |
 | `accountant-onboarding-agreements` | public | `actions/accountant/decision.ts` (Undecided branch) | Holds **TWO** partnership-branched PDFs (uploaded 2026-06-01): `Accountant_Implementation_Agreement_Partnership.pdf` and `Accountant_Implementation_Agreement_No_Partnership.pdf`. The handler picks one by `ob.accountant_partnership` (=== `'Accountant Partnership'` → Partnership PDF, else No-Partnership — same dropdown the Yes-path send-agreement uses to pick the BoldSign template). Same fetch-and-attach pattern + graceful fallback as advisor. Created 2026-05-28; branched 2026-06-01 (v349, gotcha #58). |
+| `specialist-onboarding-assets` | public | `actions/onboarding/prelim-email.ts` (Stage 1 email) | Holds `onboarding-process.png` (inline image embedded in the Stage 1 + Stage 2 emails via `<img>`), `VFO-Specialist-Agreement.pdf` + `revenue_share_examples.pdf` (both attached to the Stage 1 yes/continue email). Created 2026-06-02 (gotcha #59). |
 
 ### `headshots`
 

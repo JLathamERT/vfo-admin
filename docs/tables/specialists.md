@@ -69,10 +69,13 @@ Multi-stage onboarding workflow. Stages 1..N are application-defined; each stage
 | `background_check_type` | text | |
 | `created_by` | text | |
 | `created_at` / `updated_at` | timestamptz | default `now()` |
+| `sif_token` | text | unique partial index. Token for the public `/specialist-sif` page; set by `automation_SPECIALIST_prelimemail` on the Stage 1 continue email (2026-06-02). |
+| `sif_data` | jsonb | Submitted Specialist Information Form payload (written by `automation_SPECIALIST_submitsif`). |
+| `sif_submitted_at` | timestamptz | When the SIF was submitted; drives the Stage 1 "SIF form completed" AI PC Admin step. |
 
 **Status fields:** `current_stage`, `status`.
 
-**Touched by:** `load_onboardings`, `create_onboarding`, `load_onboarding`, `update_onboarding`. Frontend: [SpecialistOnboarding.jsx](src/components/admin/SpecialistOnboarding.jsx).
+**Touched by:** `load_onboardings`, `create_onboarding`, `load_onboarding`, `update_onboarding`, and (Stages 1–2 automation, 2026-06-02) `automation_SPECIALIST_prelimemail` / `_loadsif` / `_submitsif`. Frontend: [SpecialistOnboarding.jsx](src/components/admin/SpecialistOnboarding.jsx). See [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md).
 
 ---
 
@@ -86,13 +89,13 @@ Per-task progress within a stage of an onboarding.
 | `onboarding_id` | integer | not null. fk → `specialist_onboarding.id` (CASCADE). |
 | `stage` | integer | not null |
 | `task_key` | text | not null |
-| `status` | text | not null, default `'pending'`. Status field. Values seen: `'pending'`, `'completed'`. |
+| `status` | text | not null, default `'pending'`. Status field. Values seen: `'pending'`, `'completed'`, `'unchecked'` (Stage 2 checklist toggle-off sentinel — treated as not-done by the frontend `getTaskStatus`; gotcha #62). |
 | `completed_by` | text | |
 | `completed_at` | timestamptz | |
 | `notes` | text | |
 | `created_at` | timestamptz | default `now()` |
 
-**Touched by:** `save_onboarding_progress`.
+**Touched by:** `save_onboarding_progress` (incl. the Stage 2 checklist toggle which writes `'completed'`/`'unchecked'`).
 
 ---
 
@@ -110,8 +113,13 @@ Meetings logged against an onboarding.
 | `outcome` | text | |
 | `created_by` | text | |
 | `created_at` | timestamptz | default `now()` |
+| `rev_proposal_text` | text | Per-meeting revenue-share proposal sent in the Stage 2 email (only when "Discuss revenue share (detail)" was covered that meeting). 2026-06-02. |
+| `rev_proposal_token` | text | unique partial index. Token for the `/specialist-revshare-decide` Approve/Propose-edit buttons; minted by `save_onboarding_meeting` when a proposal is attached. |
+| `rev_proposal_email_sent_at` | timestamptz | Stamped by `automation_SPECIALIST_stage2email` when the proposal email is drafted. |
+| `rev_proposal_response` | text | `'Approved'` or `'Propose an edit'` — set by `automation_SPECIALIST_revsharedecide`. |
+| `rev_proposal_response_at` | timestamptz | |
 
-**Touched by:** `save_onboarding_meeting`.
+**Touched by:** `save_onboarding_meeting` (now also stores `rev_proposal_text` + mints `rev_proposal_token`), `automation_SPECIALIST_stage2email`, `automation_SPECIALIST_revsharedecide`.
 
 ---
 

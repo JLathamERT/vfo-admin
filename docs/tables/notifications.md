@@ -7,7 +7,7 @@ In-portal notification feed. The bell icon at the top of `AdminPortal` ([Notific
 | Column | Type | Notes |
 |---|---|---|
 | `id` | integer | pk |
-| `recipient` | text | not null. Routing key — typically a member email or `'admin'`. |
+| `recipient` | text | not null. Routing key. `actions/notifications/load.ts` filters `recipient = session.email OR 'admin' OR 'all'` — so a value is any login email (member OR admin; e.g. `tnmiller@elitert.com` for Tracy on SPECIALIST notifications, gotcha #60), `'admin'` (all admins), or `'all'`. A recipient email with no matching login row is stored but never shown. |
 | `client_id` | integer | fk → `clients.id` (NO ACTION) |
 | `pipeline` | text | Pipeline name (e.g., `"map1"`). Drives "go to client detail" deep link. |
 | `title` | text | not null |

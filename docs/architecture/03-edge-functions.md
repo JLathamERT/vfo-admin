@@ -95,7 +95,7 @@ serve(req)
          • else    → 400 { error: "Unknown action: <name>" }
 ```
 
-Total handler count: **218 actions** (3 logins + 68 PUBLIC + 147 AUTH). The post-refactor baseline was 128; subsequent features have added MAP1 sweeps, MAP1 check path, sandbox toggle, the full Tax Planning track (~27 handlers in `actions/tax/`), the Advisor Onboarding pipeline (21 handlers in `actions/advisor/` — Phases 1-6 + member-portal login setup chain + admin Automation Panel loader), the PIP Meetings purchase chain (14 handlers in `actions/msm/pip-*.ts`), and the Accountant Onboarding pipeline (21 handlers in `actions/accountant/` cloned from advisor + new `save-partnership` for Stage 1 Partnership? step). The authoritative count is the one published in [05-api-action-catalog.md](05-api-action-catalog.md).
+Total handler count: **223 actions** (3 logins + 71 PUBLIC + 149 AUTH). The post-refactor baseline was 128; subsequent features have added MAP1 sweeps, MAP1 check path, sandbox toggle, the full Tax Planning track (~27 handlers in `actions/tax/`), the Advisor Onboarding pipeline (21 handlers in `actions/advisor/` — Phases 1-6 + member-portal login setup chain + admin Automation Panel loader), the PIP Meetings purchase chain (14 handlers in `actions/msm/pip-*.ts`), the Accountant Onboarding pipeline (21 handlers in `actions/accountant/` cloned from advisor + new `save-partnership` for Stage 1 Partnership? step), and Specialist Onboarding Stages 1–2 automation (5 handlers in `actions/onboarding/` — 2 AUTH + 3 PUBLIC, added 2026-06-02; see [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md)). The authoritative count is the one published in [05-api-action-catalog.md](05-api-action-catalog.md).
 
 ### Key cross-cutting concerns
 
@@ -177,6 +177,7 @@ Behavior change observable from outside: an explicit POST with `{ "action": "aut
 - `map1-agreements` — `actions/pipeline/pcadmin-final-decision.ts` (`proactive-lite.pdf` / `proactive-core.pdf` / `proactive-max.pdf` Undecided attachments per service level).
 - `advisor-onboarding-agreements` — `actions/advisor/decision.ts` (`Advisor_Implementation_Agreement.pdf` Undecided attachment; uploaded 2026-06-01).
 - `accountant-onboarding-agreements` — `actions/accountant/decision.ts` (TWO partnership-branched Undecided attachments — `Accountant_Implementation_Agreement_Partnership.pdf` / `_No_Partnership.pdf`, picked by `ob.accountant_partnership`; both uploaded 2026-06-01, gotcha #58).
+- `specialist-onboarding-assets` — `actions/onboarding/prelim-email.ts` (Specialist Onboarding Stage 1 email): `onboarding-process.png` (inline image in Stage 1 + Stage 2 emails), `VFO-Specialist-Agreement.pdf` + `revenue_share_examples.pdf` (static attachments on the Stage 1 yes/continue email). Added 2026-06-02, gotcha #59.
 
 ---
 
