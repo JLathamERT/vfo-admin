@@ -17,6 +17,8 @@ import AdvisorPayPage from './pages/AdvisorPayPage'
 import AccountantPayPage from './pages/AccountantPayPage'
 import PipPayPage from './pages/PipPayPage'
 import MemberSetupPage from './pages/MemberSetupPage'
+import SpecialistSifPage from './pages/SpecialistSifPage'
+import SpecialistRevShareDecidePage from './pages/SpecialistRevShareDecidePage'
 
 export default function App() {
   return (
@@ -40,6 +42,8 @@ export default function App() {
       <Route path="/accountant-pay" element={<AccountantPayPage />} />
       <Route path="/pip-pay" element={<PipPayPage />} />
       <Route path="/member-setup" element={<MemberSetupPage />} />
+      <Route path="/specialist-sif" element={<SpecialistSifPage />} />
+      <Route path="/specialist-revshare-decide" element={<SpecialistRevShareDecidePage />} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   )
