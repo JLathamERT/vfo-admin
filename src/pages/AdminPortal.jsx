@@ -89,6 +89,26 @@ export default function AdminPortal() {
     loadAllData()
   }, [])
 
+  // Deep-link from notifications etc: ?tab=&section= drives the active tab/section.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const tab = params.get('tab')
+    const section = params.get('section')
+    if (!tab) return
+    setActiveTab(tab)
+    sessionStorage.setItem('adminActiveTab', tab)
+    if (section) {
+      const sectionSetters = {
+        advisors: [setAdvisorsSection, 'adminAdvisorsSection'],
+        accountants: [setAccountantsSection, 'adminAccountantsSection'],
+        specialists: [setSpecialistsSection, 'adminSpecialistsSection'],
+        automation: [setAutomationSection, 'adminAutomationSection'],
+      }
+      const entry = sectionSetters[tab]
+      if (entry) { entry[0](section); sessionStorage.setItem(entry[1], section) }
+    }
+  }, [location.search])
+
   async function loadAllData() {
     try {
       const data = await callApi('load_data')

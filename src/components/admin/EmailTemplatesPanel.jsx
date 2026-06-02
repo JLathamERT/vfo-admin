@@ -11,6 +11,7 @@ const SECTIONS = [
   { key: 'pip', label: 'Holistic Planning - PIP Meetings', pipeline: 'PIP' },
   { key: 'advisor', label: 'Advisor Onboarding', pipeline: 'ADVISOR_ONBOARDING' },
   { key: 'accountant', label: 'Accountant Onboarding', pipeline: 'ACCOUNTANT_ONBOARDING' },
+  { key: 'specialist', label: 'Specialist Onboarding', pipeline: 'SPECIALIST_ONBOARDING' },
 ]
 
 // template_name -> plain-English label, in the order each email fires in the process.
@@ -97,6 +98,11 @@ const TEMPLATE_META = {
     ['ACCOUNTANT_undecided_reminder', 'Reminder — decision needed'],
     ['ACCOUNTANT_signing_reminder', 'Reminder — signature needed'],
     ['ACCOUNTANT_payment_reminder', 'Reminder — payment needed'],
+  ],
+  'SPECIALIST_ONBOARDING': [
+    ['SPECIALIST_yes', 'Stage 1 — yes / continue email'],
+    ['SPECIALIST_no', 'Stage 1 — no / decline email'],
+    ['SPECIALIST_step2_progress', 'Stage 2 — in-progress update email'],
   ],
 }
 

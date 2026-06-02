@@ -29,6 +29,8 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | `/accountant-pay` | [AccountantPayPage](src/pages/AccountantPayPage.jsx) | URL token | `automation_ACCOUNTANT_loadpayment` + `automation_ACCOUNTANT_stripecheckout` — Accountant Onboarding payment ($4,000 / $4,600 / $2,000 / $2,600 based on Partnership? choice + corporate add-on) |
 | `/pip-pay` | [PipPayPage](src/pages/PipPayPage.jsx) | URL token | `automation_PIP_loadpayment` + `automation_PIP_stripecheckout` — PIP Meetings purchase payment (one-time; Tax Planning or Additional PIP meetings) |
 | `/member-setup` | [MemberSetupPage](src/pages/MemberSetupPage.jsx) | URL token | Tries `automation_ADVISOR_loadloginsetup` first; on `state: 'invalid'` falls through to `automation_ACCOUNTANT_loadloginsetup`. Remembers matched pipeline ('advisor' / 'accountant') and fires the corresponding `_submitloginsetup`. On success, redirects to `/member/login` with email pre-filled via `location.state.email`. One shared page handles both onboarding pipelines. |
+| `/specialist-sif` | [SpecialistSifPage](src/pages/SpecialistSifPage.jsx) | URL token | Specialist Information Form (Stage 1). `automation_SPECIALIST_loadsif` (prefill) + `automation_SPECIALIST_submitsif` (save). Added 2026-06-02. |
+| `/specialist-revshare-decide` | [SpecialistRevShareDecidePage](src/pages/SpecialistRevShareDecidePage.jsx) | URL token + `decision` | Specialist rev-share proposal response (`decision=Approved\|Edit`) → `automation_SPECIALIST_revsharedecide`. Added 2026-06-02. |
 | `*` | redirect to `/` | — | Catch-all |
 
 ## Top-level shells
