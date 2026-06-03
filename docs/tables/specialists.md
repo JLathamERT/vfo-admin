@@ -71,11 +71,14 @@ Multi-stage onboarding workflow. Stages 1..N are application-defined; each stage
 | `created_at` / `updated_at` | timestamptz | default `now()` |
 | `sif_token` | text | unique partial index. Token for the public `/specialist-sif` page; set by `automation_SPECIALIST_prelimemail` on the Stage 1 continue email (2026-06-02). |
 | `sif_data` | jsonb | Submitted Specialist Information Form payload (written by `automation_SPECIALIST_submitsif`). |
-| `sif_submitted_at` | timestamptz | When the SIF was submitted; drives the Stage 1 "SIF form completed" AI PC Admin step. |
+| `sif_submitted_at` | timestamptz | When the SIF was submitted; drives the Stage 1 "SIF form completed" AI PC Admin step. (The SIF `sif_data` jsonb now also carries `is_tax_specialist` Yes/No + 4 tax-risk answers.) |
+| **Background-check payment** (2026-06-03) | | `bg_step3_email_sent_at`, `bg_checkout_token` (uniq idx), `bg_stripe_customer_id`, `bg_payment_intent_id`, `bg_payment_status` (`pending`/`processing`/`succeeded`/`failed`), `bg_payment_method_type`, `bg_acct_last4`, `bg_card_processing_fee`, `bg_payment_completed_at`, `bg_confirmation_email_sent_at`, `bg_invoice_number`, `bg_invoice_drive_id`, `bg_receipt_number`, `bg_receipt_drive_id`, `bg_receipt_email_sent_at`. `background_check_type` ('Core'/'Max') set on payment success. |
+| **Further questions** (2026-06-03) | | `further_questions_token` (uniq idx), `further_questions_requested_at`, `further_questions_resolved_at`, `further_questions_resolution` ('Proceed'/'Stop'). |
+| **Reminder timer guards** (2026-06-03) | | `sif_email_sent_at` + `sif_reminder_sent_at` + `sif_pf_notified_at`; `bg_choice_reminder_sent_at` + `bg_choice_pf_notified_at`; `vote_r1_opened_at`/`vote_r1_reminder_sent_at`/`vote_r1_pf_notified_at`; `vote_r2_opened_at`/`vote_r2_reminder_sent_at`/`vote_r2_pf_notified_at`. Consumed by `automation_SPECIALIST_sweep`. |
 
-**Status fields:** `current_stage`, `status`.
+**Status fields:** `current_stage` (auto-advances to 3 on exec approval), `status` (`stopped` on both-Denied).
 
-**Touched by:** `load_onboardings`, `create_onboarding`, `load_onboarding`, `update_onboarding`, and (Stages 1–2 automation, 2026-06-02) `automation_SPECIALIST_prelimemail` / `_loadsif` / `_submitsif`. Frontend: [SpecialistOnboarding.jsx](src/components/admin/SpecialistOnboarding.jsx). See [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md).
+**Touched by:** `load_onboardings`, `create_onboarding`, `load_onboarding`, `update_onboarding`, the Stage 1–2 automation handlers, and (2026-06-03) `automation_SPECIALIST_execvote`, `_step3email`, `_bgconfirmation`, `_bgreceipt`, `_questionsrequest`/`_questionsresolve`, `_sweep`, plus the webhook background-check branch. Frontend: [SpecialistOnboarding.jsx](src/components/admin/SpecialistOnboarding.jsx) + [SpecialistAutomationPanel.jsx](src/components/admin/SpecialistAutomationPanel.jsx). See [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md).
 
 ---
 
@@ -95,7 +98,7 @@ Per-task progress within a stage of an onboarding.
 | `notes` | text | |
 | `created_at` | timestamptz | default `now()` |
 
-**Touched by:** `save_onboarding_progress` (incl. the Stage 2 checklist toggle which writes `'completed'`/`'unchecked'`).
+**Touched by:** `save_onboarding_progress` (incl. the Stage 2 checklist toggle; the reviewer-notes keys `tracy_general_notes`/`tim_tax_risk_notes`, whose save fires/clears the reviewer-notes notifications; and `rev_share_prepared` whose save opens exec voting — gotchas #64–#66). Also written by `automation_SPECIALIST_bgreceipt` (`bg_email_sent`/`payment_received`) and `_deniedemail` (`denied_email_sent`).
 
 ---
 
@@ -118,8 +121,9 @@ Meetings logged against an onboarding.
 | `rev_proposal_email_sent_at` | timestamptz | Stamped by `automation_SPECIALIST_stage2email` when the proposal email is drafted. |
 | `rev_proposal_response` | text | `'Approved'` or `'Propose an edit'` — set by `automation_SPECIALIST_revsharedecide`. |
 | `rev_proposal_response_at` | timestamptz | |
+| `rev_proposal_reminder_sent_at` / `rev_proposal_pf_notified_at` | timestamptz | 2026-06-03. 48h/96h guards for the rev-share-unanswered reminder stall in `automation_SPECIALIST_sweep`. |
 
-**Touched by:** `save_onboarding_meeting` (now also stores `rev_proposal_text` + mints `rev_proposal_token`), `automation_SPECIALIST_stage2email`, `automation_SPECIALIST_revsharedecide`.
+**Touched by:** `save_onboarding_meeting`, `automation_SPECIALIST_stage2email`, `automation_SPECIALIST_revsharedecide`, `automation_SPECIALIST_sweep`.
 
 ---
 
@@ -132,9 +136,12 @@ Per-stage vote log. Each voter casts one vote per stage.
 | `id` | integer | pk |
 | `onboarding_id` | integer | not null. fk → `specialist_onboarding.id` (CASCADE). |
 | `stage` | integer | not null |
-| `voter_name` | text | not null |
-| `vote` | text | not null. Application-defined (e.g., `'yes'`/`'no'`/`'abstain'`). |
+| `voter_name` | text | not null. Stage 2 = `'Anton Anderson'` / `'Paul Latham'`. |
+| `vote` | text | not null. Stage 2 round 1: `'Approved'`/`'Further Questions'`; round 2: `'Approved'`/`'Denied'`. |
+| `vote_round` | integer | not null, default `1` (2026-06-03). Distinguishes the two Stage-2 exec-approval rounds. |
 | `notes` | text | |
 | `voted_at` | timestamptz | default `now()` |
+
+**Unique constraint** is now `(onboarding_id, stage, voter_name, vote_round)` (was 3-col). Stage-2 exec votes are written by `automation_SPECIALIST_execvote` (account-scoped; values redacted in `load.ts` until both vote — gotcha #64); `save_onboarding_vote` still serves stage-4 votes (defaults `vote_round=1`).
 
 **Touched by:** `save_onboarding_vote`.

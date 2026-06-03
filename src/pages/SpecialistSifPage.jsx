@@ -10,7 +10,17 @@ const EMPTY = {
   strategy_expertise: '', cutoff_date: '',
   client_requirements: '', investment_cost: '',
   ideal_client: '', benefits_summary: '', getting_started: '', process_steps: '', competitive_advantage: '',
+  is_tax_specialist: '',
+  tax_general_risks: '', tax_risk_history: '', tax_worst_case: '', tax_precautions: '',
 }
+
+// Tax-specialist-only questions, revealed (and required) when is_tax_specialist === 'Yes'.
+const TAX_QUESTIONS = [
+  ['tax_general_risks', 'What are the general risks of this strategy?'],
+  ['tax_risk_history', 'What has been the history of these risks coming to fruition?'],
+  ['tax_worst_case', 'What are potential worst-case scenarios?'],
+  ['tax_precautions', 'What precautions are in place to prevent or minimize the risks?'],
+]
 
 export default function SpecialistSifPage() {
   const [searchParams] = useSearchParams()
@@ -45,10 +55,10 @@ export default function SpecialistSifPage() {
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
   async function submit() {
-    const REQUIRED = ['full_name', 'address', 'phone', 'email', 'time_zone', 'strategy_expertise', 'client_requirements', 'ideal_client', 'benefits_summary', 'getting_started', 'process_steps', 'competitive_advantage']
+    const REQUIRED = ['full_name', 'address', 'phone', 'email', 'time_zone', 'strategy_expertise', 'client_requirements', 'ideal_client', 'benefits_summary', 'getting_started', 'process_steps', 'competitive_advantage', 'is_tax_specialist']
+    if (form.is_tax_specialist === 'Yes') REQUIRED.push('tax_general_risks', 'tax_risk_history', 'tax_worst_case', 'tax_precautions')
     if (REQUIRED.some(k => !String(form[k] || '').trim())) {
       setError('Please complete all required fields (marked with *). Fields noted "if applicable" are optional.')
-      window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
     setSubmitting(true); setError('')
@@ -143,6 +153,16 @@ export default function SpecialistSifPage() {
         <SectionLabel n="8" required>What Makes You Better than the Competition</SectionLabel>
         <Area value={form.competitive_advantage} onChange={v => set('competitive_advantage', v)} hint="For example: Only deal with senior partners with more than 20 years' experience." />
 
+        <SectionLabel n="9" required>Tax Specialist</SectionLabel>
+        <SelectField label="Are you a Tax Specialist?" value={form.is_tax_specialist} onChange={v => set('is_tax_specialist', v)} options={['Yes', 'No']} required />
+        {form.is_tax_specialist === 'Yes' && (
+          <div style={{ marginTop: '4px' }}>
+            {TAX_QUESTIONS.map(([k, label], i) => (
+              <Area key={k} label={`9${String.fromCharCode(65 + i)}. ${label}`} required value={form[k]} onChange={v => set(k, v)} />
+            ))}
+          </div>
+        )}
+
         {error && <div style={{ color: '#ff6b6b', fontSize: '13px', marginTop: '16px', textAlign: 'center' }}>{error}</div>}
 
         <button onClick={submit} disabled={submitting} style={{ marginTop: '24px', width: '100%', padding: '14px', borderRadius: '8px', background: submitting ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
@@ -180,9 +200,10 @@ function SelectField({ label, value, onChange, options, hint, required }) {
   )
 }
 
-function Area({ value, onChange, hint }) {
+function Area({ value, onChange, hint, label, required }) {
   return (
     <div style={{ marginBottom: '14px' }}>
+      {label && <label style={labelStyle}>{label}{required && <span style={{ color: '#ff6b6b' }}> *</span>}</label>}
       <textarea value={value} onChange={e => onChange(e.target.value)} rows={4} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
       {hint && <div style={hintStyle}>{hint}</div>}
     </div>
