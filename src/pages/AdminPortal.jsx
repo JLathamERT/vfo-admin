@@ -10,6 +10,7 @@ import TaxAutomationPanel from '../components/admin/TaxAutomationPanel'
 import PipAutomationPanel from '../components/admin/PipAutomationPanel'
 import AdvisorAutomationPanel from '../components/admin/AdvisorAutomationPanel'
 import AccountantAutomationPanel from '../components/admin/AccountantAutomationPanel'
+import SpecialistAutomationPanel from '../components/admin/SpecialistAutomationPanel'
 import NotificationBell from '../components/NotificationBell'
 import EmailTemplatesPanel from '../components/admin/EmailTemplatesPanel'
 
@@ -239,6 +240,7 @@ export default function AdminPortal() {
         { key: 'standalone_tax_pipeline', label: 'Tax Planning' },
         { key: 'advisor_pipeline', label: 'Advisor Onboarding' },
         { key: 'accountant_pipeline', label: 'Accountant Onboarding' },
+        { key: 'specialist_pipeline', label: 'Specialist Onboarding' },
         { key: 'email_templates', label: 'Email Templates' },
       ]
     },
@@ -347,6 +349,9 @@ export default function AdminPortal() {
           )}
           {activeTab === 'automation' && !loading && automationSection === 'accountant_pipeline' && (
             <AccountantAutomationPanel />
+          )}
+          {activeTab === 'automation' && !loading && automationSection === 'specialist_pipeline' && (
+            <SpecialistAutomationPanel />
           )}
           {activeTab === 'automation' && !loading && automationSection === 'email_templates' && (
             <EmailTemplatesPanel />

@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { callApi, getSession } from '../../lib/api'
+import { SpecialistOnboardingListSkeleton, SpecialistOnboardingDetailSkeleton } from '../shared/Skeleton'
  
 const STAGE_NAMES = ['', 'Preliminary Meeting', 'Detail Meetings', 'Due Diligence', 'Contract & Details', 'Going Live']
+
+// Stage 2 "Initial executive approval" voters. Voting is account-scoped: only the
+// matching logged-in exec can cast their vote, and a vote stays private until both
+// have voted that round.
+const EXECS = ['Anton Anderson', 'Paul Latham']
+const EXEC_BY_EMAIL = {
+  'aanderson@elitert.com': 'Anton Anderson',
+  'platham@elitert.com': 'Paul Latham',
+}
  
 const STAGE2_CHECKLIST = [
   'Review SIF',
@@ -61,6 +71,14 @@ const SIF_FIELDS = [
   ['getting_started', 'Getting Started with a Client'],
   ['process_steps', 'Steps of Professional Process'],
   ['competitive_advantage', 'What Makes You Better than the Competition'],
+]
+
+// Tax-specialist-only SIF answers — shown in the read-back only when is_tax_specialist === 'Yes'.
+const SIF_TAX_FIELDS = [
+  ['tax_general_risks', 'What are the general risks of this strategy?'],
+  ['tax_risk_history', 'What has been the history of these risks coming to fruition?'],
+  ['tax_worst_case', 'What are potential worst-case scenarios?'],
+  ['tax_precautions', 'What precautions are in place to prevent or minimize the risks?'],
 ]
  
 export default function SpecialistOnboarding() {
@@ -140,7 +158,7 @@ export default function SpecialistOnboarding() {
       )}
  
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>Loading...</div>
+        <SpecialistOnboardingListSkeleton />
       ) : onboardings.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>No onboarding records yet. Click "+ New Onboarding" to start.</div>
       ) : (
@@ -176,6 +194,7 @@ function OnboardingDetail({ id, onBack }) {
   const [votes, setVotes] = useState({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState({})
+  const [fqPending, setFqPending] = useState(null)
   const [expanded, setExpanded] = useState({})
   const session = getSession()
  
@@ -191,7 +210,7 @@ function OnboardingDetail({ id, onBack }) {
       setProgress(prog)
       setMeetings(data.meetings || [])
       const v = {}
-      ;(data.votes || []).forEach(vote => { v[`${vote.stage}-${vote.voter_name}`] = vote })
+      ;(data.votes || []).forEach(vote => { v[`${vote.stage}-${vote.voter_name}-${vote.vote_round || 1}`] = vote })
       setVotes(v)
       if (data.onboarding) {
         const o = data.onboarding
@@ -208,6 +227,11 @@ function OnboardingDetail({ id, onBack }) {
     try {
       const result = await callApi('save_onboarding_progress', { onboarding_id: id, stage, task_key: taskKey, status: status || 'completed', completed_by: session?.name || 'Admin', notes })
       setProgress(p => ({ ...p, [key]: result.progress }))
+      // Saving reviewer notes clears the matching bell notification server-side —
+      // ping the bell so it disappears immediately instead of on the next poll.
+      if (taskKey === 'tracy_general_notes' || taskKey === 'tim_tax_risk_notes') {
+        window.dispatchEvent(new Event('vfo:notifications-changed'))
+      }
     } catch (err) { console.error(err) }
     finally { setSaving(p => ({ ...p, [key]: false })) }
   }
@@ -253,8 +277,35 @@ function OnboardingDetail({ id, onBack }) {
     return (s && s !== 'unchecked') ? s : null
   }
  
-  function getVote(stage, voter) {
-    return votes[`${stage}-${voter}`]?.vote || null
+  function getVote(stage, voter, round = 1) {
+    return votes[`${stage}-${voter}-${round}`]?.vote || null
+  }
+
+  // Has this exec cast a vote this round (regardless of whether the value is
+  // revealed to the current viewer)?
+  function hasVoted(stage, voter, round = 1) {
+    return !!votes[`${stage}-${voter}-${round}`]
+  }
+
+  // Cast the current admin's Stage 2 exec vote (identity is derived server-side).
+  async function castExecVote(round, vote) {
+    try {
+      await callApi('automation_SPECIALIST_execvote', { onboarding_id: id, vote_round: round, vote })
+      window.dispatchEvent(new Event('vfo:notifications-changed'))
+      await loadDetail()
+    } catch (err) { console.error(err) }
+  }
+
+  // Tracy resolves a "further questions" request: Proceed (re-send Core/Max) or Stop (decline).
+  async function resolveQuestions(resolution) {
+    if (fqPending) return
+    setFqPending(resolution)
+    try {
+      await callApi('automation_SPECIALIST_questionsresolve', { onboarding_id: id, resolution })
+      window.dispatchEvent(new Event('vfo:notifications-changed'))
+      await loadDetail()
+    } catch (err) { console.error(err) }
+    finally { setFqPending(null) }
   }
  
   function getStageState(stage) {
@@ -266,7 +317,7 @@ function OnboardingDetail({ id, onBack }) {
  
   const inputStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: '#0d2a6e', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif' }
  
-  if (loading) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px', textAlign: 'center', color: '#8bacc8' }}>Loading...</div>
+  if (loading) return <SpecialistOnboardingDetailSkeleton onBack={onBack} />
   if (!ob) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px', textAlign: 'center', color: '#8bacc8' }}>Not found.</div>
  
   const isStopped = ob.status === 'stopped'
@@ -468,6 +519,16 @@ function OnboardingDetail({ id, onBack }) {
                           <div style={{ fontSize: '12px', color: '#fff', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{sifData[k] ? sifData[k] : '—'}</div>
                         </div>
                       ))}
+                      <div style={{ marginBottom: '10px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>Tax Specialist?</div>
+                        <div style={{ fontSize: '12px', color: '#fff', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{sifData.is_tax_specialist || '—'}</div>
+                      </div>
+                      {sifData.is_tax_specialist === 'Yes' && SIF_TAX_FIELDS.map(([k, label]) => (
+                        <div key={k} style={{ marginBottom: '10px' }}>
+                          <div style={{ fontSize: '10px', fontWeight: 700, color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{label}</div>
+                          <div style={{ fontSize: '12px', color: '#fff', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{sifData[k] ? sifData[k] : '—'}</div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -552,9 +613,19 @@ function OnboardingDetail({ id, onBack }) {
     const allLocked = STAGE2_CHECKLIST.every((_, i) => lockedItems.has(String(i)))
     const stoppedHere = isStopped && ob.current_stage >= 2  // stopped during Stage 2 (vs stopped earlier)
     
-    const bothConfirm = getVote(2, 'Anton Anderson') === 'confirm' && getVote(2, 'Paul Latham') === 'confirm'
-    const eitherQuestion = (getVote(2, 'Anton Anderson') === 'further_questions' || getVote(2, 'Paul Latham') === 'further_questions') && !bothConfirm
-    const anyVote = getVote(2, 'Anton Anderson') || getVote(2, 'Paul Latham')
+    // Initial executive approval — account-scoped two-round voting.
+    const myExec = EXEC_BY_EMAIL[(session?.email || '').toLowerCase()] || null
+    const votingOpen = !!getTaskStatus(2, 'rev_share_prepared') && !!getTaskStatus(2, 'tracy_general_notes')
+      && (ob.sif_data?.is_tax_specialist !== 'Yes' || !!getTaskStatus(2, 'tim_tax_risk_notes'))
+    const r1BothVoted = hasVoted(2, 'Anton Anderson', 1) && hasVoted(2, 'Paul Latham', 1)
+    const r1AnyFurther = r1BothVoted && (getVote(2, 'Anton Anderson', 1) === 'Further Questions' || getVote(2, 'Paul Latham', 1) === 'Further Questions')
+    const r1BothApproved = r1BothVoted && getVote(2, 'Anton Anderson', 1) === 'Approved' && getVote(2, 'Paul Latham', 1) === 'Approved'
+    const r2BothVoted = hasVoted(2, 'Anton Anderson', 2) && hasVoted(2, 'Paul Latham', 2)
+    const r2BothApproved = r2BothVoted && getVote(2, 'Anton Anderson', 2) === 'Approved' && getVote(2, 'Paul Latham', 2) === 'Approved'
+    const r2BothDenied = r2BothVoted && getVote(2, 'Anton Anderson', 2) === 'Denied' && getVote(2, 'Paul Latham', 2) === 'Denied'
+    const approved = r1BothApproved || r2BothApproved
+    const denied = r2BothDenied
+    const approvedBanner = { fontSize: '12px', color: '#27ae60', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(39,174,96,0.3)', background: 'rgba(39,174,96,0.06)', marginBottom: '8px' }
 
     const [revSharePercent, setRevSharePercent] = useState('')
     const [submittingRevShare, setSubmittingRevShare] = useState(false)
@@ -738,13 +809,13 @@ function OnboardingDetail({ id, onBack }) {
 
         {/* All items covered message */}
         {allLocked && !isStopped && (
-          <div style={{ padding: '8px 12px', borderRadius: '6px', border: '1px dashed rgba(39,174,96,0.3)', background: 'rgba(39,174,96,0.06)', marginBottom: '14px' }}>
+          <div style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(39,174,96,0.3)', background: 'rgba(39,174,96,0.06)', marginBottom: '14px' }}>
             <span style={{ fontSize: '12px', color: '#27ae60' }}>✓ All Stage 2 items completed across {meetingCount} meeting{meetingCount !== 1 ? 's' : ''}.</span>
           </div>
         )}
 
         {/* Revenue share proposal — comes before Initial executive approval */}
-        <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
         <SectionLabel>Revenue share proposal</SectionLabel>
         {!getTaskStatus(2, 'rev_share_prepared') ? (
           <div style={{ padding: '14px', borderRadius: '8px', border: '1px solid rgba(91,159,230,0.3)', background: 'rgba(255,255,255,0.02)', marginBottom: '12px' }}>
@@ -755,43 +826,73 @@ function OnboardingDetail({ id, onBack }) {
         ) : (
           <RevShareDisplay notes={progress['2-rev_share_prepared']?.notes || ''} />
         )}
-        <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
 
-        {/* Executive approval — read only, populated by email webhooks */}
+        {/* Reviewer notes — required before Initial executive approval. Notifications
+            fire to Tracy (always) + Tim (tax specialists only) when the final revenue
+            share proposal above is submitted; they clear when the notes are saved. */}
+        {getTaskStatus(2, 'rev_share_prepared') && (
+          <>
+            <SectionLabel>Reviewer notes</SectionLabel>
+            <ReviewerNoteInput
+              label="General notes"
+              who="Tracy"
+              placeholder="General notes regarding this potential specialist..."
+              done={!!getTaskStatus(2, 'tracy_general_notes')}
+              currentNotes={progress['2-tracy_general_notes']?.notes || ''}
+              onSave={t => saveProgress(2, 'tracy_general_notes', 'completed', t)}
+            />
+            {ob.sif_data?.is_tax_specialist === 'Yes' && (
+              <ReviewerNoteInput
+                label="Tax risk notes"
+                who="Tim"
+                placeholder="Notes regarding tax risk..."
+                done={!!getTaskStatus(2, 'tim_tax_risk_notes')}
+                currentNotes={progress['2-tim_tax_risk_notes']?.notes || ''}
+                onSave={t => saveProgress(2, 'tim_tax_risk_notes', 'completed', t)}
+              />
+            )}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+          </>
+        )}
+
+        {/* Initial executive approval — account-scoped two-round voting */}
         <>
             <SectionLabel>Initial executive approval</SectionLabel>
-            <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
-              {['Anton Anderson', 'Paul Latham'].map(voter => {
-                const v = getVote(2, voter)
-                return (
-                  <div key={voter} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                    <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '8px' }}>{voter}</div>
-                    {!v ? (
-                      <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8', border: '1px solid rgba(255,255,255,0.1)' }}>Awaiting response</span>
-                    ) : (
-                      <span style={{ fontSize: '12px', color: v === 'confirm' ? '#27ae60' : '#f39c12', fontWeight: '600' }}>
-                        {v === 'confirm' ? '✓ Confirmed' : '⚠ Further questions'}
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-            
-            {eitherQuestion && <div style={{ fontSize: '12px', color: '#f39c12', padding: '8px 12px', borderRadius: '6px', border: '1px dashed rgba(243,156,18,0.3)', background: 'rgba(243,156,18,0.06)', marginBottom: '12px' }}>Process paused — executive has further questions.</div>}
-            {bothConfirm && <div style={{ fontSize: '11px', color: '#27ae60', marginBottom: '8px' }}>Both executives confirmed. Background check email triggered.</div>}
-            
-            <AutoStep done={!!getTaskStatus(2, 'bg_email_sent')} label="Background check email sent (Core $350 / Max $950)" />
-            <AutoStep done={!!getTaskStatus(2, 'payment_received')} label="Payment received" detail={ob.background_check_type || ''} />
-            {!getTaskStatus(2, 'payment_received') && bothConfirm && (
-              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                <ActionButton label="Core selected" onClick={() => { saveProgress(2, 'bg_email_sent', 'completed'); saveProgress(2, 'payment_received', 'completed'); updateOnboarding({ background_check_type: 'Core' }) }} />
-                <ActionButton label="Max selected" onClick={() => { saveProgress(2, 'bg_email_sent', 'completed'); saveProgress(2, 'payment_received', 'completed'); updateOnboarding({ background_check_type: 'Max' }) }} />
+            {!votingOpen ? (
+              <div style={{ fontSize: '12px', color: '#8bacc8', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.02)', marginBottom: '12px' }}>
+                Voting opens once the final revenue share proposal{ob.sif_data?.is_tax_specialist === 'Yes' ? ' and both reviewer notes' : " and Tracy's notes"} are complete.
               </div>
+            ) : (
+              <>
+                <ExecDetailsDropdown />
+                <ExecVoteRow round={1} options={['Approved', 'Further Questions']} myExec={myExec} />
+                {r1BothApproved && <div style={approvedBanner}>✓ Both executives approved.</div>}
+                {r1AnyFurther && (
+                  <>
+                    <div style={{ fontSize: '12px', color: '#f39c12', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(243,156,18,0.3)', background: 'rgba(243,156,18,0.06)', margin: '12px 0' }}>An executive raised further questions — a second decision is needed after discussion.</div>
+                    <SectionLabel>Executive decision (after discussion)</SectionLabel>
+                    <ExecVoteRow round={2} options={['Approved', 'Denied']} myExec={myExec} />
+                    {r2BothApproved && <div style={approvedBanner}>✓ Both executives approved.</div>}
+                  </>
+                )}
+              </>
             )}
-            {getTaskStatus(2, 'payment_received') && ob.current_stage === 2 && (
-              <div style={{ marginTop: '14px' }}><ActionButton label="Advance to Stage 3 →" onClick={advanceStage} /></div>
-            )}
+
+            {approved && <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '8px' }}>Approved — moved to Stage 3 (Due Diligence) for the background-check step.</div>}
+            {denied && !approved && (() => {
+              const sent = !!getTaskStatus(2, 'denied_email_sent')
+              return (
+                <>
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: sent ? '#e74c3c' : 'transparent', flexShrink: 0, border: `1.5px solid ${sent ? '#e74c3c' : 'rgba(255,255,255,0.2)'}` }} />
+                    <span style={{ fontSize: '13px', color: sent ? '#e74c3c' : '#8bacc8', flex: 1 }}>Decline email drafted to specialist — Tracy Miller will follow up</span>
+                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: sent ? 'rgba(231,76,60,0.15)' : 'rgba(255,255,255,0.06)', color: sent ? '#e74c3c' : '#8bacc8', border: `1px solid ${sent ? 'rgba(231,76,60,0.3)' : 'rgba(255,255,255,0.1)'}` }}>{sent ? 'Sent — process stopped' : 'Sending…'}</span>
+                  </div>
+                </>
+              )
+            })()}
         </>
       </>
     )
@@ -815,6 +916,103 @@ function OnboardingDetail({ id, onBack }) {
     )
   }
 
+  function ReviewerNoteInput({ label, who, placeholder, done, currentNotes, onSave }) {
+    const [text, setText] = useState(currentNotes)
+    const [saving, setSaving] = useState(false)
+    const [justSaved, setJustSaved] = useState(false)
+
+    async function handleSave() {
+      if (!text.trim() || saving) return
+      setSaving(true)
+      try { await onSave(text.trim()); setJustSaved(true); setTimeout(() => setJustSaved(false), 2000) }
+      catch (err) { console.error(err) }
+      finally { setSaving(false) }
+    }
+
+    return (
+      <div style={{ padding: '12px 14px', borderRadius: '8px', border: `1px solid ${done ? 'rgba(39,174,96,0.3)' : 'rgba(243,156,18,0.3)'}`, background: 'rgba(255,255,255,0.02)', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <span style={{ fontSize: '13px', color: '#fff', fontWeight: '600' }}>{label} <span style={{ color: '#8bacc8', fontWeight: 400 }}>({who})</span></span>
+          {done
+            ? <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', marginLeft: 'auto' }}>Completed</span>
+            : <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(243,156,18,0.15)', color: '#f39c12', marginLeft: 'auto' }}>Awaiting notes</span>}
+        </div>
+        <textarea value={text} onChange={e => setText(e.target.value)} placeholder={placeholder} rows={4} disabled={isStopped} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '8px' }} />
+        <ActionButton label={justSaved ? '✓ Saved' : saving ? 'Saving...' : done ? 'Update notes' : 'Save notes'} onClick={handleSave} color={done ? '#27ae60' : '#5b9fe6'} disabled={!text.trim() || saving} />
+      </div>
+    )
+  }
+
+  // One row of two exec cards for a voting round. Buttons are only active for the
+  // matching logged-in exec; a vote's value is shown only once revealed by the
+  // backend (the caster always sees their own; everyone sees both once both vote).
+  function ExecVoteRow({ round, options, myExec }) {
+    const [pending, setPending] = useState(null)
+    return (
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
+        {EXECS.map(voter => {
+          const voted = hasVoted(2, voter, round)
+          const value = getVote(2, voter, round)
+          const isMe = myExec === voter
+          const revealed = voted && value != null
+          const color = value === 'Approved' ? '#27ae60' : value === 'Denied' ? '#e74c3c' : '#f39c12'
+          return (
+            <div key={voter} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+              <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '8px' }}>{voter}{isMe && <span style={{ color: '#5b9fe6' }}> (you)</span>}</div>
+              {revealed ? (
+                <span style={{ fontSize: '12px', color, fontWeight: 600 }}>{value === 'Approved' ? '✓ ' : value === 'Denied' ? '✗ ' : '⚠ '}{value}</span>
+              ) : voted ? (
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.25)' }}>Voted — awaiting other executive</span>
+              ) : isMe ? (
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {options.map(opt => {
+                    const oc = opt === 'Approved' ? '#27ae60' : opt === 'Denied' ? '#e74c3c' : '#f39c12'
+                    return <button key={opt} onClick={async () => { if (pending) return; setPending(opt); try { await castExecVote(round, opt) } finally { setPending(null) } }} disabled={!!pending} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '11px', cursor: pending ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', background: `${oc}22`, border: `1px solid ${oc}66`, color: oc, opacity: pending ? 0.6 : 1 }}>{pending === opt ? 'Saving…' : opt}</button>
+                  })}
+                </div>
+              ) : (
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8', border: '1px solid rgba(255,255,255,0.1)' }}>Awaiting response</span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // Collapsible reference bundle the execs use to decide: SIF answers, the final
+  // revenue share proposal, and Tracy's + Tim's notes.
+  function ExecDetailsDropdown() {
+    const [open, setOpen] = useState(false)
+    const sifData = ob.sif_data || {}
+    const isTax = sifData.is_tax_specialist === 'Yes'
+    const lblStyle = { fontSize: '10px', fontWeight: 700, color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }
+    const valStyle = { fontSize: '12px', color: '#fff', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: '10px' }
+    const grpStyle = { fontSize: '14px', fontWeight: 700, color: '#fff', letterSpacing: '0.3px', margin: '20px 0 12px', paddingBottom: '6px', borderBottom: '2px solid rgba(91,159,230,0.55)' }
+    const item = (label, value, key) => (<div key={key} style={{ marginBottom: '10px' }}><div style={lblStyle}>{label}</div><div style={{ ...valStyle, marginBottom: 0 }}>{value ? value : '—'}</div></div>)
+    return (
+      <div style={{ marginBottom: '14px' }}>
+        <div onClick={() => setOpen(o => !o)} style={{ fontSize: '12px', color: '#5b9fe6', cursor: 'pointer', fontWeight: 600 }}>{open ? '▼ Hide details' : '▶ View details'}</div>
+        {open && (
+          <div style={{ marginTop: '8px', padding: '12px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ ...grpStyle, marginTop: 0 }}>SIF answers</div>
+            {SIF_FIELDS.map(([k, label]) => item(label, sifData[k], k))}
+            {item('Tax Specialist?', sifData.is_tax_specialist, 'taxflag')}
+            {isTax && SIF_TAX_FIELDS.map(([k, label]) => item(label, sifData[k], k))}
+            <div style={grpStyle}>Final revenue share proposal</div>
+            <div style={valStyle}>{progress['2-rev_share_prepared']?.notes || '—'}</div>
+            <div style={grpStyle}>General notes (Tracy)</div>
+            <div style={valStyle}>{progress['2-tracy_general_notes']?.notes || '—'}</div>
+            {isTax && <>
+              <div style={grpStyle}>Tax risk notes (Tim)</div>
+              <div style={valStyle}>{progress['2-tim_tax_risk_notes']?.notes || '—'}</div>
+            </>}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   function Stage3Content() {
     const bgInitiated = !!getTaskStatus(3, 'bg_initiated')
     const ddStatus = getTaskStatus(3, 'dd_checklist')
@@ -824,8 +1022,37 @@ function OnboardingDetail({ id, onBack }) {
     const bgFailed = bgResult === 'failed'
     const allDone = ddDone && bgDone
 
+    const step3Sent = !!ob.bg_step3_email_sent_at
+    const confirmSent = !!ob.bg_confirmation_email_sent_at
+    const bgPaid = ob.bg_payment_status === 'succeeded' || !!getTaskStatus(2, 'payment_received')
+    const fqRequested = !!ob.further_questions_requested_at
+    const fqResolved = !!ob.further_questions_resolved_at
+    const bgCheckProcess = ob.background_check_type === 'Max' ? 'Scherzer International' : ob.background_check_type === 'Core' ? 'Checkr' : ''
+
     return (
       <>
+        {/* Background-check payment flow (begins when both execs approve) */}
+        <AutoStep done={step3Sent} label="Stage 3 email sent to specialist (choose Core $350 / Max $950)" />
+        {fqRequested && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: fqResolved ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${fqResolved ? '#27ae60' : '#f39c12'}` }} />
+            <span style={{ fontSize: '13px', color: fqResolved ? '#8bacc8' : '#fff', flex: 1 }}>Specialist had further questions</span>
+            {fqResolved ? (
+              <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: ob.further_questions_resolution === 'Stop' ? 'rgba(231,76,60,0.15)' : 'rgba(39,174,96,0.15)', color: ob.further_questions_resolution === 'Stop' ? '#e74c3c' : '#27ae60', border: `1px solid ${ob.further_questions_resolution === 'Stop' ? 'rgba(231,76,60,0.3)' : 'rgba(39,174,96,0.3)'}` }}>
+                {ob.further_questions_resolution === 'Stop' ? 'Declined' : 'Proceeded — options re-sent'}
+              </span>
+            ) : (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <ActionButton label={fqPending === 'Proceed' ? 'Sending…' : 'Proceed'} onClick={() => resolveQuestions('Proceed')} color="#27ae60" disabled={!!fqPending} />
+                <ActionButton label={fqPending === 'Stop' ? 'Sending…' : 'Stop'} onClick={() => resolveQuestions('Stop')} color="#e74c3c" disabled={!!fqPending} />
+              </div>
+            )}
+          </div>
+        )}
+        <AutoStep done={confirmSent} label="Payment confirmation email sent" detail={confirmSent ? (ob.bg_payment_method_type === 'ach' ? 'ACH' : 'Card') : ''} />
+        <AutoStep done={bgPaid} label="Payment cleared — receipt, next steps, and DD checklist sent" detail={bgPaid ? `${ob.background_check_type || ''}${bgCheckProcess ? ' → ' + bgCheckProcess : ''}` : (confirmSent && ob.bg_payment_method_type === 'ach' ? 'ACH clearing (2-4 business days)' : '')} />
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+
         {/* 1. Tracy confirms background check sent */}
         
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', marginBottom: '4px' }}>
@@ -834,12 +1061,8 @@ function OnboardingDetail({ id, onBack }) {
             <span style={{ fontSize: '13px', color: bgInitiated ? '#fff' : '#8bacc8' }}>Background check sent{ob.background_check_type ? ` to ${ob.background_check_type === 'Max' ? 'Scherzer International' : 'Checkr'}` : ''}</span>
             {ob.background_check_type && <span style={{ fontSize: '11px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.2)' }}>{ob.background_check_type}</span>}
           </div>
-          {!bgInitiated && <ActionButton label="Background check sent" onClick={() => { saveProgress(3, 'bg_initiated', 'completed'); saveProgress(3, 'dd_email_sent', 'completed') }} />}
+          {!bgInitiated && <ActionButton label="Background check sent" onClick={() => saveProgress(3, 'bg_initiated', 'completed')} />}
         </div>
-
-        {/* 2. Auto: DD checklist email — fires when Tracy clicks above */}
-        
-        <AutoStep done={!!getTaskStatus(3, 'dd_email_sent')} label="DD checklist email sent to specialist" />
 
         {/* 3. DD checklist response — read-only, populated by email */}
         
@@ -854,7 +1077,7 @@ function OnboardingDetail({ id, onBack }) {
           ) : null}
         </div>
 
-        <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
 
 
         {/* 5. Auto: revenue share email — fires when form submitted */}
@@ -882,7 +1105,7 @@ function OnboardingDetail({ id, onBack }) {
 
         {/* Gate */}
         {bgFailed && (
-          <div style={{ padding: '8px 12px', borderRadius: '6px', border: '1px dashed rgba(231,76,60,0.3)', background: 'rgba(231,76,60,0.06)', marginTop: '14px', marginBottom: '10px' }}>
+          <div style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'rgba(231,76,60,0.06)', marginTop: '14px', marginBottom: '10px' }}>
             <span style={{ fontSize: '12px', color: '#e74c3c' }}>✗ Background check failed — onboarding stopped</span>
           </div>
         )}
@@ -925,11 +1148,11 @@ function OnboardingDetail({ id, onBack }) {
  
         <SectionLabel>Final executive approval</SectionLabel>
         <VotePanel stage={4} />
-        {eitherQuestion && <div style={{ fontSize: '12px', color: '#f39c12', padding: '8px 12px', borderRadius: '6px', border: '1px dashed rgba(243,156,18,0.3)', background: 'rgba(243,156,18,0.06)', marginBottom: '12px' }}>Process paused — executive has further questions.</div>}
+        {eitherQuestion && <div style={{ fontSize: '12px', color: '#f39c12', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(243,156,18,0.3)', background: 'rgba(243,156,18,0.06)', marginBottom: '12px' }}>Process paused — executive has further questions.</div>}
  
         {bothConfirm && <div style={{ fontSize: '11px', color: '#27ae60', marginBottom: '8px' }}>Both executives confirmed.</div>}
 
-        <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
         
         <AutoStep done={!!getTaskStatus(4, 'agreement_created')} label="VFO Specialist Agreement created" />
         <AutoStep done={!!getTaskStatus(4, 'specialist_signed')} label="VFO Specialist Agreement signed by specialist" />
@@ -945,7 +1168,7 @@ function OnboardingDetail({ id, onBack }) {
           </div>
         )}
 
-        <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
         <SectionLabel>Personal folder</SectionLabel>
         <CheckItem done={!!getTaskStatus(4, 'bio_collected')} label="Bio collected" onClick={async () => { await saveProgress(4, 'bio_collected', 'completed'); const allDone = ['headshot_collected','signed_contracts_collected','misc_docs_collected','tax_docs_collected'].every(k => getTaskStatus(4, k)) && STAGE4_DETAILS_BENEFITS.every(i => getTaskStatus(4, i.key)); if (allDone && ob.current_stage === 4) advanceStage() }} />
         <CheckItem done={!!getTaskStatus(4, 'headshot_collected')} label="Headshot collected" onClick={async () => { await saveProgress(4, 'headshot_collected', 'completed'); const allDone = ['bio_collected','signed_contracts_collected','misc_docs_collected','tax_docs_collected'].every(k => getTaskStatus(4, k)) && STAGE4_DETAILS_BENEFITS.every(i => getTaskStatus(4, i.key)); if (allDone && ob.current_stage === 4) advanceStage() }} />
@@ -1008,7 +1231,7 @@ function OnboardingDetail({ id, onBack }) {
           )
         })}
  
-        <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
  
         <SectionLabel>VFO Showroom</SectionLabel>
         {!getTaskStatus(5, 'added_to_showroom') ? (

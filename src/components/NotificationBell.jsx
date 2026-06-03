@@ -22,6 +22,15 @@ export default function NotificationBell() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Let an admin action that changes notifications (e.g. saving reviewer notes,
+  // which clears a non-dismissible request) refresh the bell immediately rather
+  // than waiting for the next 30s poll.
+  useEffect(() => {
+    function onChanged() { loadNotifications() }
+    window.addEventListener('vfo:notifications-changed', onChanged)
+    return () => window.removeEventListener('vfo:notifications-changed', onChanged)
+  }, [])
  
   async function loadNotifications() {
     try {
@@ -32,7 +41,21 @@ export default function NotificationBell() {
  
   async function handleClick(notif) {
     setOpen(false)
-    if (notif.link) navigate(notif.link)
+    if (notif.link) {
+      // Append a changing nonce so navigating to the SAME link still re-triggers
+      // the destination's location.search-based deep-link effect every time
+      // (without it, a second click on the same target is a no-op).
+      const sep = notif.link.includes('?') ? '&' : '?'
+      navigate(`${notif.link}${sep}_n=${Date.now()}`)
+    }
+    // A click IS the action for FYI (dismissible) notifications — mark it read.
+    // Action-required (non-dismissible) ones only clear when the action completes.
+    if (notif.dismissible !== false) {
+      try {
+        await callApi('mark_notification_read', { notification_id: notif.id })
+        setNotifications(prev => prev.filter(x => x.id !== notif.id))
+      } catch (err) { console.error('mark read error:', err) }
+    }
   }
  
   async function markAllRead() {

@@ -1,0 +1,263 @@
+import { useEffect, useState } from 'react'
+import { callApi } from '../../lib/api'
+import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate } from './automation/StepKit'
+import SandboxModeToggle from './SandboxModeToggle'
+
+const STAGE_LABELS = {
+  new: 'New', sif_sent: 'SIF Sent', sif_review: 'SIF Submitted', voting: 'Exec Voting',
+  approved: 'Approved', declined: 'Declined', stopped: 'Stopped',
+  awaiting_payment: 'Awaiting Payment', payment_processing: 'Payment Processing',
+  paid: 'Paid', complete: 'Complete',
+}
+const STAGE_COLORS = {
+  new: '#8bacc8', sif_sent: '#5b9fe6', sif_review: '#5b9fe6', voting: '#a855f7',
+  approved: '#14b8a6', declined: '#ef4444', stopped: '#ef4444',
+  awaiting_payment: '#ec4899', payment_processing: '#f59e0b', paid: '#22c55e', complete: '#22c55e',
+}
+
+const EXECS = ['Anton Anderson', 'Paul Latham']
+
+// Derive the round-1 / round-2 outcome from the attached votes.
+function voteOutcome(votes) {
+  const r1 = {}, r2 = {}
+  ;(votes || []).forEach(v => { (v.vote_round === 2 ? r2 : r1)[v.voter_name] = v.vote })
+  const r1Both = EXECS.every(e => r1[e]), r2Both = EXECS.every(e => r2[e])
+  if (r2Both) {
+    if (EXECS.every(e => r2[e] === 'Approved')) return { outcome: 'approved', round: 2, r1, r2 }
+    if (EXECS.every(e => r2[e] === 'Denied')) return { outcome: 'denied', round: 2, r1, r2 }
+    return { outcome: 'mismatch', round: 2, r1, r2 }
+  }
+  if (r1Both) {
+    if (EXECS.every(e => r1[e] === 'Approved')) return { outcome: 'approved', round: 1, r1, r2 }
+    if (r1['Anton Anderson'] === 'Further Questions' || r1['Paul Latham'] === 'Further Questions') return { outcome: 'further_questions', round: 1, r1, r2 }
+  }
+  if ((votes || []).length > 0) return { outcome: 'voting', round: r2Both || Object.keys(r2).length ? 2 : 1, r1, r2 }
+  return { outcome: 'none', round: 1, r1, r2 }
+}
+
+function getCurrentStage(row) {
+  if (row.status === 'stopped') return 'stopped'
+  if (row.status === 'completed') return 'complete'
+  if (row.bg_payment_status === 'succeeded') return 'paid'
+  if (row.bg_payment_status === 'processing') return 'payment_processing'
+  if (row.bg_step3_email_sent_at) return 'awaiting_payment'
+  const vo = voteOutcome(row.votes).outcome
+  if (vo === 'approved') return 'approved'
+  if (vo === 'denied') return 'declined'
+  if (vo === 'voting' || vo === 'further_questions' || vo === 'mismatch') return 'voting'
+  if (row.sif_submitted_at) return 'sif_review'
+  if (row.sif_token) return 'sif_sent'
+  return 'new'
+}
+
+// Colored badge for a single exec's vote value (admin oversight — full visibility).
+function voteBadge(v) {
+  if (!v) return <span style={{ color: '#8bacc8', fontSize: '12px' }}>Awaiting</span>
+  const c = v === 'Approved' ? '#22c55e' : v === 'Denied' ? '#ef4444' : '#f59e0b'
+  return <Badge text={v} color={c} />
+}
+
+function SpecialistPipelineRow({ row, expanded, onToggle }) {
+  const name = row.specialist_name || 'Unknown'
+  const stage = getCurrentStage(row)
+  const vo = voteOutcome(row.votes)
+  const isTax = (row.sif_data && row.sif_data.is_tax_specialist) === 'Yes'
+  const checkProcess = row.background_check_type === 'Max' ? 'Scherzer International' : row.background_check_type === 'Core' ? 'Checkr' : null
+
+  const sifStatus = row.sif_submitted_at ? 'done' : row.sif_token ? 'awaiting' : 'pending'
+  const metStatus = (row.meetings || []).length === 0 ? 'pending' : (row.final_rev_proposal && row.final_rev_proposal.at) ? 'done' : 'awaiting'
+  const voteStatus = vo.outcome === 'approved' ? 'done' : vo.outcome === 'denied' ? 'declined'
+    : (vo.outcome === 'voting' || vo.outcome === 'further_questions' || vo.outcome === 'mismatch') ? 'awaiting' : 'pending'
+  const payStatus = row.bg_payment_status === 'succeeded' ? 'done'
+    : (row.bg_checkout_token || row.bg_payment_status) ? 'awaiting' : 'pending'
+  const recStatus = row.bg_receipt_email_sent_at ? 'done' : (row.bg_confirmation_email_sent_at || row.bg_invoice_number) ? 'sent' : 'pending'
+
+  const outcomeBadge = {
+    approved: <Badge text="Approved" color="#22c55e" />, denied: <Badge text="Denied" color="#ef4444" />,
+    further_questions: <Badge text="Further Questions" color="#f59e0b" />, mismatch: <Badge text="Split — re-vote" color="#f59e0b" />,
+    voting: <Badge text="Voting in progress" color="#a855f7" />, none: null,
+  }[vo.outcome]
+
+  return (
+    <div style={{ background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
+      <div onClick={onToggle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '15px', fontWeight: '600', color: '#fff' }}>{name}</span>
+          {isTax && <Badge text="Tax Specialist" color="#5b9fe6" />}
+          {row.background_check_type && <span style={{ fontSize: '12px', color: '#d1dce8' }}>{row.background_check_type} · {fmtMoney(row.background_check_type === 'Max' ? 950 : 350)}</span>}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Badge text={STAGE_LABELS[stage]} color={STAGE_COLORS[stage]} />
+          <span style={{ color: '#8bacc8', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+        </div>
+      </div>
+
+      {expanded && (
+        <div style={{ padding: '8px 18px 18px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <StepCard title="SIF Form" status={sifStatus}>
+            {row.sif_token ? (
+              <>
+                <Detail l="SIF form sent" v={!!row.sif_token} />
+                <Detail l="Submitted" v={fmtDate(row.sif_submitted_at)} showEmpty />
+                <Detail l="Tax specialist" v={row.sif_data ? (row.sif_data.is_tax_specialist || '—') : null} />
+              </>
+            ) : <Pending />}
+          </StepCard>
+
+          <StepCard title="Stage 2 — Detail Meetings" status={metStatus}>
+            {(row.meetings || []).length > 0 ? (
+              <>
+                {row.meetings.map((m, i) => {
+                  const items = (m.items_discussed || []).length
+                  const respColor = m.rev_proposal_response === 'Approved' ? '#22c55e' : m.rev_proposal_response ? '#f59e0b' : '#8bacc8'
+                  return (
+                    <div key={m.id} style={{ padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ fontSize: '12px', color: '#d1dce8' }}>
+                        Meeting {i + 1} · {m.meeting_date} · {m.outcome === 'stopped' ? 'Stopped' : 'Still interested'} · {items} item{items === 1 ? '' : 's'} covered
+                      </div>
+                      {m.rev_proposal_text && (
+                        <div style={{ fontSize: '11px', color: respColor, marginTop: '3px' }}>
+                          ↳ Revenue share proposal emailed {fmtDate(m.rev_proposal_email_sent_at) || 'pending'} · Response: {m.rev_proposal_response || 'Awaiting'}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+                <div style={{ marginTop: '6px' }}>
+                  <Detail l="Final revenue share proposal" v={fmtDate(row.final_rev_proposal && row.final_rev_proposal.at)} showEmpty />
+                </div>
+              </>
+            ) : <Pending />}
+          </StepCard>
+
+          <StepCard title="Executive Approval" status={voteStatus}>
+            {(row.votes || []).length > 0 ? (
+              <>
+                <Detail l="Outcome" v={outcomeBadge} showEmpty />
+                <div style={{ fontSize: '11px', color: '#7da3c8', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '8px 0 2px' }}>Round 1 — Initial vote</div>
+                <Detail l="Anton Anderson" v={voteBadge(vo.r1['Anton Anderson'])} showEmpty />
+                <Detail l="Paul Latham" v={voteBadge(vo.r1['Paul Latham'])} showEmpty />
+                {Object.keys(vo.r2).length > 0 && (
+                  <>
+                    <div style={{ fontSize: '11px', color: '#7da3c8', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '10px 0 2px' }}>Round 2 — After further questions</div>
+                    <Detail l="Anton Anderson" v={voteBadge(vo.r2['Anton Anderson'])} showEmpty />
+                    <Detail l="Paul Latham" v={voteBadge(vo.r2['Paul Latham'])} showEmpty />
+                  </>
+                )}
+              </>
+            ) : <Pending />}
+          </StepCard>
+
+          <StepCard title="Stage 3 Email" status={row.bg_step3_email_sent_at ? 'done' : 'pending'}>
+            {row.bg_step3_email_sent_at ? (
+              <Detail l="Sent to specialist" v={fmtDate(row.bg_step3_email_sent_at)} />
+            ) : <Pending />}
+          </StepCard>
+
+          {row.further_questions_requested_at && (
+            <StepCard title="Further Questions" status={row.further_questions_resolved_at ? 'done' : 'awaiting'}>
+              <Detail l="Requested" v={fmtDate(row.further_questions_requested_at)} />
+              <Detail l="Resolution" v={row.further_questions_resolution} showEmpty />
+              <Detail l="Resolved" v={fmtDate(row.further_questions_resolved_at)} showEmpty />
+            </StepCard>
+          )}
+
+          <StepCard title="Payment" status={payStatus}>
+            {row.bg_checkout_token || row.bg_payment_status ? (
+              <>
+                <Detail l="Background check" v={row.background_check_type} />
+                <Detail l="Method" v={row.bg_payment_method_type} />
+                <Detail l="Account" v={row.bg_acct_last4 ? `****${row.bg_acct_last4}` : null} />
+                <Detail l="Status" v={row.bg_payment_status} />
+                <Detail l="Confirmation email sent" v={fmtDate(row.bg_confirmation_email_sent_at)} />
+                <Detail l="Payment cleared" v={fmtDate(row.bg_payment_completed_at)} />
+                <Detail l="Routed to" v={checkProcess} />
+              </>
+            ) : <Pending />}
+          </StepCard>
+
+          <StepCard title="Invoice & Receipt" status={recStatus}>
+            {row.bg_confirmation_email_sent_at || row.bg_invoice_number ? (
+              <>
+                <Detail l="Receipt email sent" v={fmtDate(row.bg_receipt_email_sent_at)} showEmpty />
+                <Detail l="Invoice #" v={row.bg_invoice_number} mono />
+                <Detail l="Receipt #" v={row.bg_receipt_number} mono />
+              </>
+            ) : <Pending />}
+          </StepCard>
+
+          <div style={{ marginTop: '10px', fontSize: '10px', color: '#4a7a9e' }}>
+            Onboarding #{row.id} · Started {fmtDate(row.created_at)} · {row.specialist_email || 'no email'}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function SpecialistAutomationPanel() {
+  const [rows, setRows] = useState([])
+  const [sandboxConfig, setSandboxConfig] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [expandedRow, setExpandedRow] = useState(null)
+
+  useEffect(() => { loadData() }, [])
+
+  async function loadData() {
+    setLoading(true)
+    try {
+      const data = await callApi('automation_load_specialist_pipelines')
+      setRows(data.rows || [])
+      setSandboxConfig(data.sandbox_config || null)
+    } catch (err) { setError(err.message) }
+    finally { setLoading(false) }
+  }
+
+  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>Loading...</div>
+
+  const stats = [
+    { label: 'TOTAL', value: rows.length, color: '#fff' },
+    { label: 'IN PROGRESS', value: rows.filter(r => { const s = getCurrentStage(r); return s !== 'complete' && s !== 'stopped' && s !== 'declined' }).length, color: '#5b9fe6' },
+    { label: 'APPROVED', value: rows.filter(r => voteOutcome(r.votes).outcome === 'approved').length, color: '#14b8a6' },
+    { label: 'PAID', value: rows.filter(r => r.bg_payment_status === 'succeeded').length, color: '#22c55e' },
+    { label: 'STOPPED', value: rows.filter(r => r.status === 'stopped').length, color: '#ef4444' },
+  ]
+
+  return (
+    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '24px', color: '#fff', margin: 0 }}>Specialist Onboarding Pipeline</h2>
+          <SandboxModeToggle
+            pipeline="SPECIALIST_ONBOARDING"
+            label="Specialist Onboarding"
+            sandboxConfig={sandboxConfig}
+            onChange={setSandboxConfig}
+          />
+        </div>
+      </div>
+
+      {error && <div style={{ color: '#ff6b6b', fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
+
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        {stats.map(stat => (
+          <div key={stat.label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '14px 20px', minWidth: '100px' }}>
+            <div style={{ fontSize: '28px', fontWeight: '700', color: stat.color }}>{stat.value}</div>
+            <div style={{ fontSize: '10px', color: '#8bacc8', letterSpacing: '1px' }}>{stat.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {rows.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px', color: '#5a8ab5', fontSize: '14px' }}>
+          No specialist onboarding records yet.
+        </div>
+      ) : (
+        rows.map(r => (
+          <SpecialistPipelineRow key={r.id} row={r} expanded={expandedRow === r.id} onToggle={() => setExpandedRow(expandedRow === r.id ? null : r.id)} />
+        ))
+      )}
+    </div>
+  )
+}

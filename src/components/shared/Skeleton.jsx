@@ -262,6 +262,60 @@ export function AccountantOnboardingListSkeleton({ rows = 2 }) {
   )
 }
 
+export function SpecialistOnboardingListSkeleton({ rows = 2 }) {
+  return (
+    <div>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '18px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <Skeleton width={150} height={16} />
+            <Skeleton width={240} height={12} />
+          </div>
+          <Skeleton width={150} height={20} style={{ borderRadius: '4px' }} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function SpecialistOnboardingDetailSkeleton({ onBack }) {
+  return (
+    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
+      {onBack && (
+        <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#5b9fe6', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
+      )}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+        <div>
+          <Skeleton width={200} height={28} style={{ marginBottom: '8px' }} />
+          <Skeleton width={260} height={14} />
+        </div>
+        <Skeleton width={150} height={22} style={{ borderRadius: '4px' }} />
+      </div>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', marginBottom: '10px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Skeleton width={9} height={9} style={{ borderRadius: '50%' }} />
+              <Skeleton width={220} height={13} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Skeleton width={75} height={20} style={{ borderRadius: '4px' }} />
+              <Skeleton width={10} height={10} />
+            </div>
+          </div>
+          {i === 1 && (
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '12px 18px' }}>
+              <SkeletonRow withPill withDate />
+              <SkeletonRow withPill withDate />
+              <SkeletonRow withPill withDate />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function AdminProgramViewSkeleton() {
   return (
     <div>
