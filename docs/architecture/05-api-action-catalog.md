@@ -339,15 +339,26 @@ All dispatched AFTER `middleware/auth.ts::authenticate()` validates body.token. 
 | `save_onboarding_vote` | `actions/onboarding/save-vote.ts` | — | `specialist_onboarding_votes` (upsert) | — |
 | `update_onboarding` | `actions/onboarding/update.ts` | — | `specialist_onboarding` | — |
 
-Stage 1–2 automation (2026-06-02, pipeline `SPECIALIST_ONBOARDING`; see [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md)):
+Stage 1–3 automation + reminder sweep (Stages 1–2 2026-06-02; Stage 2 voting + Stage 3 payment + sweep 2026-06-03, pipeline `SPECIALIST_ONBOARDING`; see [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md)). `save-progress.ts` now also fires/clears reviewer-notes notifs + stamps `vote_r1_opened_at`; `save-vote.ts` upserts with `vote_round`; `load.ts` redacts stage-2 votes until both vote (account-scoped, gotcha #64); `prelim-email.ts` stamps `sif_email_sent_at`; `exec-vote.ts` stamps `vote_r2_opened_at` + chains step3/denied email; `step3-email.ts` advances `current_stage` to 3:
 
 | Action | File | R | W | Chains / external |
 |---|---|---|---|---|
-| `automation_SPECIALIST_prelimemail` | `actions/onboarding/prelim-email.ts` | `specialist_onboarding`, `psbx_cfg`, `email_templates` | `specialist_onboarding` (`sif_token`) | Gmail draft (`SPECIALIST_yes`/`SPECIALIST_no`); attaches 2 static PDFs from `specialist-onboarding-assets` |
-| `automation_SPECIALIST_stage2email` | `actions/onboarding/stage2-email.ts` | `specialist_onboarding`, `specialist_onboarding_meetings`, `psbx_cfg`, `email_templates` | `specialist_onboarding_meetings` (`rev_proposal_email_sent_at`) | Gmail draft (`SPECIALIST_step2_progress`) |
+| `automation_SPECIALIST_prelimemail` | `actions/onboarding/prelim-email.ts` | `specialist_onboarding`, `psbx_cfg`, `email_templates` | `specialist_onboarding` (`sif_token`, `sif_email_sent_at`) | Gmail draft (`SPECIALIST_yes`/`SPECIALIST_no`); 2 static PDFs |
+| `automation_SPECIALIST_stage2email` | `actions/onboarding/stage2-email.ts` | `specialist_onboarding`(+meetings), `psbx_cfg`, `email_templates` | `…_meetings` (`rev_proposal_email_sent_at`) | Gmail draft (`SPECIALIST_step2_progress`) |
 | `automation_SPECIALIST_loadsif` *(PUBLIC)* | `actions/onboarding/load-sif.ts` | `specialist_onboarding` | — | — |
-| `automation_SPECIALIST_submitsif` *(PUBLIC)* | `actions/onboarding/submit-sif.ts` | `specialist_onboarding` | `specialist_onboarding` (`sif_data`/`sif_submitted_at`), `notifications` | notifies Tracy (`tnmiller@elitert.com`) |
-| `automation_SPECIALIST_revsharedecide` *(PUBLIC)* | `actions/onboarding/revshare-decide.ts` | `specialist_onboarding_meetings`, `specialist_onboarding` | `specialist_onboarding_meetings` (`rev_proposal_response`), `notifications` | notifies Tracy |
+| `automation_SPECIALIST_submitsif` *(PUBLIC)* | `actions/onboarding/submit-sif.ts` | `specialist_onboarding` | `specialist_onboarding` (`sif_data` incl. tax Qs/`sif_submitted_at`), `notifications` | Tracy FYI |
+| `automation_SPECIALIST_revsharedecide` *(PUBLIC)* | `actions/onboarding/revshare-decide.ts` | `…_meetings`, `specialist_onboarding` | `…_meetings` (`rev_proposal_response`), `notifications` | Tracy FYI |
+| `automation_SPECIALIST_execvote` *(AUTH, admin)* | `actions/onboarding/exec-vote.ts` | `specialist_onboarding_votes`, `specialist_onboarding` | `…_votes`, `specialist_onboarding` (status/stage), `notifications` | chains `step3email`/`deniedemail` (svc-role); reveal in `load.ts` |
+| `automation_SPECIALIST_deniedemail` *(PUBLIC svc-role)* | `actions/onboarding/denied-email.ts` | `specialist_onboarding`, `email_templates` | progress (`denied_email_sent`) | Gmail `SPECIALIST_denied` |
+| `automation_SPECIALIST_step3email` *(PUBLIC svc-role)* | `actions/onboarding/step3-email.ts` | `specialist_onboarding`, `email_templates` | `specialist_onboarding` (Stripe customer, tokens, `bg_step3_email_sent_at`, `current_stage=3`) | Stripe customer; Gmail `SPECIALIST_step3` |
+| `automation_SPECIALIST_bgloadpayment` *(PUBLIC token)* | `actions/onboarding/bg-load-payment.ts` | `specialist_onboarding` | — | — |
+| `automation_SPECIALIST_bgcheckout` *(PUBLIC token)* | `actions/onboarding/bg-checkout.ts` | `specialist_onboarding`, `psbx_cfg` | — | Stripe Checkout (`background_check`) |
+| `automation_SPECIALIST_bgconfirmation` *(PUBLIC svc-role)* | `actions/onboarding/bg-confirmation.ts` | `specialist_onboarding`, `email_templates` | `specialist_onboarding` (`bg_confirmation_email_sent_at`) | Gmail `SPECIALIST_bg_confirmation\|card`/`\|ach` |
+| `automation_SPECIALIST_bgreceipt` *(PUBLIC svc-role)* | `actions/onboarding/bg-receipt.ts` | `specialist_onboarding`, `document_numbers`, `email_templates` | `specialist_onboarding` (receipt/invoice #s + drive ids), progress, `notifications` | html2pdf invoice+receipt → Drive; Gmail `SPECIALIST_bg_receipt`; Tracy FYI |
+| `automation_SPECIALIST_questionsrequest` *(PUBLIC token)* | `actions/onboarding/questions-request.ts` | `specialist_onboarding` | `specialist_onboarding` (`further_questions_requested_at`), `notifications` | non-dismissible Tracy notif |
+| `automation_SPECIALIST_questionsresolve` *(AUTH, admin)* | `actions/onboarding/questions-resolve.ts` | `specialist_onboarding`, `email_templates` | `specialist_onboarding` (resolution/status), `notifications` | Gmail `SPECIALIST_step3_proceed`/`SPECIALIST_no` |
+| `automation_load_specialist_pipelines` *(AUTH, admin)* | `actions/onboarding/automation-load-pipelines.ts` | `specialist_onboarding`(+votes+meetings+progress), `psbx_cfg` | — | — |
+| `automation_SPECIALIST_sweep` *(PUBLIC svc-role)* | `actions/onboarding/sweep.ts` | all specialist tables, `email_templates`, `psbx_cfg` | reminder/pf guard cols, `notifications` | cron 07:00 UTC; Gmail reminders |
 
 ---
 
