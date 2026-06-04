@@ -18,9 +18,11 @@ import AccountantPayPage from './pages/AccountantPayPage'
 import PipPayPage from './pages/PipPayPage'
 import MemberSetupPage from './pages/MemberSetupPage'
 import SpecialistSifPage from './pages/SpecialistSifPage'
-import SpecialistRevShareDecidePage from './pages/SpecialistRevShareDecidePage'
 import SpecialistPayPage from './pages/SpecialistPayPage'
 import SpecialistQuestionsPage from './pages/SpecialistQuestionsPage'
+import SpecialistDdcPage from './pages/SpecialistDdcPage'
+import SpecialistDdcHelpPage from './pages/SpecialistDdcHelpPage'
+import SpecialistRevShareFinalPage from './pages/SpecialistRevShareFinalPage'
 
 export default function App() {
   return (
@@ -45,9 +47,11 @@ export default function App() {
       <Route path="/pip-pay" element={<PipPayPage />} />
       <Route path="/member-setup" element={<MemberSetupPage />} />
       <Route path="/specialist-sif" element={<SpecialistSifPage />} />
-      <Route path="/specialist-revshare-decide" element={<SpecialistRevShareDecidePage />} />
       <Route path="/specialist-pay" element={<SpecialistPayPage />} />
       <Route path="/specialist-questions" element={<SpecialistQuestionsPage />} />
+      <Route path="/specialist-ddc" element={<SpecialistDdcPage />} />
+      <Route path="/specialist-ddc-help" element={<SpecialistDdcHelpPage />} />
+      <Route path="/specialist-revshare-final" element={<SpecialistRevShareFinalPage />} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   )

@@ -229,7 +229,7 @@ function OnboardingDetail({ id, onBack }) {
       setProgress(p => ({ ...p, [key]: result.progress }))
       // Saving reviewer notes clears the matching bell notification server-side —
       // ping the bell so it disappears immediately instead of on the next poll.
-      if (taskKey === 'tracy_general_notes' || taskKey === 'tim_tax_risk_notes') {
+      if (taskKey === 'tracy_general_notes' || taskKey === 'tim_tax_risk_notes' || taskKey === 'ddc_help_resolved') {
         window.dispatchEvent(new Event('vfo:notifications-changed'))
       }
     } catch (err) { console.error(err) }
@@ -372,13 +372,18 @@ function OnboardingDetail({ id, onBack }) {
     )
   }
  
+  // Automated (no-click) step — mirrors the MAP 1 tracker's autoStep exactly
+  // (small dot, 12px label that greens when done, tiny "Done / Not completed"
+  // chip) so it never reads as a clickable button.
   function AutoStep({ done, label, detail }) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
-        <span style={{ fontSize: '13px', color: '#8bacc8', flex: 1 }}>{label}</span>
-        {detail && <span style={{ fontSize: '11px', color: '#5a8ab5', marginRight: '8px' }}>{detail}</span>}
-        <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: done ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: done ? '#27ae60' : '#8bacc8', border: `1px solid ${done ? 'rgba(39,174,96,0.3)' : 'rgba(255,255,255,0.1)'}` }}>{done ? 'Completed' : 'Not completed'}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+        <span style={{ fontSize: '12px', color: done ? '#27ae60' : '#8bacc8' }}>{label}</span>
+        <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px', alignItems: 'center' }}>
+          {detail && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>{detail}</span>}
+          <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: done ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: done ? '#27ae60' : '#8bacc8' }}>{done ? 'Done' : 'Not completed'}</span>
+        </span>
       </div>
     )
   }
@@ -629,9 +634,6 @@ function OnboardingDetail({ id, onBack }) {
 
     const [revSharePercent, setRevSharePercent] = useState('')
     const [submittingRevShare, setSubmittingRevShare] = useState(false)
-    const [revProposal, setRevProposal] = useState('')
-    const [revOpen, setRevOpen] = useState({})
-    const revShareCheckedThisMeeting = !!getTaskStatus(2, 'checklist_1') && !lockedItems.has('1')
     async function submitRevShareProposal() {
       if (!revSharePercent) return
       setSubmittingRevShare(true)
@@ -661,11 +663,8 @@ function OnboardingDetail({ id, onBack }) {
       const completedIdx = [...lockedItems, ...newlyChecked]
       const completedLabels = STAGE2_CHECKLIST.filter((_, i) => completedIdx.includes(String(i)))
       const pendingLabels = STAGE2_CHECKLIST.filter((_, i) => !completedIdx.includes(String(i)))
-      const revThisMeeting = newlyChecked.includes('1')  // index 1 = Discuss revenue share (detail)
 
-      // Save the meeting first (carries the rev-share proposal + mints its token),
-      // then send the in-progress email referencing that meeting so the proposal
-      // block + Approve/Propose-edit buttons can be injected.
+      // Save the meeting, then send the in-progress email referencing it.
       const noteParts = [date, time, tz].filter(Boolean)
       let meetingId = null
       try {
@@ -676,7 +675,6 @@ function OnboardingDetail({ id, onBack }) {
           outcome: 'interested',
           notes: noteParts.length ? `Next meeting: ${noteParts.join(' ')}` : 'Next meeting date not yet arranged',
           created_by: session?.name || 'Admin',
-          rev_proposal_text: revThisMeeting ? revProposal.trim() : null,
         })
         meetingId = result.meeting?.id
         setMeetings(prev => [result.meeting, ...prev])
@@ -760,28 +758,6 @@ function OnboardingDetail({ id, onBack }) {
                   {meeting.notes && <span style={{ color: '#8bacc8', marginLeft: '8px' }}>({meeting.notes})</span>}
                 </div>
               )}
-              {meeting.rev_proposal_text && (() => {
-                const resp = meeting.rev_proposal_response
-                const respColor = resp === 'Approved' ? '#27ae60' : resp ? '#f39c12' : '#8bacc8'
-                const open = !!revOpen[meeting.id]
-                return (
-                  <div style={{ marginTop: '10px', padding: '8px 12px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ fontSize: '12px', color: '#fff', fontWeight: '600', marginBottom: '6px' }}>AI PC Admin</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#27ae60', flexShrink: 0, border: '1px solid #27ae60' }} />
-                      <span style={{ fontSize: '12px', color: '#27ae60' }}>Revenue share proposal email sent to specialist</span>
-                      <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', marginLeft: 'auto' }}>Done</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0' }}>
-                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: resp ? respColor : 'transparent', flexShrink: 0, border: `1px solid ${resp ? respColor : 'rgba(255,255,255,0.2)'}` }} />
-                      <span style={{ fontSize: '12px', color: resp ? respColor : '#8bacc8' }}>Revenue share proposal outcome</span>
-                      <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: resp ? `${respColor}22` : 'rgba(255,255,255,0.06)', color: respColor, marginLeft: 'auto' }}>{resp || 'Awaiting response'}</span>
-                    </div>
-                    <div onClick={() => setRevOpen(o => ({ ...o, [meeting.id]: !o[meeting.id] }))} style={{ fontSize: '11px', color: '#5b9fe6', cursor: 'pointer', marginTop: '8px' }}>{open ? '▼ Hide proposal' : '▶ View proposal'}</div>
-                    {open && <div style={{ fontSize: '12px', color: '#8bacc8', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginTop: '6px', padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>{meeting.rev_proposal_text}</div>}
-                  </div>
-                )
-              })()}
             </div>
           )
         })}
@@ -796,14 +772,7 @@ function OnboardingDetail({ id, onBack }) {
               <CheckItem key={index} done={!!getTaskStatus(2, `checklist_${index}`)} label={item} toggle onClick={() => toggleChecklist(index)} />
             ))}
 
-            {revShareCheckedThisMeeting && (
-              <div style={{ padding: '14px', borderRadius: '8px', border: '1px solid rgba(91,159,230,0.3)', background: 'rgba(255,255,255,0.02)', margin: '10px 0' }}>
-                <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '8px' }}>Revenue Share Proposal — sent to the specialist with this email</div>
-                <textarea value={revProposal} onChange={e => setRevProposal(e.target.value)} placeholder="Enter revenue share proposal details..." rows={5} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
-              </div>
-            )}
-
-            {!isStopped && <Stage2MeetingButtons onLogMeeting={logMeeting} onLogStop={logStop} blockSend={revShareCheckedThisMeeting && !revProposal.trim()} allComplete={allComplete} />}
+            {!isStopped && <Stage2MeetingButtons onLogMeeting={logMeeting} onLogStop={logStop} blockSend={false} allComplete={allComplete} />}
           </>
         )}
 
@@ -824,7 +793,7 @@ function OnboardingDetail({ id, onBack }) {
             <ActionButton label={submittingRevShare ? 'Submitting...' : 'Submit final revenue share proposal'} onClick={submitRevShareProposal} disabled={!revSharePercent.trim() || submittingRevShare} color="#27ae60" />
           </div>
         ) : (
-          <RevShareDisplay notes={progress['2-rev_share_prepared']?.notes || ''} />
+          <RevShareDisplay notes={progress['2-rev_share_prepared']?.notes || ''} edited={ob.rev_share_final_text} />
         )}
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
 
@@ -879,7 +848,6 @@ function OnboardingDetail({ id, onBack }) {
               </>
             )}
 
-            {approved && <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '8px' }}>Approved — moved to Stage 3 (Due Diligence) for the background-check step.</div>}
             {denied && !approved && (() => {
               const sent = !!getTaskStatus(2, 'denied_email_sent')
               return (
@@ -898,18 +866,26 @@ function OnboardingDetail({ id, onBack }) {
     )
   }
  
-  function RevShareDisplay({ notes }) {
+  function RevShareDisplay({ notes, edited }) {
     const [open, setOpen] = useState(false)
     return (
       <div style={{ marginBottom: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#27ae60', flexShrink: 0, border: '1.5px solid #27ae60' }} />
-          <span style={{ fontSize: '13px', color: '#27ae60', fontWeight: '600' }}>Revenue share proposal submitted</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#27ae60', border: '1px solid #27ae60' }} />
+          <span style={{ fontSize: '12px', color: '#27ae60' }}>Revenue share proposal submitted</span>
+          <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Done</span>
         </div>
-        <div onClick={() => setOpen(o => !o)} style={{ fontSize: '11px', color: '#5b9fe6', cursor: 'pointer' }}>{open ? '▼ Hide proposal' : '▶ View proposal'}</div>
-        {open && notes && (
-          <div style={{ fontSize: '12px', color: '#8bacc8', lineHeight: '1.6', whiteSpace: 'pre-wrap', padding: '8px 12px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', marginTop: '6px' }}>
-            {notes}
+        <div onClick={() => setOpen(o => !o)} style={{ fontSize: '11px', color: '#5b9fe6', cursor: 'pointer', marginTop: '4px' }}>{open ? '▼ Hide proposal' : '▶ View proposal'}</div>
+        {open && (
+          <div style={{ marginTop: '6px' }}>
+            <div style={{ fontSize: '10px', color: '#5b9fe6', fontWeight: 600, marginBottom: '3px' }}>{edited ? 'Original submission' : 'Submitted proposal'}</div>
+            <div style={{ fontSize: '12px', color: '#8bacc8', lineHeight: '1.6', whiteSpace: 'pre-wrap', padding: '8px 12px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>{notes || '—'}</div>
+            {edited && (
+              <>
+                <div style={{ fontSize: '10px', color: '#27ae60', fontWeight: 600, margin: '8px 0 3px' }}>Edited final version</div>
+                <div style={{ fontSize: '12px', color: '#8bacc8', lineHeight: '1.6', whiteSpace: 'pre-wrap', padding: '8px 12px', borderRadius: '6px', background: 'rgba(39,174,96,0.06)', border: '1px solid rgba(39,174,96,0.2)' }}>{edited}</div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1015,100 +991,352 @@ function OnboardingDetail({ id, onBack }) {
 
   function Stage3Content() {
     const bgInitiated = !!getTaskStatus(3, 'bg_initiated')
-    const ddStatus = getTaskStatus(3, 'dd_checklist')
     const bgResult = getTaskStatus(3, 'bg_results_received')
-    const ddDone = ddStatus === 'completed'
     const bgDone = bgResult === 'passed'
     const bgFailed = bgResult === 'failed'
-    const allDone = ddDone && bgDone
 
     const step3Sent = !!ob.bg_step3_email_sent_at
     const confirmSent = !!ob.bg_confirmation_email_sent_at
     const bgPaid = ob.bg_payment_status === 'succeeded' || !!getTaskStatus(2, 'payment_received')
     const fqRequested = !!ob.further_questions_requested_at
     const fqResolved = !!ob.further_questions_resolved_at
-    const bgCheckProcess = ob.background_check_type === 'Max' ? 'Scherzer International' : ob.background_check_type === 'Core' ? 'Checkr' : ''
+    const bgChosen = !!ob.background_check_type
+
+    // Due Diligence checklist review state
+    const ddc = ob.ddc_data || {}
+    const ddcEmailed = !!ob.ddc_email_sent_at
+    const ddcSubmitted = !!ob.ddc_submitted_at
+    const ddcReview = ob.ddc_review_status
+    const ddcApproved = ddcReview === 'approved'
+    const ddcEditsRequested = ddcReview === 'edits_requested'
+    const helpRequested = !!ob.ddc_help_requested_at
+    const helpResolved = !!getTaskStatus(3, 'ddc_help_resolved')
+    const reviewLog = Array.isArray(ob.ddc_review_log) ? ob.ddc_review_log : []
+    const ddcEverSubmitted = ddcSubmitted || reviewLog.some(e => e.type === 'submitted')
+    const allDone = bgDone && ddcApproved
+
+    const ddSections = [
+      ['Headshot', !!ddc.headshot],
+      ['Professional bio', !!(ddc.bio && String(ddc.bio).trim())],
+      ['Licenses / designations', (ddc.licenses || []).length > 0],
+      ['Case studies', !!(ddc.case_studies && String(ddc.case_studies).trim()) || (ddc.case_study_files || []).length > 0],
+      ['Compliance & risk', (ddc.eo_insurance || []).length > 0 || !!String(ddc.disciplinary_history || '').trim() || !!String(ddc.audit_support || '').trim() || (ddc.tax_due_diligence_files || []).length > 0 || !!String(ddc.tax_due_diligence_notes || '').trim() || !!String(ddc.exit_strategies || '').trim()],
+      ['Sample materials', (ddc.sample_materials_files || []).length > 0 || !!String(ddc.sample_materials_notes || '').trim()],
+    ]
+    const ddFilled = ddSections.filter(([, v]) => v).length
+
+    // Final revenue share proposal — specialist responded via the Step 3 email.
+    const revResponse = ob.rev_share_final_response
+    const revFinalized = !!getTaskStatus(3, 'rev_share_finalized')
+    const revFinalizedHow = progress['3-rev_share_finalized']?.notes || ''
+    const revProposalText = progress['2-rev_share_prepared']?.notes || ''
+    const revFinalText = ob.rev_share_final_text || revProposalText
+    const revEmailed = !!ob.bg_receipt_email_sent_at
+    const revFinalDone = revResponse === 'Approved' || revFinalized
+    const revFinalDetail = revFinalDone ? (revFinalizedHow === 'edited' ? 'Edited' : 'Confirmed') : ''
+
+    const [showEdits, setShowEdits] = useState(false)
+    const [editsReason, setEditsReason] = useState('')
+    const [ddcBusy, setDdcBusy] = useState('')
+    const [showRevProp, setShowRevProp] = useState(false)
+    const [showRevEdit, setShowRevEdit] = useState(false)
+    const [revEditText, setRevEditText] = useState('')
+    const [revBusy, setRevBusy] = useState('')
+    const [showSubmission, setShowSubmission] = useState(false)
+
+    // Open a submitted DD-checklist file via a freshly-minted signed URL.
+    async function openFile(path) {
+      try {
+        const r = await callApi('automation_SPECIALIST_ddcdownload', { onboarding_id: id, path })
+        if (r?.url) window.open(r.url, '_blank', 'noopener')
+      } catch (err) { console.error(err) }
+    }
+
+    // Stage 3 rollup bullet: green = complete, red = problem, grey = waiting.
+    const progressBullet = (label, state, pill) => {
+      const c = state === 'green' ? '#27ae60' : state === 'red' ? '#e74c3c' : '#5a8ab5'
+      const grey = state === 'grey'
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: grey ? 'transparent' : c, border: `1px solid ${grey ? 'rgba(255,255,255,0.25)' : c}` }} />
+          <span style={{ fontSize: '12px', color: grey ? '#8bacc8' : c }}>{label}</span>
+          <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: grey ? 'rgba(255,255,255,0.06)' : `${c}26`, color: grey ? '#8bacc8' : c }}>{pill}</span>
+        </div>
+      )
+    }
+
+    async function keepRevShare() {
+      setRevBusy('keep')
+      try { await callApi('automation_SPECIALIST_revsharefinalize', { onboarding_id: id }); window.dispatchEvent(new Event('vfo:notifications-changed')); await loadDetail() }
+      catch (err) { console.error(err) }
+      finally { setRevBusy('') }
+    }
+    async function submitRevEdit() {
+      if (!revEditText.trim()) return
+      setRevBusy('edit')
+      try { await callApi('automation_SPECIALIST_revsharefinalize', { onboarding_id: id, final_text: revEditText.trim() }); window.dispatchEvent(new Event('vfo:notifications-changed')); setShowRevEdit(false); await loadDetail() }
+      catch (err) { console.error(err) }
+      finally { setRevBusy('') }
+    }
+
+    async function approveDdc() {
+      setDdcBusy('approve')
+      try {
+        await callApi('automation_SPECIALIST_ddcapprove', { onboarding_id: id })
+        if (bgDone) await advanceStage()
+        await loadDetail()
+      } catch (err) { console.error(err) }
+      finally { setDdcBusy('') }
+    }
+    async function sendEdits() {
+      if (!editsReason.trim()) return
+      setDdcBusy('edits')
+      try {
+        await callApi('automation_SPECIALIST_ddcedits', { onboarding_id: id, reason: editsReason.trim() })
+        setShowEdits(false); setEditsReason('')
+        await loadDetail()
+      } catch (err) { console.error(err) }
+      finally { setDdcBusy('') }
+    }
 
     return (
       <>
         {/* Background-check payment flow (begins when both execs approve) */}
         <AutoStep done={step3Sent} label="Stage 3 email sent to specialist (choose Core $350 / Max $950)" />
+
+        {/* Appears once the specialist asks questions, and STAYS as a paper trail:
+            action buttons while unresolved, then the outcome pill once resolved. */}
         {fqRequested && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: fqResolved ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${fqResolved ? '#27ae60' : '#f39c12'}` }} />
-            <span style={{ fontSize: '13px', color: fqResolved ? '#8bacc8' : '#fff', flex: 1 }}>Specialist had further questions</span>
-            {fqResolved ? (
-              <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: ob.further_questions_resolution === 'Stop' ? 'rgba(231,76,60,0.15)' : 'rgba(39,174,96,0.15)', color: ob.further_questions_resolution === 'Stop' ? '#e74c3c' : '#27ae60', border: `1px solid ${ob.further_questions_resolution === 'Stop' ? 'rgba(231,76,60,0.3)' : 'rgba(39,174,96,0.3)'}` }}>
-                {ob.further_questions_resolution === 'Stop' ? 'Declined' : 'Proceeded — options re-sent'}
-              </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: fqResolved ? '#27ae60' : '#f39c12', border: `1px solid ${fqResolved ? '#27ae60' : '#f39c12'}` }} />
+            <span style={{ fontSize: '12px', color: fqResolved ? '#27ae60' : '#fff' }}>Answer the specialist's background check questions</span>
+            <span style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
+              {fqResolved ? (
+                ob.further_questions_resolution === 'Stop'
+                  ? <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c' }}>Stopped</span>
+                  : <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Questions answered</span>
+              ) : (
+                <>
+                  <ActionButton label={fqPending === 'Proceed' ? 'Sending…' : 'Questions answered'} onClick={() => resolveQuestions('Proceed')} color="#27ae60" disabled={!!fqPending} />
+                  <ActionButton label={fqPending === 'Stop' ? 'Sending…' : 'Stop'} onClick={() => resolveQuestions('Stop')} color="#e74c3c" disabled={!!fqPending} />
+                </>
+              )}
+            </span>
+          </div>
+        )}
+
+        {/* Specialist background check choice (Core/Max) — "Questions asked" pill if they asked first. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgChosen ? '#27ae60' : 'transparent', border: `1px solid ${bgChosen ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+          <span style={{ fontSize: '12px', color: bgChosen ? '#27ae60' : '#8bacc8' }}>Specialist background check choice</span>
+          <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px', alignItems: 'center' }}>
+            {bgChosen ? (
+              <>
+                <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6' }}>{ob.background_check_type}</span>
+                <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Done</span>
+              </>
             ) : (
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <ActionButton label={fqPending === 'Proceed' ? 'Sending…' : 'Proceed'} onClick={() => resolveQuestions('Proceed')} color="#27ae60" disabled={!!fqPending} />
-                <ActionButton label={fqPending === 'Stop' ? 'Sending…' : 'Stop'} onClick={() => resolveQuestions('Stop')} color="#e74c3c" disabled={!!fqPending} />
+              <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not completed</span>
+            )}
+          </span>
+        </div>
+
+        <AutoStep done={confirmSent} label="Payment confirmation email sent" />
+        <AutoStep done={bgPaid} label="Payment cleared — receipt, next steps, and DD checklist sent" />
+
+        {/* ── Background Check ── */}
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <SectionLabel>Background Check</SectionLabel>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgInitiated ? '#27ae60' : 'transparent', border: `1px solid ${bgInitiated ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+          <span style={{ fontSize: '12px', color: bgInitiated ? '#27ae60' : '#8bacc8' }}>Background check sent{ob.background_check_type ? ` to ${ob.background_check_type === 'Max' ? 'Scherzer International' : 'Checkr'}` : ''}</span>
+          <span style={{ marginLeft: 'auto' }}>
+            {bgInitiated
+              ? <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Done</span>
+              : <ActionButton label="Mark as sent" onClick={() => saveProgress(3, 'bg_initiated', 'completed')} color="#27ae60" />}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgResult ? (bgDone ? '#27ae60' : '#e74c3c') : 'transparent', border: `1px solid ${bgResult ? (bgDone ? '#27ae60' : '#e74c3c') : 'rgba(255,255,255,0.2)'}` }} />
+          <span style={{ fontSize: '12px', color: bgResult ? (bgDone ? '#27ae60' : '#e74c3c') : '#8bacc8' }}>Background check results</span>
+          <span style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
+            {!bgResult ? (
+              <>
+                <ActionButton label="Passed" onClick={async () => { await saveProgress(3, 'bg_results_received', 'passed'); if (ddcApproved) advanceStage() }} color="#27ae60" />
+                <ActionButton label="Failed" onClick={() => { saveProgress(3, 'bg_results_received', 'failed'); stopOnboarding() }} color="#e74c3c" />
+              </>
+            ) : bgDone ? (
+              <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Passed</span>
+            ) : (
+              <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c' }}>Failed</span>
+            )}
+          </span>
+        </div>
+        {bgFailed && (
+          <div style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'rgba(231,76,60,0.06)', marginBottom: '10px' }}>
+            <span style={{ fontSize: '12px', color: '#e74c3c' }}>✗ Background check failed — onboarding stopped</span>
+          </div>
+        )}
+
+        {/* ── Due Diligence Checklist ── */}
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <SectionLabel>Due Diligence Checklist</SectionLabel>
+
+        <AutoStep done={ddcEmailed} label="Due diligence checklist emailed to client (Along with Final Revenue Share Proposal)" />
+
+        {/* Help requested — same paper-trail format as the Core/Max questions step */}
+        {helpRequested && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: helpResolved ? '#27ae60' : '#f39c12', border: `1px solid ${helpResolved ? '#27ae60' : '#f39c12'}` }} />
+            <span style={{ fontSize: '12px', color: helpResolved ? '#27ae60' : '#fff' }}>Answer the specialist's checklist questions</span>
+            <span style={{ marginLeft: 'auto' }}>
+              {helpResolved
+                ? <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Help received</span>
+                : <ActionButton label="Help received" onClick={() => saveProgress(3, 'ddc_help_resolved', 'completed')} color="#27ae60" />}
+            </span>
+          </div>
+        )}
+
+        {/* Checklist progress box (entries only — no status line) */}
+        <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', margin: '8px 0 12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ fontSize: '12px', color: '#fff', fontWeight: '600' }}>Checklist progress</span>
+            <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{ddFilled}/{ddSections.length} sections</span>
+          </div>
+          {ddSections.map(([label, filled]) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0' }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: filled ? '#27ae60' : 'transparent', border: `1px solid ${filled ? '#27ae60' : 'rgba(255,255,255,0.25)'}`, flexShrink: 0 }} />
+              <span style={{ fontSize: '12px', color: filled ? '#8bacc8' : '#6b8299' }}>{label}</span>
+              {filled && <span style={{ fontSize: '11px', color: '#27ae60', marginLeft: 'auto' }}>Entered</span>}
+            </div>
+          ))}
+          {ddFilled > 0 && (
+            <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <span onClick={() => setShowSubmission(s => !s)} style={{ fontSize: '11px', color: '#5b9fe6', cursor: 'pointer' }}>{showSubmission ? '▼ Hide progress' : '▶ View progress'}</span>
+              {showSubmission && (
+                <div style={{ marginTop: '8px' }}>
+                {[
+                  ['Professional bio', ddc.bio],
+                  ['Case studies', ddc.case_studies],
+                  ['Licenses / designations notes', ddc.license_notes],
+                  ['Regulatory / disciplinary history', ddc.disciplinary_history],
+                  ['Audit support & scope of services', ddc.audit_support],
+                  ['Tax due diligence notes', ddc.tax_due_diligence_notes],
+                  ['Exit strategies & contingency plans', ddc.exit_strategies],
+                  ['Sample materials notes', ddc.sample_materials_notes],
+                ].filter(([, v]) => v && String(v).trim()).map(([label, v]) => (
+                  <div key={label} style={{ marginBottom: '10px' }}>
+                    <div style={{ fontSize: '11px', color: '#5b9fe6', fontWeight: 600, marginBottom: '3px' }}>{label}</div>
+                    <div style={{ fontSize: '12px', color: '#cfe0f0', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{v}</div>
+                  </div>
+                ))}
+                {[
+                  ['Headshot', ddc.headshot ? [ddc.headshot] : []],
+                  ['Licenses / designations', ddc.licenses || []],
+                  ['Case study attachments', ddc.case_study_files || []],
+                  ['E&O / liability insurance', ddc.eo_insurance || []],
+                  ['Tax due diligence documents', ddc.tax_due_diligence_files || []],
+                  ['Sample materials', ddc.sample_materials_files || []],
+                ].filter(([, files]) => files.length).map(([label, files]) => (
+                  <div key={label} style={{ marginBottom: '10px' }}>
+                    <div style={{ fontSize: '11px', color: '#5b9fe6', fontWeight: 600, marginBottom: '3px' }}>{label}</div>
+                    {files.map((f, i) => (
+                      <div key={i} style={{ fontSize: '12px', padding: '2px 0' }}>
+                        <span onClick={() => openFile(f.path)} style={{ color: '#5b9fe6', cursor: 'pointer', textDecoration: 'underline' }}>📄 {f.name}</span>
+                        {f.size ? <span style={{ color: '#5a8ab5' }}> · {Math.max(1, Math.round(f.size / 1024))} KB</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <AutoStep done={ddcEverSubmitted} label="Due diligence checklist submitted" />
+
+        {/* Review paper trail — every approve/deny round, oldest first */}
+        {reviewLog.filter(e => e.type === 'denied' || e.type === 'approved').map((e, i) => (
+          e.type === 'approved' ? (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#27ae60', border: '1px solid #27ae60' }} />
+              <span style={{ fontSize: '12px', color: '#27ae60' }}>Due Diligence Checklist approved</span>
+              <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Approved</span>
+            </div>
+          ) : (
+            <div key={i} style={{ padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#e74c3c', border: '1px solid #e74c3c' }} />
+                <span style={{ fontSize: '12px', color: '#e74c3c' }}>Due Diligence Checklist denied</span>
+                <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c' }}>Denied</span>
+              </div>
+              {e.reason && <div style={{ fontSize: '11px', color: '#8bacc8', whiteSpace: 'pre-wrap', lineHeight: 1.5, margin: '4px 0 0 14px', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>{e.reason}</div>}
+            </div>
+          )
+        ))}
+
+        {/* Current review action — only while a submission is awaiting review */}
+        {ddcReview === 'pending_review' && (
+          <div style={{ padding: '6px 0 0' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12px', color: '#fff', flex: 1 }}>Due Diligence Checklist approved?</span>
+              <ActionButton label={ddcBusy === 'approve' ? 'Sending…' : 'Approved'} onClick={approveDdc} color="#27ae60" disabled={!!ddcBusy} />
+              <ActionButton label="Denied" onClick={() => setShowEdits(s => !s)} color="#e74c3c" disabled={!!ddcBusy} />
+            </div>
+            {showEdits && (
+              <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.3)', background: 'rgba(255,255,255,0.02)' }}>
+                <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '8px' }}>Reason — included in the email the specialist receives</div>
+                <textarea value={editsReason} onChange={e => setEditsReason(e.target.value)} placeholder="Explain what needs to be changed or added…" rows={4} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
+                <div style={{ marginTop: '8px' }}>
+                  <ActionButton label={ddcBusy === 'edits' ? 'Sending…' : 'Send to specialist'} onClick={sendEdits} color="#e74c3c" disabled={!!ddcBusy || !editsReason.trim()} />
+                </div>
               </div>
             )}
           </div>
         )}
-        <AutoStep done={confirmSent} label="Payment confirmation email sent" detail={confirmSent ? (ob.bg_payment_method_type === 'ach' ? 'ACH' : 'Card') : ''} />
-        <AutoStep done={bgPaid} label="Payment cleared — receipt, next steps, and DD checklist sent" detail={bgPaid ? `${ob.background_check_type || ''}${bgCheckProcess ? ' → ' + bgCheckProcess : ''}` : (confirmSent && ob.bg_payment_method_type === 'ach' ? 'ACH clearing (2-4 business days)' : '')} />
+
+        {/* ── Final revenue share proposal ── */}
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <SectionLabel>Final revenue share proposal</SectionLabel>
 
-        {/* 1. Tracy confirms background check sent */}
-        
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', marginBottom: '4px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: bgInitiated ? '#27ae60' : 'transparent', border: `1.5px solid ${bgInitiated ? '#27ae60' : 'rgba(255,255,255,0.3)'}`, flexShrink: 0 }} />
-            <span style={{ fontSize: '13px', color: bgInitiated ? '#fff' : '#8bacc8' }}>Background check sent{ob.background_check_type ? ` to ${ob.background_check_type === 'Max' ? 'Scherzer International' : 'Checkr'}` : ''}</span>
-            {ob.background_check_type && <span style={{ fontSize: '11px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.2)' }}>{ob.background_check_type}</span>}
-          </div>
-          {!bgInitiated && <ActionButton label="Background check sent" onClick={() => saveProgress(3, 'bg_initiated', 'completed')} />}
-        </div>
+        <AutoStep done={revEmailed} label="Revenue share proposal emailed to client (Along with DD Checklist)" />
+        <AutoStep done={!!revResponse} label="Specialist response to revenue share proposal" detail={revResponse === 'Approved' ? 'Happy' : revResponse === 'Further Questions' ? 'Further questions' : ''} />
+        <AutoStep done={revFinalDone} label="Final revenue share proposal" detail={revFinalDetail} />
 
-        {/* 3. DD checklist response — read-only, populated by email */}
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', marginBottom: '12px' }}>
-          <span style={{ fontSize: '13px', color: '#fff', fontWeight: '500' }}>DD checklist</span>
-          {!ddStatus ? (
-            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8', border: '1px solid rgba(255,255,255,0.1)', marginLeft: 'auto' }}>Not completed</span>
-          ) : ddStatus === 'help_requested' ? (
-            <span style={{ fontSize: '12px', color: '#f39c12', fontWeight: '600', marginLeft: 'auto' }}>⚠ Specialist needs help — Tracy notified</span>
-          ) : ddStatus === 'completed' ? (
-            <span style={{ fontSize: '12px', color: '#27ae60', fontWeight: '600', marginLeft: 'auto' }}>✓ Completed</span>
-          ) : null}
-        </div>
-
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
-
-
-        {/* 5. Auto: revenue share email — fires when form submitted */}
-        
-
-        {/* 6. Revenue share response — read-only, populated by email */}
-        
-
-        {/* 7. Background check results — Tracy clicks Passed or Failed */}
-        <SectionLabel>Background check results</SectionLabel>
-        {!bgResult ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', marginBottom: '12px' }}>
-            <span style={{ fontSize: '13px', color: '#fff' }}>Background check results</span>
-            <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
-              <ActionButton label="Passed" onClick={async () => { await saveProgress(3, 'bg_results_received', 'passed'); if (ddDone) advanceStage() }} color="#27ae60" />
-              <ActionButton label="Failed" onClick={() => { saveProgress(3, 'bg_results_received', 'failed'); stopOnboarding() }} color="#e74c3c" />
+        {revResponse === 'Further Questions' && !revFinalized && (
+          <div style={{ padding: '8px 0 4px 14px' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <ActionButton label={revBusy === 'keep' ? 'Saving…' : 'Confirm revenue share proposal'} onClick={keepRevShare} color="#27ae60" disabled={!!revBusy} />
+              <ActionButton label="Edit revenue share proposal" onClick={() => { setRevEditText(revFinalText); setShowRevEdit(s => !s) }} color="#5b9fe6" disabled={!!revBusy} />
             </div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', marginBottom: '12px' }}>
-            <span style={{ fontSize: '13px', color: '#fff' }}>Background check results</span>
-            <span style={{ fontSize: '12px', color: bgDone ? '#27ae60' : '#e74c3c', fontWeight: '600', marginLeft: 'auto' }}>{bgDone ? '✓ Passed' : '✗ Failed'}</span>
+            {showRevEdit && (
+              <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(91,159,230,0.3)', background: 'rgba(255,255,255,0.02)' }}>
+                <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '8px' }}>Edit the revenue share proposal — submitting locks it in as final.</div>
+                <textarea value={revEditText} onChange={e => setRevEditText(e.target.value)} rows={5} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
+                <div style={{ marginTop: '8px' }}>
+                  <ActionButton label={revBusy === 'edit' ? 'Saving…' : 'Submit & make final'} onClick={submitRevEdit} color="#27ae60" disabled={!!revBusy || !revEditText.trim()} />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Gate */}
-        {bgFailed && (
-          <div style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'rgba(231,76,60,0.06)', marginTop: '14px', marginBottom: '10px' }}>
-            <span style={{ fontSize: '12px', color: '#e74c3c' }}>✗ Background check failed — onboarding stopped</span>
+        {revFinalDone && revFinalText && (
+          <div style={{ padding: '4px 0 0 14px' }}>
+            <span onClick={() => setShowRevProp(s => !s)} style={{ fontSize: '11px', color: '#5b9fe6', cursor: 'pointer' }}>{showRevProp ? '▼ Hide final proposal' : '▶ View final proposal'}</span>
+            {showRevProp && <div style={{ fontSize: '12px', color: '#8bacc8', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginTop: '6px', padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>{revFinalText}</div>}
           </div>
         )}
+
+        {/* ── Stage 3 progress ── */}
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <SectionLabel>Stage 3 progress</SectionLabel>
+        {progressBullet('Background check', bgDone ? 'green' : bgFailed ? 'red' : 'grey', bgDone ? 'Passed' : bgFailed ? 'Failed' : 'Waiting')}
+        {progressBullet('Due Diligence Checklist', ddcApproved ? 'green' : ddcEditsRequested ? 'red' : 'grey', ddcApproved ? 'Approved' : ddcEditsRequested ? 'Denied' : 'Waiting')}
+        {progressBullet('Final Revenue Share Proposal', revFinalDone ? 'green' : 'grey', revFinalDone ? 'Final' : 'Waiting')}
+
+        <div style={{ height: '10px' }} />
         <AutoStep done={allDone} label="Email sent — Step 3 complete, moving to Step 4" />
       </>
     )

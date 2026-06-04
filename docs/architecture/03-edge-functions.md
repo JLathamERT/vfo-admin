@@ -177,7 +177,8 @@ Behavior change observable from outside: an explicit POST with `{ "action": "aut
 - `map1-agreements` — `actions/pipeline/pcadmin-final-decision.ts` (`proactive-lite.pdf` / `proactive-core.pdf` / `proactive-max.pdf` Undecided attachments per service level).
 - `advisor-onboarding-agreements` — `actions/advisor/decision.ts` (`Advisor_Implementation_Agreement.pdf` Undecided attachment; uploaded 2026-06-01).
 - `accountant-onboarding-agreements` — `actions/accountant/decision.ts` (TWO partnership-branched Undecided attachments — `Accountant_Implementation_Agreement_Partnership.pdf` / `_No_Partnership.pdf`, picked by `ob.accountant_partnership`; both uploaded 2026-06-01, gotcha #58).
-- `specialist-onboarding-assets` — `actions/onboarding/prelim-email.ts` (Specialist Onboarding Stage 1 email): `onboarding-process.png` (inline image in Stage 1 + Stage 2 emails), `VFO-Specialist-Agreement.pdf` + `revenue_share_examples.pdf` (static attachments on the Stage 1 yes/continue email). Added 2026-06-02, gotcha #59.
+- `specialist-onboarding-assets` (public) — `actions/onboarding/prelim-email.ts` (Specialist Onboarding Stage 1 email): `onboarding-process.png` (inline image in Stage 1, Stage 2 + Step 3 receipt emails), `VFO-Specialist-Agreement.pdf` + `revenue_share_examples.pdf` (static attachments on the Stage 1 yes/continue email). Added 2026-06-02, gotcha #59.
+- `specialist-dd-materials` (**PRIVATE** — only private bucket in the system) — Due Diligence Checklist uploads. Written via signed upload URLs (`actions/onboarding/ddc-upload-url.ts`); read via signed download URLs (`actions/onboarding/ddc-download.ts`). Paths namespaced `<onboarding_id>/<slot>/<rand>_<file>`. Added 2026-06-04, gotcha #69.
 
 ---
 
