@@ -560,6 +560,36 @@ function OnboardingDetail({ id, onBack }) {
     )
   }
 
+  // Shared reviewer-notes block so Stage 2 (initial) and Stage 4 (final) mirror
+  // exactly. Tracy's general notes always; Tim's tax-risk notes only for tax
+  // specialists, with a visible "only if applicable" reference otherwise.
+  function ReviewerNotesSection({ stage }) {
+    // Show Tim's tax-risk notes unless the specialist has explicitly answered "No"
+    // to being a Tax Specialist. Until they've chosen, show both reviewers.
+    const showTim = ob.sif_data?.is_tax_specialist !== 'No'
+    return (
+      <>
+        <SectionLabel>Reviewer notes</SectionLabel>
+        <ReviewerNoteInput
+          label="General notes" who="Tracy"
+          placeholder="General notes regarding this specialist..."
+          done={!!getTaskStatus(stage, 'tracy_general_notes')}
+          currentNotes={progress[`${stage}-tracy_general_notes`]?.notes || ''}
+          onSave={t => saveProgress(stage, 'tracy_general_notes', 'completed', t)}
+        />
+        {showTim && (
+          <ReviewerNoteInput
+            label="Tax risk notes" who="Tim" hint="if applicable"
+            placeholder="Notes regarding tax risk..."
+            done={!!getTaskStatus(stage, 'tim_tax_risk_notes')}
+            currentNotes={progress[`${stage}-tim_tax_risk_notes`]?.notes || ''}
+            onSave={t => saveProgress(stage, 'tim_tax_risk_notes', 'completed', t)}
+          />
+        )}
+      </>
+    )
+  }
+
   function Stage2Content() {
     // Build meeting history from progress keys
     const meetingCount = meetings.length
@@ -578,7 +608,7 @@ function OnboardingDetail({ id, onBack }) {
     // Initial executive approval — account-scoped two-round voting.
     const myExec = EXEC_BY_EMAIL[(session?.email || '').toLowerCase()] || null
     const votingOpen = !!getTaskStatus(2, 'rev_share_prepared') && !!getTaskStatus(2, 'tracy_general_notes')
-      && (ob.sif_data?.is_tax_specialist !== 'Yes' || !!getTaskStatus(2, 'tim_tax_risk_notes'))
+      && (ob.sif_data?.is_tax_specialist === 'No' || !!getTaskStatus(2, 'tim_tax_risk_notes'))
     const r1BothVoted = hasVoted(2, 'Anton Anderson', 1) && hasVoted(2, 'Paul Latham', 1)
     const r1AnyFurther = r1BothVoted && (getVote(2, 'Anton Anderson', 1) === 'Further Questions' || getVote(2, 'Paul Latham', 1) === 'Further Questions')
     const r1BothApproved = r1BothVoted && getVote(2, 'Anton Anderson', 1) === 'Approved' && getVote(2, 'Paul Latham', 1) === 'Approved'
@@ -740,54 +770,33 @@ function OnboardingDetail({ id, onBack }) {
           </div>
         )}
 
-        {/* Revenue share proposal — comes before Initial executive approval */}
+        {/* Revenue share proposal — submitting it notifies Tracy (always) + Tim
+            (tax specialists only) to add their reviewer notes below. */}
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
         <SectionLabel>Revenue share proposal</SectionLabel>
         {!getTaskStatus(2, 'rev_share_prepared') ? (
           <div style={{ padding: '14px', borderRadius: '8px', border: '1px solid rgba(91,159,230,0.3)', background: 'rgba(255,255,255,0.02)', marginBottom: '12px' }}>
             <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '8px' }}>Revenue Share Proposal</div>
             <textarea value={revSharePercent} onChange={e => setRevSharePercent(e.target.value)} placeholder="Enter revenue share proposal details..." rows={6} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '10px' }} />
-            <ActionButton label={submittingRevShare ? 'Submitting...' : 'Submit final revenue share proposal'} onClick={submitRevShareProposal} disabled={!revSharePercent.trim() || submittingRevShare} color="#27ae60" />
+            <ActionButton label={submittingRevShare ? 'Submitting...' : 'Submit revenue share proposal'} onClick={submitRevShareProposal} disabled={!revSharePercent.trim() || submittingRevShare} color="#27ae60" />
           </div>
         ) : (
           <RevShareDisplay notes={progress['2-rev_share_prepared']?.notes || ''} edited={ob.rev_share_final_text} />
         )}
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
 
-        {/* Reviewer notes — required before Initial executive approval. Notifications
-            fire to Tracy (always) + Tim (tax specialists only) when the final revenue
-            share proposal above is submitted; they clear when the notes are saved. */}
-        {getTaskStatus(2, 'rev_share_prepared') && (
-          <>
-            <SectionLabel>Reviewer notes</SectionLabel>
-            <ReviewerNoteInput
-              label="General notes"
-              who="Tracy"
-              placeholder="General notes regarding this potential specialist..."
-              done={!!getTaskStatus(2, 'tracy_general_notes')}
-              currentNotes={progress['2-tracy_general_notes']?.notes || ''}
-              onSave={t => saveProgress(2, 'tracy_general_notes', 'completed', t)}
-            />
-            {ob.sif_data?.is_tax_specialist === 'Yes' && (
-              <ReviewerNoteInput
-                label="Tax risk notes"
-                who="Tim"
-                placeholder="Notes regarding tax risk..."
-                done={!!getTaskStatus(2, 'tim_tax_risk_notes')}
-                currentNotes={progress['2-tim_tax_risk_notes']?.notes || ''}
-                onSave={t => saveProgress(2, 'tim_tax_risk_notes', 'completed', t)}
-              />
-            )}
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
-          </>
-        )}
+        {/* Reviewer notes — always visible (mirrors Stage 4). Tracy (always) + Tim
+            (tax specialists only) are notified to add these once the revenue share
+            proposal above is submitted; the prompts clear when the notes save. */}
+        <ReviewerNotesSection stage={2} />
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
 
         {/* Initial executive approval — account-scoped two-round voting */}
         <>
             <SectionLabel>Initial executive approval</SectionLabel>
             {!votingOpen ? (
               <div style={{ fontSize: '12px', color: '#8bacc8', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.02)', marginBottom: '12px' }}>
-                Voting opens once the final revenue share proposal{ob.sif_data?.is_tax_specialist === 'Yes' ? ' and both reviewer notes' : " and Tracy's notes"} are complete.
+                Voting opens once the revenue share proposal and {ob.sif_data?.is_tax_specialist === 'No' ? "Tracy's notes" : "Tracy's and Tim's notes"} are complete.
               </div>
             ) : (
               <>
@@ -849,7 +858,7 @@ function OnboardingDetail({ id, onBack }) {
     )
   }
 
-  function ReviewerNoteInput({ label, who, placeholder, done, currentNotes, onSave }) {
+  function ReviewerNoteInput({ label, who, placeholder, done, currentNotes, onSave, hint }) {
     const [text, setText] = useState(currentNotes)
     const [saving, setSaving] = useState(false)
     const [justSaved, setJustSaved] = useState(false)
@@ -865,7 +874,7 @@ function OnboardingDetail({ id, onBack }) {
     return (
       <div style={{ padding: '12px 14px', borderRadius: '8px', border: `1px solid ${done ? 'rgba(39,174,96,0.3)' : 'rgba(243,156,18,0.3)'}`, background: 'rgba(255,255,255,0.02)', marginBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <span style={{ fontSize: '13px', color: '#fff', fontWeight: '600' }}>{label} <span style={{ color: '#8bacc8', fontWeight: 400 }}>({who})</span></span>
+          <span style={{ fontSize: '13px', color: '#fff', fontWeight: '600' }}>{label} <span style={{ color: '#8bacc8', fontWeight: 400 }}>({who}){hint ? ` — ${hint}` : ''}</span></span>
           {done
             ? <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', marginLeft: 'auto' }}>Completed</span>
             : <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(243,156,18,0.15)', color: '#f39c12', marginLeft: 'auto' }}>Awaiting notes</span>}
@@ -954,6 +963,9 @@ function OnboardingDetail({ id, onBack }) {
     const ddc = ob.ddc_data || {}
     const bgType = ob.background_check_type || '—'
     const revText = ob.rev_share_final_text || progress['2-rev_share_prepared']?.notes || '—'
+    const isTax = ob.sif_data?.is_tax_specialist === 'Yes'
+    const tracyNotes = progress['4-tracy_general_notes']?.notes || '—'
+    const timNotes = progress['4-tim_tax_risk_notes']?.notes || '—'
     const lblStyle = { fontSize: '10px', fontWeight: 700, color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }
     const valStyle = { fontSize: '12px', color: '#fff', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: '10px' }
     const grpStyle = { fontSize: '14px', fontWeight: 700, color: '#fff', letterSpacing: '0.3px', margin: '20px 0 12px', paddingBottom: '6px', borderBottom: '2px solid rgba(91,159,230,0.55)' }
@@ -1003,6 +1015,13 @@ function OnboardingDetail({ id, onBack }) {
             ))}
             <div style={grpStyle}>Final revenue share proposal</div>
             <div style={valStyle}>{revText}</div>
+            <div style={grpStyle}>Reviewer notes</div>
+            <div style={lblStyle}>Tracy — general notes</div>
+            <div style={valStyle}>{tracyNotes}</div>
+            {isTax && (<>
+              <div style={lblStyle}>Tim — tax risk notes</div>
+              <div style={valStyle}>{timNotes}</div>
+            </>)}
           </div>
         )}
       </div>
@@ -1378,8 +1397,8 @@ function OnboardingDetail({ id, onBack }) {
     // Final executive approval — same account-scoped two-round voting as Stage 2,
     // gated on the Stage 4 reviewer notes (Tracy always, Tim only for tax specialists).
     const myExec = EXEC_BY_EMAIL[(session?.email || '').toLowerCase()] || null
-    const isTax4 = ob.sif_data?.is_tax_specialist === 'Yes'
-    const votingOpen = !!getTaskStatus(4, 'tracy_general_notes') && (!isTax4 || !!getTaskStatus(4, 'tim_tax_risk_notes'))
+    const timRequired4 = ob.sif_data?.is_tax_specialist !== 'No'
+    const votingOpen = !!getTaskStatus(4, 'tracy_general_notes') && (!timRequired4 || !!getTaskStatus(4, 'tim_tax_risk_notes'))
     const r1BothVoted = hasVoted(4, 'Anton Anderson', 1) && hasVoted(4, 'Paul Latham', 1)
     const r1AnyFurther = r1BothVoted && (getVote(4, 'Anton Anderson', 1) === 'Further Questions' || getVote(4, 'Paul Latham', 1) === 'Further Questions')
     const r1BothApproved = r1BothVoted && getVote(4, 'Anton Anderson', 1) === 'Approved' && getVote(4, 'Paul Latham', 1) === 'Approved'
@@ -1388,39 +1407,15 @@ function OnboardingDetail({ id, onBack }) {
     const r2BothDenied = r2BothVoted && getVote(4, 'Anton Anderson', 2) === 'Denied' && getVote(4, 'Paul Latham', 2) === 'Denied'
     const denied4 = r2BothDenied
     const approvedBanner = { fontSize: '12px', color: '#27ae60', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(39,174,96,0.3)', background: 'rgba(39,174,96,0.06)', marginBottom: '8px' }
-    // MM/DD a Stage-4 step was completed (shown as the AutoStep detail chip).
-    const stepDate = (key) => {
-      const at = progress[`4-${key}`]?.completed_at
-      if (!at) return undefined
-      const d = new Date(at)
-      return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
-    }
-
     return (
       <>
-        <SectionLabel>Reviewer notes</SectionLabel>
-        <ReviewerNoteInput
-          label="General notes" who="Tracy"
-          placeholder="General notes regarding this specialist..."
-          done={!!getTaskStatus(4, 'tracy_general_notes')}
-          currentNotes={progress['4-tracy_general_notes']?.notes || ''}
-          onSave={t => saveProgress(4, 'tracy_general_notes', 'completed', t)}
-        />
-        {isTax4 && (
-          <ReviewerNoteInput
-            label="Tax risk notes" who="Tim"
-            placeholder="Notes regarding tax risk..."
-            done={!!getTaskStatus(4, 'tim_tax_risk_notes')}
-            currentNotes={progress['4-tim_tax_risk_notes']?.notes || ''}
-            onSave={t => saveProgress(4, 'tim_tax_risk_notes', 'completed', t)}
-          />
-        )}
+        <ReviewerNotesSection stage={4} />
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
 
         <SectionLabel>Final executive approval</SectionLabel>
         {!votingOpen ? (
           <div style={{ fontSize: '12px', color: '#8bacc8', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.02)', marginBottom: '12px' }}>
-            Voting opens once {isTax4 ? 'both reviewer notes are' : "Tracy's notes are"} complete.
+            Voting opens once {timRequired4 ? "Tracy's and Tim's notes are" : "Tracy's notes are"} complete.
           </div>
         ) : (
           <>
@@ -1440,14 +1435,15 @@ function OnboardingDetail({ id, onBack }) {
         {denied4 && <div style={{ fontSize: '12px', color: '#e74c3c', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'rgba(231,76,60,0.06)', margin: '12px 0' }}>Both executives denied — decline email drafted, process stopped.</div>}
 
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
-        
-        <AutoStep done={!!getTaskStatus(4, 'agreement_sent')} detail={stepDate('agreement_sent')} label="Agreement sent" />
-        <AutoStep done={!!getTaskStatus(4, 'agreement_signed_specialist')} detail={stepDate('agreement_signed_specialist')} label="Agreement signed by specialist" />
-        <AutoStep done={!!getTaskStatus(4, 'agreement_signed_ceo')} detail={stepDate('agreement_signed_ceo')} label="Agreement signed by CEO" />
-        <AutoStep done={!!getTaskStatus(4, 'payment_link_sent')} detail={stepDate('payment_link_sent')} label="Payment link sent" />
-        <AutoStep done={!!getTaskStatus(4, 'payment_made')} detail={stepDate('payment_made')} label="Payment made" />
-        <AutoStep done={!!getTaskStatus(4, 'confirmation_email_sent')} detail={stepDate('confirmation_email_sent')} label="Confirmation email sent" />
-        <AutoStep done={!!getTaskStatus(4, 'invoice_receipt_sent')} detail={stepDate('invoice_receipt_sent')} label="Invoice/receipt sent" />
+
+        <SectionLabel>Specialist Onboarding Agreement &amp; Set up Licensing fee subscription</SectionLabel>
+        <AutoStep done={!!getTaskStatus(4, 'agreement_sent')} label="Agreement sent" />
+        <AutoStep done={!!getTaskStatus(4, 'agreement_signed_specialist')} label="Agreement signed by specialist" />
+        <AutoStep done={!!getTaskStatus(4, 'agreement_signed_ceo')} label="Agreement signed by CEO" />
+        <AutoStep done={!!getTaskStatus(4, 'payment_link_sent')} label="Payment link sent" />
+        <AutoStep done={!!getTaskStatus(4, 'payment_made')} label="Payment made" />
+        <AutoStep done={!!getTaskStatus(4, 'confirmation_email_sent')} label="Confirmation email sent" />
+        <AutoStep done={!!getTaskStatus(4, 'invoice_receipt_sent')} label="Invoice/receipt sent" />
       </>
     )
   }

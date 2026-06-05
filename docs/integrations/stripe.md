@@ -1,6 +1,6 @@
 # Stripe integration
 
-Stripe handles **seven** distinct payment flows in this system:
+Stripe handles **eight** distinct payment flows in this system:
 
 1. **MAP1 service payments** — recurring quarterly or one-time payment for the VFO membership engagement. Customers, Checkout Sessions, PaymentIntents, and Transfers (revenue share to advisors).
 2. **Tax Planning payments** — retainer (Tax 3) + implementation off-session charge (Tax 5). Routed by `metadata.payment_kind` in `retainer` / `implementation`. See [../flows/tax-planning.md](../flows/tax-planning.md).
@@ -9,15 +9,16 @@ Stripe handles **seven** distinct payment flows in this system:
 5. **PIP Meetings purchases** — one-shot purchase for Tax Planning or N Additional PIP meetings. See [../flows/pip-meetings.md](../flows/pip-meetings.md).
 6. **GC marketplace purchases** — one-shot Stripe Checkout for buying gift credits.
 7. **Specialist Onboarding background-check payments** (2026-06-03) — one-time Core ($350) or Max ($950) charge for the specialist's background check (Stage 3). ACH or Card; card grosses up the 2.9%+$0.30 fee. No `setup_future_usage`. Confirmation email at payment time; receipt + invoice PDFs on clearance. See [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md).
+8. **Specialist Onboarding monthly LICENSE** (2026-06-05) — the **first and only Stripe SUBSCRIPTION in the system** (`mode=subscription`). $99/mo recurring after the Stage-4 agreement is signed; card grossed-up / ACH flat; reuses the specialist's background-check Stripe customer. Stripe owns the recurring billing/dunning — **no custom sweep**. Routed by `metadata.payment_kind=license`. See [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md).
 
-All seven flows route through the same webhook endpoint (the `vfo-admin-api` function gated by `stripe-signature`). They are disambiguated by Checkout-Session metadata. The webhook handler verifies the incoming signature against BOTH `STRIPE_WEBHOOK_SECRET` and `STRIPE_WEBHOOK_SECRET_SANDBOX` — whichever validates wins, so live and sandbox Stripe accounts can both deliver to the same URL. The webhook also handles `payment_intent.payment_failed` for `SPECIALIST_ONBOARDING` (marks `bg_payment_status='failed'` + Tracy FYI).
+All eight flows route through the same webhook endpoint (the `vfo-admin-api` function gated by `stripe-signature`). They are disambiguated by Checkout-Session metadata. The webhook verifies the signature against BOTH `STRIPE_WEBHOOK_SECRET` and `STRIPE_WEBHOOK_SECRET_SANDBOX` — whichever validates wins. **Events handled:** `checkout.session.completed`, `payment_intent.succeeded`, `payment_intent.payment_failed` (SPECIALIST bg → `bg_payment_status='failed'`), and — added 2026-06-05 for the license subscription — **`invoice.paid` / `invoice.payment_succeeded`** (recurring billing + receipts; routed by `lic_stripe_customer_id`; subscription ref read from `invoice.parent.subscription_details.subscription`, SESSION_REFERENCE gotcha #76) and **`invoice.payment_failed`** (dunning FYI to Tracy). ⚠️ The two `invoice.*` events must be **enabled on the Stripe webhook endpoint** — done on **sandbox**; the **live** endpoint still needs them before any real specialist license payment (gotcha #75).
 
 ### Metadata convention
 
 | Field | MAP1 | Tax | Advisor | Accountant | PIP | GC | Specialist |
 |---|---|---|---|---|---|---|---|
 | `metadata.pipeline` | (none) | `TAX` | `ADVISOR_ONBOARDING` | `ACCOUNTANT_ONBOARDING` | `PIP` | (none) | `SPECIALIST_ONBOARDING` |
-| `metadata.payment_kind` | (none — uses `payment_number` for quarterly) | `retainer` / `implementation` | `onboarding` | `onboarding` | `purchase` | (none — uses `member_number` + `credits`) | `background_check` (+ `bg_type=core\|max`) |
+| `metadata.payment_kind` | (none — uses `payment_number` for quarterly) | `retainer` / `implementation` | `onboarding` | `onboarding` | `purchase` | (none — uses `member_number` + `credits`) | `background_check` (+ `bg_type=core\|max`) **or `license`** (`mode=subscription`, $99/mo) |
 | `metadata.payment_number` | `1` (P1) / `2-4` (chargescheduled sweep) | — | — | — | — | — |
 | `metadata.client_id` / `metadata.onboarding_id` | `client_id` | `tax_plan_id` (via `client_tax_plans`) | `onboarding_id` | `onboarding_id` | `priority_track_id` | — |
 

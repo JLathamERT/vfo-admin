@@ -75,7 +75,7 @@ BoldSign-side configuration of the webhook URL is **outside this codebase** — 
 
 ### Event handling
 
-Both handlers listen for two `event.eventType` values. The handler resolves the document type by 4-level cascade: `boldsign_doc_id` (MAP1 `pipeline_map1`) → `boldsign_doc_id` (Tax `client_tax_plans`) → `boldsign_document_id` (Advisor `advisor_onboarding`) → `boldsign_document_id` (Accountant `accountant_onboarding`). First-match wins. Behavior per type:
+Both handlers listen for two `event.eventType` values. The handler resolves the document type by **5-level cascade**: `boldsign_doc_id` (MAP1 `pipeline_map1`) → `boldsign_doc_id` (Tax `client_tax_plans`) → `boldsign_document_id` (Advisor `advisor_onboarding`) → `boldsign_document_id` (Accountant `accountant_onboarding`) → **`lic_boldsign_document_id` (Specialist `specialist_onboarding`, added 2026-06-05 — standalone only)**. First-match wins. Behavior per type:
 
 **MAP 1 branch:**
 
@@ -110,6 +110,14 @@ Both handlers listen for two `event.eventType` values. The handler resolves the 
 | `Signed` (CEO email) | Set `agreement_signed_by_ceo_at` |
 | `Signed` (any other) | Set `agreement_signed_by_accountant_at`. Both standalone + embedded chain `automation_ACCOUNTANT_ceocountersign`. |
 | `Completed` | Set both timestamps. Both standalone + embedded chain `automation_ACCOUNTANT_stripecustomer` (which chains `_paymentemail`). |
+
+**Specialist branch (added 2026-06-05 — agreement is coordinate-based; the `field_map` lives on `agreement_templates` id=12, gotcha #79). NOTE: only the STANDALONE `boldsign-webhook` has this branch — the embedded `maybeHandleBoldSignWebhook` in `webhooks.ts` does NOT (consistent with it being a fallback; BoldSign delivers specialist docs to the standalone function).**
+
+| Event | Behavior |
+|---|---|
+| `Signed` (CEO email) | Set `agreement_signed_by_ceo_at` |
+| `Signed` (any other) | Set `agreement_signed_by_specialist_at` + mark progress; chain `automation_SPECIALIST_ceocountersign`. |
+| `Completed` | Set both timestamps + mark progress; chain `automation_SPECIALIST_licstripecustomer` (→ `licpaymentemail` → the `mode=subscription` license checkout). |
 
 The standalone function is idempotent on the client-signed path (`c17_client_signed === 'Yes'` → returns 200 OK without re-chaining) ([boldsign-webhook/index.ts:71](C:/vfo-edge-functions/supabase/functions/boldsign-webhook/index.ts)).
 
