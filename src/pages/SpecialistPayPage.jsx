@@ -10,6 +10,9 @@ export default function SpecialistPayPage() {
   const [data, setData] = useState(null)
   const [hoveredOption, setHoveredOption] = useState(null)
   const type = searchParams.get('type') === 'max' ? 'max' : 'core'
+  // kind=license → recurring $99/mo VFO License subscription; otherwise the
+  // one-time Core/Max background-check payment.
+  const isLicense = searchParams.get('kind') === 'license'
 
   useEffect(() => {
     const token = searchParams.get('token')
@@ -22,7 +25,9 @@ export default function SpecialistPayPage() {
       const res = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'automation_SPECIALIST_bgloadpayment', token, type }),
+        body: JSON.stringify(isLicense
+          ? { action: 'automation_SPECIALIST_licloadpayment', token }
+          : { action: 'automation_SPECIALIST_bgloadpayment', token, type }),
       })
       const d = await res.json()
       if (d.error) { setError(d.error); setStatus('error'); return }
@@ -40,7 +45,9 @@ export default function SpecialistPayPage() {
       const res = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'automation_SPECIALIST_bgcheckout', token: searchParams.get('token'), method, type }),
+        body: JSON.stringify(isLicense
+          ? { action: 'automation_SPECIALIST_liccheckout', token: searchParams.get('token'), method }
+          : { action: 'automation_SPECIALIST_bgcheckout', token: searchParams.get('token'), method, type }),
       })
       const d = await res.json()
       if (d.url) { window.location.href = d.url; return }
@@ -70,9 +77,11 @@ export default function SpecialistPayPage() {
     <div style={containerStyle}><p style={{ color: '#94a3b8', fontSize: '15px' }}>Redirecting to Stripe…</p></div>
   )
 
-  const baseAmount = Number(data.payment_amount) || 0
+  const baseAmount = isLicense ? (Number(data.monthly_amount) || 0) : (Number(data.payment_amount) || 0)
   const cardFee = Math.round((baseAmount * 0.029 + 0.30) * 100) / 100
   const cardTotal = Math.round((baseAmount + cardFee) * 100) / 100
+  const lineLabel = isLicense ? 'VFO Monthly License' : `${data.check_type} Background Check`
+  const amtSuffix = isLicense ? '/mo' : ''
 
   return (
     <div style={containerStyle}>
@@ -80,35 +89,36 @@ export default function SpecialistPayPage() {
         <div style={{ ...iconCircleStyle, width: '64px', height: '64px', background: 'rgba(34,197,94,0.15)' }}>
           <span style={{ fontSize: '28px', lineHeight: 1 }}>🔒</span>
         </div>
-        <h1 style={{ ...titleStyle, fontSize: '22px', textAlign: 'center', marginBottom: '8px' }}>VFO Specialist Background Check</h1>
+        <h1 style={{ ...titleStyle, fontSize: '22px', textAlign: 'center', marginBottom: '8px' }}>{isLicense ? 'VFO Specialist Monthly License' : 'VFO Specialist Background Check'}</h1>
         <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '12px' }}>Choose your preferred payment method</p>
         <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '32px', fontSize: '13px', color: '#64748b' }}>
-          {data.check_type} background check · {data.specialist_name}
+          {isLicense ? `$99/month recurring · ${data.specialist_name}` : `${data.check_type} background check · ${data.specialist_name}`}
         </p>
 
         <OptionCard
           isHovered={hoveredOption === 'ach'} onHover={() => setHoveredOption('ach')} onLeave={() => setHoveredOption(null)}
-          onClick={() => handleChoice('ach')} title="ACH Bank Transfer" badgeText="No Fee" badgeClass="green" amount={baseAmount}
+          onClick={() => handleChoice('ach')} title="ACH Bank Transfer" badgeText="No Fee" badgeClass="green" amount={baseAmount} suffix={amtSuffix}
           breakdown={[
-            { label: `${data.check_type} Background Check`, value: `$${formatMoney(baseAmount)}`, valueColor: '#e2e8f0' },
+            { label: lineLabel, value: `$${formatMoney(baseAmount)}`, valueColor: '#e2e8f0' },
             { label: 'Processing Fee', value: '$0.00', valueColor: '#4ade80' },
           ]}
-          footer="Funds transfer directly from your bank account. Takes 2-4 business days to process."
+          footer={isLicense ? 'Funds transfer directly from your bank account. Your license renews automatically each month.' : 'Funds transfer directly from your bank account. Takes 2-4 business days to process.'}
         />
 
         <div style={dividerStyle}>— or —</div>
 
         <OptionCard
           isHovered={hoveredOption === 'card'} onHover={() => setHoveredOption('card')} onLeave={() => setHoveredOption(null)}
-          onClick={() => handleChoice('card')} title="Credit / Debit Card" badgeText="2.9% + $0.30 Fee" badgeClass="blue" amount={cardTotal}
+          onClick={() => handleChoice('card')} title="Credit / Debit Card" badgeText="2.9% + $0.30 Fee" badgeClass="blue" amount={cardTotal} suffix={amtSuffix}
           breakdown={[
-            { label: `${data.check_type} Background Check`, value: `$${formatMoney(baseAmount)}`, valueColor: '#e2e8f0' },
+            { label: lineLabel, value: `$${formatMoney(baseAmount)}`, valueColor: '#e2e8f0' },
             { label: 'Card Processing Fee (2.9% + $0.30)', value: `$${formatMoney(cardFee)}`, valueColor: '#e2e8f0' },
           ]}
-          footer="Processes immediately. The processing fee covers card transaction costs."
+          footer={isLicense ? 'Charged immediately and automatically each month. The processing fee covers card transaction costs.' : 'Processes immediately. The processing fee covers card transaction costs.'}
         />
 
         <p style={securityNoteStyle}>
+          {isLicense ? 'The payment method you choose will be charged $99 each month until cancelled. To change it, contact us.' : ''}<br />
           Your payment details are handled securely by Stripe.<br />
           VFO Services never sees or stores your payment information.
         </p>
@@ -117,7 +127,7 @@ export default function SpecialistPayPage() {
   )
 }
 
-function OptionCard({ isHovered, onHover, onLeave, onClick, title, badgeText, badgeClass, amount, breakdown, footer }) {
+function OptionCard({ isHovered, onHover, onLeave, onClick, title, badgeText, badgeClass, amount, breakdown, footer, suffix = '' }) {
   return (
     <div onClick={onClick} onMouseEnter={onHover} onMouseLeave={onLeave}
       style={{ ...optionCardStyle, borderColor: isHovered ? '#3b82f6' : 'rgba(255,255,255,0.1)', background: isHovered ? 'rgba(59,130,246,0.05)' : 'transparent' }}>
@@ -125,7 +135,7 @@ function OptionCard({ isHovered, onHover, onLeave, onClick, title, badgeText, ba
         <span style={optionTitleStyle}>{title}</span>
         <span style={{ ...optionBadgeBaseStyle, ...badgeStyles[badgeClass] }}>{badgeText}</span>
       </div>
-      <div style={optionAmountStyle}>${formatMoney(amount)}</div>
+      <div style={optionAmountStyle}>${formatMoney(amount)}{suffix}</div>
       <div style={{ marginBottom: '16px' }}>
         {breakdown.map((row, i) => (
           <div key={i} style={optionDetailRowStyle}>
