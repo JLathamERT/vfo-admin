@@ -26,28 +26,6 @@ const STAGE2_CHECKLIST = [
   'Explain VFO monthly license',
 ]
  
-const STAGE4_FOLDER_ITEMS = [
-  { key: 'bio_collected', label: 'Bio collected' },
-  { key: 'headshot_collected', label: 'Headshot collected' },
-  { key: 'signed_contracts_collected', label: 'Signed contracts collected' },
-  { key: 'misc_docs_collected', label: 'Misc documents collected' },
-  { key: 'tax_docs_collected', label: 'Tax documents collected' },
-]
-
-const STAGE4_DETAILS_BENEFITS = [
-  { key: 'db_strategy_expertise', label: 'Strategy / Expertise' },
-  { key: 'db_cutoff_date', label: 'Cut-off Date for Strategy' },
-  { key: 'db_client_requirements', label: 'Client Requirements' },
-  { key: 'db_investment_cost', label: 'Amount of Investment or Cost' },
-  { key: 'db_ideal_client', label: 'Ideal Client Description' },
-  { key: 'db_benefits_summary', label: 'Summary of Benefits' },
-  { key: 'db_getting_started', label: 'Getting Started with a Client' },
-  { key: 'db_process_steps', label: 'Steps of Professional Process' },
-  { key: 'db_competitive_advantage', label: 'What Makes You Better Than the Competition' },
-  { key: 'db_tax_audit_risk', label: 'Tax Planning Audit Risk Questionnaire' },
-  { key: 'db_revenue_share', label: 'Revenue Share' },
-]
- 
 const STAGE5_SKOOL_ITEMS = [
   { key: 'profile_created', label: 'Profile created', options: ['Completed'] },
   { key: 'intro_post', label: 'Introduction post made', options: ['Completed'] },
@@ -287,10 +265,11 @@ function OnboardingDetail({ id, onBack }) {
     return !!votes[`${stage}-${voter}-${round}`]
   }
 
-  // Cast the current admin's Stage 2 exec vote (identity is derived server-side).
-  async function castExecVote(round, vote) {
+  // Cast the current admin's exec vote for a given stage (2 = initial, 4 = final).
+  // Voter identity is derived server-side.
+  async function castExecVote(stage, round, vote) {
     try {
-      await callApi('automation_SPECIALIST_execvote', { onboarding_id: id, vote_round: round, vote })
+      await callApi('automation_SPECIALIST_execvote', { onboarding_id: id, stage, vote_round: round, vote })
       window.dispatchEvent(new Event('vfo:notifications-changed'))
       await loadDetail()
     } catch (err) { console.error(err) }
@@ -403,28 +382,6 @@ function OnboardingDetail({ id, onBack }) {
     const border = color === '#27ae60' ? 'rgba(39,174,96,0.4)' : color === '#e74c3c' ? 'rgba(231,76,60,0.4)' : color === '#f39c12' ? 'rgba(243,156,18,0.4)' : 'rgba(91,159,230,0.4)'
     return (
       <button onClick={onClick} disabled={disabled || isStopped} style={{ padding: '5px 12px', borderRadius: '6px', fontSize: '11px', cursor: disabled || isStopped ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', background: bg, border: `1px solid ${border}`, color, whiteSpace: 'nowrap' }}>{label}</button>
-    )
-  }
- 
-  function VotePanel({ stage }) {
-    return (
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
-        {['Anton Anderson', 'Paul Latham'].map(voter => {
-          const v = getVote(stage, voter)
-          return (
-            <div key={voter} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-              <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '8px' }}>{voter}</div>
-              {!v ? (
-                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8', border: '1px solid rgba(255,255,255,0.1)' }}>Awaiting response</span>
-              ) : (
-                <span style={{ fontSize: '12px', color: v === 'confirm' ? '#27ae60' : '#f39c12', fontWeight: '600' }}>
-                  {v === 'confirm' ? '✓ Confirmed' : '⚠ Further questions'}
-                </span>
-              )}
-            </div>
-          )
-        })}
-      </div>
     )
   }
  
@@ -835,13 +792,13 @@ function OnboardingDetail({ id, onBack }) {
             ) : (
               <>
                 <ExecDetailsDropdown />
-                <ExecVoteRow round={1} options={['Approved', 'Further Questions']} myExec={myExec} />
+                <ExecVoteRow stage={2} round={1} options={['Approved', 'Further Questions']} myExec={myExec} />
                 {r1BothApproved && <div style={approvedBanner}>✓ Both executives approved.</div>}
                 {r1AnyFurther && (
                   <>
                     <div style={{ fontSize: '12px', color: '#f39c12', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(243,156,18,0.3)', background: 'rgba(243,156,18,0.06)', margin: '12px 0' }}>An executive raised further questions — a second decision is needed after discussion.</div>
                     <SectionLabel>Executive decision (after discussion)</SectionLabel>
-                    <ExecVoteRow round={2} options={['Approved', 'Denied']} myExec={myExec} />
+                    <ExecVoteRow stage={2} round={2} options={['Approved', 'Denied']} myExec={myExec} />
                     {r2BothApproved && <div style={approvedBanner}>✓ Both executives approved.</div>}
                   </>
                 )}
@@ -922,13 +879,13 @@ function OnboardingDetail({ id, onBack }) {
   // One row of two exec cards for a voting round. Buttons are only active for the
   // matching logged-in exec; a vote's value is shown only once revealed by the
   // backend (the caster always sees their own; everyone sees both once both vote).
-  function ExecVoteRow({ round, options, myExec }) {
+  function ExecVoteRow({ stage, round, options, myExec }) {
     const [pending, setPending] = useState(null)
     return (
       <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
         {EXECS.map(voter => {
-          const voted = hasVoted(2, voter, round)
-          const value = getVote(2, voter, round)
+          const voted = hasVoted(stage, voter, round)
+          const value = getVote(stage, voter, round)
           const isMe = myExec === voter
           const revealed = voted && value != null
           const color = value === 'Approved' ? '#27ae60' : value === 'Denied' ? '#e74c3c' : '#f39c12'
@@ -943,7 +900,7 @@ function OnboardingDetail({ id, onBack }) {
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {options.map(opt => {
                     const oc = opt === 'Approved' ? '#27ae60' : opt === 'Denied' ? '#e74c3c' : '#f39c12'
-                    return <button key={opt} onClick={async () => { if (pending) return; setPending(opt); try { await castExecVote(round, opt) } finally { setPending(null) } }} disabled={!!pending} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '11px', cursor: pending ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', background: `${oc}22`, border: `1px solid ${oc}66`, color: oc, opacity: pending ? 0.6 : 1 }}>{pending === opt ? 'Saving…' : opt}</button>
+                    return <button key={opt} onClick={async () => { if (pending) return; setPending(opt); try { await castExecVote(stage, round, opt) } finally { setPending(null) } }} disabled={!!pending} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '11px', cursor: pending ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', background: `${oc}22`, border: `1px solid ${oc}66`, color: oc, opacity: pending ? 0.6 : 1 }}>{pending === opt ? 'Saving…' : opt}</button>
                   })}
                 </div>
               ) : (
@@ -989,6 +946,69 @@ function OnboardingDetail({ id, onBack }) {
     )
   }
 
+  // Stage 4 final-approval reference bundle (same style as the Stage 2 dropdown):
+  // background-check result + chosen type, the submitted DD checklist, and the
+  // final revenue share proposal.
+  function Stage4DetailsDropdown() {
+    const [open, setOpen] = useState(false)
+    const ddc = ob.ddc_data || {}
+    const bgType = ob.background_check_type || '—'
+    const revText = ob.rev_share_final_text || progress['2-rev_share_prepared']?.notes || '—'
+    const lblStyle = { fontSize: '10px', fontWeight: 700, color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }
+    const valStyle = { fontSize: '12px', color: '#fff', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: '10px' }
+    const grpStyle = { fontSize: '14px', fontWeight: 700, color: '#fff', letterSpacing: '0.3px', margin: '20px 0 12px', paddingBottom: '6px', borderBottom: '2px solid rgba(91,159,230,0.55)' }
+    async function openFile(path) {
+      try { const r = await callApi('automation_SPECIALIST_ddcdownload', { onboarding_id: id, path }); if (r?.url) window.open(r.url, '_blank', 'noopener') } catch (err) { console.error(err) }
+    }
+    const ddText = [
+      ['Professional bio', ddc.bio],
+      ['Case studies', ddc.case_studies],
+      ['Regulatory / disciplinary history', ddc.disciplinary_history],
+      ['Audit support & scope of services', ddc.audit_support],
+      ['Exit strategies & contingency plans', ddc.exit_strategies],
+      ['Sample materials notes', ddc.sample_materials_notes],
+    ].filter(([, v]) => v && String(v).trim())
+    const ddFiles = [
+      ['Headshot', ddc.headshot ? [ddc.headshot] : []],
+      ['Licenses / designations', ddc.licenses || []],
+      ['Case study attachments', ddc.case_study_files || []],
+      ['E&O / liability insurance', ddc.eo_insurance || []],
+      ['Regulatory / disciplinary history', ddc.disciplinary_history_files || []],
+      ['Audit support & scope of services', ddc.audit_support_files || []],
+      ['Private Letter Ruling (PLR)', ddc.plr_files || []],
+      ['Tax Opinion Letter (TOL)', ddc.tol_files || []],
+      ['Independent legal due diligence', ddc.legal_dd_files || []],
+      ['Exit strategies & contingency plans', ddc.exit_strategies_files || []],
+      ['Sample materials', ddc.sample_materials_files || []],
+    ].filter(([, f]) => f.length)
+    return (
+      <div style={{ marginBottom: '14px' }}>
+        <div onClick={() => setOpen(o => !o)} style={{ fontSize: '12px', color: '#5b9fe6', cursor: 'pointer', fontWeight: 600 }}>{open ? '▼ Hide details' : '▶ View details'}</div>
+        {open && (
+          <div style={{ marginTop: '8px', padding: '12px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ ...grpStyle, marginTop: 0 }}>Background check</div>
+            <div style={valStyle}>Passed — {bgType} check</div>
+            <div style={grpStyle}>Due Diligence Checklist</div>
+            {ddText.length === 0 && ddFiles.length === 0 && <div style={valStyle}>—</div>}
+            {ddText.map(([label, v]) => (<div key={'t-' + label} style={{ marginBottom: '10px' }}><div style={lblStyle}>{label}</div><div style={{ ...valStyle, marginBottom: 0 }}>{v}</div></div>))}
+            {ddFiles.map(([label, files]) => (
+              <div key={'f-' + label} style={{ marginBottom: '10px' }}>
+                <div style={lblStyle}>{label}</div>
+                {files.map((f, i) => (
+                  <div key={i} style={{ fontSize: '12px', padding: '2px 0' }}>
+                    <span onClick={() => openFile(f.path)} style={{ color: '#5b9fe6', cursor: 'pointer', textDecoration: 'underline' }}>📄 {f.name}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+            <div style={grpStyle}>Final revenue share proposal</div>
+            <div style={valStyle}>{revText}</div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   function Stage3Content() {
     const bgInitiated = !!getTaskStatus(3, 'bg_initiated')
     const bgResult = getTaskStatus(3, 'bg_results_received')
@@ -1013,17 +1033,41 @@ function OnboardingDetail({ id, onBack }) {
     const helpResolved = !!getTaskStatus(3, 'ddc_help_resolved')
     const reviewLog = Array.isArray(ob.ddc_review_log) ? ob.ddc_review_log : []
     const ddcEverSubmitted = ddcSubmitted || reviewLog.some(e => e.type === 'submitted')
-    const allDone = bgDone && ddcApproved
 
-    const ddSections = [
-      ['Headshot', !!ddc.headshot],
-      ['Professional bio', !!(ddc.bio && String(ddc.bio).trim())],
-      ['Licenses / designations', (ddc.licenses || []).length > 0],
-      ['Case studies', !!(ddc.case_studies && String(ddc.case_studies).trim()) || (ddc.case_study_files || []).length > 0],
-      ['Compliance & risk', (ddc.eo_insurance || []).length > 0 || !!String(ddc.disciplinary_history || '').trim() || !!String(ddc.audit_support || '').trim() || (ddc.tax_due_diligence_files || []).length > 0 || !!String(ddc.tax_due_diligence_notes || '').trim() || !!String(ddc.exit_strategies || '').trim()],
-      ['Sample materials', (ddc.sample_materials_files || []).length > 0 || !!String(ddc.sample_materials_notes || '').trim()],
+    // DD checklist layout — mirrors the specialist form exactly: same sections,
+    // same question order, sub-questions grouped under their subheading. The
+    // Compliance & Risk section applies only to tax specialists (same gate as the
+    // form). `file` = single-file slot (headshot); `files` = multi-file slot.
+    const ddcIsTax = ob.sif_data?.is_tax_specialist === 'Yes'
+    const ddcLayout = [
+      ['Materials', [
+        { label: 'Headshot', file: 'headshot' },
+        { label: 'Professional bio', text: 'bio' },
+      ]],
+      ['Credentials & Experience', [
+        { label: 'Professional licenses / designations', files: 'licenses' },
+        { label: 'Case studies', text: 'case_studies', files: 'case_study_files' },
+      ]],
+      ...(ddcIsTax ? [['Compliance & Risk (Tax Professionals only)', [
+        { label: 'Proof of E&O / professional liability insurance', files: 'eo_insurance' },
+        { label: 'Regulatory / disciplinary history', text: 'disciplinary_history', files: 'disciplinary_history_files' },
+        { label: 'Audit support & scope of services', text: 'audit_support', files: 'audit_support_files' },
+        { subheading: 'Provide one or more of the following:' },
+        { label: 'Private Letter Ruling (PLR)', files: 'plr_files', indent: true },
+        { label: 'Tax Opinion Letter (TOL)', files: 'tol_files', indent: true },
+        { label: 'Independent legal due diligence', files: 'legal_dd_files', indent: true },
+        { label: 'Exit strategies & contingency plans', text: 'exit_strategies', files: 'exit_strategies_files' },
+      ]]] : []),
+      ['Client Experience', [
+        { label: 'Sample materials', text: 'sample_materials_notes', files: 'sample_materials_files' },
+      ]],
     ]
-    const ddFilled = ddSections.filter(([, v]) => v).length
+    const ddItemFiles = (it) => it.file ? (ddc[it.file] ? [ddc[it.file]] : []) : (it.files ? (ddc[it.files] || []) : [])
+    const ddItemText = (it) => it.text ? String(ddc[it.text] || '').trim() : ''
+    const ddItemFilled = (it) => ddItemText(it).length > 0 || ddItemFiles(it).length > 0
+    const ddAllItems = ddcLayout.flatMap(([, items]) => items.filter(it => !it.subheading))
+    const ddFilled = ddAllItems.filter(ddItemFilled).length
+    const ddTotal = ddAllItems.length
 
     // Final revenue share proposal — specialist responded via the Step 3 email.
     const revResponse = ob.rev_share_final_response
@@ -1083,7 +1127,6 @@ function OnboardingDetail({ id, onBack }) {
       setDdcBusy('approve')
       try {
         await callApi('automation_SPECIALIST_ddcapprove', { onboarding_id: id })
-        if (bgDone) await advanceStage()
         await loadDetail()
       } catch (err) { console.error(err) }
       finally { setDdcBusy('') }
@@ -1162,7 +1205,7 @@ function OnboardingDetail({ id, onBack }) {
           <span style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
             {!bgResult ? (
               <>
-                <ActionButton label="Passed" onClick={async () => { await saveProgress(3, 'bg_results_received', 'passed'); if (ddcApproved) advanceStage() }} color="#27ae60" />
+                <ActionButton label="Passed" onClick={async () => { await saveProgress(3, 'bg_results_received', 'passed'); await loadDetail() }} color="#27ae60" />
                 <ActionButton label="Failed" onClick={() => { saveProgress(3, 'bg_results_received', 'failed'); stopOnboarding() }} color="#e74c3c" />
               </>
             ) : bgDone ? (
@@ -1197,61 +1240,52 @@ function OnboardingDetail({ id, onBack }) {
           </div>
         )}
 
-        {/* Checklist progress box (entries only — no status line) */}
+        {/* Checklist progress — grouped by the form's sections + question order.
+            Collapsed: a section→question checklist. Expanded ("View answers"):
+            each filled question's text + file downloads shown inline, in order. */}
         <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', margin: '8px 0 12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
             <span style={{ fontSize: '12px', color: '#fff', fontWeight: '600' }}>Checklist progress</span>
-            <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{ddFilled}/{ddSections.length} sections</span>
+            <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{ddFilled}/{ddTotal} answered</span>
           </div>
-          {ddSections.map(([label, filled]) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0' }}>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: filled ? '#27ae60' : 'transparent', border: `1px solid ${filled ? '#27ae60' : 'rgba(255,255,255,0.25)'}`, flexShrink: 0 }} />
-              <span style={{ fontSize: '12px', color: filled ? '#8bacc8' : '#6b8299' }}>{label}</span>
-              {filled && <span style={{ fontSize: '11px', color: '#27ae60', marginLeft: 'auto' }}>Entered</span>}
-            </div>
-          ))}
           {ddFilled > 0 && (
-            <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <span onClick={() => setShowSubmission(s => !s)} style={{ fontSize: '11px', color: '#5b9fe6', cursor: 'pointer' }}>{showSubmission ? '▼ Hide progress' : '▶ View progress'}</span>
-              {showSubmission && (
-                <div style={{ marginTop: '8px' }}>
-                {[
-                  ['Professional bio', ddc.bio],
-                  ['Case studies', ddc.case_studies],
-                  ['Licenses / designations notes', ddc.license_notes],
-                  ['Regulatory / disciplinary history', ddc.disciplinary_history],
-                  ['Audit support & scope of services', ddc.audit_support],
-                  ['Tax due diligence notes', ddc.tax_due_diligence_notes],
-                  ['Exit strategies & contingency plans', ddc.exit_strategies],
-                  ['Sample materials notes', ddc.sample_materials_notes],
-                ].filter(([, v]) => v && String(v).trim()).map(([label, v]) => (
-                  <div key={label} style={{ marginBottom: '10px' }}>
-                    <div style={{ fontSize: '11px', color: '#5b9fe6', fontWeight: 600, marginBottom: '3px' }}>{label}</div>
-                    <div style={{ fontSize: '12px', color: '#cfe0f0', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{v}</div>
-                  </div>
-                ))}
-                {[
-                  ['Headshot', ddc.headshot ? [ddc.headshot] : []],
-                  ['Licenses / designations', ddc.licenses || []],
-                  ['Case study attachments', ddc.case_study_files || []],
-                  ['E&O / liability insurance', ddc.eo_insurance || []],
-                  ['Tax due diligence documents', ddc.tax_due_diligence_files || []],
-                  ['Sample materials', ddc.sample_materials_files || []],
-                ].filter(([, files]) => files.length).map(([label, files]) => (
-                  <div key={label} style={{ marginBottom: '10px' }}>
-                    <div style={{ fontSize: '11px', color: '#5b9fe6', fontWeight: 600, marginBottom: '3px' }}>{label}</div>
-                    {files.map((f, i) => (
-                      <div key={i} style={{ fontSize: '12px', padding: '2px 0' }}>
-                        <span onClick={() => openFile(f.path)} style={{ color: '#5b9fe6', cursor: 'pointer', textDecoration: 'underline' }}>📄 {f.name}</span>
-                        {f.size ? <span style={{ color: '#5a8ab5' }}> · {Math.max(1, Math.round(f.size / 1024))} KB</span> : null}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-                </div>
-              )}
+            <div style={{ marginBottom: '6px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <span onClick={() => setShowSubmission(s => !s)} style={{ fontSize: '11px', color: '#5b9fe6', cursor: 'pointer' }}>{showSubmission ? '▼ Hide answers' : '▶ View answers'}</span>
             </div>
           )}
+          {ddcLayout.map(([section, items]) => (
+            <div key={section} style={{ marginTop: '10px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: '4px' }}>{section}</div>
+              {items.map((it, idx) => {
+                if (it.subheading) return (
+                  <div key={`sh-${idx}`} style={{ fontSize: '11px', color: '#8bacc8', fontStyle: 'italic', margin: '5px 0 2px 14px' }}>{it.subheading}</div>
+                )
+                const filled = ddItemFilled(it)
+                const text = ddItemText(it)
+                const files = ddItemFiles(it)
+                return (
+                  <div key={it.label} style={{ marginLeft: it.indent ? '14px' : 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0' }}>
+                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: filled ? '#27ae60' : 'transparent', border: `1px solid ${filled ? '#27ae60' : 'rgba(255,255,255,0.25)'}`, flexShrink: 0 }} />
+                      <span style={{ fontSize: '12px', color: filled ? '#cfe0f0' : '#6b8299' }}>{it.label}</span>
+                      {filled && <span style={{ fontSize: '11px', color: '#27ae60', marginLeft: 'auto' }}>Entered</span>}
+                    </div>
+                    {showSubmission && filled && (
+                      <div style={{ margin: '2px 0 8px 14px' }}>
+                        {text && <div style={{ fontSize: '12px', color: '#cfe0f0', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: files.length ? '4px' : 0 }}>{text}</div>}
+                        {files.map((f, i) => (
+                          <div key={i} style={{ fontSize: '12px', padding: '2px 0' }}>
+                            <span onClick={() => openFile(f.path)} style={{ color: '#5b9fe6', cursor: 'pointer', textDecoration: 'underline' }}>📄 {f.name}</span>
+                            {f.size ? <span style={{ color: '#5a8ab5' }}> · {Math.max(1, Math.round(f.size / 1024))} KB</span> : null}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ))}
         </div>
 
         <AutoStep done={ddcEverSubmitted} label="Due diligence checklist submitted" />
@@ -1336,77 +1370,84 @@ function OnboardingDetail({ id, onBack }) {
         {progressBullet('Due Diligence Checklist', ddcApproved ? 'green' : ddcEditsRequested ? 'red' : 'grey', ddcApproved ? 'Approved' : ddcEditsRequested ? 'Denied' : 'Waiting')}
         {progressBullet('Final Revenue Share Proposal', revFinalDone ? 'green' : 'grey', revFinalDone ? 'Final' : 'Waiting')}
 
-        <div style={{ height: '10px' }} />
-        <AutoStep done={allDone} label="Email sent — Step 3 complete, moving to Step 4" />
       </>
     )
   }
 
-  function DetailsAndBenefits({ getTaskStatus, saveProgress, isStopped }) {
-    const completedCount = STAGE4_DETAILS_BENEFITS.filter(item => getTaskStatus(4, item.key)).length
-    const allDone = completedCount === STAGE4_DETAILS_BENEFITS.length
-
-    return (
-      <div style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0' }}>
-          <span style={{ fontSize: '13px', color: allDone ? '#27ae60' : '#fff', fontWeight: '500', flex: 1 }}>{allDone ? '✓ ' : ''}Details & benefits</span>
-          <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{completedCount}/{STAGE4_DETAILS_BENEFITS.length}</span>
-        </div>
-        <div style={{ paddingLeft: '16px', paddingBottom: '8px' }}>
-          {STAGE4_DETAILS_BENEFITS.map(item => (
-            <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0' }}>
-              <div onClick={() => !isStopped && !getTaskStatus(4, item.key) && saveProgress(4, item.key, 'completed')} style={{ width: '14px', height: '14px', borderRadius: '3px', border: `1.5px solid ${getTaskStatus(4, item.key) ? '#27ae60' : 'rgba(255,255,255,0.3)'}`, background: getTaskStatus(4, item.key) ? '#27ae60' : 'transparent', cursor: getTaskStatus(4, item.key) || isStopped ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#fff', flexShrink: 0 }}>{getTaskStatus(4, item.key) ? '✓' : ''}</div>
-              <span style={{ fontSize: '12px', color: getTaskStatus(4, item.key) ? '#8bacc8' : '#fff', textDecoration: getTaskStatus(4, item.key) ? 'line-through' : 'none' }}>{item.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  }
- 
   function Stage4Content() {
-    const bothConfirm = getVote(4, 'Anton Anderson') === 'confirm' && getVote(4, 'Paul Latham') === 'confirm'
-    const eitherQuestion = (getVote(4, 'Anton Anderson') === 'further_questions' || getVote(4, 'Paul Latham') === 'further_questions') && !bothConfirm
-    const allFolderDone = STAGE4_FOLDER_ITEMS.every(item => getTaskStatus(4, item.key)) && STAGE4_DETAILS_BENEFITS.every(item => getTaskStatus(4, item.key))
- 
+    // Final executive approval — same account-scoped two-round voting as Stage 2,
+    // gated on the Stage 4 reviewer notes (Tracy always, Tim only for tax specialists).
+    const myExec = EXEC_BY_EMAIL[(session?.email || '').toLowerCase()] || null
+    const isTax4 = ob.sif_data?.is_tax_specialist === 'Yes'
+    const votingOpen = !!getTaskStatus(4, 'tracy_general_notes') && (!isTax4 || !!getTaskStatus(4, 'tim_tax_risk_notes'))
+    const r1BothVoted = hasVoted(4, 'Anton Anderson', 1) && hasVoted(4, 'Paul Latham', 1)
+    const r1AnyFurther = r1BothVoted && (getVote(4, 'Anton Anderson', 1) === 'Further Questions' || getVote(4, 'Paul Latham', 1) === 'Further Questions')
+    const r1BothApproved = r1BothVoted && getVote(4, 'Anton Anderson', 1) === 'Approved' && getVote(4, 'Paul Latham', 1) === 'Approved'
+    const r2BothVoted = hasVoted(4, 'Anton Anderson', 2) && hasVoted(4, 'Paul Latham', 2)
+    const r2BothApproved = r2BothVoted && getVote(4, 'Anton Anderson', 2) === 'Approved' && getVote(4, 'Paul Latham', 2) === 'Approved'
+    const r2BothDenied = r2BothVoted && getVote(4, 'Anton Anderson', 2) === 'Denied' && getVote(4, 'Paul Latham', 2) === 'Denied'
+    const denied4 = r2BothDenied
+    const approvedBanner = { fontSize: '12px', color: '#27ae60', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(39,174,96,0.3)', background: 'rgba(39,174,96,0.06)', marginBottom: '8px' }
+    // MM/DD a Stage-4 step was completed (shown as the AutoStep detail chip).
+    const stepDate = (key) => {
+      const at = progress[`4-${key}`]?.completed_at
+      if (!at) return undefined
+      const d = new Date(at)
+      return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+    }
+
     return (
       <>
-        
-        <AutoStep done={ob.current_stage >= 4} label="Final executive approval emails sent" />
- 
-        <SectionLabel>Final executive approval</SectionLabel>
-        <VotePanel stage={4} />
-        {eitherQuestion && <div style={{ fontSize: '12px', color: '#f39c12', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(243,156,18,0.3)', background: 'rgba(243,156,18,0.06)', marginBottom: '12px' }}>Process paused — executive has further questions.</div>}
- 
-        {bothConfirm && <div style={{ fontSize: '11px', color: '#27ae60', marginBottom: '8px' }}>Both executives confirmed.</div>}
-
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
-        
-        <AutoStep done={!!getTaskStatus(4, 'agreement_created')} label="VFO Specialist Agreement created" />
-        <AutoStep done={!!getTaskStatus(4, 'specialist_signed')} label="VFO Specialist Agreement signed by specialist" />
-        <AutoStep done={!!getTaskStatus(4, 'ert_signed')} label="VFO Specialist Agreement signed by ERT" />
-        <AutoStep done={!!getTaskStatus(4, 'license_setup')} label="VFO license payment set up ($99/mo)" />
-
-        {!getTaskStatus(4, 'license_setup') && bothConfirm && (
-          <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
-            {!getTaskStatus(4, 'agreement_created') && <ActionButton label="Mark agreement created" onClick={() => saveProgress(4, 'agreement_created', 'completed')} />}
-            {getTaskStatus(4, 'agreement_created') && !getTaskStatus(4, 'specialist_signed') && <ActionButton label="Mark specialist signed" onClick={() => saveProgress(4, 'specialist_signed', 'completed')} />}
-            {getTaskStatus(4, 'specialist_signed') && !getTaskStatus(4, 'ert_signed') && <ActionButton label="Mark ERT signed" onClick={() => saveProgress(4, 'ert_signed', 'completed')} />}
-            {getTaskStatus(4, 'ert_signed') && !getTaskStatus(4, 'license_setup') && <ActionButton label="Mark license set up" onClick={() => saveProgress(4, 'license_setup', 'completed')} />}
-          </div>
+        <SectionLabel>Reviewer notes</SectionLabel>
+        <ReviewerNoteInput
+          label="General notes" who="Tracy"
+          placeholder="General notes regarding this specialist..."
+          done={!!getTaskStatus(4, 'tracy_general_notes')}
+          currentNotes={progress['4-tracy_general_notes']?.notes || ''}
+          onSave={t => saveProgress(4, 'tracy_general_notes', 'completed', t)}
+        />
+        {isTax4 && (
+          <ReviewerNoteInput
+            label="Tax risk notes" who="Tim"
+            placeholder="Notes regarding tax risk..."
+            done={!!getTaskStatus(4, 'tim_tax_risk_notes')}
+            currentNotes={progress['4-tim_tax_risk_notes']?.notes || ''}
+            onSave={t => saveProgress(4, 'tim_tax_risk_notes', 'completed', t)}
+          />
         )}
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+
+        <SectionLabel>Final executive approval</SectionLabel>
+        {!votingOpen ? (
+          <div style={{ fontSize: '12px', color: '#8bacc8', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.02)', marginBottom: '12px' }}>
+            Voting opens once {isTax4 ? 'both reviewer notes are' : "Tracy's notes are"} complete.
+          </div>
+        ) : (
+          <>
+            <Stage4DetailsDropdown />
+            <ExecVoteRow stage={4} round={1} options={['Approved', 'Further Questions']} myExec={myExec} />
+            {r1BothApproved && <div style={approvedBanner}>✓ Both executives approved.</div>}
+            {r1AnyFurther && (
+              <>
+                <div style={{ fontSize: '12px', color: '#f39c12', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(243,156,18,0.3)', background: 'rgba(243,156,18,0.06)', margin: '12px 0' }}>An executive raised further questions — a second decision is needed after discussion.</div>
+                <SectionLabel>Executive decision (after discussion)</SectionLabel>
+                <ExecVoteRow stage={4} round={2} options={['Approved', 'Denied']} myExec={myExec} />
+                {r2BothApproved && <div style={approvedBanner}>✓ Both executives approved.</div>}
+              </>
+            )}
+          </>
+        )}
+        {denied4 && <div style={{ fontSize: '12px', color: '#e74c3c', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'rgba(231,76,60,0.06)', margin: '12px 0' }}>Both executives denied — decline email drafted, process stopped.</div>}
 
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
-        <SectionLabel>Personal folder</SectionLabel>
-        <CheckItem done={!!getTaskStatus(4, 'bio_collected')} label="Bio collected" onClick={async () => { await saveProgress(4, 'bio_collected', 'completed'); const allDone = ['headshot_collected','signed_contracts_collected','misc_docs_collected','tax_docs_collected'].every(k => getTaskStatus(4, k)) && STAGE4_DETAILS_BENEFITS.every(i => getTaskStatus(4, i.key)); if (allDone && ob.current_stage === 4) advanceStage() }} />
-        <CheckItem done={!!getTaskStatus(4, 'headshot_collected')} label="Headshot collected" onClick={async () => { await saveProgress(4, 'headshot_collected', 'completed'); const allDone = ['bio_collected','signed_contracts_collected','misc_docs_collected','tax_docs_collected'].every(k => getTaskStatus(4, k)) && STAGE4_DETAILS_BENEFITS.every(i => getTaskStatus(4, i.key)); if (allDone && ob.current_stage === 4) advanceStage() }} />
-
-        <DetailsAndBenefits getTaskStatus={getTaskStatus} saveProgress={saveProgress} isStopped={isStopped} />
-
-        <CheckItem done={!!getTaskStatus(4, 'signed_contracts_collected')} label="Signed contracts collected" onClick={async () => { await saveProgress(4, 'signed_contracts_collected', 'completed'); const allDone = ['bio_collected','headshot_collected','misc_docs_collected','tax_docs_collected'].every(k => getTaskStatus(4, k)) && STAGE4_DETAILS_BENEFITS.every(i => getTaskStatus(4, i.key)); if (allDone && ob.current_stage === 4) advanceStage() }} />
-        <CheckItem done={!!getTaskStatus(4, 'misc_docs_collected')} label="Misc documents collected" onClick={async () => { await saveProgress(4, 'misc_docs_collected', 'completed'); const allDone = ['bio_collected','headshot_collected','signed_contracts_collected','tax_docs_collected'].every(k => getTaskStatus(4, k)) && STAGE4_DETAILS_BENEFITS.every(i => getTaskStatus(4, i.key)); if (allDone && ob.current_stage === 4) advanceStage() }} />
-        <CheckItem done={!!getTaskStatus(4, 'tax_docs_collected')} label="Tax documents collected" onClick={async () => { await saveProgress(4, 'tax_docs_collected', 'completed'); const allDone = ['bio_collected','headshot_collected','signed_contracts_collected','misc_docs_collected'].every(k => getTaskStatus(4, k)) && STAGE4_DETAILS_BENEFITS.every(i => getTaskStatus(4, i.key)); if (allDone && ob.current_stage === 4) advanceStage() }} />
         
+        <AutoStep done={!!getTaskStatus(4, 'agreement_sent')} detail={stepDate('agreement_sent')} label="Agreement sent" />
+        <AutoStep done={!!getTaskStatus(4, 'agreement_signed_specialist')} detail={stepDate('agreement_signed_specialist')} label="Agreement signed by specialist" />
+        <AutoStep done={!!getTaskStatus(4, 'agreement_signed_ceo')} detail={stepDate('agreement_signed_ceo')} label="Agreement signed by CEO" />
+        <AutoStep done={!!getTaskStatus(4, 'payment_link_sent')} detail={stepDate('payment_link_sent')} label="Payment link sent" />
+        <AutoStep done={!!getTaskStatus(4, 'payment_made')} detail={stepDate('payment_made')} label="Payment made" />
+        <AutoStep done={!!getTaskStatus(4, 'confirmation_email_sent')} detail={stepDate('confirmation_email_sent')} label="Confirmation email sent" />
+        <AutoStep done={!!getTaskStatus(4, 'invoice_receipt_sent')} detail={stepDate('invoice_receipt_sent')} label="Invoice/receipt sent" />
       </>
     )
   }

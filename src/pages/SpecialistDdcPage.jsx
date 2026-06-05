@@ -8,11 +8,16 @@ const DOC_ACCEPT = '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,image/
 
 const EMPTY = {
   headshot: null, bio: '',
-  licenses: [], license_notes: '',
+  licenses: [],
   case_studies: '', case_study_files: [],
-  eo_insurance: [], disciplinary_history: '', audit_support: '',
-  tax_due_diligence_files: [], tax_due_diligence_notes: '', exit_strategies: '',
-  sample_materials_files: [], sample_materials_notes: '',
+  eo_insurance: [],
+  disciplinary_history: '', disciplinary_history_files: [],
+  audit_support: '', audit_support_files: [],
+  plr_files: [],
+  tol_files: [],
+  legal_dd_files: [],
+  exit_strategies: '', exit_strategies_files: [],
+  sample_materials_notes: '', sample_materials_files: [],
 }
 
 // Uploads a single file: mint a one-time signed upload url (token-gated), then PUT
@@ -158,29 +163,49 @@ export default function SpecialistDdcPage() {
         <SectionLabel n="2">Credentials &amp; Experience</SectionLabel>
         <FileField token={token} slot="licenses" label="Professional licenses / designations (if applicable)" hint="Please attach the supporting documentation." accept={DOC_ACCEPT} multi
           value={form.licenses} onChange={v => applyAndPersist(f => ({ ...f, licenses: v }))} />
-        <Area label="Two relevant case studies with measurable outcomes" value={form.case_studies} onChange={v => set('case_studies', v)} onBlur={() => persist(form)} />
-        <FileField token={token} slot="case_studies" label="Case study attachments (optional)" accept={DOC_ACCEPT} multi
-          value={form.case_study_files} onChange={v => applyAndPersist(f => ({ ...f, case_study_files: v }))} />
+        <BothField token={token} slot="case_studies" accept={DOC_ACCEPT}
+          label="Please provide 2 relevant case studies with measurable outcomes"
+          textValue={form.case_studies} onTextChange={v => set('case_studies', v)} onTextBlur={() => persist(form)}
+          filesValue={form.case_study_files} onFilesChange={v => applyAndPersist(f => ({ ...f, case_study_files: v }))} />
 
-        <SectionLabel n="3">Compliance &amp; Risk <span style={{ color: '#8bacc8', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(if applicable — tax strategies)</span></SectionLabel>
-        {isTax && <div style={{ ...hintStyle, marginTop: '-6px', marginBottom: '14px' }}>Your SIF indicated you provide tax strategies, so please complete this section.</div>}
-        <FileField token={token} slot="eo_insurance" label="Proof of E&amp;O / professional liability insurance" accept={DOC_ACCEPT} multi
-          value={form.eo_insurance} onChange={v => applyAndPersist(f => ({ ...f, eo_insurance: v }))} />
-        <Area label="Disclosure of any regulatory or disciplinary history" value={form.disciplinary_history} onChange={v => set('disciplinary_history', v)} onBlur={() => persist(form)} />
-        <Area label="Overview of audit support and scope of services" value={form.audit_support} onChange={v => set('audit_support', v)} onBlur={() => persist(form)} />
-        <Area label="Tax strategy due diligence — please describe which you are providing"
-          hint="Provide one or more of: Private Letter Ruling (PLR), Tax Opinion Letter (TOL), independent legal due diligence, or a completed Tax Planning Risk Audit Questionnaire. Attach the documents below."
-          value={form.tax_due_diligence_notes} onChange={v => set('tax_due_diligence_notes', v)} onBlur={() => persist(form)} />
-        <FileField token={token} slot="tax_due_diligence" label="Tax due diligence documents (PLR / TOL / legal due diligence / questionnaire)" accept={DOC_ACCEPT} multi
-          value={form.tax_due_diligence_files} onChange={v => applyAndPersist(f => ({ ...f, tax_due_diligence_files: v }))} />
-        <Area label="Exit strategies and contingency plans for adverse IRS or state findings" value={form.exit_strategies} onChange={v => set('exit_strategies', v)} onBlur={() => persist(form)} />
+        {isTax && (
+          <>
+            <SectionLabel n="3">Compliance &amp; Risk <span style={{ color: '#8bacc8', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(Tax Professionals only)</span></SectionLabel>
+            <FileField token={token} slot="eo_insurance" accept={DOC_ACCEPT} multi
+              label="Proof of E&amp;O / professional liability insurance"
+              value={form.eo_insurance} onChange={v => applyAndPersist(f => ({ ...f, eo_insurance: v }))} />
+            <BothField token={token} slot="disciplinary_history" accept={DOC_ACCEPT}
+              label="Disclosure of any regulatory or disciplinary history"
+              textValue={form.disciplinary_history} onTextChange={v => set('disciplinary_history', v)} onTextBlur={() => persist(form)}
+              filesValue={form.disciplinary_history_files} onFilesChange={v => applyAndPersist(f => ({ ...f, disciplinary_history_files: v }))} />
+            <BothField token={token} slot="audit_support" accept={DOC_ACCEPT}
+              label="Overview of audit support and scope of services"
+              textValue={form.audit_support} onTextChange={v => set('audit_support', v)} onTextBlur={() => persist(form)}
+              filesValue={form.audit_support_files} onFilesChange={v => applyAndPersist(f => ({ ...f, audit_support_files: v }))} />
 
-        <SectionLabel n="4">Client Experience</SectionLabel>
-        <Area label="Sample materials — notes, links or descriptions (optional)"
-          hint="For example: links to webinars or articles, or a description of the presentations you're attaching below."
-          value={form.sample_materials_notes} onChange={v => set('sample_materials_notes', v)} onBlur={() => persist(form)} />
-        <FileField token={token} slot="sample_materials" label="Sample materials (presentations, webinars, articles, etc.)" accept={DOC_ACCEPT} multi
-          value={form.sample_materials_files} onChange={v => applyAndPersist(f => ({ ...f, sample_materials_files: v }))} />
+            <Subheading>Provide one or more of the following:</Subheading>
+            <FileField token={token} slot="plr" accept={DOC_ACCEPT} multi
+              label="Private Letter Ruling (PLR)"
+              value={form.plr_files} onChange={v => applyAndPersist(f => ({ ...f, plr_files: v }))} />
+            <FileField token={token} slot="tol" accept={DOC_ACCEPT} multi
+              label="Tax Opinion Letter (TOL)"
+              value={form.tol_files} onChange={v => applyAndPersist(f => ({ ...f, tol_files: v }))} />
+            <FileField token={token} slot="legal_dd" accept={DOC_ACCEPT} multi
+              label="Independent legal due diligence"
+              value={form.legal_dd_files} onChange={v => applyAndPersist(f => ({ ...f, legal_dd_files: v }))} />
+
+            <BothField token={token} slot="exit_strategies" accept={DOC_ACCEPT}
+              label="Outline exit strategies and contingency plans for adverse IRS or state findings"
+              textValue={form.exit_strategies} onTextChange={v => set('exit_strategies', v)} onTextBlur={() => persist(form)}
+              filesValue={form.exit_strategies_files} onFilesChange={v => applyAndPersist(f => ({ ...f, exit_strategies_files: v }))} />
+          </>
+        )}
+
+        <SectionLabel n={isTax ? '4' : '3'}>Client Experience</SectionLabel>
+        <BothField token={token} slot="sample_materials" accept={DOC_ACCEPT}
+          label="Sample materials (presentations, webinars, articles, etc.)"
+          textValue={form.sample_materials_notes} onTextChange={v => set('sample_materials_notes', v)} onTextBlur={() => persist(form)}
+          filesValue={form.sample_materials_files} onFilesChange={v => applyAndPersist(f => ({ ...f, sample_materials_files: v }))} />
 
         {error && <div style={{ color: '#ff6b6b', fontSize: '13px', marginTop: '16px', textAlign: 'center' }}>{error}</div>}
 
@@ -197,7 +222,9 @@ export default function SpecialistDdcPage() {
   )
 }
 
-function FileField({ token, slot, label, hint, accept, multi, value, onChange }) {
+// Bare upload control (file chips + add/replace button) with no outer label —
+// shared by the file-only FileField and the combined BothField.
+function FilePicker({ token, slot, accept, multi, value, onChange }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const files = multi ? (value || []) : (value ? [value] : [])
@@ -222,9 +249,7 @@ function FileField({ token, slot, label, hint, accept, multi, value, onChange })
   }
 
   return (
-    <div style={{ marginBottom: '16px' }}>
-      <label style={labelStyle}>{label}</label>
-      {hint && <div style={{ ...hintStyle, marginTop: 0, marginBottom: '8px' }}>{hint}</div>}
+    <>
       {files.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
           {files.map((f, i) => (
@@ -240,8 +265,37 @@ function FileField({ token, slot, label, hint, accept, multi, value, onChange })
         <input type="file" accept={accept} multiple={multi} onChange={pick} disabled={busy} style={{ display: 'none' }} />
       </label>
       {err && <div style={{ color: '#ff6b6b', fontSize: '12px', marginTop: '6px' }}>{err}</div>}
+    </>
+  )
+}
+
+// File-only field: label + hint + upload control.
+function FileField({ token, slot, label, hint, accept, multi, value, onChange }) {
+  return (
+    <div style={itemStyle}>
+      <label style={labelStyle}>{label}</label>
+      {hint && <div style={{ ...hintStyle, marginTop: 0, marginBottom: '8px' }}>{hint}</div>}
+      <FilePicker token={token} slot={slot} accept={accept} multi={multi} value={value} onChange={onChange} />
     </div>
   )
+}
+
+// Combined field: a text response AND an optional attachment for the same item.
+function BothField({ token, slot, accept, label, hint, textValue, onTextChange, onTextBlur, filesValue, onFilesChange }) {
+  return (
+    <div style={itemStyle}>
+      <label style={labelStyle}>{label}</label>
+      {hint && <div style={{ ...hintStyle, marginTop: 0, marginBottom: '8px' }}>{hint}</div>}
+      <textarea value={textValue} onChange={e => onTextChange(e.target.value)} onBlur={onTextBlur} rows={3}
+        placeholder="Type your response here, and/or attach a file below." style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5, marginBottom: '8px' }} />
+      <FilePicker token={token} slot={slot} accept={accept} multi value={filesValue} onChange={onFilesChange} />
+    </div>
+  )
+}
+
+// Sub-section heading (e.g. "Provide one or more of the following:").
+function Subheading({ children }) {
+  return <div style={{ fontSize: '13px', fontWeight: 600, color: '#9fc0dd', margin: '4px 0 14px' }}>{children}</div>
 }
 
 function prettySize(n) {
@@ -256,7 +310,7 @@ function SectionLabel({ n, children }) {
 
 function Area({ value, onChange, onBlur, hint, label }) {
   return (
-    <div style={{ marginBottom: '14px' }}>
+    <div style={itemStyle}>
       {label && <label style={labelStyle}>{label}</label>}
       <textarea value={value} onChange={e => onChange(e.target.value)} onBlur={onBlur} rows={4} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
       {hint && <div style={hintStyle}>{hint}</div>}
@@ -269,7 +323,8 @@ const cardStyle = { width: '100%', maxWidth: '720px', background: 'rgba(255,255,
 const noteStyle = { fontSize: '13px', color: '#9fc0dd', background: 'rgba(37,99,235,0.10)', border: '1px solid rgba(37,99,235,0.25)', borderRadius: '8px', padding: '12px 16px', lineHeight: 1.6, marginTop: '20px' }
 const submittedBanner = { fontSize: '13px', color: '#bbf7d0', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', padding: '12px 16px', lineHeight: 1.6, marginTop: '12px' }
 const editsBanner = { fontSize: '13px', color: '#fde9c8', background: 'rgba(243,156,18,0.12)', border: '1px solid rgba(243,156,18,0.35)', borderRadius: '8px', padding: '12px 16px', lineHeight: 1.6, marginTop: '12px' }
-const labelStyle = { display: 'block', fontSize: '13px', color: '#8bacc8', marginBottom: '6px' }
+const itemStyle = { background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '16px 18px', marginBottom: '12px' }
+const labelStyle = { display: 'block', fontSize: '14px', fontWeight: 600, color: '#dce8f4', marginBottom: '8px', lineHeight: 1.4 }
 const hintStyle = { fontSize: '11px', color: '#5a8ab5', marginTop: '5px', fontStyle: 'italic', lineHeight: 1.5 }
 const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', fontFamily: 'DM Sans, sans-serif' }
 const fileChip = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#cfe0f0', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '7px', padding: '8px 12px' }
