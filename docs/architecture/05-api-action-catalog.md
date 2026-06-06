@@ -128,6 +128,22 @@ All 7 PUBLIC. Trigger graph: Admin submits Phase 3 "Purchase Additional Services
 
 Plus stripe-webhook integration in `router/webhooks.ts`: PIP routing added as a cascade fallback (MAP1 → Tax → Advisor → PIP) on `checkout.session.completed`, AND a metadata-gated branch on `payment_intent.succeeded` (`pi.metadata.pipeline === "PIP"`) for ACH-clearing.
 
+### Partnership Fast Track (PFT) engagement chain (added 2026-06-05)
+
+Files in `actions/pft/` (shared helpers in `_shared.ts`: `PF_EMAILS`/`RACHAEL_EMAIL`, `notifyAssignedPf`/`notifyPfAndRachael`, `ftButtons`, template/sandbox/`savePftProgress` helpers). Pipeline label `PARTNERSHIP_FAST_TRACK`; per-accountant state in `pft_engagement`. All emails are Gmail drafts (sandbox row `PARTNERSHIP_FAST_TRACK`). See [../flows/partnership-fast-track.md](../flows/partnership-fast-track.md).
+
+| Action | Gate | File | R | W | Chains / external |
+|---|---|---|---|---|---|
+| `automation_PFT_meetingemail` | AUTH | `actions/pft/meeting-email.ts` | `clients`, `pft_engagement`, `email_templates`(PFT_meeting_confirm / PFT_meeting_declined), `psbx_cfg`(PFT) | `client_progress`(status/date/notes), `pft_engagement`(discovery_token/_email_sent_at on Meeting 2) | Gmail draft. `meeting`(1/2/3) + `decision`(confirm_date/confirm_no_date/declined); fills `[PRIOR_MEETING]`/`[NEXT_MEETING]`/`[NEXT_MEETING_TITLE]`/`[FORM_SECTION]`/`[CLOSING]`. |
+| `automation_PFT_decisionemail` | AUTH | `actions/pft/decision-email.ts` | `clients`, `pft_engagement`, `email_templates`(PFT_decision_*), `psbx_cfg` | `client_progress`, `pft_engagement`, `accountant_onboarding`(insert for FT/Associate), `clients.status='lost'`(No) | Gmail draft. FT → 2-button email + immediate handoff (`selected_vfo_ft`,`accountant_type='VFO FT'`); Associate → handoff (`selected_pft`,`accountant_type='VFO Associate'`) + notify PF+Rachael; No → decline + stop. |
+| `pft_load_engagement` | AUTH | `actions/pft/load-engagement.ts` | `pft_engagement`, `accountant_onboarding` | — | Returns the engagement row + linked onboarding `{id, stage, stage_label}` (associate = always Stage 3 "Add New Accountant"). |
+| `automation_PFT_ftresponse` | PUBLIC token | `actions/pft/ft-response.ts` | `pft_engagement`(by ft_response_token), `clients` | `pft_engagement`(ft_response/_at), `accountant_onboarding`(create if missing + `prelim_meeting_status='Request no meeting'` on confirm), `notifications` | Idempotent on `ft_response`. confirm/another_meeting both notify PF+Rachael. |
+| `automation_PFT_loaddiscovery` | PUBLIC token | `actions/pft/discovery.ts` | `pft_engagement`(by discovery_token) | — | Returns `{state, data, submitted}`. |
+| `automation_PFT_submitdiscovery` | PUBLIC token | `actions/pft/discovery.ts` | `pft_engagement`(by discovery_token), `clients` | `pft_engagement`(discovery_data/_submitted_at), `notifications` | Notifies assigned PF on submit. |
+| `automation_PFT_sweep` | PUBLIC svc-role | `actions/pft/sweep.ts` | `pft_engagement`, `clients`, `email_templates`, `psbx_cfg` | `pft_engagement`(reminder/notified guards), `notifications` | Cron `pft-sweep-daily` 08:00 UTC. Discovery 2-day reminder email + 4-day PF notice; FT 2-day reminder email + 4-day PF notice. |
+
+**Also this session:** `create_accountant_onboarding` + `automation_ACCOUNTANT_createmember` accept/honor `accountant_onboarding.accountant_type` (`'VFO Associate'` skips Stages 1-2 and the payment gate); `save_accountant_prelim_meeting` accepts the new `'Request no meeting'` status; all accountant/advisor onboarding notification links now append `&onboarding=<id>` to deep-link to the record.
+
 ### PIP Meetings — admin support (AUTH)
 
 These six handlers live in `actions/msm/` alongside the existing MSM/priority handlers. Initial PIP-meetings CRUD + the admin Automation Panel loader.
