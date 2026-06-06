@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { callApi, getSession } from '../../lib/api'
 import { AdvisorOnboardingListSkeleton, AdvisorOnboardingDetailSkeleton } from '../shared/Skeleton'
 
@@ -16,12 +17,19 @@ export default function AdvisorOnboarding() {
   const [creating, setCreating] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
   const [showStopped, setShowStopped] = useState(false)
+  const [searchParams] = useSearchParams()
   const session = getSession()
 
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
 
   useEffect(() => { loadList() }, [])
+
+  // Deep-link from a notification: /admin?...&onboarding=<id> opens that record.
+  useEffect(() => {
+    const openId = searchParams.get('onboarding')
+    if (openId) { setSelectedId(parseInt(openId, 10)); setView('detail') }
+  }, [searchParams])
 
   async function loadList() {
     setLoading(true)
@@ -103,7 +111,7 @@ export default function AdvisorOnboarding() {
           const isDone = variant === 'completed'
           const isStopped = variant === 'stopped'
           const stageColor = isStopped ? '#e74c3c' : isDone ? '#27ae60' : '#5b9fe6'
-          const labelText = isDone ? 'Done' : isStopped ? 'Stopped' : `Stage ${stage} · ${STAGE_NAMES[stage]}`
+          const labelText = isDone ? 'Done' : isStopped ? 'Stopped' : STAGE_NAMES[stage]
           const bg = isStopped ? 'rgba(231,76,60,0.15)' : isDone ? 'rgba(39,174,96,0.15)' : 'rgba(91,159,230,0.15)'
           const border = isStopped ? 'rgba(231,76,60,0.3)' : isDone ? 'rgba(39,174,96,0.3)' : 'rgba(91,159,230,0.3)'
           return (
@@ -244,7 +252,7 @@ function OnboardingDetail({ id, onBack }) {
         <div style={{ fontSize: '13px', color: '#8bacc8', marginTop: '4px' }}>{ob.email || 'No email'}</div>
       </div>
 
-      <StageBlock stage={1} title="Stage 1 — Preliminary Meeting" state={stage1State()} expanded={expanded[1]} onToggle={() => setExpanded(p => ({ ...p, 1: !p[1] }))}>
+      <StageBlock stage={1} title="Preliminary Meeting" state={stage1State()} expanded={expanded[1]} onToggle={() => setExpanded(p => ({ ...p, 1: !p[1] }))}>
         <Row label="Preliminary Meeting" done={!!ob.prelim_meeting_status} date={ob.prelim_meeting_status_at}>
           <select value={ob.prelim_meeting_status || ''} onChange={e => savePrelimMeeting(e.target.value)} disabled={saving} style={{ ...selectStyle, color: ob.prelim_meeting_status ? '#27ae60' : '#fff' }}>
             <option value="">-- Select --</option>
@@ -265,7 +273,7 @@ function OnboardingDetail({ id, onBack }) {
         </Row>
       </StageBlock>
 
-      <StageBlock stage={2} title="Stage 2 — PC Admin" state={stage2State()} expanded={expanded[2]} onToggle={() => setExpanded(p => ({ ...p, 2: !p[2] }))}>
+      <StageBlock stage={2} title="PC Admin" state={stage2State()} expanded={expanded[2]} onToggle={() => setExpanded(p => ({ ...p, 2: !p[2] }))}>
         {!decision && <div style={{ padding: '12px', color: '#8bacc8', fontSize: '13px' }}>Waiting for Stage 1 decision.</div>}
 
         {decision === 'Yes' && (
@@ -316,7 +324,7 @@ function OnboardingDetail({ id, onBack }) {
         )}
       </StageBlock>
 
-      <StageBlock stage={3} title="Stage 3 — Add New Advisor" state={stage3State()} expanded={expanded[3]} onToggle={() => setExpanded(p => ({ ...p, 3: !p[3] }))} dimmed={stage3Locked}>
+      <StageBlock stage={3} title="Add New Advisor" state={stage3State()} expanded={expanded[3]} onToggle={() => setExpanded(p => ({ ...p, 3: !p[3] }))} dimmed={stage3Locked}>
         {stage3Locked ? (
           <div style={{ padding: '12px', color: '#8bacc8', fontSize: '13px' }}>
             Available once the invoice/receipt has been sent in Stage 2.

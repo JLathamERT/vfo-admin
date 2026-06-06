@@ -57,6 +57,24 @@ export default function ClientDetail() {
   const isMember = location.pathname.startsWith('/member')
   const backUrl = location.state?.from || (isMember ? '/member' : '/admin')
 
+  // PFT accountants are reached from MSMTracking's internal drill-down (not a
+  // route), so navigate(-1) loses that state. Restore the member's Accountants
+  // list by re-seeding the AdminPortal/MemberDirectoryView sessionStorage keys.
+  const isPFTBack = program?.name === 'Partnership Fast Track' && location.state?.backTo === 'pft_accountants'
+  const backLabel = isPFTBack ? '← Back to Accountants' : '← Back to Clients'
+  function handleBack() {
+    if (isPFTBack && location.state?.memberNumber) {
+      sessionStorage.setItem('adminActiveTab', 'accountants')
+      sessionStorage.setItem('adminAccountantsSection', 'accountant_search')
+      sessionStorage.setItem('adminSelectedAccountant', String(location.state.memberNumber))
+      sessionStorage.setItem('adminAccountantFeatureTab', 'msm_program_partnership')
+      sessionStorage.setItem('pftReturnEnrolledTab', 'clients')
+      navigate('/admin')
+    } else {
+      navigate(-1)
+    }
+  }
+
   useEffect(() => {
     if (!session) { navigate('/admin/login?next=' + encodeURIComponent(location.pathname + location.search)); return }
     loadData()
@@ -104,7 +122,7 @@ export default function ClientDetail() {
       </div>
 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-        <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', color: '#5b9fe6', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to Clients</button>
+        <button onClick={handleBack} style={{ background: 'none', border: 'none', color: '#5b9fe6', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>{backLabel}</button>
 
         {/* Client header */}
         <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
@@ -255,6 +273,7 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
                 <option value="">-- Select --</option>
                 <option value="Evan Anderson">Evan Anderson</option>
                 <option value="Bridger Silvester">Bridger Silvester</option>
+                <option value="Ian Welham">Ian Welham</option>
               </select>
               <button onClick={savePf} disabled={savingPf} style={{ padding: '8px 20px', borderRadius: '8px', background: savingPf ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: savingPf ? 'not-allowed' : 'pointer' }}>{savingPf ? 'Saving...' : 'Save'}</button>
               {pfSaved && <span style={{ color: '#27ae60', fontSize: '14px', fontWeight: '600' }}>✓ Saved!</span>}
