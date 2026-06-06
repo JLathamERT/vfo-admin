@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { callApi, getSession } from '../../lib/api'
 import { AccountantOnboardingListSkeleton, AccountantOnboardingDetailSkeleton } from '../shared/Skeleton'
 
@@ -13,15 +14,29 @@ export default function AccountantOnboarding() {
   const [newFirst, setNewFirst] = useState('')
   const [newLast, setNewLast] = useState('')
   const [newEmail, setNewEmail] = useState('')
+  const [newType, setNewType] = useState('')
   const [creating, setCreating] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
   const [showStopped, setShowStopped] = useState(false)
+  const [searchParams] = useSearchParams()
   const session = getSession()
 
   const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
 
   useEffect(() => { loadList() }, [])
+
+  // Deep-link: the PFT track's "View onboarding" button (sessionStorage) OR a
+  // notification link (/admin?...&onboarding=<id>) opens that record's detail.
+  useEffect(() => {
+    const sessionId = sessionStorage.getItem('accountantOnboardingOpenId')
+    const openId = sessionId || searchParams.get('onboarding')
+    if (openId) {
+      if (sessionId) sessionStorage.removeItem('accountantOnboardingOpenId')
+      setSelectedId(parseInt(openId, 10))
+      setView('detail')
+    }
+  }, [searchParams])
 
   async function loadList() {
     setLoading(true)
@@ -41,8 +56,9 @@ export default function AccountantOnboarding() {
         last_name: newLast.trim(),
         email: newEmail.trim() || null,
         created_by: session?.name || 'Admin',
+        accountant_type: newType || null,
       })
-      setNewFirst(''); setNewLast(''); setNewEmail(''); setShowNew(false)
+      setNewFirst(''); setNewLast(''); setNewEmail(''); setNewType(''); setShowNew(false)
       await loadList()
     } catch (err) { console.error(err) }
     finally { setCreating(false) }
@@ -76,8 +92,16 @@ export default function AccountantOnboarding() {
               <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Email address" style={inputStyle} />
             </div>
           </div>
+          <div style={{ marginBottom: '12px', maxWidth: '320px' }}>
+            <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Accountant Type *</label>
+            <select value={newType} onChange={e => setNewType(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e', cursor: 'pointer' }}>
+              <option value="">-- Select --</option>
+              <option value="VFO FT">VFO FT Accountant</option>
+              <option value="VFO Associate">VFO Associate Accountant</option>
+            </select>
+          </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={createNew} disabled={creating || !newFirst.trim() || !newLast.trim() || !newEmail.trim()} style={{ padding: '8px 20px', borderRadius: '8px', background: creating ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: creating ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif' }}>{creating ? 'Creating...' : 'Create'}</button>
+            <button onClick={createNew} disabled={creating || !newFirst.trim() || !newLast.trim() || !newEmail.trim() || !newType} style={{ padding: '8px 20px', borderRadius: '8px', background: creating ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: creating ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif' }}>{creating ? 'Creating...' : 'Create'}</button>
             <button onClick={() => { setShowNew(false); setNewFirst(''); setNewLast(''); setNewEmail('') }} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Cancel</button>
           </div>
         </div>
@@ -99,11 +123,11 @@ export default function AccountantOnboarding() {
         const stopped = onboardings.filter(o => classify(o) === 'stopped')
 
         const renderRow = (ob, variant) => {
-          const stage = ob.member_created_at ? 3 : ob.prelim_meeting_decision ? 2 : 1
+          const stage = ob.member_created_at ? 3 : ob.accountant_type === 'VFO Associate' ? 3 : ob.prelim_meeting_decision ? 2 : 1
           const isDone = variant === 'completed'
           const isStopped = variant === 'stopped'
           const stageColor = isStopped ? '#e74c3c' : isDone ? '#27ae60' : '#5b9fe6'
-          const labelText = isDone ? 'Done' : isStopped ? 'Stopped' : `Stage ${stage} · ${STAGE_NAMES[stage]}`
+          const labelText = isDone ? 'Done' : isStopped ? 'Stopped' : STAGE_NAMES[stage]
           const bg = isStopped ? 'rgba(231,76,60,0.15)' : isDone ? 'rgba(39,174,96,0.15)' : 'rgba(91,159,230,0.15)'
           const border = isStopped ? 'rgba(231,76,60,0.3)' : isDone ? 'rgba(39,174,96,0.3)' : 'rgba(91,159,230,0.3)'
           return (
@@ -220,6 +244,8 @@ function OnboardingDetail({ id, onBack }) {
   if (!ob) return <div style={{ padding: '40px', color: '#8bacc8', textAlign: 'center' }}>Onboarding not found.</div>
 
   const decision = ob.prelim_meeting_decision
+  // VFO Associate accountants pay nothing and sign nothing — skip Stage 1 & 2.
+  const isAssociate = ob.accountant_type === 'VFO Associate'
   const finalDec = ob.final_decision || (decision === 'Yes' ? 'Yes' : decision === 'No' ? 'No' : null)
   const yesPath = finalDec === 'Yes'
   const noPath = finalDec === 'No'
@@ -240,26 +266,27 @@ function OnboardingDetail({ id, onBack }) {
   }
   function stage3State() {
     if (ob.member_created_at) return 'done'
-    if (yesPath && ob.invoice_sent_at) return 'active'
+    if (isAssociate || (yesPath && ob.invoice_sent_at)) return 'active'
     return 'pending'
   }
 
-  const stage3Locked = !(yesPath && ob.invoice_sent_at)
+  const stage3Locked = isAssociate ? false : !(yesPath && ob.invoice_sent_at)
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
       <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#5b9fe6', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
       <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-        <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '28px', color: '#fff' }}>{ob.first_name} {ob.last_name}</div>
+        <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '28px', color: '#fff' }}>{ob.first_name} {ob.last_name}{ob.accountant_type && <span style={{ marginLeft: '12px', fontSize: '12px', padding: '3px 10px', borderRadius: '4px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)', verticalAlign: 'middle' }}>{ob.accountant_type === 'VFO Associate' ? 'VFO Associate' : 'VFO FT'}</span>}</div>
         <div style={{ fontSize: '13px', color: '#8bacc8', marginTop: '4px' }}>{ob.email || 'No email'}</div>
       </div>
 
-      <StageBlock stage={1} title="Stage 1 — Preliminary Meeting" state={stage1State()} expanded={expanded[1]} onToggle={() => setExpanded(p => ({ ...p, 1: !p[1] }))}>
+      {!isAssociate && <StageBlock stage={1} title="Preliminary Meeting" state={stage1State()} expanded={expanded[1]} onToggle={() => setExpanded(p => ({ ...p, 1: !p[1] }))}>
         <Row label="Preliminary Meeting" done={!!ob.prelim_meeting_status} date={ob.prelim_meeting_status_at}>
           <select value={ob.prelim_meeting_status || ''} onChange={e => savePrelimMeeting(e.target.value)} disabled={saving} style={{ ...selectStyle, color: ob.prelim_meeting_status ? '#27ae60' : '#fff' }}>
             <option value="">-- Select --</option>
             <option value="Completed">Completed</option>
             <option value="No Show">No Show</option>
+            <option value="Request no meeting">Request no meeting</option>
           </select>
         </Row>
         <Row label="Partnership?" done={!!ob.accountant_partnership} date={ob.accountant_partnership_at}>
@@ -280,9 +307,9 @@ function OnboardingDetail({ id, onBack }) {
             </div>
           )}
         </Row>
-      </StageBlock>
+      </StageBlock>}
 
-      <StageBlock stage={2} title="Stage 2 — PC Admin" state={stage2State()} expanded={expanded[2]} onToggle={() => setExpanded(p => ({ ...p, 2: !p[2] }))}>
+      {!isAssociate && <StageBlock stage={2} title="PC Admin" state={stage2State()} expanded={expanded[2]} onToggle={() => setExpanded(p => ({ ...p, 2: !p[2] }))}>
         {!decision && <div style={{ padding: '12px', color: '#8bacc8', fontSize: '13px' }}>Waiting for Stage 1 decision.</div>}
 
         {decision === 'Yes' && (
@@ -331,9 +358,9 @@ function OnboardingDetail({ id, onBack }) {
         {decision === 'No' && (
           <AutoRow label="Decline email sent to accountant" done={!!ob.decline_email_sent_at} date={ob.decline_email_sent_at} />
         )}
-      </StageBlock>
+      </StageBlock>}
 
-      <StageBlock stage={3} title="Stage 3 — Add New Accountant" state={stage3State()} expanded={expanded[3]} onToggle={() => setExpanded(p => ({ ...p, 3: !p[3] }))} dimmed={stage3Locked}>
+      <StageBlock stage={3} title="Add New Accountant" state={stage3State()} expanded={expanded[3]} onToggle={() => setExpanded(p => ({ ...p, 3: !p[3] }))} dimmed={stage3Locked}>
         {stage3Locked ? (
           <div style={{ padding: '12px', color: '#8bacc8', fontSize: '13px' }}>
             Available once the invoice/receipt has been sent in Stage 2.

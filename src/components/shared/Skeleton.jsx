@@ -84,6 +84,40 @@ export function Map1TrackSkeleton({ phaseCount = 4, rowsPerPhase = 3 }) {
   )
 }
 
+export function PFTTrackSkeleton() {
+  // Row counts roughly matching the real PFT phases (Preliminary Setup, Initial
+  // Contact, Accountant Meeting 1, Accountant Meeting 2, ...).
+  const phases = [1, 3, 5, 2, 2]
+  return (
+    <div>
+      {phases.map((rows, i) => (
+        <div key={i} style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', marginBottom: '10px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Skeleton width={9} height={9} style={{ borderRadius: '50%' }} />
+              <Skeleton width={170} height={13} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Skeleton width={44} height={20} style={{ borderRadius: '4px' }} />
+              <Skeleton width={72} height={20} style={{ borderRadius: '4px' }} />
+              <Skeleton width={10} height={8} />
+            </div>
+          </div>
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', padding: '12px 18px' }}>
+            {Array.from({ length: rows }).map((_, j) => (
+              <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <Skeleton width={8} height={8} style={{ borderRadius: '50%', flexShrink: 0 }} />
+                <Skeleton width="45%" height={13} style={{ flex: 1 }} />
+                <Skeleton width={140} height={28} style={{ borderRadius: '6px' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function TaxPlanListSkeleton({ count = 2 }) {
   return (
     <div>

@@ -12,6 +12,7 @@ const SECTIONS = [
   { key: 'advisor', label: 'Advisor Onboarding', pipeline: 'ADVISOR_ONBOARDING' },
   { key: 'accountant', label: 'Accountant Onboarding', pipeline: 'ACCOUNTANT_ONBOARDING' },
   { key: 'specialist', label: 'Specialist Onboarding', pipeline: 'SPECIALIST_ONBOARDING' },
+  { key: 'pft', label: 'Partnership Fast Track', pipeline: 'PARTNERSHIP_FAST_TRACK' },
 ]
 
 // template_name -> plain-English label, in the order each email fires in the process.
@@ -103,6 +104,15 @@ const TEMPLATE_META = {
     ['SPECIALIST_yes', 'Stage 1 — yes / continue email'],
     ['SPECIALIST_no', 'Stage 1 — no / decline email'],
     ['SPECIALIST_step2_progress', 'Stage 2 — in-progress update email'],
+  ],
+  'PARTNERSHIP_FAST_TRACK': [
+    ['PFT_meeting_confirm', 'Meeting confirmation (all meetings)'],
+    ['PFT_discovery_reminder', 'Discovery form reminder (2 days)'],
+    ['PFT_meeting_declined', 'Meeting declined'],
+    ['PFT_decision_vfo_ft', 'Decision — VFO Fast Track (2-button email)'],
+    ['PFT_decision_vfo_ft_reminder', 'Decision — VFO Fast Track reminder'],
+    ['PFT_decision_vfo_associate', 'Decision — VFO Associate'],
+    ['PFT_decision_no', 'Decision — No'],
   ],
 }
 

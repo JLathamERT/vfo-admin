@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { callApi, getSession, loadCachedAction } from '../../lib/api'
 import { ClientsListSkeleton, TrainingTrackSkeleton, CoachingMeetingsSkeleton, CoachingRenewalSkeleton, AdminMsmHomeSkeleton, ProgramNotesSkeleton, AdminProgramViewSkeleton } from '../shared/Skeleton'
@@ -372,8 +372,13 @@ function ProgramNotes({ memberNumber, programName }) {
 function EnrolledPanel({ member, enrollment, program, onDataChange }) {
   const isCoaching = program.name === 'Advanced Coaching'
   const isTaxPlanning = program.name === 'VFO Tax Planning'
-  const [activeTab, setActiveTab] = useState('home')
-  useEffect(() => { setActiveTab('home') }, [program.id])
+  const [activeTab, setActiveTab] = useState(() => {
+    const ret = sessionStorage.getItem('pftReturnEnrolledTab')
+    if (ret) { sessionStorage.removeItem('pftReturnEnrolledTab'); return ret }
+    return 'home'
+  })
+  const didMountRef = useRef(false)
+  useEffect(() => { if (didMountRef.current) setActiveTab('home'); else didMountRef.current = true }, [program.id])
   const [editingEnrollment, setEditingEnrollment] = useState(false)
   const [programStatus, setProgramStatus] = useState(enrollment.program_status || 'On Fast Track')
   const [saveStatus, setSaveStatus] = useState('')
@@ -776,7 +781,7 @@ function ClientsPanel({ enrollment, member, program }) {
         ? <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No clients added yet.</div>
         : clients.map(client => (
           <div key={client.id} style={{ ...sectionStyle, cursor: 'pointer' }}
-            onClick={() => navigate(`/admin/client/${client.id}`, { state: { enrollment_id: enrollment.id } })}
+            onClick={() => navigate(`/admin/client/${client.id}`, { state: { enrollment_id: enrollment.id, from: '/admin', backTo: program.name === 'Partnership Fast Track' ? 'pft_accountants' : undefined, memberNumber: member.plugin_member_number } })}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
             onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.12)'}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

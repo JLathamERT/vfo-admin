@@ -54,6 +54,7 @@ docs/
 │   ├── coaching-renewals.md          (coaching meeting + renewal log)
 │   ├── gift-credits.md               (GC marketplace buy/redeem)
 │   ├── pip-meetings.md               (PIP Meetings purchase + payment + invoice/receipt + revshare + unlock)
+│   ├── partnership-fast-track.md     (PFT accountant engagement track + meeting emails + discovery form + onboarding handoff)
 │   └── notifications.md              (in-portal bell feed)
 │
 └── integrations/                     (the "external" layer — APIs and secrets)

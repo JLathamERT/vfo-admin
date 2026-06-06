@@ -122,3 +122,30 @@ Per-task progress within a priority track (parallel to `client_progress` but sco
 | `created_at` | timestamptz | default `now()` |
 
 **Touched by:** `msm_load_priority_progress`, `msm_save_priority_task`.
+
+## `pft_engagement`
+
+Per-accountant state for the Partnership Fast Track engagement track (added 2026-06-05). One row per PFT client; the DB-driven track tasks themselves live in `program_client_phases`/`program_client_tasks` (`track_type='partnership_fast_track'`) with status in `client_progress`. See [../flows/partnership-fast-track.md](../flows/partnership-fast-track.md).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | pk (generated always as identity) |
+| `client_id` | integer | **UNIQUE** fk → `clients.id` (CASCADE) |
+| `discovery_token` | text | token for the Meeting-2 discovery form (`/pft-discovery`) |
+| `discovery_data` | jsonb | submitted discovery answers |
+| `discovery_submitted_at` | timestamptz | |
+| `discovery_email_sent_at` | timestamptz | Meeting-2 send timer (drives the 2-day reminder / 4-day PF notice) |
+| `discovery_reminder_sent_at` | timestamptz | 2-day reminder guard |
+| `discovery_pf_notified_at` | timestamptz | 4-day PF-notice guard |
+| `ft_response_token` | text | token for the VFO Fast Track email buttons (`/pft-ft-decide`) |
+| `ft_email_sent_at` | timestamptz | FT decision-email send timer |
+| `ft_response` | text | `confirm` \| `another_meeting` (idempotency) |
+| `ft_response_at` | timestamptz | |
+| `ft_reminder_sent_at` | timestamptz | 2-day reminder guard |
+| `ft_pf_notified_at` | timestamptz | 4-day PF-notice guard |
+| `accountant_onboarding_id` | bigint | fk → `accountant_onboarding(id)` `ON DELETE SET NULL`; the handoff record created on a VFO FT / VFO Associate decision |
+| `created_at` | timestamptz | default `now()` |
+
+**Touched by:** `automation_PFT_meetingemail`, `automation_PFT_decisionemail`, `automation_PFT_ftresponse`, `automation_PFT_loaddiscovery`, `automation_PFT_submitdiscovery`, `automation_PFT_sweep`, `pft_load_engagement`.
+
+> Also added 2026-06-05: `accountant_onboarding.accountant_type` (`'VFO FT'` | `'VFO Associate'` | NULL) — associates skip Stages 1-2; and `accountant_onboarding.prelim_meeting_status` gained the value `'Request no meeting'` (auto-set by the PFT FT "confirm" response).
