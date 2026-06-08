@@ -54,6 +54,23 @@ Per-member portal logins (separate from `allowed_admins`).
 
 ---
 
+## `client_logins`
+
+The third login type (after admin/member) — per-client portal logins for the end customer. RLS enabled, **service-role only** (no policies; all access goes through edge-function handlers). The caller role `'client'` is fenced to `CLIENT_ALLOWED_ACTIONS`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | integer | serial pk |
+| `email` | text | **UNIQUE** |
+| `name` | text | |
+| `passcode_hash` | text | Salted PBKDF2. |
+| `client_id` | integer | fk → `clients.id` (CASCADE). |
+| `created_at` | timestamptz | default `now()` |
+
+**Touched by:** written by `submit_client_setup`; read by `client_login`.
+
+---
+
 ## Token flow
 
 1. Client calls `admin_login` / `member_login` with `{email, passcode}`.
