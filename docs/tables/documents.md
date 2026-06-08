@@ -17,7 +17,12 @@ BoldSign template configuration per (service_level × payment_plan × pipeline).
 | `field_map` | jsonb | not null. Maps placeholder keys → BoldSign field coordinates `{p, x, y, w, h}` per field. Accountant field keys: `vfo_ft_checkbox`, `corporate_checkbox`, `accountant_signature`, `accountant_print_name`, `accountant_date`, `accountant_address`, `ert_signature`, `ert_date`. (No `pft_checkbox` — dropped from accountant flow.) |
 | `active` | boolean | default `true` |
 | `pipeline` | text | not null. Pipeline discriminator added 2026-05-22 when Tax Planning was branched. Values: `'MAP 1'` (implicit), `'TAX'`, `'ADVISOR_ONBOARDING'`, `'ACCOUNTANT_ONBOARDING'` (two rows per pipeline for accountant — one per partnership branch). |
+| `payer_type` | text | default `'client'`. Values `'client'` \| `'member'`. Distinguishes the standard client agreement from the member-paid-on-behalf variant (see `pipeline_map1.member_paying_on_behalf`). |
 | `created_at` | timestamptz | default `now()` |
+
+**Constraints:** the UNIQUE constraint was widened from `(pipeline, service_level, payment_plan)` to `(pipeline, service_level, payment_plan, payer_type)`.
+
+**Rows:** 6 new MAP 1 rows (ids 14–19) are `payer_type='member'` (Lite/Core/Max × Quarterly/1-Time, with BoldSign template ids + field_maps); existing rows were backfilled to `payer_type='client'`.
 
 **Touched by:** `automation_CONTRACT_sendagreement`, `automation_TAX_sendagreement`, `automation_ADVISOR_sendagreement`, `automation_ACCOUNTANT_sendagreement`.
 

@@ -13,6 +13,9 @@ A client is a member's **end customer** — the person whose tax/financial plann
 | `first_name` / `last_name` / `email` / `phone` | text | |
 | `status` | text | default `'pending'`. Status field. Values seen: `'pending'`, `'active'`, others — not DB-constrained. |
 | `assigned_pf` | text | Planning Facilitator assigned to this client. |
+| `tax_upload_token` | text | Per-client token for the public `/tax-upload` link in the first-payment email. |
+| `client_setup_token` | text | Per-client token for the `/client-setup` portal-login link. |
+| `client_setup_completed_at` | timestamptz | Stamped when the client creates their `client_logins` row. |
 | `created_at` | timestamptz | default `now()` |
 
 **Status fields:** `status`.

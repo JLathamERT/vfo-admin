@@ -4,7 +4,7 @@ Two Supabase edge functions deployed to project `ejpsprsmhpufwogbmxjv`. Both are
 
 | Function | Layout | `verify_jwt` |
 |---|---|---|
-| `vfo-admin-api` | `supabase/functions/vfo-admin-api/` — 88-line `index.ts` orchestrator + `router/`, `middleware/`, `actions/`, `utils/`, `constants/`, `types/`, `integrations/` subdirs (~202 .ts files total — incl. `actions/advisor/` for Phase 1-6 Advisor Onboarding, `actions/accountant/` for Accountant Onboarding, `actions/pft/` for the Partnership Fast Track engagement track (7 actions; added 2026-06-05) + `actions/msm/pip-*.ts` for the PIP Meetings purchase chain) | `false` (config.toml + live registry, matched) |
+| `vfo-admin-api` | `supabase/functions/vfo-admin-api/` — 88-line `index.ts` orchestrator + `router/`, `middleware/`, `actions/`, `utils/`, `constants/`, `types/`, `integrations/` subdirs (~202 .ts files total — incl. `actions/advisor/` for Phase 1-6 Advisor Onboarding, `actions/accountant/` for Accountant Onboarding, `actions/pft/` for the Partnership Fast Track engagement track (7 actions; added 2026-06-05) + `actions/msm/pip-*.ts` for the PIP Meetings purchase chain + `actions/auth/client-*.ts` for client-portal login/setup + `actions/vault/{tax,gen,client-vault}-*.ts` for the client document/tax-return vault, all added this session) | `false` (config.toml + live registry, matched) |
 | `boldsign-webhook` | `supabase/functions/boldsign-webhook/index.ts` (single file; extended four times — tax / advisor / advisor `_stripecustomer` chain / accountant fallthrough + `_stripecustomer` + `_ceocountersign` chains) | `false` (live registry; config.toml says `true` — see note below) |
 
 > Live versions increment per deploy; see Supabase Dashboard → Edge Functions for the current value of each.
@@ -22,9 +22,9 @@ The 88-line orchestrator at `supabase/functions/vfo-admin-api/index.ts` does:
 1. **OPTIONS short-circuit** + per-request CORS headers
 2. **Stripe webhook** (header-shape detection via `router/webhooks.ts::maybeHandleStripeWebhook`)
 3. **JSON body parse**
-4. **Login handlers** inline (admin_login / member_login / login — pre-webhook ordering preserved verbatim)
+4. **Login handlers** inline (admin_login / member_login / client_login / login — pre-webhook ordering preserved verbatim; 4 logins as of this session, `client_login` dispatched to `actions/auth/client-login.ts`)
 5. **BoldSign webhook** (body-shape detection via `router/webhooks.ts::maybeHandleBoldSignWebhook`)
-6. **`PUBLIC_HANDLERS` dispatch** (router/dispatch.ts) — public-token + chain-callable handlers, no auth required
+6. **`PUBLIC_HANDLERS` dispatch** (router/dispatch.ts) — public-token + chain-callable handlers, no auth required (added this session: `load_client_setup` / `submit_client_setup` PUBLIC handlers in `actions/auth/client-setup-load.ts` / `client-setup-submit.ts`, plus the PUBLIC-token `tax_upload_url` in `actions/vault/tax-upload-url.ts`)
 7. **Auth gate** (`middleware/auth.ts::authenticate`) — validates body.token against `admin_sessions`, applies role gates from `constants/role-gates.ts`
 8. **`AUTH_HANDLERS` dispatch** (router/dispatch.ts) — every other action, post-auth
 9. **Unknown-action fallthrough** (200 if action missing, else 400)
@@ -47,7 +47,9 @@ All previously-inline helpers have been extracted to per-file modules:
 | `formatLongDate(isoDate)` | `utils/format-date.ts` | Formats a `YYYY-MM-DD` string as `"August 18, 2026"` (en-US long month/day/year, parsed + rendered in UTC to avoid local-tz drift). Returns input unchanged for non-date strings like `"TBD"`. Used by `automation_CONTRACT_checkreminder_sweep` and `automation_PIP1_reconfirmationemail`. |
 | `nextMemberNumber(supabase, category, model)` | `utils/member-number.ts` | Single source of truth for member-number assignment (added 2026-05-29, gotcha #48). Scans `members` for the max integer number in the (`member_category` × `advisor_model`) bucket → +1; falls back to the `member_number_baselines` seed when the bucket is empty; returns an actionable error if empty with no baseline. Used by `add_member_full` + advisor/accountant `create-member`. |
 | `sendStage3CompletionEmail()` / `maybeAdvanceStage3()` | `utils/specialist-stage3-emails.ts` | (added 2026-06-04, gotcha #73) Drafts the per-item Specialist Stage-3 completion emails (`SPECIALIST_bg_passed`/`_ddc_approved`/`_revshare_complete`, blue "Step 3 progress" card, idempotent via `<item>_complete_emailed` markers) and advances Specialist Stage 3→4 only when all three items complete (+ fires Stage-4 reviewer-notes reminders). Called from `save-progress` / `ddc-approve` / `revshare-final` / `revshare-finalize`. |
-| `ADMIN_ONLY_ACTIONS` / `MEMBER_SCOPED_ACTIONS` | `constants/role-gates.ts` | Action-name arrays consumed by the auth middleware. |
+| `ADMIN_ONLY_ACTIONS` / `MEMBER_SCOPED_ACTIONS` / `CLIENT_ALLOWED_ACTIONS` | `constants/role-gates.ts` | Action-name arrays consumed by the auth middleware. `ADMIN_ONLY_ACTIONS` gained 8 new admin-only vault actions; `CLIENT_ALLOWED_ACTIONS` (added this session) lists the 4 client-scoped vault actions the `client` role may call. |
+| `pfNotificationRecipient(pf)` | `constants/map1-pfs.ts` | Maps a MAP 1 Planning-Facilitator NAME (`clients.assigned_pf`: Evan / Bridger / Ian) → their `allowed_admins` **@elitert.com LOGIN email** for notification routing; falls back to `'admin'`. DISTINCT from `utils/pf-emails.ts` (which holds the @vfo-services.com CC identity — routing a notification there never matches `session.email`). |
+| `isTaxAdmin(email)` | `constants/tax-access.ts` | Allowlist (Jake `jlatham@`, Tim `tgacsy@`, Tray `tvaldes@` elitert.com) gating who may view/download client tax returns. |
 | `JsonResponder`, `AuthContext`, `PublicHandlerCtx`, `AuthedHandlerCtx` | `types/index.ts` | Shared TS types for handler signatures. |
 
 ### Request flow (current)
@@ -80,9 +82,10 @@ serve(req)
   ├─ 6. await middleware/auth.ts::authenticate(action, body, supabase, json)
   │      • Reads body.token, looks up admin_sessions
   │      • Returns 401 if missing/expired
-  │      • Detects role: admin (allowed_admins) or member (member_logins)
+  │      • Detects role: admin (allowed_admins), member (member_logins), or client (deny-by-default)
   │      • Applies ADMIN_ONLY_ACTIONS gate (403 for member callers on listed actions)
   │      • Applies MEMBER_SCOPED_ACTIONS gate (forces body.member_number to caller's own)
+  │      • Applies CLIENT_ALLOWED_ACTIONS gate (client role limited to 4 vault actions, scoped to auth.callerClientId)
   │
   ├─ 7. AUTH_HANDLERS[action]  (from router/dispatch.ts)
   │      • 132 entries
@@ -139,9 +142,10 @@ Below the public dispatch step, every action does:
 
 1. Reads `body.token`. Returns 401 if missing.
 2. Looks up `admin_sessions` row by token. Returns 401 if missing or `expires_at` is past (and deletes the expired row).
-3. Detects role via `allowed_admins` row (admin) or falls back to `member` and looks up `member_logins.member_number`.
+3. Detects role via `allowed_admins` row (admin), `member_logins.member_number` (member), or the `client` role (added this session — deny-by-default gate; see [04-auth-and-sessions.md](04-auth-and-sessions.md)).
 4. Applies `ADMIN_ONLY_ACTIONS` (constants/role-gates.ts) — 403 for member callers on listed actions.
 5. Applies `MEMBER_SCOPED_ACTIONS` (constants/role-gates.ts) — overwrites `body.member_number` with caller's for scoped reads/writes.
+6. For the `client` role, allows only `CLIENT_ALLOWED_ACTIONS` (deny-by-default) and scopes client-vault handlers to `auth.callerClientId`.
 
 ### Hardcoded constants worth knowing
 
@@ -179,7 +183,14 @@ Behavior change observable from outside: an explicit POST with `{ "action": "aut
 - `advisor-onboarding-agreements` — `actions/advisor/decision.ts` (`Advisor_Implementation_Agreement.pdf` Undecided attachment; uploaded 2026-06-01).
 - `accountant-onboarding-agreements` — `actions/accountant/decision.ts` (TWO partnership-branched Undecided attachments — `Accountant_Implementation_Agreement_Partnership.pdf` / `_No_Partnership.pdf`, picked by `ob.accountant_partnership`; both uploaded 2026-06-01, gotcha #58).
 - `specialist-onboarding-assets` (public) — `actions/onboarding/prelim-email.ts` (Specialist Onboarding Stage 1 email): `onboarding-process.png` (inline image in Stage 1, Stage 2 + Step 3 receipt emails), `VFO-Specialist-Agreement.pdf` + `revenue_share_examples.pdf` + `VFO-Specialist-Onboarding-Presentation.pdf` (static attachments on the Stage 1 yes/continue email; presentation PDF added 2026-06-05). Added 2026-06-02, gotcha #59.
-- `specialist-dd-materials` (**PRIVATE** — only private bucket in the system) — Due Diligence Checklist uploads. Written via signed upload URLs (`actions/onboarding/ddc-upload-url.ts`); read via signed download URLs (`actions/onboarding/ddc-download.ts`). Paths namespaced `<onboarding_id>/<slot>/<rand>_<file>`. Added 2026-06-04, gotcha #69.
+- `specialist-dd-materials` (**PRIVATE**) — Due Diligence Checklist uploads. Written via signed upload URLs (`actions/onboarding/ddc-upload-url.ts`); read via signed download URLs (`actions/onboarding/ddc-download.ts`). Paths namespaced `<onboarding_id>/<slot>/<rand>_<file>`. Added 2026-06-04, gotcha #69.
+- `client-tax-returns` (**PRIVATE**) — sensitive client tax-return vault (added this session). Written/read via signed URLs by `actions/vault/tax-*.ts`: `tax-upload-url.ts` (PUBLIC token), `tax-admin-upload-url.ts`, `tax-list.ts`, `tax-download.ts`, `tax-delete.ts` (AUTH admin; download/delete/admin-upload further gated by `isTaxAdmin` in `constants/tax-access.ts`). Also one of the two client-scoped buckets (see below).
+- `client-documents` (**PRIVATE**) — general client document vault (added this session). Written/read via signed URLs by `actions/vault/gen-*.ts`: `gen-list.ts`, `gen-upload-url.ts`, `gen-download.ts`, `gen-delete.ts` (AUTH, any admin). Also one of the two client-scoped buckets (see below).
+- `map1-assets` (public, added this session) — holds `PIP-FollowUp-Presentation.pdf`.
+
+**Client-scoped vault** — `actions/vault/client-vault-*.ts` (`client-vault-upload-url.ts` / `-list.ts` / `-download.ts` / `-delete.ts`, AUTH `client` role, scoped to `auth.callerClientId`) operate over BOTH private buckets via the `CLIENT_VAULT_BUCKETS` `{sensitive:'client-tax-returns', general:'client-documents'}` map exported from `client-vault-upload-url.ts`.
+
+> **Storage write gotcha (added this session).** Writes from the edge function MUST use the supabase-js storage client (`createClient(...).storage`), NOT a hand-rolled `Authorization: Bearer <SERVICE_ROLE_KEY>` to `/storage/v1/object` — the `sb_secret_…` key is rejected with `403 Invalid Compact JWS`.
 
 ---
 

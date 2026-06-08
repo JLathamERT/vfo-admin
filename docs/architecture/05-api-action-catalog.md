@@ -1,6 +1,6 @@
 # API action catalog (`vfo-admin-api`)
 
-All **251 actions** dispatched by `vfo-admin-api` (3 logins + 248 dispatched; PUBLIC/AUTH split tracked in `SESSION_REFERENCE.md` LIVE STATE). Composition (approximate, historical): MAP1 baseline of 134 + ~28 tax handlers in `actions/tax/` (see [../flows/tax-planning.md](../flows/tax-planning.md)) + 21 Advisor Onboarding handlers in `actions/advisor/` + 14 PIP Meetings handlers (see [../flows/pip-meetings.md](../flows/pip-meetings.md)) + 22 Accountant Onboarding handlers in `actions/accountant/` + **~33 Specialist Onboarding handlers** in `actions/onboarding/` (Stages 1–3 automation + the 2026-06-04 DD Checklist revamp + the **2026-06-05 Stage-4 agreement + monthly-license flow**: `sendagreement`/`ceocountersign`/`licstripecustomer`/`licpaymentemail`/`licloadpayment`/`liccheckout`/`licconfirmation`/`licinvoicereceipt` — all PUBLIC; deployed **v404**; see [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md)). The catalog cites file paths (not line numbers).
+All **274 actions** dispatched by `vfo-admin-api` (4 logins + 270 dispatched; PUBLIC/AUTH split tracked in `SESSION_REFERENCE.md` LIVE STATE). Composition (approximate, historical): MAP1 baseline of 134 + ~28 tax handlers in `actions/tax/` (see [../flows/tax-planning.md](../flows/tax-planning.md)) + 21 Advisor Onboarding handlers in `actions/advisor/` + 14 PIP Meetings handlers (see [../flows/pip-meetings.md](../flows/pip-meetings.md)) + 22 Accountant Onboarding handlers in `actions/accountant/` + **~33 Specialist Onboarding handlers** in `actions/onboarding/` (Stages 1–3 automation + the 2026-06-04 DD Checklist revamp + the **2026-06-05 Stage-4 agreement + monthly-license flow**: `sendagreement`/`ceocountersign`/`licstripecustomer`/`licpaymentemail`/`licloadpayment`/`liccheckout`/`licconfirmation`/`licinvoicereceipt` — all PUBLIC; deployed **v404**; see [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md)). The catalog cites file paths (not line numbers).
 
 Format: action · `file` · tables read / written · chains / external. Table prefix `pipeline_map1` is shortened to `pmap1` and `pipeline_sandbox_config` to `psbx_cfg` for brevity. All file references are relative to `C:\vfo-edge-functions\supabase\functions\vfo-admin-api\`.
 
@@ -28,13 +28,14 @@ Format: action · `file` · tables read / written · chains / external. Table pr
 
 ## Auth (no token required)
 
-These three are dispatched inline in `index.ts` BEFORE webhook detection (pre-webhook ordering preserved verbatim from baseline).
+These four are dispatched inline in `index.ts` BEFORE webhook detection (pre-webhook ordering preserved verbatim from baseline).
 
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
 | `admin_login` | `actions/auth/admin-login.ts` | `allowed_admins` | `admin_sessions` | — |
 | `member_login` | `actions/auth/member-login.ts` | `member_logins`, `member_plugin_settings`, `members` | `admin_sessions` | — |
 | `login` (legacy) | `actions/auth/login.ts` | `allowed_admins` | `admin_sessions` | — |
+| `client_login` | `actions/auth/client-login.ts` | `client_logins` (salted PBKDF2 verify of email+passcode) | `admin_sessions` | The third login type. Returns `{token, name, email, role:'client', client_id}`. |
 
 ---
 
@@ -160,6 +161,16 @@ These six handlers live in `actions/msm/` alongside the existing MSM/priority ha
 
 **Also modified:** `msm_save_priority_task` was extended to accept an optional `notes` field (writes to `priority_progress.notes`), used by the Purchase Additional Services form to roundtrip its decision + pricing data.
 
+### Client portal — tax-upload + setup (PUBLIC token, added this session)
+
+These three sit in `PUBLIC_HANDLERS` (pre-auth). Each is gated by a single-use/long-lived token on the `clients` row.
+
+| Action | File | R | W | Chains / external |
+|---|---|---|---|---|
+| `vault_tax_upload_url` | `actions/vault/tax-upload-url.ts` | `clients` (by `tax_upload_token`) | storage `client-tax-returns` (private bucket) | Mints a signed upload URL into the private `client-tax-returns` bucket. Used by the `/tax-upload` page. |
+| `load_client_setup` | `actions/auth/client-setup-load.ts` | `clients` (by `client_setup_token`) | — | Validates `clients.client_setup_token`; returns `ready`/`already_setup`/`invalid` + client name/email. |
+| `submit_client_setup` | `actions/auth/client-setup-submit.ts` | `clients` (by `client_setup_token`) | `client_logins` (insert, salted passcode), `clients.client_setup_completed_at` | Creates the `client_logins` row + stamps `clients.client_setup_completed_at`. |
+
 ---
 
 ## Authed handlers (`AUTH_HANDLERS` in `router/dispatch.ts`)
@@ -221,6 +232,32 @@ All dispatched AFTER `middleware/auth.ts::authenticate()` validates body.token. 
 | `vault_list` | `actions/vault/list.ts` | storage `member-vault` (list) | — | — |
 | `vault_upload` | `actions/vault/upload.ts` | — | storage `member-vault` (upload) | — |
 | `vault_delete` | `actions/vault/delete.ts` | — | storage `member-vault` (delete) | — |
+
+#### Client vault — admin side (added this session, all in `ADMIN_ONLY_ACTIONS`)
+
+Admin-facing handlers over the private client buckets. The `vault_tax_*` set guards downloads/uploads/deletes behind `isTaxAdmin`; the `vault_gen_*` set is the General Documentation section open to any admin.
+
+| Action | File | R | W | Chains |
+|---|---|---|---|---|
+| `vault_tax_list` | `actions/vault/tax-list.ts` | storage `client-tax-returns` (list by `client_id`) | — | Any admin. Lists tax-return titles for a `client_id` + returns `can_view` (= `isTaxAdmin`). |
+| `vault_tax_download` | `actions/vault/tax-download.ts` | storage `client-tax-returns` | — | `isTaxAdmin` ONLY. 300s signed view URL. |
+| `vault_tax_admin_upload_url` | `actions/vault/tax-admin-upload-url.ts` | storage `client-tax-returns` | — | `isTaxAdmin` ONLY. Signed upload URL. |
+| `vault_tax_delete` | `actions/vault/tax-delete.ts` | — | storage `client-tax-returns` (delete) | `isTaxAdmin` ONLY. Removes a file. |
+| `vault_gen_list` | `actions/vault/gen-list.ts` | storage `client-documents` (list) | — | Any admin. General Documentation section (private `client-documents` bucket). |
+| `vault_gen_upload_url` | `actions/vault/gen-upload-url.ts` | storage `client-documents` | — | Any admin. Signed upload URL. |
+| `vault_gen_download` | `actions/vault/gen-download.ts` | storage `client-documents` | — | Any admin. Signed download URL. |
+| `vault_gen_delete` | `actions/vault/gen-delete.ts` | — | storage `client-documents` (delete) | Any admin. Removes a file. |
+
+#### Client vault — client side (added this session, gated by `CLIENT_ALLOWED_ACTIONS`)
+
+A `client` session may call ONLY these four. Each is scoped to `auth.callerClientId` — never a body `client_id`.
+
+| Action | File | R | W | Chains |
+|---|---|---|---|---|
+| `client_vault_list` | `actions/vault/client-vault-list.ts` | storage `client-tax-returns` + `client-documents` (own files) | — | Lists the caller's own Sensitive + General files. |
+| `client_vault_upload_url` | `actions/vault/client-vault-upload-url.ts` | storage (own) | — | Signed upload URL; `body.section` ∈ {sensitive, general}. |
+| `client_vault_download` | `actions/vault/client-vault-download.ts` | storage (own) | — | 300s signed URL for own file. |
+| `client_vault_delete` | `actions/vault/client-vault-delete.ts` | — | storage (own file delete) | Removes own file. |
 
 ---
 

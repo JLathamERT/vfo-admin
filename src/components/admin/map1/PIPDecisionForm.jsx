@@ -13,6 +13,7 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }
   const existing = existingData || {}
   const isViewMode = !!existingData
 
+  const [memberPayingOnBehalf, setMemberPayingOnBehalf] = useState(existing.memberPayingOnBehalf || 'No')
   const [decision, setDecision] = useState(existing.decision || '')
   const [currentPriorities, setCurrentPriorities] = useState(existing.currentPriorities || [])
   const [currentPriorityInput, setCurrentPriorityInput] = useState('')
@@ -81,7 +82,7 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }
     }
     setSubmitError('')
     setSubmitting(true)
-    const formData = { decision, ccRecipients }
+    const formData = { decision, ccRecipients, memberPayingOnBehalf }
     if (decision === 'Yes') {
       formData.currentPriorities = currentPriorities
       formData.parkedPriorities = parkedPriorities
@@ -130,6 +131,22 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }
 
   return (
     <div style={{ marginLeft: '18px', padding: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', marginTop: '4px', marginBottom: '8px' }}>
+      <div style={{ marginBottom: '16px' }}>
+        <label style={labelStyle}>Is the member paying on behalf of the client?</label>
+        {isViewMode
+          ? <div style={{ ...inputStyle, opacity: 0.6 }}>{memberPayingOnBehalf}</div>
+          : <select value={memberPayingOnBehalf} onChange={e => setMemberPayingOnBehalf(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+              <option value="No">No</option>
+              <option value="Yes">Yes</option>
+            </select>
+        }
+        {memberPayingOnBehalf === 'Yes' && !isViewMode && (
+          <div style={{ fontSize: '12px', color: '#f39c12', marginTop: '6px' }}>
+            The member-paid agreement &amp; emails will be used: addressed to the member, with the client CC'd, and the member signs &amp; pays.
+          </div>
+        )}
+      </div>
+
       <div style={{ marginBottom: '16px' }}>
         <label style={labelStyle}>Client decision</label>
         {isViewMode

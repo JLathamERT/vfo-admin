@@ -37,6 +37,10 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | `/specialist-revshare-final` | [SpecialistRevShareFinalPage](src/pages/SpecialistRevShareFinalPage.jsx) | URL token + `decision` | Specialist response to the final (Exhibit A) rev-share proposal (`decision=Approved\|Questions`) → `automation_SPECIALIST_revsharefinal`. Added 2026-06-04. *(Replaced the removed `/specialist-revshare-decide`.)* |
 | `/specialist-pay` | [SpecialistPayPage](src/pages/SpecialistPayPage.jsx) | URL token + `type` **or `kind`** | `&type=core\|max` → Stage 3 background-check ($350/$950 one-time) via `automation_SPECIALIST_bgloadpayment`/`bgcheckout`. **`&kind=license`** (2026-06-05) → Stage 4 **$99/mo VFO License subscription** via `automation_SPECIALIST_licloadpayment`/`liccheckout` (`mode=subscription`). Same ACH/Card picker. |
 | `/specialist-questions` | [SpecialistQuestionsPage](src/pages/SpecialistQuestionsPage.jsx) | URL token | Specialist "I have further questions" one-click → `automation_SPECIALIST_questionsrequest` (non-dismissible Tracy notif). Added 2026-06-03. |
+| `/tax-upload` | [TaxUploadPage](src/pages/TaxUploadPage.jsx) | URL token | PUBLIC client page — drop tax returns. Token from `clients.tax_upload_token`; calls `vault_tax_upload_url` and PUTs files via signed upload URL into the private `client-tax-returns` bucket. |
+| `/client/login` | [ClientLogin](src/pages/ClientLogin.jsx) | none | New CLIENT login — calls `client_login`; sets session `{role:'client', client_id}`. |
+| `/client-setup` | [ClientSetupPage](src/pages/ClientSetupPage.jsx) | URL token | PUBLIC client page — `load_client_setup` then `submit_client_setup` (set passcode → creates `client_logins` row). |
+| `/client` | [ClientPortal](src/pages/ClientPortal.jsx) | client session | THIRD portal (after admin/member); role-guards `session.role==='client'`. Two tabs: Showroom (placeholder stub) + Vault. |
 | `*` | redirect to `/` | — | Catch-all |
 
 ## Top-level shells
@@ -116,6 +120,15 @@ The portal itself only fires `load_data` (line 85). All deeper actions are fired
 
 > **Member-side `automation_*` reach:** members hit only one automation action — `member_load_pipeline` (read-only), invoked from `MemberMSMTracking.jsx:484`. They do not trigger `automation_PIP1_*`, `_PCADMIN_*`, or `_CONTRACT_*` directly. Those are admin-only (gated server-side).
 
+### `ClientPortal.jsx` ([src/pages/ClientPortal.jsx](src/pages/ClientPortal.jsx))
+
+The **third portal** (after admin/member), reached via `/client`. Role-guards `session.role==='client'`. Two tabs only:
+
+| Tab | Mounts | Notes |
+|---|---|---|
+| Showroom | inline placeholder stub | not yet built |
+| Vault | [ClientVault](src/components/client/ClientVault.jsx) | client-scoped document vault — two sections, **Sensitive Documents** (→ `client-tax-returns` bucket) and **General Documentation** (→ `client-documents` bucket); calls `client_vault_list` / `client_vault_upload_url` / `client_vault_download` / `client_vault_delete` (all scoped server-side to the caller's own client) |
+
 ### `ClientDetail.jsx` ([src/pages/ClientDetail.jsx](src/pages/ClientDetail.jsx)) — 384 lines
 
 A **dual-mode** page rendered by both `/admin/client/:clientId` and `/member/client/:clientId`. The `isMember = location.pathname.startsWith('/member')` flag at [line 55](src/pages/ClientDetail.jsx) cascades through the entire tree as `readOnly={isMember}`.
@@ -128,7 +141,7 @@ A **dual-mode** page rendered by both `/admin/client/:clientId` and `/member/cli
 |  | • Partnership Fast Track → "PFT Engagement Process" only |
 |  | • VFO Tax Planning → "Tax Priorities" only |
 |  | • else (Holistic Planning) → MAP 1 / Regular Priorities / Tax Priorities / **PIP Meetings** (4 tabs) — see [../flows/pip-meetings.md](../flows/pip-meetings.md) |
-| Profile dropdown | admin: dropdown with Profile + Edit Profile; member: Profile only (line 130-132) |
+| Profile dropdown | admin: `ClientTabDropdown` with Profile + Edit Profile + **Vault** (`{key:'vault',label:'Vault'}`); member: Profile only |
 | Mutations from ClientHome | `update_client_note`, `delete_client_note`, `msm_update_client` (status, PF assignment) (lines 169, 177, 185, 198) |
 | Mutations from ClientDetails | `msm_update_client` (name/email/phone), `msm_add_client_contact`, `msm_delete_client_contact` (lines 306, 316, 325) |
 
@@ -142,17 +155,20 @@ A **dual-mode** page rendered by both `/admin/client/:clientId` and `/member/cli
 | [PFTEngagementTrack](src/components/admin/pft/PFTEngagementTrack.jsx) | `activeTab === 'pft'` | `msm_load_client_track`, `msm_load_client_progress`, `msm_save_client_task` |
 | [RegularPrioritiesTab](src/components/admin/regular/RegularPrioritiesTab.jsx) | `activeTab === 'regular'` | `msm_load_priority_*`, `msm_save_priority_task` |
 | [TaxPrioritiesTab](src/components/admin/tax/TaxPrioritiesTab.jsx) | `activeTab === 'tax'` | `tax_load_*`, `tax_save_task`, `tax_add_specialist` |
+| [ClientVaultTab](src/components/admin/ClientVaultTab.jsx) | `activeTab === 'vault' && !isMember` (admin-only) | admin Vault tab — two sections: **Sensitive** (`vault_tax_list`/`vault_tax_download`/`vault_tax_admin_upload_url`/`vault_tax_delete`; all admins see titles, only the tax allowlist — Jake/Tim/Tray — get working View/Add/Delete via the `can_view` flag) + **General** (`vault_gen_*`; all admins can view/add/delete) |
 
 ## MAP1 / contract / payment UI flow
 
 The MAP1 contract-and-payment chain is the most complex frontend flow. It is **driven from inside `ClientDetail`'s MAP1 tab** ([ClientTrackViewV2.jsx](src/components/admin/map1/ClientTrackViewV2.jsx) — 42KB). [AutomationPanel](src/components/admin/AutomationPanel.jsx) is a read-only observer of pipeline rows; its only write is the sandbox/live-mode toggle in the panel header.
+
+In `ClientTrackViewV2.jsx`, the "Payment link sent" step is now driven by `pay1_email_sent_at`/`pay1_status` (was hardcoded `false` in the Undecided→Yes block). The two revenue-share steps render a green **N/A** pill when `member_share=$0` (new `isZeroShare` helper + an `na` param on the `autoStep` renderer).
 
 ### Where UI mutations happen
 
 | Step in the chain | UI surface | Component | callApi action |
 |---|---|---|---|
 | **C81 — PIP 1 reconfirmation** | MAP1 tab, Phase 1 task with `task_code` matching the c81 dropdown | [ClientTrackViewV2.jsx:85](src/components/admin/map1/ClientTrackViewV2.jsx) | `automation_PIP1_reconfirmationemail` |
-| **C13 — PIP follow-up decision** | Inline form rendered for the c13 task | [PIPDecisionForm.jsx:107](src/components/admin/map1/PIPDecisionForm.jsx) | `automation_PIPFU_decision` (preceded by `msm_save_client_task` to record the c13 task as completed) |
+| **C13 — PIP follow-up decision** | Inline form rendered for the c13 task | [PIPDecisionForm.jsx:107](src/components/admin/map1/PIPDecisionForm.jsx) | `automation_PIPFU_decision` (preceded by `msm_save_client_task` to record the c13 task as completed). Form now opens with a FIRST question "Is the member paying on behalf of the client?" (Yes/No, default **No**), submitted as `form_data.memberPayingOnBehalf`. |
 | **C15 — PCADMIN final decision** | The client clicks a button in their email, lands on `/decide` | [DecidePage.jsx:33](src/pages/DecidePage.jsx) | `automation_PCADMIN_finaldecision` (raw `fetch`, no session — token-authed) |
 | **PCADMIN pricing form** | Inline form on the c-task whose status flips to a "needs pricing" state | [PFPricingForm.jsx:19](src/components/admin/map1/PFPricingForm.jsx) | `automation_PCADMIN_pricing` |
 | **PCADMIN extra-meeting outcome** | Inline form for the extra-meeting follow-up | [PFExtraMeetingForm.jsx:21](src/components/admin/map1/PFExtraMeetingForm.jsx) | `automation_PCADMIN_extrameeting` |

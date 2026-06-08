@@ -51,6 +51,7 @@ The single most important automation table. One row per client journey through M
 | Column | Type | Notes |
 |---|---|---|
 | `c13_decision` | text | Status field. |
+| `member_paying_on_behalf` | boolean | default `false`. Set from the PIP Follow-Up decision form's "Is the member paying on behalf of the client?" question. When `true`, the MAP 1 contract/payment chain swaps to the member as signer + payer and uses the `payer_type='member'` agreement templates. |
 | `current_priorities` / `parked_priorities` / `meeting_notes` | text | Free-form |
 | `c14_email_sent` | text | default `'No'`. Flipped to `'Yes'` by `automation_PIPFU_decision` after drafting the Undecided/No email. |
 | `c14_email_sent_at` | timestamptz | **Reminder-ladder timer base.** Written `now()` by `automation_PIPFU_decision` **only on the Undecided branch** (not No). Drives the 48h client reminder + 96h PF notification fired by `automation_CONTRACT_revshare_sweep`. |
