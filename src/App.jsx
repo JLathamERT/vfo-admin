@@ -23,6 +23,10 @@ import SpecialistSifPage from './pages/SpecialistSifPage'
 import SpecialistPayPage from './pages/SpecialistPayPage'
 import SpecialistQuestionsPage from './pages/SpecialistQuestionsPage'
 import SpecialistDdcPage from './pages/SpecialistDdcPage'
+import TaxUploadPage from './pages/TaxUploadPage'
+import ClientLogin from './pages/ClientLogin'
+import ClientSetupPage from './pages/ClientSetupPage'
+import ClientPortal from './pages/ClientPortal'
 import SpecialistDdcHelpPage from './pages/SpecialistDdcHelpPage'
 import SpecialistRevShareFinalPage from './pages/SpecialistRevShareFinalPage'
 
@@ -54,6 +58,10 @@ export default function App() {
       <Route path="/specialist-pay" element={<SpecialistPayPage />} />
       <Route path="/specialist-questions" element={<SpecialistQuestionsPage />} />
       <Route path="/specialist-ddc" element={<SpecialistDdcPage />} />
+      <Route path="/tax-upload" element={<TaxUploadPage />} />
+      <Route path="/client/login" element={<ClientLogin />} />
+      <Route path="/client-setup" element={<ClientSetupPage />} />
+      <Route path="/client" element={<ClientPortal />} />
       <Route path="/specialist-ddc-help" element={<SpecialistDdcHelpPage />} />
       <Route path="/specialist-revshare-final" element={<SpecialistRevShareFinalPage />} />
       <Route path="*" element={<Navigate to="/" />} />
