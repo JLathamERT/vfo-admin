@@ -175,10 +175,32 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
   const statusColors = { Completed: '#27ae60', Confirmed: '#27ae60', Yes: '#27ae60', 'Call arranged': '#27ae60', 'PIP 1 scheduled': '#27ae60', 'Follow-up scheduled': '#27ae60', 'PIP Follow-up confirmed': '#27ae60', 'Send confirmation email': '#27ae60', 'Sent confirmation email': '#27ae60', 'Regular priorities tab enabled': '#27ae60', 'Tax priorities tab enabled': '#27ae60', 'Completed + N/A': '#27ae60', 'Completed + Risk 1': '#27ae60', 'Completed + Risk 2': '#27ae60', 'Completed + Risk 3': '#27ae60', 'Completed + Risk 4': '#27ae60', 'Completed + Risk 5': '#27ae60', 'Lite': '#27ae60', 'Core': '#27ae60', 'Max': '#27ae60', 'In Progress': '#f39c12', Undecided: '#f39c12', 'No response': '#e74c3c', No: '#e74c3c', 'PIP Follow-up declined': '#e74c3c', 'Send declined email': '#e74c3c', 'Meeting declined': '#e74c3c', 'No show': '#e74c3c', 'Completed - Yes': '#27ae60', 'Completed - No': '#e74c3c', 'Completed - Undecided': '#f39c12' }
 
   function getPhaseState(phase) {
+    // PC Admin completion lives on pipeline_map1 (the c15 decision + the
+    // payment/revshare cascade), NOT on program_client_tasks progress — its
+    // non-auto tasks never get a status, so the generic logic below would leave
+    // the header grey forever. Derive its state from the pipeline row instead.
+    if (phase.name === 'MAP 1 - PC Admin') return pcAdminPhaseState()
     const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
     if (tasks.length === 0) return 'done'
     if (tasks.every(t => progress[t.id]?.status)) return 'done'
     if (tasks.some(t => progress[t.id]?.status)) return 'active'
+    return 'pending'
+  }
+
+  function pcAdminPhaseState() {
+    const pd = pipelineData
+    if (!pd) return 'pending'
+    const pipTask = phases.find(ph => ph.name === 'MAP 1 - PIP Follow Up')?.program_client_tasks?.find(t => t.name === 'PIP Follow Up decision')
+    const pipStatus = pipTask ? (progress[pipTask.id]?.status || '') : ''
+    if (!pipStatus.startsWith('Completed')) return 'pending'   // upstream not done yet
+    const pipDecision = pipStatus.replace('Completed - ', '')
+    const finalDec = pd.c15_final_decision
+    if (pipDecision === 'No' || finalDec === 'No') return 'done'   // declined — terminal
+    const zeroShare = parseFloat(String(pd.member_share ?? '').replace(/[$,]/g, '')) === 0
+    const revDone = ['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd.rec1_rev_paid) || zeroShare
+    const memberNotified = pd.c24_email_sent === true || zeroShare
+    if (revDone && memberNotified) return 'done'                  // Yes path fully complete
+    if (finalDec || pipDecision === 'Yes' || pd.c16_sent === 'Yes') return 'active'
     return 'pending'
   }
 
@@ -195,7 +217,11 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
 
   const totalTasks = phases.reduce((s, p) => s + (p.program_client_tasks || []).filter(t => t.status_options !== 'auto').length, 0)
   const completedTasks = phases.reduce((s, phase) => {
-    return s + (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && progress[t.id]?.status && progress[t.id].status !== '').length
+    const nonAuto = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
+    // PC Admin's non-auto tasks are pipeline-driven (no progress status), so
+    // count them complete when the phase resolves done (see pcAdminPhaseState).
+    if (phase.name === 'MAP 1 - PC Admin') return s + (getPhaseState(phase) === 'done' ? nonAuto.length : 0)
+    return s + nonAuto.filter(t => progress[t.id]?.status && progress[t.id].status !== '').length
   }, 0)
 
   return (
