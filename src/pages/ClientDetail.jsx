@@ -84,9 +84,11 @@ export default function ClientDetail() {
   async function loadData() {
     setLoading(true)
     try {
+      const qp = new URLSearchParams(window.location.search)
       const passedEnrollmentId = location.state?.enrollment_id || null
+      const passedProgramId = location.state?.program_id || (qp.get('program') ? parseInt(qp.get('program')) : null)
       const [data, expertsData] = await Promise.all([
-        callApi('msm_load_client_home', { client_id: parseInt(clientId), enrollment_id: passedEnrollmentId }),
+        callApi('msm_load_client_home', { client_id: parseInt(clientId), enrollment_id: passedEnrollmentId, program_id: passedProgramId }),
         loadCachedData(),
       ])
       setClient(data.client)

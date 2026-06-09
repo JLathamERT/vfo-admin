@@ -73,6 +73,8 @@ Each arrow is either:
 
 **Handler:** [`automation_TAX_decision`](../../supabase/functions/vfo-admin-api/actions/tax/decision.ts) — AUTH handler. Takes `tax_plan_id`, `decision` (Yes/Undecided/No), `form_data` (JSON).
 
+> **Member signing & paying on behalf** (added this session, mirrors MAP 1 PIP-Follow-Up). The `TaxDecisionForm` carries a Yes/No "is the member signing & paying on the client's behalf?" question. When Yes, `automation_TAX_decision` writes `client_tax_plans.member_paying_on_behalf=true` (default false), and the flag **carries through Tax 3 → Tax 4 → Tax 5**. When true, every downstream email flips **To member / Cc client**, uses the **member email-template variant** (template_name + the suffix ` (member signing/paying on clients behalf)` — 22 member rows, `email_templates` ids 126–147), the **member is the BoldSign signer 1 and the Stripe customer/payer**, and invoice/receipt **"Bill To" = member**. 14 tax handlers branch on the flag: decision, send-agreement, stripe-customer, payment-email, confirmation-email, invoice-receipt, paidbycheck, final-decision, extra-meeting, postreview-decision, refund, implement-decision, implementation-receipt, charge-implementation; plus `revshare-sweep.ts` `sendReminderEmailUnified` (all 5 reminder types flip to the member template). **NOT changed:** `ceo-countersign` (always Anton), `revshare` (pays the member their share regardless of who paid), and the Setup-phase `deposit-refund` (the deposit predates the Tax 3 decision → always client-paid).
+
 **What it does (branches by decision):**
 
 ### Decision = `Yes`
@@ -83,7 +85,7 @@ Each arrow is either:
 ### Decision = `Undecided`
 
 1. UPDATEs plan with: `tax_decision='Undecided'`, `potential_tax_savings`, `initial_retainer_quoted`, `tax_token` (32-byte hex generated if not already present), `presentation_link`, `meeting_notes`, `extra_cc`, `sandbox`.
-2. Fetches the static **Tax Planning Engagement Agreement PDF** from Supabase Storage public URL `https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/tax-agreements/tax-planning.pdf` (no auth required).
+2. Fetches the static **Tax Planning Engagement Agreement PDF** from Supabase Storage public URL `https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/tax-agreements/tax-planning.pdf` (no auth required). When `member_paying_on_behalf=true` it instead uses the member-paid variant `tax-agreements/tax-planning-member.pdf` (not yet uploaded by the user → code falls back to `tax-planning.pdf` if missing).
 3. Loads `email_templates` row `'TAX_decision_undecided'`.
 4. Builds `[BUTTONS]` HTML — 3 buttons (Yes / No / Extra Meeting) pointing to `https://jlathamert.github.io/vfo-portal/tax-decide?token=<tax_token>&decision=<choice>`. Same green/red/blue styling as MAP1's `[BUTTONS]`.
 5. Substitutes `[Client Name]`, `[Client First]`, `[Meeting Attendees]` (= "[PF Name] and [Member Name]"), `[Member Name]`, `[PF Name]`, `[TAX_SAVINGS]`, `[INITIAL_RETAINER]`, `[BUTTONS]`, `[PRESENTATION_LINK]`.
@@ -169,7 +171,7 @@ Each arrow is either:
 
 **What it does:**
 1. Validates `retainer_amount` is set and `agreement_sent !== 'Yes'`.
-2. Loads `agreement_templates` row `(pipeline='TAX', service_level='Tax Planning', payment_plan='Single', active=true)`.
+2. Loads `agreement_templates` row `(pipeline='TAX', service_level='Tax Planning', payment_plan='Single', active=true)` **plus `.eq("payer_type", memberPays ? "member" : "client")`** — REQUIRED now that two TAX rows exist (client id 8 + member id 20). The member row (id 20, BoldSign template `3e575f15-...`) has a `<!--MC-->...<!--/MC-->` member-contribution block that `send-agreement.ts` **strips at render** so the PDF matches the member field_map coordinates (captured from the stripped PDF). When `member_paying_on_behalf=true`, the **member is BoldSign signer 1** (CEO Anton still signer 2).
 3. Renders HTML body with placeholder substitutions: `[CLIENT_NAME]`, `[CLIENT_EMAIL]`, `[TAX_RISK_MINDSET]`, `[TOTAL_FEE]`, `[RETAINER_PAYMENT]`, `[IMPLEMENTATION_FEE]`.
 4. POSTs to `https://api.html2pdf.app/v1/generate` to produce PDF.
 5. POSTs to `https://api.boldsign.com/v1/document/send` with `EnableSigningOrder=true`, `DisableEmails=true`, two signers (client first, CEO Anton second). Hardcoded `BrandId=f6b2e092-73a4-438e-b786-ebd20e472732`. Form fields built from `agreement_templates.field_map` (7 fields: addr+phone on page 1, ceoSig+ceoDate+clientSig+printName+clientDate on page 3 — coordinates user-supplied).
@@ -376,27 +378,30 @@ Visible when `payment_method_type='check'` AND `retainer_status='check_pending'`
 
 ---
 
-## Step 12½ — Tax 4 Tax Plan Review meeting date + daily nudge to Tim
+## Step 12½ — Tax 4 High Level Meeting Confirmation Email + in-app reminder to Tim & Tracy
 
-**Trigger:** Admin records the date scheduled for the Tax 4 high-level Tax Plan Review meeting via the "Date Scheduled for High Level Meeting" task at the top of the `Tax 4 - Tax Plan Review` phase. Renders as a date input (status_options `tax_meeting_date`); the task lives in `program_client_tasks` with `task_order=0` (above `Detailed tax plan presentation`) for both Holistic Planning (phase 21) and standalone Tax Planning (phase 29).
+**Trigger:** Admin opens the **"High Level Meeting Confirmation Email"** task at the top of the `Tax 4 - Tax Plan Review` phase (replaces the old "Date Scheduled for High Level Meeting" date-picker task). The task lives in `program_client_tasks` ids **153 + 154** (both tax programs — Holistic Planning phase 21 + standalone Tax Planning phase 29) with `task_order=0` (above `Detailed tax plan presentation`); `status_options` is now `tax_hlm_confirm` (was `tax_meeting_date`). The task renders a single green **"Send email (with date)"** button plus date (required) / time / timezone pickers.
 
-**Handler:** [`automation_TAX_save_meeting_date`](../../supabase/functions/vfo-admin-api/actions/tax/save-meeting-date.ts) — AUTH admin-only. Takes `tax_plan_id` + `meeting_date` (YYYY-MM-DD or null). Writes `client_tax_plans.tax4_meeting_date`. Clearing the date also clears `client_tax_plans.tax4_meeting_reminder_last_sent_at`.
+**Handler:** [`automation_TAX_highlevelmeeting_confirm`](../../supabase/functions/vfo-admin-api/actions/tax/highlevel-meeting-confirm.ts) — AUTH admin-only (registered in `router/dispatch.ts`). Takes `tax_plan_id` + `meeting_date` (required) + optional `meeting_time` / `meeting_timezone`.
 
-**Daily nudge:** the `tax-revshare-sweep-daily` cron (02:30 UTC) sweeps rows where `tax4_meeting_date IS NOT NULL` AND `post_review_decision IS NULL` AND `tax4_meeting_date < current_date`. For each candidate not yet nudged today (`tax4_meeting_reminder_last_sent_at < date_trunc('day', now())`), drafts a Gmail to **tgacsy@vfo-services.com** (CC **tnmiller@vfo-services.com**; sandbox redirects To and drops CC) with the `TAX_meeting_nudge|Yes` template — substitutions: `[Client Name]`, `[MEETING_DATE]`, `[CLIENT_LINK]` (= `https://jlathamert.github.io/vfo-portal/admin/client/<id>?tab=tax`). Updates `tax4_meeting_reminder_last_sent_at=now()`. One draft per UTC day per row.
+**What it does:**
+1. Loads the new template `TAX_highlevelmeeting_confirm|Yes` (id 148, **CLIENT-ONLY** — no member variant; body references "our Advanced Tax Planner, Tim Gacsy").
+2. Drafts a Gmail confirmation to the client.
+3. Records `client_tax_plans.tax4_meeting_date` + new columns `tax4_meeting_time` / `tax4_meeting_timezone` + `tax4_meeting_confirm_email_sent_at`.
+4. **Nulls `tax4_meeting_reminder_last_sent_at`** so the in-app reminder (below) fires fresh.
 
-**Stop conditions:**
-- Admin sets `post_review_decision` (Tax 4 Client decision 1: `Continue - Revenue Share` / `Undecided` / `Stop - Refund`) — sweep filter excludes the row → nudges stop
-- Admin clears `tax4_meeting_date` (re-saves as blank) → sweep filter excludes
-- No automatic cap or escalation — by design, daily nudges continue indefinitely until one of the stop conditions
+> The old `automation_TAX_save_meeting_date` handler is now orphaned (its frontend caller was removed) but still registered. The template `TAX_meeting_nudge|Yes` is an unused orphan left in the DB.
 
-**Tables read:** `client_tax_plans`, `clients`, `pipeline_sandbox_config`, `email_templates`(`TAX_meeting_nudge\|Yes`).
-**Tables written:** `client_tax_plans` (`tax4_meeting_date` via save handler; `tax4_meeting_reminder_last_sent_at` via sweep).
+**In-app reminder (replaced the old daily Gmail-to-Tim nudge):** the `tax-revshare-sweep-daily` cron (02:30 UTC) now raises **ONE persistent action-required in-app notification** (`dismissible:false`) — title `Client decision 1 needed — <client>` — to BOTH **tgacsy@elitert.com** (Tim) and **tnmiller@elitert.com** (Tracy), when `tax4_meeting_date < today` AND `post_review_decision IS NULL`. Fired once per plan, guarded by `tax4_meeting_reminder_last_sent_at`. (The old `sendMeetingNudgeEmail` function that drafted a daily Gmail to Tim CC Tracy is **DELETED**.)
+
+**Cleared by:** `actions/tax/postreview-decision.ts` clears both notifications (`.ilike("title","Client decision 1 needed%")`) when any Tax 4 `Client decision 1` is recorded.
+
+**Tables read:** `client_tax_plans`, `clients`, `members`, `pipeline_sandbox_config`, `email_templates`(`TAX_highlevelmeeting_confirm\|Yes`).
+**Tables written:** `client_tax_plans` (`tax4_meeting_date`, `tax4_meeting_time`, `tax4_meeting_timezone`, `tax4_meeting_confirm_email_sent_at`, `tax4_meeting_reminder_last_sent_at` nulled via handler; reminder timestamp set via sweep), `notifications` (sweep insert; postreview-decision clear).
 **External calls:** Google OAuth + Gmail drafts API.
-**Chains:** none — the nudge is informational. Tim clicks the Tax 4 `Client decision 1` dropdown to advance to Step 13.
+**Chains:** none. Tim/Tracy click the Tax 4 `Client decision 1` dropdown (which clears the notification) to advance to Step 13.
 
-> **Why a daily Gmail draft (not auto-send)?** Matches every other tax email in the system — admin reviews drafts in Gmail before sending. Acceptable trade-off: Tim sees the draft folder fill up; he sends when he's ready to act on it.
-
-> **Audit-date UX**: all tax-tab task date inputs (other than this one) were converted to read-only `Mar 15, 2026`-style small text spans during this change. The completed_date still auto-populates from `tax_save_task` on first save; the inline back-date input was removed.
+> **Audit-date UX**: all tax-tab task date inputs were converted to read-only `Mar 15, 2026`-style small text spans during the earlier redesign. The completed_date still auto-populates from `tax_save_task` on first save; the inline back-date input was removed.
 
 > **Login redirect bonus**: as part of this work, `AdminLogin.jsx` now reads a `?next=` query param post-login and navigates there instead of `/admin`. `ClientDetail.jsx` and `AdminPortal.jsx` set `?next=` when bouncing unauthenticated users to login. So clicking the email link from a fresh browser session → login → land directly on the client Tax tab (no manual navigation needed).
 
@@ -488,6 +493,8 @@ Revshare + refund handler details follow below. The `tax-revshare-sweep-daily` c
 
 > **Idempotency:** if all rows resolved → `swept: 0`, no candidates enumerated, no downstream calls. Verified: re-running the sweep with a Completed plan returns `{ok:true, swept:0, fired:[]}` (no Stripe / Sheets / Gmail traffic).
 
+> **Notification program-context fix (this session).** All 12 tax notification `link`s now append `&program=${plan.program_id}` (in final-decision, postreview-client-decision, implement-final-decision, charge-implementation, deposit-refund, and revshare-sweep — 3 PF notifications + the meeting-nudge clientLink). Reason: a client enrolled in BOTH VFO Holistic (program 1) and VFO Tax Planning (program 4) previously opened their DEFAULT enrollment (Holistic) on `?tab=tax` instead of the program the notification was about. `src/pages/ClientDetail.jsx` now reads `?program=` from the URL and passes `program_id` to `msm_load_client_home`; `actions/msm/load-client-home.ts` accepts a `program_id` param and resolves the matching enrollment (via `client_enrollments` ⋈ `member_enrollments`) before falling back to `clients.enrollment_id`. MAP1/PFT/Advisor/Accountant notifications are unaffected (single default program).
+
 ---
 
 ## Step 14 — Implementation flow (Tax 5b — BUILT)
@@ -507,6 +514,8 @@ Mirrors Tax 4's 3-option pattern. Admin picks `implementation_decision` on the T
 **Webhook chain on charge success** → `automation_TAX_confirmationemail` (`payment_kind='implementation'`, single `|implementation` template) + `automation_TAX_implementation_receipt` (REC PDF + Gmail draft, no invoice — design decision). Implementation revshare is picked up by the next `tax-revshare-sweep-daily` tick once `implementation_receipt_number` is set.
 
 **Failure mode for zero implementations:** if client picks Decline OR Not Implementing, no charge ever fires. No automatic refund — client absorbs the retainer cost (different rule from the Tax 4 Stop-Refund branch).
+
+> **Template wording fix (this session, 3 LIVE client templates):** `TAX_implementdecision|Undecided` + `TAX_postreview|Undecided` dropped the false "within 48 hours" deadline (the Undecided paths have no auto-lock — only the 24h Proceed/Continue paths do); `TAX_implementdecision|Reminder` dropped a vestigial "if you can no longer find the original email" line.
 
 ---
 

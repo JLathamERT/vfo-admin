@@ -4,6 +4,8 @@ The portal's bell-icon notification feed. A small, simple flow: handlers insert 
 
 > Pipelines that emit notifications: `MAP 1`, `TAX`, `ADVISOR_ONBOARDING`, `ACCOUNTANT_ONBOARDING`, `PIP`. Each pipeline uses a distinct `link` value pointing back at the relevant admin section so a click lands the admin on the right page (e.g. accountant 96h PF notifications link to `/admin?tab=accountants&section=accountant_onboarding`).
 
+> **TAX notification links carry program context** (added this session). All 12 tax notification `link`s append `&program=${plan.program_id}` to the `/admin/client/<id>?tab=tax` deep-link. Without it, a client enrolled in BOTH VFO Holistic (program 1) and VFO Tax Planning (program 4) opened their DEFAULT enrollment (Holistic) instead of the program the notification was about. `ClientDetail.jsx` reads `?program=` and passes it to `msm_load_client_home`, which resolves the matching enrollment before falling back to `clients.enrollment_id`. MAP1/PFT/Advisor/Accountant links are unaffected (single default program).
+
 ## Data model
 
 Single table: [`notifications`](../tables/notifications.md). Key columns:
@@ -63,7 +65,21 @@ The only handler in the codebase that inserts notifications is `automation_PCADM
   link:      "/admin/client/<id>?tab=map1"
   ```
 
-No other handler inserts notifications. Status changes elsewhere in the system (CIQ, MSM, contracts) do **not** generate notifications.
+Beyond this MAP1 example, the TAX / Advisor / Accountant / PFT pipelines also insert notifications (`recipient='admin'` plus, for the Tax 4 reminder below, specific staff emails). Status changes elsewhere in the system (CIQ, MSM, contracts) do **not** generate notifications.
+
+### Tax 4 "Client decision 1 needed" reminder (action-required, in-app)
+
+Replaced the old daily Gmail-to-Tim nudge. The `tax-revshare-sweep-daily` cron (02:30 UTC) raises **ONE persistent action-required in-app notification** (`dismissible:false`) per plan to BOTH `tgacsy@elitert.com` (Tim) and `tnmiller@elitert.com` (Tracy) when `tax4_meeting_date < today` AND `post_review_decision IS NULL`:
+
+```
+recipient: 'tgacsy@elitert.com' / 'tnmiller@elitert.com'   (two rows)
+pipeline:  'TAX'
+title:     "Client decision 1 needed — <client>"
+link:      "/admin/client/<id>?tab=tax&program=<program_id>"
+dismissible: false
+```
+
+Fired once per plan (guarded by `client_tax_plans.tax4_meeting_reminder_last_sent_at`). **Cleared** by `actions/tax/postreview-decision.ts` (`.ilike("title","Client decision 1 needed%")`) when any Tax 4 `Client decision 1` is recorded. This is the only known insertion that targets non-`admin` recipient emails (so Tim/Tracy see it in their own bell).
 
 ## Step 3 — Mark read (single)
 

@@ -76,6 +76,8 @@ Each member enrolls into a program (`member_enrollments`), then training-progres
 
 **Referenced by:** `client_progress.task_id`, `client_tax_progress.task_id`, `priority_progress.task_id` — all `NO ACTION`.
 
+> **Tax 4 task this session:** ids **153 + 154** (the Tax 4 `task_order=0` task in both tax programs) were renamed to **"High Level Meeting Confirmation Email"** and their `status_options` changed `tax_meeting_date` → **`tax_hlm_confirm`** (date-picker task replaced by the `automation_TAX_highlevelmeeting_confirm` send-email button).
+
 ---
 
 ## `member_enrollments`
