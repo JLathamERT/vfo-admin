@@ -36,7 +36,7 @@ export default function ClientPortal() {
       <div style={{ maxWidth: '880px', margin: '0 auto', padding: '28px 24px' }}>
         <div style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px' }}>
           <button style={tabBtn(tab === 'showroom')} onClick={() => setTab('showroom')}>Showroom</button>
-          <button style={tabBtn(tab === 'vault')} onClick={() => setTab('vault')}>Vault</button>
+          <button style={tabBtn(tab === 'vault')} onClick={() => setTab('vault')}>The Vault</button>
         </div>
 
         {tab === 'showroom' && (

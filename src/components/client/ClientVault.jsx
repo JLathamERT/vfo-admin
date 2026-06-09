@@ -4,7 +4,7 @@ import { callApi } from '../../lib/api'
 const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/*,application/pdf'
 
 const SECTIONS = [
-  { key: 'sensitive', title: 'Sensitive Documents', hint: 'Tax returns and other confidential documents. Stored in a private, encrypted vault.' },
+  { key: 'sensitive', title: 'Tax Documents', hint: 'Tax returns and other confidential documents. Stored in a private, encrypted vault.' },
   { key: 'general', title: 'General Documentation', hint: 'Any other documents you would like to share with your VFO team.' },
 ]
 

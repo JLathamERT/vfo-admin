@@ -7,6 +7,73 @@ import PIPDecisionForm from './PIPDecisionForm'
 import MeetingCompleteButton from './MeetingCompleteButton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 
+// PIP meeting confirmation step (PIP 1 / PIP Follow-up) — 3-button post-meeting
+// decision mirroring Partnership Fast Track Meeting 1: "with date" (date/time/tz),
+// "date not confirmed", and "declined". Drafts the email via the backend, then
+// records the task status. `meeting` is 'pip1' or 'followup'. Self-contained so
+// its date/time inputs keep state across parent re-renders.
+function PipConfirmStep({ clientId, task, p, meeting, readOnly, onDone }) {
+  const [showDate, setShowDate] = useState(false)
+  const [date, setDate] = useState('')
+  const [time, setTime] = useState('')
+  const [tz, setTz] = useState('ET')
+  const [pending, setPending] = useState(null)
+  const isDone = !!p.status
+  const statusColor = isDone ? '#27ae60' : '#8bacc8'
+  const inputStyle = { padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '12px', fontFamily: 'DM Sans, sans-serif' }
+  const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }
+  const redBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }
+  const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#8bacc8' }
+  function fmtDate(d) { if (!d) return ''; const dt = new Date(d + 'T00:00:00'); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }
+
+  async function fire(decision, d, t, z) {
+    setPending(decision)
+    try {
+      await callApi('automation_PIP1_reconfirmationemail', { client_id: clientId, decision, meeting, meeting_date: d || null, meeting_time: t || null, meeting_tz: z || null })
+      const status = decision === 'declined' ? 'Sent declined email' : decision === 'confirm_no_date' ? 'Email sent - date not arranged' : 'Confirmation email sent'
+      const today = new Date().toISOString().split('T')[0]
+      const notes = decision === 'confirm_date' ? [d, t, z].filter(Boolean).join(' ') : null
+      await callApi('msm_save_client_task', { client_id: clientId, task_id: task.id, status, completed_date: today, completed_by: null, notes })
+      onDone(task.id, status, today)
+      setShowDate(false); setDate(''); setTime('')
+    } catch (err) { console.error('PIP confirm error:', err) }
+    finally { setPending(null) }
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'rgba(255,255,255,0.2)'}` }} />
+      <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
+      {isDone
+        ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
+        : readOnly
+          ? <span style={{ fontSize: '11px', color: '#5a8ab5' }}>Not started</span>
+          : showDate
+            ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+                <input type="time" value={time} onChange={e => setTime(e.target.value)} style={inputStyle} />
+                <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+                  <option value="ET">Eastern (ET)</option>
+                  <option value="CT">Central (CT)</option>
+                  <option value="MT">Mountain (MT)</option>
+                  <option value="PT">Pacific (PT)</option>
+                  <option value="AKT">Alaska (AKT)</option>
+                  <option value="HT">Hawaii (HT)</option>
+                </select>
+                <button onClick={() => date && fire('confirm_date', date, time, tz)} disabled={!date || !!pending} style={{ ...greenBtn, opacity: (!date || pending) ? 0.6 : 1 }}>{pending === 'confirm_date' ? 'Sending…' : 'Send'}</button>
+                <button onClick={() => !pending && setShowDate(false)} disabled={!!pending} style={cancelBtn}>Cancel</button>
+              </div>
+            : <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <button onClick={() => setShowDate(true)} disabled={!!pending} style={greenBtn}>Send email (with date)</button>
+                <button onClick={() => fire('confirm_no_date')} disabled={!!pending} style={{ ...greenBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'confirm_no_date' ? 'Sending…' : 'Send email - date not confirmed'}</button>
+                <button onClick={() => fire('declined')} disabled={!!pending} style={{ ...redBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'declined' ? 'Sending…' : 'Meeting declined - email client'}</button>
+              </div>
+      }
+      <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? fmtDate(p.completed_date) : ''}</span>
+    </div>
+  )
+}
+
 function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], onNotesChange }) {
   const [phases, setPhases] = useState([])
   const [progress, setProgress] = useState({})
@@ -14,9 +81,6 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
   const [saving, setSaving] = useState({})
   const [expanded, setExpanded] = useState({})
   const [completedPhases, setCompletedPhases] = useState({})
-  const [c8ShowDate, setC8ShowDate] = useState(false)
-  const [c8Date, setC8Date] = useState('')
-  const [c8Triggering, setC8Triggering] = useState(false)
   const [pipelineData, setPipelineData] = useState(null)
 
   useEffect(() => { loadTrack() }, [clientId])
@@ -78,19 +142,6 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
       setProgress(p => ({ ...p, [taskId]: { ...p[taskId], task_id: taskId, status, completed_date: date || null } }))
     } catch (err) { console.error(err) }
     finally { setSaving(p => ({ ...p, [taskId]: false })) }
-  }
-
-  async function triggerC8(taskId, decision, date) {
-    setC8Triggering(true)
-    try {
-      await callApi('automation_PIP1_reconfirmationemail', { client_id: clientId, decision, followup_meeting_date: date || null })
-      const status = decision === 'Yes' ? 'Sent confirmation email' : 'Send declined email'
-      await callApi('msm_save_client_task', { client_id: clientId, task_id: taskId, status, completed_date: new Date().toISOString().split('T')[0], completed_by: null, notes: null })
-      setProgress(p => ({ ...p, [taskId]: { ...p[taskId], task_id: taskId, status, completed_date: new Date().toISOString().split('T')[0] } }))
-      setC8ShowDate(false)
-      setC8Date('')
-    } catch (err) { console.error('C8 trigger error:', err) }
-    finally { setC8Triggering(false) }
   }
 
   async function completePhase(phase) {
@@ -401,25 +452,16 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                     )
                   }
 
-                  if (task.name === 'PIP Follow-up meeting re-confirmation/declined email') return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'rgba(255,255,255,0.2)'}` }} />
-                      <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
-                      {isDone
-                        ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
-                        : c8ShowDate
-                          ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                              <input type="date" value={c8Date} onChange={e => setC8Date(e.target.value)} style={{ padding: '4px 8px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '11px' }} />
-                              <button onClick={() => triggerC8(task.id, 'Yes', c8Date)} disabled={c8Triggering || !c8Date} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }}>{c8Triggering ? '...' : 'Send'}</button>
-                              <button onClick={() => setC8ShowDate(false)} style={{ padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#8bacc8' }}>Cancel</button>
-                            </div>
-                          : <div style={{ display: 'flex', gap: '6px' }}>
-                              <button onClick={() => setC8ShowDate(true)} disabled={c8Triggering} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }}>Send re-confirmation email to client</button>
-                              <button onClick={() => triggerC8(task.id, 'No')} disabled={c8Triggering} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }}>{c8Triggering ? '...' : 'Meeting declined - Email client'}</button>
-                            </div>
-                      }
-                      <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
-                    </div>
+                  if (task.name === 'PIP 1 Confirmation Email' || task.name === 'PIP Follow-up Confirmation Email') return (
+                    <PipConfirmStep
+                      key={task.id}
+                      clientId={clientId}
+                      task={task}
+                      p={p}
+                      meeting={task.name === 'PIP Follow-up Confirmation Email' ? 'followup' : 'pip1'}
+                      readOnly={readOnly}
+                      onDone={(taskId, status, date) => setProgress(pr => ({ ...pr, [taskId]: { ...pr[taskId], task_id: taskId, status, completed_date: date } }))}
+                    />
                   )
 
                   if (task.name === 'Call arranged with client') return (

@@ -479,14 +479,20 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     finally { setSaving(p => ({ ...p, [key]: false })) }
   }
 
-  async function fireReadyForTax3(taskId, decision, declineReason, existingDate) {
-    const status = decision === 'Yes' ? 'Yes - Confirmation email to client' : 'No - Declined email to client'
+  async function fireReadyForTax3(taskId, decision, opts = {}) {
+    const { declineReason, date, time, tz, existingDate } = opts
+    const status = decision === 'declined' ? 'No - Declined email to client'
+      : decision === 'confirm_no_date' ? 'Yes - Confirmation email (date TBC)'
+      : 'Yes - Confirmation email to client'
     setDeclineDrafts(d => ({ ...d, [taskId]: { ...(d[taskId] || {}), sending: true } }))
     try {
       await callApi('automation_TAX_readyfortax3', {
         tax_plan_id: plan.id,
         decision,
         decline_reason: declineReason || null,
+        meeting_date: date || null,
+        meeting_time: time || null,
+        meeting_tz: tz || null,
       })
       await saveTask(taskId, status, existingDate)
       setDeclineDrafts(d => { const next = { ...d }; delete next[taskId]; return next })
@@ -1152,7 +1158,13 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (task.status_options === 'tax_3_decision') {
       const draft = declineDrafts[task.id] || {}
       const declineOpen = !!draft.open
+      const dateOpen = !!draft.dateOpen
       const sending = !!draft.sending
+      const tdInput = { padding: '4px 8px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '11px' }
+      const tdGreen = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }
+      const tdRed = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }
+      const tdCancel = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#8bacc8' }
+      const setDraft = (patch) => setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), ...patch } }))
       return (
         <div key={key} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
@@ -1160,12 +1172,28 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
             {isDone
               ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
-              : !declineOpen && (
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button disabled={sending} onClick={() => fireReadyForTax3(task.id, 'Yes', null, p.completed_date)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }}>Yes - Confirmation email to client</button>
-                    <button disabled={sending} onClick={() => setDeclineDrafts(d => ({ ...d, [task.id]: { open: true, reason: '', sending: false } }))} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }}>No - Declined email to client</button>
+              : dateOpen
+                ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input type="date" value={draft.date || ''} onChange={e => setDraft({ date: e.target.value })} style={tdInput} />
+                    <input type="time" value={draft.time || ''} onChange={e => setDraft({ time: e.target.value })} style={tdInput} />
+                    <select value={draft.tz || 'ET'} onChange={e => setDraft({ tz: e.target.value })} style={{ ...tdInput, background: '#0d2a6e' }}>
+                      <option value="ET">Eastern (ET)</option>
+                      <option value="CT">Central (CT)</option>
+                      <option value="MT">Mountain (MT)</option>
+                      <option value="PT">Pacific (PT)</option>
+                      <option value="AKT">Alaska (AKT)</option>
+                      <option value="HT">Hawaii (HT)</option>
+                    </select>
+                    <button disabled={sending || !draft.date} onClick={() => fireReadyForTax3(task.id, 'confirm_date', { date: draft.date, time: draft.time, tz: draft.tz || 'ET', existingDate: p.completed_date })} style={{ ...tdGreen, opacity: (sending || !draft.date) ? 0.6 : 1 }}>{sending ? 'Sending...' : 'Send'}</button>
+                    <button disabled={sending} onClick={() => setDeclineDrafts(d => { const next = { ...d }; delete next[task.id]; return next })} style={tdCancel}>Cancel</button>
                   </div>
-                )
+                : !declineOpen && (
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      <button disabled={sending} onClick={() => setDraft({ dateOpen: true, tz: draft.tz || 'ET' })} style={tdGreen}>Send email (with date)</button>
+                      <button disabled={sending} onClick={() => fireReadyForTax3(task.id, 'confirm_no_date', { existingDate: p.completed_date })} style={{ ...tdGreen, opacity: sending ? 0.6 : 1 }}>{sending ? 'Sending...' : 'Send email - date not confirmed'}</button>
+                      <button disabled={sending} onClick={() => setDeclineDrafts(d => ({ ...d, [task.id]: { open: true, reason: '', sending: false } }))} style={tdRed}>No - Declined email to client</button>
+                    </div>
+                  )
             }
             <span style={{ fontSize: '11px', color: '#8bacc8', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
           </div>
@@ -1188,7 +1216,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               </div>
               <div style={{ marginTop: '14px', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                 <button disabled={sending} onClick={() => setDeclineDrafts(d => { const next = { ...d }; delete next[task.id]; return next })} style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#8bacc8' }}>Cancel</button>
-                <button disabled={sending || !(draft.reason || '').trim()} onClick={() => fireReadyForTax3(task.id, 'No', draft.reason, p.completed_date)} style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', cursor: (sending || !(draft.reason || '').trim()) ? 'not-allowed' : 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: (sending || !(draft.reason || '').trim()) ? 'rgba(231,76,60,0.06)' : 'rgba(231,76,60,0.18)', color: '#e74c3c', fontWeight: '600' }}>{sending ? 'Sending...' : 'Send Decline Email'}</button>
+                <button disabled={sending || !(draft.reason || '').trim()} onClick={() => fireReadyForTax3(task.id, 'declined', { declineReason: draft.reason, existingDate: p.completed_date })} style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', cursor: (sending || !(draft.reason || '').trim()) ? 'not-allowed' : 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: (sending || !(draft.reason || '').trim()) ? 'rgba(231,76,60,0.06)' : 'rgba(231,76,60,0.18)', color: '#e74c3c', fontWeight: '600' }}>{sending ? 'Sending...' : 'Send Decline Email'}</button>
               </div>
             </div>
           )}
