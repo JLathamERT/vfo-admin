@@ -584,12 +584,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const decision2Task = allTasks.find(t => t.name === 'Client decision 2')
   const decision2Status = decision2Task ? localProgress[decision2Task.id]?.status : ''
   // Phase 7: Tax 5b unlocks when ANY specialist has 'Confirm ready for
-  // implementation' set to any value (Yes / Undecided / No).
+  // implementation' set to any value (Yes / Undecided / No), OR when Client
+  // decision 2 = 'Move to Implementation' (the shortcut that greys/bypasses the
+  // per-specialist confirm step — without this, that path leaves Tax 5b locked).
   const confirmReadyTask = phases.find(p => p.name === 'Tax 5 - Education & DD (Specialist Allocation)')?.program_client_tasks?.find(t => t.name === 'Confirm ready for implementation')
-  const anySpecialistUpdateDone = confirmReadyTask && taxSpecialists.some(spec => {
+  const tax5bUnlocked = (confirmReadyTask && taxSpecialists.some(spec => {
     const k = `${confirmReadyTask.id}_${spec.id}`
     return !!localProgress[k]?.status
-  })
+  })) || decision2Status === 'Move to Implementation'
 
   function getPhaseState(phase) {
     let tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
@@ -931,18 +933,13 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (task.status_options === 'tax_implement_decision') {
       const implDecision = livePlan?.implementation_decision
       const decisionColor = implDecision === 'Proceed' ? '#27ae60' : implDecision === 'Not Implementing' ? '#e74c3c' : implDecision === 'Undecided' ? '#f39c12' : '#8bacc8'
-      const decisionLabel = implDecision === 'Proceed' ? 'Proceed with Implementation' : implDecision || ''
+      const decisionLabel = implDecision === 'Undecided' ? 'Email sent - awaiting client decision' : implDecision === 'Proceed' ? 'Proceed with Implementation' : implDecision || ''
 
-      const PROCEED_LABEL = 'Proceed with Implementation - Charge Implementation Fee via Stripe'
-      async function handlePick(value) {
-        const decision = value === PROCEED_LABEL ? 'Proceed' : value
-        if (decision === 'Proceed' && !confirm("Mark client as Proceed?\n\nThis sends them an email with a 'Decline implementation' button + a 24h grace window. After 24h with no click the implementation fee auto-charges via Stripe against the saved card.")) return
-        if (decision === 'Not Implementing' && !confirm("Mark as Not Implementing? A 'thank you, didn't move forward' decline email will be drafted. Engagement closes. No charge, no refund.")) return
-        if (decision === 'Undecided' && !confirm("Mark client as Undecided?\n\nThey'll get an email with two buttons (Proceed / Decline). After 48h with no click we send a reminder, after 96h we notify you to call the client.")) return
-        await saveTask(task.id, decision, new Date().toISOString().slice(0, 10))
-        const res = await callApi('automation_TAX_implementdecision', { tax_plan_id: plan.id, decision })
+      async function handleSend() {
+        if (!confirm("Send the client the implementation decision email?\n\nThey'll get two buttons:\n  Yes - Proceed: the implementation fee is charged immediately to their saved payment method.\n  No - Do not proceed: the engagement closes, no charge.\n\nIf they don't respond, a reminder is sent at 48h and you're notified at 96h.")) return
+        await saveTask(task.id, 'Undecided', new Date().toISOString().slice(0, 10))
+        const res = await callApi('automation_TAX_implementdecision', { tax_plan_id: plan.id, decision: 'Undecided' })
         if (res?.error) alert(`Error: ${res.error}`)
-        else if (res?.charge_result?.error) alert(`Email drafted but charge failed: ${res.charge_result.error}. Recovery: ${res.charge_result.recovery || 'see admin notifications'}`)
         await refreshLivePlan()
       }
 
@@ -955,9 +952,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           ) : (
             !readOnly && (
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                <button onClick={() => handlePick(PROCEED_LABEL)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }}>Proceed with Implementation</button>
-                <button onClick={() => handlePick('Undecided')} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(243,156,18,0.4)', background: 'rgba(243,156,18,0.12)', color: '#f39c12' }}>Undecided</button>
-                <button onClick={() => handlePick('Not Implementing')} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }}>Not Implementing</button>
+                <button onClick={handleSend} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }}>Send implementation decision email</button>
               </div>
             )
           )}
@@ -1041,25 +1036,31 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                     {chargeCascade}
                   </>
                 )}
+                {implFinal === 'Confirmed' && (
+                  <>
+                    {autoStep('Client confirmed Proceed (clicked "Proceed now")', true)}
+                    {chargeCascade}
+                  </>
+                )}
                 {implFinal === 'Proceed' && chargeCascade}
               </>
             )}
 
             {implDecision === 'Undecided' && (
               <>
-                {autoStep('Email sent to client with two decision buttons (48h window)', !!emailSentAt)}
-                {!implFinal && !reminderSentAt && autoStep('Waiting for client (48h before reminder)', false)}
-                {!implFinal && reminderSentAt && autoStep('48h reminder email sent to client', true)}
-                {!implFinal && pfNotifiedAt && autoStep('96h passed — PF notified to contact client', true)}
+                {autoStep('Email sent to client with two decision buttons', !!emailSentAt)}
+                {!implFinal && !reminderSentAt && autoStep('Waiting for client decision', false)}
+                {reminderSentAt && autoStep('48h reminder email sent to client', true)}
+                {pfNotifiedAt && autoStep('96h passed — PF notified to contact client', true)}
                 {implFinal === 'Proceed' && (
                   <>
-                    {autoStep('Client clicked Proceed', true)}
+                    {autoStep('Client clicked Yes (proceed)', true)}
                     {chargeCascade}
                   </>
                 )}
                 {implFinal === 'Decline' && (
                   <>
-                    {autoStep('Client clicked Decline', true)}
+                    {autoStep('Client clicked No (do not proceed)', true)}
                     {autoStep('Decline email sent to client', true)}
                   </>
                 )}
@@ -1375,10 +1376,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               )}
               {adminDecision === 'Undecided' && (
                 <>
-                  {autoStep('Email sent to client with two decision buttons (48h window)', !!emailSentAt)}
+                  {autoStep('Email sent to client with two decision buttons', !!emailSentAt)}
                   {!clientDecision && !reminderSentAt && autoStep('Waiting for client (48h before reminder)', false)}
-                  {!clientDecision && reminderSentAt && autoStep('48h reminder email sent to client', true)}
-                  {!clientDecision && pfNotifiedAt && autoStep('96h passed — PF notified to contact client', true)}
+                  {reminderSentAt && autoStep('48h reminder email sent to client', true)}
+                  {pfNotifiedAt && autoStep('96h passed — PF notified to contact client', true)}
                   {clientDecision === 'Proceed' && (
                     <>
                       {autoStep('Client clicked Proceed', true)}
@@ -1609,22 +1610,22 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         const tax5bDotColor = tax5bState === 'done' ? '#27ae60' : tax5bState === 'active' ? '#5b9fe6' : 'transparent'
         const tax5bBorderColor = tax5bState === 'done' ? 'rgba(39,174,96,0.3)' : tax5bState === 'active' ? 'rgba(91,159,230,0.4)' : 'rgba(255,255,255,0.1)'
         return (
-        <div style={{ background: 'rgba(0,0,0,0.12)', border: `1px solid ${tax5bBorderColor}`, borderRadius: '12px', marginBottom: '10px', overflow: 'hidden', opacity: anySpecialistUpdateDone ? 1 : 0.3, pointerEvents: anySpecialistUpdateDone ? 'auto' : 'none' }}>
+        <div style={{ background: 'rgba(0,0,0,0.12)', border: `1px solid ${tax5bBorderColor}`, borderRadius: '12px', marginBottom: '10px', overflow: 'hidden', opacity: tax5bUnlocked ? 1 : 0.3, pointerEvents: tax5bUnlocked ? 'auto' : 'none' }}>
           <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: tax5bDotColor, border: `1.5px solid ${tax5bState === 'pending' ? 'rgba(255,255,255,0.2)' : tax5bDotColor}`, flexShrink: 0 }} />
               <span style={{ fontSize: '13px', fontWeight: '600', color: tax5bState === 'active' ? '#5b9fe6' : '#fff', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tax 5 - Education & DD (Post Allocation)</span>
-              {!anySpecialistUpdateDone && <span style={{ fontSize: '11px', color: '#f39c12' }}>(Unlocks when "Confirm ready for implementation" is set on any specialist)</span>}
+              {!tax5bUnlocked && <span style={{ fontSize: '11px', color: '#f39c12' }}>(Unlocks when "Confirm ready for implementation" is set on any specialist)</span>}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {!readOnly && anySpecialistUpdateDone && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === 'Tax 5 - Education & DD (Post Allocation)' && n.tab_name === 'Tax Priorities').length} isOpen={expanded['notes_tax5b']} onClick={() => setExpanded(p => ({ ...p, ['notes_tax5b']: !p['notes_tax5b'] }))} />}
-              {anySpecialistUpdateDone && tax5bState === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Done</span>}
-              {anySpecialistUpdateDone && tax5bState === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>In progress</span>}
-              {anySpecialistUpdateDone && tax5bState === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>}
+              {!readOnly && tax5bUnlocked && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === 'Tax 5 - Education & DD (Post Allocation)' && n.tab_name === 'Tax Priorities').length} isOpen={expanded['notes_tax5b']} onClick={() => setExpanded(p => ({ ...p, ['notes_tax5b']: !p['notes_tax5b'] }))} />}
+              {tax5bUnlocked && tax5bState === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Done</span>}
+              {tax5bUnlocked && tax5bState === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>In progress</span>}
+              {tax5bUnlocked && tax5bState === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>}
             </div>
           </div>
           {!readOnly && expanded['notes_tax5b'] && <PhaseNotesPanel clientId={clientId} phaseName="Tax 5 - Education & DD (Post Allocation)" tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
-          {anySpecialistUpdateDone && (
+          {tax5bUnlocked && (
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', padding: '12px 18px' }}>
               {(tax5bPhase.program_client_tasks || []).map(task => renderTask(task, tax5bPhase))}
             </div>
