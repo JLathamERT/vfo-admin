@@ -44,7 +44,9 @@ LIMIT 20
 
 ## Step 2 — Insertion points
 
-The only handler in the codebase that inserts notifications is `automation_PCADMIN_finaldecision` ([admin-api:705-738](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)). Two cases:
+> **Stale-claim correction (2026-06-09):** the line below — "the only handler that inserts is `automation_PCADMIN_finaldecision`" — is **wrong**. Many handlers across MAP 1 / TAX / Advisor / Accountant / PFT / Specialist insert notifications. For the **complete TAX inventory** (every insert + clear across Tax 3/4/5, recipient, dismissible, how cleared, plus the email-only nag ladders), see [tax-planning.md § Notification inventory (TAX pipeline)](tax-planning.md#notification-inventory-tax-pipeline--audit-2026-06-09). The MAP 1 example below is retained as an illustration only.
+
+The original MAP 1 insertion example, `automation_PCADMIN_finaldecision` ([admin-api:705-738](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)). Two cases:
 
 - Decision = `Yes` (with chosen service level):
   ```
@@ -79,7 +81,19 @@ link:      "/admin/client/<id>?tab=tax&program=<program_id>"
 dismissible: false
 ```
 
-Fired once per plan (guarded by `client_tax_plans.tax4_meeting_reminder_last_sent_at`). **Cleared** by `actions/tax/postreview-decision.ts` (`.ilike("title","Client decision 1 needed%")`) when any Tax 4 `Client decision 1` is recorded. This is the only known insertion that targets non-`admin` recipient emails (so Tim/Tracy see it in their own bell).
+Fired once per plan (guarded by `client_tax_plans.tax4_meeting_reminder_last_sent_at`). **Cleared** by `actions/tax/postreview-decision.ts` (`.ilike("title","Client decision 1 needed%")`) when any Tax 4 `Client decision 1` is recorded.
+
+### TAX pipeline — no shared `admin` bell (rerouted 2026-06-09)
+
+Every TAX notification now routes to a specific person via [`utils/tax-notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/tax-notify.ts) — none use `recipient:'admin'`. Tax 3 / Setup-phase → **assigned PF** (`taxPfRecipients`, Tim+Tracy fallback); Tax 4/5 client-decision FYIs → **Tim**; the meeting nudge → **Tim + Tracy**; the Tax 4/5 96h "reach out" escalations → **assigned PF**. Full per-notification inventory: [tax-planning.md § Notification inventory](tax-planning.md#notification-inventory-tax-pipeline--audit-2026-06-09).
+
+### Cross-pipeline: Tracy revenue-share sheet FYI (2026-06-09)
+
+[`utils/revshare-tracy-notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/revshare-tracy-notify.ts) `notifyTracyRevShareNeeded()` — an FYI (dismissable, deduped on the unread row) to **Tracy** (`tnmiller@`) telling her to enter the split into the **VFO Services - Private Info** sheet, fired from every `pending`/"numbers not yet verified" branch of MAP 1 (`contract-revshare.ts`) and Tax (`revshare.ts`). No auto-clear (she clicks Done; revshare completing just stops it re-appearing).
+
+### Cross-pipeline: Jake payment/transfer-failure alerts (2026-06-09)
+
+[`utils/notify-jake-failure.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/notify-jake-failure.ts) `notifyJakeFailure()` — an FYI (deduped) to **`jlatham@elitert.com`** on every detectable money-movement failure, IN ADDITION to any existing notification: revshare Connect-transfer failed (MAP 1/Tax/PIP), MAP 1 quarterly off-session charge failed, Tax implementation charge failed, Specialist bg + license payment failed (`router/webhooks.ts`).
 
 ## Step 3 — Mark read (single)
 

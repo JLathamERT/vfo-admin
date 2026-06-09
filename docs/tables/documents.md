@@ -56,10 +56,16 @@ Append-only sequence ledger. Each row reserves a number-of-type for a client/adv
 |---|---|---|
 | `id` | integer | pk |
 | `type` | text | not null. e.g., `'invoice'`, `'receipt'`. |
-| `number` | text | not null. The actual number assigned (formatted). MAP1: `INV-{seq:0004}` / `REC-{seq:0004}`. Tax: `INV-TAX{plan_id}-{seq:0004}` / `REC-TAX{plan_id}-{seq:0004}` / `REC-TAX-IMPL{plan_id}-{seq:0004}`. Advisor: `INV-ADV{onboarding_id}-{seq:0004}` / `REC-ADV{onboarding_id}-{seq:0004}`. Accountant: `INV-ACC{onboarding_id}-{seq:0004}` / `REC-ACC{onboarding_id}-{seq:0004}`. PIP: `INV-PIP-{clientRef}-{seq:0004}` / `REC-PIP-{clientRef}-{seq:0004}`. The sequence is GLOBAL across all pipelines. |
-| `client_id` | integer | nullable. Soft reference to `clients.id`. Used only by MAP1, Tax, and PIP rows. |
-| `advisor_onboarding_id` | bigint | nullable FK → `advisor_onboarding(id)` `ON DELETE SET NULL`. Added with advisor onboarding pipeline. Used by advisor invoice/receipt rows. |
-| `accountant_onboarding_id` | bigint | nullable FK → `accountant_onboarding(id)` `ON DELETE SET NULL`. Added 2026-05-28 (Accountant Onboarding pipeline). Without this column the accountant invoice/receipt insert was silently failing in supabase-js (column-doesn't-exist), and the next invoice could re-use the same seq number. Used by accountant invoice/receipt rows. |
+| `number` | text | not null, **UNIQUE**. The formatted number. MAP1: `INV-{clientRef}-{seq:0004}` / `REC-{clientRef}-{seq:0004}`. Tax (retainer + implementation): `INV-{clientRef}-{seq:0004}` / `REC-{clientRef}-{seq:0004}`. Advisor: `INV-ADV{onboarding_id}-{seq}` / `REC-ADV{onboarding_id}-{seq}`. Accountant: `INV-ACC{id}-{seq}` / `REC-ACC{id}-{seq}`. PIP: `INV-PIP-{clientRef}-{seq}` / `REC-PIP-{clientRef}-{seq}`. Specialist bg: `INV-SPEC-{id}-{seq}` / `REC-SPEC-{id}-{seq}`. Specialist license: `INV-SPECLIC-{id}-{seq}` / `REC-SPECLIC-{id}-{seq}`. The starting `seq` is a **global** count of that type for invoices (and the onboarding/PIP receipts), but **per-owner** for MAP 1 + Tax *receipts*. |
+| `client_id` | integer | nullable. Soft reference to `clients.id`. Used by MAP1, Tax, and PIP rows. |
+| `advisor_onboarding_id` | bigint | nullable FK → `advisor_onboarding(id)` `ON DELETE SET NULL`. Used by advisor invoice/receipt rows. |
+| `accountant_onboarding_id` | bigint | nullable FK → `accountant_onboarding(id)` `ON DELETE SET NULL`. Used by accountant invoice/receipt rows. |
+| `specialist_onboarding_id` | bigint | nullable FK → `specialist_onboarding(id)` `ON DELETE SET NULL`. Used by specialist background-check (`INV/REC-SPEC`) + monthly-license (`INV/REC-SPECLIC`) rows. |
 | `created_at` | timestamptz | default `now()` |
 
-**Touched by:** `automation_CONTRACT_confirmationemail`, `automation_CONTRACT_invoicereceipt`, `automation_CONTRACT_revshare`, `automation_TAX_invoicereceipt`, `automation_TAX_implementation_receipt`, `automation_ADVISOR_invoicereceipt`, `automation_ACCOUNTANT_invoicereceipt`, `automation_PIP_invoicereceipt`.
+**Constraints + allocation (collision-safe since 2026-06-09):**
+- `UNIQUE(number)`.
+- `document_numbers_exactly_one_owner` CHECK requires **exactly one** of {`client_id`, `advisor_onboarding_id`, `accountant_onboarding_id`, `specialist_onboarding_id`} non-null. Widened by migration `document_numbers_widen_owner_check` — the OLD CHECK only allowed client/advisor, so **every accountant/specialist insert silently failed** (the seq was computed but never recorded → numbers could be re-used). When inserting, stamp exactly one owner FK.
+- All allocation goes through **`utils/doc-numbers.ts` `allocateDocNumber()`** which bumps the seq and retries until the UNIQUE insert succeeds — fixing the old `count → build → insert-once → ignore-error` pattern that silently stalled the counter and reused a number on collision (gotcha #92). Don't revert to insert-once.
+
+**Touched by (all via `allocateDocNumber`):** `automation_CONTRACT_invoicereceipt`, `automation_TAX_invoicereceipt`, `automation_TAX_implementation_receipt`, `automation_ADVISOR_invoicereceipt`, `automation_ACCOUNTANT_invoicereceipt`, `automation_PIP_invoicereceipt`, `automation_SPECIALIST_bgreceipt`, `automation_SPECIALIST_licinvoicereceipt`.

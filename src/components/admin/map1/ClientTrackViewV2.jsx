@@ -302,8 +302,8 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                             {autoStep('Payment made', !!pd?.pay1_status, pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null)}
                             {autoStep('Payment received', pd?.pay1_status === 'succeeded')}
                             {autoStep('Invoice/receipt sent', !!pd?.invoice_number)}
-                            {autoStep('Revenue share paid', !!pd?.rec1_rev_share, null, isZeroShare(pd?.member_share))}
-                            {autoStep('Member notified of revenue share', pd?.c24_email_sent === 'Yes', null, isZeroShare(pd?.member_share))}
+                            {autoStep('Revenue share paid', ['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd?.rec1_rev_paid), null, isZeroShare(pd?.member_share))}
+                            {autoStep('Member notified of revenue share', pd?.c24_email_sent === true, null, isZeroShare(pd?.member_share))}
                           </>
                         )
                       })()}
@@ -361,8 +361,8 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                                         {autoStep('Payment link sent', !!pd?.pay1_email_sent_at || !!pd?.pay1_status)}
                                         {autoStep('Payment received', !!pd?.pay1_status)}
                                         {autoStep('Invoice/receipt sent', !!pd?.invoice_number)}
-                                        {autoStep('Revenue share paid', !!pd?.rec1_rev_share, null, isZeroShare(pd?.member_share))}
-                                        {autoStep('Member notified of revenue share', pd?.c24_email_sent === 'Yes', null, isZeroShare(pd?.member_share))}
+                                        {autoStep('Revenue share paid', ['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd?.rec1_rev_paid), null, isZeroShare(pd?.member_share))}
+                                        {autoStep('Member notified of revenue share', pd?.c24_email_sent === true, null, isZeroShare(pd?.member_share))}
                                       </>
                                     ) : null}
                                   </>
@@ -386,8 +386,8 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                             {autoStep('Payment made', !!pd?.pay1_status, pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null)}
                             {autoStep('Payment received', pd?.pay1_status === 'succeeded')}
                                 {autoStep('Invoice/receipt sent', !!pd?.invoice_number)}
-                                {autoStep('Revenue share paid', !!pd?.rec1_rev_share, null, isZeroShare(pd?.member_share))}
-                                {autoStep('Member notified of revenue share', pd?.c24_email_sent === 'Yes', null, isZeroShare(pd?.member_share))}
+                                {autoStep('Revenue share paid', ['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd?.rec1_rev_paid), null, isZeroShare(pd?.member_share))}
+                                {autoStep('Member notified of revenue share', pd?.c24_email_sent === true, null, isZeroShare(pd?.member_share))}
                                 <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px', marginTop: '10px' }}>If No:</div>
                                 {autoStep('Decline email sent to client')}
                                 <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px', marginTop: '10px' }}>If extra meeting:</div>
