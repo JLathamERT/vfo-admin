@@ -8,6 +8,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   const isViewMode = !!existingData
 
   const [decision, setDecision] = useState(existing.decision || '')
+  const [memberPayingOnBehalf, setMemberPayingOnBehalf] = useState(existing.memberPayingOnBehalf || 'No')
   const [taxRiskMindset, setTaxRiskMindset] = useState(existing.taxRiskMindset || '')
   const [retainerPayment, setRetainerPayment] = useState(existing.retainerPayment || '')
   const [implementationFee, setImplementationFee] = useState(existing.implementationFee || '')
@@ -19,7 +20,6 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   const [ccRecipients, setCcRecipients] = useState(existing.ccRecipients || [])
   const [ccInput, setCcInput] = useState('')
   const [presentationLink, setPresentationLink] = useState(existing.presentationLink || '')
-  const [meetingNotes, setMeetingNotes] = useState(existing.meetingNotes || '')
   const [submitting, setSubmitting] = useState(false)
 
   const totalFee = (parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0)
@@ -69,7 +69,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   async function handleSubmit() {
     if (!decision) return
     setSubmitting(true)
-    const formData = { decision, presentationLink, meetingNotes, ccRecipients }
+    const formData = { decision, presentationLink, ccRecipients, memberPayingOnBehalf }
     if (decision === 'Yes') {
       formData.taxRiskMindset = taxRiskMindset
       formData.retainerPayment = retainerPayment
@@ -117,6 +117,22 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
 
   return (
     <div style={{ marginLeft: '18px', padding: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', marginTop: '4px', marginBottom: '8px' }}>
+      <div style={{ marginBottom: '16px' }}>
+        <label style={labelStyle}>Is the member signing and paying on behalf of the client?</label>
+        {isViewMode
+          ? <div style={{ ...inputStyle, opacity: 0.6 }}>{memberPayingOnBehalf}</div>
+          : <select value={memberPayingOnBehalf} onChange={e => setMemberPayingOnBehalf(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+              <option value="No">No</option>
+              <option value="Yes">Yes</option>
+            </select>
+        }
+        {memberPayingOnBehalf === 'Yes' && !isViewMode && (
+          <div style={{ fontSize: '12px', color: '#f39c12', marginTop: '6px' }}>
+            The member-paid agreement &amp; emails will be used: addressed to the member, with the client CC'd, and the member signs &amp; pays.
+          </div>
+        )}
+      </div>
+
       <div style={{ marginBottom: '16px' }}>
         <label style={labelStyle}>Client decision</label>
         {isViewMode
@@ -251,10 +267,6 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
             {!isViewMode && <div style={{ fontSize: '11px', color: '#5a8ab5', marginTop: '4px' }}>Export your presentation slides as a PDF, upload to Google Drive, then set sharing to "Anyone with the link can view" and paste the link here</div>}
           </div>
 
-          <div style={{ marginBottom: '16px' }}>
-            <label style={labelStyle}>Meeting notes</label>
-            <textarea value={meetingNotes} onChange={e => setMeetingNotes(e.target.value)} placeholder="Enter any additional notes from the meeting..." rows={4} style={isViewMode ? { ...readOnlyInput, resize: 'none' } : { ...inputStyle, resize: 'vertical' }} readOnly={isViewMode} />
-          </div>
 
           {!isViewMode && (
             <button onClick={handleSubmit} disabled={submitting} style={{ width: '100%', padding: '12px', borderRadius: '8px', background: submitting ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '15px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
@@ -495,6 +507,30 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         meeting_tz: tz || null,
       })
       await saveTask(taskId, status, existingDate)
+      setDeclineDrafts(d => { const next = { ...d }; delete next[taskId]; return next })
+    } catch (err) {
+      console.error(err)
+      alert('Failed to send email: ' + (err?.message || 'unknown error'))
+      setDeclineDrafts(d => ({ ...d, [taskId]: { ...(d[taskId] || {}), sending: false } }))
+    }
+  }
+
+  async function fireHlmConfirm(taskId, opts = {}) {
+    const { date, time, tz } = opts
+    setDeclineDrafts(d => ({ ...d, [taskId]: { ...(d[taskId] || {}), sending: true } }))
+    try {
+      const res = await callApi('automation_TAX_highlevelmeeting_confirm', {
+        tax_plan_id: plan.id,
+        meeting_date: date || null,
+        meeting_time: time || null,
+        meeting_tz: tz || null,
+      })
+      if (res?.error) {
+        alert('Error: ' + res.error)
+        setDeclineDrafts(d => ({ ...d, [taskId]: { ...(d[taskId] || {}), sending: false } }))
+        return
+      }
+      await refreshLivePlan()
       setDeclineDrafts(d => { const next = { ...d }; delete next[taskId]; return next })
     } catch (err) {
       console.error(err)
@@ -834,6 +870,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                       {viaExtra && hasPricing && (
                         <>
                           {autoStep('PF confirmed — Yes with pricing', true)}
+                          {pricingStep(true)}
                           {autoStep('Signing link and next steps email sent', signingEmailSent)}
                           {sharedSteps.map((s, i) => <div key={i}>{autoStep(s.label, s.done)}</div>)}
                         </>
@@ -850,29 +887,43 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
 
     if (task.name === 'Refund initial 50%' || task.name === 'Revenue share for initial 50%') return null
 
-    if (task.status_options === 'tax_meeting_date') {
+    if (task.status_options === 'tax_hlm_confirm') {
       const savedDate = livePlan?.tax4_meeting_date || ''
-      const decisionMade = !!livePlan?.post_review_decision
-      async function saveMeetingDate(value) {
-        const res = await callApi('automation_TAX_save_meeting_date', { tax_plan_id: plan.id, meeting_date: value || null })
-        if (res?.error) alert(`Error: ${res.error}`)
-        await refreshLivePlan()
-      }
+      const draft = declineDrafts[task.id] || {}
+      const formOpen = !!draft.dateOpen
+      const sending = !!draft.sending
+      const setDraft = (patch) => setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), ...patch } }))
+      const tdInput = { padding: '4px 8px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '11px' }
+      const tdGreen = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }
+      const tdCancel = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#8bacc8' }
+      const confirmedLabel = savedDate
+        ? `${savedDate}${livePlan?.tax4_meeting_time ? ' ' + livePlan.tax4_meeting_time : ''}${livePlan?.tax4_meeting_timezone ? ' ' + livePlan.tax4_meeting_timezone : ''}`
+        : ''
       return (
         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: savedDate ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${savedDate ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
           <span style={{ fontSize: '13px', color: savedDate ? '#8bacc8' : '#fff', flex: 1, fontWeight: '600' }}>{task.name}</span>
-          {readOnly ? (
-            savedDate && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#27ae6022', color: '#27ae60', border: '1px solid #27ae6044' }}>{savedDate}</span>
+          {savedDate ? (
+            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#27ae6022', color: '#27ae60', border: '1px solid #27ae6044' }}>Confirmation sent — {confirmedLabel}</span>
+          ) : readOnly ? null : formOpen ? (
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input type="date" value={draft.date || ''} onChange={e => setDraft({ date: e.target.value })} style={tdInput} />
+              <input type="time" value={draft.time || ''} onChange={e => setDraft({ time: e.target.value })} style={tdInput} />
+              <select value={draft.tz || 'ET'} onChange={e => setDraft({ tz: e.target.value })} style={{ ...tdInput, background: '#0d2a6e' }}>
+                <option value="ET">Eastern (ET)</option>
+                <option value="CT">Central (CT)</option>
+                <option value="MT">Mountain (MT)</option>
+                <option value="PT">Pacific (PT)</option>
+                <option value="AKT">Alaska (AKT)</option>
+                <option value="HT">Hawaii (HT)</option>
+              </select>
+              <button disabled={sending || !draft.date} onClick={() => fireHlmConfirm(task.id, { date: draft.date, time: draft.time, tz: draft.tz || 'ET' })} style={{ ...tdGreen, opacity: (sending || !draft.date) ? 0.6 : 1 }}>{sending ? 'Sending...' : 'Send'}</button>
+              <button disabled={sending} onClick={() => setDeclineDrafts(d => { const next = { ...d }; delete next[task.id]; return next })} style={tdCancel}>Cancel</button>
+            </div>
           ) : (
-            <input
-              type="date"
-              value={savedDate}
-              onChange={(e) => saveMeetingDate(e.target.value)}
-              style={{ ...inputStyle, fontFamily: 'DM Sans, sans-serif' }}
-              title={decisionMade ? 'Tax 4 Client decision 1 already recorded — nudge emails will not fire' : (savedDate ? 'Daily nudge email to Tim Gacsy will fire starting the day after this date until the Tax 4 Client decision 1 (Continue / Undecided / Stop) is recorded' : 'Set the scheduled date for the Tax Plan Review meeting. After that date passes, if no Tax 4 decision is recorded, Tim Gacsy gets a daily email.')}
-            />
+            <button disabled={sending} onClick={() => setDraft({ dateOpen: true, tz: draft.tz || 'ET' })} style={tdGreen} title="Enter the High Level Meeting date/time/timezone and send the confirmation email. The day after this date, Tim and Tracy get an action-required reminder to record the Client decision 1.">Send email (with date)</button>
           )}
+          <span style={{ fontSize: '11px', color: '#8bacc8', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{savedDate ? formatDate(savedDate) : ''}</span>
         </div>
       )
     }
@@ -1232,6 +1283,11 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const pfNotifiedAt = livePlan?.post_review_pf_notified_at
       const refundStatus = livePlan?.refund_status
       const revPaid = livePlan?.retainer_rev_paid
+      // Revenue share is N/A (still green) when member share is $0 — mirrors MAP 1.
+      // Tax stores a $0 member share as NULL (decision.ts: parseFloat(...) || null),
+      // so treat null/empty as zero-share too.
+      const isZeroShare = (v) => parseFloat(String(v ?? '').replace(/[$,]/g, '')) === 0
+      const zeroShare = livePlan?.member_share == null || isZeroShare(livePlan?.member_share)
 
       const decisionColor = adminDecision === 'Continue - Revenue Share' ? '#27ae60'
         : adminDecision === 'Stop - Refund' ? '#e74c3c'
@@ -1256,14 +1312,17 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         await refreshLivePlan()
       }
 
-      const autoStep = (label, done, opts = {}) => (
+      const autoStep = (label, done, opts = {}) => {
+        const na = !!opts.na
+        return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
-          <span style={{ fontSize: '12px', color: done ? '#27ae60' : '#8bacc8' }}>{label}</span>
-          {done && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', marginLeft: 'auto' }}>Done</span>}
-          {!done && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8', marginLeft: 'auto' }}>{opts.pendingLabel || 'Not completed'}</span>}
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: (done || na) ? '#27ae60' : 'transparent', flexShrink: 0, border: `1px solid ${(done || na) ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+          <span style={{ fontSize: '12px', color: (done || na) ? '#27ae60' : '#8bacc8' }}>{label}</span>
+          {(done || na) && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', marginLeft: 'auto' }}>{na ? 'N/A' : 'Done'}</span>}
+          {!(done || na) && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8', marginLeft: 'auto' }}>{opts.pendingLabel || 'Not completed'}</span>}
         </div>
-      )
+        )
+      }
 
       return (
         <div key={key} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -1303,7 +1362,13 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                   {clientDecision === 'Auto-Locked' && (
                     <>
                       {autoStep('24h passed — decision locked in', true)}
-                      {autoStep('Revenue share verified, member paid, member emailed', revPaid === 'Yes')}
+                      {autoStep('Revenue share verified, member paid, member emailed', revPaid === 'Yes', { na: zeroShare })}
+                    </>
+                  )}
+                  {clientDecision === 'Confirmed' && (
+                    <>
+                      {autoStep('Client confirmed Continue (clicked "Continue now")', true)}
+                      {autoStep('Revenue share verified, member paid, member emailed', revPaid === 'Yes', { na: zeroShare })}
                     </>
                   )}
                 </>
@@ -1317,7 +1382,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                   {clientDecision === 'Proceed' && (
                     <>
                       {autoStep('Client clicked Proceed', true)}
-                      {autoStep('Revenue share verified, member paid, member emailed', revPaid === 'Yes')}
+                      {autoStep('Revenue share verified, member paid, member emailed', revPaid === 'Yes', { na: zeroShare })}
                     </>
                   )}
                   {clientDecision === 'Refund' && (
@@ -1436,8 +1501,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           }
         }
         const doneTasks = nonAutoTasks.filter(t => {
-          // tax_meeting_date writes to client_tax_plans.tax4_meeting_date, not client_tax_progress
-          if (t.status_options === 'tax_meeting_date') return !!livePlan?.tax4_meeting_date
+          // tax_hlm_confirm writes to client_tax_plans.tax4_meeting_date, not client_tax_progress
+          if (t.status_options === 'tax_hlm_confirm') return !!livePlan?.tax4_meeting_date
           return !!localProgress[t.id]?.status
         }).length
         const borderColor = state === 'done' ? 'rgba(39,174,96,0.3)' : state === 'active' ? 'rgba(91,159,230,0.4)' : 'rgba(255,255,255,0.1)'
@@ -1574,8 +1639,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         const tasks = phase.program_client_tasks || []
         const nonAutoTasks = tasks.filter(t => t.status_options !== 'auto')
         const doneTasks = nonAutoTasks.filter(t => {
-          // tax_meeting_date writes to client_tax_plans.tax4_meeting_date, not client_tax_progress
-          if (t.status_options === 'tax_meeting_date') return !!livePlan?.tax4_meeting_date
+          // tax_hlm_confirm writes to client_tax_plans.tax4_meeting_date, not client_tax_progress
+          if (t.status_options === 'tax_hlm_confirm') return !!livePlan?.tax4_meeting_date
           return !!localProgress[t.id]?.status
         }).length
         const borderColor = state === 'done' ? 'rgba(39,174,96,0.3)' : state === 'active' ? 'rgba(91,159,230,0.4)' : 'rgba(255,255,255,0.1)'
