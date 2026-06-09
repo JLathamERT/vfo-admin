@@ -499,10 +499,12 @@ Revshare + refund handler details follow below. The `tax-revshare-sweep-daily` c
 
 ## Step 14 — Implementation flow (Tax 5b — BUILT)
 
-Mirrors Tax 4's 3-option pattern. Admin picks `implementation_decision` on the Tax 5 Post Allocation phase:
-- **Proceed** → drafts client email with **two buttons**: green "Proceed now" (skip the 24h wait → immediate charge, writes `implementation_final_decision='Confirmed'`) + red "Decline implementation" (no charge ever). If 24h passes with no click → sweep auto-locks (`implementation_final_decision='Auto-Locked'`) and fires the charge.
-- **Undecided** → drafts client email with green "Proceed with implementation" + red "Decline implementation". 48h sweep reminder + 96h PF notification if neither clicked.
-- **Not Implementing** → drafts immediate decline email. Engagement closes; no charge ever.
+> **Single-button rework (2026-06-09).** The admin step is now ONE button — **"Send implementation decision email"** — that always sends the (reworded) `TAX_implementdecision|Undecided` email with two **client** buttons: **"Yes - Proceed with implementation"** (→ charge **immediately**, no 24h grace) and **"No - Do not proceed"** (→ decline, engagement closes, no charge). No-response → 48h reminder + 96h PF notify (no auto-charge). Internally it still records `implementation_decision='Undecided'` (reuses that path). The old admin 3-option choice (Proceed / Undecided / Not Implementing) and the **24h auto-lock** are gone — those code branches are now unreachable. Frontend: `TaxPrioritiesTab.jsx` shows the one button + pill "Email sent — awaiting client decision".
+
+Current flow — admin clicks the one button → client picks Yes/No on `/tax-implement-decide`:
+- **Yes (`decision=Proceed`)** → `automation_TAX_implement-final-decision` fires `automation_TAX_charge_implementation` immediately (no 24h grace).
+- **No (`decision=Decline`)** → drafts the decline email (`TAX_implementdecision|Not Implementing` template). Engagement closes; no charge ever.
+- **No response** → 48h sweep reminder email + 96h PF notification (routes to the assigned PF). No auto-charge.
 
 **Charge handler:** `automation_TAX_charge_implementation` — off-session charge against saved payment method.
 - Charge amount: `implementation_amount` (may differ from retainer per design — separate columns).
@@ -511,7 +513,7 @@ Mirrors Tax 4's 3-option pattern. Admin picks `implementation_decision` on the T
 - Idempotent on `implementation_charge_status` — if already set, skip.
 - Failure → `implementation_charge_status='declined'` or `'auth_required'` + admin notification + Gmail asking client to use a fresh `/tax-pay` link (see Failure mode #9 below for the ACH-retainer special case).
 
-**Webhook chain on charge success** → `automation_TAX_confirmationemail` (`payment_kind='implementation'`, single `|implementation` template) + `automation_TAX_implementation_receipt` (REC PDF + Gmail draft, no invoice — design decision). Implementation revshare is picked up by the next `tax-revshare-sweep-daily` tick once `implementation_receipt_number` is set.
+**Webhook chain on charge success** → `automation_TAX_confirmationemail` (`payment_kind='implementation'`, single `|implementation` template) + `automation_TAX_implementation_receipt` (REC PDF + Gmail draft, no invoice — design decision) + **`automation_TAX_revshare` (`payment_kind=implementation`)** — added 2026-06-09. The webhook MUST kick off the implementation revshare explicitly (mirrors the retainer): the `tax-revshare-sweep` is **retry-only** and would never *start* it, so before this chain the implementation revshare never fired at all (gotcha #95). It sets `implementation_rev_share='Pending'`; if Tracy's sheet (its OWN distinct `implementation_receipt_number` row) verifies it transfers, else the sweep retries + the Tracy "Enter revenue share" FYI fires. The implementation receipt number is now allocated **collision-safe** so it can't collide with the retainer's (gotcha #92) — if it did, the implementation revshare would falsely verify against the retainer's sheet row.
 
 **Failure mode for zero implementations:** if client picks Decline OR Not Implementing, no charge ever fires. No automatic refund — client absorbs the retainer cost (different rule from the Tax 4 Stop-Refund branch).
 
@@ -519,17 +521,85 @@ Mirrors Tax 4's 3-option pattern. Admin picks `implementation_decision` on the T
 
 ---
 
-## Failure modes
+## Notification inventory (TAX pipeline) — audit 2026-06-09
+
+Complete inventory of every in-app (`notifications` table) row the TAX flow inserts or clears across Tax 3 / Tax 4 / Tax 5, plus the email-only "nag" ladders. Scope: the Tax Planning program + the Tax Priorities section in Holistic. (`pipeline='TAX'` for all rows.)
+
+### Recipient model (read this first)
+
+`load_notifications` returns rows where `recipient = session.email OR recipient = 'admin' OR recipient = 'all'`, unread, newest 20 ([actions/notifications/load.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/notifications/load.ts)). So:
+- **`recipient:'admin'`** = the **shared admin bell** — every admin sees it.
+- **`recipient:'<email>'`** = a **personal bell** — only the admin whose login email matches sees it.
+
+> **Routing model (rerouted 2026-06-09, v432).** TAX notifications now **never** target the shared `admin` bell — every one routes to a specific person via [`utils/tax-notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/tax-notify.ts):
+> - **Tax 3 / Setup-phase** notifications → the **assigned PF's personal bell** (`taxPfRecipients(client.assigned_pf)` — same 3-PF login-email map as `constants/map1-pfs.ts`), falling back to **Tim + Tracy** when the client has no mapped PF (NOT `admin`).
+> - **Tax 4 / Tax 5** notifications → **Tim `tgacsy@elitert.com` + Tracy `tnmiller@elitert.com`** (`TAX_OWNERS`, two rows).
+>
+> The `dismissible` flag of each notification was left unchanged by the reroute — only `recipient` changed. `insertTaxNotifications()` writes one row per recipient. (Before this change, everything except the Tax 4 meeting nudge inserted `recipient:'admin'` and merely named the PF in the message text.)
+
+### dismissible semantics
+
+`notifications.dismissible` defaults to **`true`**. In [NotificationBell.jsx](src/components/NotificationBell.jsx):
+- **`dismissible:true` (FYI)** — renders a green **Done** button; clicking the row (navigate) *or* Done marks it read and removes it. Any admin can clear it without taking the underlying action.
+- **`dismissible:false` (action-required)** — shows "· action required" in orange, **no Done button**; a row click navigates but does NOT clear it. It persists until a handler runs a targeted `UPDATE notifications SET read=true`. (Caveat: the "Mark all read" button clears *everything* visible regardless of `dismissible`.)
+
+### In-app notification INSERTS
+
+Recipients below reflect the **2026-06-09 reroute (v432)**. "PF" = `taxPfRecipients(assigned_pf)` (assigned PF's bell, fallback Tim+Tracy); "Tim+Tracy" = `TAX_OWNERS` (2 rows). All go through `insertTaxNotifications()`.
+
+| # | Tax step | File:line | Fires when | Recipient | `dismissible` | Type | Cleared by |
+|---|----------|-----------|------------|-----------|---------------|------|------------|
+| 1 | Tax 3 | [final-decision.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/final-decision.ts) | Client clicks **Yes** on `/tax-decide` | **PF** | **false** | Action-required (complete pricing form) | `pricing.ts:31` (admin submits pricing form) or `extra-meeting.ts:36` — UPDATE read=true on all unread TAX for the client |
+| 2 | Tax 3 | [final-decision.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/final-decision.ts) | Client clicks **ExtraMeeting** on `/tax-decide` | **PF** | **false** | Action-required (schedule meeting) | `extra-meeting.ts:36` (admin records extra-meeting outcome) or `pricing.ts:31` |
+| 3 | Tax 4 | [postreview-client-decision.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/postreview-client-decision.ts) | Client clicks **Refund** on post-review email | **Tim+Tracy** | true | FYI | click / Done |
+| 4 | Tax 4 | [postreview-client-decision.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/postreview-client-decision.ts) | Client clicks **Proceed/Confirmed** on post-review email | **Tim+Tracy** | true | FYI | click / Done |
+| 5 | Tax 5 | [implement-final-decision.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/implement-final-decision.ts) | Client clicks **Proceed/Confirmed** on implementation email | **Tim+Tracy** | true | FYI | click / Done |
+| 6 | Tax 5 | [implement-final-decision.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/implement-final-decision.ts) | Client clicks **Decline** on implementation email | **Tim+Tracy** | true | FYI | click / Done |
+| 7 | Tax 5 | [charge-implementation.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/charge-implementation.ts) | Off-session implementation charge **fails** (incl. ACH-retainer restriction) | **Tim+Tracy** | true | FYI (failure alert — someone must email a fresh `/tax-pay` link) | click / Done |
+| 8 | Setup (prog 4) | [deposit-refund.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/deposit-refund.ts) | Deposit refund issued (Greenlight = Stop) | **PF** | true | FYI | click / Done |
+| 8b | Tax 3 | [confirmation-email.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/confirmation-email.ts) | **Retainer paid** (card/ACH/check; retainer kind only) — **NEW 2026-06-09** | **PF** | true | FYI | click / Done |
+| 9 | Tax 4 | [revshare-sweep.ts:559](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/revshare-sweep.ts) (×2 rows) | High Level Meeting date passed + no `post_review_decision` recorded (once/plan, guard `tax4_meeting_reminder_last_sent_at`) | **Tim+Tracy** | **false** | Action-required (record Client decision 1) | `postreview-decision.ts:53` — `.ilike("title","Client decision 1 needed%")` when any Client decision 1 is recorded |
+| 10 | Tax 4 | [revshare-sweep.ts:186](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/revshare-sweep.ts) | Undecided pick, **96h** no client click (guard `post_review_pf_notified_at`) | **Tim+Tracy** | true | FYI ("\<PF\>: reach out") | click / Done |
+| 11 | Tax 5 | [revshare-sweep.ts:292](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/revshare-sweep.ts) | Undecided pick, **96h** no client click (guard `implementation_pf_notified_at`) | **Tim+Tracy** | true | FYI ("\<PF\>: reach out") | click / Done |
+| 12 | Tax 3 | [revshare-sweep.ts:337](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/revshare-sweep.ts) (`addPfNotif`, ×3 stalls) | **96h** on each of: Undecided email not clicked (guard `tax_decision_pf_notified_at`), agreement unsigned (`signed_pf_notified_at`), retainer unpaid (`payment_pf_notified_at`) | **PF** | true | FYI ("\<PF\>: reach out") | click / Done |
+
+### In-app notification CLEARS (targeted `UPDATE read=true`)
+
+| File:line | Scope | Clears |
+|-----------|-------|--------|
+| [pricing.ts:31](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/pricing.ts) | all unread TAX for `client_id` | #1 / #2 (and any other unread TAX FYI for that client) |
+| [extra-meeting.ts:36](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/extra-meeting.ts) | all unread TAX for `client_id` | #1 / #2 |
+| [postreview-decision.ts:53](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/postreview-decision.ts) | unread TAX matching title `Client decision 1 needed%` | #9 |
+
+### Email-only "nag" ladders (no persistent in-app piece)
+
+All live in [revshare-sweep.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/revshare-sweep.ts) (cron `tax-revshare-sweep-daily`, 02:30 UTC). 48h tier = a sandbox-aware **Gmail draft to the client** (with the decision buttons re-rendered); 96h tier = the shared-admin FYI in the table above (#10/#11/#12). **There is no in-app notification at the 48h tier, and the 96h tier is a click-to-dismiss FYI, not persistent.**
+
+| Stall | 48h email (template) | 96h in-app |
+|-------|----------------------|------------|
+| Tax 3 — Undecided email not clicked | `TAX_decision_reminder` (line 433) | #12 |
+| Tax 3 — agreement unsigned | `TAX_signing_reminder` (line 471) | #12 |
+| Tax 3 — retainer unpaid | `TAX_payment_reminder` (line 508) | #12 |
+| Tax 4 — post-review Undecided | `TAX_postreview\|Reminder` (line 155) | #10 |
+| Tax 5 — implementation Undecided | `TAX_implementdecision\|Reminder` (line 261) | #11 |
+
+The **Continue** (Tax 4) and **Proceed** (Tax 5) picks have NO nag — they auto-lock/auto-charge at 24h instead.
+
+### What shipped 2026-06-09 (v432)
+
+The audit's outcome was a **recipient reroute**, not a `dismissible` change. Per product decision, **no TAX notification may target the shared `admin` bell** — each now routes to a specific person (see Routing model above). Implemented via the new [`utils/tax-notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/tax-notify.ts) helper across 7 handlers; every `dismissible` flag was preserved. A **new retainer-paid FYI** (#8b) was added to `confirmation-email.ts` (PF bell) since paying previously fired emails only. The Tax 4 meeting nudge (#9) was already Tim+Tracy and was untouched.
+
+
 
 1. **Ready-for-Tax-3 Gmail fails** → plan exists with `ready_for_tax3_email_sent='No'` indefinitely. No retry.
 2. **`automation_TAX_sendagreement` fails** → `agreement_sent` not flipped, but the chain caller already returned success. No retry — admin must investigate.
 3. **BoldSign sign-link polling exhausted** (5 retries) → handler still completes (`agreement_sent='Yes'`) but the Gmail body has `[ENGAGEMENT — signing link unavailable]` placeholder text in red. Visible failure.
 4. **Wrong BoldSign webhook URL config** → flags don't flip. CEO countersign + Stripe customer chains never fire. The webhook URL must be `boldsign-webhook` (standalone), AND the function must have `verify_jwt=false` to accept BoldSign's POST without an auth header.
 5. **`pipeline_sandbox_config` missing TAX row** → handlers default to live mode. BoldSign docs created in the wrong account where webhooks aren't configured. **Required fix** during setup.
-6. **`document_numbers` race** → two concurrent invoicereceipt calls could allocate the same INV/REC number. Not protected by DB constraint. Same caveat as MAP1.
+6. **`document_numbers` race / collision** → **fixed 2026-06-09** by `utils/doc-numbers.ts` `allocateDocNumber()` (bump-and-retry against the `UNIQUE(number)` constraint; gotcha #92). The old count-then-insert silently reused a number on collision (a reused `client_ref` made retainer + implementation both land on `-0001`).
 7. **Drive folder name change** → if client renamed, prior PDFs orphan in old folder.
 8. **Idempotency**: `agreement_sent === 'Yes'` blocks re-send. `retainer_confirmation_status === 'Sent'` blocks re-send. `retainer_receipt_status === 'Sent'` blocks re-fire. `tax_final_decision` set blocks re-flip on `/tax-decide`. `ready_for_tax3_email_sent === 'Yes'`, `tax_decision_email_sent === 'Yes'` block re-fires.
-9. **ACH retainer → implementation auto-charge fails (Stripe restriction)**. If the client paid the retainer via ACH (`payment_method_type='ach'`), Stripe will reject the off-session implementation `POST /v1/payment_intents` with `"The PaymentMethod provided (us_bank_account) is not allowed for this PaymentIntent"`. This happens at both the Tax 5 client-Proceed click and the 24h sweep auto-lock paths. The `automation_TAX_charge_implementation` handler degrades gracefully: sets `implementation_charge_status='declined'`, regenerates a fresh `checkout_token` so the existing `/tax-pay` link route can serve the implementation re-pay (the page + `automation_TAX_stripecheckout` already branch on `retainer_status='succeeded' AND implementation_charge_status IN (declined, auth_required, manual_required)` to charge the implementation amount with `metadata.payment_kind='implementation'` instead of the retainer), inserts an admin notification with the Stripe error text + the new token, and drafts a client Gmail with the fresh `/tax-pay` link. **The client manually re-pays via /tax-pay** (typically with a card, not ACH again) — same page, different branch, same downstream Stripe webhook routing. No automated retry; the admin notification is the trigger to email the client. (Verified end-to-end in 2026-05-20 testing.)
+9. **ACH retainer → implementation auto-charge — FIXED 2026-06-09.** Previously Stripe rejected the off-session implementation charge for an ACH-paid retainer with `"us_bank_account is not allowed for this PaymentIntent"` and fell back to a manual `/tax-pay` link. Root cause: `charge-implementation.ts` didn't declare `payment_method_types[]`, so the PaymentIntent defaulted to card-only. Fix: it now sets `payment_method_types[]` to the saved method's type (`us_bank_account`/`card`), so the ACH implementation fee **auto-charges off-session** (the retainer checkout already saved the ACH mandate via `setup_future_usage=off_session`). Verified end-to-end. The graceful-degradation path (set `implementation_charge_status='declined'`/`'auth_required'`, regenerate `checkout_token`, notify, draft a `/tax-pay` Gmail) still exists as the safety net for genuine declines/auth-required — the page + `automation_TAX_stripecheckout` branch on `retainer_status='succeeded' AND implementation_charge_status IN (declined, auth_required, manual_required)` to serve the implementation re-pay. (Check-paid retainers still have no saved PI → still use the manual link.)
 
 ---
 
