@@ -49,7 +49,7 @@ export default function TaxUploadPage() {
     <div style={{ minHeight: '100vh', background: '#0a1f4d', color: '#fff', fontFamily: 'DM Sans, sans-serif', padding: '40px 20px' }}>
       <div style={{ maxWidth: '620px', margin: '0 auto' }}>
         <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '26px', marginBottom: '4px' }}>VFO Portal</div>
-        <h1 style={{ fontSize: '22px', fontWeight: 600, margin: '18px 0 6px' }}>Upload Your Tax Returns</h1>
+        <h1 style={{ fontSize: '22px', fontWeight: 600, margin: '18px 0 6px' }}>Upload Your Tax Documents</h1>
         <p style={{ color: '#8bacc8', fontSize: '14px', lineHeight: 1.5, marginBottom: '22px' }}>
           Your documents are stored securely in a private, encrypted vault — only authorized VFO tax staff can open them.
         </p>
@@ -86,7 +86,7 @@ export default function TaxUploadPage() {
                   </div>
                 ))}
                 <p style={{ color: '#8bacc8', fontSize: '13px', marginTop: '12px' }}>
-                  Thank you — your tax returns have been received. You can close this page or add more files at any time using the same link.
+                  Thank you — your tax documents have been received. You can close this page or add more files at any time using the same link.
                 </p>
               </div>
             )}

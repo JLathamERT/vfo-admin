@@ -45,18 +45,18 @@ Each arrow is either:
 
 ---
 
-## Step 1 — Ready for Tax 3 email
+## Step 1 — Tax 3 Confirmation Email
 
-**Trigger:** Admin clicks the `Ready for Tax 3?` task in Tax 2 phase ([TaxPrioritiesTab.jsx](src/components/admin/tax/TaxPrioritiesTab.jsx)). Picks **Yes** or **No** (Yes = ready to move to Tax 3 ROI meeting; No with decline reason). For **No**, an inline email-preview card opens with a red-dashed textarea where admin types the `[DECLINE_REASON]`, then Send.
+**Trigger:** Admin clicks the `Tax 3 Confirmation Email` task (renamed from "Ready for Tax 3?") in Tax 2 phase ([TaxPrioritiesTab.jsx](src/components/admin/tax/TaxPrioritiesTab.jsx)). **3-button** decision (cloned from the MAP 1 PIP confirmation pattern): **Send email (with date)** → opens date/time/timezone inputs (`confirm_date`); **Send email – date not confirmed** (`confirm_no_date`); **No – Declined email** (`declined`) → opens the inline red-dashed `[DECLINE_REASON]` textarea, then Send.
 
 **Handler:** [`automation_TAX_readyfortax3`](../../supabase/functions/vfo-admin-api/actions/tax/ready-for-tax3.ts) — AUTH handler.
 
 **What it does:**
-1. Validates `client_tax_plans` row exists (created earlier by `tax_start_plan`). Idempotent on `ready_for_tax3_email_sent='Yes'`.
+1. Validates `client_tax_plans` row exists (created earlier by `tax_start_plan`). (No longer hard-blocks on `ready_for_tax3_email_sent='Yes'` — re-sends are allowed.)
 2. Loads `clients`, `members`, `pipeline_sandbox_config` (pipeline='TAX').
-3. UPDATEs plan: `ready_for_tax3_decision`, `ready_for_tax3_email_sent='No'` initially, `sandbox`.
-4. Loads `email_templates` row `(pipeline='TAX', template_name='TAX_readyfortax3|Yes' | 'TAX_readyfortax3|No')`.
-5. Substitutes `[Client Name]`, `[Client First]`, `[Member Name]`, `[PF Name]`, `[DECLINE_REASON]` (for No path).
+3. UPDATEs plan: `ready_for_tax3_decision`=`Yes` (confirm_*) / `No` (declined), `ready_for_tax3_email_sent='No'` initially, `sandbox`.
+4. Loads `email_templates` row — `confirm_date`/`confirm_no_date` → `TAX_readyfortax3|Yes`; `declined` → `TAX_readyfortax3|No`.
+5. Substitutes `[Client Name]`, `[Client First]`, `[Member Name]`, `[PF Name]`, plus **`[CLOSING]`** ("on \<date\> at \<time\> \<tz\>" / "in due course") on the Yes template and `[DECLINE_REASON]` on the No template.
 6. Creates Gmail draft to client (CC member + PF; BCC `aanderson@elitert.com` + `platham@elitert.com`).
 7. Flips `ready_for_tax3_email_sent='Yes'`.
 

@@ -132,7 +132,7 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }
   return (
     <div style={{ marginLeft: '18px', padding: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', marginTop: '4px', marginBottom: '8px' }}>
       <div style={{ marginBottom: '16px' }}>
-        <label style={labelStyle}>Is the member paying on behalf of the client?</label>
+        <label style={labelStyle}>Is the member signing and paying on behalf of the client?</label>
         {isViewMode
           ? <div style={{ ...inputStyle, opacity: 0.6 }}>{memberPayingOnBehalf}</div>
           : <select value={memberPayingOnBehalf} onChange={e => setMemberPayingOnBehalf(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>

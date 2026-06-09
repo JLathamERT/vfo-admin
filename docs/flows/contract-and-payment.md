@@ -21,22 +21,24 @@ Each arrow is implemented either as:
 
 ---
 
-## Step 1 — PIP1 reconfirmation email
+## Step 1 — PIP confirmation emails (PIP 1 / PIP Follow-up)
 
-**Trigger:** Admin opens [ClientDetail](src/pages/ClientDetail.jsx) → MAP1 tab. The c81 task surfaces a decision dropdown. Admin picks `Yes`/`No` and a follow-up meeting date, then completes the task.
+**Trigger:** Admin opens the MAP 1 automation track ([ClientTrackViewV2.jsx](src/components/admin/map1/ClientTrackViewV2.jsx)). Two track steps use this handler: **PIP 1 Confirmation Email** (in the Initial Contact phase, after "Call outcome") and **PIP Follow-up Confirmation Email** (in the PIP 1 phase, renamed from the old "PIP Follow-up meeting re-confirmation/declined email"). Each is the reusable `PipConfirmStep` component with **3 buttons**: *Send email (with date)* → date/time/timezone inputs (`confirm_date`); *Send email – date not confirmed* (`confirm_no_date`); *Meeting declined – email client* (`declined`).
 
-**Handler:** `automation_PIP1_reconfirmationemail` ([admin-api:3944-4074](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) — fired from [ClientTrackViewV2.jsx:85](src/components/admin/map1/ClientTrackViewV2.jsx).
+**Handler:** `automation_PIP1_reconfirmationemail` ([actions/pipeline/pip1-reconfirmation-email.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/pip1-reconfirmation-email.ts)) — AUTH handler, fired from `PipConfirmStep`.
 
 **What it does:**
 1. Loads `clients`, `members`, `pipeline_sandbox_config`.
-2. **Inserts a new `pipeline_map1` row** with `client_id`, `client_ref`, `pf`, `c81_decision`, `c81_email_sent='No'`, `followup_meeting_date`, `sandbox`. (This is the only place that creates the pipeline row; subsequent automations all UPSERT or assume it exists.)
-3. Loads `email_templates` row `(pipeline='MAP 1', template_name='PIP1_reconfirmation|Yes' or '|No')`.
-4. Substitutes `[Client Name]`, `[Client First]`, `[Member Name]`, `[PF Name]`, `[Follow Up Meeting Date]` in subject + body.
-5. Refreshes Gmail OAuth token, creates a Gmail draft to the client (CC member email + PF email; BCC `aanderson@elitert.com` and `platham@elitert.com`).
-6. Updates `pipeline_map1.c81_email_sent='Yes'`.
+2. Picks the template: `declined` → `PIP_meeting_declined`; else `PIP_meeting_confirm`.
+3. Computes `[NEXT_MEETING]` from `body.meeting` (`pip1` → "your Partners in Planning meeting"; `followup` → "…follow-up meeting") and `[CLOSING]` ("on \<date\> at \<time\> \<tz\>" for `confirm_date`, "in due course" for `confirm_no_date`).
+4. Substitutes `[Client Name]`, `[Client First]`, `[NEXT_MEETING]`, `[CLOSING]` + signature.
+5. Refreshes Gmail OAuth token, creates a Gmail draft to the client (CC member + PF; BCC `aanderson@elitert.com` and `platham@elitert.com`).
+6. Returns the draft id. **No DB writes** — the frontend records the task status via `msm_save_client_task` (the old version's `pipeline_map1` stub insert was removed).
 
-**Tables read:** `clients`, `members`, `pipeline_sandbox_config`, `email_templates`.
-**Tables written:** `pipeline_map1` (insert + update).
+**Tables read:** `clients`, `members`, `pipeline_sandbox_config`, `email_templates` (`PIP_meeting_confirm`/`PIP_meeting_declined`).
+**Tables written:** none (drafts only).
+
+> **Note:** the old 2-outcome `PIP1_reconfirmation|Yes`/`|No`/`|No (member…)` templates were scrapped. A single neutral `PIP1_reconfirmation|No` (id 125) was re-created **only** for the PCADMIN decline paths below (see gotcha #87) — it is NOT used by this step.
 **External calls:** Google OAuth token endpoint, Gmail drafts API.
 **Chains:** none.
 
