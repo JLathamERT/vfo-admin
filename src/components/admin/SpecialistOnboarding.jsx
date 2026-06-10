@@ -85,11 +85,13 @@ export default function SpecialistOnboarding() {
     finally { setLoading(false) }
   }
  
+  const newEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim())
+
   async function createNew() {
-    if (!newName.trim()) return
+    if (!newName.trim() || !newEmailValid) return
     setCreating(true)
     try {
-      await callApi('create_onboarding', { specialist_name: newName.trim(), specialist_email: newEmail.trim() || null, created_by: session?.name || 'Admin' })
+      await callApi('create_onboarding', { specialist_name: newName.trim(), specialist_email: newEmail.trim(), created_by: session?.name || 'Admin' })
       setNewName('')
       setNewEmail('')
       setShowNew(false)
@@ -118,12 +120,13 @@ export default function SpecialistOnboarding() {
               <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Full name" style={inputStyle} />
             </div>
             <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Email</label>
+              <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Email *</label>
               <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Email address" style={inputStyle} />
             </div>
           </div>
+          {newEmail.trim() && !newEmailValid && <div style={{ fontSize: '12px', color: '#e06717', marginBottom: '10px' }}>Please enter a valid email address.</div>}
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={createNew} disabled={creating || !newName.trim()} style={{ padding: '8px 20px', borderRadius: '8px', background: creating ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '13px', cursor: creating ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>{creating ? 'Creating...' : 'Create'}</button>
+            <button onClick={createNew} disabled={creating || !newName.trim() || !newEmailValid} style={{ padding: '8px 20px', borderRadius: '8px', background: (creating || !newName.trim() || !newEmailValid) ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '13px', cursor: (creating || !newName.trim() || !newEmailValid) ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>{creating ? 'Creating...' : 'Create'}</button>
             <button onClick={() => { setShowNew(false); setNewName(''); setNewEmail('') }} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Cancel</button>
           </div>
         </div>
@@ -397,7 +400,7 @@ function OnboardingDetail({ id, onBack }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', borderBottom: '1px solid #e9eef8' }}>
         <div onClick={async () => { if (isStopped) return; await saveProgress(5, taskKey, done ? 'unchecked' : 'Completed'); await loadDetail() }} style={{ width: '16px', height: '16px', borderRadius: '4px', border: `1.5px solid ${done ? '#1b9254' : '#aebfdb'}`, background: done ? '#1b9254' : 'transparent', cursor: isStopped ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', flexShrink: 0 }}>{done ? '✓' : ''}</div>
         <span style={{ fontSize: '13px', color: done ? '#4e6087' : '#16264a', textDecoration: done ? 'line-through' : 'none' }}>{label}</span>
-        {ob.expert_id && <button onClick={() => navigate(`/admin?tab=specialists&section=specialist_search&expert=${ob.expert_id}`)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#0095ff', fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', padding: 0, whiteSpace: 'nowrap' }}>Open specialist →</button>}
+        {ob.expert_id && <button onClick={() => navigate(`/admin?tab=specialists&section=specialist_search&expert=${ob.expert_id}&_n=${Date.now()}`)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#0095ff', fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', padding: 0, whiteSpace: 'nowrap' }}>Open specialist →</button>}
       </div>
     )
   }
@@ -592,7 +595,9 @@ function OnboardingDetail({ id, onBack }) {
   function ReviewerNotesSection({ stage }) {
     // Show Tim's tax-risk notes unless the specialist has explicitly answered "No"
     // to being a Tax Specialist. Until they've chosen, show both reviewers.
-    const showTim = ob.sif_data?.is_tax_specialist !== 'No'
+    // Tim only adds his notes once — before the FIRST executive vote (Stage 2);
+    // they are never requested again at the final approval (Stage 4).
+    const showTim = stage !== 4 && ob.sif_data?.is_tax_specialist !== 'No'
     return (
       <>
         <SectionLabel>Reviewer notes</SectionLabel>
@@ -989,9 +994,7 @@ function OnboardingDetail({ id, onBack }) {
     const ddc = ob.ddc_data || {}
     const bgType = ob.background_check_type || '—'
     const revText = ob.rev_share_final_text || progress['2-rev_share_prepared']?.notes || '—'
-    const isTax = ob.sif_data?.is_tax_specialist === 'Yes'
     const tracyNotes = progress['4-tracy_general_notes']?.notes || '—'
-    const timNotes = progress['4-tim_tax_risk_notes']?.notes || '—'
     const lblStyle = { fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }
     const valStyle = { fontSize: '12px', color: '#16264a', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: '10px' }
     const grpStyle = { fontSize: '14px', fontWeight: 700, color: '#16264a', letterSpacing: '0.3px', margin: '20px 0 12px', paddingBottom: '6px', borderBottom: '2px solid rgba(0,149,255,0.55)' }
@@ -1044,10 +1047,6 @@ function OnboardingDetail({ id, onBack }) {
             <div style={grpStyle}>Reviewer notes</div>
             <div style={lblStyle}>Tracy — general notes</div>
             <div style={valStyle}>{tracyNotes}</div>
-            {isTax && (<>
-              <div style={lblStyle}>Tim — tax risk notes</div>
-              <div style={valStyle}>{timNotes}</div>
-            </>)}
           </div>
         )}
       </div>
@@ -1423,8 +1422,9 @@ function OnboardingDetail({ id, onBack }) {
     // Final executive approval — same account-scoped two-round voting as Stage 2,
     // gated on the Stage 4 reviewer notes (Tracy always, Tim only for tax specialists).
     const myExec = EXEC_BY_EMAIL[(session?.email || '').toLowerCase()] || null
-    const timRequired4 = ob.sif_data?.is_tax_specialist !== 'No'
-    const votingOpen = !!getTaskStatus(4, 'tracy_general_notes') && (!timRequired4 || !!getTaskStatus(4, 'tim_tax_risk_notes'))
+    // Stage 4 (final approval) opens on Tracy's notes alone — Tim's tax-risk
+    // notes were already provided before the first executive vote (Stage 2).
+    const votingOpen = !!getTaskStatus(4, 'tracy_general_notes')
     const r1BothVoted = hasVoted(4, 'Anton Anderson', 1) && hasVoted(4, 'Paul Latham', 1)
     const r1AnyFurther = r1BothVoted && (getVote(4, 'Anton Anderson', 1) === 'Further Questions' || getVote(4, 'Paul Latham', 1) === 'Further Questions')
     const r1BothApproved = r1BothVoted && getVote(4, 'Anton Anderson', 1) === 'Approved' && getVote(4, 'Paul Latham', 1) === 'Approved'
@@ -1441,7 +1441,7 @@ function OnboardingDetail({ id, onBack }) {
         <SectionLabel>Final executive approval</SectionLabel>
         {!votingOpen ? (
           <div style={{ fontSize: '12px', color: '#4e6087', padding: '10px 12px', borderRadius: '6px', border: '1px solid #dde5f2', background: '#eef2f9', marginBottom: '12px' }}>
-            Voting opens once {timRequired4 ? "Tracy's and Tim's notes are" : "Tracy's notes are"} complete.
+            Voting opens once Tracy's notes are complete.
           </div>
         ) : (
           <>
@@ -1572,7 +1572,6 @@ function OnboardingDetail({ id, onBack }) {
             </div>
             <div style={{ marginTop: '6px' }}>
               <ShowroomCheck taskKey="headshot_added" label="Headshot (white background) added" />
-              <ShowroomCheck taskKey="bios_added" label="Specialist bios added" />
             </div>
           </>
         )}
