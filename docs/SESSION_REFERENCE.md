@@ -15,7 +15,7 @@
 | `verify_jwt` | `false` on both functions (config.toml + live registry matched) |
 | Supabase project | `ejpsprsmhpufwogbmxjv` ("VFO Showroom"), us-east-2, Postgres 17 |
 | Frontend live URL | `https://jlathamert.github.io/vfo-portal/` |
-| Frontend redesign | **Light-theme redesign (variant B) ships this session** from branch `claude/dreamy-neumann-variant-b` — STYLING ONLY (no api.js/handler/route/data changes). 5 commits: baseline retheme (Inter, navy-gradient headers, split-screen logins, VfoWordmark/AuthShell), contrast pass (labels always ink, tinted insets), track-view kit (progress-header cards, navy phase titles, rounded pills), form controls + segmented sub-tabs + dropdown/modal polish, scrollbar-gutter fix. Pre-redesign save point: tag `live-1-before-redesign`. Current live tag: *update to `live-2-<name>` at stamp time.* |
+| Frontend redesign | **Light-theme redesign (variant B) DEPLOYED + verified 2026-06-09** (PR #48, branch `claude/dreamy-neumann-variant-b`) — STYLING ONLY (no api.js/handler/route/data changes). Baseline retheme (Inter, navy-gradient headers, split-screen logins, VfoWordmark/AuthShell), contrast pass (labels always ink, tinted insets), track-view kit (progress-header cards, navy phase titles, rounded pills), form controls + segmented sub-tabs + dropdown/modal polish, scrollbar-gutter fix. **Current live tag: `live-2-light-redesign`** (gh-pages `e2ddb87`). Pre-redesign save point: `live-1-before-redesign`. Rollback: "restore the live site to live-1-before-redesign". |
 
 ---
 
