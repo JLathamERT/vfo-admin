@@ -4,7 +4,7 @@ Tax engagements run alongside (and downstream of) the regular member-program. A 
 
 ## `client_tax_plans`
 
-State machine for the tax-planning engagement. **79 columns total** (4 original + 51 added via migration `20260518000000_tax_phase0_schema.sql` + 14 split column families + 6 deposit-refund columns added in the Tax Planning alignment session + 4 added this session: `member_paying_on_behalf`, `tax4_meeting_time`, `tax4_meeting_timezone`, `tax4_meeting_confirm_email_sent_at`). Parallel to `pipeline_map1` for MAP1; see [tax-planning flow](../flows/tax-planning.md) for end-to-end usage.
+State machine for the tax-planning engagement. **83 columns total** (4 original + 51 added via migration `20260518000000_tax_phase0_schema.sql` + 14 split column families + 6 deposit-refund columns added in the Tax Planning alignment session + 4 member-pays columns: `member_paying_on_behalf`, `tax4_meeting_time`, `tax4_meeting_timezone`, `tax4_meeting_confirm_email_sent_at` + 4 added in the presentation-step session: `member_presentation_link`, `presentation_send_date`, `presentation_scheduled_at`, `presentation_email_sent_at`). Parallel to `pipeline_map1` for MAP1; see [tax-planning flow](../flows/tax-planning.md) for end-to-end usage.
 
 > **Program-aware**: rows are tagged with `program_id` so the same handlers serve both Holistic Planning's Tax Priorities track (program_id=1) and the standalone VFO Tax Planning program (program_id=4). Client-visible labels (invoice/receipt headers, Stripe line items, BoldSign agreement title) switch between "VFO Holistic Planning" and "VFO Tax Planning" via the `programLabel(programId)` helper in `utils/program-label.ts`.
 
@@ -39,7 +39,7 @@ State machine for the tax-planning engagement. **79 columns total** (4 original 
 | `vfos_share` | numeric | Dollar amount of VFOS's cut. |
 | `potential_tax_savings` | numeric | Undecided branch only — from form's `potentialTaxSavings`. |
 | `initial_retainer_quoted` | numeric | Undecided branch only — quoted in meeting. |
-| `presentation_link` | text | Optional link from form. Used as `[PRESENTATION_LINK]` in Undecided + decline emails. |
+| `presentation_link` | text | Optional link from the **Tax 3 "Client tax planning decision"** form. Used as `[PRESENTATION_LINK]` in Undecided + decline + agreement emails (`decision.ts`/`pricing.ts`/`extra-meeting.ts`/`final-decision.ts`/`send-agreement.ts`). **Distinct from `member_presentation_link`** (the Tax 2 step) — do not conflate. |
 | `meeting_notes` | text | Optional notes from form. |
 | `tax_token` | text | 32-byte hex. Used by `/tax-decide?token=<>` for the Undecided client-decision page. Indexed. |
 | `tax_final_decision` | text | `Yes` / `No` / `ExtraMeeting` — set by `automation_TAX_finaldecision` from the `/tax-decide` page. |
@@ -101,6 +101,16 @@ The Tax 3 cascade is gated by client action at 3 different points (Undecided ema
 | `payment_email_sent_at` | timestamptz | When the `/tax-pay` email was drafted (used as sweep base). |
 | `payment_reminder_sent_at` | timestamptz | 48h reminder timestamp. |
 | `payment_pf_notified_at` | timestamptz | 96h PF notification timestamp. |
+
+### Tax 2 — Send presentation link to member (scheduled, BUILT)
+The **"Send presentation link to member before meeting"** step (`program_client_tasks` ids 168 prog 1 / 169 prog 4, `status_options='tax_presentation_link'`, in the **Tax 2 - Deeper Dive** phase right after "Tax 3 Confirmation Email", `task_order=3`). Admin pastes a link + picks a send date (`automation_TAX_presentation_schedule`, AUTH); the `tax-presentation-sweep-daily` cron (09:00 UTC, `automation_TAX_presentation_sweep`, PUBLIC/service-role) drafts the `TAX_presentation_link` email (id 151; **To member, Cc assigned PF**; greeting `[Member First]`; `[PRESENTATION_LINK]` → "View the presentation" button) on the chosen date. **Drafts only — no auto-send.**
+
+| Column | Type | Notes |
+|---|---|---|
+| `member_presentation_link` | text | The presentation URL the admin pastes in the step. Its OWN column — separate from the Tax 3 `presentation_link` so the two never clobber each other. |
+| `presentation_send_date` | date | The date the cron should draft the member email. Sweep matches `<= today` (catches a missed run). Also the step's completion signal in `TaxPrioritiesTab.jsx`. |
+| `presentation_scheduled_at` | timestamptz | When the admin scheduled it (audit). |
+| `presentation_email_sent_at` | timestamptz | Stamped when the sweep drafts the email; its NULL-ness is the sweep's not-yet-sent guard. |
 
 ### Tax 4 — Continue / Stop + refund (Phase 6 — BUILT) + post-review client-email redesign
 The Tax 4 flow no longer fires money movement on admin click. Admin picks a 3-option dropdown (Continue - Revenue Share / Undecided / Stop - Refund); for Continue + Undecided, a client email goes out with timer-based fallback.
