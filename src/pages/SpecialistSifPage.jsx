@@ -131,7 +131,7 @@ export default function SpecialistSifPage() {
         <SelectField label="Time Zone" hint="Deadlines will be based on this time zone." value={form.time_zone} onChange={v => set('time_zone', v)} options={TZ_OPTIONS} required />
 
         <SectionLabel n="2" required>Strategy / Expertise</SectionLabel>
-        <Area value={form.strategy_expertise} onChange={v => set('strategy_expertise', v)} hint="For example: 1031 Exchanges (through Private Placement Delaware Statutory Trust)" />
+        <Field value={form.strategy_expertise} onChange={v => set('strategy_expertise', v)} maxLength={85} hint="Keep this to one short line — it appears in your agreement. For example: 1031 Exchanges (through Private Placement Delaware Statutory Trust)" />
         <Field label="2A. Cut-off Date for Strategy (if applicable)" value={form.cutoff_date} onChange={v => set('cutoff_date', v)} hint="For example: December 31st 11:59 pm EST" />
 
         <SectionLabel n="3" required>Client Requirements</SectionLabel>
@@ -177,12 +177,17 @@ function SectionLabel({ n, children, required }) {
   return <div style={{ fontSize: '13px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '28px 0 12px', borderTop: '1px solid #ebf0f8', paddingTop: '20px' }}>{n}. {children}{required && <span style={{ color: '#d93025' }}> *</span>}</div>
 }
 
-function Field({ label, value, onChange, hint, required, flex }) {
+function Field({ label, value, onChange, hint, required, flex, maxLength }) {
   return (
     <div style={{ marginBottom: '14px', flex: flex ? 1 : undefined, minWidth: flex ? '180px' : undefined }}>
-      <label style={labelStyle}>{label}{required && <span style={{ color: '#d93025' }}> *</span>}</label>
-      <input value={value} onChange={e => onChange(e.target.value)} style={inputStyle} />
-      {hint && <div style={hintStyle}>{hint}</div>}
+      {label && <label style={labelStyle}>{label}{required && <span style={{ color: '#d93025' }}> *</span>}</label>}
+      <input value={value} onChange={e => onChange(e.target.value)} maxLength={maxLength} style={inputStyle} />
+      {(hint || maxLength) && (
+        <div style={{ ...hintStyle, display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+          <span>{hint}</span>
+          {maxLength && <span style={{ flexShrink: 0 }}>{(value || '').length}/{maxLength}</span>}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 # API action catalog (`vfo-admin-api`)
 
-All **289 actions** dispatched by `vfo-admin-api` (5 logins + 284 dispatched; PUBLIC/AUTH split tracked in `SESSION_REFERENCE.md` LIVE STATE). The presentation-step session added `automation_TAX_presentation_schedule` (AUTH) + `automation_TAX_presentation_sweep` (PUBLIC/cron) — +2 over the prior 287. (The prior Specialist go-live session added the `specialist_login` 5th login + the Specialist go-live actions + the 6 specialist-vault handlers.) Composition (approximate, historical): MAP1 baseline of 134 + ~28 tax handlers in `actions/tax/` (see [../flows/tax-planning.md](../flows/tax-planning.md)) + 21 Advisor Onboarding handlers in `actions/advisor/` + 14 PIP Meetings handlers (see [../flows/pip-meetings.md](../flows/pip-meetings.md)) + 22 Accountant Onboarding handlers in `actions/accountant/` + **~33 Specialist Onboarding handlers** in `actions/onboarding/` (Stages 1–3 automation + the 2026-06-04 DD Checklist revamp + the **2026-06-05 Stage-4 agreement + monthly-license flow**: `sendagreement`/`ceocountersign`/`licstripecustomer`/`licpaymentemail`/`licloadpayment`/`liccheckout`/`licconfirmation`/`licinvoicereceipt` — all PUBLIC; deployed **v404**; see [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md)). The catalog cites file paths (not line numbers).
+All **291 actions** dispatched by `vfo-admin-api` (5 logins + 286 dispatched; PUBLIC/AUTH split tracked in `SESSION_REFERENCE.md` LIVE STATE). The 2026-06-10 specialist-onboarding-tweaks session added `specialist_vault_admin_upload_url` (AUTH/admin) + `specialist_vault_admin_delete` (AUTH/admin) — +2 over the prior 289 (the presentation-step session before it added `automation_TAX_presentation_schedule` + `automation_TAX_presentation_sweep`, +2 over 287). (The prior Specialist go-live session added the `specialist_login` 5th login + the Specialist go-live actions + the 6 specialist-vault handlers.) Composition (approximate, historical): MAP1 baseline of 134 + ~28 tax handlers in `actions/tax/` (see [../flows/tax-planning.md](../flows/tax-planning.md)) + 21 Advisor Onboarding handlers in `actions/advisor/` + 14 PIP Meetings handlers (see [../flows/pip-meetings.md](../flows/pip-meetings.md)) + 22 Accountant Onboarding handlers in `actions/accountant/` + **~33 Specialist Onboarding handlers** in `actions/onboarding/` (Stages 1–3 automation + the 2026-06-04 DD Checklist revamp + the **2026-06-05 Stage-4 agreement + monthly-license flow**: `sendagreement`/`ceocountersign`/`licstripecustomer`/`licpaymentemail`/`licloadpayment`/`liccheckout`/`licconfirmation`/`licinvoicereceipt` — all PUBLIC; deployed **v404**; see [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md)). The catalog cites file paths (not line numbers).
 
 Format: action · `file` · tables read / written · chains / external. Table prefix `pipeline_map1` is shortened to `pmap1` and `pipeline_sandbox_config` to `psbx_cfg` for brevity. All file references are relative to `C:\vfo-edge-functions\supabase\functions\vfo-admin-api\`.
 
@@ -279,6 +279,8 @@ Admin read-only view of a specialist's vault by `expert_id` (Search Specialists 
 |---|---|---|---|---|
 | `specialist_vault_admin_list` | `actions/vault/specialist-vault-admin-list.ts` | storage `specialist-documents` (list by `expert_id`) | — | Admin-only. Lists a specialist's documents. |
 | `specialist_vault_admin_download` | `actions/vault/specialist-vault-admin-download.ts` | storage `specialist-documents` | — | Admin-only. Signed download URL. |
+| `specialist_vault_admin_upload_url` | `actions/vault/specialist-vault-admin-upload-url.ts` | — | storage `specialist-documents` (upload by `expert_id`) | Admin-only (2026-06-10). Signed upload URL into a specialist's vault. |
+| `specialist_vault_admin_delete` | `actions/vault/specialist-vault-admin-delete.ts` | — | storage (delete by `expert_id`, path prefix-checked) | Admin-only (2026-06-10). Removes a file from a specialist's vault. |
 
 ---
 
@@ -415,7 +417,7 @@ Admin read-only view of a specialist's vault by `expert_id` (Search Specialists 
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
 | `load_onboardings` | `actions/onboarding/load-list.ts` | `specialist_onboarding` | — | — |
-| `create_onboarding` | `actions/onboarding/create.ts` | — | `specialist_onboarding` | — |
+| `create_onboarding` | `actions/onboarding/create.ts` | — | `specialist_onboarding` | Email required + format-validated (`400` otherwise) — 2026-06-10. |
 | `load_onboarding` | `actions/onboarding/load.ts` | `specialist_onboarding`, `specialist_onboarding_progress`, `specialist_onboarding_meetings`, `specialist_onboarding_votes` | — | — |
 | `save_onboarding_progress` | `actions/onboarding/save-progress.ts` | — | `specialist_onboarding_progress` (upsert) | — |
 | `save_onboarding_meeting` | `actions/onboarding/save-meeting.ts` | — | `specialist_onboarding_meetings` (incl. `rev_proposal_text` + minted `rev_proposal_token` when a proposal is attached) | — |

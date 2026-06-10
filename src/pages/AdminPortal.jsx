@@ -314,7 +314,12 @@ export default function AdminPortal() {
           )}
 
           {activeTab === 'specialists' && !loading && (
-            <SpecialistsPanel allExperts={allExperts} ecoMap={ecoMap} ciqMap={ciqMap} onDataChange={loadAllData} section={specialistsSection} />
+            // key on section forces a clean remount when switching between the
+            // onboarding view and the search/add views — SpecialistsPanel early-
+            // returns <SpecialistOnboarding/> before its hooks, so changing section
+            // in place would trip React's hooks-count check and the navigation
+            // (e.g. the Stage-5 "Open specialist →" link) could silently fail.
+            <SpecialistsPanel key={specialistsSection} allExperts={allExperts} ecoMap={ecoMap} ciqMap={ciqMap} onDataChange={loadAllData} section={specialistsSection} />
           )}
 
           {activeTab === 'advisors' && !loading && (
