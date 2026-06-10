@@ -539,6 +539,29 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     }
   }
 
+  async function firePresentationSchedule(taskId, opts = {}) {
+    const { link, date } = opts
+    setDeclineDrafts(d => ({ ...d, [taskId]: { ...(d[taskId] || {}), sending: true } }))
+    try {
+      const res = await callApi('automation_TAX_presentation_schedule', {
+        tax_plan_id: plan.id,
+        presentation_link: link || '',
+        send_date: date || null,
+      })
+      if (res?.error) {
+        alert('Error: ' + res.error)
+        setDeclineDrafts(d => ({ ...d, [taskId]: { ...(d[taskId] || {}), sending: false } }))
+        return
+      }
+      await refreshLivePlan()
+      setDeclineDrafts(d => { const next = { ...d }; delete next[taskId]; return next })
+    } catch (err) {
+      console.error(err)
+      alert('Failed to schedule email: ' + (err?.message || 'unknown error'))
+      setDeclineDrafts(d => ({ ...d, [taskId]: { ...(d[taskId] || {}), sending: false } }))
+    }
+  }
+
   async function saveDate(taskId, date, taxSpecialistId = null) {
     const key = taxSpecialistId ? `${taskId}_${taxSpecialistId}` : taskId
     const p = localProgress[key] || {}
@@ -888,6 +911,49 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     }
 
     if (task.name === 'Refund initial 50%' || task.name === 'Revenue share for initial 50%') return null
+
+    if (task.status_options === 'tax_presentation_link') {
+      const sentAt = livePlan?.presentation_email_sent_at
+      const sendDate = livePlan?.presentation_send_date || ''
+      const savedLink = livePlan?.member_presentation_link || ''
+      const draft = declineDrafts[task.id] || {}
+      const formOpen = !!draft.pOpen
+      const sending = !!draft.sending
+      const setDraft = (patch) => setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), ...patch } }))
+      const tdInput = { padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '11px' }
+      const tdGreen = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
+      const tdCancel = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid #d6e0ee', background: 'transparent', color: '#4e6087' }
+      const done = !!sentAt
+      const scheduled = !done && !!sendDate
+      const dotColor = done ? '#1b9254' : scheduled ? '#0095ff' : 'transparent'
+      const dotBorder = done ? '#1b9254' : scheduled ? '#0095ff' : '#c7d4e8'
+      return (
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, flexShrink: 0, border: `1.5px solid ${dotBorder}` }} />
+          <span style={{ fontSize: '13px', color: (done || scheduled) ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
+          {done ? (
+            <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>Email drafted — {formatDate(sendDate)}</span>
+          ) : readOnly ? (
+            scheduled ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#0095ff22', color: '#0095ff', fontWeight: 600, border: '1px solid #0095ff44' }}>Scheduled — {formatDate(sendDate)}</span> : null
+          ) : formOpen ? (
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input type="url" value={draft.link || ''} onChange={e => setDraft({ link: e.target.value })} placeholder="Paste the presentation link..." style={{ ...tdInput, minWidth: '220px' }} />
+              <input type="date" value={draft.date || ''} onChange={e => setDraft({ date: e.target.value })} style={tdInput} />
+              <button disabled={sending || !draft.link || !draft.date} onClick={() => firePresentationSchedule(task.id, { link: draft.link, date: draft.date })} style={{ ...tdGreen, opacity: (sending || !draft.link || !draft.date) ? 0.6 : 1 }}>{sending ? 'Saving...' : 'Send email on selected date'}</button>
+              <button disabled={sending} onClick={() => setDeclineDrafts(d => { const next = { ...d }; delete next[task.id]; return next })} style={tdCancel}>Cancel</button>
+            </div>
+          ) : scheduled ? (
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#0095ff22', color: '#0095ff', fontWeight: 600, border: '1px solid #0095ff44' }}>Scheduled — {formatDate(sendDate)}</span>
+              <button disabled={sending} onClick={() => setDraft({ pOpen: true, link: savedLink, date: sendDate })} style={tdCancel}>Edit</button>
+            </div>
+          ) : (
+            <button disabled={sending} onClick={() => setDraft({ pOpen: true, link: '', date: '' })} style={tdGreen} title="Paste the presentation link and choose the date to send it. A cron job drafts the email to the member (Cc the assigned PF) early that morning.">Schedule email</button>
+          )}
+          <span style={{ fontSize: '11px', color: '#4e6087', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{sendDate ? formatDate(sendDate) : ''}</span>
+        </div>
+      )
+    }
 
     if (task.status_options === 'tax_hlm_confirm') {
       const savedDate = livePlan?.tax4_meeting_date || ''
@@ -1504,6 +1570,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         const doneTasks = nonAutoTasks.filter(t => {
           // tax_hlm_confirm writes to client_tax_plans.tax4_meeting_date, not client_tax_progress
           if (t.status_options === 'tax_hlm_confirm') return !!livePlan?.tax4_meeting_date
+          // tax_presentation_link writes to client_tax_plans (scheduled or sent), not client_tax_progress
+          if (t.status_options === 'tax_presentation_link') return !!livePlan?.presentation_send_date
           return !!localProgress[t.id]?.status
         }).length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
@@ -1642,6 +1710,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         const doneTasks = nonAutoTasks.filter(t => {
           // tax_hlm_confirm writes to client_tax_plans.tax4_meeting_date, not client_tax_progress
           if (t.status_options === 'tax_hlm_confirm') return !!livePlan?.tax4_meeting_date
+          // tax_presentation_link writes to client_tax_plans (scheduled or sent), not client_tax_progress
+          if (t.status_options === 'tax_presentation_link') return !!livePlan?.presentation_send_date
           return !!localProgress[t.id]?.status
         }).length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'

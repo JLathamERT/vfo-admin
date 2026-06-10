@@ -67,6 +67,20 @@ Each arrow is either:
 
 ---
 
+## Step 1½ — Send presentation link to member before meeting (Tax 2 - Deeper Dive)
+
+A scheduled, cron-drafted step that sits right after "Tax 3 Confirmation Email" in the **Tax 2 - Deeper Dive** phase (`program_client_tasks` ids 168 prog 1 / 169 prog 4, `status_options='tax_presentation_link'`, `task_order=3`). Lets the admin queue a presentation link to go to the **member** ahead of the Tax 3 ROI meeting, sent on a chosen date.
+
+**Schedule handler:** [`automation_TAX_presentation_schedule`](../../supabase/functions/vfo-admin-api/actions/tax/presentation-schedule.ts) — AUTH. Admin clicks the green "Schedule email" button → pastes a link + picks a date → handler writes `member_presentation_link`, `presentation_send_date`, `presentation_scheduled_at` (and nulls `presentation_email_sent_at`). **No email here.** Uses its OWN `member_presentation_link` column — deliberately separate from the Tax 3 `presentation_link` (Step 2) so the two never overwrite each other.
+
+**Sweep handler:** [`automation_TAX_presentation_sweep`](../../supabase/functions/vfo-admin-api/actions/tax/presentation-sweep.ts) — PUBLIC service-role; daily cron `tax-presentation-sweep-daily` at **09:00 UTC**. Selects plans where `member_presentation_link IS NOT NULL` AND `presentation_email_sent_at IS NULL` AND `presentation_send_date <= today`; for each, drafts the `TAX_presentation_link` email (id 151) **To the member, Cc the assigned PF** (`[Member First]` greeting, `[PRESENTATION_LINK]` → "View the presentation" button linking the pasted URL), then stamps `presentation_email_sent_at`. **Drafts only — no auto-send**, consistent with every other automation. The frontend step shows green "Schedule email" → blue "Scheduled — <date>" (with Edit) → green "Email drafted — <date>".
+
+**Tables read:** `client_tax_plans`, `clients`, `members`, `pipeline_sandbox_config`, `email_templates`.
+**Tables written:** `client_tax_plans` (`member_presentation_link`, `presentation_send_date`, `presentation_scheduled_at`, `presentation_email_sent_at`).
+**Chains:** none.
+
+---
+
 ## Step 2 — Tax 3 — "Client tax planning decision"
 
 **Trigger:** Admin opens the `Client tax planning decision` task in Tax 3 phase → fills `TaxDecisionForm` ([TaxPrioritiesTab.jsx](src/components/admin/tax/TaxPrioritiesTab.jsx)) → submits. The form submits in 2 API calls back-to-back: `tax_save_task` (writes the progress row with status `Completed - <decision>`) then `automation_TAX_decision`.
@@ -369,10 +383,11 @@ Visible when `payment_method_type='check'` AND `retainer_status='check_pending'`
 7. Loads template `'TAX_invoicereceipt_email|retainer'`.
 8. Re-fetches the PDFs from Drive (`?alt=media`) as base64.
 9. Builds **multipart MIME** Gmail draft with both PDFs attached. CC member + PF + `tracy@vfo-services.com`. **Critical: CC/BCC lines only pushed if non-empty — empty strings in the headers array breaks Gmail parsing (first empty line is the body separator).**
+   - **`[PORTAL_SETUP]` "create your account" button** (added in the presentation-step session, mirroring MAP 1's first-payment email): mints `clients.client_setup_token` if null, then replaces the template's trailing `[PORTAL_SETUP]` with a "Set up your secure portal login" button → `https://jlathamert.github.io/vfo-portal/client-setup?token=<client_setup_token>`. The member-paid variant (id 137, email goes To the member) addresses the button to the client by first name. Same `/client-setup` page + token column as MAP 1 — no new route.
 10. UPDATEs `retainer_invoice_email_sent=true`, `retainer_receipt_status='Sent'`.
 
-**Tables read:** `client_tax_plans`, `clients`, `members`, `pipeline_sandbox_config`, `email_templates`, `document_numbers`.
-**Tables written:** `document_numbers` (insert), `client_tax_plans` (numbers + drive IDs + email_sent + receipt_status).
+**Tables read:** `client_tax_plans`, `clients` (incl. `client_setup_token`), `members`, `pipeline_sandbox_config`, `email_templates`, `document_numbers`.
+**Tables written:** `document_numbers` (insert), `clients` (`client_setup_token` mint), `client_tax_plans` (numbers + drive IDs + email_sent + receipt_status).
 **External calls:** html2pdf.app ×2, Google OAuth, Drive search/create/upload/download, Gmail drafts (multipart).
 **Chains:** none — Phase 6 (revshare/refund) is admin-button-driven.
 
