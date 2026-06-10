@@ -76,8 +76,8 @@ export default function PayPage() {
   )
 
   const baseAmount = Number(data.payment_amount) || 0
-  const cardFee = Math.round((baseAmount * 0.029 + 0.30) * 100) / 100
-  const cardTotal = Math.round((baseAmount + cardFee) * 100) / 100
+  const cardTotal = Math.round((baseAmount + 0.30) / (1 - 0.029) * 100) / 100
+  const cardFee = Math.round((cardTotal - baseAmount) * 100) / 100
 
   return (
     <div style={containerStyle}>

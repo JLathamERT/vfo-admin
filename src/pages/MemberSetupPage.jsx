@@ -46,8 +46,18 @@ export default function MemberSetupPage() {
       if (acctData.state === 'ready') { setData(acctData); setKind('accountant'); setStatus('ready'); return }
       if (acctData.state === 'already_setup') { setKind('accountant'); setStatus('already_setup'); return }
 
-      // Neither table had the token.
-      setError(acctData.error || advData.error || 'This setup link is no longer valid.')
+      // Accountant didn't match either — try specialist (separate portal).
+      const specRes = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'automation_SPECIALIST_loadloginsetup', token }),
+      })
+      const specData = await specRes.json()
+      if (specData.state === 'ready') { setData({ ...specData, email: specData.email }); setKind('specialist'); setStatus('ready'); return }
+      if (specData.state === 'already_setup') { setKind('specialist'); setStatus('already_setup'); return }
+
+      // None of the tables had the token.
+      setError(specData.error || acctData.error || advData.error || 'This setup link is no longer valid.')
       setStatus('error')
     } catch {
       setError('Unable to connect. Please try again later.')
@@ -64,7 +74,9 @@ export default function MemberSetupPage() {
 
     setSubmitting(true)
     try {
-      const action = kind === 'accountant'
+      const action = kind === 'specialist'
+        ? 'automation_SPECIALIST_submitloginsetup'
+        : kind === 'accountant'
         ? 'automation_ACCOUNTANT_submitloginsetup'
         : 'automation_ADVISOR_submitloginsetup'
       const res = await fetch(API_URL, {
@@ -78,7 +90,8 @@ export default function MemberSetupPage() {
       })
       const d = await res.json()
       if (d.success) {
-        navigate('/member/login', { state: { email: d.email, fromSetup: true } })
+        const loginPath = kind === 'specialist' ? '/specialist/login' : '/member/login'
+        navigate(loginPath, { state: { email: d.email, fromSetup: true } })
         return
       }
       if (d.state === 'already_setup') { setStatus('already_setup'); return }
@@ -89,6 +102,9 @@ export default function MemberSetupPage() {
       setSubmitting(false)
     }
   }
+
+  const portalLabel = kind === 'specialist' ? 'Specialist' : 'Member'
+  const loginPath = kind === 'specialist' ? '/specialist/login' : '/member/login'
 
   if (status === 'loading') return (
     <div style={containerStyle}>
@@ -115,9 +131,9 @@ export default function MemberSetupPage() {
           <span style={{ fontSize: '28px', lineHeight: 1 }}>ℹ️</span>
         </div>
         <h1 style={titleStyle}>Login Already Set Up</h1>
-        <p style={subtitleStyle}>You already have a login for the member portal. Click below to sign in.</p>
+        <p style={subtitleStyle}>You already have a login for the {portalLabel.toLowerCase()} portal. Click below to sign in.</p>
         <button
-          onClick={() => navigate('/member/login')}
+          onClick={() => navigate(loginPath)}
           style={primaryButtonStyle}
         >
           Go to Login
@@ -129,7 +145,7 @@ export default function MemberSetupPage() {
   return (
     <div style={containerStyle}>
       <div style={pageContainerStyle}>
-        <h1 style={{ ...titleStyle, fontSize: '22px', textAlign: 'center', marginBottom: '32px' }}>Set Up Your Member Portal Login</h1>
+        <h1 style={{ ...titleStyle, fontSize: '22px', textAlign: 'center', marginBottom: '32px' }}>Set Up Your {portalLabel} Portal Login</h1>
 
         <form onSubmit={handleSubmit} style={formStyle}>
           <label style={labelStyle}>Email</label>
@@ -165,7 +181,7 @@ export default function MemberSetupPage() {
         </form>
 
         <p style={securityNoteStyle}>
-          After setup, you'll be taken to the member login page to sign in with your new passcode.
+          After setup, you'll be taken to the {portalLabel.toLowerCase()} login page to sign in with your new passcode.
         </p>
       </div>
     </div>

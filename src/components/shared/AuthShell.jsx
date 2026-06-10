@@ -16,10 +16,10 @@ export default function AuthShell({ children }) {
         </svg>
         <VfoWordmark size={24} light />
         <h1 style={{ fontWeight: 800, letterSpacing: '-0.02em', fontSize: '34px', color: '#ffffff', margin: '28px 0 14px', lineHeight: 1.15, maxWidth: '420px' }}>
-          Your personal team of financial experts.
+          Virtual Family Office team
         </h1>
         <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.72)', margin: 0, lineHeight: 1.6, maxWidth: '400px' }}>
-          One portal for planning, tax, wealth management, and everything in between — coordinated expertise without the complexity.
+          Top national specialists in tax planning, legal services, risk mitigation, wealth management, and business advisory services.
         </p>
         <div style={{ width: '46px', height: '4px', borderRadius: '99px', background: '#fb895a', marginTop: '26px' }} />
       </div>

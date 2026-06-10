@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { callApi } from '../../lib/api'
 import SpecialistOnboarding from './SpecialistOnboarding'
+import SpecialistAdminVault from './SpecialistAdminVault'
 
 const ECOSYSTEMS = ['Tax Planning', 'Business Advisory', 'Legal', 'Insurance', 'Wealth Management']
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
@@ -32,6 +34,18 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   const [editCiqDrop, setEditCiqDrop] = useState('')
   const [editSearch, setEditSearch] = useState('')
   const [selectedExpert, setSelectedExpert] = useState(null)
+  const [specialistTab, setSpecialistTab] = useState('edit')
+  const [searchParams] = useSearchParams()
+
+  // Deep-link from the Stage 5 onboarding links: /admin?...&expert=<id> opens
+  // that specialist's detail in the Search Specialists view.
+  useEffect(() => {
+    const eid = searchParams.get('expert')
+    if (eid && allExperts) {
+      const exp = allExperts.find(x => String(x.id) === String(eid))
+      if (exp) { handleEditSelect(exp); setSpecialistTab('edit') }
+    }
+  }, [searchParams, allExperts])
 
   function showStatus(which, type, msg) {
     if (which === 'add') { setAddStatusType(type); setAddStatus(msg); setTimeout(() => setAddStatus(''), 4000) }
@@ -384,29 +398,46 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
 
       {activeTab === 'edit' && selectedExpert && (
         <div>
-          <button onClick={() => { setSelectedExpert(null); setEditingId(null) }} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
-          <div style={sectionStyle}>
-            {SpecialistForm({
-              which: 'edit', form: editForm, setForm: setEditForm,
-              ecos: editEcos, file: editFile, preview: editPreview,
-              ciq: editCiq, ciqDrop: editCiqDrop, setCiqDrop: setEditCiqDrop,
-              statusMsg: editStatus, statusType: editStatusType,
-            })}
-            <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-              <button onClick={() => submitSpecialist('edit')}
-                style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
-                Save Changes
+          <button onClick={() => { setSelectedExpert(null); setEditingId(null); setSpecialistTab('edit') }} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
+
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', borderBottom: '1px solid #e3eaf5' }}>
+            {['edit', 'vault'].map(t => (
+              <button key={t} onClick={() => setSpecialistTab(t)} style={{ padding: '8px 16px', border: 'none', background: 'none', borderBottom: specialistTab === t ? '2px solid #125ecc' : '2px solid transparent', color: specialistTab === t ? '#125ecc' : '#4e6087', fontWeight: specialistTab === t ? 600 : 400, fontSize: '14px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: '-1px' }}>
+                {t === 'edit' ? 'Edit Specialist' : 'Vault'}
               </button>
-              <button onClick={() => { setSelectedExpert(null); setEditingId(null) }}
-                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '14px', cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button onClick={deleteSpecialist}
-                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontWeight: 500, fontSize: '14px', cursor: 'pointer' }}>
-                Delete
-              </button>
-            </div>
+            ))}
           </div>
+
+          {specialistTab === 'edit' && (
+            <div style={sectionStyle}>
+              {SpecialistForm({
+                which: 'edit', form: editForm, setForm: setEditForm,
+                ecos: editEcos, file: editFile, preview: editPreview,
+                ciq: editCiq, ciqDrop: editCiqDrop, setCiqDrop: setEditCiqDrop,
+                statusMsg: editStatus, statusType: editStatusType,
+              })}
+              <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                <button onClick={() => submitSpecialist('edit')}
+                  style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
+                  Save Changes
+                </button>
+                <button onClick={() => { setSelectedExpert(null); setEditingId(null); setSpecialistTab('edit') }}
+                  style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '14px', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button onClick={deleteSpecialist}
+                  style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontWeight: 500, fontSize: '14px', cursor: 'pointer' }}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          )}
+
+          {specialistTab === 'vault' && (
+            <div style={sectionStyle}>
+              <SpecialistAdminVault expertId={selectedExpert.id} />
+            </div>
+          )}
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { callApi, getSession } from '../../lib/api'
 import { SpecialistOnboardingListSkeleton, SpecialistOnboardingDetailSkeleton } from '../shared/Skeleton'
  
@@ -26,12 +26,6 @@ const STAGE2_CHECKLIST = [
   'Explain VFO monthly license',
 ]
  
-const STAGE5_SKOOL_ITEMS = [
-  { key: 'profile_created', label: 'Profile created', options: ['Completed'] },
-  { key: 'intro_post', label: 'Introduction post made', options: ['Completed'] },
-  { key: 'team_members_added', label: 'Additional team members added', options: ['Completed', 'N/A'] },
-]
-
 const SIF_FIELDS = [
   ['full_name', 'Full Name'],
   ['company_name', 'Company Name'],
@@ -175,7 +169,8 @@ function OnboardingDetail({ id, onBack }) {
   const [fqPending, setFqPending] = useState(null)
   const [expanded, setExpanded] = useState({})
   const session = getSession()
- 
+  const navigate = useNavigate()
+
   useEffect(() => { loadDetail() }, [id])
  
   async function loadDetail() {
@@ -249,7 +244,23 @@ function OnboardingDetail({ id, onBack }) {
   async function completeOnboarding() {
     await updateOnboarding({ status: 'completed' })
   }
- 
+
+  // Create the specialist's Showroom directory record from their SIF (+ Core/Max),
+  // copy their DD-checklist files into their vault, and send the login-setup email.
+  // Does NOT complete the onboarding — that happens once the headshot + bios
+  // checkboxes are ticked. Specialists are NOT members; this writes experts +
+  // specialist_logins only.
+  async function createSpecialistAndShowroom() {
+    setSaving(p => ({ ...p, ['5-added_to_showroom']: true }))
+    try {
+      const r = await callApi('automation_SPECIALIST_createspecialist', { onboarding_id: id })
+      if (r?.error) throw new Error(r.error)
+      await saveProgress(5, 'added_to_showroom', 'completed')
+      await loadDetail()
+    } catch (err) { console.error(err); alert('Could not create specialist: ' + (err.message || 'unknown')) }
+    finally { setSaving(p => ({ ...p, ['5-added_to_showroom']: false })) }
+  }
+
   function getTaskStatus(stage, key) {
     const s = progress[`${stage}-${key}`]?.status
     return (s && s !== 'unchecked') ? s : null
@@ -288,6 +299,7 @@ function OnboardingDetail({ id, onBack }) {
   }
  
   function getStageState(stage) {
+    if (ob?.status === 'completed') return 'done'
     if (ob?.status === 'stopped') return ob?.current_stage > stage ? 'done' : ob?.current_stage === stage ? 'active' : 'pending'
     if (ob?.current_stage > stage) return 'done'
     if (ob?.current_stage === stage) return 'active'
@@ -376,7 +388,21 @@ function OnboardingDetail({ id, onBack }) {
       </div>
     )
   }
- 
+
+  // Stage-5 Showroom task: a toggleable checkbox + a link that opens this
+  // specialist's record in Search Specialists so the admin can enter the item.
+  function ShowroomCheck({ taskKey, label }) {
+    const done = !!getTaskStatus(5, taskKey)
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', borderBottom: '1px solid #e9eef8' }}>
+        <div onClick={async () => { if (isStopped) return; await saveProgress(5, taskKey, done ? 'unchecked' : 'Completed'); await loadDetail() }} style={{ width: '16px', height: '16px', borderRadius: '4px', border: `1.5px solid ${done ? '#1b9254' : '#aebfdb'}`, background: done ? '#1b9254' : 'transparent', cursor: isStopped ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', flexShrink: 0 }}>{done ? '✓' : ''}</div>
+        <span style={{ fontSize: '13px', color: done ? '#4e6087' : '#16264a', textDecoration: done ? 'line-through' : 'none' }}>{label}</span>
+        {ob.expert_id && <button onClick={() => navigate(`/admin?tab=specialists&section=specialist_search&expert=${ob.expert_id}`)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#0095ff', fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', padding: 0, whiteSpace: 'nowrap' }}>Open specialist →</button>}
+      </div>
+    )
+  }
+
+
   function ActionButton({ label, onClick, color = '#0095ff', disabled = false }) {
     const bg = color === '#1b9254' ? 'rgba(27,146,84,0.15)' : color === '#e74c3c' ? 'rgba(231,76,60,0.15)' : color === '#e06717' ? 'rgba(251,137,90,0.15)' : 'rgba(0,149,255,0.15)'
     const border = color === '#1b9254' ? 'rgba(27,146,84,0.4)' : color === '#e74c3c' ? 'rgba(231,76,60,0.4)' : color === '#e06717' ? 'rgba(251,137,90,0.4)' : 'rgba(0,149,255,0.4)'
@@ -1471,38 +1497,84 @@ function OnboardingDetail({ id, onBack }) {
     )
   }
 
+  function SkoolInviteStep() {
+    const sent = !!getTaskStatus(5, 'skool_invite')
+    const sentLink = progress['5-skool_invite']?.notes || ''
+    const [open, setOpen] = useState(false)
+    const [link, setLink] = useState('')
+    const [sending, setSending] = useState(false)
+
+    async function send() {
+      const v = link.trim()
+      if (!v || sending) return
+      setSending(true)
+      try {
+        await callApi('automation_SPECIALIST_skoolinvite', { onboarding_id: id, skool_link: v })
+        await loadDetail()
+        setOpen(false)
+        setLink('')
+      } catch (err) { console.error(err) }
+      finally { setSending(false) }
+    }
+
+    return (
+      <div style={{ padding: '6px 0', borderBottom: '1px solid #e9eef8' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#16264a' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: sent ? '#1b9254' : 'transparent', border: `1px solid ${sent ? '#1b9254' : '#c7d4e8'}`, flexShrink: 0 }} />
+            {sent ? 'Invite to VFO Skool sent' : 'Send invite to VFO Skool'}
+          </span>
+          {!open && (
+            sent
+              ? (!isStopped && <ActionButton label="Send again" onClick={() => { setLink(sentLink); setOpen(true) }} color="#1b9254" />)
+              : <ActionButton label="Attach link and send email" onClick={() => setOpen(true)} color="#1b9254" />
+          )}
+        </div>
+        {sent && !open && sentLink && (
+          <div style={{ marginTop: '4px' }}><a href={sentLink} target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: '#0095ff', wordBreak: 'break-all' }}>{sentLink}</a></div>
+        )}
+        {open && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+            <input value={link} onChange={e => setLink(e.target.value)} placeholder="Paste the VFO Skool invite link..." style={{ ...inputStyle, flex: 1 }} />
+            <ActionButton label={sending ? 'Sending...' : 'Send'} onClick={send} color="#1b9254" disabled={!link.trim() || sending} />
+            <ActionButton label="Cancel" onClick={() => { setOpen(false); setLink('') }} color="#e74c3c" disabled={sending} />
+          </div>
+        )}
+      </div>
+    )
+  }
+
   function Stage5Content() {
+    const teamAdded = !!getTaskStatus(5, 'team_members_added')
     return (
       <>
         <SectionLabel>VFO Skool</SectionLabel>
-        {STAGE5_SKOOL_ITEMS.map(item => {
-          const status = getTaskStatus(5, item.key)
-          if (item.options.length === 1) {
-            return <CheckItem key={item.key} done={!!status} label={item.label} onClick={() => saveProgress(5, item.key, 'Completed')} />
-          }
-          return (
-            <div key={item.key}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #e9eef8' }}>
-                <span style={{ fontSize: '13px', color: '#16264a' }}>{item.label}</span>
-                <select value={status || ''} onChange={e => e.target.value && saveProgress(5, item.key, e.target.value)} disabled={isStopped} style={{ ...inputStyle, minWidth: '120px', borderColor: status ? 'rgba(27,146,84,0.4)' : '#d6e0ee', color: status ? '#1b9254' : '#16264a' }}>
-                  <option value="">-- Select --</option>
-                  {item.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-              </div>
-              {item.key === 'team_members_added' && status === 'Completed' && (
-                <TeamMembersInput onboarding_id={id} currentNotes={progress['5-team_members_added']?.notes || ''} onSave={(notes) => saveProgress(5, 'team_members_added', 'Completed', notes)} />
-              )}
-            </div>
-          )
-        })}
- 
+        <SkoolInviteStep />
+        <CheckItem done={!!getTaskStatus(5, 'intro_post')} label="Introduction post made" onClick={() => saveProgress(5, 'intro_post', 'Completed')} />
+        <CheckItem done={teamAdded} toggle label="Additional team members added (optional)" onClick={() => saveProgress(5, 'team_members_added', teamAdded ? 'unchecked' : 'Completed')} />
+        {teamAdded && (
+          <TeamMembersInput currentNotes={progress['5-team_members_added']?.notes || ''} onSave={(notes) => saveProgress(5, 'team_members_added', 'Completed', notes)} />
+        )}
+
         <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
  
         <SectionLabel>VFO Showroom</SectionLabel>
         {!getTaskStatus(5, 'added_to_showroom') ? (
-          <button onClick={() => { saveProgress(5, 'added_to_showroom', 'completed'); completeOnboarding() }} disabled={isStopped} style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: isStopped ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', width: '100%' }}>Add to VFO Showroom</button>
+          <>
+            <button onClick={createSpecialistAndShowroom} disabled={isStopped || saving['5-added_to_showroom']} style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: (isStopped || saving['5-added_to_showroom']) ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', width: '100%' }}>{saving['5-added_to_showroom'] ? 'Creating…' : 'Add to Showroom & Send Specialist Login'}</button>
+            <p style={{ fontSize: '11px', color: '#4e6087', textAlign: 'center', marginTop: '8px', marginBottom: 0 }}>Creates their Showroom profile from the SIF, copies their Due Diligence documents into their portal vault, and emails them a login-setup link.</p>
+          </>
         ) : (
-          <div style={{ fontSize: '13px', color: '#16264a', fontWeight: '600', textAlign: 'center', padding: '10px' }}>✓ Added to VFO Showroom — Onboarding Complete</div>
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1b9254', border: '1px solid #1b9254', flexShrink: 0 }} />
+              <span style={{ fontSize: '13px', color: '#16264a' }}>Specialist created — Showroom profile added, login email sent</span>
+            </div>
+            <div style={{ marginTop: '6px' }}>
+              <ShowroomCheck taskKey="headshot_added" label="Headshot (white background) added" />
+              <ShowroomCheck taskKey="bios_added" label="Specialist bios added" />
+            </div>
+          </>
         )}
       </>
     )

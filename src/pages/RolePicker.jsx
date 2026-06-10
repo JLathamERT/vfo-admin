@@ -3,7 +3,7 @@ import VfoWordmark from '../components/shared/VfoWordmark'
 
 const ROLES = [
   { label: 'VFOS/ERT', sub: 'Admin & team access', to: '/admin/login', initials: 'VE' },
-  { label: 'Specialist', sub: 'Coming soon', to: null, initials: 'SP' },
+  { label: 'Specialist', sub: 'Your secure specialist portal', to: '/specialist/login', initials: 'SP' },
   { label: 'Member', sub: 'Advisor & accountant access', to: '/member/login', initials: 'ME' },
   { label: 'Client', sub: 'Your secure client portal', to: '/client/login', initials: 'CL' },
 ]
@@ -42,12 +42,6 @@ export default function RolePicker() {
               opacity: role.to ? 1 : 0.75, display: 'flex', alignItems: 'center', gap: '14px',
             }}
           >
-            <span style={{
-              width: '42px', height: '42px', borderRadius: '12px', flexShrink: 0,
-              background: role.to ? 'linear-gradient(135deg, #125ecc, #0095ff)' : '#eef2f9',
-              color: role.to ? '#ffffff' : '#9aa6bf', display: 'inline-flex', alignItems: 'center',
-              justifyContent: 'center', fontSize: '13px', fontWeight: 800, letterSpacing: '0.5px',
-            }}>{role.initials}</span>
             <span style={{ minWidth: 0 }}>
               <span style={{ display: 'block', fontSize: '16px', fontWeight: 700, color: '#002973', marginBottom: '3px' }}>{role.label}</span>
               <span style={{ display: 'block', fontSize: '12.5px', color: role.to ? '#4e6087' : '#e06717', fontWeight: role.to ? 400 : 600 }}>{role.sub}</span>
@@ -55,7 +49,6 @@ export default function RolePicker() {
           </button>
         ))}
       </div>
-      <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', marginTop: '28px', position: 'relative' }}>Coordinated expertise without the complexity</p>
     </div>
   )
 }
