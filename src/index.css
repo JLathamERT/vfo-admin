@@ -13,8 +13,10 @@
   --vfo-border: #e3eaf5;
 }
 
+/* Always reserve the scrollbar track so the page doesn't shift sideways
+   between short pages (no scrollbar) and long pages (scrollbar). */
 html {
-  overflow-y: auto;
+  overflow-y: scroll;
 }
 
 body {
