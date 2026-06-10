@@ -32,7 +32,7 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | `/pip-pay` | [PipPayPage](src/pages/PipPayPage.jsx) | URL token | `automation_PIP_loadpayment` + `automation_PIP_stripecheckout` — PIP Meetings purchase payment (one-time; Tax Planning or Additional PIP meetings) |
 | `/pft-ft-decide` | [PftFtDecidePage](src/pages/PftFtDecidePage.jsx) | URL token + `decision` | PFT VFO Fast Track email response (`decision=confirm\|another_meeting`) → `automation_PFT_ftresponse`. Added 2026-06-05. |
 | `/pft-discovery` | [PftDiscoveryPage](src/pages/PftDiscoveryPage.jsx) | URL token | PFT Meeting-2 discovery form (SIF-style; all required except firm-ownership length) → `automation_PFT_loaddiscovery` / `automation_PFT_submitdiscovery`. Added 2026-06-05. |
-| `/member-setup` | [MemberSetupPage](src/pages/MemberSetupPage.jsx) | URL token | Tries `automation_ADVISOR_loadloginsetup` first; on `state: 'invalid'` falls through to `automation_ACCOUNTANT_loadloginsetup`. Remembers matched pipeline ('advisor' / 'accountant') and fires the corresponding `_submitloginsetup`. On success, redirects to `/member/login` with email pre-filled via `location.state.email`. One shared page handles both onboarding pipelines. |
+| `/member-setup` | [MemberSetupPage](src/pages/MemberSetupPage.jsx) | URL token | Tries `automation_ADVISOR_loadloginsetup` first; on `state: 'invalid'` falls through to `automation_ACCOUNTANT_loadloginsetup`, then to `automation_SPECIALIST_loadloginsetup` (this session). Remembers matched pipeline ('advisor' / 'accountant' / 'specialist') and fires the corresponding `_submitloginsetup`. On success, advisor/accountant redirect to `/member/login` with email pre-filled via `location.state.email`; **specialists redirect to `/specialist/login`**. One shared page handles all three onboarding pipelines. |
 | `/specialist-sif` | [SpecialistSifPage](src/pages/SpecialistSifPage.jsx) | URL token | Specialist Information Form (Stage 1; now with the "Are you a Tax Specialist?" Yes/No branch → 4 conditional tax-risk questions). `automation_SPECIALIST_loadsif` + `automation_SPECIALIST_submitsif`. Added 2026-06-02. |
 | `/specialist-ddc` | [SpecialistDdcPage](src/pages/SpecialistDdcPage.jsx) | URL token | Due Diligence Checklist form — text answers + file uploads (signed upload URLs → private `specialist-dd-materials` bucket), save-progress + resume + submit. `automation_SPECIALIST_loadddc`/`saveddc`/`ddcuploadurl`/`submitddc`. Added 2026-06-04. |
 | `/specialist-ddc-help` | [SpecialistDdcHelpPage](src/pages/SpecialistDdcHelpPage.jsx) | URL token | "Request help" confirmation → `automation_SPECIALIST_ddchelp`. Added 2026-06-04. |
@@ -43,6 +43,8 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | `/client/login` | [ClientLogin](src/pages/ClientLogin.jsx) | none | New CLIENT login — calls `client_login`; sets session `{role:'client', client_id}`. |
 | `/client-setup` | [ClientSetupPage](src/pages/ClientSetupPage.jsx) | URL token | PUBLIC client page — `load_client_setup` then `submit_client_setup` (set passcode → creates `client_logins` row). |
 | `/client` | [ClientPortal](src/pages/ClientPortal.jsx) | client session | THIRD portal (after admin/member); role-guards `session.role==='client'`. Two tabs: Showroom (placeholder stub) + Vault. |
+| `/specialist/login` | [SpecialistLogin](src/pages/SpecialistLogin.jsx) | none | Specialist portal login — calls `specialist_login`; sets session `{role:'specialist', expert_id}`. Added this session. |
+| `/specialist` | [SpecialistPortal](src/pages/SpecialistPortal.jsx) | specialist session | FOURTH portal; role-guards `session.role==='specialist'`. One Vault tab. Added this session. |
 | `*` | redirect to `/` | — | Catch-all |
 
 ## Top-level shells
@@ -88,7 +90,7 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 
 The portal itself only fires `load_data` (line 85). All deeper actions are fired by the panels it renders:
 - `MembersPanel` → `add_member_full`, `save_member`, `delete_member`, `member_profile_load/save`, `gc_*`, `member_program_notes_*`, `load_member_login`, `create/update_member_login` ([MembersPanel.jsx:207, 292, 300, 313, 550, 615-617, 628, 716, 727, 737, 742, 747](src/components/admin/MembersPanel.jsx))
-- `SpecialistsPanel` → `save_specialist`, `delete_specialist`, `upload_headshot` ([SpecialistsPanel.jsx:115, 123, 135](src/components/admin/SpecialistsPanel.jsx))
+- `SpecialistsPanel` → `save_specialist`, `delete_specialist`, `upload_headshot` ([SpecialistsPanel.jsx:115, 123, 135](src/components/admin/SpecialistsPanel.jsx)). Selecting a specialist now shows **Edit Specialist | Vault** tabs; the Vault tab mounts [SpecialistAdminVault](src/components/admin/SpecialistAdminVault.jsx) (admin read-only view of the specialist's vault — `specialist_vault_admin_list` / `specialist_vault_admin_download`). Supports a `?expert=<id>` deep-link that auto-opens the matching specialist. Added this session.
 - `AutomationPanel` → `automation_load_pipelines`, `automation_load_pipeline_data`, `save_sandbox_config` ([AutomationPanel.jsx](src/components/admin/AutomationPanel.jsx)) — **read-only view of pipeline rows**, plus a clickable mode badge in the header that calls `save_sandbox_config` to toggle the MAP1 sandbox/live mode. The pipeline-row mutations themselves come from inside ClientDetail's MAP1 tab.
 - `EmailTemplatesPanel` → `automation_load_email_templates`, `automation_save_email_template` ([EmailTemplatesPanel.jsx:18, 40](src/components/admin/EmailTemplatesPanel.jsx))
 - `AdminEditor` → `load_admins`, `create_admin`, `delete_admin` ([AdminEditor.jsx:17, 35, 44](src/components/admin/AdminEditor.jsx))
@@ -130,6 +132,22 @@ The **third portal** (after admin/member), reached via `/client`. Role-guards `s
 |---|---|---|
 | Showroom | inline placeholder stub | not yet built |
 | Vault | [ClientVault](src/components/client/ClientVault.jsx) | client-scoped document vault — two sections, **Sensitive Documents** (→ `client-tax-returns` bucket) and **General Documentation** (→ `client-documents` bucket); calls `client_vault_list` / `client_vault_upload_url` / `client_vault_download` / `client_vault_delete` (all scoped server-side to the caller's own client) |
+
+### `SpecialistPortal.jsx` ([src/pages/SpecialistPortal.jsx](src/pages/SpecialistPortal.jsx))
+
+The **fourth portal** (after admin/member/client), reached via `/specialist`. Role-guards `session.role==='specialist'`. One tab only:
+
+| Tab | Mounts | Notes |
+|---|---|---|
+| Vault | [SpecialistVault](src/components/specialist/SpecialistVault.jsx) | specialist-scoped document vault — a single **General Documentation** section (mirrors `ClientVault`) over the private `specialist-documents` bucket; calls `specialist_vault_list` / `specialist_vault_upload_url` / `specialist_vault_download` / `specialist_vault_delete` (all scoped server-side to the caller's own `expert_id`) |
+
+#### Specialist-portal page/component additions (this session)
+
+- New pages: [`pages/SpecialistLogin.jsx`](src/pages/SpecialistLogin.jsx) and [`pages/SpecialistPortal.jsx`](src/pages/SpecialistPortal.jsx) (one Vault tab).
+- New components: [`components/specialist/SpecialistVault.jsx`](src/components/specialist/SpecialistVault.jsx) (single "General Documentation" section, mirrors `ClientVault`) and [`components/admin/SpecialistAdminVault.jsx`](src/components/admin/SpecialistAdminVault.jsx) (admin read-only vault on Search Specialists → Vault tab).
+- [`RolePicker.jsx`](src/pages/RolePicker.jsx): the **"Specialist" tile now links to `/specialist/login`** (was "Coming soon"). The VE/SP/ME/CL initials chips were **removed**, and the "Coordinated expertise without the complexity" footer was removed.
+- [`AuthShell.jsx`](src/components/shared/AuthShell.jsx) (split-screen login left panel): heading → "Virtual Family Office team", subtext → "Top national specialists in tax planning, legal services, risk mitigation, wealth management, and business advisory services."
+- [`SpecialistOnboarding.jsx`](src/components/admin/SpecialistOnboarding.jsx) **Stage 5 reworked**: Skool-invite green button (`automation_SPECIALIST_skoolinvite`), create-specialist button (`automation_SPECIALIST_createspecialist`), headshot/bios checkboxes with "Open specialist →" links (deep-link to Search Specialists via `?expert=<id>`).
 
 ### `ClientDetail.jsx` ([src/pages/ClientDetail.jsx](src/pages/ClientDetail.jsx)) — 384 lines
 
@@ -199,7 +217,7 @@ The expanded-row view ([AutomationPanel.jsx:88-260](src/components/admin/Automat
 | `/decide` | `?token=<c15_token>&decision=<Yes\|No\|ExtraMeeting>&serviceLevel=<Lite\|Core\|Max>&clientRef=<...>` | `pipeline_map1.c15_token` | Pure side-effect page — fires one POST and renders an outcome screen. No further interaction. Idempotency handled server-side via `existing_decision` response. |
 | `/pay` | `?token=<checkout_token>` | `pipeline_map1.checkout_token` | Two-step: (1) `automation_CONTRACT_loadpayment` returns client name + amount; (2) user picks ACH or Card → `automation_CONTRACT_stripecheckout` returns Stripe URL → `window.location.href` redirect. Stripe success URL is hardcoded `https://www.vfo-services.com/payment-successful/` — leaves the SPA. |
 
-> **Inconsistency:** The card-fee math in [PayPage.jsx:76](src/pages/PayPage.jsx) — `(payment_amount + payment_amount * 0.029 + 0.30).toFixed(2)` — is the *naive* fee (added on top), but the server-side card calculation in [actions/pipeline/contract-stripe-checkout.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/contract-stripe-checkout.ts) uses the gross-up formula `Math.round((baseAmount + 0.30) / (1 - 0.029) * 100)`. The two differ by a few cents on the fee component. The displayed amount is informational; the actual Stripe charge uses the gross-up formula.
+> **Card-fee display fix (this session).** Previously the card-fee math on the pay pages used the *naive* fee `payment_amount * 0.029 + 0.30` (added on top), which differed from the server-side card charge by a few cents. The displayed card total/fee in [`PayPage.jsx`](src/pages/PayPage.jsx), [`TaxPayPage.jsx`](src/pages/TaxPayPage.jsx), [`PipPayPage.jsx`](src/pages/PipPayPage.jsx), and [`SpecialistPayPage.jsx`](src/pages/SpecialistPayPage.jsx) now use the same gross-up formula `(base + 0.30) / (1 - 0.029)` as the server-side card calculation in [actions/pipeline/contract-stripe-checkout.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/contract-stripe-checkout.ts) (`Math.round((baseAmount + 0.30) / (1 - 0.029) * 100)`), so the shown amount matches the actual Stripe charge. **Display-only change** — the charge math was already correct server-side.
 
 ## Cross-references
 

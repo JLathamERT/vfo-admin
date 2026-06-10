@@ -1,6 +1,6 @@
 # Authentication & sessions
 
-The portal uses a **custom session-token scheme** layered on top of the Supabase anon JWT — *not* Supabase Auth. There is no `auth.users` table involvement; identity is `allowed_admins` (admin role), `member_logins` (member role), and — new this session — **`client_logins` (client role)**, and tokens live in `admin_sessions` (single table for all three roles, despite the name).
+The portal uses a **custom session-token scheme** layered on top of the Supabase anon JWT — *not* Supabase Auth. There is no `auth.users` table involvement; identity is `allowed_admins` (admin role), `member_logins` (member role), `client_logins` (client role), and — new this session — **`specialist_logins` (specialist role)**, and tokens live in `admin_sessions` (single table for all four roles, despite the name).
 
 ## Storage layout
 
@@ -36,6 +36,11 @@ After `client_login` ([ClientLogin.jsx](src/pages/ClientLogin.jsx)) — new this
 { token, email, name, role: 'client', client_id }
 ```
 
+After `specialist_login` — new this session:
+```
+{ token, email, name, role: 'specialist', expert_id }
+```
+
 > **Inconsistency:** The session created at login does **not** include `ciq_enabled` / `ciq_vfos_managed`, but [MemberPortal.jsx:132](src/pages/MemberPortal.jsx) reads `session.ciq_enabled` / `session.ciq_vfos_managed` to gate the CIQ tab. Those fields *are* returned by `member_login` (see `actions/auth/member-login.ts`) but are **not persisted to `vfo_session`** by [MemberLogin.jsx:19](src/pages/MemberLogin.jsx). The tab will currently render with `ciqEnabled={undefined}` / `ciqVfosManaged={undefined}`. Behavior in `MemberCIQ.jsx` should be checked under that condition — flagged for Phase E.
 
 ## Login flow
@@ -47,6 +52,8 @@ RolePicker (/) ──► /admin/login ──► callApi('admin_login') ──►
 ```
 
 > **Client setup:** clients don't pre-exist in `client_logins`. They arrive via a token link (`/client-setup?token=`, matched to `clients.client_setup_token`) sent in the first-payment email, set a passcode (`submit_client_setup` → creates the `client_logins` row + stamps `client_setup_completed_at`), then log in at `/client/login`. Mirrors the advisor/accountant member-setup pattern.
+
+> **Specialist login:** `specialist_login` is a pre-auth action in `index.ts` (mirrors `client_login`) — it looks up `specialist_logins` by lowercased email, verifies the passcode (salted PBKDF2 via `verifyPasscode`), creates an `admin_sessions` token (8h), and returns `{ token, name, email, role: "specialist", expert_id }`. The `specialist_logins.passcode_hash` row is written by `automation_SPECIALIST_submitloginsetup`.
 
 [AdminLogin.jsx](src/pages/AdminLogin.jsx) and [MemberLogin.jsx](src/pages/MemberLogin.jsx) both clear UI-state sessionStorage keys before navigation (lines 18-21 and 18 respectively) — preventing a previous user's tab/section state from leaking into the new session.
 
@@ -81,10 +88,11 @@ For every action that reaches this gate (i.e., not in `PUBLIC_HANDLERS` and not 
 
 1. Reads `body.token`. Returns `401` if missing.
 2. Looks up `admin_sessions` row by token. Returns `401` if missing or `expires_at` past (and deletes the expired row).
-3. **Role precedence (updated this session):** `allowed_admins` by email → `callerRole='admin'`, `is_superadmin = (email === SUPERADMIN_EMAIL)`. Else `client_logins` by email → `callerRole='client'`, `callerClientId = <client_id>`. Else `callerRole='member'` and resolves `callerMemberNumber` via `member_logins`. (Admin wins over client wins over member — so a client whose email is also an admin is treated as admin.)
+3. **Role precedence (updated this session):** `allowed_admins` by email → `callerRole='admin'`, `is_superadmin = (email === SUPERADMIN_EMAIL)`. Else `client_logins` by email → `callerRole='client'`, `callerClientId = <client_id>`. Else `specialist_logins` by email → `callerRole='specialist'`, `callerSpecialistId = <experts.id>`. Else `callerRole='member'` and resolves `callerMemberNumber` via `member_logins`. (Admin wins over client wins over specialist wins over member — so a client/specialist whose email is also an admin is treated as admin.)
 4. **Client deny-by-default gate:** if `callerRole==='client'` and the action is NOT in `CLIENT_ALLOWED_ACTIONS`, returns `403` immediately (before the admin/member gates). A client session can ONLY reach the 4 `client_vault_*` actions.
+5. **Specialist deny-by-default gate:** if `callerRole==='specialist'` and the action is NOT in `SPECIALIST_ALLOWED_ACTIONS`, returns `403` immediately (mirrors the client gate). A specialist session can ONLY reach the 4 `specialist_vault_*` actions.
 
-The function returns either an `AuthResult` of kind `"response"` (early-return 401/403) or kind `"auth"` carrying the full `AuthContext` (defined in `types/index.ts` — now includes `callerClientId: number | null`). Handlers that take `auth` as a 4th parameter receive that context.
+The function returns either an `AuthResult` of kind `"response"` (early-return 401/403) or kind `"auth"` carrying the full `AuthContext` (defined in `types/index.ts` — now includes `callerClientId: number | null` and `callerSpecialistId: number | null`, and the `callerRole` union now includes `"specialist"`). Handlers that take `auth` as a 4th parameter receive that context.
 
 ### Session lifetime
 
@@ -99,8 +107,11 @@ The function returns either an `AuthResult` of kind `"response"` (early-return 4
 | `ADMIN_ONLY_ACTIONS` array | `constants/role-gates.ts` | Non-admin callers get `403 Forbidden`. +8 this session (the admin vault actions): `vault_tax_admin_upload_url`, `vault_tax_list`, `vault_tax_download`, `vault_tax_delete`, `vault_gen_list`, `vault_gen_upload_url`, `vault_gen_download`, `vault_gen_delete`. |
 | `MEMBER_SCOPED_ACTIONS` array | `constants/role-gates.ts` | For member callers, `body.member_number` is overwritten with the caller's own value before dispatch |
 | `CLIENT_ALLOWED_ACTIONS` array (4 entries) | `constants/role-gates.ts` | **NEW this session.** A `client` session may call ONLY these: `client_vault_list`, `client_vault_upload_url`, `client_vault_download`, `client_vault_delete`. Any other action → 403 (deny-by-default). These 4 handlers scope to `auth.callerClientId` (from the session, never the body), so a client only ever touches their own `<client_id>/` files. |
+| `SPECIALIST_ALLOWED_ACTIONS` array (4 entries) | `constants/role-gates.ts` | **NEW this session.** A `specialist` session may call ONLY these: `specialist_vault_list`, `specialist_vault_upload_url`, `specialist_vault_download`, `specialist_vault_delete`. Any other action → 403 (deny-by-default, mirrors the client gate). These 4 handlers scope to `auth.callerSpecialistId` (= the specialist's `experts.id`, from the session, never the body) and path-prefix-check `<expert_id>/` against the private `specialist-documents` bucket. |
 
 > **Member client-add (v337):** `msm_add_client` (Holistic / Tax / Partnership Fast Track "+ Add Client") and `msm_add_client_contact` are in `MEMBER_SCOPED_ACTIONS`, so a member caller's `body.member_number` is forced to their own. The middleware rewrite is only the first layer — the **handlers themselves add an ownership guard** because `enrollment_id` / `client_id` are NOT scoped by the middleware: `add-client.ts` rejects (`403`) when `enrollment.member_number !== member_number` (applies to all callers; no-op for admins who pass matching pairs), and `add-client-contact.ts` rejects when the target client isn't the caller's (member callers only — keyed on `body.member_number` being present). This is the pattern to follow for any other member-allowed write that takes a foreign-key the middleware can't scope.
+
+> **Specialist admin-collision caveat (same as the client caveat):** if a specialist's email is also in `allowed_admins`, admin wins in the precedence chain → the session re-types to admin and the `specialist_vault_*` actions 403 (`callerSpecialistId` is null for an admin session). For testing, use a non-admin email/alias for the specialist login.
 
 **Gaps explicitly visible:**
 - `add_client_note`, `update_client_note`, `delete_client_note` are in **neither** list — both admin and member can call them, with no DB-level scoping. Security relies on the caller knowing a `note_id` they're allowed to touch.
@@ -140,7 +151,7 @@ The `'/vfo-portal/'` path is the gh-pages base path. On localhost dev (Vite at p
 
 ## Passcode hashing
 
-**Salted PBKDF2-HMAC-SHA256** (210,000 iterations, 16-byte random salt), stored as `pbkdf2$sha256$<iter>$<saltB64>$<hashB64>` in `allowed_admins.passcode_hash` / `member_logins.passcode_hash` / `client_logins.passcode_hash` (the client table new this session; `submit_client_setup` writes it via `hashPasscodeSalted`). Helpers live in `vfo-admin-api/utils/crypto.ts` (`hashPasscodeSalted`, `verifyPasscodeSalted`, `isSaltedHash`); the shared `verifyPasscode()` is in `utils/passcode-verify.ts`.
+**Salted PBKDF2-HMAC-SHA256** (210,000 iterations, 16-byte random salt), stored as `pbkdf2$sha256$<iter>$<saltB64>$<hashB64>` in `allowed_admins.passcode_hash` / `member_logins.passcode_hash` / `client_logins.passcode_hash` / `specialist_logins.passcode_hash` (the client and specialist tables new this session; `submit_client_setup` writes the client hash and `automation_SPECIALIST_submitloginsetup` writes the specialist hash, both via `hashPasscodeSalted`). Helpers live in `vfo-admin-api/utils/crypto.ts` (`hashPasscodeSalted`, `verifyPasscodeSalted`, `isSaltedHash`); the shared `verifyPasscode()` is in `utils/passcode-verify.ts`.
 
 Because each row has its own salt, the login handlers (`admin_login`, `member_login`, legacy `login`) **fetch the row by email, then verify the passcode in code** — they can no longer match the hash inside the SQL query. Writers (`create_member_login`, `update_member_login`, `create_admin`, `update_my_passcode`, advisor/accountant `submit-login-setup`) write only `passcode_hash`.
 

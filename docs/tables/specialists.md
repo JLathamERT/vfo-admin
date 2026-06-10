@@ -36,7 +36,9 @@ The specialist roster. Most columns are display/marketing text (the "D&B" prefix
 
 **Note:** Column names containing `&` (`D&B_*`) require quoting in SQL.
 
-**Touched by:** `load_data` (returned as `data.experts`), `save_specialist`, `save_specialist_order`, `delete_specialist`, `upload_headshot`. Frontend: [SpecialistsPanel.jsx](src/components/admin/SpecialistsPanel.jsx).
+**Note (2026-06-10):** `experts` is the specialist **directory**. On go-live the `D&B_*` columns are populated **from the SIF** by `automation_SPECIALIST_createspecialist` (question-to-question mapping; the 4 `D&B_audit_risk_*` only when `sif_data.is_tax_specialist='Yes'` — see [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md)). `experts.id` has **no sequence default** — the create-specialist handler assigns `max(id)+1`. `background_check` ← `specialist_onboarding.background_check_type` (Core/Max). Specialist logins live in the new `specialist_logins` table below (specialists are **not** `members`).
+
+**Touched by:** `load_data` (returned as `data.experts`), `save_specialist`, `save_specialist_order`, `delete_specialist`, `upload_headshot`, and (2026-06-10) `automation_SPECIALIST_createspecialist` (insert on go-live). Frontend: [SpecialistsPanel.jsx](src/components/admin/SpecialistsPanel.jsx).
 
 ---
 
@@ -80,10 +82,11 @@ Multi-stage onboarding workflow. Stages 1..N are application-defined; each stage
 | **Stage-4 agreement** (2026-06-05) | | `lic_boldsign_document_id`, `agreement_sent_at`, `agreement_signed_by_specialist_at`, `agreement_signed_by_ceo_at`, `rev_share_agreement_text` (snapshot of the rev-share text rendered into the agreement). |
 | **Stage-4 license payment / Stripe subscription** (2026-06-05) | | `lic_checkout_token`, `lic_stripe_customer_id` (reuses `bg_stripe_customer_id`), `lic_subscription_id`, `lic_payment_status` (null/`processing`/`succeeded`/`failed`), `lic_payment_method_type`, `lic_acct_last4`, `lic_card_processing_fee`, `lic_payment_completed_at`, `lic_payment_link_sent_at`, `lic_confirmation_email_sent_at`, `lic_invoice_number`, `lic_receipt_number`, `lic_invoice_drive_id`, `lic_receipt_drive_id`, `lic_invoice_receipt_email_sent_at`, `lic_last_invoice_id` (+`_paid_at`) — per-invoice idempotency for the monthly subscription. |
 | **Stage-4 reminder guards** (2026-06-05) | | `agreement_sign_reminder_sent_at`/`_pf_notified_at`, `lic_payment_reminder_sent_at`/`_pf_notified_at`, `rev_share_final_reminder_sent_at`/`_pf_notified_at` (48h/96h sweep guards for the DD/rev-share/signature/payment stalls). |
+| **Stage-5 go-live: login-setup + expert link** (2026-06-10) | | `login_setup_token` (text, unique partial idx), `login_setup_token_expires_at` (timestamptz), `login_setup_email_sent_at` (timestamptz), `login_setup_completed_at` (timestamptz); `expert_id` (bigint, FK → `experts(id)` ON DELETE SET NULL — the directory row created on go-live), `expert_created_at` (timestamptz). Login setup writes to **`specialist_logins`** (not `member_logins`). Migration `specialist_login_and_expert_link`. |
 
-**Status fields:** `current_stage` (auto-advances to 3 on Stage-2 exec approval; → 4 when **all three** Stage-3 items complete — Background Passed + DD Approved + rev-share finalized, via `maybeAdvanceStage3`; **→ 5 on the first license `invoice.paid`**, 2026-06-05), `status` (`stopped` on both-Denied at either stage). Stage-4 final-approval reviewer notes + 2-round votes reuse the same `tracy_general_notes`/`tim_tax_risk_notes` progress keys (stage 4) and `specialist_onboarding_votes` (stage 4); both-Approved auto-sends the agreement. The 7 Stage-4 status steps (`agreement_sent`/`agreement_signed_specialist`/`agreement_signed_ceo`/`payment_link_sent`/`payment_made`/`confirmation_email_sent`/`invoice_receipt_sent`) + the completion-email idempotency markers (`<item>_complete_emailed`) are freeform `specialist_onboarding_progress` task_keys (no columns), now driven by the Stage-4 sign/pay chain.
+**Status fields:** `current_stage` (auto-advances to 3 on Stage-2 exec approval; → 4 when **all three** Stage-3 items complete — Background Passed + DD Approved + rev-share finalized, via `maybeAdvanceStage3`; **→ 5 on the first license `invoice.paid`**, 2026-06-05), `status` (`stopped` on both-Denied at either stage; **`completed` only when both Stage-5 checkboxes `headshot_added` + `bios_added` are ticked** — gated in `save-progress.ts`, 2026-06-10). Stage-4 final-approval reviewer notes + 2-round votes reuse the same `tracy_general_notes`/`tim_tax_risk_notes` progress keys (stage 4) and `specialist_onboarding_votes` (stage 4); both-Approved auto-sends the agreement. The 7 Stage-4 status steps (`agreement_sent`/`agreement_signed_specialist`/`agreement_signed_ceo`/`payment_link_sent`/`payment_made`/`confirmation_email_sent`/`invoice_receipt_sent`) + the completion-email idempotency markers (`<item>_complete_emailed`) are freeform `specialist_onboarding_progress` task_keys (no columns), now driven by the Stage-4 sign/pay chain. **Stage-5 task_keys** (2026-06-10, freeform progress): `skool_invite`, `intro_post`, `team_members_added`, `added_to_showroom`, `headshot_added`, `bios_added`.
 
-**Touched by:** `load_onboardings`, `create_onboarding`, `load_onboarding`, `update_onboarding`, the Stage 1–2 automation handlers, `automation_SPECIALIST_execvote`, `_step3email`, `_bgconfirmation`, `_bgreceipt`, `_questionsrequest`/`_questionsresolve`, `_sweep`, the webhook background-check branch, and (2026-06-04) the DD Checklist + rev-share-final handlers `_loadddc`/`_saveddc`/`_ddcuploadurl`/`_submitddc`/`_ddchelp`/`_ddcapprove`/`_ddcedits`/`_ddcdownload`/`_revsharefinal`/`_revsharefinalize` (the old `_revsharedecide` was removed). Frontend: [SpecialistOnboarding.jsx](src/components/admin/SpecialistOnboarding.jsx) + [SpecialistAutomationPanel.jsx](src/components/admin/SpecialistAutomationPanel.jsx). See [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md).
+**Touched by:** `load_onboardings`, `create_onboarding`, `load_onboarding`, `update_onboarding`, the Stage 1–2 automation handlers, `automation_SPECIALIST_execvote`, `_step3email`, `_bgconfirmation`, `_bgreceipt`, `_questionsrequest`/`_questionsresolve`, `_sweep`, the webhook background-check branch, and (2026-06-04) the DD Checklist + rev-share-final handlers `_loadddc`/`_saveddc`/`_ddcuploadurl`/`_submitddc`/`_ddchelp`/`_ddcapprove`/`_ddcedits`/`_ddcdownload`/`_revsharefinal`/`_revsharefinalize` (the old `_revsharedecide` was removed), and (2026-06-10) the Stage-5 go-live handlers `_skoolinvite`/`_createspecialist` (writes `expert_id`/`expert_created_at`) + the login-setup chain `_loginsetupemail`/`_loadloginsetup`/`_submitloginsetup` (write `login_setup_*`). Frontend: [SpecialistOnboarding.jsx](src/components/admin/SpecialistOnboarding.jsx) + [SpecialistAutomationPanel.jsx](src/components/admin/SpecialistAutomationPanel.jsx). See [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md).
 
 ---
 
@@ -150,3 +153,28 @@ Per-stage vote log. Each voter casts one vote per stage.
 **Unique constraint** is now `(onboarding_id, stage, voter_name, vote_round)` (was 3-col). Stage-2 exec votes are written by `automation_SPECIALIST_execvote` (account-scoped; values redacted in `load.ts` until both vote — gotcha #64); `save_onboarding_vote` still serves stage-4 votes (defaults `vote_round=1`).
 
 **Touched by:** `save_onboarding_vote`.
+
+---
+
+## `specialist_logins` (2026-06-10)
+
+Portal credentials for the **specialist** login type (the 4th role, alongside member/advisor/accountant). Specialists are **not** `members` — they have no `member_logins` row; go-live writes here instead.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | pk |
+| `email` | text | not null. **Unique on `lower(email)`**. |
+| `name` | text | |
+| `passcode_hash` | text | Set by `automation_SPECIALIST_submitloginsetup` from the `/member-setup` page. |
+| `expert_id` | bigint | fk → `experts.id` (CASCADE). Links the login to its directory row. |
+| `created_at` | timestamptz | default `now()` |
+
+**Touched by:** `automation_SPECIALIST_submitloginsetup` (insert), specialist-portal auth (`auth.callerSpecialistId`). Migration `specialist_login_and_expert_link`.
+
+---
+
+## Buckets
+
+- **`specialist-dd-materials`** (private) — DD checklist uploads (gotcha #69).
+- **`specialist-onboarding-assets`** (public) — onboarding email assets/PDFs.
+- **`specialist-documents`** (private, 2026-06-10) — the go-live specialist **Vault**, namespaced `<expert_id>/<rand>_<filename>`. The create-specialist step copies the DD files here; served by `specialist_vault_*` (specialist) + `specialist_vault_admin_*` (admin) handlers.
