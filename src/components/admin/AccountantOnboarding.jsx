@@ -139,7 +139,7 @@ export default function AccountantOnboarding() {
                 <div style={{ fontSize: '12px', color: '#4e6087' }}>{ob.email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: bg, color: stageColor, border: `1px solid ${border}` }}>
+                <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: bg, color: stageColor, border: `1px solid ${border}` }}>
                   {labelText}
                 </span>
               </div>
@@ -331,7 +331,7 @@ function OnboardingDetail({ id, onBack }) {
             {undecidedPending && <div style={{ marginLeft: '14px', paddingLeft: '12px', borderLeft: '1px solid #ebf0f8', fontSize: '12px', color: '#697a9c', marginTop: '4px' }}>Awaiting client click on Yes / No button in their email…</div>}
             {finalDec && (
               <div style={{ marginLeft: '14px', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px', borderLeft: '1px solid #ebf0f8' }}>
-                <div style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', display: 'inline-block', marginBottom: '8px',
+                <div style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', display: 'inline-block', marginBottom: '8px',
                   background: finalDec === 'Yes' ? 'rgba(27,146,84,0.15)' : 'rgba(231,76,60,0.15)',
                   color: finalDec === 'Yes' ? '#1b9254' : '#e74c3c',
                   border: `1px solid ${finalDec === 'Yes' ? 'rgba(27,146,84,0.3)' : 'rgba(231,76,60,0.3)'}`
@@ -387,18 +387,18 @@ function OnboardingDetail({ id, onBack }) {
 function StageBlock({ stage, title, state, expanded, onToggle, dimmed, children }) {
   const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
   const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
-  const titleColor = state === 'active' ? '#125ecc' : '#16264a'
+  const titleColor = state === 'active' ? '#125ecc' : '#002973'
   return (
     <div style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden', opacity: dimmed ? 0.55 : 1 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer' }} onClick={onToggle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
           <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
-          <span style={{ fontSize: '13px', fontWeight: '600', color: titleColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{title}</span>
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{title}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {state === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
-          {state === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress</span>}
-          {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
+          {state === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
+          {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress</span>}
+          {state === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
           <span style={{ color: '#4e6087', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
         </div>
       </div>
@@ -437,9 +437,9 @@ function AutoRow({ label, done, date, tag }) {
       <span style={{ fontSize: '12px', color: '#16264a', flex: 1 }}>{label}</span>
       <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
         {done && tags.length > 0 && tags.map((t, i) => (
-          <span key={i} style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{t}</span>
+          <span key={i} style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{t}</span>
         ))}
-        <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: done ? 'rgba(27,146,84,0.15)' : '#eef2f9', border: done ? '1px solid rgba(27,146,84,0.3)' : '1px solid #dde5f2', color: done ? '#1b9254' : '#4e6087' }}>{done ? 'Done' : 'Not completed'}</span>
+        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: done ? 'rgba(27,146,84,0.15)' : '#eef2f9', border: done ? '1px solid rgba(27,146,84,0.3)' : '1px solid #dde5f2', color: done ? '#1b9254' : '#4e6087' }}>{done ? 'Done' : 'Not completed'}</span>
         <span style={dateTextStyle}>{done && date ? formatDate(date) : ''}</span>
       </span>
     </div>
@@ -447,7 +447,7 @@ function AutoRow({ label, done, date, tag }) {
 }
 
 const selectStyle = { padding: '4px 8px', borderRadius: '6px', border: '1px solid #d6e0ee', background: '#ffffff', color: '#16264a', fontSize: '12px', minWidth: '150px', fontFamily: 'Inter, sans-serif' }
-function pillStyle(color) { return { fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${color}22`, color, border: `1px solid ${color}44` } }
+function pillStyle(color) { return { fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${color}22`, color, border: `1px solid ${color}44` } }
 function branchBtn(color) { return { padding: '4px 12px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: `1px solid ${color}66`, background: `${color}22`, color } }
 function pendingBtn(color, pendingValue, myValue) {
   const base = branchBtn(color)

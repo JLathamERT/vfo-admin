@@ -152,20 +152,20 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
         const doneTasks = nonAutoTasks.filter(isTaskDone).length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
-        const titleColor = state === 'active' ? '#125ecc' : '#16264a'
+        const titleColor = state === 'active' ? '#125ecc' : '#002973'
 
         return (
           <div key={phase.id} style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
               <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
                 <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
-                <span style={{ fontSize: '13px', fontWeight: '600', color: titleColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{phase.name}</span>
+                <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {!readOnly && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === phase.name && n.tab_name === 'PIP Meetings').length} isOpen={expanded[`notes_${phase.id}`]} onClick={() => setExpanded(p => ({ ...p, [`notes_${phase.id}`]: !p[`notes_${phase.id}`] }))} />}
-                {state === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
-                {state === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{nonAutoTasks.length}</span>}
-                {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
+                {state === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
+                {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{nonAutoTasks.length}</span>}
+                {state === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
                 <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
               </div>
             </div>
@@ -191,8 +191,8 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: stepDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${stepDone ? '#1b9254' : '#c7d4e8'}` }} />
                         <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
                         <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
-                          {stepDone && tag && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{tag}</span>}
-                          {stepDone && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>}
+                          {stepDone && tag && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{tag}</span>}
+                          {stepDone && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>}
                         </span>
                       </div>
                     )
@@ -237,8 +237,8 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? pillColor : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? pillColor : '#c7d4e8'}` }} />
                           <span style={{ fontSize: '13px', color: done ? '#4e6087' : '#16264a', flex: 1, fontWeight: '600' }}>{task.name}</span>
                           {done
-                            ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${pillColor}22`, color: pillColor, border: `1px solid ${pillColor}44` }}>{decisionLabel}</span>
-                            : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
+                            ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${pillColor}22`, color: pillColor, border: `1px solid ${pillColor}44` }}>{decisionLabel}</span>
+                            : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
                           }
                           {done && p.completed_date && <span style={{ fontSize: '11px', color: '#697a9c' }}>{fmtDate(p.completed_date)}</span>}
                           {done && <span style={{ color: '#4e6087', fontSize: '10px', transform: isFormShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>}
@@ -279,9 +279,9 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? doneColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? doneColor : '#c7d4e8'}` }} />
                         <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
                         {isDone
-                          ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${doneColor}22`, color: doneColor, border: `1px solid ${doneColor}44` }}>{p.status}</span>
+                          ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${doneColor}22`, color: doneColor, border: `1px solid ${doneColor}44` }}>{p.status}</span>
                           : readOnly
-                            ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
+                            ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
                             : reconfirmShowDate
                               ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                                   <input type="date" value={reconfirmDate} onChange={e => setReconfirmDate(e.target.value)} style={{ padding: '4px 8px', borderRadius: '5px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '11px' }} />
@@ -302,7 +302,7 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: savedDate ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${savedDate ? '#1b9254' : '#c7d4e8'}` }} />
                         <span style={{ fontSize: '13px', color: savedDate ? '#4e6087' : '#16264a', flex: 1, fontWeight: '600' }}>{task.name}</span>
                         {readOnly ? (
-                          savedDate && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>{savedDate}</span>
+                          savedDate && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>{savedDate}</span>
                         ) : (
                           <input type="date" value={savedDate} onChange={e => saveScheduled(e.target.value)} style={{ ...inputStyle, fontFamily: 'Inter, sans-serif' }} />
                         )}
@@ -315,8 +315,8 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
                       <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
                       {isDone
-                        ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
-                        : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
+                        ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
+                        : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
                       }
                       {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#697a9c' }}>{fmtDate(p.completed_date)}</span>}
                     </div>
@@ -486,7 +486,7 @@ function PipMeetingsTab({ clientId, programId, readOnly = false, notes = [], onN
                       <div style={{ fontSize: '14px', fontWeight: '500', color: '#4e6087' }}>{meetingLabel(track)}</div>
                       <div style={{ fontSize: '11px', color: '#697a9c', marginTop: '3px' }}>Awaiting payment · Created {new Date(track.created_at).toLocaleDateString()}</div>
                     </div>
-                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(251,137,90,0.15)', color: '#e06717', fontWeight: 600, border: '1px solid rgba(251,137,90,0.3)' }}>Locked</span>
+                    <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(251,137,90,0.15)', color: '#e06717', fontWeight: 600, border: '1px solid rgba(251,137,90,0.3)' }}>Locked</span>
                   </div>
                 )
               }

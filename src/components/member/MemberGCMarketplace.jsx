@@ -126,7 +126,7 @@ export default function MemberGCMarketplace({ memberNumber }) {
                   <button key={pkg.amount} onClick={() => buyCredits(pkg.amount, pkg.price)}
                     style={{ padding: '16px 24px', flex: 1, textAlign: 'center', borderRadius: '8px', border: '1px solid #c7d4e8', background: '#eef2f9', cursor: 'pointer' }}>
                     <div style={{ fontSize: '18px', fontWeight: '700', color: '#16264a' }}>{pkg.amount}</div>
-                    <div style={{ fontSize: '11px', color: '#4e6087', marginTop: '4px' }}>{pkg.label}</div>
+                    <div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '4px' }}>{pkg.label}</div>
                     {pkg.savings && <div style={{ fontSize: '10px', color: '#1b9254', fontWeight: 600, marginTop: '2px' }}>{pkg.savings}</div>}
                   </button>
                 ))}

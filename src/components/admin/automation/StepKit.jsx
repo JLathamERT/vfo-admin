@@ -62,7 +62,7 @@ export function Badge({ text, color }) {
   const c = color || DECISION_COLORS[text] || '#4e6087'
   return (
     <span style={{
-      fontSize: '11px', padding: '2px 10px', borderRadius: '4px', fontWeight: 600,
+      fontSize: '11px', padding: '3px 10px', borderRadius: '999px', fontWeight: 600,
       background: `${c}15`, color: c, border: `1px solid ${c}30`,
     }}>{text}</span>
   )

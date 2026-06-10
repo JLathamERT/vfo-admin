@@ -285,10 +285,10 @@ function MemberDirectoryView({
             <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '28px', color: '#16264a' }}>{selectedMember.name}</div>
             <div style={{ fontSize: '13px', color: '#4e6087', marginTop: '4px' }}>{selectedMember.plugin_member_number}</div>
             <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-              {selectedMember.member_type && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>{selectedMember.member_type}</span>}
-              {selectedMember.elite_status && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${selectedMember.elite_status === 'Active' ? 'rgba(27,146,84,0.15)' : selectedMember.elite_status === 'Lost' ? 'rgba(231,76,60,0.15)' : '#f2f5fa'}`, color: selectedMember.elite_status === 'Active' ? '#1b9254' : selectedMember.elite_status === 'Lost' ? '#e74c3c' : '#4e6087', border: `1px solid ${selectedMember.elite_status === 'Active' ? 'rgba(27,146,84,0.3)' : selectedMember.elite_status === 'Lost' ? 'rgba(231,76,60,0.3)' : '#e3eaf5'}` }}>{selectedMember.elite_status}</span>}
-              {selectedMember.paused && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(251,137,90,0.15)', color: '#e06717', fontWeight: 600, border: '1px solid rgba(251,137,90,0.3)' }}>Paused</span>}
-              {selectedMember.suspended && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600, border: '1px solid rgba(231,76,60,0.3)' }}>Suspended</span>}
+              {selectedMember.member_type && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>{selectedMember.member_type}</span>}
+              {selectedMember.elite_status && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${selectedMember.elite_status === 'Active' ? 'rgba(27,146,84,0.15)' : selectedMember.elite_status === 'Lost' ? 'rgba(231,76,60,0.15)' : '#f2f5fa'}`, color: selectedMember.elite_status === 'Active' ? '#1b9254' : selectedMember.elite_status === 'Lost' ? '#e74c3c' : '#4e6087', border: `1px solid ${selectedMember.elite_status === 'Active' ? 'rgba(27,146,84,0.3)' : selectedMember.elite_status === 'Lost' ? 'rgba(231,76,60,0.3)' : '#e3eaf5'}` }}>{selectedMember.elite_status}</span>}
+              {selectedMember.paused && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(251,137,90,0.15)', color: '#e06717', fontWeight: 600, border: '1px solid rgba(251,137,90,0.3)' }}>Paused</span>}
+              {selectedMember.suspended && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600, border: '1px solid rgba(231,76,60,0.3)' }}>Suspended</span>}
             </div>
           </div>
           <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px', flexWrap: 'wrap', position: 'relative', zIndex: 50 }}>
@@ -571,7 +571,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                     <span style={{ fontSize: '11px', color: '#697a9c' }}>{note.created_by}</span>
                     <span style={{ fontSize: '11px', color: '#697a9c' }}>·</span>
                     <span style={{ fontSize: '11px', color: '#697a9c' }}>{note.created_at?.split('T')[0]}</span>
-                    <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.2)' }}>{note.program_name}</span>
+                    <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.2)' }}>{note.program_name}</span>
                   </div>
                 </div>
               ))}

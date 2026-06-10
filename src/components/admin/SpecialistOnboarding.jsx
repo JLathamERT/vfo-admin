@@ -152,7 +152,7 @@ export default function SpecialistOnboarding() {
                   <div style={{ fontSize: '12px', color: '#4e6087' }}>{ob.specialist_email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: ob.status === 'stopped' ? 'rgba(231,76,60,0.15)' : ob.status === 'completed' ? 'rgba(27,146,84,0.15)' : 'rgba(0,149,255,0.15)', color: stageColor, border: `1px solid ${ob.status === 'stopped' ? 'rgba(231,76,60,0.3)' : ob.status === 'completed' ? 'rgba(27,146,84,0.3)' : 'rgba(0,149,255,0.3)'}` }}>
+                  <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: ob.status === 'stopped' ? 'rgba(231,76,60,0.15)' : ob.status === 'completed' ? 'rgba(27,146,84,0.15)' : 'rgba(0,149,255,0.15)', color: stageColor, border: `1px solid ${ob.status === 'stopped' ? 'rgba(231,76,60,0.3)' : ob.status === 'completed' ? 'rgba(27,146,84,0.3)' : 'rgba(0,149,255,0.3)'}` }}>
                     {ob.status === 'stopped' ? 'Stopped' : ob.status === 'completed' ? 'Completed' : `Stage ${ob.current_stage} · ${STAGE_NAMES[ob.current_stage]}`}
                   </span>
                 </div>
@@ -304,9 +304,9 @@ function OnboardingDetail({ id, onBack }) {
  
   function StageBadge({ stage }) {
     const state = getStageState(stage)
-    if (state === 'done') return <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
-    if (state === 'active') return <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress</span>
-    return <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
+    if (state === 'done') return <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
+    if (state === 'active') return <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress</span>
+    return <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
   }
  
   function StageHeader({ stage, title }) {
@@ -314,7 +314,7 @@ function OnboardingDetail({ id, onBack }) {
     const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
     const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
     const dotBorder = state === 'pending' ? '#c7d4e8' : dotColor
-    const titleColor = state === 'active' ? '#125ecc' : '#16264a'
+    const titleColor = state === 'active' ? '#125ecc' : '#002973'
     const isExpanded = expanded[stage]
  
     return (
@@ -322,7 +322,7 @@ function OnboardingDetail({ id, onBack }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
           <div onClick={() => setExpanded(p => ({ ...p, [stage]: !p[stage] }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
             <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${dotBorder}`, flexShrink: 0 }} />
-            <span style={{ fontSize: '13px', fontWeight: '600', color: titleColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{title}</span>
+            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{title}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <StageBadge stage={stage} />
@@ -360,8 +360,8 @@ function OnboardingDetail({ id, onBack }) {
         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
         <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
         <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px', alignItems: 'center' }}>
-          {detail && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{detail}</span>}
-          <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: done ? 'rgba(27,146,84,0.15)' : '#eef2f9', border: done ? '1px solid rgba(27,146,84,0.3)' : '1px solid #dde5f2', color: done ? '#1b9254' : '#4e6087' }}>{done ? 'Done' : 'Not completed'}</span>
+          {detail && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{detail}</span>}
+          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: done ? 'rgba(27,146,84,0.15)' : '#eef2f9', border: done ? '1px solid rgba(27,146,84,0.3)' : '1px solid #dde5f2', color: done ? '#1b9254' : '#4e6087' }}>{done ? 'Done' : 'Not completed'}</span>
         </span>
       </div>
     )
@@ -418,7 +418,7 @@ function OnboardingDetail({ id, onBack }) {
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
           <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>Post-meeting decision</span>
           {isDone
-            ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{statusLabel}</span>
+            ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{statusLabel}</span>
             : showDate
               ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={{ padding: '4px 8px', borderRadius: '5px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '11px' }} />
@@ -448,7 +448,7 @@ function OnboardingDetail({ id, onBack }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
               <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
-              {done && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>}
+              {done && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>}
             </div>
           )
           const sifDone = !!ob.sif_submitted_at
@@ -468,10 +468,10 @@ function OnboardingDetail({ id, onBack }) {
                     <span style={{ fontSize: '12px', color: '#16264a' }}>SIF form completed by potential specialist</span>
                     {sifDone
                       ? <>
-                          <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>
+                          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>
                           <span style={{ color: '#4e6087', fontSize: '9px', transform: sifOpen ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
                         </>
-                      : <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087', marginLeft: 'auto' }}>Awaiting</span>}
+                      : <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087', marginLeft: 'auto' }}>Awaiting</span>}
                   </div>
                   {sifDone && sifOpen && (
                     <div style={{ padding: '10px 12px 4px 16px' }}>
@@ -822,7 +822,7 @@ function OnboardingDetail({ id, onBack }) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0' }}>
                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: sent ? '#e74c3c' : 'transparent', flexShrink: 0, border: `1.5px solid ${sent ? '#e74c3c' : '#c7d4e8'}` }} />
                     <span style={{ fontSize: '13px', color: sent ? '#e74c3c' : '#4e6087', flex: 1 }}>Decline email drafted to specialist — Tracy Miller will follow up</span>
-                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: sent ? 'rgba(231,76,60,0.15)' : '#eef2f9', color: sent ? '#e74c3c' : '#4e6087', border: `1px solid ${sent ? 'rgba(231,76,60,0.3)' : '#e3eaf5'}` }}>{sent ? 'Sent — process stopped' : 'Sending…'}</span>
+                    <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: sent ? 'rgba(231,76,60,0.15)' : '#eef2f9', color: sent ? '#e74c3c' : '#4e6087', border: `1px solid ${sent ? 'rgba(231,76,60,0.3)' : '#e3eaf5'}` }}>{sent ? 'Sent — process stopped' : 'Sending…'}</span>
                   </div>
                 </>
               )
@@ -839,7 +839,7 @@ function OnboardingDetail({ id, onBack }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#1b9254', border: '1px solid #1b9254' }} />
           <span style={{ fontSize: '12px', color: '#16264a', fontWeight: 600 }}>Revenue share proposal submitted</span>
-          <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>
+          <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>
         </div>
         <div onClick={() => setOpen(o => !o)} style={{ fontSize: '11px', color: '#0095ff', fontWeight: 600, cursor: 'pointer', marginTop: '4px' }}>{open ? '▼ Hide proposal' : '▶ View proposal'}</div>
         {open && (
@@ -904,7 +904,7 @@ function OnboardingDetail({ id, onBack }) {
               {revealed ? (
                 <span style={{ fontSize: '12px', color, fontWeight: 600 }}>{value === 'Approved' ? '✓ ' : value === 'Denied' ? '✗ ' : '⚠ '}{value}</span>
               ) : voted ? (
-                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.25)' }}>Voted — awaiting other executive</span>
+                <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.25)' }}>Voted — awaiting other executive</span>
               ) : isMe ? (
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {options.map(opt => {
@@ -913,7 +913,7 @@ function OnboardingDetail({ id, onBack }) {
                   })}
                 </div>
               ) : (
-                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>Awaiting response</span>
+                <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>Awaiting response</span>
               )}
             </div>
           )
@@ -1123,7 +1123,7 @@ function OnboardingDetail({ id, onBack }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: grey ? 'transparent' : c, border: `1px solid ${grey ? '#bac9e1' : c}` }} />
           <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
-          <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: grey ? '#eef2f9' : `${c}26`, border: grey ? '1px solid #dde5f2' : `1px solid ${c}44`, color: grey ? '#4e6087' : c }}>{pill}</span>
+          <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: grey ? '#eef2f9' : `${c}26`, border: grey ? '1px solid #dde5f2' : `1px solid ${c}44`, color: grey ? '#4e6087' : c }}>{pill}</span>
         </div>
       )
     }
@@ -1175,8 +1175,8 @@ function OnboardingDetail({ id, onBack }) {
             <span style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
               {fqResolved ? (
                 ob.further_questions_resolution === 'Stop'
-                  ? <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600 }}>Stopped</span>
-                  : <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Questions answered</span>
+                  ? <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600 }}>Stopped</span>
+                  : <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Questions answered</span>
               ) : (
                 <>
                   <ActionButton label={fqPending === 'Proceed' ? 'Sending…' : 'Questions answered'} onClick={() => resolveQuestions('Proceed')} color="#1b9254" disabled={!!fqPending} />
@@ -1194,11 +1194,11 @@ function OnboardingDetail({ id, onBack }) {
           <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px', alignItems: 'center' }}>
             {bgChosen ? (
               <>
-                <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600 }}>{ob.background_check_type}</span>
-                <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>
+                <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600 }}>{ob.background_check_type}</span>
+                <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>
               </>
             ) : (
-              <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not completed</span>
+              <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not completed</span>
             )}
           </span>
         </div>
@@ -1214,7 +1214,7 @@ function OnboardingDetail({ id, onBack }) {
           <span style={{ fontSize: '12px', color: '#16264a' }}>Background check sent{ob.background_check_type ? ` to ${ob.background_check_type === 'Max' ? 'Scherzer International' : 'Checkr'}` : ''}</span>
           <span style={{ marginLeft: 'auto' }}>
             {bgInitiated
-              ? <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>
+              ? <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>
               : <ActionButton label="Mark as sent" onClick={() => saveProgress(3, 'bg_initiated', 'completed')} color="#1b9254" />}
           </span>
         </div>
@@ -1228,9 +1228,9 @@ function OnboardingDetail({ id, onBack }) {
                 <ActionButton label="Failed" onClick={() => { saveProgress(3, 'bg_results_received', 'failed'); stopOnboarding() }} color="#e74c3c" />
               </>
             ) : bgDone ? (
-              <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Passed</span>
+              <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Passed</span>
             ) : (
-              <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600 }}>Failed</span>
+              <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600 }}>Failed</span>
             )}
           </span>
         </div>
@@ -1253,7 +1253,7 @@ function OnboardingDetail({ id, onBack }) {
             <span style={{ fontSize: '12px', color: '#16264a' }}>Answer the specialist's checklist questions</span>
             <span style={{ marginLeft: 'auto' }}>
               {helpResolved
-                ? <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Help received</span>
+                ? <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Help received</span>
                 : <ActionButton label="Help received" onClick={() => saveProgress(3, 'ddc_help_resolved', 'completed')} color="#1b9254" />}
             </span>
           </div>
@@ -1315,14 +1315,14 @@ function OnboardingDetail({ id, onBack }) {
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#1b9254', border: '1px solid #1b9254' }} />
               <span style={{ fontSize: '12px', color: '#16264a', fontWeight: 600 }}>Due Diligence Checklist approved</span>
-              <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Approved</span>
+              <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Approved</span>
             </div>
           ) : (
             <div key={i} style={{ padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#e74c3c', border: '1px solid #e74c3c' }} />
                 <span style={{ fontSize: '12px', color: '#e74c3c', fontWeight: 600 }}>Due Diligence Checklist denied</span>
-                <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600 }}>Denied</span>
+                <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600 }}>Denied</span>
               </div>
               {e.reason && <div style={{ fontSize: '11px', color: '#4e6087', whiteSpace: 'pre-wrap', lineHeight: 1.5, margin: '4px 0 0 14px', padding: '6px 10px', background: '#eef2f9', borderRadius: '6px', border: '1px solid #dde5f2' }}>{e.reason}</div>}
             </div>
@@ -1518,9 +1518,9 @@ function OnboardingDetail({ id, onBack }) {
           <div style={{ fontSize: '13px', color: '#4e6087' }}>{ob.specialist_email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          {isStopped && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600, border: '1px solid rgba(231,76,60,0.3)' }}>Stopped</span>}
-          {isCompleted && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Completed</span>}
-          {!isStopped && !isCompleted && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>Stage {ob.current_stage} · {STAGE_NAMES[ob.current_stage]}</span>}
+          {isStopped && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600, border: '1px solid rgba(231,76,60,0.3)' }}>Stopped</span>}
+          {isCompleted && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Completed</span>}
+          {!isStopped && !isCompleted && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>Stage {ob.current_stage} · {STAGE_NAMES[ob.current_stage]}</span>}
         </div>
       </div>
  

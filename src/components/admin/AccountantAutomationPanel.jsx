@@ -218,9 +218,9 @@ export default function AccountantAutomationPanel() {
 
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
         {stats.map(stat => (
-          <div key={stat.label} style={{ background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '10px', padding: '14px 20px', minWidth: '100px' }}>
-            <div style={{ fontSize: '28px', fontWeight: '700', color: stat.color }}>{stat.value}</div>
-            <div style={{ fontSize: '10px', color: '#4e6087', letterSpacing: '1px' }}>{stat.label}</div>
+          <div key={stat.label} style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '12px', padding: '14px 20px', minWidth: '100px', boxShadow: '0 2px 10px rgba(20,45,95,0.05)' }}>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: stat.color }}>{stat.value}</div>
+            <div style={{ fontSize: '10px', fontWeight: 600, color: '#4e6087', letterSpacing: '1px', marginTop: '2px' }}>{stat.label}</div>
           </div>
         ))}
       </div>

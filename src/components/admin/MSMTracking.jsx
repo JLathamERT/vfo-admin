@@ -170,8 +170,8 @@ export default function MSMTracking({ member, activeSection, onDataChange }) {
                 ['PFT 90 Day Plan', pft90Count],
               ].map(([label, count]) => (
                 <div key={label} style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '28px', fontWeight: '700', color: '#16264a' }}>{count}</div>
-                  <div style={{ fontSize: '11px', color: '#4e6087', marginTop: '2px', textTransform: 'uppercase' }}>{label}</div>
+                  <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973' }}>{count}</div>
+                  <div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '3px', textTransform: 'uppercase' }}>{label}</div>
                 </div>
               ))}
             </div>
@@ -537,10 +537,16 @@ function TrainingTrack({ enrollment, program }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '24px', marginBottom: '20px', flexWrap: 'wrap', paddingLeft: '24px' }}>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#16264a' }}>{completedTasks}</div><div style={{ fontSize: '11px', color: '#4e6087' }}>COMPLETED</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#16264a' }}>{totalTasks}</div><div style={{ fontSize: '11px', color: '#4e6087' }}>TOTAL</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#1b9254' }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</div><div style={{ fontSize: '11px', color: '#4e6087' }}>PROGRESS</div></div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap', background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '14px 20px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px' }}>
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '24px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{completedTasks}</span>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#9aa6bf' }}>/ {totalTasks}</span>
+          <span style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginLeft: '8px' }}>TASKS COMPLETED</span>
+        </div>
+        <div style={{ flex: 1, minWidth: '140px', height: '8px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #e3eaf5', overflow: 'hidden' }}>
+          <div style={{ width: `${totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%`, height: '100%', borderRadius: '999px', background: 'linear-gradient(90deg, #125ecc 0%, #0a85e8 100%)', transition: 'width 0.3s' }} />
+        </div>
+        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '20px', fontWeight: 800, letterSpacing: '-0.02em', color: '#125ecc', lineHeight: 1 }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</span>
       </div>
 
       {phases.map(phase => {
@@ -550,7 +556,7 @@ function TrainingTrack({ enrollment, program }) {
         const doneTasks = tasks.filter(t => progress[t.id]?.status).length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
-        const titleColor = state === 'active' ? '#125ecc' : '#16264a'
+        const titleColor = state === 'active' ? '#125ecc' : '#002973'
         const isReview = phase.name.includes('Review')
 
         return (
@@ -558,12 +564,12 @@ function TrainingTrack({ enrollment, program }) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
               <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
                 <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
-                <span style={{ fontSize: '13px', fontWeight: '600', color: titleColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{phase.name}{isReview && <span style={{ fontSize: '10px', color: '#4e6087', marginLeft: '8px', textTransform: 'none', fontWeight: '400', letterSpacing: '0' }}>checkpoint</span>}</span>
+                <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}{isReview && <span style={{ fontSize: '10px', color: '#4e6087', marginLeft: '8px', textTransform: 'none', fontWeight: '400', letterSpacing: '0' }}>checkpoint</span>}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                {state === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
-                {state === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{tasks.length}</span>}
-                {state === 'pending' && !isReview && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
+                {state === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
+                {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{tasks.length}</span>}
+                {state === 'pending' && !isReview && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
                 <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
               </div>
             </div>
@@ -695,8 +701,8 @@ function ClientsPanel({ enrollment, member, program }) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', width: '100%' }}>
         <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-end', paddingLeft: '24px' }}>
-          <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#16264a', lineHeight: 1 }}>{clients.length}</div><div style={{ fontSize: '11px', color: '#4e6087', marginTop: '4px' }}>TOTAL</div></div>
-          <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#16264a', lineHeight: 1 }}>{clients.filter(c => c.status === 'active').length}</div><div style={{ fontSize: '11px', color: '#4e6087', marginTop: '4px' }}>ACTIVE</div></div>
+          <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{clients.length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '4px' }}>TOTAL</div></div>
+          <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{clients.filter(c => c.status === 'active').length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '4px' }}>ACTIVE</div></div>
         </div>
         <button onClick={handleShowAdd} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add {isPFT ? 'Accountant' : 'Client'}</button>
       </div>
@@ -846,7 +852,7 @@ function ClientTrack({ client, program }) {
     <div>
       {phases.map(phase => (
         <div key={phase.id} style={{ marginBottom: '20px' }}>
-          <div style={{ fontSize: '13px', fontWeight: '600', color: '#0095ff', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{phase.name}</div>
+          <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: '#002973', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}</div>
           {(phase.program_client_tasks || []).map(task => {
             const p = progress[task.id] || {}
             return (
@@ -1034,10 +1040,10 @@ function CoachingMeetings({ enrollment, member }) {
   return (
     <div>
       <div style={{ display: 'flex', gap: '32px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'flex-end', paddingLeft: '24px' }}>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#16264a' }}>{completedCount}</div><div style={{ fontSize: '11px', color: '#4e6087' }}>COMPLETED</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#0095ff' }}>{scheduledCount}</div><div style={{ fontSize: '11px', color: '#4e6087' }}>SCHEDULED</div></div>
+        <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973' }}>{completedCount}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087' }}>COMPLETED</div></div>
+        <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973' }}>{scheduledCount}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087' }}>SCHEDULED</div></div>
         {nextScheduled && (
-          <div style={{ textAlign: 'center' }}><div style={{ fontSize: '16px', fontWeight: '600', color: '#0095ff' }}>{nextScheduled.meeting_date.split('T')[0]}</div><div style={{ fontSize: '11px', color: '#4e6087' }}>NEXT MEETING</div></div>
+          <div style={{ textAlign: 'center' }}><div style={{ fontSize: '16px', fontWeight: '600', color: '#0095ff' }}>{nextScheduled.meeting_date.split('T')[0]}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087' }}>NEXT MEETING</div></div>
         )}
       </div>
 
@@ -1081,7 +1087,7 @@ function CoachingMeetings({ enrollment, member }) {
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', cursor: 'pointer' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ fontSize: '14px', color: '#16264a' }}>{m.meeting_date.split('T')[0]}</span>
-                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>Scheduled</span>
+                  <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>Scheduled</span>
                 </div>
                 <span style={{ color: '#4e6087', fontSize: '10px', transform: expandedMeeting === m.id ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
               </div>
@@ -1113,7 +1119,7 @@ function CoachingMeetings({ enrollment, member }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   
                   <span style={{ fontSize: '14px', color: '#16264a' }}>{m.meeting_date.split('T')[0]}</span>
-                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Completed</span>
+                  <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Completed</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {m.notes && <span style={{ fontSize: '11px', color: '#697a9c' }}>has notes</span>}
@@ -1282,7 +1288,7 @@ function CoachingRenewal({ enrollment, member }) {
             <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '12px 0', borderBottom: '1px solid #eef2f9' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${actionColors[r.action] || '#4e6087'}22`, color: actionColors[r.action] || '#4e6087', border: `1px solid ${actionColors[r.action] || '#4e6087'}44`, textTransform: 'capitalize' }}>{r.action}</span>
+                  <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${actionColors[r.action] || '#4e6087'}22`, color: actionColors[r.action] || '#4e6087', border: `1px solid ${actionColors[r.action] || '#4e6087'}44`, textTransform: 'capitalize' }}>{r.action}</span>
                   <span style={{ fontSize: '14px', color: '#16264a' }}>{r.action_date?.split('T')[0]}</span>
                   {r.period_label && <span style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600 }}>{r.period_label}</span>}
                 </div>
