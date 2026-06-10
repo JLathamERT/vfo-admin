@@ -20,7 +20,7 @@ function PipConfirmStep({ clientId, task, p, meeting, readOnly, onDone }) {
   const [pending, setPending] = useState(null)
   const isDone = !!p.status
   const statusColor = isDone ? '#1b9254' : '#4e6087'
-  const inputStyle = { padding: '4px 8px', borderRadius: '6px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
+  const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
   const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
   const redBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600 }
   const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid #d6e0ee', background: 'transparent', color: '#4e6087' }
@@ -210,7 +210,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
     return `${parts[1]}/${parts[2]}`
   }
 
-  const inputStyle = { padding: '4px 8px', borderRadius: '6px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
+  const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
 
   if (loading) return <Map1TrackSkeleton />
 

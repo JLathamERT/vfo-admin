@@ -78,7 +78,7 @@ export default function SpecialistOnboarding() {
   }, [searchParams])
 
   const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
  
   useEffect(() => { loadList() }, [])
  
@@ -421,8 +421,8 @@ function OnboardingDetail({ id, onBack }) {
             ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{statusLabel}</span>
             : showDate
               ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={{ padding: '4px 8px', borderRadius: '5px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '11px' }} />
-                  <input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} style={{ padding: '4px 8px', borderRadius: '5px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '11px' }} />
+                  <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '11px' }} />
+                  <input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '11px' }} />
                   <select value={meetingTz} onChange={e => setMeetingTz(e.target.value)} style={{ padding: '4px 8px', borderRadius: '5px', border: '1px solid #d6e0ee', background: '#ffffff', color: '#16264a', fontSize: '11px' }}>
                     <option value="ET">Eastern (ET)</option>
                     <option value="CT">Central (CT)</option>
@@ -777,7 +777,7 @@ function OnboardingDetail({ id, onBack }) {
         {!getTaskStatus(2, 'rev_share_prepared') ? (
           <div style={{ padding: '14px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.3)', background: '#eef2f9', marginBottom: '12px' }}>
             <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '8px' }}>Revenue Share Proposal</div>
-            <textarea value={revSharePercent} onChange={e => setRevSharePercent(e.target.value)} placeholder="Enter revenue share proposal details..." rows={6} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '10px' }} />
+            <textarea value={revSharePercent} onChange={e => setRevSharePercent(e.target.value)} placeholder="Enter revenue share proposal details..." rows={6} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '10px' }} />
             <ActionButton label={submittingRevShare ? 'Submitting...' : 'Submit revenue share proposal'} onClick={submitRevShareProposal} disabled={!revSharePercent.trim() || submittingRevShare} color="#1b9254" />
           </div>
         ) : (
@@ -879,7 +879,7 @@ function OnboardingDetail({ id, onBack }) {
             ? <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Completed</span>
             : <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(251,137,90,0.15)', color: '#e06717', fontWeight: 600, marginLeft: 'auto' }}>Awaiting notes</span>}
         </div>
-        <textarea value={text} onChange={e => setText(e.target.value)} placeholder={placeholder} rows={4} disabled={isStopped} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '8px' }} />
+        <textarea value={text} onChange={e => setText(e.target.value)} placeholder={placeholder} rows={4} disabled={isStopped} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '8px' }} />
         <ActionButton label={justSaved ? '✓ Saved' : saving ? 'Saving...' : done ? 'Update notes' : 'Save notes'} onClick={handleSave} color={done ? '#1b9254' : '#0095ff'} disabled={!text.trim() || saving} />
       </div>
     )
@@ -1340,7 +1340,7 @@ function OnboardingDetail({ id, onBack }) {
             {showEdits && (
               <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.3)', background: '#eef2f9' }}>
                 <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '8px' }}>Reason — included in the email the specialist receives</div>
-                <textarea value={editsReason} onChange={e => setEditsReason(e.target.value)} placeholder="Explain what needs to be changed or added…" rows={4} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
+                <textarea value={editsReason} onChange={e => setEditsReason(e.target.value)} placeholder="Explain what needs to be changed or added…" rows={4} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
                 <div style={{ marginTop: '8px' }}>
                   <ActionButton label={ddcBusy === 'edits' ? 'Sending…' : 'Send to specialist'} onClick={sendEdits} color="#e74c3c" disabled={!!ddcBusy || !editsReason.trim()} />
                 </div>
@@ -1366,7 +1366,7 @@ function OnboardingDetail({ id, onBack }) {
             {showRevEdit && (
               <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.3)', background: '#eef2f9' }}>
                 <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '8px' }}>Edit the revenue share proposal — submitting locks it in as final.</div>
-                <textarea value={revEditText} onChange={e => setRevEditText(e.target.value)} rows={5} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
+                <textarea value={revEditText} onChange={e => setRevEditText(e.target.value)} rows={5} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
                 <div style={{ marginTop: '8px' }}>
                   <ActionButton label={revBusy === 'edit' ? 'Saving…' : 'Submit & make final'} onClick={submitRevEdit} color="#1b9254" disabled={!!revBusy || !revEditText.trim()} />
                 </div>
@@ -1462,7 +1462,7 @@ function OnboardingDetail({ id, onBack }) {
       <div style={{ padding: '10px 0 10px 26px', borderBottom: '1px solid #e9eef8' }}>
         <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '6px' }}>Team member names</div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
-          <textarea value={names} onChange={e => { setNames(e.target.value); setSaved(false) }} placeholder="Enter team member names..." rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
+          <textarea value={names} onChange={e => { setNames(e.target.value); setSaved(false) }} placeholder="Enter team member names..." rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <ActionButton label={saved ? '✓ Saved' : 'Save'} onClick={handleSave} color={saved ? '#1b9254' : '#0095ff'} disabled={saved} />
           </div>

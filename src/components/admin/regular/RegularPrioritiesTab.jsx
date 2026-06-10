@@ -95,7 +95,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
   }
 
   const statusColors = { Completed: '#1b9254', Yes: '#1b9254', 'No additional info required': '#1b9254', 'MAP 4 scheduled': '#1b9254', 'MAP 4 Scheduled': '#1b9254', No: '#e74c3c', 'No show': '#e74c3c', 'Additional info required': '#1b9254' }
-  const inputStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
+  const inputStyle = { padding: '6px 10px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
 
   function getPhaseState(phase) {
     const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
@@ -353,7 +353,7 @@ function RegularPrioritiesTab({ clientId, programId, client, specialists, readOn
   }
 
   const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '16px' }
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
   const stateColors = { 'not started': '#4e6087', 'in progress': '#0095ff', 'completed': '#1b9254' }
 
   if (loading) return <TaxPlanListSkeleton />

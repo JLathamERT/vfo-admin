@@ -36,7 +36,7 @@ function PFExtraMeetingForm({ clientId, pipelineId, onComplete }) {
     finally { setSubmitting(false) }
   }
 
-  const inputStyle = { padding: '8px 12px', borderRadius: '6px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', width: '100%' }
+  const inputStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', width: '100%' }
   const labelStyle = { fontSize: '11px', color: '#697a9c', marginBottom: '4px', display: 'block' }
 
   const canSubmit = decision === 'No' || (decision === 'Yes' && serviceLevel && grossFee && paymentPlan && (serviceLevel !== 'Max' || pipMeetingCount))

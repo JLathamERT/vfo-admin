@@ -210,7 +210,7 @@ export default function SpecialistDdcPage() {
         {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '16px', textAlign: 'center' }}>{error}</div>}
 
         <div style={{ display: 'flex', gap: '12px', marginTop: '28px', flexWrap: 'wrap' }}>
-          <button onClick={() => persist(form)} disabled={saving} style={{ ...btnBase, flex: 1, minWidth: '160px', background: '#ebf0f8', border: '1px solid #cdd9ea' }}>
+          <button onClick={() => persist(form)} disabled={saving} style={{ ...btnBase, flex: 1, minWidth: '160px', background: '#eef2f9', border: '1px solid #cdd9ea' }}>
             {saving ? 'Saving…' : savedTick ? 'Saved ✓' : 'Save progress'}
           </button>
           <button onClick={submit} disabled={submitting} style={{ ...btnBase, flex: 1, minWidth: '160px', background: submitting ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none' }}>
@@ -326,7 +326,7 @@ const editsBanner = { fontSize: '13px', color: '#b3500f', fontWeight: 500, backg
 const itemStyle = { background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '10px', padding: '16px 18px', marginBottom: '12px' }
 const labelStyle = { display: 'block', fontSize: '14px', fontWeight: 600, color: '#2e4166', marginBottom: '8px', lineHeight: 1.4 }
 const hintStyle = { fontSize: '11px', color: '#697a9c', marginTop: '5px', fontStyle: 'italic', lineHeight: 1.5 }
-const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif' }
+const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif' }
 const fileChip = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#3c4f73', background: '#f4f7fb', border: '1px solid #dde5f2', borderRadius: '7px', padding: '8px 12px' }
 const removeBtn = { background: 'none', border: 'none', color: '#d93025', fontWeight: 500, cursor: 'pointer', fontSize: '13px', flexShrink: 0 }
 const uploadBtn = { display: 'inline-block', fontSize: '13px', color: '#3c4f73', background: '#eef2f9', border: '1px dashed #bac9e1', borderRadius: '8px', padding: '10px 16px', fontWeight: 600 }

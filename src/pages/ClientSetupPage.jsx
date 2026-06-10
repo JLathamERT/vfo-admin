@@ -51,7 +51,7 @@ export default function ClientSetupPage() {
 
   const wrap = { minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#f4f7fd',fontFamily:'Inter, sans-serif' }
   const card = { background:'#ffffff',padding:'40px',borderRadius:'16px',width:'380px',border:'1px solid #e3eaf5',color:'#16264a' }
-  const input = { padding:'10px 14px',borderRadius:'8px',border:'1px solid #d6e0ee',background:'#f2f5fa',color:'#16264a',fontSize:'14px',width:'100%',boxSizing:'border-box' }
+  const input = { padding:'10px 14px',borderRadius:'8px',border:'1px solid #d6e0ee',background:'#f7f9fc',color:'#16264a',fontSize:'14px',width:'100%',boxSizing:'border-box' }
 
   if (status === 'loading') return <div style={wrap}><div style={card}>Loading…</div></div>
   if (status === 'invalid') return <div style={wrap}><div style={card}>This setup link is invalid or has expired. Please contact us for a new one.</div></div>

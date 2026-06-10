@@ -42,7 +42,7 @@ function NavDropdown({ label, items, onSelect, isActive }) {
         <span style={{ fontSize: '10px', opacity: 0.6 }}>▾</span>
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, background: '#ffffff', border: '1px solid #d6e0ee', borderRadius: '8px', minWidth: '180px', zIndex: 200, paddingTop: '4px', paddingBottom: '4px', boxShadow: '0 8px 24px rgba(20,45,95,0.18)' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, background: '#ffffff', border: '1px solid #e3eaf5', borderRadius: '12px', minWidth: '180px', zIndex: 200, paddingTop: '4px', paddingBottom: '4px', boxShadow: '0 14px 36px rgba(20,45,95,0.16)' }}>
           {items.map(item => (
             <div key={item.key}>
               {item.header && (
@@ -51,7 +51,7 @@ function NavDropdown({ label, items, onSelect, isActive }) {
               {item.options && item.options.map(opt => (
                 <button key={opt.key} onClick={() => { onSelect(opt.key); setOpen(false) }}
                   style={{ display: 'block', width: '100%', padding: '8px 20px', background: 'transparent', border: 'none', color: '#16264a', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#ebf0f8'}
+                  onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   {opt.label}
                 </button>

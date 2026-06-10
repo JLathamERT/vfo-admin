@@ -125,7 +125,7 @@ function withPending(emails, pending) {
   return emails
 }
 
-const inputStyle = { padding: '8px 12px', borderRadius: '6px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', width: '100%', boxSizing: 'border-box' }
+const inputStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', width: '100%', boxSizing: 'border-box' }
 
 function RecipientEditor({ title, accent, emails, onChange, input, setInput }) {
   const [warn, setWarn] = useState('')

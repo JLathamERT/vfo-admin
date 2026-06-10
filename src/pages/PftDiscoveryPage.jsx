@@ -199,5 +199,5 @@ const pageStyle = { fontFamily: '"Inter", sans-serif', background: '#ffffff', mi
 const cardStyle = { width: '100%', maxWidth: '720px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '16px', padding: '36px 40px' }
 const labelStyle = { display: 'block', fontSize: '13px', color: '#4e6087', marginBottom: '6px' }
 const hintStyle = { fontSize: '11px', color: '#697a9c', marginTop: '5px', fontStyle: 'italic', lineHeight: 1.5 }
-const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif' }
+const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif' }
 const rowStyle = { display: 'flex', gap: '12px', flexWrap: 'wrap' }

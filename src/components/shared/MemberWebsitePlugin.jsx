@@ -67,14 +67,11 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
   const embedCode = `<div id="vfo-showroom"></div>\n<script src="https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/vfo-widget/vfo-widget.js?v=26" data-vfo-key="${member.manage_key}"><\/script>`
 
   const subTabStyle = (active) => ({
-    padding: '10px 18px', background: 'transparent', border: 'none',
-    borderBottom: active ? '2px solid #125ecc' : '2px solid transparent',
-    color: active ? '#125ecc' : '#5b6b8c', fontSize: '13px', fontWeight: active ? '600' : '400',
-    cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap'
+    padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px'
   })
   const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
   const rowStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #eef2f9' }
-  const inputStyle = { width: '90px', padding: '6px 10px', borderRadius: '6px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
+  const inputStyle = { width: '90px', padding: '6px 10px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
 
   if (!member.website_enabled && !isAdmin) {
     return (
@@ -143,13 +140,13 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
             <div style={{ position: 'relative' }}>
               <input value={fontSearch} onChange={e => handleFontSearch(e.target.value)}
                 placeholder="Search Google Fonts..."
-                style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }} />
+                style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }} />
               {fontResults.length > 0 && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#ffffff', border: '1px solid #d6e0ee', borderRadius: '8px', zIndex: 10, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 8px 24px rgba(20,45,95,0.14)' }}>
                   {fontResults.map(font => (
                     <div key={font} onClick={() => selectFont(font)}
                       style={{ padding: '10px 14px', cursor: 'pointer', color: '#3c4f73', fontSize: '13px', borderBottom: '1px solid #eef2f9' }}
-                      onMouseEnter={e => e.target.style.background = '#ebf0f8'}
+                      onMouseEnter={e => e.target.style.background = '#eef2f9'}
                       onMouseLeave={e => e.target.style.background = 'none'}>
                       {font}
                     </div>

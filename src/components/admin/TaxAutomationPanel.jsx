@@ -308,9 +308,9 @@ function SandboxToggleModal({ currentlySandbox, onConfirm, onCancel, saving }) {
   const switchingTo = currentlySandbox ? 'LIVE' : 'SANDBOX'
   const isGoingLive = switchingTo === 'LIVE'
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(16,34,69,0.50)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, fontFamily: '"Inter", sans-serif' }}>
-      <div style={{ background: '#ffffff', border: '1px solid #e3eaf5', borderRadius: 12, padding: 32, maxWidth: 440, width: '90%' }}>
-        <h2 style={{ fontSize: 18, color: '#16264a', margin: '0 0 12px' }}>Switch Tax pipeline to {switchingTo} mode?</h2>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,25,60,0.45)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, fontFamily: '"Inter", sans-serif' }}>
+      <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: 16, padding: 32, maxWidth: 440, width: '90%', boxShadow: '0 24px 64px rgba(10,25,60,0.25)' }}>
+        <h2 style={{ fontFamily: 'Inter, sans-serif', fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', color: '#002973', margin: '0 0 12px' }}>Switch Tax pipeline to {switchingTo} mode?</h2>
         <p style={{ fontSize: 14, color: '#4e6087', lineHeight: 1.6, margin: '0 0 24px' }}>
           {isGoingLive
             ? 'This will switch the TAX automation pipeline to use LIVE Stripe + BoldSign keys. Real emails will be sent to real clients and real cards will be charged. Are you sure?'

@@ -372,15 +372,14 @@ function SandboxToggleModal({ currentlySandbox, onConfirm, onCancel, saving }) {
   const isGoingLive = switchingTo === 'LIVE'
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(16,34,69,0.50)',
+      position: 'fixed', inset: 0, background: 'rgba(10,25,60,0.45)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
       fontFamily: '"Inter", sans-serif',
     }}>
       <div style={{
-        background: '#ffffff', border: '1px solid #e3eaf5',
-        borderRadius: '12px', padding: '32px', maxWidth: '440px', width: '90%',
+        background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', padding: '32px', maxWidth: '440px', width: '90%', boxShadow: '0 24px 64px rgba(10,25,60,0.25)',
       }}>
-        <h2 style={{ fontSize: '18px', color: '#16264a', margin: '0 0 12px' }}>
+        <h2 style={{ fontFamily: 'Inter, sans-serif', fontSize: '19px', fontWeight: 800, letterSpacing: '-0.02em', color: '#002973', margin: '0 0 12px' }}>
           Switch to {switchingTo} mode?
         </h2>
         <p style={{ fontSize: '14px', color: '#4e6087', lineHeight: 1.6, margin: '0 0 24px' }}>
@@ -482,7 +481,7 @@ export default function AutomationPanel({ section }) {
         </div>
         {pipelines.length > 1 && (
           <select value={selectedPipeline?.id || ''} onChange={e => { const p = pipelines.find(p => p.id === parseInt(e.target.value)); if (p) setSelectedPipeline(p) }}
-            style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
+            style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
             {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         )}

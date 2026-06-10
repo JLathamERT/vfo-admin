@@ -58,15 +58,14 @@ export default function SandboxModeToggle({ pipeline, label, sandboxConfig, onCh
 
       {showModal && (
         <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(16,34,69,0.50)',
+          position: 'fixed', inset: 0, background: 'rgba(10,25,60,0.45)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
           fontFamily: '"Inter", sans-serif',
         }}>
           <div style={{
-            background: '#ffffff', border: '1px solid #e3eaf5',
-            borderRadius: '12px', padding: '32px', maxWidth: '440px', width: '90%',
+            background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', padding: '32px', maxWidth: '440px', width: '90%', boxShadow: '0 24px 64px rgba(10,25,60,0.25)',
           }}>
-            <h2 style={{ fontSize: '18px', color: '#16264a', margin: '0 0 12px' }}>
+            <h2 style={{ fontFamily: 'Inter, sans-serif', fontSize: '19px', fontWeight: 800, letterSpacing: '-0.02em', color: '#002973', margin: '0 0 12px' }}>
               Switch {name} to {switchingTo} mode?
             </h2>
             <p style={{ fontSize: '14px', color: '#4e6087', lineHeight: 1.6, margin: '0 0 16px' }}>
