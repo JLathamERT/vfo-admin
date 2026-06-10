@@ -10,9 +10,9 @@ const STAGE_LABELS = {
   paid: 'Paid', complete: 'Complete',
 }
 const STAGE_COLORS = {
-  new: '#8bacc8', sif_sent: '#5b9fe6', sif_review: '#5b9fe6', voting: '#a855f7',
-  approved: '#14b8a6', declined: '#ef4444', stopped: '#ef4444',
-  awaiting_payment: '#ec4899', payment_processing: '#f59e0b', paid: '#22c55e', complete: '#22c55e',
+  new: '#4e6087', sif_sent: '#0095ff', sif_review: '#0095ff', voting: '#9333ea',
+  approved: '#0d9488', declined: '#ef4444', stopped: '#ef4444',
+  awaiting_payment: '#db2777', payment_processing: '#e06717', paid: '#16a34a', complete: '#16a34a',
 }
 
 const EXECS = ['Anton Anderson', 'Paul Latham']
@@ -52,8 +52,8 @@ function getCurrentStage(row) {
 
 // Colored badge for a single exec's vote value (admin oversight — full visibility).
 function voteBadge(v) {
-  if (!v) return <span style={{ color: '#8bacc8', fontSize: '12px' }}>Awaiting</span>
-  const c = v === 'Approved' ? '#22c55e' : v === 'Denied' ? '#ef4444' : '#f59e0b'
+  if (!v) return <span style={{ color: '#4e6087', fontSize: '12px' }}>Awaiting</span>
+  const c = v === 'Approved' ? '#16a34a' : v === 'Denied' ? '#ef4444' : '#e06717'
   return <Badge text={v} color={c} />
 }
 
@@ -73,27 +73,27 @@ function SpecialistPipelineRow({ row, expanded, onToggle }) {
   const recStatus = row.bg_receipt_email_sent_at ? 'done' : (row.bg_confirmation_email_sent_at || row.bg_invoice_number) ? 'sent' : 'pending'
 
   const outcomeBadge = {
-    approved: <Badge text="Approved" color="#22c55e" />, denied: <Badge text="Denied" color="#ef4444" />,
-    further_questions: <Badge text="Further Questions" color="#f59e0b" />, mismatch: <Badge text="Split — re-vote" color="#f59e0b" />,
-    voting: <Badge text="Voting in progress" color="#a855f7" />, none: null,
+    approved: <Badge text="Approved" color="#16a34a" />, denied: <Badge text="Denied" color="#ef4444" />,
+    further_questions: <Badge text="Further Questions" color="#e06717" />, mismatch: <Badge text="Split — re-vote" color="#e06717" />,
+    voting: <Badge text="Voting in progress" color="#9333ea" />, none: null,
   }[vo.outcome]
 
   return (
-    <div style={{ background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
+    <div style={{ background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
       <div onClick={onToggle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '15px', fontWeight: '600', color: '#fff' }}>{name}</span>
-          {isTax && <Badge text="Tax Specialist" color="#5b9fe6" />}
-          {row.background_check_type && <span style={{ fontSize: '12px', color: '#d1dce8' }}>{row.background_check_type} · {fmtMoney(row.background_check_type === 'Max' ? 950 : 350)}</span>}
+          <span style={{ fontSize: '15px', fontWeight: '600', color: '#16264a' }}>{name}</span>
+          {isTax && <Badge text="Tax Specialist" color="#0095ff" />}
+          {row.background_check_type && <span style={{ fontSize: '12px', color: '#243757' }}>{row.background_check_type} · {fmtMoney(row.background_check_type === 'Max' ? 950 : 350)}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Badge text={STAGE_LABELS[stage]} color={STAGE_COLORS[stage]} />
-          <span style={{ color: '#8bacc8', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+          <span style={{ color: '#4e6087', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
         </div>
       </div>
 
       {expanded && (
-        <div style={{ padding: '8px 18px 18px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ padding: '8px 18px 18px', borderTop: '1px solid #e9eef8' }}>
           <StepCard title="SIF Form" status={sifStatus}>
             {row.sif_token ? (
               <>
@@ -109,10 +109,10 @@ function SpecialistPipelineRow({ row, expanded, onToggle }) {
               <>
                 {row.meetings.map((m, i) => {
                   const items = (m.items_discussed || []).length
-                  const respColor = m.rev_proposal_response === 'Approved' ? '#22c55e' : m.rev_proposal_response ? '#f59e0b' : '#8bacc8'
+                  const respColor = m.rev_proposal_response === 'Approved' ? '#16a34a' : m.rev_proposal_response ? '#e06717' : '#4e6087'
                   return (
-                    <div key={m.id} style={{ padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ fontSize: '12px', color: '#d1dce8' }}>
+                    <div key={m.id} style={{ padding: '6px 0', borderBottom: '1px solid #f4f7fb' }}>
+                      <div style={{ fontSize: '12px', color: '#243757' }}>
                         Meeting {i + 1} · {m.meeting_date} · {m.outcome === 'stopped' ? 'Stopped' : 'Still interested'} · {items} item{items === 1 ? '' : 's'} covered
                       </div>
                       {m.rev_proposal_text && (
@@ -134,12 +134,12 @@ function SpecialistPipelineRow({ row, expanded, onToggle }) {
             {(row.votes || []).length > 0 ? (
               <>
                 <Detail l="Outcome" v={outcomeBadge} showEmpty />
-                <div style={{ fontSize: '11px', color: '#7da3c8', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '8px 0 2px' }}>Round 1 — Initial vote</div>
+                <div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '8px 0 2px' }}>Round 1 — Initial vote</div>
                 <Detail l="Anton Anderson" v={voteBadge(vo.r1['Anton Anderson'])} showEmpty />
                 <Detail l="Paul Latham" v={voteBadge(vo.r1['Paul Latham'])} showEmpty />
                 {Object.keys(vo.r2).length > 0 && (
                   <>
-                    <div style={{ fontSize: '11px', color: '#7da3c8', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '10px 0 2px' }}>Round 2 — After further questions</div>
+                    <div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '10px 0 2px' }}>Round 2 — After further questions</div>
                     <Detail l="Anton Anderson" v={voteBadge(vo.r2['Anton Anderson'])} showEmpty />
                     <Detail l="Paul Latham" v={voteBadge(vo.r2['Paul Latham'])} showEmpty />
                   </>
@@ -186,7 +186,7 @@ function SpecialistPipelineRow({ row, expanded, onToggle }) {
             ) : <Pending />}
           </StepCard>
 
-          <div style={{ marginTop: '10px', fontSize: '10px', color: '#4a7a9e' }}>
+          <div style={{ marginTop: '10px', fontSize: '10px', color: '#7c8aa6' }}>
             Onboarding #{row.id} · Started {fmtDate(row.created_at)} · {row.specialist_email || 'no email'}
           </div>
         </div>
@@ -214,13 +214,13 @@ export default function SpecialistAutomationPanel() {
     finally { setLoading(false) }
   }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>Loading...</div>
+  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>
 
   const stats = [
-    { label: 'TOTAL', value: rows.length, color: '#fff' },
-    { label: 'IN PROGRESS', value: rows.filter(r => { const s = getCurrentStage(r); return s !== 'complete' && s !== 'stopped' && s !== 'declined' }).length, color: '#5b9fe6' },
-    { label: 'APPROVED', value: rows.filter(r => voteOutcome(r.votes).outcome === 'approved').length, color: '#14b8a6' },
-    { label: 'PAID', value: rows.filter(r => r.bg_payment_status === 'succeeded').length, color: '#22c55e' },
+    { label: 'TOTAL', value: rows.length, color: '#16264a' },
+    { label: 'IN PROGRESS', value: rows.filter(r => { const s = getCurrentStage(r); return s !== 'complete' && s !== 'stopped' && s !== 'declined' }).length, color: '#0095ff' },
+    { label: 'APPROVED', value: rows.filter(r => voteOutcome(r.votes).outcome === 'approved').length, color: '#0d9488' },
+    { label: 'PAID', value: rows.filter(r => r.bg_payment_status === 'succeeded').length, color: '#16a34a' },
     { label: 'STOPPED', value: rows.filter(r => r.status === 'stopped').length, color: '#ef4444' },
   ]
 
@@ -228,7 +228,7 @@ export default function SpecialistAutomationPanel() {
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '24px', color: '#fff', margin: 0 }}>Specialist Onboarding Pipeline</h2>
+          <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '24px', color: '#16264a', margin: 0 }}>Specialist Onboarding Pipeline</h2>
           <SandboxModeToggle
             pipeline="SPECIALIST_ONBOARDING"
             label="Specialist Onboarding"
@@ -238,19 +238,19 @@ export default function SpecialistAutomationPanel() {
         </div>
       </div>
 
-      {error && <div style={{ color: '#ff6b6b', fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
+      {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
 
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
         {stats.map(stat => (
-          <div key={stat.label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '14px 20px', minWidth: '100px' }}>
-            <div style={{ fontSize: '28px', fontWeight: '700', color: stat.color }}>{stat.value}</div>
-            <div style={{ fontSize: '10px', color: '#8bacc8', letterSpacing: '1px' }}>{stat.label}</div>
+          <div key={stat.label} style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '12px', padding: '14px 20px', minWidth: '100px', boxShadow: '0 2px 10px rgba(20,45,95,0.05)' }}>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: stat.color }}>{stat.value}</div>
+            <div style={{ fontSize: '10px', fontWeight: 600, color: '#4e6087', letterSpacing: '1px', marginTop: '2px' }}>{stat.label}</div>
           </div>
         ))}
       </div>
 
       {rows.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: '#5a8ab5', fontSize: '14px' }}>
+        <div style={{ textAlign: 'center', padding: '60px', color: '#697a9c', fontSize: '14px' }}>
           No specialist onboarding records yet.
         </div>
       ) : (

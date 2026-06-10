@@ -33,12 +33,12 @@ function PFPricingForm({ clientId, serviceLevel, pipelineId, onComplete }) {
     finally { setSubmitting(false) }
   }
 
-  const inputStyle = { padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', width: '100%' }
-  const labelStyle = { fontSize: '11px', color: '#5a8ab5', marginBottom: '4px', display: 'block' }
+  const inputStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', width: '100%' }
+  const labelStyle = { fontSize: '11px', color: '#697a9c', marginBottom: '4px', display: 'block' }
 
   return (
-    <div style={{ padding: '12px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px solid rgba(91,159,230,0.2)', marginTop: '8px', marginBottom: '8px' }}>
-      <div style={{ fontSize: '12px', fontWeight: '600', color: '#5b9fe6', marginBottom: '12px' }}>Complete Pricing — {serviceLevel} Membership</div>
+    <div style={{ padding: '12px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.2)', marginTop: '8px', marginBottom: '8px' }}>
+      <div style={{ fontSize: '12px', fontWeight: '600', color: '#0095ff', marginBottom: '12px' }}>Complete Pricing — {serviceLevel} Membership</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
         <div>
           <label style={labelStyle}>Gross Service Value ($)</label>
@@ -54,7 +54,7 @@ function PFPricingForm({ clientId, serviceLevel, pipelineId, onComplete }) {
         </div>
         <div>
           <label style={labelStyle}>Payment Plan</label>
-          <select value={paymentPlan} onChange={e => setPaymentPlan(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+          <select value={paymentPlan} onChange={e => setPaymentPlan(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
             <option value="">-- Select --</option>
             <option value="1 Time Payment">1 Time Payment</option>
             <option value="Quarterly">Quarterly</option>
@@ -76,7 +76,7 @@ function PFPricingForm({ clientId, serviceLevel, pipelineId, onComplete }) {
         </div>
       </div>
       <button onClick={handleSubmit} disabled={submitting || !grossFee || !paymentPlan}
-        style={{ marginTop: '12px', padding: '8px 24px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60', fontFamily: 'DM Sans, sans-serif' }}>
+        style={{ marginTop: '12px', padding: '8px 24px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>
         {submitting ? 'Saving...' : 'Submit Pricing'}
       </button>
     </div>

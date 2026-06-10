@@ -53,7 +53,7 @@ export default function PipPayPage() {
 
   if (status === 'loading') return (
     <div style={containerStyle}>
-      <p style={{ color: '#94a3b8', fontSize: '15px' }}>Loading payment details…</p>
+      <p style={{ color: '#4e6087', fontSize: '15px' }}>Loading payment details…</p>
     </div>
   )
 
@@ -71,7 +71,7 @@ export default function PipPayPage() {
 
   if (status === 'redirecting') return (
     <div style={containerStyle}>
-      <p style={{ color: '#94a3b8', fontSize: '15px' }}>Redirecting to Stripe…</p>
+      <p style={{ color: '#4e6087', fontSize: '15px' }}>Redirecting to Stripe…</p>
     </div>
   )
 
@@ -101,8 +101,8 @@ export default function PipPayPage() {
           badgeClass="green"
           amount={baseAmount}
           breakdown={[
-            { label: 'VFO Services', value: `$${formatMoney(baseAmount)}`, valueColor: '#e2e8f0' },
-            { label: 'Processing Fee', value: '$0.00', valueColor: '#4ade80' },
+            { label: 'VFO Services', value: `$${formatMoney(baseAmount)}`, valueColor: '#243757' },
+            { label: 'Processing Fee', value: '$0.00', valueColor: '#16a34a' },
           ]}
           footer="Funds transfer directly from your bank account. Takes 2-4 business days to process."
         />
@@ -119,8 +119,8 @@ export default function PipPayPage() {
           badgeClass="blue"
           amount={cardTotal}
           breakdown={[
-            { label: 'VFO Services', value: `$${formatMoney(baseAmount)}`, valueColor: '#e2e8f0' },
-            { label: 'Card Processing Fee (2.9% + $0.30)', value: `$${formatMoney(cardFee)}`, valueColor: '#e2e8f0' },
+            { label: 'VFO Services', value: `$${formatMoney(baseAmount)}`, valueColor: '#243757' },
+            { label: 'Card Processing Fee (2.9% + $0.30)', value: `$${formatMoney(cardFee)}`, valueColor: '#243757' },
           ]}
           footer="Processes immediately. The processing fee covers card transaction costs."
         />
@@ -142,8 +142,8 @@ function OptionCard({ isHovered, onHover, onLeave, onClick, title, badgeText, ba
       onMouseLeave={onLeave}
       style={{
         ...optionCardStyle,
-        borderColor: isHovered ? '#3b82f6' : 'rgba(255,255,255,0.1)',
-        background: isHovered ? 'rgba(59,130,246,0.05)' : 'transparent',
+        borderColor: isHovered ? '#0095ff' : '#e3eaf5',
+        background: isHovered ? 'rgba(0,149,255,0.05)' : 'transparent',
       }}
     >
       <div style={optionHeaderStyle}>
@@ -169,9 +169,9 @@ function formatMoney(n) {
 }
 
 const containerStyle = {
-  fontFamily: '"DM Sans", sans-serif',
-  background: '#0a1628',
-  color: '#e2e8f0',
+  fontFamily: '"Inter", sans-serif',
+  background: '#ffffff',
+  color: '#243757',
   minHeight: '100vh',
   display: 'flex',
   alignItems: 'center',
@@ -203,17 +203,17 @@ const iconCircleStyle = {
 const titleStyle = {
   fontSize: '24px',
   fontWeight: 700,
-  color: '#fff',
+  color: '#16264a',
   marginBottom: '12px',
 }
 
 const subtitleStyle = {
   fontSize: '14px',
-  color: '#94a3b8',
+  color: '#4e6087',
 }
 
 const optionCardStyle = {
-  border: '2px solid rgba(255,255,255,0.1)',
+  border: '2px solid #e3eaf5',
   borderRadius: '16px',
   padding: '28px',
   marginBottom: '16px',
@@ -231,7 +231,7 @@ const optionHeaderStyle = {
 const optionTitleStyle = {
   fontSize: '16px',
   fontWeight: 700,
-  color: '#fff',
+  color: '#16264a',
 }
 
 const optionBadgeBaseStyle = {
@@ -244,14 +244,14 @@ const optionBadgeBaseStyle = {
 }
 
 const badgeStyles = {
-  green: { background: 'rgba(34,197,94,0.15)', color: '#4ade80' },
-  blue: { background: 'rgba(59,130,246,0.15)', color: '#60a5fa' },
+  green: { background: 'rgba(34,197,94,0.15)', color: '#16a34a' },
+  blue: { background: 'rgba(0,149,255,0.15)', color: '#0095ff' },
 }
 
 const optionAmountStyle = {
   fontSize: '28px',
   fontWeight: 700,
-  color: '#fff',
+  color: '#16264a',
   marginBottom: '16px',
 }
 
@@ -264,15 +264,15 @@ const optionDetailRowStyle = {
 
 const optionFooterStyle = {
   fontSize: '12px',
-  color: '#475569',
+  color: '#4e6087',
   marginTop: '12px',
   paddingTop: '12px',
-  borderTop: '1px solid rgba(255,255,255,0.06)',
+  borderTop: '1px solid #e9eef8',
 }
 
 const dividerStyle = {
   textAlign: 'center',
-  color: '#475569',
+  color: '#4e6087',
   fontSize: '12px',
   fontWeight: 600,
   textTransform: 'uppercase',
@@ -282,7 +282,7 @@ const dividerStyle = {
 
 const securityNoteStyle = {
   textAlign: 'center',
-  color: '#475569',
+  color: '#4e6087',
   fontSize: '12px',
   marginTop: '24px',
   lineHeight: 1.6,

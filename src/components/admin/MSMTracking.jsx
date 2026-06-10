@@ -97,13 +97,10 @@ export default function MSMTracking({ member, activeSection, onDataChange }) {
     return enrollments.find(e => e.programs?.name === programName) || null
   }
 
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
   const tabStyle = (active) => ({
-    padding: '10px 18px', background: 'transparent', border: 'none',
-    borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent',
-    color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400',
-    cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap'
+    padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px'
   })
 
   if (loading) {
@@ -127,7 +124,7 @@ export default function MSMTracking({ member, activeSection, onDataChange }) {
             const dbProgram = programs.find(prog => prog.name === p.name)
             if (!dbProgram) {
               return (
-                <div key={p.key} style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>
+                <div key={p.key} style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>
                   Program "{p.name}" not found in database.
                 </div>
               )
@@ -135,9 +132,9 @@ export default function MSMTracking({ member, activeSection, onDataChange }) {
             const isEnabled = enabledPrograms.some(e => e.program_id === dbProgram.id)
             if (!isEnabled) {
               return (
-                <div key={p.key} style={{ textAlign: 'center', padding: '60px 20px', color: '#8bacc8' }}>
-                  <div style={{ fontSize: '18px', color: '#fff', marginBottom: '8px', fontFamily: 'Playfair Display, serif' }}>{p.name}</div>
-                  <div style={{ fontSize: '14px', color: '#8bacc8' }}>This program is not enabled for this member. Enable it from MSM Home.</div>
+                <div key={p.key} style={{ textAlign: 'center', padding: '60px 20px', color: '#4e6087' }}>
+                  <div style={{ fontSize: '18px', color: '#16264a', marginBottom: '8px', fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em' }}>{p.name}</div>
+                  <div style={{ fontSize: '14px', color: '#4e6087' }}>This program is not enabled for this member. Enable it from MSM Home.</div>
                 </div>
               )
             }
@@ -161,7 +158,7 @@ export default function MSMTracking({ member, activeSection, onDataChange }) {
 
           {/* Meeting counts */}
           <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting Summary</div>
+            <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting Summary</div>
             <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', marginBottom: '20px' }}>
               {[
                 ['MSM Meetings', msmCount],
@@ -170,61 +167,61 @@ export default function MSMTracking({ member, activeSection, onDataChange }) {
                 ['PFT 90 Day Plan', pft90Count],
               ].map(([label, count]) => (
                 <div key={label} style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{count}</div>
-                  <div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '2px', textTransform: 'uppercase' }}>{label}</div>
+                  <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973' }}>{count}</div>
+                  <div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '3px', textTransform: 'uppercase' }}>{label}</div>
                 </div>
               ))}
             </div>
 
             <button onClick={() => setShowLogMeeting(!showLogMeeting)}
-              style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer', marginBottom: showLogMeeting ? '16px' : '0' }}>
+              style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer', marginBottom: showLogMeeting ? '16px' : '0' }}>
               + Log MSM Meeting
             </button>
 
             {showLogMeeting && (
-              <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px' }}>
+              <div style={{ marginTop: '16px', padding: '16px', background: '#eef2f9', borderRadius: '8px' }}>
                 <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: '160px' }}>
-                    <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Date *</label>
+                    <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Date *</label>
                     <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={inputStyle} />
                   </div>
                   <div style={{ flex: 1, minWidth: '160px' }}>
-                    <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Conducted By</label>
-                    <select value={meetingConductedBy} onChange={e => setMeetingConductedBy(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+                    <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Conducted By</label>
+                    <select value={meetingConductedBy} onChange={e => setMeetingConductedBy(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
                       <option value="">-- Select --</option>
                       {TEAM_MEMBERS.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                 </div>
                 <div style={{ marginBottom: '12px' }}>
-                  <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Notes</label>
+                  <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Notes</label>
                   <textarea value={meetingNotes} onChange={e => setMeetingNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={logMeeting} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
-                  <button onClick={() => setShowLogMeeting(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+                  <button onClick={logMeeting} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
+                  <button onClick={() => setShowLogMeeting(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
                 </div>
-                {meetingStatus && <p style={{ color: '#ff6b6b', fontSize: '13px', marginTop: '8px' }}>{meetingStatus}</p>}
+                {meetingStatus && <p style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '8px' }}>{meetingStatus}</p>}
               </div>
             )}
           </div>
 
           {/* Meeting history */}
           <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting History</div>
+            <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting History</div>
             {meetings.length === 0
-              ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No meetings logged yet.</p>
+              ? <p style={{ color: '#697a9c', fontSize: '14px' }}>No meetings logged yet.</p>
               : meetings.map(m => (
-                <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid #eef2f9' }}>
                   <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: '14px', color: '#fff' }}>{m.meeting_type}</div>
-                    <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>
+                    <div style={{ fontSize: '14px', color: '#16264a' }}>{m.meeting_type}</div>
+                    <div style={{ fontSize: '12px', color: '#4e6087', marginTop: '2px' }}>
                       {new Date(m.meeting_date + 'T12:00:00').toLocaleDateString()}{m.conducted_by ? ` · ${m.conducted_by}` : ''}
                     </div>
-                    {m.notes && <div style={{ fontSize: '12px', color: '#5a8ab5', marginTop: '2px' }}>{m.notes}</div>}
+                    {m.notes && <div style={{ fontSize: '12px', color: '#697a9c', marginTop: '2px' }}>{m.notes}</div>}
                   </div>
                   <button onClick={() => deleteMeeting(m.id)}
-                    style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontSize: '11px', cursor: 'pointer', flexShrink: 0 }}>
+                    style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '11px', cursor: 'pointer', flexShrink: 0 }}>
                     Delete
                   </button>
                 </div>
@@ -241,8 +238,8 @@ function EnrollPanel({ member, program, onEnrolled }) {
   const [dateEnrolled, setDateEnrolled] = useState(new Date().toISOString().split('T')[0])
   const [status, setStatus] = useState('')
 
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
 
   async function enroll() {
     try {
@@ -257,17 +254,17 @@ function EnrollPanel({ member, program, onEnrolled }) {
 
   return (
     <div style={sectionStyle}>
-      <p style={{ color: '#8bacc8', fontSize: '14px', marginBottom: '20px' }}>
+      <p style={{ color: '#4e6087', fontSize: '14px', marginBottom: '20px' }}>
         {member.name} is not enrolled in {program.name}. Enroll them to start tracking progress.
       </p>
       <div style={{ marginBottom: '12px', maxWidth: '200px' }}>
-        <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Date Joined</label>
+        <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Date Joined</label>
         <input type="date" value={dateEnrolled} onChange={e => setDateEnrolled(e.target.value)} style={inputStyle} />
       </div>
-      <button onClick={enroll} style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
+      <button onClick={enroll} style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
         Enroll in {program.name}
       </button>
-      {status && <p style={{ color: '#ff6b6b', fontSize: '13px', marginTop: '12px' }}>{status}</p>}
+      {status && <p style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '12px' }}>{status}</p>}
     </div>
   )
 }
@@ -281,7 +278,7 @@ function ProgramNotes({ memberNumber, programName }) {
   const [editingId, setEditingId] = useState(null)
   const [editText, setEditText] = useState('')
   const session = getSession()
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
 
   useEffect(() => { loadNotes() }, [memberNumber, programName])
 
@@ -328,38 +325,38 @@ function ProgramNotes({ memberNumber, programName }) {
   return (
     <div style={sectionStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px' }}>Notes ({notes.length})</div>
-        {!showAdd && <button onClick={() => setShowAdd(true)} style={{ padding: '4px 12px', borderRadius: '6px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '12px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>+ Add Note</button>}
+        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px' }}>Notes ({notes.length})</div>
+        {!showAdd && <button onClick={() => setShowAdd(true)} style={{ padding: '4px 12px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>+ Add Note</button>}
       </div>
       {showAdd && (
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          <textarea value={newText} onChange={e => setNewText(e.target.value)} placeholder="Add a note..." rows={2} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addNote() } }} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical' }} />
+          <textarea value={newText} onChange={e => setNewText(e.target.value)} placeholder="Add a note..." rows={2} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addNote() } }} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <button onClick={addNote} disabled={saving || !newText.trim()} style={{ padding: '8px 14px', borderRadius: '8px', background: saving ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '12px', cursor: saving ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>{saving ? '...' : 'Save'}</button>
-            <button onClick={() => { setShowAdd(false); setNewText('') }} style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '12px', cursor: 'pointer' }}>✕</button>
+            <button onClick={addNote} disabled={saving || !newText.trim()} style={{ padding: '8px 14px', borderRadius: '8px', background: saving ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '12px', cursor: saving ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>{saving ? '...' : 'Save'}</button>
+            <button onClick={() => { setShowAdd(false); setNewText('') }} style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '12px', cursor: 'pointer' }}>✕</button>
           </div>
         </div>
       )}
-      {notes.length === 0 && <div style={{ fontSize: '13px', color: '#5a8ab5', padding: '8px 0' }}>No notes yet.</div>}
+      {notes.length === 0 && <div style={{ fontSize: '13px', color: '#697a9c', padding: '8px 0' }}>No notes yet.</div>}
       {notes.map(note => (
-        <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid #e9eef8' }}>
           {editingId === note.id ? (
             <div style={{ display: 'flex', gap: '8px' }}>
-              <textarea value={editText} onChange={e => setEditText(e.target.value)} rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical' }} />
+              <textarea value={editText} onChange={e => setEditText(e.target.value)} rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.4)', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <button onClick={() => updateNote(note.id)} style={{ padding: '4px 10px', borderRadius: '6px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>Save</button>
-                <button onClick={() => setEditingId(null)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={() => updateNote(note.id)} style={{ padding: '4px 10px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>Save</button>
+                <button onClick={() => setEditingId(null)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
               </div>
             </div>
           ) : (
             <>
-              <div style={{ fontSize: '13px', color: '#fff', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
+              <div style={{ fontSize: '13px', color: '#16264a', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{note.created_by}</span>
-                <span style={{ fontSize: '11px', color: '#5a8ab5' }}>·</span>
-                <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{note.created_at?.split('T')[0]}</span>
-                <button onClick={() => { setEditingId(note.id); setEditText(note.note_text) }} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#5b9fe6', fontSize: '11px', cursor: 'pointer' }}>Edit</button>
-                <button onClick={() => deleteNote(note.id)} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#e74c3c', fontSize: '11px', cursor: 'pointer' }}>Delete</button>
+                <span style={{ fontSize: '11px', color: '#697a9c' }}>{note.created_by}</span>
+                <span style={{ fontSize: '11px', color: '#697a9c' }}>·</span>
+                <span style={{ fontSize: '11px', color: '#697a9c' }}>{note.created_at?.split('T')[0]}</span>
+                <button onClick={() => { setEditingId(note.id); setEditText(note.note_text) }} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#0095ff', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Edit</button>
+                <button onClick={() => deleteNote(note.id)} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Delete</button>
               </div>
             </>
           )}
@@ -383,9 +380,9 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
   const [programStatus, setProgramStatus] = useState(enrollment.program_status || 'On Fast Track')
   const [saveStatus, setSaveStatus] = useState('')
 
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
-  const tabStyle = (active) => ({ padding: '10px 18px', background: 'transparent', border: 'none', borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent', color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' })
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
+  const tabStyle = (active) => ({ padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' })
 
   async function saveEnrollment() {
     try {
@@ -395,40 +392,40 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
     } catch (err) { setSaveStatus(err.message) }
   }
 
-  const statusColors = { 'On Fast Track': '#27ae60', 'Paused Fast Track': '#f39c12', 'Lost/Removed': '#e74c3c', 'Revert to Legacy': '#8bacc8', 'Active': '#27ae60', 'Paused': '#f39c12', 'Not Renewing': '#e74c3c' }
+  const statusColors = { 'On Fast Track': '#1b9254', 'Paused Fast Track': '#e06717', 'Lost/Removed': '#e74c3c', 'Revert to Legacy': '#4e6087', 'Active': '#1b9254', 'Paused': '#e06717', 'Not Renewing': '#e74c3c' }
 
   return (
     <div>
-      <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '22px', color: '#fff', marginBottom: '20px' }}>{program.name}</div>
+      <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a', marginBottom: '20px' }}>{program.name}</div>
       <div style={sectionStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: editingEnrollment ? '16px' : '0' }}>
           <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-            <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Joined</div><div style={{ fontSize: '14px', color: '#fff', marginTop: '4px' }}>{enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</div></div>
-            {!isCoaching && <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Program Status</div><div style={{ fontSize: '14px', color: statusColors[enrollment.program_status] || '#fff', marginTop: '4px', fontWeight: '600' }}>{enrollment.program_status}</div></div>}
+            <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Joined</div><div style={{ fontSize: '14px', color: '#16264a', marginTop: '4px' }}>{enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</div></div>
+            {!isCoaching && <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Program Status</div><div style={{ fontSize: '14px', color: statusColors[enrollment.program_status] || '#16264a', marginTop: '4px', fontWeight: '600' }}>{enrollment.program_status}</div></div>}
             {!isCoaching && !isTaxPlanning && <PlanStatusBadge enrollmentId={enrollment.id} programId={program.id} />}
           </div>
-          {!isCoaching && <button onClick={() => setEditingEnrollment(!editingEnrollment)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '12px', cursor: 'pointer' }}>
+          {!isCoaching && <button onClick={() => setEditingEnrollment(!editingEnrollment)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '12px', cursor: 'pointer' }}>
             {editingEnrollment ? 'Cancel' : 'Edit'}
           </button>}
         </div>
 
         {editingEnrollment && (
-          <div style={{ padding: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px' }}>
+          <div style={{ padding: '16px', background: '#eef2f9', borderRadius: '8px' }}>
             <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '160px' }}>
-                <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Program Status</label>
-                <select value={programStatus} onChange={e => setProgramStatus(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+                <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Program Status</label>
+                <select value={programStatus} onChange={e => setProgramStatus(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
                   {(isCoaching ? ['Active', 'Paused', 'Not Renewing', 'Lost/Removed'] : ['On Fast Track', 'Paused Fast Track', 'Revert to Legacy', 'Lost/Removed']).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
             </div>
-            <button onClick={saveEnrollment} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
-            {saveStatus && <span style={{ color: saveStatus === 'Saved!' ? '#27ae60' : '#ff6b6b', fontSize: '13px', marginLeft: '12px' }}>{saveStatus}</span>}
+            <button onClick={saveEnrollment} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
+            {saveStatus && <span style={{ color: saveStatus === 'Saved!' ? '#1b9254' : '#d93025', fontSize: '13px', marginLeft: '12px' }}>{saveStatus}</span>}
           </div>
         )}
       </div>
 
-      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px' }}>
         <button style={tabStyle(activeTab === 'home')} onClick={() => setActiveTab('home')}>Home</button>
         {isCoaching ? (
           <>
@@ -525,22 +522,28 @@ function TrainingTrack({ enrollment, program }) {
   }
 
   
-  const statusColors = { Completed: '#27ae60', 'Training Completed': '#27ae60', '90 Day Plan Completed': '#27ae60', 'Have Watched': '#27ae60', 'Will Watch': '#27ae60', 'In Progress': '#f39c12', Outstanding: '#f39c12', 'N/A': '#8bacc8', Pending: '#e74c3c', Stopped: '#e74c3c' }
-  const inputStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif' }
+  const statusColors = { Completed: '#1b9254', 'Training Completed': '#1b9254', '90 Day Plan Completed': '#1b9254', 'Have Watched': '#1b9254', 'Will Watch': '#1b9254', 'In Progress': '#e06717', Outstanding: '#e06717', 'N/A': '#4e6087', Pending: '#e74c3c', Stopped: '#e74c3c' }
+  const inputStyle = { padding: '6px 10px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
 
   if (loading) return <TrainingTrackSkeleton />
 
-  if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No training track defined for this program yet.</div>
+  if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>No training track defined for this program yet.</div>
 
   const totalTasks = phases.reduce((s, p) => s + (p.program_training_tasks?.length || 0), 0)
   const completedTasks = Object.values(progress).filter(p => p.status && p.status !== '').length
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '24px', marginBottom: '20px', flexWrap: 'wrap', paddingLeft: '24px' }}>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{completedTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>COMPLETED</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{totalTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>TOTAL</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#27ae60' }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>PROGRESS</div></div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap', background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '14px 20px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px' }}>
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '24px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{completedTasks}</span>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#9aa6bf' }}>/ {totalTasks}</span>
+          <span style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginLeft: '8px' }}>TASKS COMPLETED</span>
+        </div>
+        <div style={{ flex: 1, minWidth: '140px', height: '8px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #e3eaf5', overflow: 'hidden' }}>
+          <div style={{ width: `${totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%`, height: '100%', borderRadius: '999px', background: 'linear-gradient(90deg, #125ecc 0%, #0a85e8 100%)', transition: 'width 0.3s' }} />
+        </div>
+        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '20px', fontWeight: 800, letterSpacing: '-0.02em', color: '#125ecc', lineHeight: 1 }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</span>
       </div>
 
       {phases.map(phase => {
@@ -548,23 +551,23 @@ function TrainingTrack({ enrollment, program }) {
         const isExpanded = expanded[phase.id]
         const tasks = phase.program_training_tasks || []
         const doneTasks = tasks.filter(t => progress[t.id]?.status).length
-        const borderColor = state === 'done' ? 'rgba(39,174,96,0.3)' : state === 'active' ? 'rgba(91,159,230,0.4)' : 'rgba(255,255,255,0.1)'
-        const dotColor = state === 'done' ? '#27ae60' : state === 'active' ? '#5b9fe6' : 'transparent'
-        const titleColor = state === 'active' ? '#5b9fe6' : '#fff'
+        const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
+        const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
+        const titleColor = state === 'active' ? '#125ecc' : '#002973'
         const isReview = phase.name.includes('Review')
 
         return (
-          <div key={phase.id} style={{ background: isReview ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.12)', border: `1px solid ${borderColor}`, borderRadius: '12px', marginBottom: isReview ? '10px' : '10px', marginTop: isReview ? '-6px' : '0', marginLeft: isReview ? '20px' : '0', overflow: 'hidden', borderTopLeftRadius: isReview ? '0' : '12px', borderTopRightRadius: isReview ? '12px' : '12px' }}>
+          <div key={phase.id} style={{ background: isReview ? '#eef2f9' : '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: isReview ? '10px' : '10px', marginTop: isReview ? '-6px' : '0', marginLeft: isReview ? '20px' : '0', overflow: 'hidden', borderTopLeftRadius: isReview ? '0' : '12px', borderTopRightRadius: isReview ? '12px' : '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
               <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
-                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? 'rgba(255,255,255,0.2)' : dotColor}`, flexShrink: 0 }} />
-                <span style={{ fontSize: '13px', fontWeight: '600', color: titleColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{phase.name}{isReview && <span style={{ fontSize: '10px', color: '#8bacc8', marginLeft: '8px', textTransform: 'none', fontWeight: '400', letterSpacing: '0' }}>checkpoint</span>}</span>
+                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
+                <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}{isReview && <span style={{ fontSize: '10px', color: '#4e6087', marginLeft: '8px', textTransform: 'none', fontWeight: '400', letterSpacing: '0' }}>checkpoint</span>}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                {state === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Done</span>}
-                {state === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>In progress · {doneTasks}/{tasks.length}</span>}
-                {state === 'pending' && !isReview && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>}
-                <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ color: '#8bacc8', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
+                {state === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
+                {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{tasks.length}</span>}
+                {state === 'pending' && !isReview && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
+                <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
               </div>
             </div>
 
@@ -573,19 +576,19 @@ function TrainingTrack({ enrollment, program }) {
                 {tasks.map(task => {
                   const p = progress[task.id] || {}
                   const isDone = !!p.status
-                  const statusColor = statusColors[p.status] || '#8bacc8'
+                  const statusColor = statusColors[p.status] || '#4e6087'
 
                   return (
-                    <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'rgba(255,255,255,0.2)'}` }} />
+                    <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid #eef2f9', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
                       <div style={{ flex: 1, minWidth: '150px' }}>
-                        <span style={{ fontSize: '14px', color: isDone ? '#8bacc8' : '#fff' }}>{task.name}</span>
+                        <span style={{ fontSize: '14px', color: isDone ? '#4e6087' : '#16264a' }}>{task.name}</span>
                       </div>
-                      <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, phase.id)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '130px', borderColor: isDone ? `${statusColor}66` : 'rgba(255,255,255,0.15)', color: isDone ? statusColor : '#fff' }}>
+                      <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, phase.id)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#ffffff', minWidth: '130px', borderColor: isDone ? `${statusColor}66` : '#d6e0ee', color: isDone ? statusColor : '#16264a' }}>
                         <option value="">-- Status --</option>
                         {(task.status_options || 'Completed|Outstanding|Stopped').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
-                      <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                      <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
                 })}
@@ -680,9 +683,9 @@ function ClientsPanel({ enrollment, member, program }) {
     if (mode === 'existing') loadExistingClients()
   }
 
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '16px' }
-  const statusColors = { pending: '#f39c12', active: '#27ae60', declined: '#e74c3c' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '16px' }
+  const statusColors = { pending: '#e06717', active: '#1b9254', declined: '#e74c3c' }
 
   if (loading) return <ClientsListSkeleton />
 
@@ -695,106 +698,106 @@ function ClientsPanel({ enrollment, member, program }) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', width: '100%' }}>
         <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-end', paddingLeft: '24px' }}>
-          <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff', lineHeight: 1 }}>{clients.length}</div><div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '4px' }}>TOTAL</div></div>
-          <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff', lineHeight: 1 }}>{clients.filter(c => c.status === 'active').length}</div><div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '4px' }}>ACTIVE</div></div>
+          <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{clients.length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '4px' }}>TOTAL</div></div>
+          <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{clients.filter(c => c.status === 'active').length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '4px' }}>ACTIVE</div></div>
         </div>
-        <button onClick={handleShowAdd} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add {isPFT ? 'Accountant' : 'Client'}</button>
+        <button onClick={handleShowAdd} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add {isPFT ? 'Accountant' : 'Client'}</button>
       </div>
 
       {showAdd && !isPFT && !addMode && (
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add Client</div>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add Client</div>
           <div style={{ display: 'flex', gap: '12px' }}>
-            <button onClick={() => selectAddMode('existing')} style={{ flex: 1, padding: '20px', borderRadius: '8px', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.08)', color: '#5b9fe6', fontSize: '14px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Add Existing Client</button>
-            <button onClick={() => selectAddMode('new')} style={{ flex: 1, padding: '20px', borderRadius: '8px', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.08)', color: '#27ae60', fontSize: '14px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Add New Client</button>
+            <button onClick={() => selectAddMode('existing')} style={{ flex: 1, padding: '20px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.08)', color: '#0095ff', fontWeight: 500, fontSize: '14px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Add Existing Client</button>
+            <button onClick={() => selectAddMode('new')} style={{ flex: 1, padding: '20px', borderRadius: '8px', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.08)', color: '#1b9254', fontWeight: 500, fontSize: '14px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Add New Client</button>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
-            <button onClick={() => { setShowAdd(false); setAddMode(null) }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={() => { setShowAdd(false); setAddMode(null) }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
           </div>
         </div>
       )}
 
       {showAdd && addMode === 'existing' && (
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add Existing Client</div>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add Existing Client</div>
           {loadingExisting
-            ? <div style={{ padding: '20px', color: '#8bacc8', textAlign: 'center' }}>Loading...</div>
+            ? <div style={{ padding: '20px', color: '#4e6087', textAlign: 'center' }}>Loading...</div>
             : allMemberClients.length === 0
-              ? <div style={{ padding: '20px', color: '#8bacc8', textAlign: 'center' }}>No other clients found for this member.</div>
+              ? <div style={{ padding: '20px', color: '#4e6087', textAlign: 'center' }}>No other clients found for this member.</div>
               : <>
                   <input value={existingSearch} onChange={e => setExistingSearch(e.target.value)} placeholder="Search by name or ref..." style={{ ...inputStyle, marginBottom: '12px' }} />
                   {filteredExisting.map(c => (
                     <div key={c.id} onClick={() => linkExistingClient(c.id)}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', cursor: 'pointer' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}>
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#eef2f9'}>
                       <div>
-                        <div style={{ fontSize: '14px', color: '#fff' }}>{c.first_name} {c.last_name}</div>
-                        <div style={{ fontSize: '12px', color: '#8bacc8' }}>{c.client_ref}{c.email ? ` · ${c.email}` : ''}</div>
+                        <div style={{ fontSize: '14px', color: '#16264a' }}>{c.first_name} {c.last_name}</div>
+                        <div style={{ fontSize: '12px', color: '#4e6087' }}>{c.client_ref}{c.email ? ` · ${c.email}` : ''}</div>
                       </div>
-                      <span style={{ color: '#5b9fe6', fontSize: '12px' }}>Select →</span>
+                      <span style={{ color: '#0095ff', fontWeight: 600, fontSize: '12px' }}>Select →</span>
                     </div>
                   ))}
                 </>
           }
-          {addStatus && <p style={{ color: '#ff6b6b', fontSize: '13px', marginTop: '8px' }}>{addStatus}</p>}
+          {addStatus && <p style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '8px' }}>{addStatus}</p>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
-            <button onClick={() => setAddMode(null)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>Back</button>
+            <button onClick={() => setAddMode(null)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer' }}>Back</button>
           </div>
         </div>
       )}
 
       {showAdd && addMode === 'new' && (
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add New Client</div>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add New Client</div>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>First Name *</label><input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} /></div>
-            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Last Name *</label><input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} /></div>
-            <div style={{ flex: 1, minWidth: '180px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
-            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Phone</label><input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>First Name *</label><input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Last Name *</label><input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '180px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Phone</label><input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} /></div>
           </div>
           {!showAdditional && (
-            <button onClick={() => setShowAdditional(true)} style={{ padding: '8px 14px', borderRadius: '6px', border: '1px dashed rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.06)', color: '#5b9fe6', fontSize: '12px', cursor: 'pointer', marginBottom: '12px', fontFamily: 'DM Sans, sans-serif' }}>+ Add additional contact (e.g. spouse)</button>
+            <button onClick={() => setShowAdditional(true)} style={{ padding: '8px 14px', borderRadius: '6px', border: '1px dashed rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.06)', color: '#0095ff', fontWeight: 600, fontSize: '12px', cursor: 'pointer', marginBottom: '12px', fontFamily: 'Inter, sans-serif' }}>+ Add additional contact (e.g. spouse)</button>
           )}
           {showAdditional && (
-            <div style={{ padding: '16px', background: 'rgba(91,159,230,0.06)', border: '1px solid rgba(91,159,230,0.2)', borderRadius: '8px', marginBottom: '12px' }}>
+            <div style={{ padding: '16px', background: 'rgba(0,149,255,0.06)', border: '1px solid rgba(0,149,255,0.2)', borderRadius: '8px', marginBottom: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <div style={{ fontSize: '12px', color: '#5b9fe6', fontStyle: 'italic' }}>Additional contact (not the primary client)</div>
-                <button onClick={() => { setShowAdditional(false); setAddFirstName(''); setAddLastName(''); setAddEmail('') }} style={{ background: 'none', border: 'none', color: '#8bacc8', fontSize: '11px', cursor: 'pointer' }}>Remove</button>
+                <div style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600, fontStyle: 'italic' }}>Additional contact (not the primary client)</div>
+                <button onClick={() => { setShowAdditional(false); setAddFirstName(''); setAddLastName(''); setAddEmail('') }} style={{ background: 'none', border: 'none', color: '#4e6087', fontSize: '11px', cursor: 'pointer' }}>Remove</button>
               </div>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: '120px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>First Name</label><input value={addFirstName} onChange={e => setAddFirstName(e.target.value)} style={inputStyle} /></div>
-                <div style={{ flex: 1, minWidth: '120px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Last Name</label><input value={addLastName} onChange={e => setAddLastName(e.target.value)} style={inputStyle} /></div>
-                <div style={{ flex: 1, minWidth: '160px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Email</label><input value={addEmail} onChange={e => setAddEmail(e.target.value)} type="email" style={inputStyle} /></div>
+                <div style={{ flex: 1, minWidth: '120px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>First Name</label><input value={addFirstName} onChange={e => setAddFirstName(e.target.value)} style={inputStyle} /></div>
+                <div style={{ flex: 1, minWidth: '120px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Last Name</label><input value={addLastName} onChange={e => setAddLastName(e.target.value)} style={inputStyle} /></div>
+                <div style={{ flex: 1, minWidth: '160px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Email</label><input value={addEmail} onChange={e => setAddEmail(e.target.value)} type="email" style={inputStyle} /></div>
               </div>
             </div>
           )}
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={addClient} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
-            <button onClick={() => { isPFT ? setShowAdd(false) : setAddMode(null) }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>{isPFT ? 'Cancel' : 'Back'}</button>
+            <button onClick={addClient} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
+            <button onClick={() => { isPFT ? setShowAdd(false) : setAddMode(null) }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer' }}>{isPFT ? 'Cancel' : 'Back'}</button>
           </div>
-          {addStatus && <p style={{ color: '#ff6b6b', fontSize: '13px', marginTop: '8px' }}>{addStatus}</p>}
+          {addStatus && <p style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '8px' }}>{addStatus}</p>}
         </div>
       )}
 
       {clients.length === 0 && !showAdd
-        ? <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No clients added yet.</div>
+        ? <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>No clients added yet.</div>
         : clients.map(client => (
           <div key={client.id} style={{ ...sectionStyle, cursor: 'pointer' }}
             onClick={() => navigate(`/admin/client/${client.id}`, { state: { enrollment_id: enrollment.id, from: '/admin', backTo: program.name === 'Partnership Fast Track' ? 'pft_accountants' : undefined, memberNumber: member.plugin_member_number } })}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.12)'}>
+            onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
+            onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '15px', fontWeight: '600', color: '#fff' }}>{client.first_name} {client.last_name}</span>
-                  <span style={{ fontSize: '11px', color: '#8bacc8' }}>{client.client_ref}</span>
-                  <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', background: `${statusColors[client.status] || '#8bacc8'}22`, color: statusColors[client.status] || '#8bacc8', border: `1px solid ${statusColors[client.status] || '#8bacc8'}44` }}>{client.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : ''}</span>
+                  <span style={{ fontSize: '15px', fontWeight: '600', color: '#16264a' }}>{client.first_name} {client.last_name}</span>
+                  <span style={{ fontSize: '11px', color: '#4e6087' }}>{client.client_ref}</span>
+                  <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', background: `${statusColors[client.status] || '#4e6087'}22`, color: statusColors[client.status] || '#4e6087', border: `1px solid ${statusColors[client.status] || '#4e6087'}44` }}>{client.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : ''}</span>
                 </div>
-                {(client.email || client.phone) && <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '4px' }}>{client.email}{client.email && client.phone ? ' · ' : ''}{client.phone}</div>}
-                {contactsMap[client.id]?.length > 0 && <div style={{ fontSize: '12px', color: '#5a8ab5', marginTop: '2px', fontStyle: 'italic' }}>with {contactsMap[client.id].map(c => `${c.first_name} ${c.last_name}`).join(', ')}</div>}
+                {(client.email || client.phone) && <div style={{ fontSize: '12px', color: '#4e6087', marginTop: '4px' }}>{client.email}{client.email && client.phone ? ' · ' : ''}{client.phone}</div>}
+                {contactsMap[client.id]?.length > 0 && <div style={{ fontSize: '12px', color: '#697a9c', marginTop: '2px', fontStyle: 'italic' }}>with {contactsMap[client.id].map(c => `${c.first_name} ${c.last_name}`).join(', ')}</div>}
               </div>
-              <span style={{ color: '#5b9fe6', fontSize: '13px' }}>View →</span>
+              <span style={{ color: '#0095ff', fontWeight: 500, fontSize: '13px' }}>View →</span>
             </div>
           </div>
         ))
@@ -835,28 +838,28 @@ function ClientTrack({ client, program }) {
     finally { setSaving(p => ({ ...p, [taskId]: false })) }
   }
 
-  const inputStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif' }
+  const inputStyle = { padding: '6px 10px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
   const STATUS_OPTIONS = ['', 'Completed', 'In Progress', 'Confirmed', 'Yes', 'No', 'N/A', 'Pending', 'Scheduled']
-  const statusColors = { Completed: '#27ae60', Confirmed: '#27ae60', Yes: '#27ae60', 'In Progress': '#f39c12', Scheduled: '#5b9fe6', No: '#e74c3c', 'N/A': '#8bacc8', Pending: '#f39c12' }
+  const statusColors = { Completed: '#1b9254', Confirmed: '#1b9254', Yes: '#1b9254', 'In Progress': '#e06717', Scheduled: '#0095ff', No: '#e74c3c', 'N/A': '#4e6087', Pending: '#e06717' }
 
-  if (loading) return <div style={{ color: '#8bacc8', fontSize: '13px', padding: '16px' }}>Loading track...</div>
-  if (phases.length === 0) return <div style={{ color: '#8bacc8', fontSize: '13px', padding: '16px' }}>No client track defined for this program yet.</div>
+  if (loading) return <div style={{ color: '#4e6087', fontSize: '13px', padding: '16px' }}>Loading track...</div>
+  if (phases.length === 0) return <div style={{ color: '#4e6087', fontSize: '13px', padding: '16px' }}>No client track defined for this program yet.</div>
 
   return (
     <div>
       {phases.map(phase => (
         <div key={phase.id} style={{ marginBottom: '20px' }}>
-          <div style={{ fontSize: '13px', fontWeight: '600', color: '#5b9fe6', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{phase.name}</div>
+          <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: '#002973', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}</div>
           {(phase.program_client_tasks || []).map(task => {
             const p = progress[task.id] || {}
             return (
-              <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[p.status] || 'transparent', flexShrink: 0, border: '1px solid rgba(255,255,255,0.2)' }} />
+              <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid #e9eef8', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[p.status] || 'transparent', flexShrink: 0, border: '1px solid #c7d4e8' }} />
                 <div style={{ flex: 1, minWidth: '140px' }}>
-                  <span style={{ fontSize: '12px', color: '#8bacc8', marginRight: '6px' }}>{task.task_code}</span>
-                  <span style={{ fontSize: '13px', color: '#fff' }}>{task.name}</span>
+                  <span style={{ fontSize: '12px', color: '#4e6087', marginRight: '6px' }}>{task.task_code}</span>
+                  <span style={{ fontSize: '13px', color: '#16264a' }}>{task.name}</span>
                 </div>
-                <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, p.completed_by, p.notes)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '130px' }}>
+                <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, p.completed_by, p.notes)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#ffffff', minWidth: '130px' }}>
                   {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s || '-- Status --'}</option>)}
                 </select>
                 <input type="date" value={p.completed_date || ''} onChange={e => saveTask(task.id, p.status, e.target.value, p.completed_by, p.notes)} style={{ ...inputStyle, width: '140px' }} />
@@ -875,8 +878,8 @@ function MsmAssignment({ member, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState('')
 
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
 
   async function save() {
     setSaving(true)
@@ -891,16 +894,16 @@ function MsmAssignment({ member, onSaved }) {
 
   return (
     <div style={sectionStyle}>
-      <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Assigned MSM</div>
+      <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Assigned MSM</div>
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-        <select value={assignedMsm} onChange={e => setAssignedMsm(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '220px' }}>
+        <select value={assignedMsm} onChange={e => setAssignedMsm(e.target.value)} style={{ ...inputStyle, background: '#ffffff', minWidth: '220px' }}>
           <option value="">-- Select MSM --</option>
           {TEAM_MEMBERS.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-        <button onClick={save} disabled={saving} style={{ padding: '10px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>
+        <button onClick={save} disabled={saving} style={{ padding: '10px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>
           {saving ? 'Saving...' : 'Save'}
         </button>
-        {status && <span style={{ color: '#27ae60', fontSize: '13px' }}>{status}</span>}
+        {status && <span style={{ color: '#1b9254', fontWeight: 500, fontSize: '13px' }}>{status}</span>}
       </div>
     </div>
   )
@@ -933,15 +936,15 @@ function PlanStatusBadge({ enrollmentId, programId }) {
 
   return (
     <div>
-      <div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>90 Day Plan</div>
-      <div style={{ fontSize: '14px', color: planStatus === 'Completed' ? '#27ae60' : planStatus === 'Not Started' ? '#8bacc8' : '#5b9fe6', marginTop: '4px', fontWeight: '600' }}>{planStatus}</div>
+      <div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>90 Day Plan</div>
+      <div style={{ fontSize: '14px', color: '#16264a', marginTop: '4px', fontWeight: '600' }}>{planStatus}</div>
     </div>
   )
 }
 
 function ProgramToggles({ member, programs, enabledPrograms, onToggle }) {
   const [toggling, setToggling] = useState({})
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
 
   async function toggle(programId, currentlyEnabled) {
     setToggling(t => ({ ...t, [programId]: true }))
@@ -954,18 +957,18 @@ function ProgramToggles({ member, programs, enabledPrograms, onToggle }) {
 
   return (
     <div style={sectionStyle}>
-      <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Programs</div>
+      <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Programs</div>
       {PROGRAMS.map(p => {
         const dbProgram = programs.find(prog => prog.name === p.name)
         if (!dbProgram) return null
         const isEnabled = enabledPrograms.some(e => e.program_id === dbProgram.id)
         return (
-          <div key={p.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <span style={{ fontSize: '14px', color: isEnabled ? '#fff' : '#8bacc8' }}>{p.name}</span>
+          <div key={p.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #eef2f9' }}>
+            <span style={{ fontSize: '14px', color: isEnabled ? '#16264a' : '#4e6087' }}>{p.name}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '12px', color: isEnabled ? '#27ae60' : '#8bacc8' }}>{isEnabled ? 'Enabled' : 'Disabled'}</span>
+              <span style={{ fontSize: '12px', color: '#16264a' }}>{isEnabled ? 'Enabled' : 'Disabled'}</span>
               <div onClick={() => !toggling[dbProgram.id] && toggle(dbProgram.id, isEnabled)}
-                style={{ width: '44px', height: '24px', borderRadius: '12px', background: isEnabled ? '#27ae60' : 'rgba(255,255,255,0.15)', cursor: 'pointer', position: 'relative', opacity: toggling[dbProgram.id] ? 0.5 : 1 }}>
+                style={{ width: '44px', height: '24px', borderRadius: '12px', background: isEnabled ? '#1b9254' : '#d6e0ee', cursor: 'pointer', position: 'relative', opacity: toggling[dbProgram.id] ? 0.5 : 1 }}>
                 <div style={{ position: 'absolute', top: '2px', left: isEnabled ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
               </div>
             </div>
@@ -987,8 +990,8 @@ function CoachingMeetings({ enrollment, member }) {
   const [expandedMeeting, setExpandedMeeting] = useState(null)
   const [editingNotes, setEditingNotes] = useState({})
 
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
 
   useEffect(() => { loadMeetings() }, [enrollment.id])
 
@@ -1024,7 +1027,7 @@ function CoachingMeetings({ enrollment, member }) {
     } catch (err) { console.error(err) }
   }
 
-  const statusColors = { completed: '#27ae60', scheduled: '#5b9fe6', 'no show': '#e74c3c' }
+  const statusColors = { completed: '#1b9254', scheduled: '#0095ff', 'no show': '#e74c3c' }
   const completedCount = meetings.filter(m => m.status === 'completed').length
   const scheduledCount = meetings.filter(m => m.status === 'scheduled').length
   const nextScheduled = meetings.filter(m => m.status === 'scheduled').sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0]
@@ -1034,66 +1037,66 @@ function CoachingMeetings({ enrollment, member }) {
   return (
     <div>
       <div style={{ display: 'flex', gap: '32px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'flex-end', paddingLeft: '24px' }}>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{completedCount}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>COMPLETED</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#5b9fe6' }}>{scheduledCount}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>SCHEDULED</div></div>
+        <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973' }}>{completedCount}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087' }}>COMPLETED</div></div>
+        <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973' }}>{scheduledCount}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087' }}>SCHEDULED</div></div>
         {nextScheduled && (
-          <div style={{ textAlign: 'center' }}><div style={{ fontSize: '16px', fontWeight: '600', color: '#5b9fe6' }}>{nextScheduled.meeting_date.split('T')[0]}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>NEXT MEETING</div></div>
+          <div style={{ textAlign: 'center' }}><div style={{ fontSize: '16px', fontWeight: '600', color: '#0095ff' }}>{nextScheduled.meeting_date.split('T')[0]}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087' }}>NEXT MEETING</div></div>
         )}
       </div>
 
       <div style={{ marginBottom: '20px' }}>
-        <button onClick={() => setShowLog(!showLog)} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Log Meeting</button>
+        <button onClick={() => setShowLog(!showLog)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Log Meeting</button>
       </div>
 
       {showLog && (
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '160px' }}>
-              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Date *</label>
+              <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Date *</label>
               <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={inputStyle} />
             </div>
             <div style={{ flex: 1, minWidth: '160px' }}>
-              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Status</label>
-              <select value={meetingStatus} onChange={e => setMeetingStatus(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+              <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Status</label>
+              <select value={meetingStatus} onChange={e => setMeetingStatus(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
                 <option value="completed">Completed</option>
                 <option value="scheduled">Scheduled</option>
               </select>
             </div>
           </div>
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Notes</label>
+            <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Notes</label>
             <textarea value={meetingNotes} onChange={e => setMeetingNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={logMeeting} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
-            <button onClick={() => setShowLog(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={logMeeting} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
+            <button onClick={() => setShowLog(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
           </div>
-          {logStatus && <p style={{ color: '#ff6b6b', fontSize: '13px', marginTop: '8px' }}>{logStatus}</p>}
+          {logStatus && <p style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '8px' }}>{logStatus}</p>}
         </div>
       )}
 
       {meetings.filter(m => m.status === 'scheduled').length > 0 && (
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Upcoming</div>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Upcoming</div>
           {meetings.filter(m => m.status === 'scheduled').sort((a, b) => a.meeting_date.localeCompare(b.meeting_date)).map(m => (
-            <div key={m.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <div key={m.id} style={{ borderBottom: '1px solid #eef2f9' }}>
               <div onClick={() => setExpandedMeeting(expandedMeeting === m.id ? null : m.id)}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', cursor: 'pointer' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '14px', color: '#fff' }}>{m.meeting_date.split('T')[0]}</span>
-                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>Scheduled</span>
+                  <span style={{ fontSize: '14px', color: '#16264a' }}>{m.meeting_date.split('T')[0]}</span>
+                  <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>Scheduled</span>
                 </div>
-                <span style={{ color: '#8bacc8', fontSize: '10px', transform: expandedMeeting === m.id ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                <span style={{ color: '#4e6087', fontSize: '10px', transform: expandedMeeting === m.id ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
               </div>
               {expandedMeeting === m.id && (
                 <div style={{ padding: '0 0 12px 0' }}>
                   <div style={{ marginBottom: '12px' }}>
-                    <textarea defaultValue={m.notes || ''} placeholder="Add notes..." rows={2} onBlur={e => { if (e.target.value !== (m.notes || '')) updateMeeting(m.id, { notes: e.target.value }) }} style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif', resize: 'vertical' }} />
+                    <textarea defaultValue={m.notes || ''} placeholder="Add notes..." rows={2} onBlur={e => { if (e.target.value !== (m.notes || '')) updateMeeting(m.id, { notes: e.target.value }) }} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
                   </div>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <button onClick={() => updateMeeting(m.id, { status: 'completed' })} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60', fontSize: '11px', cursor: 'pointer' }}>Mark Completed</button>
-                    <input type="date" defaultValue={m.meeting_date.split('T')[0]} onChange={e => updateMeeting(m.id, { meeting_date: e.target.value })} style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6', fontSize: '11px', fontFamily: 'DM Sans, sans-serif' }} />
-                    <button onClick={() => deleteMeeting(m.id)} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontSize: '11px', cursor: 'pointer' }}>Delete</button>
+                    <button onClick={() => updateMeeting(m.id, { status: 'completed' })} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Mark Completed</button>
+                    <input type="date" defaultValue={m.meeting_date.split('T')[0]} onChange={e => updateMeeting(m.id, { meeting_date: e.target.value })} style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, fontSize: '11px', fontFamily: 'Inter, sans-serif' }} />
+                    <button onClick={() => deleteMeeting(m.id)} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Delete</button>
                   </div>
                 </div>
               )}
@@ -1103,30 +1106,30 @@ function CoachingMeetings({ enrollment, member }) {
       )}
 
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting History</div>
+        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting History</div>
         {meetings.filter(m => m.status === 'completed').length === 0
-          ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No meetings completed yet.</p>
+          ? <p style={{ color: '#697a9c', fontSize: '14px' }}>No meetings completed yet.</p>
           : meetings.filter(m => m.status === 'completed').sort((a, b) => a.meeting_date.localeCompare(b.meeting_date)).map(m => (
-            <div key={m.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <div key={m.id} style={{ borderBottom: '1px solid #eef2f9' }}>
               <div onClick={() => setExpandedMeeting(expandedMeeting === m.id ? null : m.id)}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', cursor: 'pointer' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   
-                  <span style={{ fontSize: '14px', color: '#fff' }}>{m.meeting_date.split('T')[0]}</span>
-                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Completed</span>
+                  <span style={{ fontSize: '14px', color: '#16264a' }}>{m.meeting_date.split('T')[0]}</span>
+                  <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Completed</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {m.notes && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>has notes</span>}
-                  <span style={{ color: '#8bacc8', fontSize: '10px', transform: expandedMeeting === m.id ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                  {m.notes && <span style={{ fontSize: '11px', color: '#697a9c' }}>has notes</span>}
+                  <span style={{ color: '#4e6087', fontSize: '10px', transform: expandedMeeting === m.id ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
                 </div>
               </div>
               {expandedMeeting === m.id && (
                 <div style={{ padding: '0 0 12px 40px' }}>
                   <div style={{ marginBottom: '12px' }}>
-                    <textarea defaultValue={m.notes || ''} placeholder="Add notes..." rows={2} onBlur={e => { if (e.target.value !== (m.notes || '')) updateMeeting(m.id, { notes: e.target.value }) }} style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif', resize: 'vertical' }} />
+                    <textarea defaultValue={m.notes || ''} placeholder="Add notes..." rows={2} onBlur={e => { if (e.target.value !== (m.notes || '')) updateMeeting(m.id, { notes: e.target.value }) }} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => deleteMeeting(m.id)} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontSize: '11px', cursor: 'pointer' }}>Delete</button>
+                    <button onClick={() => deleteMeeting(m.id)} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Delete</button>
                   </div>
                 </div>
               )}
@@ -1148,8 +1151,8 @@ function CoachingRenewal({ enrollment, member }) {
   const [renewalNotes, setRenewalNotes] = useState('')
   const [processStatus, setProcessStatus] = useState('')
 
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
 
   useEffect(() => { loadRenewals() }, [enrollment.id])
 
@@ -1205,19 +1208,19 @@ function CoachingRenewal({ enrollment, member }) {
   const joinDate = enrollment.date_enrolled?.split('T')[0]
   const currentPeriod = latestRenewal?.period_label || 'Year 1'
   const currentStatus = latestAction === 'cancelled' ? 'Cancelled' : 'Active'
-  const statusColor = currentStatus === 'Active' ? '#27ae60' : '#e74c3c'
+  const statusColor = currentStatus === 'Active' ? '#1b9254' : '#e74c3c'
 
   let daysUntilRenewal = null
-  let renewalUrgency = '#27ae60'
+  let renewalUrgency = '#1b9254'
   if (nextDate) {
     const diff = Math.ceil((new Date(nextDate) - new Date()) / (1000 * 60 * 60 * 24))
     daysUntilRenewal = diff
     if (diff < 0) renewalUrgency = '#e74c3c'
     else if (diff <= 30) renewalUrgency = '#e74c3c'
-    else if (diff <= 60) renewalUrgency = '#f39c12'
+    else if (diff <= 60) renewalUrgency = '#e06717'
   }
 
-  const actionColors = { renewed: '#27ae60', cancelled: '#e74c3c' }
+  const actionColors = { renewed: '#1b9254', cancelled: '#e74c3c' }
 
   if (loading) return <CoachingRenewalSkeleton />
 
@@ -1226,70 +1229,70 @@ function CoachingRenewal({ enrollment, member }) {
     <div>
       <div style={sectionStyle}>
         <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
-          <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Join Date</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{joinDate || '—'}</div></div>
-          <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div><div style={{ fontSize: '15px', color: statusColor, marginTop: '4px', fontWeight: '600' }}>{currentStatus}</div></div>
-          <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Current Period</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{currentPeriod}</div></div>
-          {nextDate && <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Period Ends</div><div style={{ fontSize: '15px', color: renewalUrgency, marginTop: '4px', fontWeight: '600' }}>{nextDate.split('T')[0]}</div></div>}
-          {daysUntilRenewal !== null && <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{daysUntilRenewal < 0 ? 'Overdue' : 'Days Remaining'}</div><div style={{ fontSize: '15px', color: renewalUrgency, marginTop: '4px', fontWeight: '600' }}>{daysUntilRenewal < 0 ? `${Math.abs(daysUntilRenewal)} days` : `${daysUntilRenewal} days`}</div></div>}
+          <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Join Date</div><div style={{ fontSize: '15px', color: '#16264a', marginTop: '4px' }}>{joinDate || '—'}</div></div>
+          <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div><div style={{ fontSize: '15px', color: statusColor, marginTop: '4px', fontWeight: '600' }}>{currentStatus}</div></div>
+          <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Current Period</div><div style={{ fontSize: '15px', color: '#16264a', marginTop: '4px' }}>{currentPeriod}</div></div>
+          {nextDate && <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Period Ends</div><div style={{ fontSize: '15px', color: renewalUrgency, marginTop: '4px', fontWeight: '600' }}>{nextDate.split('T')[0]}</div></div>}
+          {daysUntilRenewal !== null && <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{daysUntilRenewal < 0 ? 'Overdue' : 'Days Remaining'}</div><div style={{ fontSize: '15px', color: renewalUrgency, marginTop: '4px', fontWeight: '600' }}>{daysUntilRenewal < 0 ? `${Math.abs(daysUntilRenewal)} days` : `${daysUntilRenewal} days`}</div></div>}
         </div>
       </div>
 
       <div style={{ marginBottom: '20px' }}>
-        <button onClick={() => setShowLog(!showLog)} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Log Renewal</button>
+        <button onClick={() => setShowLog(!showLog)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Log Renewal</button>
       </div>
 
       {showLog && (
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '160px' }}>
-              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Action *</label>
-              <select value={actionType} onChange={e => handleActionTypeChange(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+              <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Action *</label>
+              <select value={actionType} onChange={e => handleActionTypeChange(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
                 <option value="renewed">Renewed</option>
                 <option value="cancelled">Cancelled</option>
               </select>
             </div>
             <div style={{ flex: 1, minWidth: '160px' }}>
-              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Date *</label>
+              <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Date *</label>
               <input type="date" value={actionDate} onChange={e => handleActionDateChange(e.target.value)} style={inputStyle} />
             </div>
             {actionType === 'renewed' && (
               <div style={{ flex: 1, minWidth: '160px' }}>
-                <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Next Renewal Date</label>
+                <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Next Renewal Date</label>
                 <input type="date" value={nextRenewalDate} onChange={e => setNextRenewalDate(e.target.value)} style={inputStyle} />
               </div>
             )}
           </div>
           {actionType === 'renewed' && (
-            <div style={{ fontSize: '13px', color: '#5b9fe6', marginBottom: '12px' }}>This will be logged as {getAutoPeriod()}</div>
+            <div style={{ fontSize: '13px', color: '#0095ff', fontWeight: 500, marginBottom: '12px' }}>This will be logged as {getAutoPeriod()}</div>
           )}
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Notes</label>
+            <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Notes</label>
             <input value={renewalNotes} onChange={e => setRenewalNotes(e.target.value)} placeholder="Optional notes" style={inputStyle} />
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={processRenewal} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
-            <button onClick={() => setShowLog(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={processRenewal} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
+            <button onClick={() => setShowLog(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
           </div>
-          {processStatus && <p style={{ color: '#ff6b6b', fontSize: '13px', marginTop: '8px' }}>{processStatus}</p>}
+          {processStatus && <p style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '8px' }}>{processStatus}</p>}
         </div>
       )}
 
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Renewal History</div>
+        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Renewal History</div>
         {renewals.length === 0
-          ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No renewals recorded yet.</p>
+          ? <p style={{ color: '#697a9c', fontSize: '14px' }}>No renewals recorded yet.</p>
           : renewals.map(r => (
-            <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '12px 0', borderBottom: '1px solid #eef2f9' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${actionColors[r.action] || '#8bacc8'}22`, color: actionColors[r.action] || '#8bacc8', border: `1px solid ${actionColors[r.action] || '#8bacc8'}44`, textTransform: 'capitalize' }}>{r.action}</span>
-                  <span style={{ fontSize: '14px', color: '#fff' }}>{r.action_date?.split('T')[0]}</span>
-                  {r.period_label && <span style={{ fontSize: '12px', color: '#5b9fe6' }}>{r.period_label}</span>}
+                  <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${actionColors[r.action] || '#4e6087'}22`, color: actionColors[r.action] || '#4e6087', border: `1px solid ${actionColors[r.action] || '#4e6087'}44`, textTransform: 'capitalize' }}>{r.action}</span>
+                  <span style={{ fontSize: '14px', color: '#16264a' }}>{r.action_date?.split('T')[0]}</span>
+                  {r.period_label && <span style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600 }}>{r.period_label}</span>}
                 </div>
                 
-                {r.notes && <div style={{ fontSize: '12px', color: '#5a8ab5', marginTop: '2px' }}>{r.notes}</div>}
+                {r.notes && <div style={{ fontSize: '12px', color: '#697a9c', marginTop: '2px' }}>{r.notes}</div>}
               </div>
-              {r.created_by && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{r.created_by}</span>}
+              {r.created_by && <span style={{ fontSize: '11px', color: '#697a9c' }}>{r.created_by}</span>}
             </div>
           ))
         }

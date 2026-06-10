@@ -67,27 +67,24 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
   const embedCode = `<div id="vfo-showroom"></div>\n<script src="https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/vfo-widget/vfo-widget.js?v=26" data-vfo-key="${member.manage_key}"><\/script>`
 
   const subTabStyle = (active) => ({
-    padding: '10px 18px', background: 'transparent', border: 'none',
-    borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent',
-    color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400',
-    cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap'
+    padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px'
   })
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
-  const rowStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }
-  const inputStyle = { width: '90px', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
+  const rowStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #eef2f9' }
+  const inputStyle = { width: '90px', padding: '6px 10px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
 
   if (!member.website_enabled && !isAdmin) {
     return (
       <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-        <p style={{ fontFamily: 'Playfair Display, serif', fontSize: '22px', color: '#fff', marginBottom: '12px' }}>Website plugin not enabled</p>
-        <p style={{ fontSize: '14px', color: '#8bacc8' }}>Contact your administrator to enable website customization for your account.</p>
+        <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#002973', marginBottom: '12px' }}>Website plugin not enabled</p>
+        <p style={{ fontSize: '14px', color: '#5b6b8c' }}>Contact your administrator to enable website customization for your account.</p>
       </div>
     )
   }
 
   return (
     <div>
-      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px' }}>
         <button style={subTabStyle(appearanceTab === 'appearance')} onClick={() => setAppearanceTab('appearance')}>Appearance</button>
         <button style={subTabStyle(appearanceTab === 'plugin')} onClick={() => setAppearanceTab('plugin')}>Plugin Settings</button>
         <button style={subTabStyle(appearanceTab === 'preview')} onClick={() => setAppearanceTab('preview')}>Preview</button>
@@ -96,7 +93,7 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
       {appearanceTab === 'appearance' && (
         <>
           <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Colors</div>
+            <div style={{ fontSize: '13px', color: '#5b6b8c', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Colors</div>
             {[
               ['bg_color', 'Background Color', 'Page background'],
               ['text_color', 'Heading Text Color', 'Title, subtitle, search, filters, group headings'],
@@ -106,8 +103,8 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
             ].map(([key, label, desc]) => (
               <div key={key} style={rowStyle}>
                 <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: '14px', color: '#fff' }}>{label}</div>
-                  <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>{desc}</div>
+                  <div style={{ fontSize: '14px', color: '#16264a' }}>{label}</div>
+                  <div style={{ fontSize: '12px', color: '#5b6b8c', marginTop: '2px' }}>{desc}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <input type="color" value={settings[key]} onChange={e => update(key, e.target.value)}
@@ -118,7 +115,7 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
             ))}
             {/* Color preview card */}
             <div style={{ marginTop: '20px', padding: '16px', background: settings.bg_color, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginRight: '8px' }}>PREVIEW</div>
+              <div style={{ fontSize: '11px', color: '#5b6b8c', textTransform: 'uppercase', letterSpacing: '1px', marginRight: '8px' }}>PREVIEW</div>
               <div style={{ background: settings.accent_color, border: `1px solid ${settings.primary_color}4d`, borderRadius: '8px', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div>
                   <div style={{ fontSize: '14px', fontWeight: '600', color: settings.card_text_color, fontFamily: `'${settings.font}', serif` }}>
@@ -131,11 +128,11 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
           </div>
 
           <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Font</div>
+            <div style={{ fontSize: '13px', color: '#5b6b8c', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Font</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
               {PRESET_FONTS.map(font => (
                 <button key={font} onClick={() => update('font', font)}
-                  style={{ padding: '6px 14px', borderRadius: '6px', border: `1px solid ${settings.font === font ? '#5b9fe6' : 'rgba(255,255,255,0.2)'}`, background: settings.font === font ? 'rgba(91,159,230,0.15)' : 'transparent', color: settings.font === font ? '#5b9fe6' : '#8bacc8', fontSize: '12px', cursor: 'pointer' }}>
+                  style={{ padding: '6px 14px', borderRadius: '6px', border: `1px solid ${settings.font === font ? '#125ecc' : '#d6e0ee'}`, background: settings.font === font ? 'rgba(18,94,204,0.08)' : 'transparent', color: settings.font === font ? '#125ecc' : '#5b6b8c', fontSize: '12px', cursor: 'pointer' }}>
                   {font}
                 </button>
               ))}
@@ -143,13 +140,13 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
             <div style={{ position: 'relative' }}>
               <input value={fontSearch} onChange={e => handleFontSearch(e.target.value)}
                 placeholder="Search Google Fonts..."
-                style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }} />
+                style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }} />
               {fontResults.length > 0 && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#073991', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#ffffff', border: '1px solid #d6e0ee', borderRadius: '8px', zIndex: 10, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 8px 24px rgba(20,45,95,0.14)' }}>
                   {fontResults.map(font => (
                     <div key={font} onClick={() => selectFont(font)}
-                      style={{ padding: '10px 14px', cursor: 'pointer', color: '#b0cce5', fontSize: '13px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
-                      onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.1)'}
+                      style={{ padding: '10px 14px', cursor: 'pointer', color: '#3c4f73', fontSize: '13px', borderBottom: '1px solid #eef2f9' }}
+                      onMouseEnter={e => e.target.style.background = '#eef2f9'}
                       onMouseLeave={e => e.target.style.background = 'none'}>
                       {font}
                     </div>
@@ -157,13 +154,13 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
                 </div>
               )}
             </div>
-            <div style={{ marginTop: '12px', padding: '16px', background: 'rgba(0,0,0,0.12)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center' }}>
-              <span style={{ fontSize: '20px', color: '#fff', fontFamily: `'${settings.font}', serif` }}>The quick brown fox jumps over the lazy dog</span>
+            <div style={{ marginTop: '12px', padding: '16px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2', textAlign: 'center' }}>
+              <span style={{ fontSize: '20px', color: '#16264a', fontFamily: `'${settings.font}', serif` }}>The quick brown fox jumps over the lazy dog</span>
             </div>
           </div>
 
           <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Display Options</div>
+            <div style={{ fontSize: '13px', color: '#5b6b8c', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Display Options</div>
             {[
               ['last_initial_only', 'Last Name Initial Only', 'Show "Bill L." instead of "Bill Lloyd"'],
               ['show_count', 'Show Specialist Count', 'Display "60 SPECIALISTS" text'],
@@ -171,35 +168,35 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
             ].map(([key, label, desc]) => (
               <div key={key} style={rowStyle}>
                 <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: '14px', color: '#fff' }}>{label}</div>
-                  <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>{desc}</div>
+                  <div style={{ fontSize: '14px', color: '#16264a' }}>{label}</div>
+                  <div style={{ fontSize: '12px', color: '#5b6b8c', marginTop: '2px' }}>{desc}</div>
                 </div>
                 <div onClick={() => update(key, !settings[key])}
-                  style={{ width: '44px', height: '24px', borderRadius: '12px', background: settings[key] ? '#2563eb' : 'rgba(255,255,255,0.15)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
+                  style={{ width: '44px', height: '24px', borderRadius: '12px', background: settings[key] ? '#125ecc' : '#d6e0ee', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
                   <div style={{ position: 'absolute', top: '2px', left: settings[key] ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
                 </div>
               </div>
             ))}
             <div style={rowStyle}>
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '14px', color: '#fff' }}>Font Size</div>
-                <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>Base font size for the widget ({settings.widget_font_size}px)</div>
+                <div style={{ fontSize: '14px', color: '#16264a' }}>Font Size</div>
+                <div style={{ fontSize: '12px', color: '#5b6b8c', marginTop: '2px' }}>Base font size for the widget ({settings.widget_font_size}px)</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '11px', color: '#8bacc8' }}>14</span>
-                <input type="range" min={14} max={22} value={settings.widget_font_size} onChange={e => update('widget_font_size', parseInt(e.target.value))} style={{ width: '140px', accentColor: '#5b9fe6', cursor: 'pointer' }} />
-                <span style={{ fontSize: '11px', color: '#8bacc8' }}>22</span>
+                <span style={{ fontSize: '11px', color: '#5b6b8c' }}>14</span>
+                <input type="range" min={14} max={22} value={settings.widget_font_size} onChange={e => update('widget_font_size', parseInt(e.target.value))} style={{ width: '140px', accentColor: '#125ecc', cursor: 'pointer' }} />
+                <span style={{ fontSize: '11px', color: '#5b6b8c' }}>22</span>
               </div>
             </div>
             <div style={rowStyle}>
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '14px', color: '#fff' }}>Display Mode</div>
-                <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>How specialists are organized</div>
+                <div style={{ fontSize: '14px', color: '#16264a' }}>Display Mode</div>
+                <div style={{ fontSize: '12px', color: '#5b6b8c', marginTop: '2px' }}>How specialists are organized</div>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 {[['filter', 'Filter Buttons'], ['grouped', 'Grouped']].map(([val, label]) => (
                   <button key={val} onClick={() => update('display_mode', val)}
-                    style={{ padding: '6px 14px', borderRadius: '6px', border: `1px solid ${settings.display_mode === val ? '#5b9fe6' : 'rgba(255,255,255,0.2)'}`, background: settings.display_mode === val ? 'rgba(91,159,230,0.15)' : 'transparent', color: settings.display_mode === val ? '#5b9fe6' : '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>
+                    style={{ padding: '6px 14px', borderRadius: '6px', border: `1px solid ${settings.display_mode === val ? '#125ecc' : '#d6e0ee'}`, background: settings.display_mode === val ? 'rgba(18,94,204,0.08)' : 'transparent', color: settings.display_mode === val ? '#125ecc' : '#5b6b8c', fontSize: '13px', cursor: 'pointer' }}>
                     {label}
                   </button>
                 ))}
@@ -213,23 +210,23 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
         <div style={sectionStyle}>
           {isAdmin && (
             <div style={{ marginBottom: '24px' }}>
-              <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Website Plugin</div>
+              <div style={{ fontSize: '13px', color: '#5b6b8c', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Website Plugin</div>
               <div style={rowStyle}>
                 <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: '14px', color: '#fff' }}>Enable Website Plugin</div>
-                  <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>Allow this member to use their showroom widget</div>
+                  <div style={{ fontSize: '14px', color: '#16264a' }}>Enable Website Plugin</div>
+                  <div style={{ fontSize: '12px', color: '#5b6b8c', marginTop: '2px' }}>Allow this member to use their showroom widget</div>
                 </div>
                 <div onClick={() => update('website_enabled', !settings.website_enabled)}
-                  style={{ width: '44px', height: '24px', borderRadius: '12px', background: settings.website_enabled ? '#2563eb' : 'rgba(255,255,255,0.15)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
+                  style={{ width: '44px', height: '24px', borderRadius: '12px', background: settings.website_enabled ? '#125ecc' : '#d6e0ee', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
                   <div style={{ position: 'absolute', top: '2px', left: settings.website_enabled ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
                 </div>
               </div>
             </div>
           )}
           <div>
-            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Embed Code</div>
+            <div style={{ fontSize: '13px', color: '#5b6b8c', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Embed Code</div>
             <p style={{ color: '#5a8ab5', fontSize: '14px', marginBottom: '12px', textAlign: 'left' }}>Copy this code and paste it into an HTML widget on your website.</p>
-            <pre style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '8px', color: '#a0b0c4', fontSize: '13px', overflowX: 'auto', whiteSpace: 'pre-wrap', fontFamily: 'monospace', margin: '0 0 12px', textAlign: 'left' }}>{embedCode}</pre>
+            <pre style={{ background: '#16264a', padding: '16px', borderRadius: '8px', color: '#cdd9ea', fontSize: '13px', overflowX: 'auto', whiteSpace: 'pre-wrap', fontFamily: 'monospace', margin: '0 0 12px', textAlign: 'left' }}>{embedCode}</pre>
             <button onClick={(e) => { navigator.clipboard.writeText(embedCode); const btn = e.currentTarget; btn.textContent = '✓ Copied!'; btn.style.background = 'rgba(39,174,96,0.15)'; setTimeout(() => { btn.textContent = 'Copy Code'; btn.style.background = 'transparent'; }, 2000) }}
               style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid rgba(39,174,96,0.3)', background: 'transparent', color: '#27ae60', fontSize: '13px', cursor: 'pointer' }}>
               Copy Code
@@ -239,10 +236,10 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
       )}
 
       {appearanceTab === 'preview' && (
-        <div style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Live Preview</div>
-          {dirty && <div style={{ fontSize: '13px', color: '#d4af37', marginBottom: '12px' }}>Save your changes first to see them in the preview.</div>}
-          <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }}>
+          <div style={{ fontSize: '13px', color: '#5b6b8c', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Live Preview</div>
+          {dirty && <div style={{ fontSize: '13px', color: '#b08d26', marginBottom: '12px' }}>Save your changes first to see them in the preview.</div>}
+          <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #e3eaf5' }}>
             <iframe
               key={dirty ? 'stale' : Date.now()}
               srcDoc={`<!DOCTYPE html>
@@ -262,10 +259,10 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
       )}
 
       {appearanceTab !== 'preview' && (
-        <div style={{ position: 'sticky', bottom: 0, background: '#073991', borderTop: '1px solid rgba(255,255,255,0.1)', padding: '16px 0', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          {dirty && <span style={{ fontSize: '13px', color: '#d4af37' }}>You have unsaved changes</span>}
-          <button onClick={save} style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>Save Changes</button>
-          {status && <span style={{ color: statusType === 'success' ? '#27ae60' : '#ff6b6b', fontSize: '13px' }}>{status}</span>}
+        <div style={{ position: 'sticky', bottom: 0, background: '#f4f7fd', borderTop: '1px solid #e3eaf5', padding: '16px 0', display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {dirty && <span style={{ fontSize: '13px', color: '#b08d26' }}>You have unsaved changes</span>}
+          <button onClick={save} style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>Save Changes</button>
+          {status && <span style={{ color: statusType === 'success' ? '#27ae60' : '#d93025', fontSize: '13px' }}>{status}</span>}
         </div>
       )}
     </div>

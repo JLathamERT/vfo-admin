@@ -73,7 +73,7 @@ export default function PftDiscoveryPage() {
   }
 
   if (state === 'loading') {
-    return <div style={{ ...pageStyle, alignItems: 'center' }}><div style={{ textAlign: 'center', maxWidth: '480px', padding: '48px 32px', color: '#94a3b8', fontSize: '15px' }}>Loading…</div></div>
+    return <div style={{ ...pageStyle, alignItems: 'center' }}><div style={{ textAlign: 'center', maxWidth: '480px', padding: '48px 32px', color: '#4e6087', fontSize: '15px' }}>Loading…</div></div>
   }
 
   if (state === 'invalid') {
@@ -81,8 +81,8 @@ export default function PftDiscoveryPage() {
       <div style={{ ...pageStyle, alignItems: 'center' }}>
         <div style={{ textAlign: 'center', maxWidth: '480px', padding: '48px 32px' }}>
           <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#ef444420', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}><span style={{ fontSize: '32px', lineHeight: 1 }}>⚠️</span></div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '12px' }}>Link Not Valid</h1>
-          <p style={{ fontSize: '15px', color: '#94a3b8', lineHeight: 1.6 }}>This discovery form link is invalid or has expired. Please contact your VFO representative for a new link.</p>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }}>Link Not Valid</h1>
+          <p style={{ fontSize: '15px', color: '#4e6087', lineHeight: 1.6 }}>This discovery form link is invalid or has expired. Please contact your VFO representative for a new link.</p>
         </div>
       </div>
     )
@@ -92,9 +92,9 @@ export default function PftDiscoveryPage() {
     return (
       <div style={{ ...pageStyle, alignItems: 'center' }}>
         <div style={{ textAlign: 'center', maxWidth: '480px', padding: '48px 32px' }}>
-          <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#22c55e20', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}><span style={{ fontSize: '32px', lineHeight: 1 }}>✓</span></div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '12px' }}>Thank You!</h1>
-          <p style={{ fontSize: '15px', color: '#94a3b8', lineHeight: 1.6 }}>Your discovery form has been submitted. We'll review it ahead of your next meeting and be in touch shortly.</p>
+          <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#16a34a20', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}><span style={{ fontSize: '32px', lineHeight: 1 }}>✓</span></div>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }}>Thank You!</h1>
+          <p style={{ fontSize: '15px', color: '#4e6087', lineHeight: 1.6 }}>Your discovery form has been submitted. We'll review it ahead of your next meeting and be in touch shortly.</p>
         </div>
       </div>
     )
@@ -104,8 +104,8 @@ export default function PftDiscoveryPage() {
     <div style={pageStyle}>
       <div style={cardStyle}>
         <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-          <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '28px', color: '#fff', marginBottom: '6px' }}>VFO Partnership Fast Track</div>
-          <div style={{ color: '#8bacc8', fontSize: '14px' }}>Discovery Form</div>
+          <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '28px', color: '#16264a', marginBottom: '6px' }}>VFO Partnership Fast Track</div>
+          <div style={{ color: '#4e6087', fontSize: '14px' }}>Discovery Form</div>
         </div>
 
         <SectionLabel>Part 1</SectionLabel>
@@ -161,9 +161,9 @@ export default function PftDiscoveryPage() {
         <Field label="Do you benefit financially when your clients use these resources?" value={form.benefit_financially} onChange={v => set('benefit_financially', v)} required />
         <Area label="If you had a magic wand, what would your business look like in 12 months time?" value={form.magic_wand} onChange={v => set('magic_wand', v)} required />
 
-        {error && <div style={{ color: '#ff6b6b', fontSize: '13px', marginTop: '16px', textAlign: 'center' }}>{error}</div>}
+        {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '16px', textAlign: 'center' }}>{error}</div>}
 
-        <button onClick={submit} disabled={submitting} style={{ marginTop: '24px', width: '100%', padding: '14px', borderRadius: '8px', background: submitting ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+        <button onClick={submit} disabled={submitting} style={{ marginTop: '24px', width: '100%', padding: '14px', borderRadius: '8px', background: submitting ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
           {submitting ? 'Submitting…' : 'Submit Form'}
         </button>
       </div>
@@ -172,13 +172,13 @@ export default function PftDiscoveryPage() {
 }
 
 function SectionLabel({ children }) {
-  return <div style={{ fontSize: '15px', fontWeight: 700, color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '28px 0 12px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '20px' }}>{children}</div>
+  return <div style={{ fontSize: '15px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '28px 0 12px', borderTop: '1px solid #ebf0f8', paddingTop: '20px' }}>{children}</div>
 }
 
 function Field({ label, value, onChange, hint, required, flex }) {
   return (
     <div style={{ marginBottom: '14px', flex: flex ? 1 : undefined, minWidth: flex ? '220px' : undefined }}>
-      <label style={labelStyle}>{label}{required && <span style={{ color: '#ff6b6b' }}> *</span>}</label>
+      <label style={labelStyle}>{label}{required && <span style={{ color: '#d93025' }}> *</span>}</label>
       <input value={value} onChange={e => onChange(e.target.value)} style={inputStyle} />
       {hint && <div style={hintStyle}>{hint}</div>}
     </div>
@@ -188,16 +188,16 @@ function Field({ label, value, onChange, hint, required, flex }) {
 function Area({ value, onChange, hint, label, required }) {
   return (
     <div style={{ marginBottom: '14px' }}>
-      {label && <label style={labelStyle}>{label}{required && <span style={{ color: '#ff6b6b' }}> *</span>}</label>}
+      {label && <label style={labelStyle}>{label}{required && <span style={{ color: '#d93025' }}> *</span>}</label>}
       <textarea value={value} onChange={e => onChange(e.target.value)} rows={4} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
       {hint && <div style={hintStyle}>{hint}</div>}
     </div>
   )
 }
 
-const pageStyle = { fontFamily: '"DM Sans", sans-serif', background: '#0a1628', minHeight: '100vh', padding: '40px 20px', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }
-const cardStyle = { width: '100%', maxWidth: '720px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '36px 40px' }
-const labelStyle = { display: 'block', fontSize: '13px', color: '#8bacc8', marginBottom: '6px' }
-const hintStyle = { fontSize: '11px', color: '#5a8ab5', marginTop: '5px', fontStyle: 'italic', lineHeight: 1.5 }
-const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', fontFamily: 'DM Sans, sans-serif' }
+const pageStyle = { fontFamily: '"Inter", sans-serif', background: '#ffffff', minHeight: '100vh', padding: '40px 20px', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }
+const cardStyle = { width: '100%', maxWidth: '720px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '16px', padding: '36px 40px' }
+const labelStyle = { display: 'block', fontSize: '13px', color: '#4e6087', marginBottom: '6px' }
+const hintStyle = { fontSize: '11px', color: '#697a9c', marginTop: '5px', fontStyle: 'italic', lineHeight: 1.5 }
+const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif' }
 const rowStyle = { display: 'flex', gap: '12px', flexWrap: 'wrap' }

@@ -8,19 +8,19 @@
 // ---- status vocabulary --------------------------------------------------
 // Order matters for the rail colors; pick the status per step in the panel.
 export const STATUS = {
-  pending:  { label: 'Pending',         color: '#5a8ab5' },
-  active:   { label: 'In progress',     color: '#f59e0b' },
-  sent:     { label: 'Sent',            color: '#14b8a6' },
-  awaiting: { label: 'Awaiting client', color: '#5b9fe6' },
-  done:     { label: 'Done',            color: '#27ae60' },
+  pending:  { label: 'Pending',         color: '#697a9c' },
+  active:   { label: 'In progress',     color: '#e06717' },
+  sent:     { label: 'Sent',            color: '#0d9488' },
+  awaiting: { label: 'Awaiting client', color: '#0095ff' },
+  done:     { label: 'Done',            color: '#1b9254' },
   declined: { label: 'Declined',        color: '#e74c3c' },
-  skipped:  { label: 'Skipped',         color: '#8b94a3' },
+  skipped:  { label: 'Skipped',         color: '#697a9c' },
 }
 
 const DECISION_COLORS = {
-  Yes: '#27ae60', Proceed: '#27ae60', Continue: '#27ae60', Confirmed: '#27ae60',
+  Yes: '#1b9254', Proceed: '#1b9254', Continue: '#1b9254', Confirmed: '#1b9254',
   No: '#e74c3c', Decline: '#e74c3c', Declined: '#e74c3c', Stop: '#e74c3c', Refund: '#e74c3c',
-  Undecided: '#f59e0b', ExtraMeeting: '#5b9fe6',
+  Undecided: '#e06717', ExtraMeeting: '#0095ff',
 }
 
 // ---- formatting helpers -------------------------------------------------
@@ -45,21 +45,24 @@ export function fmtDate(v) {
 // ---- atoms --------------------------------------------------------------
 export function StatusPill({ status, label }) {
   const s = STATUS[status] || STATUS.pending
+  const filled = status === 'done' || status === 'declined'
   return (
     <span style={{
       fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase',
-      padding: '3px 9px', borderRadius: '999px', whiteSpace: 'nowrap',
-      background: `${s.color}1a`, color: s.color, border: `1px solid ${s.color}40`,
+      padding: '3px 10px', borderRadius: '999px', whiteSpace: 'nowrap',
+      background: filled ? s.color : `${s.color}16`,
+      color: filled ? '#ffffff' : s.color,
+      border: filled ? '1px solid transparent' : `1px solid ${s.color}38`,
     }}>{label || s.label}</span>
   )
 }
 
 export function Badge({ text, color }) {
   if (text === null || text === undefined || text === '') return null
-  const c = color || DECISION_COLORS[text] || '#8bacc8'
+  const c = color || DECISION_COLORS[text] || '#4e6087'
   return (
     <span style={{
-      fontSize: '11px', padding: '2px 10px', borderRadius: '4px', fontWeight: 600,
+      fontSize: '11px', padding: '3px 10px', borderRadius: '999px', fontWeight: 600,
       background: `${c}15`, color: c, border: `1px solid ${c}30`,
     }}>{text}</span>
   )
@@ -71,9 +74,9 @@ export function Detail({ l, v, hide, showEmpty, mono }) {
   if ((v === null || v === undefined || v === '') && !showEmpty) return null
   return (
     <div style={{ display: 'flex', padding: '2px 0', alignItems: 'baseline' }}>
-      <span style={{ fontSize: '12px', color: '#5a8ab5', width: '180px', flexShrink: 0 }}>{l}</span>
+      <span style={{ fontSize: '12px', color: '#697a9c', width: '180px', flexShrink: 0 }}>{l}</span>
       <span style={{
-        fontSize: '12px', color: (v || v === 0) ? '#d1dce8' : '#3d5a7a',
+        fontSize: '12px', color: (v || v === 0) ? '#243757' : '#9aa6bf',
         fontFamily: mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit',
         wordBreak: 'break-word',
       }}>{(v || v === 0) ? v : '—'}</span>
@@ -92,7 +95,7 @@ export function SubBlock({ label, children, hide }) {
       {label && (
         <div style={{
           fontSize: '9.5px', fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase',
-          color: '#4a7a9e', marginBottom: '3px',
+          color: '#7c8aa6', marginBottom: '3px',
         }}>{label}</div>
       )}
       <div style={{ paddingLeft: '2px' }}>{kids}</div>
@@ -102,7 +105,7 @@ export function SubBlock({ label, children, hide }) {
 
 // Muted "nothing yet" line for a step that hasn't been reached.
 export function Pending({ text = 'Not started yet' }) {
-  return <span style={{ fontSize: '12px', color: '#5a8ab5', fontStyle: 'italic' }}>{text}</span>
+  return <span style={{ fontSize: '12px', color: '#697a9c', fontStyle: 'italic' }}>{text}</span>
 }
 
 // ---- the step card ------------------------------------------------------
@@ -111,12 +114,13 @@ export function StepCard({ title, status = 'pending', children }) {
   return (
     <div style={{
       position: 'relative',
-      background: 'rgba(255,255,255,0.025)',
-      border: '1px solid rgba(255,255,255,0.07)',
-      borderLeft: `3px solid ${s.color}`,
-      borderRadius: '8px',
-      padding: '11px 14px',
-      marginBottom: '8px',
+      background: '#ffffff',
+      border: '1px solid #eef2f9',
+      borderLeft: `4px solid ${s.color}`,
+      borderRadius: '12px',
+      padding: '13px 16px',
+      marginBottom: '10px',
+      boxShadow: '0 2px 8px rgba(20,45,95,0.05)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
@@ -125,7 +129,7 @@ export function StepCard({ title, status = 'pending', children }) {
             background: status === 'pending' ? 'transparent' : s.color,
             border: `2px solid ${s.color}`,
           }} />
-          <span style={{ fontSize: '13px', fontWeight: 700, color: '#fff', letterSpacing: '0.2px' }}>{title}</span>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: '#16264a', letterSpacing: '0.2px' }}>{title}</span>
         </div>
         <StatusPill status={status} />
       </div>

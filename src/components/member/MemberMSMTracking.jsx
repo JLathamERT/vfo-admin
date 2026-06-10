@@ -61,7 +61,7 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
     return enrollments.find(e => e.programs?.name === programName) || null
   }
 
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
 
   const msmCount = meetings.filter(m => m.meeting_type === 'MSM Meeting').length
   const advancedCount = meetings.filter(m => m.meeting_type === 'Advanced Meeting').length
@@ -78,7 +78,7 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
     return (
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
         <Skeleton width={240} height={28} style={{ marginBottom: '20px' }} />
-        <div style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }}>
+        <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }}>
           <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <Skeleton width={90} height={11} />
@@ -92,7 +92,7 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '24px', marginBottom: '24px', paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <div style={{ display: 'flex', gap: '24px', marginBottom: '24px', paddingBottom: '10px', borderBottom: '1px solid #e3eaf5' }}>
           <Skeleton width={80} height={20} />
           {activeTab !== 'msm_tax' && <Skeleton width={80} height={20} />}
         </div>
@@ -112,12 +112,12 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
     return (
       <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Assigned MSM</div>
-          <div style={{ fontSize: '16px', color: '#fff', fontWeight: '600' }}>{member.assigned_msm || '—'}</div>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Assigned MSM</div>
+          <div style={{ fontSize: '16px', color: '#16264a', fontWeight: '600' }}>{member.assigned_msm || '—'}</div>
         </div>
 
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Your Programs</div>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Your Programs</div>
           {PROGRAMS.map(p => {
             const dbProgram = programs.find(prog => prog.name === p.name)
             if (!dbProgram) return null
@@ -126,40 +126,40 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
             const enrollment = getEnrollment(p.name)
             const tabKey = { holistic: 'msm_holistic', partnership: 'msm_partnership', tax: 'msm_tax', coaching: 'msm_coaching' }[p.key]
             return (
-              <div key={p.key} onClick={() => onNavigate(tabKey)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+              <div key={p.key} onClick={() => onNavigate(tabKey)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #eef2f9', cursor: 'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                <span style={{ fontSize: '14px', color: '#5b9fe6' }}>{p.name}</span>
-                <span style={{ fontSize: '13px', color: enrollment ? '#27ae60' : '#8bacc8' }}>{enrollment ? enrollment.program_status || 'Enrolled' : 'Not Enrolled'}</span>
+                <span style={{ fontSize: '14px', color: '#0095ff', fontWeight: 500 }}>{p.name}</span>
+                <span style={{ fontSize: '13px', color: '#16264a' }}>{enrollment ? enrollment.program_status || 'Enrolled' : 'Not Enrolled'}</span>
               </div>
             )
           })}
-          {enabledPrograms.length === 0 && <p style={{ color: '#8bacc8', fontSize: '14px' }}>No programs enabled yet.</p>}
+          {enabledPrograms.length === 0 && <p style={{ color: '#4e6087', fontSize: '14px' }}>No programs enabled yet.</p>}
         </div>
 
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting Summary</div>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting Summary</div>
           <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
             {[['MSM Meetings', msmCount], ['Advanced Meetings', advancedCount], ['VFO 90 Day Plan', vfo90Count], ['PFT 90 Day Plan', pft90Count]].map(([label, count]) => (
               <div key={label} style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{count}</div>
-                <div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '2px', textTransform: 'uppercase' }}>{label}</div>
+                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973' }}>{count}</div>
+                <div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '3px', textTransform: 'uppercase' }}>{label}</div>
               </div>
             ))}
           </div>
         </div>
 
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting History</div>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting History</div>
           {meetings.length === 0
-            ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No meetings logged yet.</p>
+            ? <p style={{ color: '#697a9c', fontSize: '14px' }}>No meetings logged yet.</p>
             : meetings.map(m => (
-              <div key={m.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                <div style={{ fontSize: '14px', color: '#fff' }}>{m.meeting_type}</div>
-                <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>
+              <div key={m.id} style={{ padding: '10px 0', borderBottom: '1px solid #eef2f9' }}>
+                <div style={{ fontSize: '14px', color: '#16264a' }}>{m.meeting_type}</div>
+                <div style={{ fontSize: '12px', color: '#4e6087', marginTop: '2px' }}>
                   {new Date(m.meeting_date + 'T12:00:00').toLocaleDateString()}{m.conducted_by ? ` · ${m.conducted_by}` : ''}
                 </div>
-                {m.notes && <div style={{ fontSize: '12px', color: '#5a8ab5', marginTop: '2px' }}>{m.notes}</div>}
+                {m.notes && <div style={{ fontSize: '12px', color: '#697a9c', marginTop: '2px' }}>{m.notes}</div>}
               </div>
             ))
           }
@@ -174,8 +174,8 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
     const isEnabled = dbProgram && enabledPrograms.some(e => e.program_id === dbProgram.id)
 
     if (!isEnabled) return (
-      <div style={{ textAlign: 'center', padding: '60px 20px', color: '#8bacc8' }}>
-        <div style={{ fontSize: '18px', color: '#fff', marginBottom: '8px', fontFamily: 'Playfair Display, serif' }}>{p?.name}</div>
+      <div style={{ textAlign: 'center', padding: '60px 20px', color: '#4e6087' }}>
+        <div style={{ fontSize: '18px', color: '#16264a', marginBottom: '8px', fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em' }}>{p?.name}</div>
         <div style={{ fontSize: '14px' }}>This program is not enabled.</div>
       </div>
     )
@@ -184,9 +184,9 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
 
     return (
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-        <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '22px', color: '#fff', marginBottom: '20px' }}>{p.name}</div>
+        <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a', marginBottom: '20px' }}>{p.name}</div>
         {!enrollment
-          ? <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>You are not yet enrolled in this program.</div>
+          ? <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>You are not yet enrolled in this program.</div>
           : <MemberEnrolledView enrollment={enrollment} program={dbProgram} member={member} />
         }
       </div>
@@ -203,19 +203,19 @@ function MemberEnrolledView({ enrollment, program, member }) {
   const defaultTab = isCoaching ? 'meetings' : program.name === 'VFO Tax Planning' ? 'clients' : 'training'
   const [activeTab, setActiveTab] = useState(defaultTab)
   useEffect(() => { setActiveTab(defaultTab) }, [program.id])
-  const tabStyle = (active) => ({ padding: '10px 18px', background: 'transparent', border: 'none', borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent', color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' })
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
-  const statusColors = { 'On Fast Track': '#27ae60', 'Paused Fast Track': '#f39c12', 'Lost/Removed': '#e74c3c', 'Revert to Legacy': '#8bacc8', 'Active': '#27ae60' }
+  const tabStyle = (active) => ({ padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' })
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
+  const statusColors = { 'On Fast Track': '#1b9254', 'Paused Fast Track': '#e06717', 'Lost/Removed': '#e74c3c', 'Revert to Legacy': '#4e6087', 'Active': '#1b9254' }
 
   return (
     <div>
       <div style={sectionStyle}>
         <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-          <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Joined</div><div style={{ fontSize: '14px', color: '#fff', marginTop: '4px' }}>{enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</div></div>
-          {!isCoaching && <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Program Status</div><div style={{ fontSize: '14px', color: statusColors[enrollment.program_status] || '#fff', marginTop: '4px', fontWeight: '600' }}>{enrollment.program_status || '—'}</div></div>}
+          <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Joined</div><div style={{ fontSize: '14px', color: '#16264a', marginTop: '4px' }}>{enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</div></div>
+          {!isCoaching && <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Program Status</div><div style={{ fontSize: '14px', color: statusColors[enrollment.program_status] || '#16264a', marginTop: '4px', fontWeight: '600' }}>{enrollment.program_status || '—'}</div></div>}
         </div>
       </div>
-      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px' }}>
         {isCoaching ? (
           <>
             <button style={tabStyle(activeTab === 'meetings')} onClick={() => setActiveTab('meetings')}>Meetings</button>
@@ -266,28 +266,34 @@ function MemberTrainingView({ enrollment, program }) {
     finally { setLoading(false) }
   }
 
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '16px' }
-  const statusColors = { Completed: '#27ae60', 'Have Watched': '#27ae60', 'In Progress': '#f39c12', 'N/A': '#8bacc8', Pending: '#e74c3c' }
-  const statusBg = { Completed: 'rgba(39,174,96,0.15)', 'Have Watched': 'rgba(39,174,96,0.15)', 'In Progress': 'rgba(243,156,18,0.15)', 'N/A': 'rgba(139,172,200,0.15)', Pending: 'rgba(231,76,60,0.15)' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '16px' }
+  const statusColors = { Completed: '#1b9254', 'Have Watched': '#1b9254', 'In Progress': '#e06717', 'N/A': '#4e6087', Pending: '#e74c3c' }
+  const statusBg = { Completed: 'rgba(27,146,84,0.15)', 'Have Watched': 'rgba(27,146,84,0.15)', 'In Progress': 'rgba(251,137,90,0.15)', 'N/A': 'rgba(91,107,140,0.15)', Pending: 'rgba(231,76,60,0.15)' }
 
   if (loading) return <TrainingTrackSkeleton />
-  if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No training track defined yet.</div>
+  if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>No training track defined yet.</div>
 
   const totalTasks = phases.reduce((s, p) => s + (p.program_training_tasks?.length || 0), 0)
   const completedTasks = Object.values(progress).filter(p => p.status && p.status !== '').length
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '24px', marginBottom: '20px', flexWrap: 'wrap', paddingLeft: '24px' }}>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{completedTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>COMPLETED</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{totalTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>TOTAL</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#27ae60' }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>PROGRESS</div></div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap', background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '14px 20px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px' }}>
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '24px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{completedTasks}</span>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#9aa6bf' }}>/ {totalTasks}</span>
+          <span style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginLeft: '8px' }}>TASKS COMPLETED</span>
+        </div>
+        <div style={{ flex: 1, minWidth: '140px', height: '8px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #e3eaf5', overflow: 'hidden' }}>
+          <div style={{ width: `${totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%`, height: '100%', borderRadius: '999px', background: 'linear-gradient(90deg, #125ecc 0%, #0a85e8 100%)', transition: 'width 0.3s' }} />
+        </div>
+        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '20px', fontWeight: 800, letterSpacing: '-0.02em', color: '#125ecc', lineHeight: 1 }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</span>
       </div>
       {phases.map(phase => {
         const isReview = phase.name.includes('Review')
         return (
-        <div key={phase.id} style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '16px', marginTop: isReview ? '-6px' : '0', marginLeft: isReview ? '20px' : '0', borderTopLeftRadius: isReview ? '0' : '12px' }}>
-          <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{phase.name}{isReview && <span style={{ fontSize: '10px', color: '#8bacc8', marginLeft: '8px', textTransform: 'none', fontWeight: '400', letterSpacing: '0' }}>checkpoint</span>}</div>
+        <div key={phase.id} style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '16px', marginTop: isReview ? '-6px' : '0', marginLeft: isReview ? '20px' : '0', borderTopLeftRadius: isReview ? '0' : '12px' }}>
+          <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: '#002973', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}{isReview && <span style={{ fontSize: '10px', color: '#4e6087', marginLeft: '8px', textTransform: 'none', fontWeight: '400', letterSpacing: '0' }}>checkpoint</span>}</div>
           {(phase.program_training_tasks || []).map(task => {
             const p = progress[task.id] || {}
 
@@ -297,13 +303,13 @@ function MemberTrainingView({ enrollment, program }) {
 
             // --- NORMAL TASKS ---
             return (
-              <div key={task.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: statusColors[p.status] || 'transparent', flexShrink: 0, border: '1px solid rgba(255,255,255,0.2)' }} />
+              <div key={task.id} style={{ padding: '10px 0', borderBottom: '1px solid #eef2f9', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: statusColors[p.status] || 'transparent', flexShrink: 0, border: '1px solid #c7d4e8' }} />
                 <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: '14px', color: '#fff' }}>{task.name}</span>
+                  <span style={{ fontSize: '14px', color: '#16264a' }}>{task.name}</span>
                 </div>
                 {p.status && (
-                  <span style={{ padding: '3px 10px', borderRadius: '4px', fontSize: '12px', background: statusBg[p.status] || 'rgba(255,255,255,0.08)', color: statusColors[p.status] || '#fff' }}>{p.status}</span>
+                  <span style={{ padding: '3px 10px', borderRadius: '4px', fontSize: '12px', background: statusBg[p.status] || '#eef2f9', color: statusColors[p.status] || '#16264a' }}>{p.status}</span>
                 )}
               </div>
             )
@@ -357,9 +363,9 @@ function MemberClientsView({ enrollment, member, program }) {
     } catch (err) { setAddStatus(err.message) }
   }
 
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '16px' }
-  const statusColors = { pending: '#f39c12', active: '#27ae60', declined: '#e74c3c' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '16px' }
+  const statusColors = { pending: '#e06717', active: '#1b9254', declined: '#e74c3c' }
 
   if (loading) return <ClientsListSkeleton />
 
@@ -368,63 +374,63 @@ function MemberClientsView({ enrollment, member, program }) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', width: '100%' }}>
         <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-end', paddingLeft: '24px' }}>
-          <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff', lineHeight: 1 }}>{clients.length}</div><div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '4px' }}>TOTAL</div></div>
-          <div><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff', lineHeight: 1 }}>{clients.filter(c => c.status === 'active').length}</div><div style={{ fontSize: '11px', color: '#8bacc8', marginTop: '4px' }}>ACTIVE</div></div>
+          <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{clients.length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '4px' }}>TOTAL</div></div>
+          <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{clients.filter(c => c.status === 'active').length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '4px' }}>ACTIVE</div></div>
         </div>
-        <button onClick={() => setShowAdd(!showAdd)} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add Client</button>
+        <button onClick={() => setShowAdd(!showAdd)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add Client</button>
       </div>
 
       {showAdd && (
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add New Client</div>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add New Client</div>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>First Name *</label><input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} /></div>
-            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Last Name *</label><input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} /></div>
-            <div style={{ flex: 1, minWidth: '180px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
-            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Phone</label><input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>First Name *</label><input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Last Name *</label><input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '180px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Phone</label><input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} /></div>
           </div>
           {!showAdditional && (
-            <button onClick={() => setShowAdditional(true)} style={{ padding: '8px 14px', borderRadius: '6px', border: '1px dashed rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.06)', color: '#5b9fe6', fontSize: '12px', cursor: 'pointer', marginBottom: '12px', fontFamily: 'DM Sans, sans-serif' }}>+ Add additional contact (e.g. spouse)</button>
+            <button onClick={() => setShowAdditional(true)} style={{ padding: '8px 14px', borderRadius: '6px', border: '1px dashed rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.06)', color: '#0095ff', fontWeight: 600, fontSize: '12px', cursor: 'pointer', marginBottom: '12px', fontFamily: 'Inter, sans-serif' }}>+ Add additional contact (e.g. spouse)</button>
           )}
           {showAdditional && (
-            <div style={{ padding: '16px', background: 'rgba(91,159,230,0.06)', border: '1px solid rgba(91,159,230,0.2)', borderRadius: '8px', marginBottom: '12px' }}>
+            <div style={{ padding: '16px', background: 'rgba(0,149,255,0.06)', border: '1px solid rgba(0,149,255,0.2)', borderRadius: '8px', marginBottom: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <div style={{ fontSize: '12px', color: '#5b9fe6', fontStyle: 'italic' }}>Additional contact (not the primary client)</div>
-                <button onClick={() => { setShowAdditional(false); setAddFirstName(''); setAddLastName(''); setAddEmail('') }} style={{ background: 'none', border: 'none', color: '#8bacc8', fontSize: '11px', cursor: 'pointer' }}>Remove</button>
+                <div style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600, fontStyle: 'italic' }}>Additional contact (not the primary client)</div>
+                <button onClick={() => { setShowAdditional(false); setAddFirstName(''); setAddLastName(''); setAddEmail('') }} style={{ background: 'none', border: 'none', color: '#4e6087', fontSize: '11px', cursor: 'pointer' }}>Remove</button>
               </div>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: '120px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>First Name</label><input value={addFirstName} onChange={e => setAddFirstName(e.target.value)} style={inputStyle} /></div>
-                <div style={{ flex: 1, minWidth: '120px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Last Name</label><input value={addLastName} onChange={e => setAddLastName(e.target.value)} style={inputStyle} /></div>
-                <div style={{ flex: 1, minWidth: '160px' }}><label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Email</label><input value={addEmail} onChange={e => setAddEmail(e.target.value)} type="email" style={inputStyle} /></div>
+                <div style={{ flex: 1, minWidth: '120px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>First Name</label><input value={addFirstName} onChange={e => setAddFirstName(e.target.value)} style={inputStyle} /></div>
+                <div style={{ flex: 1, minWidth: '120px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Last Name</label><input value={addLastName} onChange={e => setAddLastName(e.target.value)} style={inputStyle} /></div>
+                <div style={{ flex: 1, minWidth: '160px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Email</label><input value={addEmail} onChange={e => setAddEmail(e.target.value)} type="email" style={inputStyle} /></div>
               </div>
             </div>
           )}
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={addClient} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
-            <button onClick={() => setShowAdd(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={addClient} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
+            <button onClick={() => setShowAdd(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
           </div>
-          {addStatus && <p style={{ color: '#ff6b6b', fontSize: '13px', marginTop: '8px' }}>{addStatus}</p>}
+          {addStatus && <p style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '8px' }}>{addStatus}</p>}
         </div>
       )}
 
       {clients.length === 0
-        ? <div style={{ textAlign: 'center', padding: '40px', color: '#8bacc8' }}>No clients added yet.</div>
+        ? <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>No clients added yet.</div>
         : clients.map(client => (
           <div key={client.id} style={{ ...sectionStyle, cursor: 'pointer' }}
             onClick={() => navigate(`/member/client/${client.id}`, { state: { enrollment_id: enrollment.id } })}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.12)'}>
+            onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
+            onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '15px', fontWeight: '600', color: '#fff' }}>{client.first_name} {client.last_name}</span>
-                  <span style={{ fontSize: '11px', color: '#8bacc8' }}>{client.client_ref}</span>
-                  <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', background: `${statusColors[client.status] || '#8bacc8'}22`, color: statusColors[client.status] || '#8bacc8', border: `1px solid ${statusColors[client.status] || '#8bacc8'}44` }}>{client.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : ''}</span>
+                  <span style={{ fontSize: '15px', fontWeight: '600', color: '#16264a' }}>{client.first_name} {client.last_name}</span>
+                  <span style={{ fontSize: '11px', color: '#4e6087' }}>{client.client_ref}</span>
+                  <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', background: `${statusColors[client.status] || '#4e6087'}22`, color: statusColors[client.status] || '#4e6087', border: `1px solid ${statusColors[client.status] || '#4e6087'}44` }}>{client.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : ''}</span>
                 </div>
-                {(client.email || client.phone) && <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '4px' }}>{client.email}{client.email && client.phone ? ' · ' : ''}{client.phone}</div>}
-                {contactsMap[client.id]?.length > 0 && <div style={{ fontSize: '12px', color: '#5a8ab5', marginTop: '2px', fontStyle: 'italic' }}>with {contactsMap[client.id].map(c => `${c.first_name} ${c.last_name}`).join(', ')}</div>}
+                {(client.email || client.phone) && <div style={{ fontSize: '12px', color: '#4e6087', marginTop: '4px' }}>{client.email}{client.email && client.phone ? ' · ' : ''}{client.phone}</div>}
+                {contactsMap[client.id]?.length > 0 && <div style={{ fontSize: '12px', color: '#697a9c', marginTop: '2px', fontStyle: 'italic' }}>with {contactsMap[client.id].map(c => `${c.first_name} ${c.last_name}`).join(', ')}</div>}
               </div>
-              <span style={{ color: '#5b9fe6', fontSize: '13px' }}>View →</span>
+              <span style={{ color: '#0095ff', fontWeight: 500, fontSize: '13px' }}>View →</span>
             </div>
           </div>
         ))
@@ -482,20 +488,26 @@ function MemberClientTrackView({ client, program }) {
     return 'pending'
   }
 
-  const statusColors = { Completed: '#27ae60', Confirmed: '#27ae60', Yes: '#27ae60', 'Call arranged': '#27ae60', 'PIP 1 scheduled': '#27ae60', 'Follow-up scheduled': '#27ae60', 'PIP Follow-up confirmed': '#27ae60', 'Send confirmation email': '#27ae60', 'Regular priorities tab enabled': '#27ae60', 'Tax priorities tab enabled': '#27ae60', 'Completed + N/A': '#27ae60', 'Completed + Risk 1': '#27ae60', 'Completed + Risk 2': '#27ae60', 'Completed + Risk 3': '#27ae60', 'Completed + Risk 4': '#27ae60', 'Completed + Risk 5': '#27ae60', Lite: '#27ae60', Core: '#27ae60', Max: '#27ae60', 'In Progress': '#f39c12', Undecided: '#f39c12', 'No response': '#e74c3c', No: '#e74c3c', 'PIP Follow-up declined': '#e74c3c', 'Send declined email': '#e74c3c' }
+  const statusColors = { Completed: '#1b9254', Confirmed: '#1b9254', Yes: '#1b9254', 'Call arranged': '#1b9254', 'PIP 1 scheduled': '#1b9254', 'Follow-up scheduled': '#1b9254', 'PIP Follow-up confirmed': '#1b9254', 'Send confirmation email': '#1b9254', 'Regular priorities tab enabled': '#1b9254', 'Tax priorities tab enabled': '#1b9254', 'Completed + N/A': '#1b9254', 'Completed + Risk 1': '#1b9254', 'Completed + Risk 2': '#1b9254', 'Completed + Risk 3': '#1b9254', 'Completed + Risk 4': '#1b9254', 'Completed + Risk 5': '#1b9254', Lite: '#1b9254', Core: '#1b9254', Max: '#1b9254', 'In Progress': '#e06717', Undecided: '#e06717', 'No response': '#e74c3c', No: '#e74c3c', 'PIP Follow-up declined': '#e74c3c', 'Send declined email': '#e74c3c' }
 
-  if (loading) return <div style={{ color: '#8bacc8', fontSize: '13px', padding: '16px' }}>Loading track...</div>
-  if (phases.length === 0) return <div style={{ color: '#8bacc8', fontSize: '13px', padding: '16px' }}>No client track defined yet.</div>
+  if (loading) return <div style={{ color: '#4e6087', fontSize: '13px', padding: '16px' }}>Loading track...</div>
+  if (phases.length === 0) return <div style={{ color: '#4e6087', fontSize: '13px', padding: '16px' }}>No client track defined yet.</div>
 
   const totalTasks = phases.reduce((s, p) => s + (p.program_client_tasks || []).filter(t => t.status_options !== 'auto').length, 0)
   const completedTasks = phases.reduce((s, phase) => s + (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && progress[t.id]?.status && progress[t.id].status !== '').length, 0)
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '24px', marginBottom: '20px', flexWrap: 'wrap', paddingLeft: '24px' }}>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{completedTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>COMPLETED</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{totalTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>TOTAL</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#27ae60' }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>PROGRESS</div></div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap', background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '14px 20px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px' }}>
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '24px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{completedTasks}</span>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#9aa6bf' }}>/ {totalTasks}</span>
+          <span style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginLeft: '8px' }}>TASKS COMPLETED</span>
+        </div>
+        <div style={{ flex: 1, minWidth: '140px', height: '8px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #e3eaf5', overflow: 'hidden' }}>
+          <div style={{ width: `${totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%`, height: '100%', borderRadius: '999px', background: 'linear-gradient(90deg, #125ecc 0%, #0a85e8 100%)', transition: 'width 0.3s' }} />
+        </div>
+        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '20px', fontWeight: 800, letterSpacing: '-0.02em', color: '#125ecc', lineHeight: 1 }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</span>
       </div>
 
       {phases.map(phase => {
@@ -504,26 +516,26 @@ function MemberClientTrackView({ client, program }) {
         const tasks = phase.program_client_tasks || []
         const nonAutoTasks = tasks.filter(t => t.status_options !== 'auto')
         const doneTasks = nonAutoTasks.filter(t => progress[t.id]?.status && progress[t.id].status !== '').length
-        const borderColor = state === 'done' ? 'rgba(39,174,96,0.3)' : state === 'active' ? 'rgba(91,159,230,0.4)' : 'rgba(255,255,255,0.1)'
-        const dotColor = state === 'done' ? '#27ae60' : state === 'active' ? '#5b9fe6' : 'transparent'
-        const titleColor = state === 'active' ? '#5b9fe6' : '#fff'
+        const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
+        const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
+        const titleColor = state === 'active' ? '#125ecc' : '#002973'
         const c10TaskId = phases.find(ph => ph.name === 'MAP 1 - PIP Follow Up')?.program_client_tasks?.find(t => t.task_code === 'C10')?.id
         const c10Status = progress[c10TaskId]?.status || ''
         const c14c15Active = c10Status === 'No' || c10Status === 'Undecided'
 
         return (
-          <div key={phase.id} style={{ background: 'rgba(0,0,0,0.12)', border: `1px solid ${borderColor}`, borderRadius: '12px', marginBottom: '10px', overflow: 'hidden' }}>
+          <div key={phase.id} style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
             <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? 'rgba(255,255,255,0.2)' : dotColor}`, flexShrink: 0 }} />
-                <span style={{ fontSize: '13px', fontWeight: '600', color: titleColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{phase.name}</span>
+                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
+                <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                {state === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Done</span>}
-                {state === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>In progress · {doneTasks}/{nonAutoTasks.length}</span>}
-                {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>}
-                <span style={{ color: '#8bacc8', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                {state === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
+                {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{nonAutoTasks.length}</span>}
+                {state === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
+                <span style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
               </div>
             </div>
 
@@ -532,7 +544,7 @@ function MemberClientTrackView({ client, program }) {
                 {tasks.map(task => {
                   const p = progress[task.id] || {}
                   const isDone = !!p.status && p.status !== ''
-                  const statusColor = statusColors[p.status] || '#8bacc8'
+                  const statusColor = statusColors[p.status] || '#4e6087'
                   const isGreyedOut = (task.task_code === 'C14' || task.task_code === 'C15') && !c14c15Active
 
                   if (task.name === 'AI PC Admin' && pipelineData) {
@@ -540,20 +552,20 @@ function MemberClientTrackView({ client, program }) {
                     const pipDecision = pd?.c13_decision
                     const finalDec = pd?.c15_final_decision
                     const autoStep = (label, done, tag = null) => (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
-                        <span style={{ fontSize: '12px', color: done ? '#27ae60' : '#8bacc8' }}>{label}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
+                        <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
                         <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
-                          {done && tag && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>{tag}</span>}
-                          {done && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Done</span>}
+                          {done && tag && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{tag}</span>}
+                          {done && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>}
                         </span>
                       </div>
                     )
                     return (
-                      <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid #e9eef8' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: pd?.c18_ceo_signed === 'Yes' ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${pd?.c18_ceo_signed === 'Yes' ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
-                          <span style={{ fontSize: '13px', color: '#fff', flex: 1 }}>{task.name}</span>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: pd?.c18_ceo_signed === 'Yes' ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${pd?.c18_ceo_signed === 'Yes' ? '#1b9254' : '#c7d4e8'}` }} />
+                          <span style={{ fontSize: '13px', color: '#16264a', flex: 1 }}>{task.name}</span>
                         </div>
                         {pipDecision && (
                           <div style={{ marginLeft: '18px' }}>
@@ -579,17 +591,17 @@ function MemberClientTrackView({ client, program }) {
                   }
 
                   return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', opacity: isGreyedOut ? 0.3 : 1 }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: task.status_options === 'auto' || isDone ? (task.status_options === 'auto' ? '#27ae60' : statusColor) : 'transparent', flexShrink: 0, border: `1.5px solid ${task.status_options === 'auto' || isDone ? (task.status_options === 'auto' ? '#27ae60' : statusColor) : 'rgba(255,255,255,0.2)'}` }} />
-                      <span style={{ fontSize: '12px', color: '#8bacc8', fontFamily: 'monospace', width: '32px' }}>{task.task_code}</span>
-                      <span style={{ fontSize: '13px', color: isDone || task.status_options === 'auto' ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', opacity: isGreyedOut ? 0.3 : 1 }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: task.status_options === 'auto' || isDone ? (task.status_options === 'auto' ? '#1b9254' : statusColor) : 'transparent', flexShrink: 0, border: `1.5px solid ${task.status_options === 'auto' || isDone ? (task.status_options === 'auto' ? '#1b9254' : statusColor) : '#c7d4e8'}` }} />
+                      <span style={{ fontSize: '12px', color: '#4e6087', fontFamily: 'monospace', width: '32px' }}>{task.task_code}</span>
+                      <span style={{ fontSize: '13px', color: isDone || task.status_options === 'auto' ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
                       {task.status_options === 'auto'
-                        ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Done</span>
+                        ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
                         : isDone
-                          ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
-                          : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>
+                          ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
+                          : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
                       }
-                      {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{formatDate(p.completed_date)}</span>}
+                      {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#697a9c' }}>{formatDate(p.completed_date)}</span>}
                     </div>
                   )
                 })}
@@ -609,7 +621,7 @@ function VideoTask({ task, progress, enrollmentId, onComplete }) {
   const containerId = `yt-player-${task.id}`
 
   const videoId = task.video_url?.match(/v=([^&]+)/)?.[1]
-  const statusColor = completed ? '#27ae60' : '#5b9fe6'
+  const statusColor = completed ? '#1b9254' : '#0095ff'
 
   useEffect(() => {
     if (!showVideo || !videoId) return
@@ -640,18 +652,18 @@ function VideoTask({ task, progress, enrollmentId, onComplete }) {
   
 
   return (
-    <div style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+    <div style={{ padding: '10px 0', borderBottom: '1px solid #eef2f9' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: showVideo ? '12px' : '0' }}>
-        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: completed ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${completed ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
+        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: completed ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${completed ? '#1b9254' : '#c7d4e8'}` }} />
         <div style={{ flex: 1 }}>
-          <span style={{ fontSize: '13px', color: '#8bacc8', marginRight: '8px' }}>{task.task_code}</span>
-          <span style={{ fontSize: '14px', color: completed ? '#8bacc8' : '#fff' }}>{task.name}</span>
+          <span style={{ fontSize: '13px', color: '#4e6087', marginRight: '8px' }}>{task.task_code}</span>
+          <span style={{ fontSize: '14px', color: completed ? '#4e6087' : '#16264a' }}>{task.name}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button onClick={() => setShowVideo(!showVideo)} style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: `1px solid rgba(91,159,230,0.4)`, background: showVideo ? 'rgba(231,76,60,0.15)' : 'rgba(91,159,230,0.15)', color: showVideo ? '#e74c3c' : '#5b9fe6' }}>
+          <button onClick={() => setShowVideo(!showVideo)} style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: `1px solid rgba(0,149,255,0.4)`, background: showVideo ? 'rgba(231,76,60,0.15)' : 'rgba(0,149,255,0.15)', color: showVideo ? '#e74c3c' : '#0095ff' }}>
             {showVideo ? 'Hide Video' : '▶ Watch Video'}
           </button>
-          {completed && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Have Watched</span>}
+          {completed && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Have Watched</span>}
         </div>
       </div>
       {showVideo && (
@@ -668,7 +680,7 @@ function MemberCoachingMeetings({ enrollment }) {
   const [loading, setLoading] = useState(true)
   const [expandedMeeting, setExpandedMeeting] = useState(null)
 
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
 
   useEffect(() => { loadMeetings() }, [enrollment.id])
 
@@ -690,47 +702,47 @@ function MemberCoachingMeetings({ enrollment }) {
   return (
     <div>
       <div style={{ display: 'flex', gap: '32px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'flex-end', paddingLeft: '24px' }}>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{completedMeetings.length}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>COMPLETED</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#5b9fe6' }}>{scheduledMeetings.length}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>SCHEDULED</div></div>
+        <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973' }}>{completedMeetings.length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087' }}>COMPLETED</div></div>
+        <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973' }}>{scheduledMeetings.length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087' }}>SCHEDULED</div></div>
         {nextScheduled && (
-          <div style={{ textAlign: 'center' }}><div style={{ fontSize: '16px', fontWeight: '600', color: '#5b9fe6' }}>{nextScheduled.meeting_date.split('T')[0]}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>NEXT MEETING</div></div>
+          <div style={{ textAlign: 'center' }}><div style={{ fontSize: '16px', fontWeight: '600', color: '#0095ff' }}>{nextScheduled.meeting_date.split('T')[0]}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087' }}>NEXT MEETING</div></div>
         )}
       </div>
 
       {scheduledMeetings.length > 0 && (
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Upcoming</div>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Upcoming</div>
           {scheduledMeetings.map(m => (
-            <div key={m.id} style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '14px', color: '#fff' }}>{m.meeting_date.split('T')[0]}</span>
-              <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>Scheduled</span>
+            <div key={m.id} style={{ padding: '12px 0', borderBottom: '1px solid #eef2f9', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '14px', color: '#16264a' }}>{m.meeting_date.split('T')[0]}</span>
+              <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>Scheduled</span>
             </div>
           ))}
         </div>
       )}
 
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting History</div>
+        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting History</div>
         {completedMeetings.length === 0
-          ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No meetings completed yet.</p>
+          ? <p style={{ color: '#697a9c', fontSize: '14px' }}>No meetings completed yet.</p>
           : completedMeetings.map(m => (
-            <div key={m.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <div key={m.id} style={{ borderBottom: '1px solid #eef2f9' }}>
               <div onClick={() => setExpandedMeeting(expandedMeeting === m.id ? null : m.id)}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', cursor: m.notes ? 'pointer' : 'default' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '14px', color: '#fff' }}>{m.meeting_date.split('T')[0]}</span>
-                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Completed</span>
+                  <span style={{ fontSize: '14px', color: '#16264a' }}>{m.meeting_date.split('T')[0]}</span>
+                  <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Completed</span>
                 </div>
                 {m.notes && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', color: '#5a8ab5' }}>has notes</span>
-                    <span style={{ color: '#8bacc8', fontSize: '10px', transform: expandedMeeting === m.id ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                    <span style={{ fontSize: '11px', color: '#697a9c' }}>has notes</span>
+                    <span style={{ color: '#4e6087', fontSize: '10px', transform: expandedMeeting === m.id ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
                   </div>
                 )}
               </div>
               {expandedMeeting === m.id && m.notes && (
                 <div style={{ padding: '0 0 12px 0' }}>
-                  <p style={{ fontSize: '13px', color: '#8bacc8', lineHeight: '1.5', margin: 0 }}>{m.notes}</p>
+                  <p style={{ fontSize: '13px', color: '#4e6087', lineHeight: '1.5', margin: 0 }}>{m.notes}</p>
                 </div>
               )}
             </div>
@@ -745,7 +757,7 @@ function MemberCoachingRenewal({ enrollment }) {
   const [renewals, setRenewals] = useState([])
   const [loading, setLoading] = useState(true)
 
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
 
   useEffect(() => { loadRenewals() }, [enrollment.id])
 
@@ -763,19 +775,19 @@ function MemberCoachingRenewal({ enrollment }) {
   const joinDate = enrollment.date_enrolled?.split('T')[0]
   const currentPeriod = latestRenewal?.period_label || 'Year 1'
   const currentStatus = latestRenewal?.action === 'cancelled' ? 'Cancelled' : 'Active'
-  const statusColor = currentStatus === 'Active' ? '#27ae60' : '#e74c3c'
+  const statusColor = currentStatus === 'Active' ? '#1b9254' : '#e74c3c'
 
   let daysUntilRenewal = null
-  let renewalUrgency = '#27ae60'
+  let renewalUrgency = '#1b9254'
   if (nextDate) {
     const diff = Math.ceil((new Date(nextDate) - new Date()) / (1000 * 60 * 60 * 24))
     daysUntilRenewal = diff
     if (diff < 0) renewalUrgency = '#e74c3c'
     else if (diff <= 30) renewalUrgency = '#e74c3c'
-    else if (diff <= 60) renewalUrgency = '#f39c12'
+    else if (diff <= 60) renewalUrgency = '#e06717'
   }
 
-  const actionColors = { renewed: '#27ae60', cancelled: '#e74c3c' }
+  const actionColors = { renewed: '#1b9254', cancelled: '#e74c3c' }
 
   if (loading) return <CoachingRenewalSkeleton />
 
@@ -784,26 +796,26 @@ function MemberCoachingRenewal({ enrollment }) {
     <div>
       <div style={sectionStyle}>
         <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
-          <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Join Date</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{joinDate || '—'}</div></div>
-          <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div><div style={{ fontSize: '15px', color: statusColor, marginTop: '4px', fontWeight: '600' }}>{currentStatus}</div></div>
-          <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Current Period</div><div style={{ fontSize: '15px', color: '#fff', marginTop: '4px' }}>{currentPeriod}</div></div>
-          {nextDate && <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Period Ends</div><div style={{ fontSize: '15px', color: renewalUrgency, marginTop: '4px', fontWeight: '600' }}>{nextDate.split('T')[0]}</div></div>}
-          {daysUntilRenewal !== null && <div><div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{daysUntilRenewal < 0 ? 'Overdue' : 'Days Remaining'}</div><div style={{ fontSize: '15px', color: renewalUrgency, marginTop: '4px', fontWeight: '600' }}>{daysUntilRenewal < 0 ? `${Math.abs(daysUntilRenewal)} days` : `${daysUntilRenewal} days`}</div></div>}
+          <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Join Date</div><div style={{ fontSize: '15px', color: '#16264a', marginTop: '4px' }}>{joinDate || '—'}</div></div>
+          <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div><div style={{ fontSize: '15px', color: statusColor, marginTop: '4px', fontWeight: '600' }}>{currentStatus}</div></div>
+          <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Current Period</div><div style={{ fontSize: '15px', color: '#16264a', marginTop: '4px' }}>{currentPeriod}</div></div>
+          {nextDate && <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Period Ends</div><div style={{ fontSize: '15px', color: renewalUrgency, marginTop: '4px', fontWeight: '600' }}>{nextDate.split('T')[0]}</div></div>}
+          {daysUntilRenewal !== null && <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{daysUntilRenewal < 0 ? 'Overdue' : 'Days Remaining'}</div><div style={{ fontSize: '15px', color: renewalUrgency, marginTop: '4px', fontWeight: '600' }}>{daysUntilRenewal < 0 ? `${Math.abs(daysUntilRenewal)} days` : `${daysUntilRenewal} days`}</div></div>}
         </div>
       </div>
 
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Renewal History</div>
+        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Renewal History</div>
         {renewals.length === 0
-          ? <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No renewals recorded yet.</p>
+          ? <p style={{ color: '#697a9c', fontSize: '14px' }}>No renewals recorded yet.</p>
           : renewals.map(r => (
-            <div key={r.id} style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <div key={r.id} style={{ padding: '12px 0', borderBottom: '1px solid #eef2f9' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${actionColors[r.action] || '#8bacc8'}22`, color: actionColors[r.action] || '#8bacc8', border: `1px solid ${actionColors[r.action] || '#8bacc8'}44`, textTransform: 'capitalize' }}>{r.action}</span>
-                <span style={{ fontSize: '14px', color: '#fff' }}>{r.action_date?.split('T')[0]}</span>
-                {r.period_label && <span style={{ fontSize: '12px', color: '#5b9fe6' }}>{r.period_label}</span>}
+                <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${actionColors[r.action] || '#4e6087'}22`, color: actionColors[r.action] || '#4e6087', border: `1px solid ${actionColors[r.action] || '#4e6087'}44`, textTransform: 'capitalize' }}>{r.action}</span>
+                <span style={{ fontSize: '14px', color: '#16264a' }}>{r.action_date?.split('T')[0]}</span>
+                {r.period_label && <span style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600 }}>{r.period_label}</span>}
               </div>
-              {r.notes && <div style={{ fontSize: '12px', color: '#5a8ab5', marginTop: '4px' }}>{r.notes}</div>}
+              {r.notes && <div style={{ fontSize: '12px', color: '#697a9c', marginTop: '4px' }}>{r.notes}</div>}
             </div>
           ))
         }

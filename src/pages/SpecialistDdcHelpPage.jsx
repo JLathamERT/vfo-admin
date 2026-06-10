@@ -28,7 +28,7 @@ export default function SpecialistDdcHelpPage() {
   }
 
   if (state === 'loading') return (
-    <div style={pageStyle}><div style={{ color: '#94a3b8', fontSize: '15px' }}>One moment…</div></div>
+    <div style={pageStyle}><div style={{ color: '#4e6087', fontSize: '15px' }}>One moment…</div></div>
   )
 
   if (state === 'invalid') return (
@@ -44,7 +44,7 @@ export default function SpecialistDdcHelpPage() {
   return (
     <div style={pageStyle}>
       <div style={{ textAlign: 'center', maxWidth: '480px', padding: '48px 32px' }}>
-        <div style={{ ...circle, background: '#22c55e20' }}><span style={{ fontSize: '32px', lineHeight: 1 }}>✓</span></div>
+        <div style={{ ...circle, background: '#16a34a20' }}><span style={{ fontSize: '32px', lineHeight: 1 }}>✓</span></div>
         <h1 style={h1}>Help Is On The Way</h1>
         <p style={p}>We've noted that you'd like some direction completing your Due Diligence Checklist. Tracy Miller will be in touch shortly to help.</p>
       </div>
@@ -52,7 +52,7 @@ export default function SpecialistDdcHelpPage() {
   )
 }
 
-const pageStyle = { fontFamily: '"DM Sans", sans-serif', background: '#0a1628', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px 20px' }
+const pageStyle = { fontFamily: '"Inter", sans-serif', background: '#ffffff', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px 20px' }
 const circle = { width: '72px', height: '72px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }
-const h1 = { fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '12px' }
-const p = { fontSize: '15px', color: '#94a3b8', lineHeight: 1.6 }
+const h1 = { fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }
+const p = { fontSize: '15px', color: '#4e6087', lineHeight: 1.6 }

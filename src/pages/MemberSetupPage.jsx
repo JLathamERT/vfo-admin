@@ -92,7 +92,7 @@ export default function MemberSetupPage() {
 
   if (status === 'loading') return (
     <div style={containerStyle}>
-      <p style={{ color: '#94a3b8', fontSize: '15px' }}>Loading…</p>
+      <p style={{ color: '#4e6087', fontSize: '15px' }}>Loading…</p>
     </div>
   )
 
@@ -111,7 +111,7 @@ export default function MemberSetupPage() {
   if (status === 'already_setup') return (
     <div style={containerStyle}>
       <div style={messageCardStyle}>
-        <div style={{ ...iconCircleStyle, background: 'rgba(59,130,246,0.20)' }}>
+        <div style={{ ...iconCircleStyle, background: 'rgba(0,149,255,0.20)' }}>
           <span style={{ fontSize: '28px', lineHeight: 1 }}>ℹ️</span>
         </div>
         <h1 style={titleStyle}>Login Already Set Up</h1>
@@ -157,7 +157,7 @@ export default function MemberSetupPage() {
             style={inputStyle}
           />
 
-          {error && <p style={{ color: '#ff6b6b', fontSize: '13px', marginTop: '12px', marginBottom: 0 }}>{error}</p>}
+          {error && <p style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '12px', marginBottom: 0 }}>{error}</p>}
 
           <button type="submit" disabled={submitting} style={{ ...primaryButtonStyle, marginTop: '24px', opacity: submitting ? 0.6 : 1, cursor: submitting ? 'not-allowed' : 'pointer' }}>
             {submitting ? 'Setting up…' : 'Set up my login'}
@@ -172,14 +172,14 @@ export default function MemberSetupPage() {
   )
 }
 
-const containerStyle = { fontFamily: '"DM Sans", sans-serif', background: '#0a1628', color: '#e2e8f0', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }
+const containerStyle = { fontFamily: '"Inter", sans-serif', background: '#ffffff', color: '#243757', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }
 const pageContainerStyle = { maxWidth: '480px', width: '100%' }
 const messageCardStyle = { textAlign: 'center', maxWidth: '480px', padding: '48px 32px' }
 const iconCircleStyle = { width: '72px', height: '72px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }
-const titleStyle = { fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '12px' }
-const subtitleStyle = { fontSize: '14px', color: '#94a3b8', lineHeight: 1.6 }
+const titleStyle = { fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }
+const subtitleStyle = { fontSize: '14px', color: '#4e6087', lineHeight: 1.6 }
 const formStyle = { display: 'flex', flexDirection: 'column' }
-const labelStyle = { fontSize: '13px', color: '#94a3b8', marginBottom: '6px', fontWeight: 500 }
-const inputStyle = { padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', fontFamily: 'inherit' }
-const primaryButtonStyle = { padding: '12px 24px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: 'pointer', marginTop: '16px' }
-const securityNoteStyle = { textAlign: 'center', color: '#475569', fontSize: '12px', marginTop: '24px', lineHeight: 1.6 }
+const labelStyle = { fontSize: '13px', color: '#4e6087', marginBottom: '6px', fontWeight: 500 }
+const inputStyle = { padding: '12px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', fontFamily: 'inherit' }
+const primaryButtonStyle = { padding: '12px 24px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: 'pointer', marginTop: '16px' }
+const securityNoteStyle = { textAlign: 'center', color: '#4e6087', fontSize: '12px', marginTop: '24px', lineHeight: 1.6 }

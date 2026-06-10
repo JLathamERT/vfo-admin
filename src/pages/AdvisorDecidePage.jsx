@@ -68,22 +68,22 @@ export default function AdvisorDecidePage() {
 
 function getView(status, decision, error) {
   if (status === 'processing') {
-    return { icon: '⏳', color: '#3b82f6', title: 'Processing your response…', message: 'Please wait, do not close this page.' }
+    return { icon: '⏳', color: '#0095ff', title: 'Processing your response…', message: 'Please wait, do not close this page.' }
   }
   if (status === 'already_submitted') {
-    return { icon: 'ℹ️', color: '#3b82f6', title: 'Already Received', message: "We've already received your decision — no further action is needed. Thank you!" }
+    return { icon: 'ℹ️', color: '#0095ff', title: 'Already Received', message: "We've already received your decision — no further action is needed. Thank you!" }
   }
   if (status === 'error') {
     return { icon: '⚠️', color: '#ef4444', title: 'Something Went Wrong', message: error || 'An unexpected error occurred.' }
   }
   if (decision === 'Yes') {
-    return { icon: '✓', color: '#22c55e', title: 'Thank You!', message: "We're excited to move forward. We'll be in touch shortly with the next steps." }
+    return { icon: '✓', color: '#16a34a', title: 'Thank You!', message: "We're excited to move forward. We'll be in touch shortly with the next steps." }
   }
-  return { icon: '✓', color: '#22c55e', title: 'Thank You', message: "We appreciate you letting us know. If circumstances ever change, we'll be right here." }
+  return { icon: '✓', color: '#16a34a', title: 'Thank You', message: "We appreciate you letting us know. If circumstances ever change, we'll be right here." }
 }
 
-const containerStyle = { fontFamily: '"DM Sans", sans-serif', background: '#0a1628', color: '#e2e8f0', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }
+const containerStyle = { fontFamily: '"Inter", sans-serif', background: '#ffffff', color: '#243757', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }
 const cardStyle = { textAlign: 'center', maxWidth: '480px', padding: '48px 32px' }
 const iconCircleStyle = { width: '72px', height: '72px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }
-const titleStyle = { fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '12px' }
-const messageStyle = { fontSize: '15px', color: '#94a3b8', lineHeight: 1.6 }
+const titleStyle = { fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }
+const messageStyle = { fontSize: '15px', color: '#4e6087', lineHeight: 1.6 }

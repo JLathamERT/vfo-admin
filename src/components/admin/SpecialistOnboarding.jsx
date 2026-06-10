@@ -77,8 +77,8 @@ export default function SpecialistOnboarding() {
     if (oid) { setSelectedId(Number(oid)); setView('detail') }
   }, [searchParams])
 
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
  
   useEffect(() => { loadList() }, [])
  
@@ -111,26 +111,26 @@ export default function SpecialistOnboarding() {
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '22px', color: '#fff' }}>Specialist Onboarding</div>
-        <button onClick={() => setShowNew(!showNew)} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>+ New Onboarding</button>
+        <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a' }}>Specialist Onboarding</div>
+        <button onClick={() => setShowNew(!showNew)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>+ New Onboarding</button>
       </div>
  
       {showNew && (
         <div style={{ ...sectionStyle, marginBottom: '24px' }}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Start New Onboarding</div>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Start New Onboarding</div>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Specialist Name *</label>
+              <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Specialist Name *</label>
               <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Full name" style={inputStyle} />
             </div>
             <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }}>Email</label>
+              <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Email</label>
               <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Email address" style={inputStyle} />
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={createNew} disabled={creating || !newName.trim()} style={{ padding: '8px 20px', borderRadius: '8px', background: creating ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: creating ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif' }}>{creating ? 'Creating...' : 'Create'}</button>
-            <button onClick={() => { setShowNew(false); setNewName(''); setNewEmail('') }} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Cancel</button>
+            <button onClick={createNew} disabled={creating || !newName.trim()} style={{ padding: '8px 20px', borderRadius: '8px', background: creating ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '13px', cursor: creating ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>{creating ? 'Creating...' : 'Create'}</button>
+            <button onClick={() => { setShowNew(false); setNewName(''); setNewEmail('') }} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Cancel</button>
           </div>
         </div>
       )}
@@ -138,21 +138,21 @@ export default function SpecialistOnboarding() {
       {loading ? (
         <SpecialistOnboardingListSkeleton />
       ) : onboardings.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>No onboarding records yet. Click "+ New Onboarding" to start.</div>
+        <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>No onboarding records yet. Click "+ New Onboarding" to start.</div>
       ) : (
         <div>
           {onboardings.map(ob => {
-            const stageColor = ob.status === 'stopped' ? '#e74c3c' : ob.status === 'completed' ? '#27ae60' : '#5b9fe6'
+            const stageColor = ob.status === 'stopped' ? '#e74c3c' : ob.status === 'completed' ? '#1b9254' : '#0095ff'
             return (
-              <div key={ob.id} onClick={() => { setSelectedId(ob.id); setView('detail') }} style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '18px', marginBottom: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(91,159,230,0.4)'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}>
+              <div key={ob.id} onClick={() => { setSelectedId(ob.id); setView('detail') }} style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '18px', marginBottom: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,149,255,0.4)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#e3eaf5'}>
                 <div>
-                  <div style={{ fontSize: '15px', color: '#fff', fontWeight: '500', marginBottom: '4px' }}>{ob.specialist_name}</div>
-                  <div style={{ fontSize: '12px', color: '#8bacc8' }}>{ob.specialist_email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
+                  <div style={{ fontSize: '15px', color: '#16264a', fontWeight: '500', marginBottom: '4px' }}>{ob.specialist_name}</div>
+                  <div style={{ fontSize: '12px', color: '#4e6087' }}>{ob.specialist_email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: ob.status === 'stopped' ? 'rgba(231,76,60,0.15)' : ob.status === 'completed' ? 'rgba(39,174,96,0.15)' : 'rgba(91,159,230,0.15)', color: stageColor, border: `1px solid ${ob.status === 'stopped' ? 'rgba(231,76,60,0.3)' : ob.status === 'completed' ? 'rgba(39,174,96,0.3)' : 'rgba(91,159,230,0.3)'}` }}>
+                  <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: ob.status === 'stopped' ? 'rgba(231,76,60,0.15)' : ob.status === 'completed' ? 'rgba(27,146,84,0.15)' : 'rgba(0,149,255,0.15)', color: stageColor, border: `1px solid ${ob.status === 'stopped' ? 'rgba(231,76,60,0.3)' : ob.status === 'completed' ? 'rgba(27,146,84,0.3)' : 'rgba(0,149,255,0.3)'}` }}>
                     {ob.status === 'stopped' ? 'Stopped' : ob.status === 'completed' ? 'Completed' : `Stage ${ob.current_stage} · ${STAGE_NAMES[ob.current_stage]}`}
                   </span>
                 </div>
@@ -294,39 +294,39 @@ function OnboardingDetail({ id, onBack }) {
     return 'pending'
   }
  
-  const inputStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: '#0d2a6e', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif' }
+  const inputStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid #d6e0ee', background: '#ffffff', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
  
   if (loading) return <SpecialistOnboardingDetailSkeleton onBack={onBack} />
-  if (!ob) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px', textAlign: 'center', color: '#8bacc8' }}>Not found.</div>
+  if (!ob) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px', textAlign: 'center', color: '#4e6087' }}>Not found.</div>
  
   const isStopped = ob.status === 'stopped'
   const isCompleted = ob.status === 'completed'
  
   function StageBadge({ stage }) {
     const state = getStageState(stage)
-    if (state === 'done') return <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Done</span>
-    if (state === 'active') return <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>In progress</span>
-    return <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>
+    if (state === 'done') return <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
+    if (state === 'active') return <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress</span>
+    return <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
   }
  
   function StageHeader({ stage, title }) {
     const state = getStageState(stage)
-    const borderColor = state === 'done' ? 'rgba(39,174,96,0.3)' : state === 'active' ? 'rgba(91,159,230,0.4)' : 'rgba(255,255,255,0.1)'
-    const dotColor = state === 'done' ? '#27ae60' : state === 'active' ? '#5b9fe6' : 'transparent'
-    const dotBorder = state === 'pending' ? 'rgba(255,255,255,0.2)' : dotColor
-    const titleColor = state === 'active' ? '#5b9fe6' : '#fff'
+    const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
+    const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
+    const dotBorder = state === 'pending' ? '#c7d4e8' : dotColor
+    const titleColor = state === 'active' ? '#125ecc' : '#002973'
     const isExpanded = expanded[stage]
  
     return (
-      <div style={{ background: 'rgba(0,0,0,0.12)', border: `1px solid ${borderColor}`, borderRadius: '12px', marginBottom: '10px', overflow: 'hidden' }}>
+      <div style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
           <div onClick={() => setExpanded(p => ({ ...p, [stage]: !p[stage] }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
             <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${dotBorder}`, flexShrink: 0 }} />
-            <span style={{ fontSize: '13px', fontWeight: '600', color: titleColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{title}</span>
+            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{title}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <StageBadge stage={stage} />
-            <span onClick={() => setExpanded(p => ({ ...p, [stage]: !p[stage] }))} style={{ color: '#8bacc8', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
+            <span onClick={() => setExpanded(p => ({ ...p, [stage]: !p[stage] }))} style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
           </div>
         </div>
         {isExpanded && ob.current_stage >= stage && (
@@ -356,12 +356,12 @@ function OnboardingDetail({ id, onBack }) {
   // chip) so it never reads as a clickable button.
   function AutoStep({ done, label, detail }) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
-        <span style={{ fontSize: '12px', color: done ? '#27ae60' : '#8bacc8' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
+        <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
         <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px', alignItems: 'center' }}>
-          {detail && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>{detail}</span>}
-          <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: done ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: done ? '#27ae60' : '#8bacc8' }}>{done ? 'Done' : 'Not completed'}</span>
+          {detail && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{detail}</span>}
+          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: done ? 'rgba(27,146,84,0.15)' : '#eef2f9', border: done ? '1px solid rgba(27,146,84,0.3)' : '1px solid #dde5f2', color: done ? '#1b9254' : '#4e6087' }}>{done ? 'Done' : 'Not completed'}</span>
         </span>
       </div>
     )
@@ -370,23 +370,23 @@ function OnboardingDetail({ id, onBack }) {
   function CheckItem({ done, label, onClick, toggle }) {
     const clickable = !isStopped && (toggle || !done)
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-        <div onClick={() => clickable && onClick?.()} style={{ width: '16px', height: '16px', borderRadius: '4px', border: `1.5px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.3)'}`, background: done ? '#27ae60' : 'transparent', cursor: clickable ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', flexShrink: 0 }}>{done ? '✓' : ''}</div>
-        <span style={{ fontSize: '13px', color: done ? '#8bacc8' : '#fff', textDecoration: done ? 'line-through' : 'none' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', borderBottom: '1px solid #e9eef8' }}>
+        <div onClick={() => clickable && onClick?.()} style={{ width: '16px', height: '16px', borderRadius: '4px', border: `1.5px solid ${done ? '#1b9254' : '#aebfdb'}`, background: done ? '#1b9254' : 'transparent', cursor: clickable ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', flexShrink: 0 }}>{done ? '✓' : ''}</div>
+        <span style={{ fontSize: '13px', color: done ? '#4e6087' : '#16264a', textDecoration: done ? 'line-through' : 'none' }}>{label}</span>
       </div>
     )
   }
  
-  function ActionButton({ label, onClick, color = '#5b9fe6', disabled = false }) {
-    const bg = color === '#27ae60' ? 'rgba(39,174,96,0.15)' : color === '#e74c3c' ? 'rgba(231,76,60,0.15)' : color === '#f39c12' ? 'rgba(243,156,18,0.15)' : 'rgba(91,159,230,0.15)'
-    const border = color === '#27ae60' ? 'rgba(39,174,96,0.4)' : color === '#e74c3c' ? 'rgba(231,76,60,0.4)' : color === '#f39c12' ? 'rgba(243,156,18,0.4)' : 'rgba(91,159,230,0.4)'
+  function ActionButton({ label, onClick, color = '#0095ff', disabled = false }) {
+    const bg = color === '#1b9254' ? 'rgba(27,146,84,0.15)' : color === '#e74c3c' ? 'rgba(231,76,60,0.15)' : color === '#e06717' ? 'rgba(251,137,90,0.15)' : 'rgba(0,149,255,0.15)'
+    const border = color === '#1b9254' ? 'rgba(27,146,84,0.4)' : color === '#e74c3c' ? 'rgba(231,76,60,0.4)' : color === '#e06717' ? 'rgba(251,137,90,0.4)' : 'rgba(0,149,255,0.4)'
     return (
-      <button onClick={onClick} disabled={disabled || isStopped} style={{ padding: '5px 12px', borderRadius: '6px', fontSize: '11px', cursor: disabled || isStopped ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', background: bg, border: `1px solid ${border}`, color, whiteSpace: 'nowrap' }}>{label}</button>
+      <button onClick={onClick} disabled={disabled || isStopped} style={{ padding: '5px 12px', borderRadius: '6px', fontSize: '11px', cursor: disabled || isStopped ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', background: bg, border: `1px solid ${border}`, color, whiteSpace: 'nowrap' }}>{label}</button>
     )
   }
  
   function SectionLabel({ children }) {
-    return <div style={{ fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', marginTop: '14px' }}>{children}</div>
+    return <div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', marginTop: '14px' }}>{children}</div>
   }
  
   function Stage1Content() {
@@ -399,7 +399,7 @@ function OnboardingDetail({ id, onBack }) {
     const [pending, setPending] = useState(null)
 
     const isDone = !!decision
-    const statusColor = decision === 'stop' ? '#e74c3c' : '#27ae60'
+    const statusColor = decision === 'stop' ? '#e74c3c' : '#1b9254'
     const statusLabel = decision === 'continue'
       ? `Continuing - next meeting ${progress['1-decision']?.notes || ''}`
       : decision === 'continue_no_date'
@@ -408,22 +408,22 @@ function OnboardingDetail({ id, onBack }) {
           ? 'Declined - email sent'
           : ''
 
-    const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }
-    const redBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }
-    const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#8bacc8' }
+    const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
+    const redBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600 }
+    const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid #d6e0ee', background: 'transparent', color: '#4e6087' }
 
     return (
       <>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'rgba(255,255,255,0.2)'}` }} />
-          <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>Post-meeting decision</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
+          <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>Post-meeting decision</span>
           {isDone
-            ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{statusLabel}</span>
+            ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{statusLabel}</span>
             : showDate
               ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={{ padding: '4px 8px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '11px' }} />
-                  <input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} style={{ padding: '4px 8px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '11px' }} />
-                  <select value={meetingTz} onChange={e => setMeetingTz(e.target.value)} style={{ padding: '4px 8px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.15)', background: '#0d2a6e', color: '#fff', fontSize: '11px' }}>
+                  <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '11px' }} />
+                  <input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '11px' }} />
+                  <select value={meetingTz} onChange={e => setMeetingTz(e.target.value)} style={{ padding: '4px 8px', borderRadius: '5px', border: '1px solid #d6e0ee', background: '#ffffff', color: '#16264a', fontSize: '11px' }}>
                     <option value="ET">Eastern (ET)</option>
                     <option value="CT">Central (CT)</option>
                     <option value="MT">Mountain (MT)</option>
@@ -445,10 +445,10 @@ function OnboardingDetail({ id, onBack }) {
         {decision && decision !== 'stop' && (() => {
           const emailSent = !!getTaskStatus(1, 'email_sent')
           const autoStep = (label, done) => (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#27ae60' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
-              <span style={{ fontSize: '12px', color: done ? '#27ae60' : '#8bacc8' }}>{label}</span>
-              {done && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', marginLeft: 'auto' }}>Done</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
+              <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
+              {done && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>}
             </div>
           )
           const sifDone = !!ob.sif_submitted_at
@@ -457,38 +457,38 @@ function OnboardingDetail({ id, onBack }) {
           return (
             <div style={{ padding: '7px 0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: aipcDone ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${aipcDone ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
-                <span style={{ fontSize: '13px', color: '#fff', flex: 1, fontWeight: '600' }}>AI PC Admin</span>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: aipcDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${aipcDone ? '#1b9254' : '#c7d4e8'}` }} />
+                <span style={{ fontSize: '13px', color: '#16264a', flex: 1, fontWeight: '600' }}>AI PC Admin</span>
               </div>
-              <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ marginLeft: '18px', padding: '8px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2' }}>
                 {autoStep('Email sent to potential VFO specialist (SIF form, rev share examples, template agreement attached)', emailSent)}
                 <div>
-                  <div onClick={() => sifDone && setSifOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: sifDone ? 'pointer' : 'default' }}>
-                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: sifDone ? '#27ae60' : 'transparent', flexShrink: 0, border: `1px solid ${sifDone ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
-                    <span style={{ fontSize: '12px', color: sifDone ? '#27ae60' : '#8bacc8' }}>SIF form completed by potential specialist</span>
+                  <div onClick={() => sifDone && setSifOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8', cursor: sifDone ? 'pointer' : 'default' }}>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: sifDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${sifDone ? '#1b9254' : '#c7d4e8'}` }} />
+                    <span style={{ fontSize: '12px', color: '#16264a' }}>SIF form completed by potential specialist</span>
                     {sifDone
                       ? <>
-                          <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', marginLeft: 'auto' }}>Done</span>
-                          <span style={{ color: '#8bacc8', fontSize: '9px', transform: sifOpen ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>
+                          <span style={{ color: '#4e6087', fontSize: '9px', transform: sifOpen ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
                         </>
-                      : <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8', marginLeft: 'auto' }}>Awaiting</span>}
+                      : <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087', marginLeft: 'auto' }}>Awaiting</span>}
                   </div>
                   {sifDone && sifOpen && (
                     <div style={{ padding: '10px 12px 4px 16px' }}>
                       {SIF_FIELDS.map(([k, label]) => (
                         <div key={k} style={{ marginBottom: '10px' }}>
-                          <div style={{ fontSize: '10px', fontWeight: 700, color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{label}</div>
-                          <div style={{ fontSize: '12px', color: '#fff', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{sifData[k] ? sifData[k] : '—'}</div>
+                          <div style={{ fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{label}</div>
+                          <div style={{ fontSize: '12px', color: '#16264a', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{sifData[k] ? sifData[k] : '—'}</div>
                         </div>
                       ))}
                       <div style={{ marginBottom: '10px' }}>
-                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>Tax Specialist?</div>
-                        <div style={{ fontSize: '12px', color: '#fff', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{sifData.is_tax_specialist || '—'}</div>
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>Tax Specialist?</div>
+                        <div style={{ fontSize: '12px', color: '#16264a', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{sifData.is_tax_specialist || '—'}</div>
                       </div>
                       {sifData.is_tax_specialist === 'Yes' && SIF_TAX_FIELDS.map(([k, label]) => (
                         <div key={k} style={{ marginBottom: '10px' }}>
-                          <div style={{ fontSize: '10px', fontWeight: 700, color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{label}</div>
-                          <div style={{ fontSize: '12px', color: '#fff', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{sifData[k] ? sifData[k] : '—'}</div>
+                          <div style={{ fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{label}</div>
+                          <div style={{ fontSize: '12px', color: '#16264a', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{sifData[k] ? sifData[k] : '—'}</div>
                         </div>
                       ))}
                     </div>
@@ -509,7 +509,7 @@ function OnboardingDetail({ id, onBack }) {
     const [meetingTz, setMeetingTz] = useState('ET')
     const [sending, setSending] = useState(null) // 'meeting' | 'stop'
 
-    const inStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: '#0d2a6e', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif' }
+    const inStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid #d6e0ee', background: '#ffffff', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
 
     async function doMeeting(date, time, tz) {
       if (sending) return
@@ -528,20 +528,20 @@ function OnboardingDetail({ id, onBack }) {
           <div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {allComplete ? (
-                <ActionButton label={sending === 'meeting' ? 'Sending…' : 'Still interested — Send email'} onClick={() => doMeeting()} color="#27ae60" disabled={!!sending || blockSend} />
+                <ActionButton label={sending === 'meeting' ? 'Sending…' : 'Still interested — Send email'} onClick={() => doMeeting()} color="#1b9254" disabled={!!sending || blockSend} />
               ) : (
                 <>
-                  <ActionButton label="Still interested — Send email (with date)" onClick={() => setShowDateInput(true)} color="#27ae60" disabled={!!sending || blockSend} />
-                  <ActionButton label={sending === 'meeting' ? 'Sending…' : 'Still interested — date not yet arranged'} onClick={() => doMeeting()} color="#27ae60" disabled={!!sending || blockSend} />
+                  <ActionButton label="Still interested — Send email (with date)" onClick={() => setShowDateInput(true)} color="#1b9254" disabled={!!sending || blockSend} />
+                  <ActionButton label={sending === 'meeting' ? 'Sending…' : 'Still interested — date not yet arranged'} onClick={() => doMeeting()} color="#1b9254" disabled={!!sending || blockSend} />
                 </>
               )}
               <ActionButton label={sending === 'stop' ? 'Sending…' : 'Stop — Send email'} onClick={doStop} color="#e74c3c" disabled={!!sending} />
             </div>
-            {blockSend && <div style={{ fontSize: '11px', color: '#f39c12', marginTop: '6px' }}>Fill in the revenue share proposal above before sending.</div>}
+            {blockSend && <div style={{ fontSize: '11px', color: '#e06717', fontWeight: 600, marginTop: '6px' }}>Fill in the revenue share proposal above before sending.</div>}
           </div>
         ) : (
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '13px', color: '#8bacc8' }}>Next meeting:</span>
+            <span style={{ fontSize: '13px', color: '#4e6087' }}>Next meeting:</span>
             <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={inStyle} />
             <input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} style={inStyle} />
             <select value={meetingTz} onChange={e => setMeetingTz(e.target.value)} style={inStyle}>
@@ -552,8 +552,8 @@ function OnboardingDetail({ id, onBack }) {
               <option value="AKT">Alaska (AKT)</option>
               <option value="HT">Hawaii (HT)</option>
             </select>
-            <ActionButton label={sending === 'meeting' ? 'Sending…' : 'Confirm & Send email'} onClick={() => { if (!meetingDate) return; doMeeting(meetingDate, meetingTime, meetingTz) }} color="#27ae60" disabled={!meetingDate || !!sending || blockSend} />
-            <ActionButton label="Cancel" onClick={() => setShowDateInput(false)} color="#5b9fe6" disabled={!!sending} />
+            <ActionButton label={sending === 'meeting' ? 'Sending…' : 'Confirm & Send email'} onClick={() => { if (!meetingDate) return; doMeeting(meetingDate, meetingTime, meetingTz) }} color="#1b9254" disabled={!meetingDate || !!sending || blockSend} />
+            <ActionButton label="Cancel" onClick={() => setShowDateInput(false)} color="#0095ff" disabled={!!sending} />
           </div>
         )}
       </div>
@@ -617,7 +617,7 @@ function OnboardingDetail({ id, onBack }) {
     const r2BothDenied = r2BothVoted && getVote(2, 'Anton Anderson', 2) === 'Denied' && getVote(2, 'Paul Latham', 2) === 'Denied'
     const approved = r1BothApproved || r2BothApproved
     const denied = r2BothDenied
-    const approvedBanner = { fontSize: '12px', color: '#27ae60', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(39,174,96,0.3)', background: 'rgba(39,174,96,0.06)', marginBottom: '8px' }
+    const approvedBanner = { fontSize: '12px', color: '#1b9254', fontWeight: 600, padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(27,146,84,0.3)', background: 'rgba(27,146,84,0.06)', marginBottom: '8px' }
 
     const [revSharePercent, setRevSharePercent] = useState('')
     const [submittingRevShare, setSubmittingRevShare] = useState(false)
@@ -713,16 +713,16 @@ function OnboardingDetail({ id, onBack }) {
           const newInThisMeeting = discussed.filter(idx => !previousItems.has(idx))
           
           return (
-            <div key={meeting.id} style={{ marginBottom: '16px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+            <div key={meeting.id} style={{ marginBottom: '16px', padding: '12px', borderRadius: '8px', border: '1px solid #ebf0f8', background: '#eef2f9' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ fontSize: '12px', color: '#5b9fe6', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Meeting {mi + 1}</span>
-                <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{meeting.meeting_date} · {meeting.created_by}</span>
+                <span style={{ fontSize: '12px', color: '#0095ff', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Meeting {mi + 1}</span>
+                <span style={{ fontSize: '11px', color: '#697a9c' }}>{meeting.meeting_date} · {meeting.created_by}</span>
               </div>
-              <div style={{ fontSize: '11px', color: '#8bacc8', marginBottom: '4px' }}>Covered in this meeting:</div>
+              <div style={{ fontSize: '11px', color: '#4e6087', marginBottom: '4px' }}>Covered in this meeting:</div>
               {newInThisMeeting.map(idx => (
                 <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '3px 0' }}>
-                  <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: '1.5px solid #27ae60', background: '#27ae60', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', flexShrink: 0 }}>✓</div>
-                  <span style={{ fontSize: '13px', color: '#8bacc8', textDecoration: 'line-through' }}>{STAGE2_CHECKLIST[parseInt(idx)]}</span>
+                  <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: '1.5px solid #1b9254', background: '#1b9254', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', flexShrink: 0 }}>✓</div>
+                  <span style={{ fontSize: '13px', color: '#4e6087', textDecoration: 'line-through' }}>{STAGE2_CHECKLIST[parseInt(idx)]}</span>
                 </div>
               ))}
               {meeting.outcome === 'stopped' && (
@@ -730,8 +730,8 @@ function OnboardingDetail({ id, onBack }) {
                   {STAGE2_CHECKLIST.map((item, i) => {
                     if (!(meeting.items_discussed || []).includes(String(i))) {
                       return <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '3px 0' }}>
-                        <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: '1.5px solid rgba(255,255,255,0.2)', flexShrink: 0 }} />
-                        <span style={{ fontSize: '13px', color: '#8bacc8' }}>{item}</span>
+                        <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: '1.5px solid #c7d4e8', flexShrink: 0 }} />
+                        <span style={{ fontSize: '13px', color: '#4e6087' }}>{item}</span>
                       </div>
                     }
                     return null
@@ -740,9 +740,9 @@ function OnboardingDetail({ id, onBack }) {
                 </>
               )}
               {meeting.outcome === 'interested' && (
-                <div style={{ fontSize: '12px', color: '#27ae60', marginTop: '6px' }}>
+                <div style={{ fontSize: '12px', color: '#16264a', fontWeight: 600, marginTop: '6px' }}>
                   ✓ Still interested — email sent
-                  {meeting.notes && <span style={{ color: '#8bacc8', marginLeft: '8px' }}>({meeting.notes})</span>}
+                  {meeting.notes && <span style={{ color: '#4e6087', marginLeft: '8px' }}>({meeting.notes})</span>}
                 </div>
               )}
             </div>
@@ -765,37 +765,37 @@ function OnboardingDetail({ id, onBack }) {
 
         {/* All items covered message */}
         {allLocked && !isStopped && (
-          <div style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(39,174,96,0.3)', background: 'rgba(39,174,96,0.06)', marginBottom: '14px' }}>
-            <span style={{ fontSize: '12px', color: '#27ae60' }}>✓ All Stage 2 items completed across {meetingCount} meeting{meetingCount !== 1 ? 's' : ''}.</span>
+          <div style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(27,146,84,0.3)', background: 'rgba(27,146,84,0.06)', marginBottom: '14px' }}>
+            <span style={{ fontSize: '12px', color: '#16264a', fontWeight: 600 }}>✓ All Stage 2 items completed across {meetingCount} meeting{meetingCount !== 1 ? 's' : ''}.</span>
           </div>
         )}
 
         {/* Revenue share proposal — submitting it notifies Tracy (always) + Tim
             (tax specialists only) to add their reviewer notes below. */}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
         <SectionLabel>Revenue share proposal</SectionLabel>
         {!getTaskStatus(2, 'rev_share_prepared') ? (
-          <div style={{ padding: '14px', borderRadius: '8px', border: '1px solid rgba(91,159,230,0.3)', background: 'rgba(255,255,255,0.02)', marginBottom: '12px' }}>
-            <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '8px' }}>Revenue Share Proposal</div>
-            <textarea value={revSharePercent} onChange={e => setRevSharePercent(e.target.value)} placeholder="Enter revenue share proposal details..." rows={6} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '10px' }} />
-            <ActionButton label={submittingRevShare ? 'Submitting...' : 'Submit revenue share proposal'} onClick={submitRevShareProposal} disabled={!revSharePercent.trim() || submittingRevShare} color="#27ae60" />
+          <div style={{ padding: '14px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.3)', background: '#eef2f9', marginBottom: '12px' }}>
+            <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '8px' }}>Revenue Share Proposal</div>
+            <textarea value={revSharePercent} onChange={e => setRevSharePercent(e.target.value)} placeholder="Enter revenue share proposal details..." rows={6} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '10px' }} />
+            <ActionButton label={submittingRevShare ? 'Submitting...' : 'Submit revenue share proposal'} onClick={submitRevShareProposal} disabled={!revSharePercent.trim() || submittingRevShare} color="#1b9254" />
           </div>
         ) : (
           <RevShareDisplay notes={progress['2-rev_share_prepared']?.notes || ''} edited={ob.rev_share_final_text} />
         )}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
 
         {/* Reviewer notes — always visible (mirrors Stage 4). Tracy (always) + Tim
             (tax specialists only) are notified to add these once the revenue share
             proposal above is submitted; the prompts clear when the notes save. */}
         <ReviewerNotesSection stage={2} />
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
 
         {/* Initial executive approval — account-scoped two-round voting */}
         <>
             <SectionLabel>Initial executive approval</SectionLabel>
             {!votingOpen ? (
-              <div style={{ fontSize: '12px', color: '#8bacc8', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.02)', marginBottom: '12px' }}>
+              <div style={{ fontSize: '12px', color: '#4e6087', padding: '10px 12px', borderRadius: '6px', border: '1px solid #dde5f2', background: '#eef2f9', marginBottom: '12px' }}>
                 Voting opens once the revenue share proposal and {ob.sif_data?.is_tax_specialist === 'No' ? "Tracy's notes" : "Tracy's and Tim's notes"} are complete.
               </div>
             ) : (
@@ -805,7 +805,7 @@ function OnboardingDetail({ id, onBack }) {
                 {r1BothApproved && <div style={approvedBanner}>✓ Both executives approved.</div>}
                 {r1AnyFurther && (
                   <>
-                    <div style={{ fontSize: '12px', color: '#f39c12', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(243,156,18,0.3)', background: 'rgba(243,156,18,0.06)', margin: '12px 0' }}>An executive raised further questions — a second decision is needed after discussion.</div>
+                    <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(251,137,90,0.3)', background: 'rgba(251,137,90,0.06)', margin: '12px 0' }}>An executive raised further questions — a second decision is needed after discussion.</div>
                     <SectionLabel>Executive decision (after discussion)</SectionLabel>
                     <ExecVoteRow stage={2} round={2} options={['Approved', 'Denied']} myExec={myExec} />
                     {r2BothApproved && <div style={approvedBanner}>✓ Both executives approved.</div>}
@@ -818,11 +818,11 @@ function OnboardingDetail({ id, onBack }) {
               const sent = !!getTaskStatus(2, 'denied_email_sent')
               return (
                 <>
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+                  <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: sent ? '#e74c3c' : 'transparent', flexShrink: 0, border: `1.5px solid ${sent ? '#e74c3c' : 'rgba(255,255,255,0.2)'}` }} />
-                    <span style={{ fontSize: '13px', color: sent ? '#e74c3c' : '#8bacc8', flex: 1 }}>Decline email drafted to specialist — Tracy Miller will follow up</span>
-                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: sent ? 'rgba(231,76,60,0.15)' : 'rgba(255,255,255,0.06)', color: sent ? '#e74c3c' : '#8bacc8', border: `1px solid ${sent ? 'rgba(231,76,60,0.3)' : 'rgba(255,255,255,0.1)'}` }}>{sent ? 'Sent — process stopped' : 'Sending…'}</span>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: sent ? '#e74c3c' : 'transparent', flexShrink: 0, border: `1.5px solid ${sent ? '#e74c3c' : '#c7d4e8'}` }} />
+                    <span style={{ fontSize: '13px', color: sent ? '#e74c3c' : '#4e6087', flex: 1 }}>Decline email drafted to specialist — Tracy Miller will follow up</span>
+                    <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: sent ? 'rgba(231,76,60,0.15)' : '#eef2f9', color: sent ? '#e74c3c' : '#4e6087', border: `1px solid ${sent ? 'rgba(231,76,60,0.3)' : '#e3eaf5'}` }}>{sent ? 'Sent — process stopped' : 'Sending…'}</span>
                   </div>
                 </>
               )
@@ -836,20 +836,20 @@ function OnboardingDetail({ id, onBack }) {
     const [open, setOpen] = useState(false)
     return (
       <div style={{ marginBottom: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#27ae60', border: '1px solid #27ae60' }} />
-          <span style={{ fontSize: '12px', color: '#27ae60' }}>Revenue share proposal submitted</span>
-          <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Done</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#1b9254', border: '1px solid #1b9254' }} />
+          <span style={{ fontSize: '12px', color: '#16264a', fontWeight: 600 }}>Revenue share proposal submitted</span>
+          <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>
         </div>
-        <div onClick={() => setOpen(o => !o)} style={{ fontSize: '11px', color: '#5b9fe6', cursor: 'pointer', marginTop: '4px' }}>{open ? '▼ Hide proposal' : '▶ View proposal'}</div>
+        <div onClick={() => setOpen(o => !o)} style={{ fontSize: '11px', color: '#0095ff', fontWeight: 600, cursor: 'pointer', marginTop: '4px' }}>{open ? '▼ Hide proposal' : '▶ View proposal'}</div>
         {open && (
           <div style={{ marginTop: '6px' }}>
-            <div style={{ fontSize: '10px', color: '#5b9fe6', fontWeight: 600, marginBottom: '3px' }}>{edited ? 'Original submission' : 'Submitted proposal'}</div>
-            <div style={{ fontSize: '12px', color: '#8bacc8', lineHeight: '1.6', whiteSpace: 'pre-wrap', padding: '8px 12px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>{notes || '—'}</div>
+            <div style={{ fontSize: '10px', color: '#0095ff', fontWeight: 600, marginBottom: '3px' }}>{edited ? 'Original submission' : 'Submitted proposal'}</div>
+            <div style={{ fontSize: '12px', color: '#4e6087', lineHeight: '1.6', whiteSpace: 'pre-wrap', padding: '8px 12px', borderRadius: '6px', background: '#eef2f9', border: '1px solid #dde5f2' }}>{notes || '—'}</div>
             {edited && (
               <>
-                <div style={{ fontSize: '10px', color: '#27ae60', fontWeight: 600, margin: '8px 0 3px' }}>Edited final version</div>
-                <div style={{ fontSize: '12px', color: '#8bacc8', lineHeight: '1.6', whiteSpace: 'pre-wrap', padding: '8px 12px', borderRadius: '6px', background: 'rgba(39,174,96,0.06)', border: '1px solid rgba(39,174,96,0.2)' }}>{edited}</div>
+                <div style={{ fontSize: '10px', color: '#4e6087', fontWeight: 600, margin: '8px 0 3px' }}>Edited final version</div>
+                <div style={{ fontSize: '12px', color: '#4e6087', lineHeight: '1.6', whiteSpace: 'pre-wrap', padding: '8px 12px', borderRadius: '6px', background: 'rgba(27,146,84,0.06)', border: '1px solid rgba(27,146,84,0.2)' }}>{edited}</div>
               </>
             )}
           </div>
@@ -872,15 +872,15 @@ function OnboardingDetail({ id, onBack }) {
     }
 
     return (
-      <div style={{ padding: '12px 14px', borderRadius: '8px', border: `1px solid ${done ? 'rgba(39,174,96,0.3)' : 'rgba(243,156,18,0.3)'}`, background: 'rgba(255,255,255,0.02)', marginBottom: '12px' }}>
+      <div style={{ padding: '12px 14px', borderRadius: '8px', border: `1px solid ${done ? 'rgba(27,146,84,0.3)' : 'rgba(251,137,90,0.3)'}`, background: '#eef2f9', marginBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <span style={{ fontSize: '13px', color: '#fff', fontWeight: '600' }}>{label} <span style={{ color: '#8bacc8', fontWeight: 400 }}>({who}){hint ? ` — ${hint}` : ''}</span></span>
+          <span style={{ fontSize: '13px', color: '#16264a', fontWeight: '600' }}>{label} <span style={{ color: '#4e6087', fontWeight: 400 }}>({who}){hint ? ` — ${hint}` : ''}</span></span>
           {done
-            ? <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', marginLeft: 'auto' }}>Completed</span>
-            : <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(243,156,18,0.15)', color: '#f39c12', marginLeft: 'auto' }}>Awaiting notes</span>}
+            ? <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Completed</span>
+            : <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(251,137,90,0.15)', color: '#e06717', fontWeight: 600, marginLeft: 'auto' }}>Awaiting notes</span>}
         </div>
-        <textarea value={text} onChange={e => setText(e.target.value)} placeholder={placeholder} rows={4} disabled={isStopped} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '8px' }} />
-        <ActionButton label={justSaved ? '✓ Saved' : saving ? 'Saving...' : done ? 'Update notes' : 'Save notes'} onClick={handleSave} color={done ? '#27ae60' : '#5b9fe6'} disabled={!text.trim() || saving} />
+        <textarea value={text} onChange={e => setText(e.target.value)} placeholder={placeholder} rows={4} disabled={isStopped} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '8px' }} />
+        <ActionButton label={justSaved ? '✓ Saved' : saving ? 'Saving...' : done ? 'Update notes' : 'Save notes'} onClick={handleSave} color={done ? '#1b9254' : '#0095ff'} disabled={!text.trim() || saving} />
       </div>
     )
   }
@@ -897,23 +897,23 @@ function OnboardingDetail({ id, onBack }) {
           const value = getVote(stage, voter, round)
           const isMe = myExec === voter
           const revealed = voted && value != null
-          const color = value === 'Approved' ? '#27ae60' : value === 'Denied' ? '#e74c3c' : '#f39c12'
+          const color = value === 'Approved' ? '#1b9254' : value === 'Denied' ? '#e74c3c' : '#e06717'
           return (
-            <div key={voter} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-              <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '8px' }}>{voter}{isMe && <span style={{ color: '#5b9fe6' }}> (you)</span>}</div>
+            <div key={voter} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #ebf0f8', background: '#eef2f9' }}>
+              <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '8px' }}>{voter}{isMe && <span style={{ color: '#0095ff' }}> (you)</span>}</div>
               {revealed ? (
                 <span style={{ fontSize: '12px', color, fontWeight: 600 }}>{value === 'Approved' ? '✓ ' : value === 'Denied' ? '✗ ' : '⚠ '}{value}</span>
               ) : voted ? (
-                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.25)' }}>Voted — awaiting other executive</span>
+                <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.25)' }}>Voted — awaiting other executive</span>
               ) : isMe ? (
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {options.map(opt => {
-                    const oc = opt === 'Approved' ? '#27ae60' : opt === 'Denied' ? '#e74c3c' : '#f39c12'
-                    return <button key={opt} onClick={async () => { if (pending) return; setPending(opt); try { await castExecVote(stage, round, opt) } finally { setPending(null) } }} disabled={!!pending} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '11px', cursor: pending ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', background: `${oc}22`, border: `1px solid ${oc}66`, color: oc, opacity: pending ? 0.6 : 1 }}>{pending === opt ? 'Saving…' : opt}</button>
+                    const oc = opt === 'Approved' ? '#1b9254' : opt === 'Denied' ? '#e74c3c' : '#e06717'
+                    return <button key={opt} onClick={async () => { if (pending) return; setPending(opt); try { await castExecVote(stage, round, opt) } finally { setPending(null) } }} disabled={!!pending} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '11px', cursor: pending ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', background: `${oc}22`, border: `1px solid ${oc}66`, color: oc, opacity: pending ? 0.6 : 1 }}>{pending === opt ? 'Saving…' : opt}</button>
                   })}
                 </div>
               ) : (
-                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8', border: '1px solid rgba(255,255,255,0.1)' }}>Awaiting response</span>
+                <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>Awaiting response</span>
               )}
             </div>
           )
@@ -928,15 +928,15 @@ function OnboardingDetail({ id, onBack }) {
     const [open, setOpen] = useState(false)
     const sifData = ob.sif_data || {}
     const isTax = sifData.is_tax_specialist === 'Yes'
-    const lblStyle = { fontSize: '10px', fontWeight: 700, color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }
-    const valStyle = { fontSize: '12px', color: '#fff', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: '10px' }
-    const grpStyle = { fontSize: '14px', fontWeight: 700, color: '#fff', letterSpacing: '0.3px', margin: '20px 0 12px', paddingBottom: '6px', borderBottom: '2px solid rgba(91,159,230,0.55)' }
+    const lblStyle = { fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }
+    const valStyle = { fontSize: '12px', color: '#16264a', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: '10px' }
+    const grpStyle = { fontSize: '14px', fontWeight: 700, color: '#16264a', letterSpacing: '0.3px', margin: '20px 0 12px', paddingBottom: '6px', borderBottom: '2px solid rgba(0,149,255,0.55)' }
     const item = (label, value, key) => (<div key={key} style={{ marginBottom: '10px' }}><div style={lblStyle}>{label}</div><div style={{ ...valStyle, marginBottom: 0 }}>{value ? value : '—'}</div></div>)
     return (
       <div style={{ marginBottom: '14px' }}>
-        <div onClick={() => setOpen(o => !o)} style={{ fontSize: '12px', color: '#5b9fe6', cursor: 'pointer', fontWeight: 600 }}>{open ? '▼ Hide details' : '▶ View details'}</div>
+        <div onClick={() => setOpen(o => !o)} style={{ fontSize: '12px', color: '#0095ff', cursor: 'pointer', fontWeight: 600 }}>{open ? '▼ Hide details' : '▶ View details'}</div>
         {open && (
-          <div style={{ marginTop: '8px', padding: '12px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ marginTop: '8px', padding: '12px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2' }}>
             <div style={{ ...grpStyle, marginTop: 0 }}>SIF answers</div>
             {SIF_FIELDS.map(([k, label]) => item(label, sifData[k], k))}
             {item('Tax Specialist?', sifData.is_tax_specialist, 'taxflag')}
@@ -966,9 +966,9 @@ function OnboardingDetail({ id, onBack }) {
     const isTax = ob.sif_data?.is_tax_specialist === 'Yes'
     const tracyNotes = progress['4-tracy_general_notes']?.notes || '—'
     const timNotes = progress['4-tim_tax_risk_notes']?.notes || '—'
-    const lblStyle = { fontSize: '10px', fontWeight: 700, color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }
-    const valStyle = { fontSize: '12px', color: '#fff', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: '10px' }
-    const grpStyle = { fontSize: '14px', fontWeight: 700, color: '#fff', letterSpacing: '0.3px', margin: '20px 0 12px', paddingBottom: '6px', borderBottom: '2px solid rgba(91,159,230,0.55)' }
+    const lblStyle = { fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }
+    const valStyle = { fontSize: '12px', color: '#16264a', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: '10px' }
+    const grpStyle = { fontSize: '14px', fontWeight: 700, color: '#16264a', letterSpacing: '0.3px', margin: '20px 0 12px', paddingBottom: '6px', borderBottom: '2px solid rgba(0,149,255,0.55)' }
     async function openFile(path) {
       try { const r = await callApi('automation_SPECIALIST_ddcdownload', { onboarding_id: id, path }); if (r?.url) window.open(r.url, '_blank', 'noopener') } catch (err) { console.error(err) }
     }
@@ -995,9 +995,9 @@ function OnboardingDetail({ id, onBack }) {
     ].filter(([, f]) => f.length)
     return (
       <div style={{ marginBottom: '14px' }}>
-        <div onClick={() => setOpen(o => !o)} style={{ fontSize: '12px', color: '#5b9fe6', cursor: 'pointer', fontWeight: 600 }}>{open ? '▼ Hide details' : '▶ View details'}</div>
+        <div onClick={() => setOpen(o => !o)} style={{ fontSize: '12px', color: '#0095ff', cursor: 'pointer', fontWeight: 600 }}>{open ? '▼ Hide details' : '▶ View details'}</div>
         {open && (
-          <div style={{ marginTop: '8px', padding: '12px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ marginTop: '8px', padding: '12px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2' }}>
             <div style={{ ...grpStyle, marginTop: 0 }}>Background check</div>
             <div style={valStyle}>Passed — {bgType} check</div>
             <div style={grpStyle}>Due Diligence Checklist</div>
@@ -1008,7 +1008,7 @@ function OnboardingDetail({ id, onBack }) {
                 <div style={lblStyle}>{label}</div>
                 {files.map((f, i) => (
                   <div key={i} style={{ fontSize: '12px', padding: '2px 0' }}>
-                    <span onClick={() => openFile(f.path)} style={{ color: '#5b9fe6', cursor: 'pointer', textDecoration: 'underline' }}>📄 {f.name}</span>
+                    <span onClick={() => openFile(f.path)} style={{ color: '#0095ff', cursor: 'pointer', textDecoration: 'underline' }}>📄 {f.name}</span>
                   </div>
                 ))}
               </div>
@@ -1117,13 +1117,13 @@ function OnboardingDetail({ id, onBack }) {
 
     // Stage 3 rollup bullet: green = complete, red = problem, grey = waiting.
     const progressBullet = (label, state, pill) => {
-      const c = state === 'green' ? '#27ae60' : state === 'red' ? '#e74c3c' : '#5a8ab5'
+      const c = state === 'green' ? '#1b9254' : state === 'red' ? '#e74c3c' : '#697a9c'
       const grey = state === 'grey'
       return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: grey ? 'transparent' : c, border: `1px solid ${grey ? 'rgba(255,255,255,0.25)' : c}` }} />
-          <span style={{ fontSize: '12px', color: grey ? '#8bacc8' : c }}>{label}</span>
-          <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: grey ? 'rgba(255,255,255,0.06)' : `${c}26`, color: grey ? '#8bacc8' : c }}>{pill}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: grey ? 'transparent' : c, border: `1px solid ${grey ? '#bac9e1' : c}` }} />
+          <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
+          <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: grey ? '#eef2f9' : `${c}26`, border: grey ? '1px solid #dde5f2' : `1px solid ${c}44`, color: grey ? '#4e6087' : c }}>{pill}</span>
         </div>
       )
     }
@@ -1169,17 +1169,17 @@ function OnboardingDetail({ id, onBack }) {
         {/* Appears once the specialist asks questions, and STAYS as a paper trail:
             action buttons while unresolved, then the outcome pill once resolved. */}
         {fqRequested && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-            <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: fqResolved ? '#27ae60' : '#f39c12', border: `1px solid ${fqResolved ? '#27ae60' : '#f39c12'}` }} />
-            <span style={{ fontSize: '12px', color: fqResolved ? '#27ae60' : '#fff' }}>Answer the specialist's background check questions</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: fqResolved ? '#1b9254' : '#e06717', border: `1px solid ${fqResolved ? '#1b9254' : '#e06717'}` }} />
+            <span style={{ fontSize: '12px', color: '#16264a' }}>Answer the specialist's background check questions</span>
             <span style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
               {fqResolved ? (
                 ob.further_questions_resolution === 'Stop'
-                  ? <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c' }}>Stopped</span>
-                  : <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Questions answered</span>
+                  ? <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600 }}>Stopped</span>
+                  : <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Questions answered</span>
               ) : (
                 <>
-                  <ActionButton label={fqPending === 'Proceed' ? 'Sending…' : 'Questions answered'} onClick={() => resolveQuestions('Proceed')} color="#27ae60" disabled={!!fqPending} />
+                  <ActionButton label={fqPending === 'Proceed' ? 'Sending…' : 'Questions answered'} onClick={() => resolveQuestions('Proceed')} color="#1b9254" disabled={!!fqPending} />
                   <ActionButton label={fqPending === 'Stop' ? 'Sending…' : 'Stop'} onClick={() => resolveQuestions('Stop')} color="#e74c3c" disabled={!!fqPending} />
                 </>
               )}
@@ -1188,17 +1188,17 @@ function OnboardingDetail({ id, onBack }) {
         )}
 
         {/* Specialist background check choice (Core/Max) — "Questions asked" pill if they asked first. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgChosen ? '#27ae60' : 'transparent', border: `1px solid ${bgChosen ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
-          <span style={{ fontSize: '12px', color: bgChosen ? '#27ae60' : '#8bacc8' }}>Specialist background check choice</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgChosen ? '#1b9254' : 'transparent', border: `1px solid ${bgChosen ? '#1b9254' : '#c7d4e8'}` }} />
+          <span style={{ fontSize: '12px', color: '#16264a' }}>Specialist background check choice</span>
           <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px', alignItems: 'center' }}>
             {bgChosen ? (
               <>
-                <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6' }}>{ob.background_check_type}</span>
-                <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Done</span>
+                <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600 }}>{ob.background_check_type}</span>
+                <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>
               </>
             ) : (
-              <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not completed</span>
+              <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not completed</span>
             )}
           </span>
         </div>
@@ -1207,54 +1207,54 @@ function OnboardingDetail({ id, onBack }) {
         <AutoStep done={bgPaid} label="Payment cleared — receipt, next steps, and DD checklist sent" />
 
         {/* ── Background Check ── */}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
         <SectionLabel>Background Check</SectionLabel>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgInitiated ? '#27ae60' : 'transparent', border: `1px solid ${bgInitiated ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
-          <span style={{ fontSize: '12px', color: bgInitiated ? '#27ae60' : '#8bacc8' }}>Background check sent{ob.background_check_type ? ` to ${ob.background_check_type === 'Max' ? 'Scherzer International' : 'Checkr'}` : ''}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgInitiated ? '#1b9254' : 'transparent', border: `1px solid ${bgInitiated ? '#1b9254' : '#c7d4e8'}` }} />
+          <span style={{ fontSize: '12px', color: '#16264a' }}>Background check sent{ob.background_check_type ? ` to ${ob.background_check_type === 'Max' ? 'Scherzer International' : 'Checkr'}` : ''}</span>
           <span style={{ marginLeft: 'auto' }}>
             {bgInitiated
-              ? <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Done</span>
-              : <ActionButton label="Mark as sent" onClick={() => saveProgress(3, 'bg_initiated', 'completed')} color="#27ae60" />}
+              ? <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>
+              : <ActionButton label="Mark as sent" onClick={() => saveProgress(3, 'bg_initiated', 'completed')} color="#1b9254" />}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgResult ? (bgDone ? '#27ae60' : '#e74c3c') : 'transparent', border: `1px solid ${bgResult ? (bgDone ? '#27ae60' : '#e74c3c') : 'rgba(255,255,255,0.2)'}` }} />
-          <span style={{ fontSize: '12px', color: bgResult ? (bgDone ? '#27ae60' : '#e74c3c') : '#8bacc8' }}>Background check results</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgResult ? (bgDone ? '#1b9254' : '#e74c3c') : 'transparent', border: `1px solid ${bgResult ? (bgDone ? '#1b9254' : '#e74c3c') : '#c7d4e8'}` }} />
+          <span style={{ fontSize: '12px', color: '#16264a' }}>Background check results</span>
           <span style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
             {!bgResult ? (
               <>
-                <ActionButton label="Passed" onClick={async () => { await saveProgress(3, 'bg_results_received', 'passed'); await loadDetail() }} color="#27ae60" />
+                <ActionButton label="Passed" onClick={async () => { await saveProgress(3, 'bg_results_received', 'passed'); await loadDetail() }} color="#1b9254" />
                 <ActionButton label="Failed" onClick={() => { saveProgress(3, 'bg_results_received', 'failed'); stopOnboarding() }} color="#e74c3c" />
               </>
             ) : bgDone ? (
-              <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Passed</span>
+              <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Passed</span>
             ) : (
-              <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c' }}>Failed</span>
+              <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600 }}>Failed</span>
             )}
           </span>
         </div>
         {bgFailed && (
           <div style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'rgba(231,76,60,0.06)', marginBottom: '10px' }}>
-            <span style={{ fontSize: '12px', color: '#e74c3c' }}>✗ Background check failed — onboarding stopped</span>
+            <span style={{ fontSize: '12px', color: '#e74c3c', fontWeight: 600 }}>✗ Background check failed — onboarding stopped</span>
           </div>
         )}
 
         {/* ── Due Diligence Checklist ── */}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
         <SectionLabel>Due Diligence Checklist</SectionLabel>
 
         <AutoStep done={ddcEmailed} label="Due diligence checklist emailed to client (Along with Final Revenue Share Proposal)" />
 
         {/* Help requested — same paper-trail format as the Core/Max questions step */}
         {helpRequested && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-            <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: helpResolved ? '#27ae60' : '#f39c12', border: `1px solid ${helpResolved ? '#27ae60' : '#f39c12'}` }} />
-            <span style={{ fontSize: '12px', color: helpResolved ? '#27ae60' : '#fff' }}>Answer the specialist's checklist questions</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: helpResolved ? '#1b9254' : '#e06717', border: `1px solid ${helpResolved ? '#1b9254' : '#e06717'}` }} />
+            <span style={{ fontSize: '12px', color: '#16264a' }}>Answer the specialist's checklist questions</span>
             <span style={{ marginLeft: 'auto' }}>
               {helpResolved
-                ? <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Help received</span>
-                : <ActionButton label="Help received" onClick={() => saveProgress(3, 'ddc_help_resolved', 'completed')} color="#27ae60" />}
+                ? <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Help received</span>
+                : <ActionButton label="Help received" onClick={() => saveProgress(3, 'ddc_help_resolved', 'completed')} color="#1b9254" />}
             </span>
           </div>
         )}
@@ -1262,22 +1262,22 @@ function OnboardingDetail({ id, onBack }) {
         {/* Checklist progress — grouped by the form's sections + question order.
             Collapsed: a section→question checklist. Expanded ("View answers"):
             each filled question's text + file downloads shown inline, in order. */}
-        <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', margin: '8px 0 12px' }}>
+        <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ebf0f8', background: '#eef2f9', margin: '8px 0 12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-            <span style={{ fontSize: '12px', color: '#fff', fontWeight: '600' }}>Checklist progress</span>
-            <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{ddFilled}/{ddTotal} answered</span>
+            <span style={{ fontSize: '12px', color: '#16264a', fontWeight: '600' }}>Checklist progress</span>
+            <span style={{ fontSize: '11px', color: '#697a9c' }}>{ddFilled}/{ddTotal} answered</span>
           </div>
           {ddFilled > 0 && (
-            <div style={{ marginBottom: '6px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <span onClick={() => setShowSubmission(s => !s)} style={{ fontSize: '11px', color: '#5b9fe6', cursor: 'pointer' }}>{showSubmission ? '▼ Hide answers' : '▶ View answers'}</span>
+            <div style={{ marginBottom: '6px', paddingBottom: '8px', borderBottom: '1px solid #e9eef8' }}>
+              <span onClick={() => setShowSubmission(s => !s)} style={{ fontSize: '11px', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>{showSubmission ? '▼ Hide answers' : '▶ View answers'}</span>
             </div>
           )}
           {ddcLayout.map(([section, items]) => (
             <div key={section} style={{ marginTop: '10px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: '4px' }}>{section}</div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: '4px' }}>{section}</div>
               {items.map((it, idx) => {
                 if (it.subheading) return (
-                  <div key={`sh-${idx}`} style={{ fontSize: '11px', color: '#8bacc8', fontStyle: 'italic', margin: '5px 0 2px 14px' }}>{it.subheading}</div>
+                  <div key={`sh-${idx}`} style={{ fontSize: '11px', color: '#4e6087', fontStyle: 'italic', margin: '5px 0 2px 14px' }}>{it.subheading}</div>
                 )
                 const filled = ddItemFilled(it)
                 const text = ddItemText(it)
@@ -1285,17 +1285,17 @@ function OnboardingDetail({ id, onBack }) {
                 return (
                   <div key={it.label} style={{ marginLeft: it.indent ? '14px' : 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0' }}>
-                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: filled ? '#27ae60' : 'transparent', border: `1px solid ${filled ? '#27ae60' : 'rgba(255,255,255,0.25)'}`, flexShrink: 0 }} />
-                      <span style={{ fontSize: '12px', color: filled ? '#cfe0f0' : '#6b8299' }}>{it.label}</span>
-                      {filled && <span style={{ fontSize: '11px', color: '#27ae60', marginLeft: 'auto' }}>Entered</span>}
+                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: filled ? '#1b9254' : 'transparent', border: `1px solid ${filled ? '#1b9254' : '#bac9e1'}`, flexShrink: 0 }} />
+                      <span style={{ fontSize: '12px', color: filled ? '#3c4f73' : '#6c7a96' }}>{it.label}</span>
+                      {filled && <span style={{ fontSize: '11px', color: '#16264a', fontWeight: 600, marginLeft: 'auto' }}>Entered</span>}
                     </div>
                     {showSubmission && filled && (
                       <div style={{ margin: '2px 0 8px 14px' }}>
-                        {text && <div style={{ fontSize: '12px', color: '#cfe0f0', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: files.length ? '4px' : 0 }}>{text}</div>}
+                        {text && <div style={{ fontSize: '12px', color: '#3c4f73', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: files.length ? '4px' : 0 }}>{text}</div>}
                         {files.map((f, i) => (
                           <div key={i} style={{ fontSize: '12px', padding: '2px 0' }}>
-                            <span onClick={() => openFile(f.path)} style={{ color: '#5b9fe6', cursor: 'pointer', textDecoration: 'underline' }}>📄 {f.name}</span>
-                            {f.size ? <span style={{ color: '#5a8ab5' }}> · {Math.max(1, Math.round(f.size / 1024))} KB</span> : null}
+                            <span onClick={() => openFile(f.path)} style={{ color: '#0095ff', cursor: 'pointer', textDecoration: 'underline' }}>📄 {f.name}</span>
+                            {f.size ? <span style={{ color: '#697a9c' }}> · {Math.max(1, Math.round(f.size / 1024))} KB</span> : null}
                           </div>
                         ))}
                       </div>
@@ -1312,19 +1312,19 @@ function OnboardingDetail({ id, onBack }) {
         {/* Review paper trail — every approve/deny round, oldest first */}
         {reviewLog.filter(e => e.type === 'denied' || e.type === 'approved').map((e, i) => (
           e.type === 'approved' ? (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#27ae60', border: '1px solid #27ae60' }} />
-              <span style={{ fontSize: '12px', color: '#27ae60' }}>Due Diligence Checklist approved</span>
-              <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Approved</span>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#1b9254', border: '1px solid #1b9254' }} />
+              <span style={{ fontSize: '12px', color: '#16264a', fontWeight: 600 }}>Due Diligence Checklist approved</span>
+              <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Approved</span>
             </div>
           ) : (
-            <div key={i} style={{ padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <div key={i} style={{ padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#e74c3c', border: '1px solid #e74c3c' }} />
-                <span style={{ fontSize: '12px', color: '#e74c3c' }}>Due Diligence Checklist denied</span>
-                <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c' }}>Denied</span>
+                <span style={{ fontSize: '12px', color: '#e74c3c', fontWeight: 600 }}>Due Diligence Checklist denied</span>
+                <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600 }}>Denied</span>
               </div>
-              {e.reason && <div style={{ fontSize: '11px', color: '#8bacc8', whiteSpace: 'pre-wrap', lineHeight: 1.5, margin: '4px 0 0 14px', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>{e.reason}</div>}
+              {e.reason && <div style={{ fontSize: '11px', color: '#4e6087', whiteSpace: 'pre-wrap', lineHeight: 1.5, margin: '4px 0 0 14px', padding: '6px 10px', background: '#eef2f9', borderRadius: '6px', border: '1px solid #dde5f2' }}>{e.reason}</div>}
             </div>
           )
         ))}
@@ -1333,14 +1333,14 @@ function OnboardingDetail({ id, onBack }) {
         {ddcReview === 'pending_review' && (
           <div style={{ padding: '6px 0 0' }}>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '12px', color: '#fff', flex: 1 }}>Due Diligence Checklist approved?</span>
-              <ActionButton label={ddcBusy === 'approve' ? 'Sending…' : 'Approved'} onClick={approveDdc} color="#27ae60" disabled={!!ddcBusy} />
+              <span style={{ fontSize: '12px', color: '#16264a', flex: 1 }}>Due Diligence Checklist approved?</span>
+              <ActionButton label={ddcBusy === 'approve' ? 'Sending…' : 'Approved'} onClick={approveDdc} color="#1b9254" disabled={!!ddcBusy} />
               <ActionButton label="Denied" onClick={() => setShowEdits(s => !s)} color="#e74c3c" disabled={!!ddcBusy} />
             </div>
             {showEdits && (
-              <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.3)', background: 'rgba(255,255,255,0.02)' }}>
-                <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '8px' }}>Reason — included in the email the specialist receives</div>
-                <textarea value={editsReason} onChange={e => setEditsReason(e.target.value)} placeholder="Explain what needs to be changed or added…" rows={4} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
+              <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.3)', background: '#eef2f9' }}>
+                <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '8px' }}>Reason — included in the email the specialist receives</div>
+                <textarea value={editsReason} onChange={e => setEditsReason(e.target.value)} placeholder="Explain what needs to be changed or added…" rows={4} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
                 <div style={{ marginTop: '8px' }}>
                   <ActionButton label={ddcBusy === 'edits' ? 'Sending…' : 'Send to specialist'} onClick={sendEdits} color="#e74c3c" disabled={!!ddcBusy || !editsReason.trim()} />
                 </div>
@@ -1350,7 +1350,7 @@ function OnboardingDetail({ id, onBack }) {
         )}
 
         {/* ── Final revenue share proposal ── */}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
         <SectionLabel>Final revenue share proposal</SectionLabel>
 
         <AutoStep done={revEmailed} label="Revenue share proposal emailed to client (Along with DD Checklist)" />
@@ -1360,15 +1360,15 @@ function OnboardingDetail({ id, onBack }) {
         {revResponse === 'Further Questions' && !revFinalized && (
           <div style={{ padding: '8px 0 4px 14px' }}>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <ActionButton label={revBusy === 'keep' ? 'Saving…' : 'Confirm revenue share proposal'} onClick={keepRevShare} color="#27ae60" disabled={!!revBusy} />
-              <ActionButton label="Edit revenue share proposal" onClick={() => { setRevEditText(revFinalText); setShowRevEdit(s => !s) }} color="#5b9fe6" disabled={!!revBusy} />
+              <ActionButton label={revBusy === 'keep' ? 'Saving…' : 'Confirm revenue share proposal'} onClick={keepRevShare} color="#1b9254" disabled={!!revBusy} />
+              <ActionButton label="Edit revenue share proposal" onClick={() => { setRevEditText(revFinalText); setShowRevEdit(s => !s) }} color="#0095ff" disabled={!!revBusy} />
             </div>
             {showRevEdit && (
-              <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(91,159,230,0.3)', background: 'rgba(255,255,255,0.02)' }}>
-                <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '8px' }}>Edit the revenue share proposal — submitting locks it in as final.</div>
-                <textarea value={revEditText} onChange={e => setRevEditText(e.target.value)} rows={5} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
+              <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.3)', background: '#eef2f9' }}>
+                <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '8px' }}>Edit the revenue share proposal — submitting locks it in as final.</div>
+                <textarea value={revEditText} onChange={e => setRevEditText(e.target.value)} rows={5} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
                 <div style={{ marginTop: '8px' }}>
-                  <ActionButton label={revBusy === 'edit' ? 'Saving…' : 'Submit & make final'} onClick={submitRevEdit} color="#27ae60" disabled={!!revBusy || !revEditText.trim()} />
+                  <ActionButton label={revBusy === 'edit' ? 'Saving…' : 'Submit & make final'} onClick={submitRevEdit} color="#1b9254" disabled={!!revBusy || !revEditText.trim()} />
                 </div>
               </div>
             )}
@@ -1377,13 +1377,13 @@ function OnboardingDetail({ id, onBack }) {
 
         {revFinalDone && revFinalText && (
           <div style={{ padding: '4px 0 0 14px' }}>
-            <span onClick={() => setShowRevProp(s => !s)} style={{ fontSize: '11px', color: '#5b9fe6', cursor: 'pointer' }}>{showRevProp ? '▼ Hide final proposal' : '▶ View final proposal'}</span>
-            {showRevProp && <div style={{ fontSize: '12px', color: '#8bacc8', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginTop: '6px', padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>{revFinalText}</div>}
+            <span onClick={() => setShowRevProp(s => !s)} style={{ fontSize: '11px', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>{showRevProp ? '▼ Hide final proposal' : '▶ View final proposal'}</span>
+            {showRevProp && <div style={{ fontSize: '12px', color: '#4e6087', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginTop: '6px', padding: '8px 10px', background: '#eef2f9', borderRadius: '6px', border: '1px solid #dde5f2' }}>{revFinalText}</div>}
           </div>
         )}
 
         {/* ── Stage 3 progress ── */}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
         <SectionLabel>Stage 3 progress</SectionLabel>
         {progressBullet('Background check', bgDone ? 'green' : bgFailed ? 'red' : 'grey', bgDone ? 'Passed' : bgFailed ? 'Failed' : 'Waiting')}
         {progressBullet('Due Diligence Checklist', ddcApproved ? 'green' : ddcEditsRequested ? 'red' : 'grey', ddcApproved ? 'Approved' : ddcEditsRequested ? 'Denied' : 'Waiting')}
@@ -1406,15 +1406,15 @@ function OnboardingDetail({ id, onBack }) {
     const r2BothApproved = r2BothVoted && getVote(4, 'Anton Anderson', 2) === 'Approved' && getVote(4, 'Paul Latham', 2) === 'Approved'
     const r2BothDenied = r2BothVoted && getVote(4, 'Anton Anderson', 2) === 'Denied' && getVote(4, 'Paul Latham', 2) === 'Denied'
     const denied4 = r2BothDenied
-    const approvedBanner = { fontSize: '12px', color: '#27ae60', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(39,174,96,0.3)', background: 'rgba(39,174,96,0.06)', marginBottom: '8px' }
+    const approvedBanner = { fontSize: '12px', color: '#1b9254', fontWeight: 600, padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(27,146,84,0.3)', background: 'rgba(27,146,84,0.06)', marginBottom: '8px' }
     return (
       <>
         <ReviewerNotesSection stage={4} />
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
 
         <SectionLabel>Final executive approval</SectionLabel>
         {!votingOpen ? (
-          <div style={{ fontSize: '12px', color: '#8bacc8', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.02)', marginBottom: '12px' }}>
+          <div style={{ fontSize: '12px', color: '#4e6087', padding: '10px 12px', borderRadius: '6px', border: '1px solid #dde5f2', background: '#eef2f9', marginBottom: '12px' }}>
             Voting opens once {timRequired4 ? "Tracy's and Tim's notes are" : "Tracy's notes are"} complete.
           </div>
         ) : (
@@ -1424,7 +1424,7 @@ function OnboardingDetail({ id, onBack }) {
             {r1BothApproved && <div style={approvedBanner}>✓ Both executives approved.</div>}
             {r1AnyFurther && (
               <>
-                <div style={{ fontSize: '12px', color: '#f39c12', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(243,156,18,0.3)', background: 'rgba(243,156,18,0.06)', margin: '12px 0' }}>An executive raised further questions — a second decision is needed after discussion.</div>
+                <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(251,137,90,0.3)', background: 'rgba(251,137,90,0.06)', margin: '12px 0' }}>An executive raised further questions — a second decision is needed after discussion.</div>
                 <SectionLabel>Executive decision (after discussion)</SectionLabel>
                 <ExecVoteRow stage={4} round={2} options={['Approved', 'Denied']} myExec={myExec} />
                 {r2BothApproved && <div style={approvedBanner}>✓ Both executives approved.</div>}
@@ -1432,9 +1432,9 @@ function OnboardingDetail({ id, onBack }) {
             )}
           </>
         )}
-        {denied4 && <div style={{ fontSize: '12px', color: '#e74c3c', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'rgba(231,76,60,0.06)', margin: '12px 0' }}>Both executives denied — decline email drafted, process stopped.</div>}
+        {denied4 && <div style={{ fontSize: '12px', color: '#e74c3c', fontWeight: 600, padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'rgba(231,76,60,0.06)', margin: '12px 0' }}>Both executives denied — decline email drafted, process stopped.</div>}
 
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
 
         <SectionLabel>Specialist Onboarding Agreement &amp; Set up Licensing fee subscription</SectionLabel>
         <AutoStep done={!!getTaskStatus(4, 'agreement_sent')} label="Agreement sent" />
@@ -1459,12 +1459,12 @@ function OnboardingDetail({ id, onBack }) {
     }
 
     return (
-      <div style={{ padding: '10px 0 10px 26px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-        <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '6px' }}>Team member names</div>
+      <div style={{ padding: '10px 0 10px 26px', borderBottom: '1px solid #e9eef8' }}>
+        <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '6px' }}>Team member names</div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
-          <textarea value={names} onChange={e => { setNames(e.target.value); setSaved(false) }} placeholder="Enter team member names..." rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical' }} />
+          <textarea value={names} onChange={e => { setNames(e.target.value); setSaved(false) }} placeholder="Enter team member names..." rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <ActionButton label={saved ? '✓ Saved' : 'Save'} onClick={handleSave} color={saved ? '#27ae60' : '#5b9fe6'} disabled={saved} />
+            <ActionButton label={saved ? '✓ Saved' : 'Save'} onClick={handleSave} color={saved ? '#1b9254' : '#0095ff'} disabled={saved} />
           </div>
         </div>
       </div>
@@ -1482,9 +1482,9 @@ function OnboardingDetail({ id, onBack }) {
           }
           return (
             <div key={item.key}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                <span style={{ fontSize: '13px', color: '#fff' }}>{item.label}</span>
-                <select value={status || ''} onChange={e => e.target.value && saveProgress(5, item.key, e.target.value)} disabled={isStopped} style={{ ...inputStyle, minWidth: '120px', borderColor: status ? 'rgba(39,174,96,0.4)' : 'rgba(255,255,255,0.15)', color: status ? '#27ae60' : '#fff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #e9eef8' }}>
+                <span style={{ fontSize: '13px', color: '#16264a' }}>{item.label}</span>
+                <select value={status || ''} onChange={e => e.target.value && saveProgress(5, item.key, e.target.value)} disabled={isStopped} style={{ ...inputStyle, minWidth: '120px', borderColor: status ? 'rgba(27,146,84,0.4)' : '#d6e0ee', color: status ? '#1b9254' : '#16264a' }}>
                   <option value="">-- Select --</option>
                   {item.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
@@ -1496,13 +1496,13 @@ function OnboardingDetail({ id, onBack }) {
           )
         })}
  
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
  
         <SectionLabel>VFO Showroom</SectionLabel>
         {!getTaskStatus(5, 'added_to_showroom') ? (
-          <button onClick={() => { saveProgress(5, 'added_to_showroom', 'completed'); completeOnboarding() }} disabled={isStopped} style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: isStopped ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', width: '100%' }}>Add to VFO Showroom</button>
+          <button onClick={() => { saveProgress(5, 'added_to_showroom', 'completed'); completeOnboarding() }} disabled={isStopped} style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: isStopped ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', width: '100%' }}>Add to VFO Showroom</button>
         ) : (
-          <div style={{ fontSize: '13px', color: '#27ae60', fontWeight: '600', textAlign: 'center', padding: '10px' }}>✓ Added to VFO Showroom — Onboarding Complete</div>
+          <div style={{ fontSize: '13px', color: '#16264a', fontWeight: '600', textAlign: 'center', padding: '10px' }}>✓ Added to VFO Showroom — Onboarding Complete</div>
         )}
       </>
     )
@@ -1510,17 +1510,17 @@ function OnboardingDetail({ id, onBack }) {
  
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-      <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#5b9fe6', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0, fontFamily: 'DM Sans, sans-serif' }}>← Back to list</button>
+      <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0, fontFamily: 'Inter, sans-serif' }}>← Back to list</button>
  
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
         <div>
-          <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '22px', color: '#fff', marginBottom: '4px' }}>{ob.specialist_name}</div>
-          <div style={{ fontSize: '13px', color: '#8bacc8' }}>{ob.specialist_email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
+          <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a', marginBottom: '4px' }}>{ob.specialist_name}</div>
+          <div style={{ fontSize: '13px', color: '#4e6087' }}>{ob.specialist_email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          {isStopped && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', border: '1px solid rgba(231,76,60,0.3)' }}>Stopped</span>}
-          {isCompleted && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Completed</span>}
-          {!isStopped && !isCompleted && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>Stage {ob.current_stage} · {STAGE_NAMES[ob.current_stage]}</span>}
+          {isStopped && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600, border: '1px solid rgba(231,76,60,0.3)' }}>Stopped</span>}
+          {isCompleted && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Completed</span>}
+          {!isStopped && !isCompleted && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>Stage {ob.current_stage} · {STAGE_NAMES[ob.current_stage]}</span>}
         </div>
       </div>
  

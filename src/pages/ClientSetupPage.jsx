@@ -49,24 +49,24 @@ export default function ClientSetupPage() {
     finally { setSubmitting(false) }
   }
 
-  const wrap = { minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#073991',fontFamily:'DM Sans, sans-serif' }
-  const card = { background:'#0d2a6e',padding:'40px',borderRadius:'16px',width:'380px',border:'1px solid rgba(255,255,255,0.1)',color:'#fff' }
-  const input = { padding:'10px 14px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.15)',background:'rgba(255,255,255,0.06)',color:'#fff',fontSize:'14px',width:'100%',boxSizing:'border-box' }
+  const wrap = { minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#f4f7fd',fontFamily:'Inter, sans-serif' }
+  const card = { background:'#ffffff',padding:'40px',borderRadius:'16px',width:'380px',border:'1px solid #e3eaf5',color:'#16264a' }
+  const input = { padding:'10px 14px',borderRadius:'8px',border:'1px solid #d6e0ee',background:'#f7f9fc',color:'#16264a',fontSize:'14px',width:'100%',boxSizing:'border-box' }
 
   if (status === 'loading') return <div style={wrap}><div style={card}>Loading…</div></div>
   if (status === 'invalid') return <div style={wrap}><div style={card}>This setup link is invalid or has expired. Please contact us for a new one.</div></div>
-  if (status === 'already_setup') return <div style={wrap}><div style={card}><p>Your login is already set up.</p><button onClick={()=>navigate('/client/login')} style={{...input,background:'#2563eb',cursor:'pointer',marginTop:'12px'}}>Go to login</button></div></div>
+  if (status === 'already_setup') return <div style={wrap}><div style={card}><p>Your login is already set up.</p><button onClick={()=>navigate('/client/login')} style={{...input,background:'#125ecc',cursor:'pointer',marginTop:'12px'}}>Go to login</button></div></div>
 
   return (
     <div style={wrap}>
       <div style={card}>
-        <h2 style={{fontFamily:'Playfair Display, serif',marginBottom:'6px',fontSize:'23px'}}>Set Up Your Portal Login</h2>
-        <p style={{color:'#8bacc8',fontSize:'13px',marginBottom:'20px'}}>{data?.client_name} · {data?.email}</p>
+        <h2 style={{fontFamily:'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em',marginBottom:'6px',fontSize:'23px'}}>Set Up Your Portal Login</h2>
+        <p style={{color:'#4e6087',fontSize:'13px',marginBottom:'20px'}}>{data?.client_name} · {data?.email}</p>
         <form onSubmit={handleSubmit} style={{display:'flex',flexDirection:'column',gap:'12px'}}>
           <input value={passcode} onChange={e=>setPasscode(e.target.value)} placeholder="Choose a passcode (min 6 chars)" type="password" required style={input} />
           <input value={confirm} onChange={e=>setConfirm(e.target.value)} placeholder="Confirm passcode" type="password" required style={input} />
-          {error && <p style={{color:'#ff6b6b',fontSize:'13px',margin:0}}>{error}</p>}
-          <button type="submit" disabled={submitting} style={{...input,background:'#2563eb',cursor:'pointer',fontWeight:500,marginTop:'4px'}}>{submitting ? 'Creating…' : 'Create Login'}</button>
+          {error && <p style={{color:'#d93025', fontWeight: 500,fontSize:'13px',margin:0}}>{error}</p>}
+          <button type="submit" disabled={submitting} style={{...input,background:'#125ecc',cursor:'pointer',fontWeight:500,marginTop:'4px'}}>{submitting ? 'Creating…' : 'Create Login'}</button>
         </form>
       </div>
     </div>

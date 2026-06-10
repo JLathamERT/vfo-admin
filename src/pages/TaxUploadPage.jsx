@@ -43,14 +43,14 @@ export default function TaxUploadPage() {
     setBusy(false)
   }
 
-  const card = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '28px' }
+  const card = { background: '#eef2f9', border: '1px solid #dde5f2', borderRadius: '12px', padding: '28px' }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a1f4d', color: '#fff', fontFamily: 'DM Sans, sans-serif', padding: '40px 20px' }}>
+    <div style={{ minHeight: '100vh', background: '#f4f7fd', color: '#16264a', fontFamily: 'Inter, sans-serif', padding: '40px 20px' }}>
       <div style={{ maxWidth: '620px', margin: '0 auto' }}>
-        <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '26px', marginBottom: '4px' }}>VFO Portal</div>
+        <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '26px', marginBottom: '4px' }}>VFO Portal</div>
         <h1 style={{ fontSize: '22px', fontWeight: 600, margin: '18px 0 6px' }}>Upload Your Tax Documents</h1>
-        <p style={{ color: '#8bacc8', fontSize: '14px', lineHeight: 1.5, marginBottom: '22px' }}>
+        <p style={{ color: '#4e6087', fontSize: '14px', lineHeight: 1.5, marginBottom: '22px' }}>
           Your documents are stored securely in a private, encrypted vault — only authorized VFO tax staff can open them.
         </p>
 
@@ -64,28 +64,28 @@ export default function TaxUploadPage() {
               onDrop={e => { e.preventDefault(); setDrag(false); handleFiles(e.dataTransfer.files) }}
               style={{
                 ...card, display: 'block', textAlign: 'center', cursor: 'pointer',
-                borderStyle: 'dashed', borderColor: drag ? '#5b9fe6' : 'rgba(255,255,255,0.2)',
-                background: drag ? 'rgba(91,159,230,0.08)' : 'rgba(255,255,255,0.04)',
+                borderStyle: 'dashed', borderColor: drag ? '#0095ff' : '#c7d4e8',
+                background: drag ? 'rgba(0,149,255,0.08)' : '#eef2f9',
               }}
             >
               <input type="file" multiple accept={ACCEPT} style={{ display: 'none' }}
                 onChange={e => { handleFiles(e.target.files); e.target.value = '' }} />
               <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '6px' }}>{busy ? 'Uploading…' : 'Drop files here or click to choose'}</div>
-              <div style={{ fontSize: '12px', color: '#8bacc8' }}>PDF, Word, Excel or images</div>
+              <div style={{ fontSize: '12px', color: '#4e6087' }}>PDF, Word, Excel or images</div>
             </label>
 
-            {error && <div style={{ color: '#e74c3c', fontSize: '13px', marginTop: '12px' }}>{error}</div>}
+            {error && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginTop: '12px' }}>{error}</div>}
 
             {uploaded.length > 0 && (
               <div style={{ marginTop: '22px' }}>
-                <div style={{ fontSize: '12px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Uploaded ({uploaded.length})</div>
+                <div style={{ fontSize: '12px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Uploaded ({uploaded.length})</div>
                 {uploaded.map((f, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'rgba(39,174,96,0.1)', border: '1px solid rgba(39,174,96,0.25)', borderRadius: '8px', marginBottom: '8px' }}>
-                    <span style={{ color: '#27ae60' }}>✓</span>
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'rgba(27,146,84,0.1)', border: '1px solid rgba(27,146,84,0.25)', borderRadius: '8px', marginBottom: '8px' }}>
+                    <span style={{ color: '#1b9254' }}>✓</span>
                     <span style={{ fontSize: '13px' }}>{f.name}</span>
                   </div>
                 ))}
-                <p style={{ color: '#8bacc8', fontSize: '13px', marginTop: '12px' }}>
+                <p style={{ color: '#4e6087', fontSize: '13px', marginTop: '12px' }}>
                   Thank you — your tax documents have been received. You can close this page or add more files at any time using the same link.
                 </p>
               </div>

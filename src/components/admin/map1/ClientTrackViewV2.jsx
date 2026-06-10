@@ -19,11 +19,11 @@ function PipConfirmStep({ clientId, task, p, meeting, readOnly, onDone }) {
   const [tz, setTz] = useState('ET')
   const [pending, setPending] = useState(null)
   const isDone = !!p.status
-  const statusColor = isDone ? '#27ae60' : '#8bacc8'
-  const inputStyle = { padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '12px', fontFamily: 'DM Sans, sans-serif' }
-  const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }
-  const redBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }
-  const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#8bacc8' }
+  const statusColor = isDone ? '#1b9254' : '#4e6087'
+  const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
+  const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
+  const redBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600 }
+  const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid #d6e0ee', background: 'transparent', color: '#4e6087' }
   function fmtDate(d) { if (!d) return ''; const dt = new Date(d + 'T00:00:00'); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }
 
   async function fire(decision, d, t, z) {
@@ -41,18 +41,18 @@ function PipConfirmStep({ clientId, task, p, meeting, readOnly, onDone }) {
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
-      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'rgba(255,255,255,0.2)'}` }} />
-      <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
+      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
+      <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
       {isDone
-        ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
+        ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
         : readOnly
-          ? <span style={{ fontSize: '11px', color: '#5a8ab5' }}>Not started</span>
+          ? <span style={{ fontSize: '11px', color: '#697a9c' }}>Not started</span>
           : showDate
             ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
                 <input type="time" value={time} onChange={e => setTime(e.target.value)} style={inputStyle} />
-                <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+                <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
                   <option value="ET">Eastern (ET)</option>
                   <option value="CT">Central (CT)</option>
                   <option value="MT">Mountain (MT)</option>
@@ -69,7 +69,7 @@ function PipConfirmStep({ clientId, task, p, meeting, readOnly, onDone }) {
                 <button onClick={() => fire('declined')} disabled={!!pending} style={{ ...redBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'declined' ? 'Sending…' : 'Meeting declined - email client'}</button>
               </div>
       }
-      <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? fmtDate(p.completed_date) : ''}</span>
+      <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? fmtDate(p.completed_date) : ''}</span>
     </div>
   )
 }
@@ -172,7 +172,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
     } catch (err) { console.error(err); setCompletedPhases(p => ({ ...p, [phase.id]: null })) }
   }
 
-  const statusColors = { Completed: '#27ae60', Confirmed: '#27ae60', Yes: '#27ae60', 'Call arranged': '#27ae60', 'PIP 1 scheduled': '#27ae60', 'Follow-up scheduled': '#27ae60', 'PIP Follow-up confirmed': '#27ae60', 'Send confirmation email': '#27ae60', 'Sent confirmation email': '#27ae60', 'Regular priorities tab enabled': '#27ae60', 'Tax priorities tab enabled': '#27ae60', 'Completed + N/A': '#27ae60', 'Completed + Risk 1': '#27ae60', 'Completed + Risk 2': '#27ae60', 'Completed + Risk 3': '#27ae60', 'Completed + Risk 4': '#27ae60', 'Completed + Risk 5': '#27ae60', 'Lite': '#27ae60', 'Core': '#27ae60', 'Max': '#27ae60', 'In Progress': '#f39c12', Undecided: '#f39c12', 'No response': '#e74c3c', No: '#e74c3c', 'PIP Follow-up declined': '#e74c3c', 'Send declined email': '#e74c3c', 'Meeting declined': '#e74c3c', 'No show': '#e74c3c', 'Completed - Yes': '#27ae60', 'Completed - No': '#e74c3c', 'Completed - Undecided': '#f39c12' }
+  const statusColors = { Completed: '#1b9254', Confirmed: '#1b9254', Yes: '#1b9254', 'Call arranged': '#1b9254', 'PIP 1 scheduled': '#1b9254', 'Follow-up scheduled': '#1b9254', 'PIP Follow-up confirmed': '#1b9254', 'Send confirmation email': '#1b9254', 'Sent confirmation email': '#1b9254', 'Regular priorities tab enabled': '#1b9254', 'Tax priorities tab enabled': '#1b9254', 'Completed + N/A': '#1b9254', 'Completed + Risk 1': '#1b9254', 'Completed + Risk 2': '#1b9254', 'Completed + Risk 3': '#1b9254', 'Completed + Risk 4': '#1b9254', 'Completed + Risk 5': '#1b9254', 'Lite': '#1b9254', 'Core': '#1b9254', 'Max': '#1b9254', 'In Progress': '#e06717', Undecided: '#e06717', 'No response': '#e74c3c', No: '#e74c3c', 'PIP Follow-up declined': '#e74c3c', 'Send declined email': '#e74c3c', 'Meeting declined': '#e74c3c', 'No show': '#e74c3c', 'Completed - Yes': '#1b9254', 'Completed - No': '#e74c3c', 'Completed - Undecided': '#e06717' }
 
   function getPhaseState(phase) {
     // PC Admin completion lives on pipeline_map1 (the c15 decision + the
@@ -210,7 +210,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
     return `${parts[1]}/${parts[2]}`
   }
 
-  const inputStyle = { padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '12px', fontFamily: 'DM Sans, sans-serif' }
+  const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
 
   if (loading) return <Map1TrackSkeleton />
 
@@ -226,10 +226,16 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '24px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{completedTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>COMPLETED</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#fff' }}>{totalTasks}</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>TOTAL</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontSize: '28px', fontWeight: '700', color: '#27ae60' }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</div><div style={{ fontSize: '11px', color: '#8bacc8' }}>PROGRESS</div></div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap', background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '14px 20px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px' }}>
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '24px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{completedTasks}</span>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#9aa6bf' }}>/ {totalTasks}</span>
+          <span style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginLeft: '8px' }}>TASKS COMPLETED</span>
+        </div>
+        <div style={{ flex: 1, minWidth: '140px', height: '8px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #e3eaf5', overflow: 'hidden' }}>
+          <div style={{ width: `${totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%`, height: '100%', borderRadius: '999px', background: 'linear-gradient(90deg, #125ecc 0%, #0a85e8 100%)', transition: 'width 0.3s' }} />
+        </div>
+        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '20px', fontWeight: 800, letterSpacing: '-0.02em', color: '#125ecc', lineHeight: 1 }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</span>
       </div>
 
       {/* Phases */}
@@ -239,9 +245,9 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
         const tasks = phase.program_client_tasks || []
         const nonAutoTasks = tasks.filter(t => t.status_options !== 'auto')
         const doneTasks = nonAutoTasks.filter(t => progress[t.id]?.status && progress[t.id].status !== '').length
-        const borderColor = state === 'done' ? 'rgba(39,174,96,0.3)' : state === 'active' ? 'rgba(91,159,230,0.4)' : 'rgba(255,255,255,0.1)'
-        const dotColor = state === 'done' ? '#27ae60' : state === 'active' ? '#5b9fe6' : 'transparent'
-        const titleColor = state === 'active' ? '#5b9fe6' : '#fff'
+        const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
+        const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
+        const titleColor = state === 'active' ? '#125ecc' : '#002973'
         const autoCompletableCodesForCheck = {
           'MAP 1 - PIP 1': ['PIP Initial presentation', 'CIQ complete', 'Prioritization complete'],
           'MAP 1 - PIP Follow Up': ['PIP Follow up presentation', 'Client PIP decision'],
@@ -255,19 +261,19 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
         const phaseCompleteState = completedPhases[phase.id]
 
         return (
-          <div key={phase.id} style={{ background: 'rgba(0,0,0,0.12)', border: `1px solid ${borderColor}`, borderRadius: '12px', marginBottom: '10px', overflow: 'hidden' }}>
+          <div key={phase.id} style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
             {/* Phase header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
               <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
-                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? 'rgba(255,255,255,0.2)' : dotColor}`, flexShrink: 0 }} />
-                <span style={{ fontSize: '13px', fontWeight: '600', color: titleColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{phase.name}</span>
+                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
+                <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {!readOnly && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === phase.name && n.tab_name === 'MAP 1').length} isOpen={expanded[`notes_${phase.id}`]} onClick={() => setExpanded(p => ({ ...p, [`notes_${phase.id}`]: !p[`notes_${phase.id}`] }))} />}
-                {state === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Done</span>}
-                {state === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>In progress · {doneTasks}/{nonAutoTasks.length}</span>}
-                {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>}
-                <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ color: '#8bacc8', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
+                {state === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
+                {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{nonAutoTasks.length}</span>}
+                {state === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
+                <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
               </div>
             </div>
 
@@ -283,20 +289,20 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                   const pipDecision = pipStatus.replace('Completed - ', '')
 
                   if (!pipStatus || !pipStatus.startsWith('Completed')) return (
-                    <div style={{ padding: '12px', color: '#8bacc8', fontSize: '13px' }}>Waiting for PIP Follow Up decision</div>
+                    <div style={{ padding: '12px', color: '#4e6087', fontSize: '13px' }}>Waiting for PIP Follow Up decision</div>
                   )
 
                   const finalDec = pipelineData?.c15_final_decision
-                  const decisionColor = pipDecision === 'Yes' ? '#27ae60' : pipDecision === 'No' ? '#e74c3c' : finalDec === 'Yes' ? '#27ae60' : finalDec === 'No' ? '#e74c3c' : '#f39c12'
+                  const decisionColor = pipDecision === 'Yes' ? '#1b9254' : pipDecision === 'No' ? '#e74c3c' : finalDec === 'Yes' ? '#1b9254' : finalDec === 'No' ? '#e74c3c' : '#e06717'
                   const decisionLabel = pipDecision === 'Yes' ? 'Yes — proceeding' : pipDecision === 'No' ? 'No — declined' : finalDec === 'Yes' ? `Yes — ${pipelineData?.c15_service_level || 'proceeding'}${pipelineData?.c15_via_extra_meeting ? ' (via extra meeting)' : ''}` : finalDec === 'No' ? `No — declined${pipelineData?.c15_via_extra_meeting ? ' (via extra meeting)' : ''}` : finalDec === 'ExtraMeeting' ? 'Extra meeting requested' : 'Undecided — awaiting client'
 
                   const autoStep = (label, done = false, tag = null, na = false) => (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: (done || na) ? '#27ae60' : 'transparent', flexShrink: 0, border: `1px solid ${(done || na) ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
-                      <span style={{ fontSize: '12px', color: (done || na) ? '#27ae60' : '#8bacc8' }}>{label}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: (done || na) ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${(done || na) ? '#1b9254' : '#c7d4e8'}` }} />
+                      <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
                       <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
-                        {done && tag && !na && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>{tag}</span>}
-                        <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: (done || na) ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: (done || na) ? '#27ae60' : '#8bacc8' }}>{na ? 'N/A' : (done ? 'Done' : 'Not completed')}</span>
+                        {done && tag && !na && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{tag}</span>}
+                        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: (done || na) ? 'rgba(27,146,84,0.15)' : '#eef2f9', border: (done || na) ? '1px solid rgba(27,146,84,0.3)' : '1px solid #dde5f2', color: (done || na) ? '#1b9254' : '#4e6087' }}>{na ? 'N/A' : (done ? 'Done' : 'Not completed')}</span>
                       </span>
                     </div>
                   )
@@ -309,10 +315,10 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                   const yesSteps = null
 
                   return (
-                    <div style={{ padding: '8px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ padding: '8px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                        <span style={{ fontSize: '12px', color: '#8bacc8' }}>Decision:</span>
-                        <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${decisionColor}22`, color: decisionColor, border: `1px solid ${decisionColor}44` }}>{decisionLabel}</span>
+                        <span style={{ fontSize: '12px', color: '#4e6087' }}>Decision:</span>
+                        <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${decisionColor}22`, color: decisionColor, border: `1px solid ${decisionColor}44` }}>{decisionLabel}</span>
                       </div>
 
                       {pipDecision === 'No' && autoStep('Decline email sent to client')}
@@ -345,11 +351,11 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                             {autoStep('Decision email sent', emailSent)}
                             {autoStep('Client response received', !!finalDec)}
                             {finalDec && (
-                              <div style={{ marginLeft: '14px', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px', borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
-                                <div style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', display: 'inline-block', marginBottom: '8px',
-                                  background: finalDec === 'Yes' ? 'rgba(39,174,96,0.15)' : finalDec === 'No' ? 'rgba(231,76,60,0.15)' : 'rgba(91,159,230,0.15)',
-                                  color: finalDec === 'Yes' ? '#27ae60' : finalDec === 'No' ? '#e74c3c' : '#5b9fe6',
-                                  border: `1px solid ${finalDec === 'Yes' ? 'rgba(39,174,96,0.3)' : finalDec === 'No' ? 'rgba(231,76,60,0.3)' : 'rgba(91,159,230,0.3)'}`
+                              <div style={{ marginLeft: '14px', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px', borderLeft: '1px solid #ebf0f8' }}>
+                                <div style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', display: 'inline-block', marginBottom: '8px',
+                                  background: finalDec === 'Yes' ? 'rgba(27,146,84,0.15)' : finalDec === 'No' ? 'rgba(231,76,60,0.15)' : 'rgba(0,149,255,0.15)',
+                                  color: finalDec === 'Yes' ? '#1b9254' : finalDec === 'No' ? '#e74c3c' : '#0095ff',
+                                  border: `1px solid ${finalDec === 'Yes' ? 'rgba(27,146,84,0.3)' : finalDec === 'No' ? 'rgba(231,76,60,0.3)' : 'rgba(0,149,255,0.3)'}`
                                 }}>
                                   {finalDec === 'Yes' ? `Yes — ${pd?.c15_service_level || ''}` : finalDec === 'No' ? 'No — declined' : 'Extra Meeting requested'}
                                 </div>
@@ -363,22 +369,22 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                                     ) : pd?.gross_fee ? (
                                       <>
                                         <div style={{ cursor: 'pointer' }} onClick={() => setExpanded(prev => ({ ...prev, pricing_details: !prev.pricing_details }))}>
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#27ae60', flexShrink: 0, border: '1px solid #27ae60' }} />
-                                            <span style={{ fontSize: '12px', color: '#27ae60' }}>PF completed pricing</span>
-                                            <span style={{ fontSize: '10px', color: '#8bacc8', marginLeft: '4px', transform: expanded.pricing_details ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
-                                            <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', marginLeft: 'auto' }}>Done</span>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+                                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1b9254', flexShrink: 0, border: '1px solid #1b9254' }} />
+                                            <span style={{ fontSize: '12px', color: '#16264a', fontWeight: 600 }}>PF completed pricing</span>
+                                            <span style={{ fontSize: '10px', color: '#4e6087', marginLeft: '4px', transform: expanded.pricing_details ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                                            <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>
                                           </div>
                                         </div>
                                         {expanded.pricing_details && (
-                                          <div style={{ marginLeft: '14px', padding: '8px 12px', background: 'rgba(0,0,0,0.1)', borderRadius: '6px', marginBottom: '4px', borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
-                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#5a8ab5', width: '140px' }}>Service level</span><span style={{ fontSize: '11px', color: '#d1dce8' }}>{pd?.service_level || pd?.c15_service_level || '—'}</span></div>
-                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#5a8ab5', width: '140px' }}>Gross fee</span><span style={{ fontSize: '11px', color: '#d1dce8' }}>${pd?.gross_fee || '—'}</span></div>
-                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#5a8ab5', width: '140px' }}>Member contribution</span><span style={{ fontSize: '11px', color: '#d1dce8' }}>{pd?.member_contribution ? `$${pd.member_contribution}` : '—'}</span></div>
-                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#5a8ab5', width: '140px' }}>Net invoice</span><span style={{ fontSize: '11px', color: '#d1dce8' }}>{pd?.net_invoice ? `$${pd.net_invoice}` : '—'}</span></div>
-                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#5a8ab5', width: '140px' }}>Member share</span><span style={{ fontSize: '11px', color: '#d1dce8' }}>{pd?.member_share ? `$${pd.member_share}` : '—'}</span></div>
-                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#5a8ab5', width: '140px' }}>VFOs share</span><span style={{ fontSize: '11px', color: '#d1dce8' }}>{pd?.vfos_share ? `$${pd.vfos_share}` : '—'}</span></div>
-                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#5a8ab5', width: '140px' }}>Payment plan</span><span style={{ fontSize: '11px', color: '#d1dce8' }}>{pd?.payment_plan || '—'}</span></div>
+                                          <div style={{ marginLeft: '14px', padding: '8px 12px', background: '#eef2f9', borderRadius: '6px', marginBottom: '4px', borderLeft: '1px solid #dde5f2' }}>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#697a9c', width: '140px' }}>Service level</span><span style={{ fontSize: '11px', color: '#243757' }}>{pd?.service_level || pd?.c15_service_level || '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#697a9c', width: '140px' }}>Gross fee</span><span style={{ fontSize: '11px', color: '#243757' }}>${pd?.gross_fee || '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#697a9c', width: '140px' }}>Member contribution</span><span style={{ fontSize: '11px', color: '#243757' }}>{pd?.member_contribution ? `$${pd.member_contribution}` : '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#697a9c', width: '140px' }}>Net invoice</span><span style={{ fontSize: '11px', color: '#243757' }}>{pd?.net_invoice ? `$${pd.net_invoice}` : '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#697a9c', width: '140px' }}>Member share</span><span style={{ fontSize: '11px', color: '#243757' }}>{pd?.member_share ? `$${pd.member_share}` : '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#697a9c', width: '140px' }}>VFOs share</span><span style={{ fontSize: '11px', color: '#243757' }}>{pd?.vfos_share ? `$${pd.vfos_share}` : '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#697a9c', width: '140px' }}>Payment plan</span><span style={{ fontSize: '11px', color: '#243757' }}>{pd?.payment_plan || '—'}</span></div>
                                           </div>
                                         )}
                                         {autoStep('Agreement sent to client', pd?.c16_sent === 'Yes')}
@@ -403,8 +409,8 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                               </div>
                             )}
                             {!finalDec && (
-                              <div style={{ marginLeft: '14px', borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px' }}>
-                                <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px' }}>If Yes:</div>
+                              <div style={{ marginLeft: '14px', borderLeft: '1px solid #ebf0f8', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px' }}>
+                                <div style={{ fontSize: '11px', color: '#697a9c', marginBottom: '6px' }}>If Yes:</div>
                                 {autoStep('Agreement sent to client', pd?.c16_sent === 'Yes')}
                                 {autoStep('Client signed', pd?.c17_client_signed === 'Yes')}
                                 {autoStep('CEO signed', pd?.c18_ceo_signed === 'Yes')}
@@ -414,9 +420,9 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                                 {autoStep('Invoice/receipt sent', !!pd?.invoice_number)}
                                 {autoStep('Revenue share paid', ['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd?.rec1_rev_paid), null, isZeroShare(pd?.member_share))}
                                 {autoStep('Member notified of revenue share', pd?.c24_email_sent === true, null, isZeroShare(pd?.member_share))}
-                                <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px', marginTop: '10px' }}>If No:</div>
+                                <div style={{ fontSize: '11px', color: '#697a9c', marginBottom: '6px', marginTop: '10px' }}>If No:</div>
                                 {autoStep('Decline email sent to client')}
-                                <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '6px', marginTop: '10px' }}>If extra meeting:</div>
+                                <div style={{ fontSize: '11px', color: '#697a9c', marginBottom: '6px', marginTop: '10px' }}>If extra meeting:</div>
                                 {autoStep('Extra meeting held')}
                                 {autoStep('PF submits outcome')}
                               </div>
@@ -432,27 +438,27 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                 tasks.map(task => {
                   const p = progress[task.id] || {}
                   const isDone = !!p.status
-                  const statusColor = statusColors[p.status] || '#8bacc8'
+                  const statusColor = statusColors[p.status] || '#4e6087'
 
                   if (task.status_options === 'auto') return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#27ae60', flexShrink: 0 }} />
-                      <span style={{ fontSize: '13px', color: '#8bacc8', flex: 1 }}>{task.name}</span>
-                      <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Done</span>
-                      <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1b9254', flexShrink: 0 }} />
+                      <span style={{ fontSize: '13px', color: '#4e6087', flex: 1 }}>{task.name}</span>
+                      <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
+                      <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
 
                   if (task.status_options === 'date_entry') {
                     const dateVal = p.completed_date || ''
                     return (
-                      <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dateVal ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${dateVal ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
-                        <span style={{ fontSize: '13px', color: dateVal ? '#8bacc8' : '#fff', flex: 1, fontWeight: '600' }}>{task.name}</span>
+                      <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dateVal ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${dateVal ? '#1b9254' : '#c7d4e8'}` }} />
+                        <span style={{ fontSize: '13px', color: dateVal ? '#4e6087' : '#16264a', flex: 1, fontWeight: '600' }}>{task.name}</span>
                         {readOnly
                           ? (dateVal
-                              ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#27ae6022', color: '#27ae60', border: '1px solid #27ae6044' }}>{formatDate(dateVal)}</span>
-                              : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not scheduled</span>)
+                              ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>{formatDate(dateVal)}</span>
+                              : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not scheduled</span>)
                           : <input type="date" value={dateVal} onChange={e => saveDateEntry(task.id, e.target.value)} disabled={saving[task.id]} style={inputStyle} />
                         }
                       </div>
@@ -466,14 +472,14 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                     const c14c15Active2 = c10Status2 === 'No' || c10Status2 === 'Undecided'
                     const isGreyedOut2 = isPCAdmin && (task.name === 'Email to Client if "Undecided" or "No" in C12' || task.name === 'Final client decision (if previously "Undecided" or "No")') && !c14c15Active2
                     return (
-                      <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', opacity: isGreyedOut2 ? 0.3 : 1 }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'rgba(255,255,255,0.2)'}` }} />
-                        <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
+                      <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', opacity: isGreyedOut2 ? 0.3 : 1 }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
+                        <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
                         {isDone
-                          ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
-                          : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>
+                          ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
+                          : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
                         }
-                        <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                        <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                       </div>
                     )
                   }
@@ -492,14 +498,14 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
 
                   if (task.name === 'Call arranged with client') return (
                     <div key={task.id}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'rgba(255,255,255,0.2)'}` }} />
-                        <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
-                        <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '150px', borderColor: isDone ? `${statusColor}66` : 'rgba(255,255,255,0.15)', color: isDone ? statusColor : '#fff' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
+                        <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
+                        <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#ffffff', minWidth: '150px', borderColor: isDone ? `${statusColor}66` : '#d6e0ee', color: isDone ? statusColor : '#16264a' }}>
                           <option value="">-- Select --</option>
                           {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                        <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                       </div>
                     </div>
                   )
@@ -510,53 +516,53 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                   const isGreyedOut = isPCAdmin && (task.name === 'Email to Client if "Undecided" or "No" in C12' || task.name === 'Final client decision (if previously "Undecided" or "No")') && !c14c15Active
 
                   if (isPCAdmin) return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', opacity: isGreyedOut ? 0.3 : 1 }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? '#27ae60' : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? '#27ae60' : 'rgba(255,255,255,0.2)'}` }} />
-                      <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
-                      <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: isDone ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: isDone ? '#27ae60' : '#8bacc8', border: `1px solid ${isDone ? 'rgba(39,174,96,0.3)' : 'rgba(255,255,255,0.1)'}` }}>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', opacity: isGreyedOut ? 0.3 : 1 }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? '#1b9254' : '#c7d4e8'}` }} />
+                      <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
+                      <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: isDone ? 'rgba(27,146,84,0.15)' : '#eef2f9', color: isDone ? '#1b9254' : '#4e6087', border: `1px solid ${isDone ? 'rgba(27,146,84,0.3)' : '#e3eaf5'}` }}>
                         {isDone ? 'Completed' : 'Not completed'}
                       </span>
-                      <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                      <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
 
                   if (task.name === 'PIP Follow Up decision' && task.status_options === 'enter_details') {
                     if (readOnly && isDone) {
                       const dl = p.status.replace('Completed - ', '')
-                      const dc = dl === 'Yes' ? '#27ae60' : dl === 'No' ? '#e74c3c' : '#f39c12'
+                      const dc = dl === 'Yes' ? '#1b9254' : dl === 'No' ? '#e74c3c' : '#e06717'
                       return (
-                        <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
                           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dc, flexShrink: 0 }} />
-                          <span style={{ fontSize: '13px', color: '#8bacc8', flex: 1 }}>{task.name}</span>
-                          <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${dc}22`, color: dc, border: `1px solid ${dc}44` }}>{dl}</span>
-                          <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                          <span style={{ fontSize: '13px', color: '#4e6087', flex: 1 }}>{task.name}</span>
+                          <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${dc}22`, color: dc, border: `1px solid ${dc}44` }}>{dl}</span>
+                          <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
                         </div>
                       )
                     }
                     if (readOnly && !isDone) {
                       return (
-                        <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid rgba(255,255,255,0.2)' }} />
-                          <span style={{ fontSize: '13px', color: '#fff', flex: 1 }}>{task.name}</span>
-                          <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>
-                          <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}></span>
+                        <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid #c7d4e8' }} />
+                          <span style={{ fontSize: '13px', color: '#16264a', flex: 1 }}>{task.name}</span>
+                          <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
+                          <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}></span>
                         </div>
                       )
                     }
                     const dl = isDone ? p.status.replace('Completed - ', '') : ''
-                    const dc = dl === 'Yes' ? '#27ae60' : dl === 'No' ? '#e74c3c' : dl === 'Undecided' ? '#f39c12' : '#8bacc8'
+                    const dc = dl === 'Yes' ? '#1b9254' : dl === 'No' ? '#e74c3c' : dl === 'Undecided' ? '#e06717' : '#4e6087'
                     let formData = null
                     if (isDone) { try { formData = JSON.parse(p.notes || '{}') } catch(e) { formData = {} } }
                     const formExpandKey = `pipform_${task.id}`
                     const isFormShown = isDone ? expanded[formExpandKey] : true
                     return (
-                      <div key={task.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '7px 0' }}>
+                      <div key={task.id} style={{ borderBottom: '1px solid #e9eef8', padding: '7px 0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: isDone ? 'pointer' : 'default' }} onClick={() => isDone && setExpanded(prev => ({ ...prev, [formExpandKey]: !prev[formExpandKey] }))}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? dc : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? dc : 'rgba(255,255,255,0.2)'}` }} />
-                          <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1, fontWeight: '600' }}>{task.name}</span>
-                          {isDone && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${dc}22`, color: dc, border: `1px solid ${dc}44` }}>{dl}</span>}
-                          <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
-                          {isDone && <span style={{ color: '#8bacc8', fontSize: '10px', transform: isFormShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>}
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? dc : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? dc : '#c7d4e8'}` }} />
+                          <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1, fontWeight: '600' }}>{task.name}</span>
+                          {isDone && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${dc}22`, color: dc, border: `1px solid ${dc}44` }}>{dl}</span>}
+                          <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                          {isDone && <span style={{ color: '#4e6087', fontSize: '10px', transform: isFormShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>}
                         </div>
                         {isFormShown && (
                           <PIPDecisionForm
@@ -574,14 +580,14 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                   }
 
                   return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'rgba(255,255,255,0.2)'}` }} />
-                      <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
-                      <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '150px', borderColor: isDone ? `${statusColor}66` : 'rgba(255,255,255,0.15)', color: isDone ? statusColor : '#fff' }}>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
+                      <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
+                      <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#ffffff', minWidth: '150px', borderColor: isDone ? `${statusColor}66` : '#d6e0ee', color: isDone ? statusColor : '#16264a' }}>
                         <option value="">-- Select --</option>
                         {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
-                      <span style={{ fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                      <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
                 })}

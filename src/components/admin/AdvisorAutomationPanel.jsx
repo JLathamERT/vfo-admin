@@ -17,16 +17,16 @@ const STAGE_LABELS = {
 }
 
 const STAGE_COLORS = {
-  new: '#8bacc8',
-  decision_sent: '#5b9fe6',
+  new: '#4e6087',
+  decision_sent: '#0095ff',
   declined: '#ef4444',
-  agreement_sent: '#8b5cf6',
-  agreement_signing: '#a855f7',
-  payment_pending: '#ec4899',
-  paid: '#14b8a6',
-  invoice: '#14b8a6',
-  advisor_created: '#22c55e',
-  complete: '#22c55e',
+  agreement_sent: '#7c3aed',
+  agreement_signing: '#9333ea',
+  payment_pending: '#db2777',
+  paid: '#0d9488',
+  invoice: '#0d9488',
+  advisor_created: '#16a34a',
+  complete: '#16a34a',
 }
 
 function getCurrentStage(row) {
@@ -72,22 +72,22 @@ function AdvisorPipelineRow({ row, expanded, onToggle }) {
     : (row.login_setup_email_sent_at || row.login_setup_token) ? 'awaiting' : 'pending'
 
   return (
-    <div style={{ background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
+    <div style={{ background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
       <div onClick={onToggle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '15px', fontWeight: '600', color: '#fff' }}>{advisorName}</span>
-          {row.member_number && <span style={{ fontSize: '12px', color: '#5a8ab5', fontFamily: 'monospace' }}>#{row.member_number}</span>}
-          {plans && <Badge text={plans} color="#5b9fe6" />}
-          {plans && row.payment_amount && <span style={{ fontSize: '12px', color: '#d1dce8' }}>{fmtMoney(row.payment_amount)}</span>}
+          <span style={{ fontSize: '15px', fontWeight: '600', color: '#16264a' }}>{advisorName}</span>
+          {row.member_number && <span style={{ fontSize: '12px', color: '#697a9c', fontFamily: 'monospace' }}>#{row.member_number}</span>}
+          {plans && <Badge text={plans} color="#0095ff" />}
+          {plans && row.payment_amount && <span style={{ fontSize: '12px', color: '#243757' }}>{fmtMoney(row.payment_amount)}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Badge text={stageLabel} color={stageColor} />
-          <span style={{ color: '#8bacc8', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+          <span style={{ color: '#4e6087', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
         </div>
       </div>
 
       {expanded && (
-        <div style={{ padding: '8px 18px 18px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ padding: '8px 18px 18px', borderTop: '1px solid #e9eef8' }}>
           <StepCard title="Decision" status={decisionStatus}>
             <Detail l="Decision" v={<Badge text={row.final_decision || row.prelim_meeting_decision} />} showEmpty />
             <Detail l="Undecided email sent" v={fmtDate(row.decision_email_sent_at)} />
@@ -157,7 +157,7 @@ function AdvisorPipelineRow({ row, expanded, onToggle }) {
             ) : <Pending />}
           </StepCard>
 
-          <div style={{ marginTop: '10px', fontSize: '10px', color: '#4a7a9e' }}>
+          <div style={{ marginTop: '10px', fontSize: '10px', color: '#7c8aa6' }}>
             Onboarding #{row.id} · Started {fmtDate(row.created_at)} · {row.email || 'no email'}
           </div>
         </div>
@@ -185,25 +185,25 @@ export default function AdvisorAutomationPanel() {
     finally { setLoading(false) }
   }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>Loading...</div>
+  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>
 
   const inProgress = rows.filter(r => {
     const s = getCurrentStage(r)
     return s !== 'complete' && s !== 'declined'
   })
   const stats = [
-    { label: 'TOTAL', value: rows.length, color: '#fff' },
-    { label: 'IN PROGRESS', value: inProgress.length, color: '#5b9fe6' },
-    { label: 'PAID', value: rows.filter(r => r.payment_status === 'succeeded').length, color: '#14b8a6' },
-    { label: 'ADVISOR CREATED', value: rows.filter(r => r.member_number).length, color: '#22c55e' },
-    { label: 'COMPLETE', value: rows.filter(r => getCurrentStage(r) === 'complete').length, color: '#22c55e' },
+    { label: 'TOTAL', value: rows.length, color: '#16264a' },
+    { label: 'IN PROGRESS', value: inProgress.length, color: '#0095ff' },
+    { label: 'PAID', value: rows.filter(r => r.payment_status === 'succeeded').length, color: '#0d9488' },
+    { label: 'ADVISOR CREATED', value: rows.filter(r => r.member_number).length, color: '#16a34a' },
+    { label: 'COMPLETE', value: rows.filter(r => getCurrentStage(r) === 'complete').length, color: '#16a34a' },
   ]
 
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '24px', color: '#fff', margin: 0 }}>Advisor Onboarding Pipeline</h2>
+          <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '24px', color: '#16264a', margin: 0 }}>Advisor Onboarding Pipeline</h2>
           <SandboxModeToggle
             pipeline="ADVISOR_ONBOARDING"
             label="Advisor Onboarding"
@@ -213,19 +213,19 @@ export default function AdvisorAutomationPanel() {
         </div>
       </div>
 
-      {error && <div style={{ color: '#ff6b6b', fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
+      {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
 
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
         {stats.map(stat => (
-          <div key={stat.label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '14px 20px', minWidth: '100px' }}>
-            <div style={{ fontSize: '28px', fontWeight: '700', color: stat.color }}>{stat.value}</div>
-            <div style={{ fontSize: '10px', color: '#8bacc8', letterSpacing: '1px' }}>{stat.label}</div>
+          <div key={stat.label} style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '12px', padding: '14px 20px', minWidth: '100px', boxShadow: '0 2px 10px rgba(20,45,95,0.05)' }}>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: stat.color }}>{stat.value}</div>
+            <div style={{ fontSize: '10px', fontWeight: 600, color: '#4e6087', letterSpacing: '1px', marginTop: '2px' }}>{stat.label}</div>
           </div>
         ))}
       </div>
 
       {rows.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: '#5a8ab5', fontSize: '14px' }}>
+        <div style={{ textAlign: 'center', padding: '60px', color: '#697a9c', fontSize: '14px' }}>
           No advisor onboarding records yet.
         </div>
       ) : (

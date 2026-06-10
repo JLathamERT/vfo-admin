@@ -40,19 +40,19 @@ export default function SpecialistRevShareFinalPage() {
         <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: view.color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
           <span style={{ fontSize: '32px', lineHeight: 1 }}>{view.icon}</span>
         </div>
-        <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '12px' }}>{view.title}</h1>
-        <p style={{ fontSize: '15px', color: '#94a3b8', lineHeight: 1.6 }}>{view.message}</p>
+        <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }}>{view.title}</h1>
+        <p style={{ fontSize: '15px', color: '#4e6087', lineHeight: 1.6 }}>{view.message}</p>
       </div>
     </div>
   )
 }
 
 function getView(status, response) {
-  if (status === 'processing') return { icon: '⏳', color: '#3b82f6', title: 'Processing your response…', message: 'Please wait, do not close this page.' }
+  if (status === 'processing') return { icon: '⏳', color: '#0095ff', title: 'Processing your response…', message: 'Please wait, do not close this page.' }
   if (status === 'error') return { icon: '⚠️', color: '#ef4444', title: 'Something Went Wrong', message: 'This link is invalid or has expired. Please contact your VFO representative.' }
-  if (status === 'already') return { icon: 'ℹ️', color: '#3b82f6', title: 'Already Received', message: `We've already recorded your response${response ? ` (${response})` : ''} — no further action is needed. Thank you!` }
-  if (response === 'Approved') return { icon: '✓', color: '#22c55e', title: 'Thank You!', message: 'Thank you for confirming you are happy with the revenue sharing proposal. It will be attached as Exhibit A in your final VFO Specialist Agreement, completed in Step 4.' }
-  return { icon: '✓', color: '#22c55e', title: 'Thank You', message: "We've noted that you have further questions about the revenue sharing proposal. Tracy Miller will be in touch shortly to discuss before it's finalized." }
+  if (status === 'already') return { icon: 'ℹ️', color: '#0095ff', title: 'Already Received', message: `We've already recorded your response${response ? ` (${response})` : ''} — no further action is needed. Thank you!` }
+  if (response === 'Approved') return { icon: '✓', color: '#16a34a', title: 'Thank You!', message: 'Thank you for confirming you are happy with the revenue sharing proposal. It will be attached as Exhibit A in your final VFO Specialist Agreement, completed in Step 4.' }
+  return { icon: '✓', color: '#16a34a', title: 'Thank You', message: "We've noted that you have further questions about the revenue sharing proposal. Tracy Miller will be in touch shortly to discuss before it's finalized." }
 }
 
-const pageStyle = { fontFamily: '"DM Sans", sans-serif', background: '#0a1628', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }
+const pageStyle = { fontFamily: '"Inter", sans-serif', background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }

@@ -10,10 +10,10 @@ function MeetingCompleteButton({ phase, progress, onComplete, completedPhases })
       onClick={() => onComplete(phase)}
       disabled={state === 'saving'}
       style={{
-        padding: '6px 16px', borderRadius: '6px', fontSize: '12px', cursor: state === 'saving' ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif',
-        background: state === 'done' ? 'rgba(39,174,96,0.15)' : 'rgba(91,159,230,0.15)',
-        border: `1px solid ${state === 'done' ? 'rgba(39,174,96,0.4)' : 'rgba(91,159,230,0.4)'}`,
-        color: state === 'done' ? '#27ae60' : '#5b9fe6',
+        padding: '6px 16px', borderRadius: '6px', fontSize: '12px', cursor: state === 'saving' ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif',
+        background: state === 'done' ? 'rgba(27,146,84,0.15)' : 'rgba(0,149,255,0.15)',
+        border: `1px solid ${state === 'done' ? 'rgba(27,146,84,0.4)' : 'rgba(0,149,255,0.4)'}`,
+        color: state === 'done' ? '#1b9254' : '#0095ff',
       }}>
       {state === 'saving' ? 'Saving...' : state === 'done' ? '✓ Meeting Completed' : '✓ Meeting Completed'}
     </button>

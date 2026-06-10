@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { callApi, setSession } from '../lib/api'
+import AuthShell from '../components/shared/AuthShell'
+
+const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '12px 14px', borderRadius: '10px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px' }
+const labelStyle = { display: 'block', fontSize: '12px', fontWeight: 600, color: '#4e6087', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.8px' }
 
 export default function MemberLogin() {
   const navigate = useNavigate()
@@ -29,19 +33,24 @@ export default function MemberLogin() {
   }
 
   return (
-    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#073991'}}>
-      <div style={{background:'#0d2a6e',padding:'40px',borderRadius:'16px',width:'360px',border:'1px solid rgba(255,255,255,0.1)'}}>
-        <h2 style={{fontFamily:'Playfair Display, serif',color:'#fff',marginBottom:'8px',fontSize:'24px'}}>Member Login</h2>
-        <p style={{color:'#8bacc8',fontSize:'13px',marginBottom:'24px'}}>VFO Portal</p>
-        {fromSetup && <p style={{color:'#4ade80',fontSize:'13px',marginBottom:'16px'}}>Login created. Sign in with your new passcode.</p>}
-        <form onSubmit={handleLogin} style={{display:'flex',flexDirection:'column',gap:'12px'}}>
-          <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" required style={{padding:'10px 14px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.15)',background:'rgba(255,255,255,0.06)',color:'#fff',fontSize:'14px'}} />
-          <input value={passcode} onChange={e=>setPasscode(e.target.value)} placeholder="Passcode" type="password" required style={{padding:'10px 14px',borderRadius:'8px',border:'1px solid rgba(255,255,255,0.15)',background:'rgba(255,255,255,0.06)',color:'#fff',fontSize:'14px'}} />
-          {error && <p style={{color:'#ff6b6b',fontSize:'13px',margin:'0'}}>{error}</p>}
-          <button type="submit" disabled={loading} style={{padding:'11px',borderRadius:'8px',background:'#2563eb',border:'none',color:'#fff',fontSize:'15px',fontWeight:'500',cursor:'pointer',marginTop:'4px'}}>{loading ? 'Signing in...' : 'Sign In'}</button>
-        </form>
-        <p style={{color:'#8bacc8',fontSize:'13px',marginTop:'16px',textAlign:'center',cursor:'pointer'}} onClick={()=>navigate('/')}>← Back</p>
-      </div>
-    </div>
+    <AuthShell>
+      <p style={{ fontSize: '11.5px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2.5px', margin: '0 0 10px' }}>Member Portal</p>
+      <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.02em', color: '#002973', marginTop: 0, marginBottom: '8px', fontSize: '28px' }}>Sign in</h2>
+      <p style={{ color: '#4e6087', fontSize: '14px', marginBottom: '28px' }}>Welcome back — enter your member credentials.</p>
+      {fromSetup && <p style={{ color: '#16a34a', fontWeight: 500, fontSize: '13px', marginBottom: '16px', background: 'rgba(22,163,74,0.08)', border: '1px solid rgba(22,163,74,0.25)', borderRadius: '10px', padding: '10px 14px' }}>Login created. Sign in with your new passcode.</p>}
+      <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div>
+          <label style={labelStyle}>Email</label>
+          <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" type="email" required style={inputStyle} />
+        </div>
+        <div>
+          <label style={labelStyle}>Passcode</label>
+          <input value={passcode} onChange={e=>setPasscode(e.target.value)} placeholder="••••••••" type="password" required style={inputStyle} />
+        </div>
+        {error && <p style={{color:'#d93025', fontWeight: 500, fontSize:'13px', margin:'0'}}>{error}</p>}
+        <button type="submit" disabled={loading} style={{ padding: '13px', borderRadius: '10px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 4px 14px rgba(18,94,204,0.35)', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: 'pointer', marginTop: '4px' }}>{loading ? 'Signing in...' : 'Sign In'}</button>
+      </form>
+      <p style={{ color: '#4e6087', fontSize: '13px', marginTop: '20px', textAlign: 'center', cursor: 'pointer' }} onClick={()=>navigate('/')}>← Back to portal selection</p>
+    </AuthShell>
   )
 }
