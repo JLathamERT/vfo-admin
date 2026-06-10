@@ -124,7 +124,7 @@ export default function MemberGCMarketplace({ memberNumber }) {
                   { amount: 20, price: 1800, label: '20 credits — $1,800', savings: 'Save 10%' },
                 ].map(pkg => (
                   <button key={pkg.amount} onClick={() => buyCredits(pkg.amount, pkg.price)}
-                    style={{ padding: '16px 24px', flex: 1, textAlign: 'center', borderRadius: '8px', border: '1px solid #c7d4e8', background: '#f7f9fc', cursor: 'pointer' }}>
+                    style={{ padding: '16px 24px', flex: 1, textAlign: 'center', borderRadius: '8px', border: '1px solid #c7d4e8', background: '#eef2f9', cursor: 'pointer' }}>
                     <div style={{ fontSize: '18px', fontWeight: '700', color: '#16264a' }}>{pkg.amount}</div>
                     <div style={{ fontSize: '11px', color: '#4e6087', marginTop: '4px' }}>{pkg.label}</div>
                     {pkg.savings && <div style={{ fontSize: '10px', color: '#1b9254', fontWeight: 600, marginTop: '2px' }}>{pkg.savings}</div>}
@@ -145,7 +145,7 @@ export default function MemberGCMarketplace({ memberNumber }) {
             <div key={cat} style={sectionStyle}>
               <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>{cat}</div>
               {catMap[cat].map(svc => (
-                <div key={svc.id} style={{ paddingBottom: '14px', borderBottom: '1px solid #f2f5fa', marginBottom: '14px' }}>
+                <div key={svc.id} style={{ paddingBottom: '14px', borderBottom: '1px solid #e9eef8', marginBottom: '14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ color: '#16264a', fontSize: '14px', textAlign: 'left' }}>{svc.name}</span>

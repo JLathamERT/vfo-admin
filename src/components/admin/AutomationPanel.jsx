@@ -183,7 +183,7 @@ function ExpandedRow({ row, onRefresh }) {
   const sRev = (row.c24_email_sent || row.rec1_rev_email_sent_at) ? 'done' : has(row.rec1_rev_share) ? 'awaiting' : 'pending'
 
   return (
-    <div style={{ padding: '12px 24px 18px 48px', background: '#f7f9fc', borderBottom: '1px solid #f4f7fb' }}>
+    <div style={{ padding: '12px 24px 18px 48px', background: '#eef2f9', borderBottom: '1px solid #f4f7fb' }}>
 
       {/* 1 — PIP 1 reconfirmation / declined email */}
       <StepCard title="PIP 1 — Reconfirmation / Declined Email" status={s81}>
@@ -498,7 +498,7 @@ export default function AutomationPanel({ section }) {
           { label: 'CLOSED', value: pipelineData.filter(r => getCurrentStage(r) === 'closed').length, color: '#ef4444' },
           { label: 'SANDBOX', value: pipelineData.filter(r => r.sandbox).length, color: '#e06717' },
         ].map(stat => (
-          <div key={stat.label} style={{ background: '#f7f9fc', border: '1px solid #ebf0f8', borderRadius: '10px', padding: '14px 20px', minWidth: '100px' }}>
+          <div key={stat.label} style={{ background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '10px', padding: '14px 20px', minWidth: '100px' }}>
             <div style={{ fontSize: '28px', fontWeight: '700', color: stat.color }}>{stat.value}</div>
             <div style={{ fontSize: '10px', color: '#4e6087', letterSpacing: '1px' }}>{stat.label}</div>
           </div>
@@ -506,7 +506,7 @@ export default function AutomationPanel({ section }) {
       </div>
 
       {pipelineData.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', background: '#f8fafd', borderRadius: '12px', border: '1px solid #f2f5fa' }}>
+        <div style={{ textAlign: 'center', padding: '60px', background: '#eef2f9', borderRadius: '12px', border: '1px solid #dde5f2' }}>
           <p style={{ color: '#4e6087', fontSize: '15px', marginBottom: '8px' }}>No clients in pipeline yet</p>
           <p style={{ color: '#697a9c', fontSize: '13px' }}>Clients will appear here as they enter the automation flow</p>
         </div>
@@ -527,9 +527,9 @@ export default function AutomationPanel({ section }) {
                 const isExpanded = expandedRow === row.id
                 return (
                   <Fragment key={row.id}>
-                    <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid #f4f7fb', cursor: 'pointer', background: isExpanded ? '#f8fafd' : 'transparent' }}
+                    <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid #f4f7fb', cursor: 'pointer', background: isExpanded ? '#eef2f9' : 'transparent' }}
                       onClick={() => setExpandedRow(isExpanded ? null : row.id)}
-                      onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = '#f8fafd' }}
+                      onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = '#eef2f9' }}
                       onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = 'transparent' }}
                     >
                       <td style={{ padding: '12px 8px', fontSize: '10px', color: '#4e6087' }}>

@@ -267,7 +267,7 @@ const optionFooterStyle = {
   color: '#4e6087',
   marginTop: '12px',
   paddingTop: '12px',
-  borderTop: '1px solid #f2f5fa',
+  borderTop: '1px solid #e9eef8',
 }
 
 const dividerStyle = {

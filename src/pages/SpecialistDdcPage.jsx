@@ -319,15 +319,15 @@ function Area({ value, onChange, onBlur, hint, label }) {
 }
 
 const pageStyle = { fontFamily: '"Inter", sans-serif', background: '#ffffff', minHeight: '100vh', padding: '40px 20px', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }
-const cardStyle = { width: '100%', maxWidth: '720px', background: '#f8fafd', border: '1px solid #ebf0f8', borderRadius: '16px', padding: '36px 40px' }
+const cardStyle = { width: '100%', maxWidth: '720px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '16px', padding: '36px 40px' }
 const noteStyle = { fontSize: '13px', color: '#4d5f80', background: 'rgba(18,94,204,0.10)', border: '1px solid rgba(18,94,204,0.25)', borderRadius: '8px', padding: '12px 16px', lineHeight: 1.6, marginTop: '20px' }
 const submittedBanner = { fontSize: '13px', color: '#15803d', fontWeight: 500, background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', padding: '12px 16px', lineHeight: 1.6, marginTop: '12px' }
 const editsBanner = { fontSize: '13px', color: '#b3500f', fontWeight: 500, background: 'rgba(251,137,90,0.12)', border: '1px solid rgba(251,137,90,0.35)', borderRadius: '8px', padding: '12px 16px', lineHeight: 1.6, marginTop: '12px' }
-const itemStyle = { background: '#fafbfe', border: '1px solid #ebf0f8', borderRadius: '10px', padding: '16px 18px', marginBottom: '12px' }
+const itemStyle = { background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '10px', padding: '16px 18px', marginBottom: '12px' }
 const labelStyle = { display: 'block', fontSize: '14px', fontWeight: 600, color: '#2e4166', marginBottom: '8px', lineHeight: 1.4 }
 const hintStyle = { fontSize: '11px', color: '#697a9c', marginTop: '5px', fontStyle: 'italic', lineHeight: 1.5 }
 const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif' }
 const fileChip = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#3c4f73', background: '#f4f7fb', border: '1px solid #dde5f2', borderRadius: '7px', padding: '8px 12px' }
 const removeBtn = { background: 'none', border: 'none', color: '#d93025', fontWeight: 500, cursor: 'pointer', fontSize: '13px', flexShrink: 0 }
-const uploadBtn = { display: 'inline-block', fontSize: '13px', color: '#3c4f73', background: '#f2f5fa', border: '1px dashed #bac9e1', borderRadius: '8px', padding: '10px 16px', fontWeight: 600 }
+const uploadBtn = { display: 'inline-block', fontSize: '13px', color: '#3c4f73', background: '#eef2f9', border: '1px dashed #bac9e1', borderRadius: '8px', padding: '10px 16px', fontWeight: 600 }
 const btnBase = { padding: '14px', borderRadius: '8px', color: '#16264a', fontSize: '15px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }

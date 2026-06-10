@@ -306,7 +306,7 @@ function OnboardingDetail({ id, onBack }) {
     const state = getStageState(stage)
     if (state === 'done') return <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
     if (state === 'active') return <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress</span>
-    return <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>
+    return <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
   }
  
   function StageHeader({ stage, title }) {
@@ -356,12 +356,12 @@ function OnboardingDetail({ id, onBack }) {
   // chip) so it never reads as a clickable button.
   function AutoStep({ done, label, detail }) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
-        <span style={{ fontSize: '12px', color: done ? '#1b9254' : '#4e6087' }}>{label}</span>
+        <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
         <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px', alignItems: 'center' }}>
           {detail && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{detail}</span>}
-          <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: done ? 'rgba(27,146,84,0.15)' : '#f2f5fa', color: done ? '#1b9254' : '#4e6087' }}>{done ? 'Done' : 'Not completed'}</span>
+          <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: done ? 'rgba(27,146,84,0.15)' : '#eef2f9', border: done ? '1px solid rgba(27,146,84,0.3)' : '1px solid #dde5f2', color: done ? '#1b9254' : '#4e6087' }}>{done ? 'Done' : 'Not completed'}</span>
         </span>
       </div>
     )
@@ -370,7 +370,7 @@ function OnboardingDetail({ id, onBack }) {
   function CheckItem({ done, label, onClick, toggle }) {
     const clickable = !isStopped && (toggle || !done)
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', borderBottom: '1px solid #f7f9fc' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', borderBottom: '1px solid #e9eef8' }}>
         <div onClick={() => clickable && onClick?.()} style={{ width: '16px', height: '16px', borderRadius: '4px', border: `1.5px solid ${done ? '#1b9254' : '#aebfdb'}`, background: done ? '#1b9254' : 'transparent', cursor: clickable ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', flexShrink: 0 }}>{done ? '✓' : ''}</div>
         <span style={{ fontSize: '13px', color: done ? '#4e6087' : '#16264a', textDecoration: done ? 'line-through' : 'none' }}>{label}</span>
       </div>
@@ -414,7 +414,7 @@ function OnboardingDetail({ id, onBack }) {
 
     return (
       <>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
           <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>Post-meeting decision</span>
           {isDone
@@ -445,9 +445,9 @@ function OnboardingDetail({ id, onBack }) {
         {decision && decision !== 'stop' && (() => {
           const emailSent = !!getTaskStatus(1, 'email_sent')
           const autoStep = (label, done) => (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
-              <span style={{ fontSize: '12px', color: done ? '#1b9254' : '#4e6087' }}>{label}</span>
+              <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
               {done && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>}
             </div>
           )
@@ -460,18 +460,18 @@ function OnboardingDetail({ id, onBack }) {
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: aipcDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${aipcDone ? '#1b9254' : '#c7d4e8'}` }} />
                 <span style={{ fontSize: '13px', color: '#16264a', flex: 1, fontWeight: '600' }}>AI PC Admin</span>
               </div>
-              <div style={{ marginLeft: '18px', padding: '8px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #f2f5fa' }}>
+              <div style={{ marginLeft: '18px', padding: '8px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2' }}>
                 {autoStep('Email sent to potential VFO specialist (SIF form, rev share examples, template agreement attached)', emailSent)}
                 <div>
-                  <div onClick={() => sifDone && setSifOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc', cursor: sifDone ? 'pointer' : 'default' }}>
+                  <div onClick={() => sifDone && setSifOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8', cursor: sifDone ? 'pointer' : 'default' }}>
                     <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: sifDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${sifDone ? '#1b9254' : '#c7d4e8'}` }} />
-                    <span style={{ fontSize: '12px', color: sifDone ? '#1b9254' : '#4e6087' }}>SIF form completed by potential specialist</span>
+                    <span style={{ fontSize: '12px', color: '#16264a' }}>SIF form completed by potential specialist</span>
                     {sifDone
                       ? <>
                           <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>
                           <span style={{ color: '#4e6087', fontSize: '9px', transform: sifOpen ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
                         </>
-                      : <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: '#f2f5fa', color: '#4e6087', marginLeft: 'auto' }}>Awaiting</span>}
+                      : <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087', marginLeft: 'auto' }}>Awaiting</span>}
                   </div>
                   {sifDone && sifOpen && (
                     <div style={{ padding: '10px 12px 4px 16px' }}>
@@ -713,7 +713,7 @@ function OnboardingDetail({ id, onBack }) {
           const newInThisMeeting = discussed.filter(idx => !previousItems.has(idx))
           
           return (
-            <div key={meeting.id} style={{ marginBottom: '16px', padding: '12px', borderRadius: '8px', border: '1px solid #ebf0f8', background: '#fafbfe' }}>
+            <div key={meeting.id} style={{ marginBottom: '16px', padding: '12px', borderRadius: '8px', border: '1px solid #ebf0f8', background: '#eef2f9' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <span style={{ fontSize: '12px', color: '#0095ff', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Meeting {mi + 1}</span>
                 <span style={{ fontSize: '11px', color: '#697a9c' }}>{meeting.meeting_date} · {meeting.created_by}</span>
@@ -740,7 +740,7 @@ function OnboardingDetail({ id, onBack }) {
                 </>
               )}
               {meeting.outcome === 'interested' && (
-                <div style={{ fontSize: '12px', color: '#1b9254', fontWeight: 600, marginTop: '6px' }}>
+                <div style={{ fontSize: '12px', color: '#16264a', fontWeight: 600, marginTop: '6px' }}>
                   ✓ Still interested — email sent
                   {meeting.notes && <span style={{ color: '#4e6087', marginLeft: '8px' }}>({meeting.notes})</span>}
                 </div>
@@ -766,7 +766,7 @@ function OnboardingDetail({ id, onBack }) {
         {/* All items covered message */}
         {allLocked && !isStopped && (
           <div style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(27,146,84,0.3)', background: 'rgba(27,146,84,0.06)', marginBottom: '14px' }}>
-            <span style={{ fontSize: '12px', color: '#1b9254', fontWeight: 600 }}>✓ All Stage 2 items completed across {meetingCount} meeting{meetingCount !== 1 ? 's' : ''}.</span>
+            <span style={{ fontSize: '12px', color: '#16264a', fontWeight: 600 }}>✓ All Stage 2 items completed across {meetingCount} meeting{meetingCount !== 1 ? 's' : ''}.</span>
           </div>
         )}
 
@@ -775,7 +775,7 @@ function OnboardingDetail({ id, onBack }) {
         <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
         <SectionLabel>Revenue share proposal</SectionLabel>
         {!getTaskStatus(2, 'rev_share_prepared') ? (
-          <div style={{ padding: '14px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.3)', background: '#fafbfe', marginBottom: '12px' }}>
+          <div style={{ padding: '14px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.3)', background: '#eef2f9', marginBottom: '12px' }}>
             <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '8px' }}>Revenue Share Proposal</div>
             <textarea value={revSharePercent} onChange={e => setRevSharePercent(e.target.value)} placeholder="Enter revenue share proposal details..." rows={6} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '10px' }} />
             <ActionButton label={submittingRevShare ? 'Submitting...' : 'Submit revenue share proposal'} onClick={submitRevShareProposal} disabled={!revSharePercent.trim() || submittingRevShare} color="#1b9254" />
@@ -795,7 +795,7 @@ function OnboardingDetail({ id, onBack }) {
         <>
             <SectionLabel>Initial executive approval</SectionLabel>
             {!votingOpen ? (
-              <div style={{ fontSize: '12px', color: '#4e6087', padding: '10px 12px', borderRadius: '6px', border: '1px solid #dde5f2', background: '#fafbfe', marginBottom: '12px' }}>
+              <div style={{ fontSize: '12px', color: '#4e6087', padding: '10px 12px', borderRadius: '6px', border: '1px solid #dde5f2', background: '#eef2f9', marginBottom: '12px' }}>
                 Voting opens once the revenue share proposal and {ob.sif_data?.is_tax_specialist === 'No' ? "Tracy's notes" : "Tracy's and Tim's notes"} are complete.
               </div>
             ) : (
@@ -822,7 +822,7 @@ function OnboardingDetail({ id, onBack }) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0' }}>
                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: sent ? '#e74c3c' : 'transparent', flexShrink: 0, border: `1.5px solid ${sent ? '#e74c3c' : '#c7d4e8'}` }} />
                     <span style={{ fontSize: '13px', color: sent ? '#e74c3c' : '#4e6087', flex: 1 }}>Decline email drafted to specialist — Tracy Miller will follow up</span>
-                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: sent ? 'rgba(231,76,60,0.15)' : '#f2f5fa', color: sent ? '#e74c3c' : '#4e6087', border: `1px solid ${sent ? 'rgba(231,76,60,0.3)' : '#e3eaf5'}` }}>{sent ? 'Sent — process stopped' : 'Sending…'}</span>
+                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: sent ? 'rgba(231,76,60,0.15)' : '#eef2f9', color: sent ? '#e74c3c' : '#4e6087', border: `1px solid ${sent ? 'rgba(231,76,60,0.3)' : '#e3eaf5'}` }}>{sent ? 'Sent — process stopped' : 'Sending…'}</span>
                   </div>
                 </>
               )
@@ -836,19 +836,19 @@ function OnboardingDetail({ id, onBack }) {
     const [open, setOpen] = useState(false)
     return (
       <div style={{ marginBottom: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#1b9254', border: '1px solid #1b9254' }} />
-          <span style={{ fontSize: '12px', color: '#1b9254', fontWeight: 600 }}>Revenue share proposal submitted</span>
+          <span style={{ fontSize: '12px', color: '#16264a', fontWeight: 600 }}>Revenue share proposal submitted</span>
           <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>
         </div>
         <div onClick={() => setOpen(o => !o)} style={{ fontSize: '11px', color: '#0095ff', fontWeight: 600, cursor: 'pointer', marginTop: '4px' }}>{open ? '▼ Hide proposal' : '▶ View proposal'}</div>
         {open && (
           <div style={{ marginTop: '6px' }}>
             <div style={{ fontSize: '10px', color: '#0095ff', fontWeight: 600, marginBottom: '3px' }}>{edited ? 'Original submission' : 'Submitted proposal'}</div>
-            <div style={{ fontSize: '12px', color: '#4e6087', lineHeight: '1.6', whiteSpace: 'pre-wrap', padding: '8px 12px', borderRadius: '6px', background: '#f8fafd', border: '1px solid #f2f5fa' }}>{notes || '—'}</div>
+            <div style={{ fontSize: '12px', color: '#4e6087', lineHeight: '1.6', whiteSpace: 'pre-wrap', padding: '8px 12px', borderRadius: '6px', background: '#eef2f9', border: '1px solid #dde5f2' }}>{notes || '—'}</div>
             {edited && (
               <>
-                <div style={{ fontSize: '10px', color: '#1b9254', fontWeight: 600, margin: '8px 0 3px' }}>Edited final version</div>
+                <div style={{ fontSize: '10px', color: '#4e6087', fontWeight: 600, margin: '8px 0 3px' }}>Edited final version</div>
                 <div style={{ fontSize: '12px', color: '#4e6087', lineHeight: '1.6', whiteSpace: 'pre-wrap', padding: '8px 12px', borderRadius: '6px', background: 'rgba(27,146,84,0.06)', border: '1px solid rgba(27,146,84,0.2)' }}>{edited}</div>
               </>
             )}
@@ -872,7 +872,7 @@ function OnboardingDetail({ id, onBack }) {
     }
 
     return (
-      <div style={{ padding: '12px 14px', borderRadius: '8px', border: `1px solid ${done ? 'rgba(27,146,84,0.3)' : 'rgba(251,137,90,0.3)'}`, background: '#fafbfe', marginBottom: '12px' }}>
+      <div style={{ padding: '12px 14px', borderRadius: '8px', border: `1px solid ${done ? 'rgba(27,146,84,0.3)' : 'rgba(251,137,90,0.3)'}`, background: '#eef2f9', marginBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
           <span style={{ fontSize: '13px', color: '#16264a', fontWeight: '600' }}>{label} <span style={{ color: '#4e6087', fontWeight: 400 }}>({who}){hint ? ` — ${hint}` : ''}</span></span>
           {done
@@ -899,7 +899,7 @@ function OnboardingDetail({ id, onBack }) {
           const revealed = voted && value != null
           const color = value === 'Approved' ? '#1b9254' : value === 'Denied' ? '#e74c3c' : '#e06717'
           return (
-            <div key={voter} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #ebf0f8', background: '#fafbfe' }}>
+            <div key={voter} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #ebf0f8', background: '#eef2f9' }}>
               <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '8px' }}>{voter}{isMe && <span style={{ color: '#0095ff' }}> (you)</span>}</div>
               {revealed ? (
                 <span style={{ fontSize: '12px', color, fontWeight: 600 }}>{value === 'Approved' ? '✓ ' : value === 'Denied' ? '✗ ' : '⚠ '}{value}</span>
@@ -913,7 +913,7 @@ function OnboardingDetail({ id, onBack }) {
                   })}
                 </div>
               ) : (
-                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087', border: '1px solid #e3eaf5' }}>Awaiting response</span>
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>Awaiting response</span>
               )}
             </div>
           )
@@ -936,7 +936,7 @@ function OnboardingDetail({ id, onBack }) {
       <div style={{ marginBottom: '14px' }}>
         <div onClick={() => setOpen(o => !o)} style={{ fontSize: '12px', color: '#0095ff', cursor: 'pointer', fontWeight: 600 }}>{open ? '▼ Hide details' : '▶ View details'}</div>
         {open && (
-          <div style={{ marginTop: '8px', padding: '12px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #f2f5fa' }}>
+          <div style={{ marginTop: '8px', padding: '12px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2' }}>
             <div style={{ ...grpStyle, marginTop: 0 }}>SIF answers</div>
             {SIF_FIELDS.map(([k, label]) => item(label, sifData[k], k))}
             {item('Tax Specialist?', sifData.is_tax_specialist, 'taxflag')}
@@ -997,7 +997,7 @@ function OnboardingDetail({ id, onBack }) {
       <div style={{ marginBottom: '14px' }}>
         <div onClick={() => setOpen(o => !o)} style={{ fontSize: '12px', color: '#0095ff', cursor: 'pointer', fontWeight: 600 }}>{open ? '▼ Hide details' : '▶ View details'}</div>
         {open && (
-          <div style={{ marginTop: '8px', padding: '12px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #f2f5fa' }}>
+          <div style={{ marginTop: '8px', padding: '12px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2' }}>
             <div style={{ ...grpStyle, marginTop: 0 }}>Background check</div>
             <div style={valStyle}>Passed — {bgType} check</div>
             <div style={grpStyle}>Due Diligence Checklist</div>
@@ -1120,10 +1120,10 @@ function OnboardingDetail({ id, onBack }) {
       const c = state === 'green' ? '#1b9254' : state === 'red' ? '#e74c3c' : '#697a9c'
       const grey = state === 'grey'
       return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: grey ? 'transparent' : c, border: `1px solid ${grey ? '#bac9e1' : c}` }} />
-          <span style={{ fontSize: '12px', color: grey ? '#4e6087' : c }}>{label}</span>
-          <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: grey ? '#f2f5fa' : `${c}26`, color: grey ? '#4e6087' : c }}>{pill}</span>
+          <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
+          <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: grey ? '#eef2f9' : `${c}26`, border: grey ? '1px solid #dde5f2' : `1px solid ${c}44`, color: grey ? '#4e6087' : c }}>{pill}</span>
         </div>
       )
     }
@@ -1169,9 +1169,9 @@ function OnboardingDetail({ id, onBack }) {
         {/* Appears once the specialist asks questions, and STAYS as a paper trail:
             action buttons while unresolved, then the outcome pill once resolved. */}
         {fqRequested && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: fqResolved ? '#1b9254' : '#e06717', border: `1px solid ${fqResolved ? '#1b9254' : '#e06717'}` }} />
-            <span style={{ fontSize: '12px', color: fqResolved ? '#1b9254' : '#16264a' }}>Answer the specialist's background check questions</span>
+            <span style={{ fontSize: '12px', color: '#16264a' }}>Answer the specialist's background check questions</span>
             <span style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
               {fqResolved ? (
                 ob.further_questions_resolution === 'Stop'
@@ -1188,9 +1188,9 @@ function OnboardingDetail({ id, onBack }) {
         )}
 
         {/* Specialist background check choice (Core/Max) — "Questions asked" pill if they asked first. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgChosen ? '#1b9254' : 'transparent', border: `1px solid ${bgChosen ? '#1b9254' : '#c7d4e8'}` }} />
-          <span style={{ fontSize: '12px', color: bgChosen ? '#1b9254' : '#4e6087' }}>Specialist background check choice</span>
+          <span style={{ fontSize: '12px', color: '#16264a' }}>Specialist background check choice</span>
           <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px', alignItems: 'center' }}>
             {bgChosen ? (
               <>
@@ -1198,7 +1198,7 @@ function OnboardingDetail({ id, onBack }) {
                 <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>
               </>
             ) : (
-              <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: '#f2f5fa', color: '#4e6087' }}>Not completed</span>
+              <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not completed</span>
             )}
           </span>
         </div>
@@ -1209,18 +1209,18 @@ function OnboardingDetail({ id, onBack }) {
         {/* ── Background Check ── */}
         <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
         <SectionLabel>Background Check</SectionLabel>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgInitiated ? '#1b9254' : 'transparent', border: `1px solid ${bgInitiated ? '#1b9254' : '#c7d4e8'}` }} />
-          <span style={{ fontSize: '12px', color: bgInitiated ? '#1b9254' : '#4e6087' }}>Background check sent{ob.background_check_type ? ` to ${ob.background_check_type === 'Max' ? 'Scherzer International' : 'Checkr'}` : ''}</span>
+          <span style={{ fontSize: '12px', color: '#16264a' }}>Background check sent{ob.background_check_type ? ` to ${ob.background_check_type === 'Max' ? 'Scherzer International' : 'Checkr'}` : ''}</span>
           <span style={{ marginLeft: 'auto' }}>
             {bgInitiated
               ? <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>
               : <ActionButton label="Mark as sent" onClick={() => saveProgress(3, 'bg_initiated', 'completed')} color="#1b9254" />}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgResult ? (bgDone ? '#1b9254' : '#e74c3c') : 'transparent', border: `1px solid ${bgResult ? (bgDone ? '#1b9254' : '#e74c3c') : '#c7d4e8'}` }} />
-          <span style={{ fontSize: '12px', color: bgResult ? (bgDone ? '#1b9254' : '#e74c3c') : '#4e6087' }}>Background check results</span>
+          <span style={{ fontSize: '12px', color: '#16264a' }}>Background check results</span>
           <span style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
             {!bgResult ? (
               <>
@@ -1248,9 +1248,9 @@ function OnboardingDetail({ id, onBack }) {
 
         {/* Help requested — same paper-trail format as the Core/Max questions step */}
         {helpRequested && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: helpResolved ? '#1b9254' : '#e06717', border: `1px solid ${helpResolved ? '#1b9254' : '#e06717'}` }} />
-            <span style={{ fontSize: '12px', color: helpResolved ? '#1b9254' : '#16264a' }}>Answer the specialist's checklist questions</span>
+            <span style={{ fontSize: '12px', color: '#16264a' }}>Answer the specialist's checklist questions</span>
             <span style={{ marginLeft: 'auto' }}>
               {helpResolved
                 ? <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Help received</span>
@@ -1262,13 +1262,13 @@ function OnboardingDetail({ id, onBack }) {
         {/* Checklist progress — grouped by the form's sections + question order.
             Collapsed: a section→question checklist. Expanded ("View answers"):
             each filled question's text + file downloads shown inline, in order. */}
-        <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ebf0f8', background: '#fafbfe', margin: '8px 0 12px' }}>
+        <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ebf0f8', background: '#eef2f9', margin: '8px 0 12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
             <span style={{ fontSize: '12px', color: '#16264a', fontWeight: '600' }}>Checklist progress</span>
             <span style={{ fontSize: '11px', color: '#697a9c' }}>{ddFilled}/{ddTotal} answered</span>
           </div>
           {ddFilled > 0 && (
-            <div style={{ marginBottom: '6px', paddingBottom: '8px', borderBottom: '1px solid #f2f5fa' }}>
+            <div style={{ marginBottom: '6px', paddingBottom: '8px', borderBottom: '1px solid #e9eef8' }}>
               <span onClick={() => setShowSubmission(s => !s)} style={{ fontSize: '11px', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>{showSubmission ? '▼ Hide answers' : '▶ View answers'}</span>
             </div>
           )}
@@ -1287,7 +1287,7 @@ function OnboardingDetail({ id, onBack }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0' }}>
                       <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: filled ? '#1b9254' : 'transparent', border: `1px solid ${filled ? '#1b9254' : '#bac9e1'}`, flexShrink: 0 }} />
                       <span style={{ fontSize: '12px', color: filled ? '#3c4f73' : '#6c7a96' }}>{it.label}</span>
-                      {filled && <span style={{ fontSize: '11px', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Entered</span>}
+                      {filled && <span style={{ fontSize: '11px', color: '#16264a', fontWeight: 600, marginLeft: 'auto' }}>Entered</span>}
                     </div>
                     {showSubmission && filled && (
                       <div style={{ margin: '2px 0 8px 14px' }}>
@@ -1312,19 +1312,19 @@ function OnboardingDetail({ id, onBack }) {
         {/* Review paper trail — every approve/deny round, oldest first */}
         {reviewLog.filter(e => e.type === 'denied' || e.type === 'approved').map((e, i) => (
           e.type === 'approved' ? (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#1b9254', border: '1px solid #1b9254' }} />
-              <span style={{ fontSize: '12px', color: '#1b9254', fontWeight: 600 }}>Due Diligence Checklist approved</span>
+              <span style={{ fontSize: '12px', color: '#16264a', fontWeight: 600 }}>Due Diligence Checklist approved</span>
               <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Approved</span>
             </div>
           ) : (
-            <div key={i} style={{ padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+            <div key={i} style={{ padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#e74c3c', border: '1px solid #e74c3c' }} />
                 <span style={{ fontSize: '12px', color: '#e74c3c', fontWeight: 600 }}>Due Diligence Checklist denied</span>
                 <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600 }}>Denied</span>
               </div>
-              {e.reason && <div style={{ fontSize: '11px', color: '#4e6087', whiteSpace: 'pre-wrap', lineHeight: 1.5, margin: '4px 0 0 14px', padding: '6px 10px', background: '#f8fafd', borderRadius: '6px', border: '1px solid #f2f5fa' }}>{e.reason}</div>}
+              {e.reason && <div style={{ fontSize: '11px', color: '#4e6087', whiteSpace: 'pre-wrap', lineHeight: 1.5, margin: '4px 0 0 14px', padding: '6px 10px', background: '#eef2f9', borderRadius: '6px', border: '1px solid #dde5f2' }}>{e.reason}</div>}
             </div>
           )
         ))}
@@ -1338,7 +1338,7 @@ function OnboardingDetail({ id, onBack }) {
               <ActionButton label="Denied" onClick={() => setShowEdits(s => !s)} color="#e74c3c" disabled={!!ddcBusy} />
             </div>
             {showEdits && (
-              <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.3)', background: '#fafbfe' }}>
+              <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.3)', background: '#eef2f9' }}>
                 <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '8px' }}>Reason — included in the email the specialist receives</div>
                 <textarea value={editsReason} onChange={e => setEditsReason(e.target.value)} placeholder="Explain what needs to be changed or added…" rows={4} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
                 <div style={{ marginTop: '8px' }}>
@@ -1364,7 +1364,7 @@ function OnboardingDetail({ id, onBack }) {
               <ActionButton label="Edit revenue share proposal" onClick={() => { setRevEditText(revFinalText); setShowRevEdit(s => !s) }} color="#0095ff" disabled={!!revBusy} />
             </div>
             {showRevEdit && (
-              <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.3)', background: '#fafbfe' }}>
+              <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.3)', background: '#eef2f9' }}>
                 <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '8px' }}>Edit the revenue share proposal — submitting locks it in as final.</div>
                 <textarea value={revEditText} onChange={e => setRevEditText(e.target.value)} rows={5} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
                 <div style={{ marginTop: '8px' }}>
@@ -1378,7 +1378,7 @@ function OnboardingDetail({ id, onBack }) {
         {revFinalDone && revFinalText && (
           <div style={{ padding: '4px 0 0 14px' }}>
             <span onClick={() => setShowRevProp(s => !s)} style={{ fontSize: '11px', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>{showRevProp ? '▼ Hide final proposal' : '▶ View final proposal'}</span>
-            {showRevProp && <div style={{ fontSize: '12px', color: '#4e6087', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginTop: '6px', padding: '8px 10px', background: '#f8fafd', borderRadius: '6px', border: '1px solid #f2f5fa' }}>{revFinalText}</div>}
+            {showRevProp && <div style={{ fontSize: '12px', color: '#4e6087', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginTop: '6px', padding: '8px 10px', background: '#eef2f9', borderRadius: '6px', border: '1px solid #dde5f2' }}>{revFinalText}</div>}
           </div>
         )}
 
@@ -1414,7 +1414,7 @@ function OnboardingDetail({ id, onBack }) {
 
         <SectionLabel>Final executive approval</SectionLabel>
         {!votingOpen ? (
-          <div style={{ fontSize: '12px', color: '#4e6087', padding: '10px 12px', borderRadius: '6px', border: '1px solid #dde5f2', background: '#fafbfe', marginBottom: '12px' }}>
+          <div style={{ fontSize: '12px', color: '#4e6087', padding: '10px 12px', borderRadius: '6px', border: '1px solid #dde5f2', background: '#eef2f9', marginBottom: '12px' }}>
             Voting opens once {timRequired4 ? "Tracy's and Tim's notes are" : "Tracy's notes are"} complete.
           </div>
         ) : (
@@ -1459,7 +1459,7 @@ function OnboardingDetail({ id, onBack }) {
     }
 
     return (
-      <div style={{ padding: '10px 0 10px 26px', borderBottom: '1px solid #f7f9fc' }}>
+      <div style={{ padding: '10px 0 10px 26px', borderBottom: '1px solid #e9eef8' }}>
         <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '6px' }}>Team member names</div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
           <textarea value={names} onChange={e => { setNames(e.target.value); setSaved(false) }} placeholder="Enter team member names..." rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
@@ -1482,7 +1482,7 @@ function OnboardingDetail({ id, onBack }) {
           }
           return (
             <div key={item.key}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f7f9fc' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #e9eef8' }}>
                 <span style={{ fontSize: '13px', color: '#16264a' }}>{item.label}</span>
                 <select value={status || ''} onChange={e => e.target.value && saveProgress(5, item.key, e.target.value)} disabled={isStopped} style={{ ...inputStyle, minWidth: '120px', borderColor: status ? 'rgba(27,146,84,0.4)' : '#d6e0ee', color: status ? '#1b9254' : '#16264a' }}>
                   <option value="">-- Select --</option>
@@ -1502,7 +1502,7 @@ function OnboardingDetail({ id, onBack }) {
         {!getTaskStatus(5, 'added_to_showroom') ? (
           <button onClick={() => { saveProgress(5, 'added_to_showroom', 'completed'); completeOnboarding() }} disabled={isStopped} style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: isStopped ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', width: '100%' }}>Add to VFO Showroom</button>
         ) : (
-          <div style={{ fontSize: '13px', color: '#1b9254', fontWeight: '600', textAlign: 'center', padding: '10px' }}>✓ Added to VFO Showroom — Onboarding Complete</div>
+          <div style={{ fontSize: '13px', color: '#16264a', fontWeight: '600', textAlign: 'center', padding: '10px' }}>✓ Added to VFO Showroom — Onboarding Complete</div>
         )}
       </>
     )

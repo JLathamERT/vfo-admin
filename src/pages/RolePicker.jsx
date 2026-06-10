@@ -44,7 +44,7 @@ export default function RolePicker() {
           >
             <span style={{
               width: '42px', height: '42px', borderRadius: '12px', flexShrink: 0,
-              background: role.to ? 'linear-gradient(135deg, #125ecc, #0095ff)' : '#f2f5fa',
+              background: role.to ? 'linear-gradient(135deg, #125ecc, #0095ff)' : '#eef2f9',
               color: role.to ? '#ffffff' : '#9aa6bf', display: 'inline-flex', alignItems: 'center',
               justifyContent: 'center', fontSize: '13px', fontWeight: 800, letterSpacing: '0.5px',
             }}>{role.initials}</span>

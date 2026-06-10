@@ -41,7 +41,7 @@ export default function ClientPortal() {
         </div>
 
         {tab === 'showroom' && (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#4e6087', background: '#f8fafd', borderRadius: '12px', border: '1px solid #ebf0f8' }}>
+          <div style={{ padding: '40px', textAlign: 'center', color: '#4e6087', background: '#eef2f9', borderRadius: '12px', border: '1px solid #ebf0f8' }}>
             Your Showroom is coming soon.
           </div>
         )}

@@ -313,7 +313,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
                 <div style={{ fontSize: '12px', color: '#4e6087' }}>View your planning summary</div>
               </div>
             ) : (
-              <div style={{ flex: 1, padding: '32px 24px', borderRadius: '12px', border: '1px solid #e3eaf5', background: '#f8fafd', textAlign: 'center', opacity: 0.4 }}>
+              <div style={{ flex: 1, padding: '32px 24px', borderRadius: '12px', border: '1px solid #dde5f2', background: '#eef2f9', textAlign: 'center', opacity: 0.4 }}>
                 <div style={{ fontSize: '16px', fontWeight: '600', color: '#16264a', marginBottom: '6px' }}>One Page Plan</div>
                 <div style={{ fontSize: '12px', color: '#4e6087' }}>Complete Prioritize first</div>
               </div>
@@ -470,12 +470,12 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
                   )}
                   <div key={item.key} style={{ display: 'flex', gap: '0', borderTop: idx > 0 && !showSubHeader ? '1px solid #f2f5fa' : 'none' }}>
                     {/* Label + Value */}
-                    <div style={{ flex: '1 1 180px', padding: '12px 14px', borderRight: '1px solid #f2f5fa' }}>
+                    <div style={{ flex: '1 1 180px', padding: '12px 14px', borderRight: '1px solid #e9eef8' }}>
                       <div style={{ fontSize: '14px', fontWeight: '600', color: '#16264a' }}>{item.label}</div>
                       {(item.sublabel || item.value) && <div style={{ fontSize: '12px', color: '#4e6087', marginTop: '4px' }}>{item.sublabel || item.value}</div>}
                     </div>
                     {/* Decision radios */}
-                    <div style={{ flex: '0 0 160px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'center', borderRight: '1px solid #f2f5fa' }}>
+                    <div style={{ flex: '0 0 160px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'center', borderRight: '1px solid #e9eef8' }}>
                       {['drop', 'park', 'prioritize'].map(d => (
                         <label key={d} onClick={() => setPriorityDecision(item, d)} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                           <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: getPriority(item.key) === d ? `4px solid ${decisionColors[d]}` : '2px solid #aebfdb', boxSizing: 'border-box' }} />
@@ -519,7 +519,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
           const displayLabel = bizMatch ? `${mainText} — ${bizMatch[1]}` : mainText
           const displaySection = bizMatch ? 'Business Advisory' : item.item_section
           return (
-            <div key={item.item_key} style={{ padding: '8px 0', borderBottom: '1px solid #f2f5fa' }}>
+            <div key={item.item_key} style={{ padding: '8px 0', borderBottom: '1px solid #e9eef8' }}>
               <div style={{ fontSize: '14px', color: '#16264a' }}>{displayLabel}{item.notes ? ` — ${item.notes}` : ''}</div>
               <div style={{ fontSize: '11px', color: '#4e6087', marginTop: '2px' }}>{displaySection}</div>
             </div>
@@ -554,13 +554,13 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
               </div>
 
               <div style={{ marginBottom: '24px' }}>
-                <div style={{ fontSize: '16px', fontWeight: '700', color: '#1b9254', marginBottom: '2px' }}>Immediate Priorities</div>
+                <div style={{ fontSize: '16px', fontWeight: '700', color: '#002973', marginBottom: '2px' }}>Immediate Priorities</div>
                 <div style={{ fontSize: '12px', color: '#4e6087', fontStyle: 'italic', marginBottom: '12px' }}>We will begin to address these priorities with immediate effect</div>
                 <div style={sectionStyle}>{renderPlanItems(immediateItems)}</div>
               </div>
 
               <div style={{ marginBottom: '24px' }}>
-                <div style={{ fontSize: '16px', fontWeight: '700', color: '#e06717', marginBottom: '2px' }}>Parked Priorities</div>
+                <div style={{ fontSize: '16px', fontWeight: '700', color: '#002973', marginBottom: '2px' }}>Parked Priorities</div>
                 <div style={{ fontSize: '12px', color: '#4e6087', fontStyle: 'italic', marginBottom: '12px' }}>We will reconsider these parked priorities at our next Partners In Planning Meeting</div>
                 <div style={sectionStyle}>{renderPlanItems(parkedItems)}</div>
               </div>
@@ -585,13 +585,13 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
                   </div>
 
                   <div style={{ marginBottom: '24px' }}>
-                    <div style={{ fontSize: '16px', fontWeight: '700', color: '#1b9254', marginBottom: '2px' }}>Immediate Priorities</div>
+                    <div style={{ fontSize: '16px', fontWeight: '700', color: '#002973', marginBottom: '2px' }}>Immediate Priorities</div>
                     <div style={{ fontSize: '12px', color: '#4e6087', fontStyle: 'italic', marginBottom: '12px' }}>We will begin to address these priorities with immediate effect</div>
                     <div style={sectionStyle}>{renderPlanItems(immediateItems)}</div>
                   </div>
 
                   <div style={{ marginBottom: '24px' }}>
-                    <div style={{ fontSize: '16px', fontWeight: '700', color: '#e06717', marginBottom: '2px' }}>Parked Priorities</div>
+                    <div style={{ fontSize: '16px', fontWeight: '700', color: '#002973', marginBottom: '2px' }}>Parked Priorities</div>
                     <div style={{ fontSize: '12px', color: '#4e6087', fontStyle: 'italic', marginBottom: '12px' }}>We will reconsider these parked priorities at our next Partners In Planning Meeting</div>
                     <div style={sectionStyle}>{renderPlanItems(parkedItems)}</div>
                   </div>
@@ -602,9 +602,9 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
                     ? <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>No history yet. Snapshots are saved each time priorities are updated.</div>
                     : snapshots.map(snap => (
                       <div key={snap.id} onClick={() => setSelectedSnapshot(snap)}
-                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', marginBottom: '4px', background: '#f8fafd', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
-                        onMouseEnter={e => e.currentTarget.style.background = '#f2f5fa'}
-                        onMouseLeave={e => e.currentTarget.style.background = '#f8fafd'}>
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', marginBottom: '4px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
+                        onMouseLeave={e => e.currentTarget.style.background = '#eef2f9'}>
                         <div>
                           <div style={{ fontSize: '14px', color: '#16264a' }}>{snap.saved_at?.split('T')[0]} at {snap.saved_at?.split('T')[1]?.substring(0, 5)}</div>
                           <div style={{ fontSize: '12px', color: '#4e6087' }}>Saved by {snap.saved_by}</div>
@@ -624,7 +624,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
     // ─── REPORT VIEW ─────────────────────────────────────
     if (showReport) {
       const reportRow = (label, value) => (
-        <div style={{ display: 'flex', borderBottom: '1px solid #f2f5fa' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ flex: 1, padding: '10px 14px', fontSize: '13px', color: '#4e6087' }}>{label}</div>
           <div style={{ flex: 1, padding: '10px 14px', fontSize: '13px', color: '#16264a' }}>{value || '—'}</div>
         </div>
@@ -638,7 +638,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
       )
 
       const reportSubHeader = (title) => (
-        <div style={{ background: 'rgba(0,149,255,0.08)', padding: '8px 14px', borderBottom: '1px solid #f2f5fa' }}>
+        <div style={{ background: 'rgba(0,149,255,0.08)', padding: '8px 14px', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ fontSize: '12px', fontWeight: '600', color: '#0095ff', textAlign: 'center' }}>{title}</div>
         </div>
       )
@@ -1103,7 +1103,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
                     {taxAreas.map(area => {
                       const key = `tax_interest_${area.toLowerCase().replace(/[\s\/]/g, '_')}`
                       return (
-                        <div key={area} style={{ display: 'grid', gridTemplateColumns: '1fr repeat(4, 100px)', padding: '10px 14px', borderTop: '1px solid #f2f5fa', gap: '4px', alignItems: 'center' }}>
+                        <div key={area} style={{ display: 'grid', gridTemplateColumns: '1fr repeat(4, 100px)', padding: '10px 14px', borderTop: '1px solid #e9eef8', gap: '4px', alignItems: 'center' }}>
                           <div style={{ fontSize: '13px', color: '#16264a' }}>{area}</div>
                           {interestLevels.map(level => (
                             <div key={level} style={{ display: 'flex', justifyContent: 'center' }}>
@@ -1160,7 +1160,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
                 {areas.map(area => {
                   const key = `${keyPrefix}_${area.toLowerCase().replace(/[\s\/\(\)]/g, '_')}`
                   return (
-                    <div key={area} style={{ display: 'grid', gridTemplateColumns: '1.5fr repeat(4, 1fr)', padding: '10px 14px', borderTop: '1px solid #f2f5fa', gap: '4px', alignItems: 'center' }}>
+                    <div key={area} style={{ display: 'grid', gridTemplateColumns: '1.5fr repeat(4, 1fr)', padding: '10px 14px', borderTop: '1px solid #e9eef8', gap: '4px', alignItems: 'center' }}>
                       <div style={{ fontSize: '13px', color: '#16264a' }}>{area}</div>
                       {concernLevels.map(level => (
                         <div key={level} style={{ display: 'flex', justifyContent: 'center' }}>
@@ -1279,7 +1279,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
                 {areas.map(area => {
                   const key = `${keyPrefix}_${area.toLowerCase().replace(/[\s\/\(\)]/g, '_')}`
                   return (
-                    <div key={area} style={{ display: 'grid', gridTemplateColumns: '1.5fr repeat(4, 1fr)', padding: '10px 14px', borderTop: '1px solid #f2f5fa', gap: '4px', alignItems: 'center' }}>
+                    <div key={area} style={{ display: 'grid', gridTemplateColumns: '1.5fr repeat(4, 1fr)', padding: '10px 14px', borderTop: '1px solid #e9eef8', gap: '4px', alignItems: 'center' }}>
                       <div style={{ fontSize: '13px', color: '#16264a' }}>{area}</div>
                       {interestLevels.map(level => (
                         <div key={level} style={{ display: 'flex', justifyContent: 'center' }}>
@@ -1420,7 +1420,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
       {showCiqSettings && isAdmin && (
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>
           <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>CIQ Settings</div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f2f5fa' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e9eef8' }}>
             <div>
               <div style={{ fontSize: '14px', color: '#16264a' }}>Enable CIQ for Member</div>
               <div style={{ fontSize: '12px', color: '#4e6087', marginTop: '2px' }}>Allow this member to access the CIQ tab in their portal</div>
@@ -1473,9 +1473,9 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
                   <input value={clientSearch} onChange={e => setClientSearch(e.target.value)} placeholder="Search by name or ref..." style={{ ...inputStyle, marginBottom: '12px' }} />
                   {filteredClients.map(c => (
                     <div key={c.id} onClick={() => createForExisting(c.id)}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: '#f8fafd', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f2f5fa'}
-                      onMouseLeave={e => e.currentTarget.style.background = '#f8fafd'}>
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#eef2f9'}>
                       <div>
                         <div style={{ fontSize: '14px', color: '#16264a' }}>{c.first_name} {c.last_name}</div>
                         <div style={{ fontSize: '12px', color: '#4e6087' }}>{c.client_ref}{c.email ? ` · ${c.email}` : ''}</div>
@@ -1536,9 +1536,9 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
             {clientCiqs.map(ciq => (
               <div key={ciq.id}
                 onClick={() => openCiq(ciq)}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: '#f8fafd', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#f2f5fa'}
-                onMouseLeave={e => e.currentTarget.style.background = '#f8fafd'}>
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
+                onMouseLeave={e => e.currentTarget.style.background = '#eef2f9'}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', background: `${statusColors[ciq.status]}22`, color: statusColors[ciq.status], border: `1px solid ${statusColors[ciq.status]}44` }}>{ciq.status === 'draft' ? 'Draft' : 'Completed'}</span>
                   <span style={{ fontSize: '13px', color: '#4e6087' }}>Started {ciq.created_at?.split('T')[0]}</span>

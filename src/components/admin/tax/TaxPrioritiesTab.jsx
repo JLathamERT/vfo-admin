@@ -55,7 +55,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
   const labelStyle = { fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }
-  const sectionStyle = { background: '#eef2f9', borderRadius: '8px', padding: '16px', marginBottom: '12px', border: '1px solid #f2f5fa' }
+  const sectionStyle = { background: '#eef2f9', borderRadius: '8px', padding: '16px', marginBottom: '12px', border: '1px solid #dde5f2' }
   const readOnlyInput = { ...inputStyle, opacity: 0.6, pointerEvents: 'none' }
 
   function addCc() {
@@ -308,7 +308,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel }) {
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
   const labelStyle = { fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }
-  const sectionStyle = { background: '#eef2f9', borderRadius: '8px', padding: '14px', marginBottom: '10px', border: '1px solid #f2f5fa' }
+  const sectionStyle = { background: '#eef2f9', borderRadius: '8px', padding: '14px', marginBottom: '10px', border: '1px solid #dde5f2' }
   const riskOptions = ['Yes — Risk 1 — Very Conservative Mindset','Yes — Risk 2 - Moderately Conservative Mindset','Yes — Risk 3 — Average Risk Mindset','Yes — Risk 4 — Moderately Aggressive Mindset','Yes — Risk 5 — Very Aggressive Mindset']
   const splitOptions = ['1/3 Member, 2/3 VFOS', '50/50', 'Custom']
   const isPresetSplit = splitType && splitType !== 'Custom'
@@ -660,7 +660,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           const decisionLabel = p.status.replace('Completed - ', '')
           const decisionColor = decisionLabel === 'Yes' ? '#1b9254' : decisionLabel === 'No' ? '#e74c3c' : '#e06717'
           return (
-            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa' }}>
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: decisionColor, flexShrink: 0 }} />
               <span style={{ fontSize: '13px', color: '#4e6087', flex: 1 }}>{task.name}</span>
               <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${decisionColor}22`, color: decisionColor, border: `1px solid ${decisionColor}44` }}>{decisionLabel}</span>
@@ -670,10 +670,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         }
         if (readOnly && !isDone) {
           return (
-            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa' }}>
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid #c7d4e8' }} />
               <span style={{ fontSize: '13px', color: '#16264a', flex: 1 }}>{task.name}</span>
-              <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>
+              <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
               <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}></span>
             </div>
           )
@@ -685,7 +685,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         const formExpandKey = `taxform_${task.id}`
         const isFormShown = isDone ? expanded[formExpandKey] : true
         return (
-          <div key={key} style={{ borderBottom: '1px solid #f2f5fa', padding: '7px 0' }}>
+          <div key={key} style={{ borderBottom: '1px solid #e9eef8', padding: '7px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: isDone ? 'pointer' : 'default' }} onClick={() => isDone && setExpanded(prev => ({ ...prev, [formExpandKey]: !prev[formExpandKey] }))}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? decisionColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? decisionColor : '#c7d4e8'}` }} />
               <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1, fontWeight: '600' }}>{task.name}</span>
@@ -715,10 +715,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const enterDetailsTask = allTasks.find(t => t.name === 'Client tax planning decision')
       const enterDetailsStatus = enterDetailsTask ? (localProgress[enterDetailsTask.id]?.status || '') : ''
       if (!enterDetailsStatus || !enterDetailsStatus.startsWith('Completed')) return (
-        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa' }}>
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid #c7d4e8' }} />
           <span style={{ fontSize: '13px', color: '#16264a', flex: 1, fontWeight: '600' }}>{task.name}</span>
-          <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087', border: '1px solid #e3eaf5' }}>Waiting for details</span>
+          <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>Waiting for details</span>
           <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}></span>
         </div>
       )
@@ -730,9 +730,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       let aiState = {}
       try { aiState = JSON.parse(localProgress[key]?.notes || '{}') } catch(e) { aiState = {} }
       const autoStep = (label, done) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
-          <span style={{ fontSize: '12px', color: done ? '#1b9254' : '#4e6087' }}>{label}</span>
+          <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
           {done && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>}
         </div>
       )
@@ -763,10 +763,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const pricingStep = (done) => {
         if (!done) return autoStep('Pricing submitted by admin', false)
         return (
-          <div style={{ borderBottom: '1px solid #f7f9fc' }}>
+          <div style={{ borderBottom: '1px solid #e9eef8' }}>
             <div onClick={() => setExpanded(p => ({ ...p, [pricingFoldKey]: !pricingExpanded }))} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', cursor: 'pointer' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1b9254', flexShrink: 0, border: '1px solid #1b9254' }} />
-              <span style={{ fontSize: '12px', color: '#1b9254', fontWeight: 600 }}>Pricing submitted by admin</span>
+              <span style={{ fontSize: '12px', color: '#16264a', fontWeight: 600 }}>Pricing submitted by admin</span>
               <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>
               <span style={{ color: '#4e6087', fontSize: '9px', transform: pricingExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
             </div>
@@ -790,12 +790,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       }
 
       return (
-        <div key={key} style={{ padding: '7px 0', borderBottom: '1px solid #f2f5fa' }}>
+        <div key={key} style={{ padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: aipcDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${aipcDone ? '#1b9254' : '#c7d4e8'}` }} />
             <span style={{ fontSize: '13px', color: '#16264a', flex: 1, fontWeight: '600' }}>{task.name}</span>
           </div>
-          <div style={{ marginLeft: '18px', padding: '8px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #f2f5fa' }}>
+          <div style={{ marginLeft: '18px', padding: '8px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2' }}>
             {decision === 'No' && autoStep('Decline email sent to client', true)}
             {decision === 'Yes' && (
               <>
@@ -842,7 +842,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                       {autoStep('Client requested extra meeting', true)}
                       {autoStep('Extra meeting held', viaExtra)}
                       {!viaExtra && !extraMeetingPricingOpen && !readOnly && (
-                        <div style={{ padding: '10px 0', borderBottom: '1px solid #f7f9fc' }}>
+                        <div style={{ padding: '10px 0', borderBottom: '1px solid #e9eef8' }}>
                           <div style={{ fontSize: '12px', color: '#16264a', marginBottom: '8px' }}>PF outcome after extra meeting:</div>
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                             <button disabled={submittingExtraNo} onClick={() => setExtraMeetingPricingOpen(true)} style={{ padding: '6px 14px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }}>Yes — proceed with pricing</button>
@@ -902,7 +902,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         ? `${savedDate}${livePlan?.tax4_meeting_time ? ' ' + livePlan.tax4_meeting_time : ''}${livePlan?.tax4_meeting_timezone ? ' ' + livePlan.tax4_meeting_timezone : ''}`
         : ''
       return (
-        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap' }}>
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: savedDate ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${savedDate ? '#1b9254' : '#c7d4e8'}` }} />
           <span style={{ fontSize: '13px', color: savedDate ? '#4e6087' : '#16264a', flex: 1, fontWeight: '600' }}>{task.name}</span>
           {savedDate ? (
@@ -944,7 +944,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       }
 
       return (
-        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap' }}>
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: implDecision ? decisionColor : 'transparent', flexShrink: 0, border: `1.5px solid ${implDecision ? decisionColor : '#c7d4e8'}` }} />
           <span style={{ fontSize: '13px', color: implDecision ? '#4e6087' : '#16264a', flex: 1, fontWeight: '600' }}>{task.name}</span>
           {implDecision ? (
@@ -979,10 +979,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       // No decision yet → waiting for admin
       if (!implDecision) {
         return (
-          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa' }}>
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid #c7d4e8' }} />
             <span style={{ fontSize: '13px', color: '#16264a', flex: 1, fontWeight: '600' }}>{task.name}</span>
-            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087', border: '1px solid #e3eaf5' }}>Waiting for decision</span>
+            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>Waiting for decision</span>
           </div>
         )
       }
@@ -994,11 +994,11 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const aipcDone = declined || fullyDone
 
       const autoStep = (label, done) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
-          <span style={{ fontSize: '12px', color: done ? '#1b9254' : '#4e6087' }}>{label}</span>
+          <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
           {done && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>}
-          {!done && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: '#f2f5fa', color: '#4e6087', marginLeft: 'auto' }}>Not completed</span>}
+          {!done && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087', marginLeft: 'auto' }}>Not completed</span>}
         </div>
       )
 
@@ -1012,12 +1012,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       )
 
       return (
-        <div key={key} style={{ padding: '7px 0', borderBottom: '1px solid #f2f5fa' }}>
+        <div key={key} style={{ padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: aipcDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${aipcDone ? '#1b9254' : '#c7d4e8'}` }} />
             <span style={{ fontSize: '13px', color: '#16264a', flex: 1, fontWeight: '600' }}>{task.name}</span>
           </div>
-          <div style={{ marginLeft: '18px', padding: '8px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #f2f5fa' }}>
+          <div style={{ marginLeft: '18px', padding: '8px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2' }}>
             {implDecision === 'Not Implementing' && autoStep('Decline email sent to client', emailSentFor === 'Not Implementing')}
 
             {implDecision === 'Proceed' && (
@@ -1089,22 +1089,22 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         autoIsDone = decline || fullyDone
       }
       return (
-        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa' }}>
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: autoIsDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${autoIsDone ? '#1b9254' : '#c7d4e8'}` }} />
           <span style={{ fontSize: '13px', color: '#4e6087', flex: 1 }}>{task.name}</span>
-          <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: autoIsDone ? 'rgba(27,146,84,0.15)' : '#f2f5fa', color: autoIsDone ? '#1b9254' : '#4e6087', border: `1px solid ${autoIsDone ? 'rgba(27,146,84,0.3)' : '#e3eaf5'}` }}>{autoIsDone ? 'Completed' : 'Not completed'}</span>
+          <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: autoIsDone ? 'rgba(27,146,84,0.15)' : '#eef2f9', color: autoIsDone ? '#1b9254' : '#4e6087', border: `1px solid ${autoIsDone ? 'rgba(27,146,84,0.3)' : '#e3eaf5'}` }}>{autoIsDone ? 'Completed' : 'Not completed'}</span>
           <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{autoIsDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
         </div>
       )
     }
 
     if (readOnly) return (
-      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa' }}>
+      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
         <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
         {isDone
           ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
-          : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>
+          : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
         }
         <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
       </div>
@@ -1112,7 +1112,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
 
 
     if (task.status_options === 'enter_details') return (
-      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap' }}>
+      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? '#1b9254' : '#c7d4e8'}` }} />
         <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
         {isDone
@@ -1124,7 +1124,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     )
 
     if (task.status_options === 'tax_greenlight') return (
-      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap' }}>
+      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
         <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
         {isDone
@@ -1157,7 +1157,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         setDepositPiDrafts(p => { const c = { ...p }; delete c[task.id]; return c })
       }
       return (
-        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap' }}>
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone && savedPi ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone && savedPi ? '#1b9254' : '#c7d4e8'}` }} />
           <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
           {readOnly ? (
@@ -1195,7 +1195,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         await refreshLivePlan()
       }
       return (
-        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap', opacity: greyed && !refunded ? 0.3 : 1 }}>
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap', opacity: greyed && !refunded ? 0.3 : 1 }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: refunded ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${refunded ? '#1b9254' : '#c7d4e8'}` }} />
           <span style={{ fontSize: '13px', color: refunded ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
           {refunded
@@ -1218,7 +1218,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const tdCancel = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid #d6e0ee', background: 'transparent', color: '#4e6087' }
       const setDraft = (patch) => setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), ...patch } }))
       return (
-        <div key={key} style={{ borderBottom: '1px solid #f2f5fa' }}>
+        <div key={key} style={{ borderBottom: '1px solid #e9eef8' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
             <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
@@ -1316,17 +1316,17 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const autoStep = (label, done, opts = {}) => {
         const na = !!opts.na
         return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: (done || na) ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${(done || na) ? '#1b9254' : '#c7d4e8'}` }} />
-          <span style={{ fontSize: '12px', color: (done || na) ? '#1b9254' : '#4e6087' }}>{label}</span>
+          <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
           {(done || na) && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>{na ? 'N/A' : 'Done'}</span>}
-          {!(done || na) && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: '#f2f5fa', color: '#4e6087', marginLeft: 'auto' }}>{opts.pendingLabel || 'Not completed'}</span>}
+          {!(done || na) && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087', marginLeft: 'auto' }}>{opts.pendingLabel || 'Not completed'}</span>}
         </div>
         )
       }
 
       return (
-        <div key={key} style={{ borderBottom: '1px solid #f2f5fa' }}>
+        <div key={key} style={{ borderBottom: '1px solid #e9eef8' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: adminDecision ? decisionColor : 'transparent', flexShrink: 0, border: `1.5px solid ${adminDecision ? decisionColor : '#c7d4e8'}` }} />
             <span style={{ fontSize: '13px', color: adminDecision ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
@@ -1344,7 +1344,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             <span style={{ fontSize: '11px', color: '#4e6087', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{adminDecision && p.completed_date ? formatDate(p.completed_date) : ''}</span>
           </div>
           {adminDecision && (
-            <div style={{ marginLeft: '18px', padding: '8px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #f2f5fa', marginBottom: '8px' }}>
+            <div style={{ marginLeft: '18px', padding: '8px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2', marginBottom: '8px' }}>
               {adminDecision === 'Stop - Refund' && (
                 <>
                   {autoStep('Refund processed and confirmation email drafted', refundStatus === 'succeeded')}
@@ -1401,7 +1401,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     }
 
     if (task.status_options === 'tax_dd_implementation') return (
-      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap' }}>
+      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
         <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
         {isDone
@@ -1422,7 +1422,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const childTasks = allTasks.filter(t => childTaskNames.includes(t.name))
       const greyed = !additionalInfoRequired
       return (
-        <div key={key} style={{ borderBottom: '1px solid #f2f5fa' }}>
+        <div key={key} style={{ borderBottom: '1px solid #e9eef8' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
             <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
@@ -1439,7 +1439,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               const cDone = !!cp.status
               const cColor = statusColors[cp.status] || '#4e6087'
               return (
-                <div key={ck} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc', flexWrap: 'wrap' }}>
+                <div key={ck} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
                   <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: cDone ? cColor : 'transparent', flexShrink: 0, border: `1px solid ${cDone ? cColor : '#c7d4e8'}` }} />
                   <span style={{ fontSize: '12px', color: cDone ? '#4e6087' : '#16264a', flex: 1 }}>{ct.name}</span>
                   <select value={cp.status || ''} onChange={e => saveTask(ct.id, e.target.value, cp.completed_date, taxSpecialistId)} style={{ ...inputStyle, background: '#ffffff', minWidth: '120px', fontSize: '11px', borderColor: cDone ? `${cColor}66` : '#d6e0ee', color: cDone ? cColor : '#16264a' }}>
@@ -1465,7 +1465,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     }
 
     return (
-      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap', opacity: isGreyedOut ? 0.3 : 1, pointerEvents: isGreyedOut ? 'none' : 'auto' }}>
+      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap', opacity: isGreyedOut ? 0.3 : 1, pointerEvents: isGreyedOut ? 'none' : 'auto' }}>
         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
         <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}{greyNote && <span style={{ fontSize: '11px', color: '#e06717', fontWeight: 600, marginLeft: '8px' }}>({greyNote})</span>}</span>
         <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, taxSpecialistId)} disabled={saving[key]} style={{ ...inputStyle, background: '#ffffff', minWidth: '150px', borderColor: isDone ? `${statusColor}66` : '#d6e0ee', color: isDone ? statusColor : '#16264a' }}>
@@ -1520,7 +1520,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 {!readOnly && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === phase.name && n.tab_name === 'Tax Priorities').length} isOpen={expanded[`notes_${phase.id}`]} onClick={() => setExpanded(p => ({ ...p, [`notes_${phase.id}`]: !p[`notes_${phase.id}`] }))} />}
                 {state === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
                 {state === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress{doneTasks < nonAutoTasks.length ? ` · ${doneTasks}/${nonAutoTasks.length}` : ''}</span>}
-                {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>}
+                {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
                 <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !isExpanded }))} style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
               </div>
             </div>
@@ -1547,7 +1547,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
                 : taxSpecialists.length > 0 && taxSpecialists.some(spec => tax5aTasks.filter(t => t.status_options !== 'specialist_select').some(t => localProgress[`${t.id}_${spec.id}`]?.status))
                   ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress</span>
-                  : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>
+                  : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
               }
               {!readOnly && (
                 <button onClick={() => setShowAddSpec(!showAddSpec)} style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff' }}>+ Add Specialist</button>
@@ -1578,7 +1578,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               const allSpecDone = specTasks.every(t => localProgress[`${t.id}_${spec.id}`]?.status)
               const isSpecExpanded = expanded[specExpKey] !== undefined ? expanded[specExpKey] : !allSpecDone
               return (
-                <div key={spec.id} style={{ background: '#f7f9fc', border: '1px solid #ebf0f8', borderRadius: '8px', marginBottom: '8px', overflow: 'hidden' }}>
+                <div key={spec.id} style={{ background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '8px', marginBottom: '8px', overflow: 'hidden' }}>
                   <div onClick={() => setExpanded(p => ({ ...p, [specExpKey]: !isSpecExpanded }))} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '14px', fontWeight: '600', color: '#16264a' }}>{spec.specialist_name}</span>
@@ -1587,9 +1587,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                     <span style={{ color: '#4e6087', fontSize: '10px', transform: isSpecExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
                   </div>
                   {isSpecExpanded && (
-                    <div style={{ borderTop: '1px solid #f2f5fa', padding: '8px 14px' }}>
+                    <div style={{ borderTop: '1px solid #e9eef8', padding: '8px 14px' }}>
                       {allocateTask && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
                           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1b9254', flexShrink: 0 }} />
                           <span style={{ fontSize: '13px', color: '#4e6087', flex: 1 }}>Allocate to VFO Specialist</span>
                           <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
@@ -1621,7 +1621,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               {!readOnly && tax5bUnlocked && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === 'Tax 5 - Education & DD (Post Allocation)' && n.tab_name === 'Tax Priorities').length} isOpen={expanded['notes_tax5b']} onClick={() => setExpanded(p => ({ ...p, ['notes_tax5b']: !p['notes_tax5b'] }))} />}
               {tax5bUnlocked && tax5bState === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
               {tax5bUnlocked && tax5bState === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress</span>}
-              {tax5bUnlocked && tax5bState === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>}
+              {tax5bUnlocked && tax5bState === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
             </div>
           </div>
           {!readOnly && expanded['notes_tax5b'] && <PhaseNotesPanel clientId={clientId} phaseName="Tax 5 - Education & DD (Post Allocation)" tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
@@ -1658,7 +1658,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 {state === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
                 {state === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress{doneTasks < nonAutoTasks.length ? ` · ${doneTasks}/${nonAutoTasks.length}` : ''}</span>}
                 {!readOnly && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === phase.name && n.tab_name === 'Tax Priorities').length} isOpen={expanded[`notes_${phase.id}`]} onClick={() => setExpanded(p => ({ ...p, [`notes_${phase.id}`]: !p[`notes_${phase.id}`] }))} />}
-                {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>}
+                {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
                 <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !isExpanded }))} style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
               </div>
             </div>
@@ -1775,7 +1775,7 @@ function TaxPrioritiesTab({ clientId, programId, programName, client, specialist
             return (
               <div key={plan.id} onClick={() => setSelectedPlan(plan)}
                 style={{ ...sectionStyle, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#f2f5fa'}
+                onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
                 onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}>
                 <div>
                   <div style={{ fontSize: '15px', fontWeight: '600', color: '#16264a', marginBottom: '4px' }}>Tax Plan</div>

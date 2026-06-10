@@ -87,7 +87,7 @@ function AccountantPipelineRow({ row, expanded, onToggle }) {
       </div>
 
       {expanded && (
-        <div style={{ padding: '8px 18px 18px', borderTop: '1px solid #f2f5fa' }}>
+        <div style={{ padding: '8px 18px 18px', borderTop: '1px solid #e9eef8' }}>
           <StepCard title="Decision" status={decisionStatus}>
             <Detail l="Decision" v={<Badge text={row.final_decision || row.prelim_meeting_decision} />} showEmpty />
             <Detail l="Partnership" v={row.accountant_partnership} />
@@ -218,7 +218,7 @@ export default function AccountantAutomationPanel() {
 
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
         {stats.map(stat => (
-          <div key={stat.label} style={{ background: '#f7f9fc', border: '1px solid #ebf0f8', borderRadius: '10px', padding: '14px 20px', minWidth: '100px' }}>
+          <div key={stat.label} style={{ background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '10px', padding: '14px 20px', minWidth: '100px' }}>
             <div style={{ fontSize: '28px', fontWeight: '700', color: stat.color }}>{stat.value}</div>
             <div style={{ fontSize: '10px', color: '#4e6087', letterSpacing: '1px' }}>{stat.label}</div>
           </div>

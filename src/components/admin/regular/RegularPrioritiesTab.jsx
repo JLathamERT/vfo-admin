@@ -131,7 +131,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
         </div>
         {!readOnly && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '13px', color: trackStatus === 'live' ? '#1b9254' : '#e74c3c', fontWeight: '600' }}>{trackStatus === 'live' ? 'Live' : 'Stopped'}</span>
+            <span style={{ fontSize: '13px', color: '#16264a', fontWeight: '600' }}>{trackStatus === 'live' ? 'Live' : 'Stopped'}</span>
             <div onClick={() => !togglingStatus && toggleTrackStatus()}
               style={{ width: '44px', height: '24px', borderRadius: '12px', background: trackStatus === 'live' ? '#1b9254' : '#e74c3c', cursor: 'pointer', position: 'relative', opacity: togglingStatus ? 0.5 : 1 }}>
               <div style={{ position: 'absolute', top: '2px', left: trackStatus === 'live' ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
@@ -169,7 +169,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                 {!readOnly && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === phase.name && n.tab_name === 'Regular Priorities').length} isOpen={expanded[`notes_${phase.id}`]} onClick={() => setExpanded(p => ({ ...p, [`notes_${phase.id}`]: !p[`notes_${phase.id}`] }))} />}
                 {state === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
                 {state === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{nonAutoTasks.length}</span>}
-                {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>}
+                {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
                 <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
               </div>
             </div>
@@ -184,28 +184,28 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                   const statusColor = statusColors[p.status] || '#4e6087'
 
                   if (task.status_options === 'auto') return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa' }}>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? '#1b9254' : '#c7d4e8'}` }} />
                       <span style={{ fontSize: '13px', color: '#4e6087', flex: 1 }}>{task.name}</span>
-                      <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: isDone ? 'rgba(27,146,84,0.15)' : '#f2f5fa', color: isDone ? '#1b9254' : '#4e6087', border: `1px solid ${isDone ? 'rgba(27,146,84,0.3)' : '#e3eaf5'}` }}>{isDone ? 'Completed' : 'Not completed'}</span>
+                      <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: isDone ? 'rgba(27,146,84,0.15)' : '#eef2f9', color: isDone ? '#1b9254' : '#4e6087', border: `1px solid ${isDone ? 'rgba(27,146,84,0.3)' : '#e3eaf5'}` }}>{isDone ? 'Completed' : 'Not completed'}</span>
                       {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#697a9c' }}>{formatDate(p.completed_date)}</span>}
                     </div>
                   )
 
                   if (readOnly) return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa' }}>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
                       <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
                       {isDone
                         ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
-                        : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>
+                        : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
                       }
                       {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#697a9c' }}>{formatDate(p.completed_date)}</span>}
                     </div>
                   )
 
                   if (task.status_options === 'specialist_select') return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap' }}>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? '#1b9254' : '#c7d4e8'}` }} />
                       <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
                       <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#ffffff', minWidth: '200px', color: isDone ? '#1b9254' : '#16264a', borderColor: isDone ? 'rgba(27,146,84,0.4)' : '#d6e0ee' }}>
@@ -217,7 +217,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                   )
 
                   if (task.status_options === 'enter_details') return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap' }}>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? '#1b9254' : '#c7d4e8'}` }} />
                       <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
                       {isDone
@@ -238,7 +238,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                     const childTasks = allPhaseTasks.filter(t => childTaskNames.includes(t.name))
                     const greyed = !additionalInfoRequired
                     return (
-                      <div key={task.id} style={{ borderBottom: '1px solid #f2f5fa' }}>
+                      <div key={task.id} style={{ borderBottom: '1px solid #e9eef8' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
                           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
                           <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
@@ -254,7 +254,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                             const cDone = !!cp.status
                             const cColor = statusColors[cp.status] || '#4e6087'
                             return (
-                              <div key={ct.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc', flexWrap: 'wrap' }}>
+                              <div key={ct.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
                                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: cDone ? cColor : 'transparent', flexShrink: 0, border: `1px solid ${cDone ? cColor : '#c7d4e8'}` }} />
                                 <span style={{ fontSize: '12px', color: cDone ? '#4e6087' : '#16264a', flex: 1 }}>{ct.name}</span>
                                 <select value={cp.status || ''} onChange={e => saveTask(ct.id, e.target.value, cp.completed_date)} style={{ ...inputStyle, background: '#ffffff', minWidth: '120px', fontSize: '11px', borderColor: cDone ? `${cColor}66` : '#d6e0ee', color: cDone ? cColor : '#16264a' }}>
@@ -272,7 +272,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
 
                   const isGreyedOut = false
                   return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap', opacity: isGreyedOut ? 0.3 : 1, pointerEvents: isGreyedOut ? 'none' : 'auto' }}>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap', opacity: isGreyedOut ? 0.3 : 1, pointerEvents: isGreyedOut ? 'none' : 'auto' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
                       <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
                       <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#ffffff', minWidth: '150px', borderColor: isDone ? `${statusColor}66` : '#d6e0ee', color: isDone ? statusColor : '#16264a' }}>
@@ -422,7 +422,7 @@ function RegularPrioritiesTab({ clientId, programId, client, specialists, readOn
             return (
               <div key={track.id} onClick={() => setSelectedTrack(track)}
                 style={{ ...sectionStyle, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#f2f5fa'}
+                onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
                 onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}>
                 <div>
                   <div style={{ fontSize: '15px', fontWeight: '600', color: '#16264a', marginBottom: '4px' }}>{track.priority_name}{track.specialist_name ? ` (${track.specialist_name})` : ''}</div>

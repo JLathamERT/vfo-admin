@@ -196,7 +196,7 @@ function Area({ value, onChange, hint, label, required }) {
 }
 
 const pageStyle = { fontFamily: '"Inter", sans-serif', background: '#ffffff', minHeight: '100vh', padding: '40px 20px', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }
-const cardStyle = { width: '100%', maxWidth: '720px', background: '#f8fafd', border: '1px solid #ebf0f8', borderRadius: '16px', padding: '36px 40px' }
+const cardStyle = { width: '100%', maxWidth: '720px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '16px', padding: '36px 40px' }
 const labelStyle = { display: 'block', fontSize: '13px', color: '#4e6087', marginBottom: '6px' }
 const hintStyle = { fontSize: '11px', color: '#697a9c', marginTop: '5px', fontStyle: 'italic', lineHeight: 1.5 }
 const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif' }

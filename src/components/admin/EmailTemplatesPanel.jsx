@@ -206,13 +206,13 @@ function TemplateCard({ tmpl, label, sectionKey }) {
       </div>
 
       {expanded && (
-        <div style={{ padding: '0 16px 16px', borderTop: '1px solid #f2f5fa' }}>
+        <div style={{ padding: '0 16px 16px', borderTop: '1px solid #e9eef8' }}>
           <div style={{ marginTop: '14px' }}>
             <RecipientEditor title="CC — internal team" accent="#0095ff" emails={cc} onChange={setCc} input={ccInput} setInput={setCcInput} />
             <RecipientEditor title="BCC — internal team" accent="#9333ea" emails={bcc} onChange={setBcc} input={bccInput} setInput={setBccInput} />
           </div>
 
-          <div style={{ height: '1px', background: '#f2f5fa', margin: '4px 0 12px' }} />
+          <div style={{ height: '1px', background: '#e9eef8', margin: '4px 0 12px' }} />
 
           <div style={{ marginBottom: '10px' }}>
             <label style={{ fontSize: '11px', color: '#697a9c', display: 'block', marginBottom: '4px' }}>Subject</label>

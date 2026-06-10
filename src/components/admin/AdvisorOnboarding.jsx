@@ -132,7 +132,7 @@ export default function AdvisorOnboarding() {
         }
 
         const SectionHeader = ({ title, count, open, onToggle, color }) => (
-          <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', marginTop: '20px', marginBottom: '10px', borderRadius: '8px', cursor: 'pointer', background: '#f8fafd', border: '1px solid #ebf0f8' }}>
+          <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', marginTop: '20px', marginBottom: '10px', borderRadius: '8px', cursor: 'pointer', background: '#eef2f9', border: '1px solid #ebf0f8' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span style={{ color: '#4e6087', fontSize: '10px', transform: open ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
               <span style={{ fontSize: '12px', fontWeight: 600, color: color, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{title}</span>
@@ -254,7 +254,7 @@ function OnboardingDetail({ id, onBack }) {
 
       <StageBlock stage={1} title="Preliminary Meeting" state={stage1State()} expanded={expanded[1]} onToggle={() => setExpanded(p => ({ ...p, 1: !p[1] }))}>
         <Row label="Preliminary Meeting" done={!!ob.prelim_meeting_status} date={ob.prelim_meeting_status_at}>
-          <select value={ob.prelim_meeting_status || ''} onChange={e => savePrelimMeeting(e.target.value)} disabled={saving} style={{ ...selectStyle, color: ob.prelim_meeting_status ? '#1b9254' : '#16264a' }}>
+          <select value={ob.prelim_meeting_status || ''} onChange={e => savePrelimMeeting(e.target.value)} disabled={saving} style={{ ...selectStyle, color: '#16264a' }}>
             <option value="">-- Select --</option>
             <option value="Completed">Completed</option>
             <option value="No Show">No Show</option>
@@ -362,7 +362,7 @@ function StageBlock({ stage, title, state, expanded, onToggle, dimmed, children 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {state === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
           {state === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress</span>}
-          {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>}
+          {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
           <span style={{ color: '#4e6087', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
         </div>
       </div>
@@ -382,7 +382,7 @@ const dateTextStyle = { fontSize: '11px', color: '#697a9c', flexShrink: 0, displ
 
 function Row({ label, done, date, children }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
       <span style={{ fontSize: '13px', color: done ? '#4e6087' : '#16264a', flex: 1 }}>{label}</span>
       <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -396,14 +396,14 @@ function Row({ label, done, date, children }) {
 function AutoRow({ label, done, date, tag }) {
   const tags = tag == null ? [] : Array.isArray(tag) ? tag.filter(Boolean) : [tag]
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
       <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
-      <span style={{ fontSize: '12px', color: done ? '#1b9254' : '#4e6087', flex: 1 }}>{label}</span>
+      <span style={{ fontSize: '12px', color: '#16264a', flex: 1 }}>{label}</span>
       <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
         {done && tags.length > 0 && tags.map((t, i) => (
           <span key={i} style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{t}</span>
         ))}
-        <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: done ? 'rgba(27,146,84,0.15)' : '#f2f5fa', color: done ? '#1b9254' : '#4e6087' }}>{done ? 'Done' : 'Not completed'}</span>
+        <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: done ? 'rgba(27,146,84,0.15)' : '#eef2f9', border: done ? '1px solid rgba(27,146,84,0.3)' : '1px solid #dde5f2', color: done ? '#1b9254' : '#4e6087' }}>{done ? 'Done' : 'Not completed'}</span>
         <span style={dateTextStyle}>{done && date ? formatDate(date) : ''}</span>
       </span>
     </div>

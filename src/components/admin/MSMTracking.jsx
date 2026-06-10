@@ -342,7 +342,7 @@ function ProgramNotes({ memberNumber, programName }) {
       )}
       {notes.length === 0 && <div style={{ fontSize: '13px', color: '#697a9c', padding: '8px 0' }}>No notes yet.</div>}
       {notes.map(note => (
-        <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid #f2f5fa' }}>
+        <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid #e9eef8' }}>
           {editingId === note.id ? (
             <div style={{ display: 'flex', gap: '8px' }}>
               <textarea value={editText} onChange={e => setEditText(e.target.value)} rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.4)', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
@@ -554,7 +554,7 @@ function TrainingTrack({ enrollment, program }) {
         const isReview = phase.name.includes('Review')
 
         return (
-          <div key={phase.id} style={{ background: isReview ? '#f7f9fc' : '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: isReview ? '10px' : '10px', marginTop: isReview ? '-6px' : '0', marginLeft: isReview ? '20px' : '0', overflow: 'hidden', borderTopLeftRadius: isReview ? '0' : '12px', borderTopRightRadius: isReview ? '12px' : '12px' }}>
+          <div key={phase.id} style={{ background: isReview ? '#eef2f9' : '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: isReview ? '10px' : '10px', marginTop: isReview ? '-6px' : '0', marginLeft: isReview ? '20px' : '0', overflow: 'hidden', borderTopLeftRadius: isReview ? '0' : '12px', borderTopRightRadius: isReview ? '12px' : '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
               <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
                 <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
@@ -563,7 +563,7 @@ function TrainingTrack({ enrollment, program }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {state === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
                 {state === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{tasks.length}</span>}
-                {state === 'pending' && !isReview && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>}
+                {state === 'pending' && !isReview && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
                 <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
               </div>
             </div>
@@ -725,9 +725,9 @@ function ClientsPanel({ enrollment, member, program }) {
                   <input value={existingSearch} onChange={e => setExistingSearch(e.target.value)} placeholder="Search by name or ref..." style={{ ...inputStyle, marginBottom: '12px' }} />
                   {filteredExisting.map(c => (
                     <div key={c.id} onClick={() => linkExistingClient(c.id)}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: '#f8fafd', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f2f5fa'}
-                      onMouseLeave={e => e.currentTarget.style.background = '#f8fafd'}>
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#eef2f9'}>
                       <div>
                         <div style={{ fontSize: '14px', color: '#16264a' }}>{c.first_name} {c.last_name}</div>
                         <div style={{ fontSize: '12px', color: '#4e6087' }}>{c.client_ref}{c.email ? ` · ${c.email}` : ''}</div>
@@ -782,7 +782,7 @@ function ClientsPanel({ enrollment, member, program }) {
         : clients.map(client => (
           <div key={client.id} style={{ ...sectionStyle, cursor: 'pointer' }}
             onClick={() => navigate(`/admin/client/${client.id}`, { state: { enrollment_id: enrollment.id, from: '/admin', backTo: program.name === 'Partnership Fast Track' ? 'pft_accountants' : undefined, memberNumber: member.plugin_member_number } })}
-            onMouseEnter={e => e.currentTarget.style.background = '#f2f5fa'}
+            onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
             onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -850,7 +850,7 @@ function ClientTrack({ client, program }) {
           {(phase.program_client_tasks || []).map(task => {
             const p = progress[task.id] || {}
             return (
-              <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid #f2f5fa', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid #e9eef8', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[p.status] || 'transparent', flexShrink: 0, border: '1px solid #c7d4e8' }} />
                 <div style={{ flex: 1, minWidth: '140px' }}>
                   <span style={{ fontSize: '12px', color: '#4e6087', marginRight: '6px' }}>{task.task_code}</span>
@@ -934,7 +934,7 @@ function PlanStatusBadge({ enrollmentId, programId }) {
   return (
     <div>
       <div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>90 Day Plan</div>
-      <div style={{ fontSize: '14px', color: planStatus === 'Completed' ? '#1b9254' : planStatus === 'Not Started' ? '#4e6087' : '#0095ff', marginTop: '4px', fontWeight: '600' }}>{planStatus}</div>
+      <div style={{ fontSize: '14px', color: '#16264a', marginTop: '4px', fontWeight: '600' }}>{planStatus}</div>
     </div>
   )
 }
@@ -963,7 +963,7 @@ function ProgramToggles({ member, programs, enabledPrograms, onToggle }) {
           <div key={p.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #eef2f9' }}>
             <span style={{ fontSize: '14px', color: isEnabled ? '#16264a' : '#4e6087' }}>{p.name}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '12px', color: isEnabled ? '#1b9254' : '#4e6087' }}>{isEnabled ? 'Enabled' : 'Disabled'}</span>
+              <span style={{ fontSize: '12px', color: '#16264a' }}>{isEnabled ? 'Enabled' : 'Disabled'}</span>
               <div onClick={() => !toggling[dbProgram.id] && toggle(dbProgram.id, isEnabled)}
                 style={{ width: '44px', height: '24px', borderRadius: '12px', background: isEnabled ? '#1b9254' : '#d6e0ee', cursor: 'pointer', position: 'relative', opacity: toggling[dbProgram.id] ? 0.5 : 1 }}>
                 <div style={{ position: 'absolute', top: '2px', left: isEnabled ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />

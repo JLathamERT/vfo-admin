@@ -305,7 +305,7 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
             <AddGeneralNote clientId={client.id} notes={notes} onNotesChange={onNotesChange} programName={program?.name || null} />
           </div>
           {notes.map(note => (
-            <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid #f2f5fa' }}>
+            <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid #e9eef8' }}>
               {editingNoteId === note.id ? (
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <textarea value={editNoteText} onChange={e => setEditNoteText(e.target.value)} rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.4)', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
@@ -323,7 +323,7 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
                     <span style={{ fontSize: '11px', color: '#697a9c' }}>{note.created_at?.split('T')[0]}</span>
                     {note.program_name && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.2)' }}>{note.program_name}</span>}
                     <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.2)' }}>{note.tab_name}</span>
-                    {note.phase_name !== 'General' && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: '#f2f5fa', color: '#4e6087' }}>{note.phase_name}</span>}
+                    {note.phase_name !== 'General' && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>{note.phase_name}</span>}
                     <button onClick={() => { setEditingNoteId(note.id); setEditNoteText(note.note_text) }} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#0095ff', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Edit</button>
                     <button onClick={() => deleteNote(note.id)} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Delete</button>
                   </div>

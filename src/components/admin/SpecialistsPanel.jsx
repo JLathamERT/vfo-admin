@@ -267,11 +267,11 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
         <div style={fieldStyle}>
           <label style={labelStyle}>Headshot</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '80px', height: '80px', borderRadius: '8px', background: '#f2f5fa', border: '1px solid #d6e0ee', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <div style={{ width: '80px', height: '80px', borderRadius: '8px', background: '#eef2f9', border: '1px solid #d6e0ee', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
               {preview ? <img src={preview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { if (which === 'edit') { const exp = allExperts.find(x => x.id === editingId); if (exp) e.target.src = HEADSHOT_BASE + exp.headshot_image } }} /> : <span style={{ color: '#4e6087', fontSize: '24px' }}>?</span>}
             </div>
             <div>
-              <label style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #c7d4e8', background: '#f2f5fa', color: '#16264a', fontSize: '13px', cursor: 'pointer' }}>
+              <label style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #c7d4e8', background: '#eef2f9', color: '#16264a', fontSize: '13px', cursor: 'pointer' }}>
                 Choose Image
                 <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleFileChange(which, e)} />
               </label>
@@ -309,7 +309,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
               {CIQ_TOPICS.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             <button onClick={() => addCiqTag(which)}
-              style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #c7d4e8', background: '#f2f5fa', color: '#16264a', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #c7d4e8', background: '#eef2f9', color: '#16264a', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
               + Add
             </button>
           </div>
@@ -366,9 +366,9 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
             {(editSearch ? allExperts.filter(e => e.name.toLowerCase().includes(editSearch)) : allExperts).map(expert => (
               <div key={expert.id}
                 onClick={() => handleEditSelect(expert)}
-                style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', marginBottom: '4px', background: '#f8fafd', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#f2f5fa'}
-                onMouseLeave={e => e.currentTarget.style.background = '#f8fafd'}>
+                style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', marginBottom: '4px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
+                onMouseLeave={e => e.currentTarget.style.background = '#eef2f9'}>
                 <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: '#e3eaf5', flexShrink: 0 }}>
                   {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                 </div>

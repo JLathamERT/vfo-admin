@@ -127,10 +127,10 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
             const tabKey = { holistic: 'msm_holistic', partnership: 'msm_partnership', tax: 'msm_tax', coaching: 'msm_coaching' }[p.key]
             return (
               <div key={p.key} onClick={() => onNavigate(tabKey)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #eef2f9', cursor: 'pointer' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#f7f9fc'}
+                onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                 <span style={{ fontSize: '14px', color: '#0095ff', fontWeight: 500 }}>{p.name}</span>
-                <span style={{ fontSize: '13px', color: enrollment ? '#1b9254' : '#4e6087' }}>{enrollment ? enrollment.program_status || 'Enrolled' : 'Not Enrolled'}</span>
+                <span style={{ fontSize: '13px', color: '#16264a' }}>{enrollment ? enrollment.program_status || 'Enrolled' : 'Not Enrolled'}</span>
               </div>
             )
           })}
@@ -412,7 +412,7 @@ function MemberClientsView({ enrollment, member, program }) {
         : clients.map(client => (
           <div key={client.id} style={{ ...sectionStyle, cursor: 'pointer' }}
             onClick={() => navigate(`/member/client/${client.id}`, { state: { enrollment_id: enrollment.id } })}
-            onMouseEnter={e => e.currentTarget.style.background = '#f2f5fa'}
+            onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
             onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -522,7 +522,7 @@ function MemberClientTrackView({ client, program }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {state === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
                 {state === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{nonAutoTasks.length}</span>}
-                {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>}
+                {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
                 <span style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
               </div>
             </div>
@@ -540,9 +540,9 @@ function MemberClientTrackView({ client, program }) {
                     const pipDecision = pd?.c13_decision
                     const finalDec = pd?.c15_final_decision
                     const autoStep = (label, done, tag = null) => (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
                         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
-                        <span style={{ fontSize: '12px', color: done ? '#1b9254' : '#4e6087' }}>{label}</span>
+                        <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
                         <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
                           {done && tag && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{tag}</span>}
                           {done && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>}
@@ -550,7 +550,7 @@ function MemberClientTrackView({ client, program }) {
                       </div>
                     )
                     return (
-                      <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid #f2f5fa' }}>
+                      <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid #e9eef8' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: pd?.c18_ceo_signed === 'Yes' ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${pd?.c18_ceo_signed === 'Yes' ? '#1b9254' : '#c7d4e8'}` }} />
                           <span style={{ fontSize: '13px', color: '#16264a', flex: 1 }}>{task.name}</span>
@@ -579,7 +579,7 @@ function MemberClientTrackView({ client, program }) {
                   }
 
                   return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', opacity: isGreyedOut ? 0.3 : 1 }}>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', opacity: isGreyedOut ? 0.3 : 1 }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: task.status_options === 'auto' || isDone ? (task.status_options === 'auto' ? '#1b9254' : statusColor) : 'transparent', flexShrink: 0, border: `1.5px solid ${task.status_options === 'auto' || isDone ? (task.status_options === 'auto' ? '#1b9254' : statusColor) : '#c7d4e8'}` }} />
                       <span style={{ fontSize: '12px', color: '#4e6087', fontFamily: 'monospace', width: '32px' }}>{task.task_code}</span>
                       <span style={{ fontSize: '13px', color: isDone || task.status_options === 'auto' ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
@@ -587,7 +587,7 @@ function MemberClientTrackView({ client, program }) {
                         ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
                         : isDone
                           ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
-                          : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>
+                          : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
                       }
                       {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#697a9c' }}>{formatDate(p.completed_date)}</span>}
                     </div>

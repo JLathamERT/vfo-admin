@@ -157,7 +157,7 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
                 </div>
               )}
             </div>
-            <div style={{ marginTop: '12px', padding: '16px', background: '#f7f9fc', borderRadius: '8px', border: '1px solid #e3eaf5', textAlign: 'center' }}>
+            <div style={{ marginTop: '12px', padding: '16px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2', textAlign: 'center' }}>
               <span style={{ fontSize: '20px', color: '#16264a', fontFamily: `'${settings.font}', serif` }}>The quick brown fox jumps over the lazy dog</span>
             </div>
           </div>

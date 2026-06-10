@@ -4,7 +4,7 @@ import { getSession } from '../../lib/api'
 
 export function PhaseNotesButton({ count, isOpen, onClick }) {
   return (
-    <button onClick={e => { e.stopPropagation(); onClick() }} style={{ padding: '2px 8px', borderRadius: '4px', border: '1px solid #dde5f2', background: isOpen ? 'rgba(0,149,255,0.15)' : '#f7f9fc', color: isOpen ? '#0095ff' : '#4e6087', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+    <button onClick={e => { e.stopPropagation(); onClick() }} style={{ padding: '2px 8px', borderRadius: '4px', border: '1px solid #dde5f2', background: isOpen ? 'rgba(0,149,255,0.15)' : '#eef2f9', color: isOpen ? '#0095ff' : '#4e6087', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
       Notes{count > 0 && <span style={{ background: '#0095ff', color: '#fff', borderRadius: '50%', width: '16px', height: '16px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '600' }}>{count}</span>}
     </button>
   )
@@ -47,14 +47,14 @@ export function PhaseNotesPanel({ clientId, phaseName, tabName, programName, not
   }
 
   return (
-    <div onClick={e => e.stopPropagation()} style={{ borderTop: '1px solid #f2f5fa', padding: '12px 18px', background: '#f7f9fc' }}>
+    <div onClick={e => e.stopPropagation()} style={{ borderTop: '1px solid #dde5f2', padding: '12px 18px', background: '#eef2f9' }}>
       <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
         <textarea value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Add a note..." rows={2} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addNote() } }} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
         <button onClick={addNote} disabled={saving || !newNote.trim()} style={{ padding: '8px 14px', borderRadius: '8px', background: saving ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '12px', cursor: saving ? 'not-allowed' : 'pointer', alignSelf: 'flex-end', whiteSpace: 'nowrap' }}>{saving ? 'Saving...' : 'Add'}</button>
       </div>
       {phaseNotes.length === 0 && <div style={{ fontSize: '12px', color: '#697a9c', padding: '4px 0' }}>No notes yet</div>}
       {phaseNotes.map(note => (
-        <div key={note.id} style={{ padding: '8px 0', borderBottom: '1px solid #f7f9fc' }}>
+        <div key={note.id} style={{ padding: '8px 0', borderBottom: '1px solid #e9eef8' }}>
           {editingId === note.id ? (
             <div style={{ display: 'flex', gap: '8px' }}>
               <textarea value={editText} onChange={e => setEditText(e.target.value)} rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.4)', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />

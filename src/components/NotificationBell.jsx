@@ -137,7 +137,7 @@ export default function NotificationBell() {
                     padding: '12px 16px', borderBottom: '1px solid #f4f7fb',
                     cursor: 'pointer', display: 'flex', gap: '12px', alignItems: 'flex-start'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f2f5fa'}
+                  onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>

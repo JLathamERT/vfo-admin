@@ -166,6 +166,6 @@ const optionBadgeBaseStyle = { fontSize: '11px', fontWeight: 600, padding: '4px 
 const badgeStyles = { green: { background: 'rgba(34,197,94,0.15)', color: '#16a34a' }, blue: { background: 'rgba(0,149,255,0.15)', color: '#0095ff' } }
 const optionAmountStyle = { fontSize: '28px', fontWeight: 700, color: '#16264a', marginBottom: '16px' }
 const optionDetailRowStyle = { display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }
-const optionFooterStyle = { fontSize: '12px', color: '#4e6087', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f2f5fa' }
+const optionFooterStyle = { fontSize: '12px', color: '#4e6087', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e9eef8' }
 const dividerStyle = { textAlign: 'center', color: '#4e6087', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', margin: '8px 0' }
 const securityNoteStyle = { textAlign: 'center', color: '#4e6087', fontSize: '12px', marginTop: '24px', lineHeight: 1.6 }

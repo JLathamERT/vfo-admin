@@ -223,7 +223,7 @@ const pageStyle = {
 const cardStyle = {
   width: '100%',
   maxWidth: '720px',
-  background: '#f8fafd',
+  background: '#eef2f9',
   border: '1px solid #ebf0f8',
   borderRadius: '16px',
   padding: '36px 40px',

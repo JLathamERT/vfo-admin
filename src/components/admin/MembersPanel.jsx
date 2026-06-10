@@ -148,7 +148,7 @@ function AddAccountantForm({ allMembers, onDataChange }) {
         <label style={labelStyle}>Advisor Model *</label>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           {['Legacy Model', 'New Model'].map(m => (
-            <label key={m} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: `1px solid ${advisorModel === m ? 'rgba(0,149,255,0.5)' : '#d6e0ee'}`, background: advisorModel === m ? 'rgba(0,149,255,0.08)' : '#f7f9fc', cursor: 'pointer', fontSize: '13px', color: advisorModel === m ? '#16264a' : '#4e6087' }}>
+            <label key={m} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: `1px solid ${advisorModel === m ? 'rgba(0,149,255,0.5)' : '#d6e0ee'}`, background: advisorModel === m ? 'rgba(0,149,255,0.08)' : '#eef2f9', cursor: 'pointer', fontSize: '13px', color: advisorModel === m ? '#16264a' : '#4e6087' }}>
               <input type="radio" name="add_acct_advisor_model" value={m} checked={advisorModel === m} onChange={() => setAdvisorModel(m)} style={{ accentColor: '#0095ff' }} />
               {m}
             </label>
@@ -264,9 +264,9 @@ function MemberDirectoryView({
             {filteredMembers.map(m => (
               <div key={m.plugin_member_number}
                 onClick={() => { setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem(selectedKey, m.plugin_member_number); sessionStorage.setItem(featureTabKey, 'profile_details') }}
-                style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', marginBottom: '4px', background: '#f8fafd', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#f2f5fa'}
-                onMouseLeave={e => e.currentTarget.style.background = '#f8fafd'}>
+                style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', marginBottom: '4px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
+                onMouseLeave={e => e.currentTarget.style.background = '#eef2f9'}>
                 <span style={{ fontSize: '12px', color: '#4e6087', width: '70px', flexShrink: 0, fontFamily: 'monospace' }}>{m.plugin_member_number}</span>
                 <span style={{ fontSize: '14px', color: '#16264a', width: '200px', flexShrink: 0 }}>{m.name}</span>
                 <span style={{ fontSize: '12px', color: m.elite_status === 'Active' ? '#1b9254' : m.elite_status === 'Lost' ? '#e74c3c' : '#4e6087', width: '80px', flexShrink: 0 }}>{m.elite_status || '—'}</span>
@@ -285,7 +285,7 @@ function MemberDirectoryView({
             <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '28px', color: '#16264a' }}>{selectedMember.name}</div>
             <div style={{ fontSize: '13px', color: '#4e6087', marginTop: '4px' }}>{selectedMember.plugin_member_number}</div>
             <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-              {selectedMember.member_type && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087', border: '1px solid #e3eaf5' }}>{selectedMember.member_type}</span>}
+              {selectedMember.member_type && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>{selectedMember.member_type}</span>}
               {selectedMember.elite_status && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${selectedMember.elite_status === 'Active' ? 'rgba(27,146,84,0.15)' : selectedMember.elite_status === 'Lost' ? 'rgba(231,76,60,0.15)' : '#f2f5fa'}`, color: selectedMember.elite_status === 'Active' ? '#1b9254' : selectedMember.elite_status === 'Lost' ? '#e74c3c' : '#4e6087', border: `1px solid ${selectedMember.elite_status === 'Active' ? 'rgba(27,146,84,0.3)' : selectedMember.elite_status === 'Lost' ? 'rgba(231,76,60,0.3)' : '#e3eaf5'}` }}>{selectedMember.elite_status}</span>}
               {selectedMember.paused && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(251,137,90,0.15)', color: '#e06717', fontWeight: 600, border: '1px solid rgba(251,137,90,0.3)' }}>Paused</span>}
               {selectedMember.suspended && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600, border: '1px solid rgba(231,76,60,0.3)' }}>Suspended</span>}
@@ -437,7 +437,7 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
         <label style={labelStyle}>Advisor Model *</label>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           {['Legacy Model', 'New Model'].map(m => (
-            <label key={m} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: `1px solid ${advisorModel === m ? 'rgba(0,149,255,0.5)' : '#d6e0ee'}`, background: advisorModel === m ? 'rgba(0,149,255,0.08)' : '#f7f9fc', cursor: 'pointer', fontSize: '13px', color: advisorModel === m ? '#16264a' : '#4e6087' }}>
+            <label key={m} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: `1px solid ${advisorModel === m ? 'rgba(0,149,255,0.5)' : '#d6e0ee'}`, background: advisorModel === m ? 'rgba(0,149,255,0.08)' : '#eef2f9', cursor: 'pointer', fontSize: '13px', color: advisorModel === m ? '#16264a' : '#4e6087' }}>
               <input type="radio" name="advisor_model" value={m} checked={advisorModel === m} onChange={() => setAdvisorModel(m)} style={{ accentColor: '#0095ff' }} />
               {m}
             </label>
@@ -565,7 +565,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
             <div style={sectionStyle}>
               <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>All Program Notes ({programNotes.length})</div>
               {programNotes.map(note => (
-                <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid #f2f5fa' }}>
+                <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid #e9eef8' }}>
                   <div style={{ fontSize: '13px', color: '#16264a', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '11px', color: '#697a9c' }}>{note.created_by}</span>
@@ -761,7 +761,7 @@ function MemberSpecialists({ member, allExperts, allExclusionMap, onDataChange }
       <div style={{ marginBottom: '8px' }}>
         {filtered.map(expert => (
           <div key={expert.id} onClick={() => toggle(expert.id)}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: '#f8fafd', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}>
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: '#e3eaf5', flexShrink: 0 }}>
                 {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}

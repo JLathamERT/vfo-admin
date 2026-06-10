@@ -59,7 +59,7 @@ export default function ClientVault() {
     <div>
       {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginBottom: '14px' }}>{error}</div>}
       {SECTIONS.map(sec => (
-        <div key={sec.key} style={{ background: '#f8fafd', border: '1px solid #ebf0f8', borderRadius: '12px', padding: '22px', marginBottom: '20px' }}>
+        <div key={sec.key} style={{ background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '12px', padding: '22px', marginBottom: '20px' }}>
           <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>{sec.title}</div>
           <p style={{ fontSize: '12px', color: '#4e6087', marginBottom: '16px' }}>{sec.hint}</p>
 
@@ -69,7 +69,7 @@ export default function ClientVault() {
             <>
               {data[sec.key].length === 0 && <div style={{ color: '#697a9c', fontSize: '13px', marginBottom: '12px' }}>No documents yet.</div>}
               {data[sec.key].map(f => (
-                <div key={f.path} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: '#f7f9fc', border: '1px solid #ebf0f8', borderRadius: '8px', marginBottom: '8px' }}>
+                <div key={f.path} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '8px', marginBottom: '8px' }}>
                   <span>📄</span>
                   <span style={{ fontSize: '13px', color: '#243757', flex: 1 }}>{f.name}</span>
                   <span style={{ fontSize: '11px', color: '#697a9c' }}>{fmtSize(f.size)}</span>
@@ -77,7 +77,7 @@ export default function ClientVault() {
                   <button onClick={() => remove(sec.key, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer' }}>Remove</button>
                 </div>
               ))}
-              <label style={{ display: 'block', textAlign: 'center', cursor: 'pointer', marginTop: '10px', padding: '16px', borderRadius: '8px', border: '1px dashed #c7d4e8', background: '#f8fafd' }}>
+              <label style={{ display: 'block', textAlign: 'center', cursor: 'pointer', marginTop: '10px', padding: '16px', borderRadius: '8px', border: '1px dashed #c7d4e8', background: '#eef2f9' }}>
                 <input type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={e => { handleFiles(sec.key, e.target.files); e.target.value = '' }} />
                 <span style={{ fontSize: '13px', color: '#4e6087' }}>{busy === sec.key ? 'Uploading…' : '+ Add document'}</span>
               </label>

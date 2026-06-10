@@ -14,7 +14,7 @@ export function SkeletonText({ lines = 3, width = '100%', spacing = 8, style = {
 
 export function SkeletonRow({ withPill = true, withDate = false }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
       <Skeleton width={8} height={8} style={{ borderRadius: '50%', flexShrink: 0 }} />
       <Skeleton width="60%" height={14} style={{ flex: 1 }} />
       {withPill && <Skeleton width={70} height={20} style={{ borderRadius: '4px' }} />}
@@ -70,7 +70,7 @@ export function Map1TrackSkeleton({ phaseCount = 4, rowsPerPhase = 3 }) {
             </div>
           </div>
           {Array.from({ length: rowsPerPhase }).map((_, j) => (
-            <div key={j} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f7f9fc' }}>
+            <div key={j} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e9eef8' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Skeleton width={8} height={8} style={{ borderRadius: '50%' }} />
                 <Skeleton width={200} height={14} />
@@ -105,7 +105,7 @@ export function PFTTrackSkeleton() {
           </div>
           <div style={{ borderTop: '1px solid #e3eaf5', padding: '12px 18px' }}>
             {Array.from({ length: rows }).map((_, j) => (
-              <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #f2f5fa' }}>
+              <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
                 <Skeleton width={8} height={8} style={{ borderRadius: '50%', flexShrink: 0 }} />
                 <Skeleton width="45%" height={13} style={{ flex: 1 }} />
                 <Skeleton width={140} height={28} style={{ borderRadius: '6px' }} />
@@ -217,9 +217,9 @@ export function PipMeetingDetailSkeleton() {
               <Skeleton width={10} height={10} />
             </div>
           </div>
-          <div style={{ borderTop: '1px solid #f2f5fa', padding: '12px 18px' }}>
+          <div style={{ borderTop: '1px solid #e9eef8', padding: '12px 18px' }}>
             {Array.from({ length: i === 1 ? 4 : 2 }).map((_, j) => (
-              <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #f7f9fc' }}>
+              <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
                 <Skeleton width={8} height={8} style={{ borderRadius: '50%' }} />
                 <Skeleton width="50%" height={13} style={{ flex: 1 }} />
                 <Skeleton width={130} height={26} style={{ borderRadius: '6px' }} />
@@ -338,7 +338,7 @@ export function SpecialistOnboardingDetailSkeleton({ onBack }) {
             </div>
           </div>
           {i === 1 && (
-            <div style={{ borderTop: '1px solid #f2f5fa', padding: '12px 18px' }}>
+            <div style={{ borderTop: '1px solid #e9eef8', padding: '12px 18px' }}>
               <SkeletonRow withPill withDate />
               <SkeletonRow withPill withDate />
               <SkeletonRow withPill withDate />
@@ -383,7 +383,7 @@ export function ProgramNotesSkeleton({ rows = 2 }) {
         <Skeleton width={90} height={26} style={{ borderRadius: '6px' }} />
       </div>
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} style={{ padding: '10px 0', borderBottom: '1px solid #f2f5fa' }}>
+        <div key={i} style={{ padding: '10px 0', borderBottom: '1px solid #e9eef8' }}>
           <Skeleton width="85%" height={14} style={{ marginBottom: '8px' }} />
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <Skeleton width={70} height={11} />
@@ -502,7 +502,7 @@ export function CiqListSkeleton({ clientCards = 2 }) {
             <Skeleton width={150} height={16} />
             <Skeleton width={220} height={12} />
           </div>
-          <div style={{ background: '#f8fafd', borderRadius: '8px', padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ background: '#eef2f9', border: '1px solid #dde5f2', borderRadius: '8px', padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Skeleton width={45} height={18} style={{ borderRadius: '4px' }} />
               <Skeleton width={140} height={13} />

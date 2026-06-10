@@ -43,7 +43,7 @@ export default function TaxUploadPage() {
     setBusy(false)
   }
 
-  const card = { background: '#f7f9fc', border: '1px solid #e3eaf5', borderRadius: '12px', padding: '28px' }
+  const card = { background: '#eef2f9', border: '1px solid #dde5f2', borderRadius: '12px', padding: '28px' }
 
   return (
     <div style={{ minHeight: '100vh', background: '#f4f7fd', color: '#16264a', fontFamily: 'Inter, sans-serif', padding: '40px 20px' }}>
@@ -65,7 +65,7 @@ export default function TaxUploadPage() {
               style={{
                 ...card, display: 'block', textAlign: 'center', cursor: 'pointer',
                 borderStyle: 'dashed', borderColor: drag ? '#0095ff' : '#c7d4e8',
-                background: drag ? 'rgba(0,149,255,0.08)' : '#f7f9fc',
+                background: drag ? 'rgba(0,149,255,0.08)' : '#eef2f9',
               }}
             >
               <input type="file" multiple accept={ACCEPT} style={{ display: 'none' }}
