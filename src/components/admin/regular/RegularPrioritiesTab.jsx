@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { callApi } from '../../../lib/api'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { TaxPlanListSkeleton } from '../../shared/Skeleton'
+import { TrackHero, PhaseBadge, ListHeader } from '../../shared/TrackKit'
 
 const REGULAR_PRIORITIES = [
   "Business Growth", "Business Exit", "Business Advisory",
@@ -125,11 +126,14 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
   return (
     <div>
       <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to Priorities</button>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <div>
-          <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a' }}>{track.priority_name}{track.specialist_name ? ` (${track.specialist_name})` : ''}</div>
-        </div>
-        {!readOnly && (
+      <TrackHero
+        eyebrow="Regular Priority"
+        title={track.priority_name}
+        meta={track.specialist_name ? `Specialist: ${track.specialist_name}` : null}
+        completed={completedTasks}
+        total={totalTasks}
+        steps={phases.map(ph => ({ label: ph.name, state: getPhaseState(ph) }))}
+        action={!readOnly && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '13px', color: '#16264a', fontWeight: '600' }}>{trackStatus === 'live' ? 'Live' : 'Stopped'}</span>
             <div onClick={() => !togglingStatus && toggleTrackStatus()}
@@ -138,9 +142,9 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
             </div>
           </div>
         )}
-      </div>
+      />
 
-      {phases.map(phase => {
+      {phases.map((phase, phaseIdx) => {
         const state = getPhaseState(phase)
         const isExpanded = expanded[phase.id]
         const tasks = phase.program_client_tasks || []
@@ -155,8 +159,8 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
         return (
           <div key={phase.id} style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
-              <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
-                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
+              <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flex: 1 }}>
+                <PhaseBadge number={phaseIdx + 1} state={state} />
                 <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -388,10 +392,12 @@ function RegularPrioritiesTab({ clientId, programId, client, specialists, readOn
 
       {regularEnabled && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px' }}>{priorityTracks.length} {priorityTracks.length === 1 ? 'Priority' : 'Priorities'}</div>
-            {!readOnly && <button onClick={() => setShowAdd(!showAdd)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add Priority</button>}
-          </div>
+          <ListHeader
+            title="Regular Priorities"
+            count={priorityTracks.length}
+            action={!readOnly && <button onClick={() => setShowAdd(!showAdd)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add Priority</button>}
+          />
+
 
           {showAdd && (
             <div style={{ ...sectionStyle, marginBottom: '20px' }}>
