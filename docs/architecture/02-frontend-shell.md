@@ -4,6 +4,8 @@ The frontend is a single Vite + React 18 + react-router-dom v6 SPA. No state lib
 
 **Loading UX**: each top-level page renders its real chrome (header, tabs, name, etc.) immediately and shows page-shaped placeholders from [`src/components/shared/Skeleton.jsx`](src/components/shared/Skeleton.jsx) in the content area until data lands — no full-screen "Loading…" text. Skeletons are bespoke per page (e.g. `MsmHomeSkeleton`, `Map1TrackSkeleton`, `TaxPlanListSkeleton`, `CoachingMeetingsSkeleton`).
 
+**Design system (2026-06-09 light-theme redesign)**: all styling is inline per file (no CSS framework); the only global styles live in [`src/index.css`](src/index.css) (page background, Inter font smoothing, slim scrollbars, button hover/active filters, input focus rings, `.vfo-skeleton` shimmer, and `html{overflow-y:scroll}` to keep the layout from shifting when the scrollbar appears). Two shared chrome components were added: [`src/components/shared/VfoWordmark.jsx`](src/components/shared/VfoWordmark.jsx) (the VFO wordmark, `light` prop for the navy-gradient portal headers) and [`src/components/shared/AuthShell.jsx`](src/components/shared/AuthShell.jsx) (the split-screen layout wrapping all login/setup pages). Conventions: ink `#16264a` body text, navy `#002973` headings, primary `#125ecc`, white radius-16 shadowed cards, tinted `#eef2f9` inset panels, status colors only in bullet dots + pills.
+
 Built and deployed as a static site to GitHub Pages at `https://jlathamert.github.io/vfo-portal/` (per [package.json:9](package.json) — `gh-pages -d dist`).
 
 ## Routes ([src/App.jsx](src/App.jsx))
