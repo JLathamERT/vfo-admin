@@ -1,6 +1,6 @@
 # API action catalog (`vfo-admin-api`)
 
-All **275 actions** dispatched by `vfo-admin-api` (4 logins + 271 dispatched; PUBLIC/AUTH split tracked in `SESSION_REFERENCE.md` LIVE STATE). Net +1 this session: new `automation_TAX_highlevelmeeting_confirm`. Composition (approximate, historical): MAP1 baseline of 134 + ~28 tax handlers in `actions/tax/` (see [../flows/tax-planning.md](../flows/tax-planning.md)) + 21 Advisor Onboarding handlers in `actions/advisor/` + 14 PIP Meetings handlers (see [../flows/pip-meetings.md](../flows/pip-meetings.md)) + 22 Accountant Onboarding handlers in `actions/accountant/` + **~33 Specialist Onboarding handlers** in `actions/onboarding/` (Stages 1–3 automation + the 2026-06-04 DD Checklist revamp + the **2026-06-05 Stage-4 agreement + monthly-license flow**: `sendagreement`/`ceocountersign`/`licstripecustomer`/`licpaymentemail`/`licloadpayment`/`liccheckout`/`licconfirmation`/`licinvoicereceipt` — all PUBLIC; deployed **v404**; see [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md)). The catalog cites file paths (not line numbers).
+All **287 actions** dispatched by `vfo-admin-api` (5 logins + 282 dispatched; PUBLIC/AUTH split tracked in `SESSION_REFERENCE.md` LIVE STATE). This session added the `specialist_login` 5th login + the Specialist go-live actions (Stage-5 Skool invite, create-specialist + login-setup chain) + the 6 specialist-vault handlers (4 specialist-role + 2 admin-only). Composition (approximate, historical): MAP1 baseline of 134 + ~28 tax handlers in `actions/tax/` (see [../flows/tax-planning.md](../flows/tax-planning.md)) + 21 Advisor Onboarding handlers in `actions/advisor/` + 14 PIP Meetings handlers (see [../flows/pip-meetings.md](../flows/pip-meetings.md)) + 22 Accountant Onboarding handlers in `actions/accountant/` + **~33 Specialist Onboarding handlers** in `actions/onboarding/` (Stages 1–3 automation + the 2026-06-04 DD Checklist revamp + the **2026-06-05 Stage-4 agreement + monthly-license flow**: `sendagreement`/`ceocountersign`/`licstripecustomer`/`licpaymentemail`/`licloadpayment`/`liccheckout`/`licconfirmation`/`licinvoicereceipt` — all PUBLIC; deployed **v404**; see [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md)). The catalog cites file paths (not line numbers).
 
 Format: action · `file` · tables read / written · chains / external. Table prefix `pipeline_map1` is shortened to `pmap1` and `pipeline_sandbox_config` to `psbx_cfg` for brevity. All file references are relative to `C:\vfo-edge-functions\supabase\functions\vfo-admin-api\`.
 
@@ -28,7 +28,7 @@ Format: action · `file` · tables read / written · chains / external. Table pr
 
 ## Auth (no token required)
 
-These four are dispatched inline in `index.ts` BEFORE webhook detection (pre-webhook ordering preserved verbatim from baseline).
+These five are dispatched inline in `index.ts` BEFORE webhook detection (pre-webhook ordering preserved verbatim from baseline).
 
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
@@ -36,6 +36,7 @@ These four are dispatched inline in `index.ts` BEFORE webhook detection (pre-web
 | `member_login` | `actions/auth/member-login.ts` | `member_logins`, `member_plugin_settings`, `members` | `admin_sessions` | — |
 | `login` (legacy) | `actions/auth/login.ts` | `allowed_admins` | `admin_sessions` | — |
 | `client_login` | `actions/auth/client-login.ts` | `client_logins` (salted PBKDF2 verify of email+passcode) | `admin_sessions` | The third login type. Returns `{token, name, email, role:'client', client_id}`. |
+| `specialist_login` | `actions/auth/specialist-login.ts` | `specialist_logins` (salted PBKDF2 verify of email+passcode) | `admin_sessions` | Specialist portal login (added this session). Returns `{token, name, email, role:'specialist', expert_id}`. |
 
 ---
 
@@ -259,6 +260,26 @@ A `client` session may call ONLY these four. Each is scoped to `auth.callerClien
 | `client_vault_download` | `actions/vault/client-vault-download.ts` | storage (own) | — | 300s signed URL for own file. |
 | `client_vault_delete` | `actions/vault/client-vault-delete.ts` | — | storage (own file delete) | Removes own file. |
 
+#### Specialist vault — specialist side (added this session, gated by `SPECIALIST_ALLOWED_ACTIONS`)
+
+A `specialist` session may call ONLY these four. Each is scoped to `auth.callerSpecialistId` — never a body `expert_id`. Single "General Documentation" section over the private `specialist-documents` bucket (namespaced by `expert_id`).
+
+| Action | File | R | W | Chains |
+|---|---|---|---|---|
+| `specialist_vault_list` | `actions/vault/specialist-vault-list.ts` | storage `specialist-documents` (own files) | — | Lists the caller's own documents. |
+| `specialist_vault_upload_url` | `actions/vault/specialist-vault-upload-url.ts` | storage (own) | — | Signed upload URL. |
+| `specialist_vault_download` | `actions/vault/specialist-vault-download.ts` | storage (own) | — | Signed download URL for own file. |
+| `specialist_vault_delete` | `actions/vault/specialist-vault-delete.ts` | — | storage (own file delete) | Removes own file. |
+
+#### Specialist vault — admin side (added this session, all in `ADMIN_ONLY_ACTIONS`)
+
+Admin read-only view of a specialist's vault by `expert_id` (Search Specialists → Vault tab).
+
+| Action | File | R | W | Chains |
+|---|---|---|---|---|
+| `specialist_vault_admin_list` | `actions/vault/specialist-vault-admin-list.ts` | storage `specialist-documents` (list by `expert_id`) | — | Admin-only. Lists a specialist's documents. |
+| `specialist_vault_admin_download` | `actions/vault/specialist-vault-admin-download.ts` | storage `specialist-documents` | — | Admin-only. Signed download URL. |
+
 ---
 
 ### Gift credits (GC marketplace)
@@ -435,7 +456,19 @@ Stage 1–3 automation + reminder sweep (Stages 1–2 2026-06-02; Stage 2 voting
 | `automation_SPECIALIST_licloadpayment` *(PUBLIC token)* | `actions/onboarding/license-load-payment.ts` | `specialist_onboarding` | — | Returns name + $99/mo |
 | `automation_SPECIALIST_liccheckout` *(PUBLIC token)* | `actions/onboarding/license-checkout.ts` | `specialist_onboarding`, `psbx_cfg` | — | Stripe Checkout **`mode=subscription`** $99/mo (card grossed-up / ACH flat), `metadata.payment_kind=license` |
 | `automation_SPECIALIST_licconfirmation` *(PUBLIC svc-role)* | `actions/onboarding/license-confirmation-email.ts` | `specialist_onboarding`, `email_templates` | `specialist_onboarding`(`lic_confirmation_email_sent_at`), progress(`confirmation_email_sent`) | `SPECIALIST_lic_confirmation\|card`/`\|ach` draft |
-| `automation_SPECIALIST_licinvoicereceipt` *(PUBLIC svc-role)* | `actions/onboarding/license-invoice-receipt.ts` | `specialist_onboarding`, `document_numbers`, `email_templates` | `specialist_onboarding`(`lic_invoice/receipt_number`,`lic_invoice_receipt_email_sent_at`), progress(`invoice_receipt_sent`) | `INV/REC-SPECLIC` PDFs→Drive; `SPECIALIST_lic_invoicereceipt` (body TBC) w/ both attached |
+| `automation_SPECIALIST_licinvoicereceipt` *(PUBLIC svc-role)* | `actions/onboarding/license-invoice-receipt.ts` | `specialist_onboarding`, `document_numbers`, `email_templates` | `specialist_onboarding`(`lic_invoice/receipt_number`,`lic_invoice_receipt_email_sent_at`), progress(`invoice_receipt_sent`) | `INV/REC-SPECLIC` PDFs→Drive; `SPECIALIST_lic_invoicereceipt` w/ both attached |
+
+#### Specialist Stage-5 Go-Live + create-specialist + portal login setup (added this session)
+
+The go-live tail: after the license invoice/receipt clears, admin sends the VFO Skool invite (Stage 5), then builds the `experts` row from the SIF (which copies the DD-checklist files into the specialist vault and chains the login-setup email). The specialist receives a `/member-setup?token=<>` link, sets a passcode, and gets a `specialist_logins` row.
+
+| Action | File | R | W | Chains / external |
+|---|---|---|---|---|
+| `automation_SPECIALIST_skoolinvite` *(AUTH, admin)* | `actions/onboarding/skool-invite.ts` | `specialist_onboarding`, `psbx_cfg`, `email_templates`(`SPECIALIST_skool_invite`) | `specialist_onboarding` (skool-invite sent stamp), `notifications` | Drafts the Stage-5 Go-Live / VFO Skool invite email; clears Tracy's "send Skool invite" notification. |
+| `automation_SPECIALIST_createspecialist` *(AUTH, admin)* | `actions/onboarding/create-specialist.ts` | `specialist_onboarding`, `experts`, `specialist-dd-materials` (storage), `specialist-documents` (storage) | `experts` (insert from SIF), `specialist-documents` (copy of DDC files), `specialist_onboarding` (expert link/stamp), `notifications` | Builds the `experts` row from the SIF + copies DDC files into the `specialist-documents` vault; chains `automation_SPECIALIST_loginsetupemail` (service-role). Clears/raises Tracy notifications. |
+| `automation_SPECIALIST_loginsetupemail` *(PUBLIC svc-role)* | `actions/onboarding/login-setup-email.ts` | `specialist_onboarding`, `psbx_cfg`, `email_templates`(`SPECIALIST_login_setup`) | `specialist_onboarding` (login-setup email sent stamp) | Drafts the specialist login-setup email with the `/member-setup?token=<>` button. |
+| `automation_SPECIALIST_loadloginsetup` *(PUBLIC token)* | `actions/onboarding/load-login-setup.ts` | `specialist_onboarding`(by login_setup_token), `specialist_logins` | — | `/member-setup` page loader, specialist branch. Returns `{state, specialist_name, email}`. |
+| `automation_SPECIALIST_submitloginsetup` *(PUBLIC token)* | `actions/onboarding/submit-login-setup.ts` | `specialist_onboarding`(by login_setup_token), `specialist_logins`(race-check) | `specialist_logins` (insert, salted passcode + `expert_id`), `specialist_onboarding.login_setup_completed_at` | Creates the `specialist_logins` row + marks `login_setup_completed_at`. |
 
 ---
 

@@ -4,7 +4,7 @@ Two Supabase edge functions deployed to project `ejpsprsmhpufwogbmxjv`. Both are
 
 | Function | Layout | `verify_jwt` |
 |---|---|---|
-| `vfo-admin-api` | `supabase/functions/vfo-admin-api/` — 88-line `index.ts` orchestrator + `router/`, `middleware/`, `actions/`, `utils/`, `constants/`, `types/`, `integrations/` subdirs (~202 .ts files total — incl. `actions/advisor/` for Phase 1-6 Advisor Onboarding, `actions/accountant/` for Accountant Onboarding, `actions/pft/` for the Partnership Fast Track engagement track (7 actions; added 2026-06-05) + `actions/msm/pip-*.ts` for the PIP Meetings purchase chain + `actions/auth/client-*.ts` for client-portal login/setup + `actions/vault/{tax,gen,client-vault}-*.ts` for the client document/tax-return vault, all added this session) | `false` (config.toml + live registry, matched) |
+| `vfo-admin-api` | `supabase/functions/vfo-admin-api/` — 88-line `index.ts` orchestrator + `router/`, `middleware/`, `actions/`, `utils/`, `constants/`, `types/`, `integrations/` subdirs (~202 .ts files total — incl. `actions/advisor/` for Phase 1-6 Advisor Onboarding, `actions/accountant/` for Accountant Onboarding, `actions/pft/` for the Partnership Fast Track engagement track (7 actions; added 2026-06-05) + `actions/msm/pip-*.ts` for the PIP Meetings purchase chain + `actions/auth/client-*.ts` for client-portal login/setup + `actions/vault/{tax,gen,client-vault}-*.ts` for the client document/tax-return vault, all added this session; plus the Specialist portal go-live actions added this session — `actions/onboarding/{skool-invite,create-specialist,login-setup-email,load-login-setup,submit-login-setup}.ts`, `actions/auth/specialist-login.ts`, and `actions/vault/specialist-vault-*.ts`) | `false` (config.toml + live registry, matched) |
 | `boldsign-webhook` | `supabase/functions/boldsign-webhook/index.ts` (single file; extended four times — tax / advisor / advisor `_stripecustomer` chain / accountant fallthrough + `_stripecustomer` + `_ceocountersign` chains) | `false` (live registry; config.toml says `true` — see note below) |
 
 > Live versions increment per deploy; see Supabase Dashboard → Edge Functions for the current value of each.
@@ -22,7 +22,7 @@ The 88-line orchestrator at `supabase/functions/vfo-admin-api/index.ts` does:
 1. **OPTIONS short-circuit** + per-request CORS headers
 2. **Stripe webhook** (header-shape detection via `router/webhooks.ts::maybeHandleStripeWebhook`)
 3. **JSON body parse**
-4. **Login handlers** inline (admin_login / member_login / client_login / login — pre-webhook ordering preserved verbatim; 4 logins as of this session, `client_login` dispatched to `actions/auth/client-login.ts`)
+4. **Login handlers** inline (admin_login / member_login / client_login / specialist_login / login — pre-webhook ordering preserved verbatim; 5 logins as of this session, `client_login` dispatched to `actions/auth/client-login.ts`, `specialist_login` to `actions/auth/specialist-login.ts` — verifies salted passcode against `specialist_logins`, returns `{role:'specialist', expert_id}`)
 5. **BoldSign webhook** (body-shape detection via `router/webhooks.ts::maybeHandleBoldSignWebhook`)
 6. **`PUBLIC_HANDLERS` dispatch** (router/dispatch.ts) — public-token + chain-callable handlers, no auth required (added this session: `load_client_setup` / `submit_client_setup` PUBLIC handlers in `actions/auth/client-setup-load.ts` / `client-setup-submit.ts`, plus the PUBLIC-token `tax_upload_url` in `actions/vault/tax-upload-url.ts`)
 7. **Auth gate** (`middleware/auth.ts::authenticate`) — validates body.token against `admin_sessions`, applies role gates from `constants/role-gates.ts`
@@ -51,7 +51,7 @@ All previously-inline helpers have been extracted to per-file modules:
 | `TIM_EMAIL` / `TRACY_EMAIL` / `TAX_OWNERS` / `taxPfRecipients(pf)` / `insertTaxNotifications()` | `utils/tax-notify.ts` | TAX notification routing (added 2026-06-09, gotcha #96). No tax notification uses the shared `admin` bell — `taxPfRecipients` maps `clients.assigned_pf` → @elitert.com login (Tim+Tracy fallback, never `admin`); `insertTaxNotifications` inserts one row per recipient. |
 | `notifyTracyRevShareNeeded()` | `utils/revshare-tracy-notify.ts` | FYI to Tracy to enter the revenue-share split into the VFO Services - Private Info sheet (added 2026-06-09). Fired from MAP 1 + Tax revshare `pending` branches; deduped on the unread row. |
 | `notifyJakeFailure()` | `utils/notify-jake-failure.ts` | FYI to `jlatham@elitert.com` on any payment/transfer failure across pipelines (added 2026-06-09); deduped on the unread row. |
-| `ADMIN_ONLY_ACTIONS` / `MEMBER_SCOPED_ACTIONS` / `CLIENT_ALLOWED_ACTIONS` | `constants/role-gates.ts` | Action-name arrays consumed by the auth middleware. `ADMIN_ONLY_ACTIONS` gained 8 new admin-only vault actions; `CLIENT_ALLOWED_ACTIONS` (added this session) lists the 4 client-scoped vault actions the `client` role may call. |
+| `ADMIN_ONLY_ACTIONS` / `MEMBER_SCOPED_ACTIONS` / `CLIENT_ALLOWED_ACTIONS` / `SPECIALIST_ALLOWED_ACTIONS` | `constants/role-gates.ts` | Action-name arrays consumed by the auth middleware. `ADMIN_ONLY_ACTIONS` gained 8 client-vault actions + the 2 admin-only specialist-vault actions (`specialist_vault_admin_list` / `_admin_download`); `CLIENT_ALLOWED_ACTIONS` (added this session) lists the 4 client-scoped vault actions the `client` role may call; `SPECIALIST_ALLOWED_ACTIONS` (added this session) lists the 4 specialist-scoped vault actions the `specialist` role may call. |
 | `pfNotificationRecipient(pf)` | `constants/map1-pfs.ts` | Maps a MAP 1 Planning-Facilitator NAME (`clients.assigned_pf`: Evan / Bridger / Ian) → their `allowed_admins` **@elitert.com LOGIN email** for notification routing; falls back to `'admin'`. DISTINCT from `utils/pf-emails.ts` (which holds the @vfo-services.com CC identity — routing a notification there never matches `session.email`). |
 | `isTaxAdmin(email)` | `constants/tax-access.ts` | Allowlist (Jake `jlatham@`, Tim `tgacsy@`, Tray `tvaldes@` elitert.com) gating who may view/download client tax returns. |
 | `JsonResponder`, `AuthContext`, `PublicHandlerCtx`, `AuthedHandlerCtx` | `types/index.ts` | Shared TS types for handler signatures. |
@@ -72,7 +72,7 @@ serve(req)
   ├─ 2. JSON body parse: const body = await req.json()
   │      const { action } = body
   │
-  ├─ 3. Inline login handlers (admin_login / member_login / login)
+  ├─ 3. Inline login handlers (admin_login / member_login / client_login / specialist_login / login)
   │      Pre-webhook order preserved (an admin login request never reaches BoldSign-shape detection)
   │
   ├─ 4. router/webhooks.ts::maybeHandleBoldSignWebhook(body, ...)
@@ -86,10 +86,11 @@ serve(req)
   ├─ 6. await middleware/auth.ts::authenticate(action, body, supabase, json)
   │      • Reads body.token, looks up admin_sessions
   │      • Returns 401 if missing/expired
-  │      • Detects role: admin (allowed_admins), member (member_logins), or client (deny-by-default)
+  │      • Detects role: admin (allowed_admins), member (member_logins), client, or specialist (both deny-by-default)
   │      • Applies ADMIN_ONLY_ACTIONS gate (403 for member callers on listed actions)
   │      • Applies MEMBER_SCOPED_ACTIONS gate (forces body.member_number to caller's own)
   │      • Applies CLIENT_ALLOWED_ACTIONS gate (client role limited to 4 vault actions, scoped to auth.callerClientId)
+  │      • Applies SPECIALIST_ALLOWED_ACTIONS gate (specialist role limited to 4 vault actions, scoped to auth.callerSpecialistId)
   │
   ├─ 7. AUTH_HANDLERS[action]  (from router/dispatch.ts)
   │      • 132 entries
@@ -146,10 +147,11 @@ Below the public dispatch step, every action does:
 
 1. Reads `body.token`. Returns 401 if missing.
 2. Looks up `admin_sessions` row by token. Returns 401 if missing or `expires_at` is past (and deletes the expired row).
-3. Detects role via `allowed_admins` row (admin), `member_logins.member_number` (member), or the `client` role (added this session — deny-by-default gate; see [04-auth-and-sessions.md](04-auth-and-sessions.md)).
+3. Detects role via `allowed_admins` row (admin), `member_logins.member_number` (member), the `client` role, or the `specialist` role (added this session — both deny-by-default gates; see [04-auth-and-sessions.md](04-auth-and-sessions.md)).
 4. Applies `ADMIN_ONLY_ACTIONS` (constants/role-gates.ts) — 403 for member callers on listed actions.
 5. Applies `MEMBER_SCOPED_ACTIONS` (constants/role-gates.ts) — overwrites `body.member_number` with caller's for scoped reads/writes.
 6. For the `client` role, allows only `CLIENT_ALLOWED_ACTIONS` (deny-by-default) and scopes client-vault handlers to `auth.callerClientId`.
+7. For the `specialist` role, allows only `SPECIALIST_ALLOWED_ACTIONS` (deny-by-default) and scopes specialist-vault handlers to `auth.callerSpecialistId`.
 
 ### Hardcoded constants worth knowing
 
@@ -190,6 +192,7 @@ Behavior change observable from outside: an explicit POST with `{ "action": "aut
 - `specialist-dd-materials` (**PRIVATE**) — Due Diligence Checklist uploads. Written via signed upload URLs (`actions/onboarding/ddc-upload-url.ts`); read via signed download URLs (`actions/onboarding/ddc-download.ts`). Paths namespaced `<onboarding_id>/<slot>/<rand>_<file>`. Added 2026-06-04, gotcha #69.
 - `client-tax-returns` (**PRIVATE**) — sensitive client tax-return vault (added this session). Written/read via signed URLs by `actions/vault/tax-*.ts`: `tax-upload-url.ts` (PUBLIC token), `tax-admin-upload-url.ts`, `tax-list.ts`, `tax-download.ts`, `tax-delete.ts` (AUTH admin; download/delete/admin-upload further gated by `isTaxAdmin` in `constants/tax-access.ts`). Also one of the two client-scoped buckets (see below).
 - `client-documents` (**PRIVATE**) — general client document vault (added this session). Written/read via signed URLs by `actions/vault/gen-*.ts`: `gen-list.ts`, `gen-upload-url.ts`, `gen-download.ts`, `gen-delete.ts` (AUTH, any admin). Also one of the two client-scoped buckets (see below).
+- `specialist-documents` (**PRIVATE**) — specialist portal vault (added this session), namespaced by `expert_id`. Written/read via signed URLs by `actions/vault/specialist-vault-*.ts`: specialist-role `specialist-vault-list.ts` / `-upload-url.ts` / `-download.ts` / `-delete.ts` (scoped to `auth.callerSpecialistId`) + admin-only `specialist-vault-admin-list.ts` / `-admin-download.ts`. Also populated by `actions/onboarding/create-specialist.ts`, which copies the DD-checklist files from `specialist-dd-materials` into this bucket on specialist creation.
 - `map1-assets` (public, added this session) — holds `PIP-FollowUp-Presentation.pdf`.
 
 **Client-scoped vault** — `actions/vault/client-vault-*.ts` (`client-vault-upload-url.ts` / `-list.ts` / `-download.ts` / `-delete.ts`, AUTH `client` role, scoped to `auth.callerClientId`) operate over BOTH private buckets via the `CLIENT_VAULT_BUCKETS` `{sensitive:'client-tax-returns', general:'client-documents'}` map exported from `client-vault-upload-url.ts`.

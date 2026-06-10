@@ -1,6 +1,6 @@
 # Auth tables
 
-Session tokens and login credentials for both portals. The frontend never talks to Supabase Auth — instead it calls `vfo-admin-api` actions `admin_login` / `member_login`, which return a token stored in `sessionStorage` and presented on every subsequent request.
+Session tokens and login credentials for all portals. The frontend never talks to Supabase Auth — instead it calls `vfo-admin-api` actions `admin_login` / `member_login` / `client_login` / `specialist_login`, which return a token stored in `sessionStorage` and presented on every subsequent request.
 
 ## `admin_sessions`
 
@@ -68,6 +68,23 @@ The third login type (after admin/member) — per-client portal logins for the e
 | `created_at` | timestamptz | default `now()` |
 
 **Touched by:** written by `submit_client_setup`; read by `client_login`.
+
+---
+
+## `specialist_logins`
+
+The fourth login type (after admin/member/client) — per-specialist portal logins, each linked to an `experts` row. RLS enabled, **no policies** (service-role mediated; all access goes through edge-function handlers). The caller role `'specialist'` is fenced to `SPECIALIST_ALLOWED_ACTIONS`. Shares the `admin_sessions` token table with the other three login types. Migration: `specialist_login_and_expert_link`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | identity pk |
+| `email` | text | not null. **Unique index on `lower(email)`.** |
+| `name` | text | not null |
+| `passcode_hash` | text | not null. Salted PBKDF2. |
+| `expert_id` | bigint | not null. fk → `experts(id)` ON DELETE CASCADE. |
+| `created_at` | timestamptz | default `now()` |
+
+**Touched by:** written by `automation_SPECIALIST_submitloginsetup`; read by `specialist_login`.
 
 ---
 

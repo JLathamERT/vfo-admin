@@ -6,7 +6,7 @@ import AuthShell from '../components/shared/AuthShell'
 const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '12px 14px', borderRadius: '10px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px' }
 const labelStyle = { display: 'block', fontSize: '12px', fontWeight: 600, color: '#4e6087', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.8px' }
 
-export default function ClientLogin() {
+export default function SpecialistLogin() {
   const navigate = useNavigate()
   const location = useLocation()
   const prefilledEmail = location.state?.email || ''
@@ -21,10 +21,10 @@ export default function ClientLogin() {
     setError('')
     setLoading(true)
     try {
-      const data = await callApi('client_login', { email, passcode })
-      sessionStorage.removeItem('clientActiveTab')
-      setSession({ token: data.token, email, name: data.name, role: 'client', client_id: data.client_id })
-      navigate('/client')
+      const data = await callApi('specialist_login', { email, passcode })
+      sessionStorage.removeItem('specialistActiveTab')
+      setSession({ token: data.token, email, name: data.name, role: 'specialist', expert_id: data.expert_id })
+      navigate('/specialist')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -34,9 +34,9 @@ export default function ClientLogin() {
 
   return (
     <AuthShell>
-      <p style={{ fontSize: '11.5px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2.5px', margin: '0 0 10px' }}>Client Portal</p>
+      <p style={{ fontSize: '11.5px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2.5px', margin: '0 0 10px' }}>Specialist Portal</p>
       <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.02em', color: '#002973', marginTop: 0, marginBottom: '8px', fontSize: '28px' }}>Sign in</h2>
-      <p style={{ color: '#4e6087', fontSize: '14px', marginBottom: '28px' }}>Welcome back — enter your client credentials.</p>
+      <p style={{ color: '#4e6087', fontSize: '14px', marginBottom: '28px' }}>Welcome back — enter your specialist credentials.</p>
       {fromSetup && <p style={{ color: '#16a34a', fontWeight: 500, fontSize: '13px', marginBottom: '16px', background: 'rgba(22,163,74,0.08)', border: '1px solid rgba(22,163,74,0.25)', borderRadius: '10px', padding: '10px 14px' }}>Login created. Sign in with your new passcode.</p>}
       <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div>

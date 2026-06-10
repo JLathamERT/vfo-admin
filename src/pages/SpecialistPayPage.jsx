@@ -78,8 +78,8 @@ export default function SpecialistPayPage() {
   )
 
   const baseAmount = isLicense ? (Number(data.monthly_amount) || 0) : (Number(data.payment_amount) || 0)
-  const cardFee = Math.round((baseAmount * 0.029 + 0.30) * 100) / 100
-  const cardTotal = Math.round((baseAmount + cardFee) * 100) / 100
+  const cardTotal = Math.round((baseAmount + 0.30) / (1 - 0.029) * 100) / 100
+  const cardFee = Math.round((cardTotal - baseAmount) * 100) / 100
   const lineLabel = isLicense ? 'VFO Monthly License' : `${data.check_type} Background Check`
   const amtSuffix = isLicense ? '/mo' : ''
 
