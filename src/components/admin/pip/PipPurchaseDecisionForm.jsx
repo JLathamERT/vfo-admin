@@ -21,9 +21,9 @@ function PipPurchaseDecisionForm({ task, priorityTrackId, clientId, engagementYe
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
-  const labelStyle = { fontSize: '11px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }
-  const sectionStyle = { background: 'rgba(0,0,0,0.15)', borderRadius: '8px', padding: '16px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.06)' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const labelStyle = { fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }
+  const sectionStyle = { background: '#eef2f9', borderRadius: '8px', padding: '16px', marginBottom: '12px', border: '1px solid #f2f5fa' }
   const readOnlyInput = { ...inputStyle, opacity: 0.6, pointerEvents: 'none' }
 
   const showPricing = decision === 'Tax Planning (if not purchased already)' || decision === 'Additional PIP meeting(s)'
@@ -104,12 +104,12 @@ function PipPurchaseDecisionForm({ task, priorityTrackId, clientId, engagementYe
   }
 
   return (
-    <div style={{ marginLeft: '18px', padding: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', marginTop: '4px', marginBottom: '8px' }}>
+    <div style={{ marginLeft: '18px', padding: '16px', background: '#eef2f9', borderRadius: '10px', border: '1px solid #ebf0f8', marginTop: '4px', marginBottom: '8px' }}>
       <div style={{ marginBottom: '16px' }}>
         <label style={labelStyle}>Client decision</label>
         {isViewMode
           ? <div style={{ ...inputStyle, opacity: 0.6 }}>{decision}</div>
-          : <select value={decision} onChange={e => setDecision(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+          : <select value={decision} onChange={e => setDecision(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
               <option value="">-- Select --</option>
               {DECISION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
@@ -123,51 +123,51 @@ function PipPurchaseDecisionForm({ task, priorityTrackId, clientId, engagementYe
             ? <div style={readOnlyInput}>{additionalCount || '—'}</div>
             : <input type="number" min="1" max="50" value={additionalCount} onChange={e => setAdditionalCount(e.target.value)} placeholder="e.g. 2" style={inputStyle} />
           }
-          <div style={{ fontSize: '11px', color: '#5a8ab5', marginTop: '6px', fontStyle: 'italic' }}>These meetings will be added to Year {engagementYear ?? '?'} but locked until payment + revenue share are recorded.</div>
+          <div style={{ fontSize: '11px', color: '#697a9c', marginTop: '6px', fontStyle: 'italic' }}>These meetings will be added to Year {engagementYear ?? '?'} but locked until payment + revenue share are recorded.</div>
         </div>
       )}
 
       {showPricing && (
         <>
           <div style={sectionStyle}>
-            <div style={{ fontSize: '12px', color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Pricing</div>
+            <div style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Pricing</div>
             <div style={{ marginBottom: '10px' }}>
               <label style={labelStyle}>Gross service value</label>
               <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#8bacc8', fontSize: '14px' }}>$</span>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
                 <input value={grossServiceValue} onChange={e => setGrossServiceValue(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
               </div>
             </div>
             <div style={{ marginBottom: '10px' }}>
               <label style={labelStyle}>Member contribution <span style={{ textTransform: 'none', opacity: 0.6 }}>(if applicable)</span></label>
               <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#8bacc8', fontSize: '14px' }}>$</span>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
                 <input value={memberContribution} onChange={e => setMemberContribution(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
               </div>
             </div>
             <div>
               <label style={labelStyle}>Net invoice value</label>
               <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#8bacc8', fontSize: '14px' }}>$</span>
-                <input value={isViewMode ? (existing.netInvoiceValue || '0.00') : netInvoiceValue} readOnly style={{ ...readOnlyInput, paddingLeft: '28px', background: 'rgba(39,174,96,0.08)', borderColor: 'rgba(39,174,96,0.2)' }} />
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
+                <input value={isViewMode ? (existing.netInvoiceValue || '0.00') : netInvoiceValue} readOnly style={{ ...readOnlyInput, paddingLeft: '28px', background: 'rgba(27,146,84,0.08)', borderColor: 'rgba(27,146,84,0.2)' }} />
               </div>
             </div>
           </div>
 
           <div style={sectionStyle}>
-            <div style={{ fontSize: '12px', color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Revenue split</div>
+            <div style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Revenue split</div>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '120px' }}>
                 <label style={labelStyle}>Member share</label>
                 <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#8bacc8', fontSize: '14px' }}>$</span>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
                   <input value={memberShare} onChange={e => setMemberShare(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
                 </div>
               </div>
               <div style={{ flex: 1, minWidth: '120px' }}>
                 <label style={labelStyle}>VFOS share</label>
                 <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#8bacc8', fontSize: '14px' }}>$</span>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
                   <input value={vfosShare} onChange={e => setVfosShare(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
                 </div>
               </div>
@@ -178,8 +178,8 @@ function PipPurchaseDecisionForm({ task, priorityTrackId, clientId, engagementYe
 
       {decision && !isViewMode && (
         <>
-          {submitError && <div style={{ color: '#e74c3c', fontSize: '13px', marginBottom: '8px' }}>{submitError}</div>}
-          <button onClick={handleSubmit} disabled={submitting} style={{ width: '100%', padding: '12px', borderRadius: '8px', background: submitting ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '15px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+          {submitError && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginBottom: '8px' }}>{submitError}</div>}
+          <button onClick={handleSubmit} disabled={submitting} style={{ width: '100%', padding: '12px', borderRadius: '8px', background: submitting ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '15px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
             {submitting ? 'Submitting...' : 'Submit Outcome - Meeting Complete'}
           </button>
         </>

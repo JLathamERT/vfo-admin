@@ -145,10 +145,10 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
 
   
 
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
-  const labelStyle = { fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const labelStyle = { fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }
   const fieldStyle = { marginBottom: '16px' }
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
 
   
 
@@ -167,8 +167,8 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
           <label style={labelStyle}>Long Bio</label>
           <textarea value={form.long_bio} onChange={e => setForm(p => ({ ...p, long_bio: e.target.value }))} placeholder="Detailed biography..." rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
         </div>
-        <div style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '16px' }}>
-          <div style={{ fontSize: '14px', color: '#fff', fontWeight: '600', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>Details & Benefits</div>
+        <div style={{ background: '#eef2f9', border: '1px solid #e3eaf5', borderRadius: '12px', padding: '24px', marginBottom: '16px' }}>
+          <div style={{ fontSize: '14px', color: '#16264a', fontWeight: '600', marginBottom: '20px', borderBottom: '1px solid #e3eaf5', paddingBottom: '12px' }}>Details & Benefits</div>
 
           <div style={fieldStyle}>
             <label style={labelStyle}>Strategy / Expertise</label>
@@ -207,8 +207,8 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
             <textarea value={form['D&B_competitive_advantage']} onChange={e => setForm(p => ({ ...p, 'D&B_competitive_advantage': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
           </div>
 
-          <div style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-            <div style={{ fontSize: '13px', color: '#8bacc8', fontWeight: '600', marginBottom: '16px' }}>Tax Planning Audit Risk Questionnaire</div>
+          <div style={{ background: '#ffffff', border: '1px solid #ebf0f8', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+            <div style={{ fontSize: '13px', color: '#4e6087', fontWeight: '600', marginBottom: '16px' }}>Tax Planning Audit Risk Questionnaire</div>
             <div style={fieldStyle}>
               <label style={labelStyle}>1. What are the general risks of this strategy?</label>
               <textarea value={form['D&B_audit_risk_general']} onChange={e => setForm(p => ({ ...p, 'D&B_audit_risk_general': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
@@ -232,25 +232,25 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
             <textarea value={form['D&B_revenue_share']} onChange={e => setForm(p => ({ ...p, 'D&B_revenue_share': e.target.value }))} rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
           </div>
 
-          <div style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '16px' }}>
-            <div style={{ fontSize: '13px', color: '#8bacc8', fontWeight: '600', marginBottom: '12px' }}>Acknowledgement, Agreement and Release</div>
-            <p style={{ fontSize: '12px', color: '#5a8ab5', lineHeight: '1.6', margin: 0 }}>Member acknowledges that ERT, and their related companies and legal partnerships maintain a relationship with Specialist in various fields of service and specialities, including, without limitation, in the financial, tax, accounting, and legal service industries. Member further acknowledges that (i) each of the Specialist is separate and independent from, and unrelated to, ERT, and their related companies and legal partnerships, and separate and independent from, and unrelated to, the associates, shareholders, managers, members, officers, directors, employees, contractors, agents, controlling persons, related parties, assigns and partners of ERT and/or of their related companies and legal partnerships; and (ii) that the services provided by the Specialists are not provided by ERT, and/or by their related companies or legal partnerships, and/or by the ERT Related Parties. Member acknowledges and agrees that it is their sole and absolute responsibility to seek his, her and/or their own independent legal, tax, compliance, accounting and financial advice, as applicable to such parties, from competent service providers and advisors of their own independent choosing, including, without limitation, to determine whether an Specialist is someone who is or will provide adequate and appropriate advice for and to the Advisor, Accountant and/or Client given the unique facts and circumstances and the particular risk profile of the service recipients.</p>
+          <div style={{ background: '#ffffff', border: '1px solid #ebf0f8', borderRadius: '8px', padding: '16px' }}>
+            <div style={{ fontSize: '13px', color: '#4e6087', fontWeight: '600', marginBottom: '12px' }}>Acknowledgement, Agreement and Release</div>
+            <p style={{ fontSize: '12px', color: '#697a9c', lineHeight: '1.6', margin: 0 }}>Member acknowledges that ERT, and their related companies and legal partnerships maintain a relationship with Specialist in various fields of service and specialities, including, without limitation, in the financial, tax, accounting, and legal service industries. Member further acknowledges that (i) each of the Specialist is separate and independent from, and unrelated to, ERT, and their related companies and legal partnerships, and separate and independent from, and unrelated to, the associates, shareholders, managers, members, officers, directors, employees, contractors, agents, controlling persons, related parties, assigns and partners of ERT and/or of their related companies and legal partnerships; and (ii) that the services provided by the Specialists are not provided by ERT, and/or by their related companies or legal partnerships, and/or by the ERT Related Parties. Member acknowledges and agrees that it is their sole and absolute responsibility to seek his, her and/or their own independent legal, tax, compliance, accounting and financial advice, as applicable to such parties, from competent service providers and advisors of their own independent choosing, including, without limitation, to determine whether an Specialist is someone who is or will provide adequate and appropriate advice for and to the Advisor, Accountant and/or Client given the unique facts and circumstances and the particular risk profile of the service recipients.</p>
           </div>
         </div>
         <div style={fieldStyle}>
           <label style={labelStyle}>Background Check</label>
-          <select value={form.background_check} onChange={e => setForm(p => ({ ...p, background_check: e.target.value }))} style={{ ...inputStyle, background: '#0d2a6e', width: '200px' }}>
+          <select value={form.background_check} onChange={e => setForm(p => ({ ...p, background_check: e.target.value }))} style={{ ...inputStyle, background: '#ffffff', width: '200px' }}>
             <option value="">-- None --</option>
             <option value="Lite">Lite</option>
             <option value="Core">Core</option>
             <option value="Max">Max</option>
           </select>
         </div>
-        <div style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', fontWeight: '600', marginBottom: '16px' }}>Tax Risk Mindset</div>
+        <div style={{ background: '#ffffff', border: '1px solid #ebf0f8', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+          <div style={{ fontSize: '13px', color: '#4e6087', fontWeight: '600', marginBottom: '16px' }}>Tax Risk Mindset</div>
           <div style={fieldStyle}>
             <label style={labelStyle}>Risk Level</label>
-            <select value={form['D&B_tax_risk_mindset']} onChange={e => setForm(p => ({ ...p, 'D&B_tax_risk_mindset': e.target.value }))} style={{ ...inputStyle, background: '#0d2a6e', width: '320px' }}>
+            <select value={form['D&B_tax_risk_mindset']} onChange={e => setForm(p => ({ ...p, 'D&B_tax_risk_mindset': e.target.value }))} style={{ ...inputStyle, background: '#ffffff', width: '320px' }}>
               <option value="">-- Select --</option>
               <option value="Risk 1 – Very Conservative Mindset">Risk 1 – Very Conservative Mindset</option>
               <option value="Risk 2 - Moderately Conservative Mindset">Risk 2 - Moderately Conservative Mindset</option>
@@ -267,15 +267,15 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
         <div style={fieldStyle}>
           <label style={labelStyle}>Headshot</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '80px', height: '80px', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              {preview ? <img src={preview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { if (which === 'edit') { const exp = allExperts.find(x => x.id === editingId); if (exp) e.target.src = HEADSHOT_BASE + exp.headshot_image } }} /> : <span style={{ color: '#8bacc8', fontSize: '24px' }}>?</span>}
+            <div style={{ width: '80px', height: '80px', borderRadius: '8px', background: '#f2f5fa', border: '1px solid #d6e0ee', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+              {preview ? <img src={preview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { if (which === 'edit') { const exp = allExperts.find(x => x.id === editingId); if (exp) e.target.src = HEADSHOT_BASE + exp.headshot_image } }} /> : <span style={{ color: '#4e6087', fontSize: '24px' }}>?</span>}
             </div>
             <div>
-              <label style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>
+              <label style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #c7d4e8', background: '#f2f5fa', color: '#16264a', fontSize: '13px', cursor: 'pointer' }}>
                 Choose Image
                 <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleFileChange(which, e)} />
               </label>
-              <p style={{ color: '#8bacc8', fontSize: '12px', marginTop: '6px' }}>JPG or PNG, recommended 400×400px</p>
+              <p style={{ color: '#4e6087', fontSize: '12px', marginTop: '6px' }}>JPG or PNG, recommended 400×400px</p>
             </div>
           </div>
         </div>
@@ -284,7 +284,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             {ECOSYSTEMS.map(eco => (
               <button key={eco} onClick={() => toggleEco(which, eco)}
-                style={{ padding: '6px 14px', borderRadius: '20px', border: `1px solid ${ecos.includes(eco) ? '#5b9fe6' : 'rgba(255,255,255,0.2)'}`, background: ecos.includes(eco) ? 'rgba(91,159,230,0.15)' : 'transparent', color: ecos.includes(eco) ? '#5b9fe6' : '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>
+                style={{ padding: '6px 14px', borderRadius: '20px', border: `1px solid ${ecos.includes(eco) ? '#0095ff' : '#c7d4e8'}`, background: ecos.includes(eco) ? 'rgba(0,149,255,0.15)' : 'transparent', color: ecos.includes(eco) ? '#0095ff' : '#4e6087', fontSize: '13px', cursor: 'pointer' }}>
                 {eco}
               </button>
             ))}
@@ -294,35 +294,35 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
           <label style={labelStyle}>Top of the T</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div onClick={() => setForm(p => ({ ...p, top_of_t: !p.top_of_t }))}
-              style={{ width: '44px', height: '24px', borderRadius: '12px', background: form.top_of_t ? '#2563eb' : 'rgba(255,255,255,0.15)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
+              style={{ width: '44px', height: '24px', borderRadius: '12px', background: form.top_of_t ? '#125ecc' : '#d6e0ee', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
               <div style={{ position: 'absolute', top: '2px', left: form.top_of_t ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
             </div>
-            <span style={{ fontSize: '14px', color: form.top_of_t ? '#fff' : '#8bacc8' }}>{form.top_of_t ? 'Yes' : 'No'}</span>
+            <span style={{ fontSize: '14px', color: form.top_of_t ? '#16264a' : '#4e6087' }}>{form.top_of_t ? 'Yes' : 'No'}</span>
           </div>
         </div>
         <div style={fieldStyle}>
           <label style={labelStyle}>CIQ Topics</label>
           <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
             <select value={ciqDrop} onChange={e => setCiqDrop(e.target.value)}
-              style={{ ...inputStyle, flex: 1, background: '#0d2a6e' }}>
+              style={{ ...inputStyle, flex: 1, background: '#ffffff' }}>
               <option value="">-- Select a topic --</option>
               {CIQ_TOPICS.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             <button onClick={() => addCiqTag(which)}
-              style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #c7d4e8', background: '#f2f5fa', color: '#16264a', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
               + Add
             </button>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
             {ciq.map(topic => (
-              <span key={topic} style={{ padding: '4px 10px', borderRadius: '20px', background: 'rgba(91,159,230,0.15)', border: '1px solid rgba(91,159,230,0.3)', color: '#5b9fe6', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span key={topic} style={{ padding: '4px 10px', borderRadius: '20px', background: 'rgba(0,149,255,0.15)', border: '1px solid rgba(0,149,255,0.3)', color: '#0095ff', fontWeight: 600, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {topic}
-                <span onClick={() => removeCiqTag(which, topic)} style={{ cursor: 'pointer', color: '#8bacc8' }}>×</span>
+                <span onClick={() => removeCiqTag(which, topic)} style={{ cursor: 'pointer', color: '#4e6087' }}>×</span>
               </span>
             ))}
           </div>
         </div>
-        {statusMsg && <p style={{ color: sType === 'success' ? '#27ae60' : '#ff6b6b', fontSize: '13px', margin: '8px 0' }}>{statusMsg}</p>}
+        {statusMsg && <p style={{ color: sType === 'success' ? '#1b9254' : '#d93025', fontSize: '13px', margin: '8px 0' }}>{statusMsg}</p>}
       </div>
     )
   }
@@ -330,7 +330,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
       {/* Section title */}
-      <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '22px', color: '#fff', marginBottom: '24px' }}>
+      <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a', marginBottom: '24px' }}>
         {activeTab === 'add' ? 'Add Specialist' : 'Search Specialists'}
       </div>
 
@@ -345,11 +345,11 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
           })}
           <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
             <button onClick={() => submitSpecialist('add')}
-              style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
+              style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
               Add Specialist
             </button>
             <button onClick={clearAddForm}
-              style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '14px', cursor: 'pointer' }}>
+              style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '14px', cursor: 'pointer' }}>
               Clear Form
             </button>
           </div>
@@ -366,15 +366,15 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
             {(editSearch ? allExperts.filter(e => e.name.toLowerCase().includes(editSearch)) : allExperts).map(expert => (
               <div key={expert.id}
                 onClick={() => handleEditSelect(expert)}
-                style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', marginBottom: '4px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', cursor: 'pointer' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }}>
+                style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', marginBottom: '4px', background: '#f8fafd', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f2f5fa'}
+                onMouseLeave={e => e.currentTarget.style.background = '#f8fafd'}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: '#e3eaf5', flexShrink: 0 }}>
                   {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                 </div>
                 <div>
-                  <div style={{ fontSize: '14px', color: '#fff' }}>{expert.name}</div>
-                  <div style={{ fontSize: '12px', color: '#8bacc8' }}>{expert.short_bio || '—'}</div>
+                  <div style={{ fontSize: '14px', color: '#16264a' }}>{expert.name}</div>
+                  <div style={{ fontSize: '12px', color: '#4e6087' }}>{expert.short_bio || '—'}</div>
                 </div>
               </div>
             ))}
@@ -384,7 +384,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
 
       {activeTab === 'edit' && selectedExpert && (
         <div>
-          <button onClick={() => { setSelectedExpert(null); setEditingId(null) }} style={{ background: 'none', border: 'none', color: '#5b9fe6', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
+          <button onClick={() => { setSelectedExpert(null); setEditingId(null) }} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
           <div style={sectionStyle}>
             {SpecialistForm({
               which: 'edit', form: editForm, setForm: setEditForm,
@@ -394,15 +394,15 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
             })}
             <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
               <button onClick={() => submitSpecialist('edit')}
-                style={{ padding: '10px 28px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
+                style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
                 Save Changes
               </button>
               <button onClick={() => { setSelectedExpert(null); setEditingId(null) }}
-                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '14px', cursor: 'pointer' }}>
+                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '14px', cursor: 'pointer' }}>
                 Cancel
               </button>
               <button onClick={deleteSpecialist}
-                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontSize: '14px', cursor: 'pointer' }}>
+                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontWeight: 500, fontSize: '14px', cursor: 'pointer' }}>
                 Delete
               </button>
             </div>

@@ -4,13 +4,13 @@ import { callApi, loadCachedAction } from '../../../lib/api'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { PFTTrackSkeleton } from '../../shared/Skeleton'
 
-const pftStatusColors = { Complete: '#27ae60', Completed: '#27ae60', 'Complete - Yes': '#27ae60', 'Complete - No': '#e74c3c', Yes: '#27ae60', No: '#e74c3c', Undecided: '#f39c12', New: '#27ae60', 'Re-Set': '#27ae60', 'VFO FT': '#27ae60', 'VFO Associate': '#27ae60', Stopped: '#e74c3c', 'No show': '#e74c3c', 'Meeting 1 scheduled': '#27ae60', 'Meeting 2 scheduled': '#27ae60', 'Meeting 3 scheduled': '#27ae60', 'Confirmation email sent': '#27ae60', 'Email sent - date not yet arranged': '#27ae60', 'Meeting declined': '#e74c3c', 'No response': '#e74c3c', 'Call arranged': '#27ae60', 'VFO FT confirmed': '#27ae60', 'VFO Associate confirmed': '#27ae60', 'No confirmed': '#e74c3c' }
-const inputStyle = { padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '12px', fontFamily: 'DM Sans, sans-serif' }
-const dateSpanStyle = { fontSize: '11px', color: '#5a8ab5', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }
-const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60' }
-const blueBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6' }
-const redBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c' }
-const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#8bacc8' }
+const pftStatusColors = { Complete: '#1b9254', Completed: '#1b9254', 'Complete - Yes': '#1b9254', 'Complete - No': '#e74c3c', Yes: '#1b9254', No: '#e74c3c', Undecided: '#e06717', New: '#1b9254', 'Re-Set': '#1b9254', 'VFO FT': '#1b9254', 'VFO Associate': '#1b9254', Stopped: '#e74c3c', 'No show': '#e74c3c', 'Meeting 1 scheduled': '#1b9254', 'Meeting 2 scheduled': '#1b9254', 'Meeting 3 scheduled': '#1b9254', 'Confirmation email sent': '#1b9254', 'Email sent - date not yet arranged': '#1b9254', 'Meeting declined': '#e74c3c', 'No response': '#e74c3c', 'Call arranged': '#1b9254', 'VFO FT confirmed': '#1b9254', 'VFO Associate confirmed': '#1b9254', 'No confirmed': '#e74c3c' }
+const inputStyle = { padding: '4px 8px', borderRadius: '6px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
+const dateSpanStyle = { fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }
+const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
+const blueBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600 }
+const redBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600 }
+const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid #d6e0ee', background: 'transparent', color: '#4e6087' }
 
 function formatDate(d) {
   if (!d) return ''
@@ -60,7 +60,7 @@ function meetingNumber(name) {
 }
 
 function Dot({ done, color }) {
-  return <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? color : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? color : 'rgba(255,255,255,0.2)'}` }} />
+  return <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? color : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? color : '#c7d4e8'}` }} />
 }
 
 function StatusPill({ status, color }) {
@@ -68,7 +68,7 @@ function StatusPill({ status, color }) {
 }
 
 function NotStarted() {
-  return <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>
+  return <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>
 }
 
 // Shared 3-button meeting confirmation step (Meeting 1 / 2 / 3).
@@ -79,7 +79,7 @@ function MeetingStep({ task, meeting, p, readOnly, onSend }) {
   const [tz, setTz] = useState('ET')
   const [pending, setPending] = useState(null)
   const isDone = !!p.status
-  const statusColor = pftStatusColors[p.status] || '#8bacc8'
+  const statusColor = pftStatusColors[p.status] || '#4e6087'
 
   async function fire(decision, d, t, z) {
     if (pending) return
@@ -90,9 +90,9 @@ function MeetingStep({ task, meeting, p, readOnly, onSend }) {
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap' }}>
       <Dot done={isDone} color={statusColor} />
-      <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
+      <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
       {isDone
         ? <StatusPill status={p.status} color={statusColor} />
         : readOnly
@@ -101,7 +101,7 @@ function MeetingStep({ task, meeting, p, readOnly, onSend }) {
             ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle }} />
                 <input type="time" value={time} onChange={e => setTime(e.target.value)} style={{ ...inputStyle }} />
-                <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: '#0d2a6e' }}>
+                <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
                   <option value="ET">Eastern (ET)</option>
                   <option value="CT">Central (CT)</option>
                   <option value="MT">Mountain (MT)</option>
@@ -128,16 +128,16 @@ function GateStep({ task, p, readOnly, onChoose }) {
   const [pending, setPending] = useState(null)
   const isDone = !!p.status
   // Both Yes and No are neutral path choices — neither is a "bad" outcome.
-  const statusColor = p.status ? '#27ae60' : '#8bacc8'
+  const statusColor = p.status ? '#1b9254' : '#4e6087'
   async function fire(v) {
     if (pending) return
     setPending(v)
     try { await onChoose(v) } catch (err) { console.error(err) } finally { setPending(null) }
   }
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap' }}>
       <Dot done={isDone} color={statusColor} />
-      <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1, fontWeight: '600' }}>{task.name}</span>
+      <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1, fontWeight: '600' }}>{task.name}</span>
       {isDone
         ? <StatusPill status={p.status} color={statusColor} />
         : readOnly
@@ -155,16 +155,16 @@ function GateStep({ task, p, readOnly, onChoose }) {
 function DecisionStep({ task, p, readOnly, onChoose }) {
   const [pending, setPending] = useState(null)
   const isDone = !!p.status
-  const statusColor = pftStatusColors[p.status] || '#8bacc8'
+  const statusColor = pftStatusColors[p.status] || '#4e6087'
   async function fire(choice) {
     if (pending) return
     setPending(choice)
     try { await onChoose(choice) } catch (err) { console.error(err) } finally { setPending(null) }
   }
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap' }}>
       <Dot done={isDone} color={statusColor} />
-      <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
+      <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
       {isDone
         ? <StatusPill status={p.status} color={statusColor} />
         : readOnly
@@ -183,14 +183,14 @@ function DecisionStep({ task, p, readOnly, onChoose }) {
 // Generic dropdown step (Relationship type, Call arranged, Call outcome, presentations, etc.)
 function GenericTask({ task, p, readOnly, saving, onSelect }) {
   const isDone = !!p.status
-  const statusColor = pftStatusColors[p.status] || '#8bacc8'
+  const statusColor = pftStatusColors[p.status] || '#4e6087'
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa', flexWrap: 'wrap' }}>
       <Dot done={isDone} color={statusColor} />
-      <span style={{ fontSize: '13px', color: isDone ? '#8bacc8' : '#fff', flex: 1 }}>{task.name}</span>
+      <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
       {readOnly
         ? (isDone ? <StatusPill status={p.status} color={statusColor} /> : <NotStarted />)
-        : <select value={p.status || ''} onChange={e => onSelect(e.target.value)} disabled={saving} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '150px', borderColor: isDone ? `${statusColor}66` : 'rgba(255,255,255,0.15)', color: isDone ? statusColor : '#fff' }}>
+        : <select value={p.status || ''} onChange={e => onSelect(e.target.value)} disabled={saving} style={{ ...inputStyle, background: '#ffffff', minWidth: '150px', borderColor: isDone ? `${statusColor}66` : '#d6e0ee', color: isDone ? statusColor : '#16264a' }}>
             <option value="">-- Select --</option>
             {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
           </select>
@@ -207,22 +207,22 @@ function Phase6Indicators({ onboarding, onOpen, readOnly }) {
   const handed = !!onboarding
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <Dot done={handed} color="#27ae60" />
-        <span style={{ fontSize: '13px', color: handed ? '#8bacc8' : '#fff', flex: 1 }}>Sent to Accountant Onboarding</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #f2f5fa' }}>
+        <Dot done={handed} color="#1b9254" />
+        <span style={{ fontSize: '13px', color: handed ? '#4e6087' : '#16264a', flex: 1 }}>Sent to Accountant Onboarding</span>
         {handed
-          ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Done</span>
-          : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Pending</span>}
+          ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
+          : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Pending</span>}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
-        <Dot done={false} color="#5b9fe6" />
-        <span style={{ fontSize: '13px', color: '#fff', flex: 1 }}>Accountant onboarding progress</span>
+        <Dot done={false} color="#0095ff" />
+        <span style={{ fontSize: '13px', color: '#16264a', flex: 1 }}>Accountant onboarding progress</span>
         {handed
           ? <>
-              <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>{onboarding.stage_label}</span>
+              <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{onboarding.stage_label}</span>
               {!readOnly && <button onClick={() => onOpen(onboarding.id)} style={blueBtn}>View onboarding →</button>}
             </>
-          : <span style={{ fontSize: '11px', color: '#5a8ab5' }}>—</span>}
+          : <span style={{ fontSize: '11px', color: '#697a9c' }}>—</span>}
       </div>
     </>
   )
@@ -236,26 +236,26 @@ function DiscoveryViewer({ eng }) {
   if (!submitted) {
     if (!eng?.discovery_email_sent_at) return null
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0 5px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0 }} />
-        <span style={{ fontSize: '12px', color: '#8bacc8' }}>Discovery form — awaiting completion</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0 5px 18px', borderBottom: '1px solid #f2f5fa' }}>
+        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'transparent', border: '1px solid #c7d4e8', flexShrink: 0 }} />
+        <span style={{ fontSize: '12px', color: '#4e6087' }}>Discovery form — awaiting completion</span>
       </div>
     )
   }
   return (
-    <div style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '5px 0 5px 18px' }}>
+    <div style={{ borderBottom: '1px solid #f2f5fa', padding: '5px 0 5px 18px' }}>
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#27ae60', flexShrink: 0 }} />
-        <span style={{ fontSize: '12px', color: '#5b9fe6', flex: 1 }}>View discovery form</span>
-        <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.15)', color: '#27ae60' }}>Completed</span>
-        <span style={{ color: '#8bacc8', fontSize: '9px', transform: open ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1b9254', flexShrink: 0 }} />
+        <span style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600, flex: 1 }}>View discovery form</span>
+        <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Completed</span>
+        <span style={{ color: '#4e6087', fontSize: '9px', transform: open ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
       </div>
       {open && (
         <div style={{ padding: '10px 12px 4px 14px' }}>
           {DISCOVERY_FIELDS.map(([k, label]) => (
             <div key={k} style={{ marginBottom: '10px' }}>
-              <div style={{ fontSize: '10px', fontWeight: 700, color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{label}</div>
-              <div style={{ fontSize: '12px', color: '#fff', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{data[k] ? data[k] : '—'}</div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{label}</div>
+              <div style={{ fontSize: '12px', color: '#16264a', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{data[k] ? data[k] : '—'}</div>
             </div>
           ))}
         </div>
@@ -397,23 +397,23 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
       const q2 = allTasks2.find(t => t.name === 'Right client relationships?')
       const q3 = allTasks2.find(t => t.name === 'Right attitude (to change)?')
       const a11Val = getA11Status()
-      const a11Color = a11Val === 'Yes' ? '#27ae60' : a11Val === 'No' ? '#e74c3c' : '#8bacc8'
+      const a11Color = a11Val === 'Yes' ? '#1b9254' : a11Val === 'No' ? '#e74c3c' : '#4e6087'
       const questions = [q1, q2, q3].filter(Boolean)
       return (
-        <div key={task.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '7px 0' }}>
-          <div style={{ fontSize: '12px', color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontWeight: '600' }}>Right accountant?</div>
-          <div style={{ marginLeft: '18px', borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '12px', paddingBottom: '4px' }}>
+        <div key={task.id} style={{ borderBottom: '1px solid #f2f5fa', padding: '7px 0' }}>
+          <div style={{ fontSize: '12px', color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', fontWeight: '600' }}>Right accountant?</div>
+          <div style={{ marginLeft: '18px', borderLeft: '1px solid #ebf0f8', paddingLeft: '12px', paddingBottom: '4px' }}>
             {questions.map(q => {
               const qp = progress[q.id] || {}
               const qDone = !!qp.status
-              const qColor = pftStatusColors[qp.status] || '#8bacc8'
+              const qColor = pftStatusColors[qp.status] || '#4e6087'
               return (
-                <div key={q.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', flexWrap: 'wrap' }}>
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: qDone ? qColor : 'transparent', flexShrink: 0, border: `1px solid ${qDone ? qColor : 'rgba(255,255,255,0.2)'}` }} />
-                  <span style={{ fontSize: '12px', color: qDone ? '#8bacc8' : '#fff', flex: 1 }}>{q.name}</span>
+                <div key={q.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #f7f9fc', flexWrap: 'wrap' }}>
+                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: qDone ? qColor : 'transparent', flexShrink: 0, border: `1px solid ${qDone ? qColor : '#c7d4e8'}` }} />
+                  <span style={{ fontSize: '12px', color: qDone ? '#4e6087' : '#16264a', flex: 1 }}>{q.name}</span>
                   {readOnly
                     ? (qDone ? <StatusPill status={qp.status} color={qColor} /> : <NotStarted />)
-                    : <select value={qp.status || ''} onChange={e => saveTask(q.id, e.target.value, qp.completed_date)} disabled={saving[q.id]} style={{ ...inputStyle, background: '#0d2a6e', minWidth: '100px', fontSize: '11px', borderColor: qDone ? `${qColor}66` : 'rgba(255,255,255,0.15)', color: qDone ? qColor : '#fff' }}>
+                    : <select value={qp.status || ''} onChange={e => saveTask(q.id, e.target.value, qp.completed_date)} disabled={saving[q.id]} style={{ ...inputStyle, background: '#ffffff', minWidth: '100px', fontSize: '11px', borderColor: qDone ? `${qColor}66` : '#d6e0ee', color: qDone ? qColor : '#16264a' }}>
                         <option value="">-- Select --</option>
                         {(q.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
@@ -423,8 +423,8 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
               )
             })}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', marginTop: '4px' }}>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: a11Val ? a11Color : 'transparent', flexShrink: 0, border: `1px solid ${a11Val ? a11Color : 'rgba(255,255,255,0.2)'}` }} />
-              <span style={{ fontSize: '12px', color: '#fff', flex: 1, fontWeight: '600' }}>{task.name}</span>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: a11Val ? a11Color : 'transparent', flexShrink: 0, border: `1px solid ${a11Val ? a11Color : '#c7d4e8'}` }} />
+              <span style={{ fontSize: '12px', color: '#16264a', flex: 1, fontWeight: '600' }}>{task.name}</span>
               <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${a11Color}22`, color: a11Color, border: `1px solid ${a11Color}44`, fontWeight: '600' }}>{a11Val || 'Pending'}</span>
             </div>
           </div>
@@ -482,30 +482,30 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
         const tasks = phase.program_client_tasks || []
         const nonAutoTasks = tasks.filter(t => t.status_options !== 'auto' && !t.status_options?.startsWith('auto_'))
         const doneTasks = nonAutoTasks.filter(t => progress[t.id]?.status).length
-        const borderColor = state === 'done' ? 'rgba(39,174,96,0.3)' : state === 'active' ? 'rgba(91,159,230,0.4)' : 'rgba(255,255,255,0.1)'
-        const dotColor = state === 'done' ? '#27ae60' : state === 'active' ? '#5b9fe6' : 'transparent'
-        const titleColor = '#fff'
+        const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
+        const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
+        const titleColor = '#16264a'
 
         return (
-          <div key={phase.id} style={{ background: 'rgba(0,0,0,0.12)', border: `1px solid ${borderColor}`, borderRadius: '12px', marginBottom: '10px', overflow: 'hidden', opacity: phaseGreyedOut ? 0.3 : 1, pointerEvents: phaseGreyedOut ? 'none' : 'auto' }}>
+          <div key={phase.id} style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden', opacity: phaseGreyedOut ? 0.3 : 1, pointerEvents: phaseGreyedOut ? 'none' : 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
               <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
-                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? 'rgba(255,255,255,0.2)' : dotColor}`, flexShrink: 0 }} />
+                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
                 <span style={{ fontSize: '13px', fontWeight: '600', color: titleColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{phase.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {!readOnly && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === phase.name && n.tab_name === 'PFT').length} isOpen={expanded[`notes_${phase.id}`]} onClick={() => setExpanded(p => ({ ...p, [`notes_${phase.id}`]: !p[`notes_${phase.id}`] }))} />}
                 {isPhase6
                   ? (state === 'active'
-                      ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>In progress</span>
-                      : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>)
+                      ? <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress</span>
+                      : <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>)
                   : <>
-                      {state === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(39,174,96,0.15)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.3)' }}>Done</span>}
-                      {state === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(91,159,230,0.15)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.3)' }}>In progress · {doneTasks}/{nonAutoTasks.length}</span>}
-                      {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>Not started</span>}
+                      {state === 'done' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
+                      {state === 'active' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{nonAutoTasks.length}</span>}
+                      {state === 'pending' && <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#f2f5fa', color: '#4e6087' }}>Not started</span>}
                     </>
                 }
-                <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ color: '#8bacc8', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
+                <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
               </div>
             </div>
 

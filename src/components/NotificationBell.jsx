@@ -73,19 +73,24 @@ export default function NotificationBell() {
     <div ref={ref} style={{ position: 'relative' }}>
       <button
         onClick={() => setOpen(!open)}
+        title="Notifications"
         style={{
-          position: 'relative', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)',
-          borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', color: '#fff', fontSize: '13px',
-          fontFamily: 'DM Sans, sans-serif'
+          position: 'relative', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.28)',
+          borderRadius: '50%', width: '34px', height: '34px', cursor: 'pointer', color: '#fff',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif'
         }}
       >
-        Notifications
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+        </svg>
         {count > 0 && (
           <span style={{
-            position: 'absolute', top: '-6px', right: '-6px',
-            background: '#e74c3c', color: '#fff', fontSize: '10px', fontWeight: '700',
-            borderRadius: '50%', width: '18px', height: '18px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
+            position: 'absolute', top: '-5px', right: '-5px',
+            background: '#fb895a', color: '#fff', fontSize: '10px', fontWeight: '700',
+            borderRadius: '50%', width: '17px', height: '17px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 1px 4px rgba(20,45,95,0.35)'
           }}>{count}</span>
         )}
       </button>
@@ -93,25 +98,25 @@ export default function NotificationBell() {
       {open && (
         <div style={{
           position: 'absolute', top: '100%', right: 0, marginTop: '8px',
-          background: '#0d2a6e', border: '1px solid rgba(255,255,255,0.15)',
+          background: '#ffffff', border: '1px solid #d6e0ee',
           borderRadius: '10px', width: '360px', maxHeight: '400px', overflowY: 'auto',
-          zIndex: 300, boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
+          zIndex: 300, boxShadow: '0 8px 32px rgba(20,45,95,0.25)'
         }}>
           <div style={{
-            padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)',
+            padding: '12px 16px', borderBottom: '1px solid #ebf0f8',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center'
           }}>
-            <span style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>Notifications</span>
+            <span style={{ fontSize: '13px', fontWeight: '600', color: '#16264a' }}>Notifications</span>
             {count > 0 && (
               <button onClick={markAllRead} disabled={loading}
-                style={{ background: 'transparent', border: 'none', color: '#5b9fe6', fontSize: '11px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                style={{ background: 'transparent', border: 'none', color: '#0095ff', fontWeight: 600, fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
                 Mark all read
               </button>
             )}
           </div>
  
           {count === 0 ? (
-            <div style={{ padding: '24px 16px', textAlign: 'center', color: '#5a8ab5', fontSize: '13px' }}>
+            <div style={{ padding: '24px 16px', textAlign: 'center', color: '#697a9c', fontSize: '13px' }}>
               No new notifications
             </div>
           ) : (
@@ -129,19 +134,19 @@ export default function NotificationBell() {
                   key={n.id}
                   onClick={() => handleClick(n)}
                   style={{
-                    padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    padding: '12px 16px', borderBottom: '1px solid #f4f7fb',
                     cursor: 'pointer', display: 'flex', gap: '12px', alignItems: 'flex-start'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f2f5fa'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '13px', color: '#fff', fontWeight: '500', marginBottom: '2px' }}>{n.title}</div>
-                    <div style={{ fontSize: '12px', color: '#8bacc8', marginBottom: '4px' }}>{n.message}</div>
+                    <div style={{ fontSize: '13px', color: '#16264a', fontWeight: '500', marginBottom: '2px' }}>{n.title}</div>
+                    <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '4px' }}>{n.message}</div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      {n.pipeline && <span style={{ fontSize: '10px', color: '#5b9fe6', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.15)' }}>{n.pipeline}</span>}
-                      <span style={{ fontSize: '10px', color: '#4a7a9e' }}>{n.created_at?.split('T')[0]}</span>
-                      {!isDismissible && <span style={{ fontSize: '10px', color: '#f39c12', fontStyle: 'italic' }}>· action required</span>}
+                      {n.pipeline && <span style={{ fontSize: '10px', color: '#0095ff', fontWeight: 600, padding: '1px 6px', borderRadius: '3px', background: 'rgba(0,149,255,0.15)' }}>{n.pipeline}</span>}
+                      <span style={{ fontSize: '10px', color: '#7c8aa6' }}>{n.created_at?.split('T')[0]}</span>
+                      {!isDismissible && <span style={{ fontSize: '10px', color: '#e06717', fontWeight: 600, fontStyle: 'italic' }}>· action required</span>}
                     </div>
                   </div>
                   {isDismissible && (
@@ -149,8 +154,8 @@ export default function NotificationBell() {
                       onClick={handleDone}
                       style={{
                         padding: '4px 10px', borderRadius: '4px', fontSize: '11px',
-                        border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)',
-                        color: '#27ae60', cursor: 'pointer', flexShrink: 0
+                        border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)',
+                        color: '#1b9254', fontWeight: 600, cursor: 'pointer', flexShrink: 0
                       }}
                     >Done</button>
                   )}

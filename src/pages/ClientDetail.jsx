@@ -10,9 +10,10 @@ import TaxPrioritiesTab from '../components/admin/tax/TaxPrioritiesTab'
 import AddGeneralNote from '../components/shared/AddGeneralNote'
 import { PhaseNotesButton, PhaseNotesPanel } from '../components/shared/PhaseNotes'
 import { Skeleton, ProfileTabSkeleton } from '../components/shared/Skeleton'
+import VfoWordmark from '../components/shared/VfoWordmark'
 
 const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael', 'Bridger Silvester', 'Tracy Miller', 'Evan Anderson']
-const statusColors = { Completed: '#27ae60', Confirmed: '#27ae60', Yes: '#27ae60', 'In Progress': '#f39c12', Scheduled: '#5b9fe6', No: '#e74c3c', 'N/A': '#8bacc8', Pending: '#f39c12' }
+const statusColors = { Completed: '#1b9254', Confirmed: '#1b9254', Yes: '#1b9254', 'In Progress': '#e06717', Scheduled: '#0095ff', No: '#e74c3c', 'N/A': '#4e6087', Pending: '#e06717' }
 
 function ClientTabDropdown({ label, isActive, options, onSelect }) {
   const [open, setOpen] = useState(false)
@@ -21,15 +22,15 @@ function ClientTabDropdown({ label, isActive, options, onSelect }) {
   function handleMouseLeave() { closeTimer.current = setTimeout(() => setOpen(false), 200) }
   return (
     <div style={{ position: 'relative' }} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-      <button style={{ padding: '10px 18px', background: 'transparent', border: 'none', borderBottom: isActive ? '2px solid #5b9fe6' : '2px solid transparent', color: isActive ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: isActive ? '600' : '400', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
+      <button style={{ padding: '10px 18px', background: 'transparent', border: 'none', borderBottom: isActive ? '2px solid #125ecc' : '2px solid transparent', color: isActive ? '#125ecc' : '#4e6087', fontSize: '13px', fontWeight: isActive ? '600' : '400', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
         {label}<span style={{ fontSize: '9px', opacity: 0.6 }}>▾</span>
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, background: '#0d2a6e', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', minWidth: '160px', zIndex: 200, padding: '4px 0', boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, background: '#ffffff', border: '1px solid #d6e0ee', borderRadius: '8px', minWidth: '160px', zIndex: 200, padding: '4px 0', boxShadow: '0 8px 24px rgba(20,45,95,0.18)' }}>
           {options.map(opt => (
             <button key={opt.key} onClick={() => { onSelect(opt.key); setOpen(false) }}
-              style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'transparent', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'DM Sans, sans-serif' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+              style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'transparent', border: 'none', color: '#16264a', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#ebf0f8'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               {opt.label}
             </button>
@@ -110,25 +111,25 @@ export default function ClientDetail() {
     } catch (err) { console.error(err) }
   }
 
-  const sectionStyle = { background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '24px', marginBottom: '20px' }
-  const tabStyle = (active) => ({ padding: '10px 18px', background: 'transparent', border: 'none', borderBottom: active ? '2px solid #5b9fe6' : '2px solid transparent', color: active ? '#fff' : '#8bacc8', fontSize: '13px', fontWeight: active ? '600' : '400', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' })
-  const statusColors2 = { active: '#27ae60', pending: '#f39c12', lost: '#e74c3c' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
+  const tabStyle = (active) => ({ padding: '10px 18px', background: 'transparent', border: 'none', borderBottom: active ? '2px solid #125ecc' : '2px solid transparent', color: active ? '#125ecc' : '#4e6087', fontSize: '13px', fontWeight: active ? '600' : '400', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' })
+  const statusColors2 = { active: '#1b9254', pending: '#e06717', lost: '#e74c3c' }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#073991', color: '#fff', fontFamily: 'DM Sans, sans-serif' }}>
-      <div style={{ background: '#0a2260', borderBottom: '1px solid rgba(255,255,255,0.1)', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '56px', position: 'sticky', top: 0, zIndex: 100 }}>
-        <span style={{ fontFamily: 'Playfair Display, serif', fontSize: '20px', cursor: 'pointer' }} onClick={() => navigate(isMember ? '/member' : '/admin')}>VFO Portal</span>
+    <div style={{ minHeight: '100vh', background: '#f4f7fd', color: '#16264a', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ background: 'linear-gradient(90deg, #002973 0%, #125ecc 100%)', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '58px', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(0,41,115,0.25)' }}>
+        <VfoWordmark size={17} light onClick={() => navigate(isMember ? '/member' : '/admin')} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span style={{ color: '#5b9fe6', fontSize: '14px' }}>{session?.name || ''}</span>
-          <button onClick={() => { sessionStorage.clear(); navigate(isMember ? '/member/login' : '/admin/login') }} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Sign Out</button>
+          <span style={{ color: 'rgba(255,255,255,0.88)', fontSize: '14px', fontWeight: 500 }}>{session?.name || ''}</span>
+          <button onClick={() => { sessionStorage.clear(); navigate(isMember ? '/member/login' : '/admin/login') }} style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,255,255,0.32)', background: 'transparent', color: '#fff', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Sign Out</button>
         </div>
       </div>
 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-        <button onClick={handleBack} style={{ background: 'none', border: 'none', color: '#5b9fe6', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>{backLabel}</button>
+        <button onClick={handleBack} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>{backLabel}</button>
 
         {/* Client header */}
-        <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e3eaf5' }}>
           {loading ? (
             <>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
@@ -143,21 +144,21 @@ export default function ClientDetail() {
           ) : (
             <>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-                <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '28px', color: '#fff' }}>{client?.first_name} {client?.last_name}</div>
-                {contacts?.length > 0 && <div style={{ fontSize: '14px', color: '#5a8ab5', fontStyle: 'italic' }}>with {contacts.map(c => `${c.first_name} ${c.last_name}`).join(', ')}</div>}
+                <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '28px', color: '#16264a' }}>{client?.first_name} {client?.last_name}</div>
+                {contacts?.length > 0 && <div style={{ fontSize: '14px', color: '#697a9c', fontStyle: 'italic' }}>with {contacts.map(c => `${c.first_name} ${c.last_name}`).join(', ')}</div>}
               </div>
               <div style={{ display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ fontSize: '13px', color: '#8bacc8', fontFamily: 'monospace' }}>{client?.client_ref}</span>
-                {program && <span style={{ fontSize: '13px', color: '#5b9fe6' }}>{program.name}</span>}
-                {client?.member_name && <span style={{ fontSize: '13px', color: '#8bacc8' }}>Member: {client.member_name}</span>}
-                <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: '600', background: `${statusColors2[client?.status] || '#8bacc8'}22`, color: statusColors2[client?.status] || '#8bacc8', border: `1px solid ${statusColors2[client?.status] || '#8bacc8'}44` }}>{client?.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : ''}</span>
+                <span style={{ fontSize: '13px', color: '#4e6087', fontFamily: 'monospace' }}>{client?.client_ref}</span>
+                {program && <span style={{ fontSize: '13px', color: '#0095ff', fontWeight: 500 }}>{program.name}</span>}
+                {client?.member_name && <span style={{ fontSize: '13px', color: '#4e6087' }}>Member: {client.member_name}</span>}
+                <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: '600', background: `${statusColors2[client?.status] || '#4e6087'}22`, color: statusColors2[client?.status] || '#4e6087', border: `1px solid ${statusColors2[client?.status] || '#4e6087'}44` }}>{client?.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : ''}</span>
               </div>
             </>
           )}
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '24px', gap: '8px', paddingBottom: '10px' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px', gap: '8px', paddingBottom: '10px' }}>
           {loading ? (
             <>
               <Skeleton width={70} height={20} />
@@ -240,7 +241,7 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
     } catch (err) { console.error(err) }
     finally { setSavingPf(false) }
   }
-  const statusColors = { active: '#27ae60', pending: '#f39c12', lost: '#e74c3c' }
+  const statusColors = { active: '#1b9254', pending: '#e06717', lost: '#e74c3c' }
 
   async function updateStatus(newStatus) {
     setStatus(newStatus)
@@ -255,13 +256,13 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
   return (
     <div>
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Client Status</div>
+        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Client Status</div>
         {readOnly
           ? <span style={{ padding: '4px 14px', borderRadius: '6px', fontSize: '14px', fontWeight: '600', background: `${statusColors[status]}22`, color: statusColors[status], border: `1px solid ${statusColors[status]}44` }}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
           : <div style={{ display: 'flex', gap: '8px' }}>
               {[['active','Active'], ['pending','Pending'], ['lost','Lost']].map(([val, label]) => (
                 <button key={val} onClick={() => updateStatus(val)} disabled={saving}
-                  style={{ padding: '8px 20px', borderRadius: '6px', border: `1px solid ${status === val ? statusColors[val] : 'rgba(255,255,255,0.2)'}`, background: status === val ? `${statusColors[val]}22` : 'transparent', color: status === val ? statusColors[val] : '#8bacc8', fontSize: '13px', cursor: 'pointer', fontWeight: status === val ? '600' : '400' }}>
+                  style={{ padding: '8px 20px', borderRadius: '6px', border: `1px solid ${status === val ? statusColors[val] : '#c7d4e8'}`, background: status === val ? `${statusColors[val]}22` : 'transparent', color: status === val ? statusColors[val] : '#4e6087', fontSize: '13px', cursor: 'pointer', fontWeight: status === val ? '600' : '400' }}>
                   {label}
                 </button>
               ))}
@@ -269,62 +270,62 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
         }
       </div>
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Assigned PF</div>
+        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Assigned PF</div>
         {readOnly
-          ? <div style={{ fontSize: '14px', color: '#fff' }}>{client?.assigned_pf || '—'}</div>
+          ? <div style={{ fontSize: '14px', color: '#16264a' }}>{client?.assigned_pf || '—'}</div>
           : <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <select value={assignedPf} onChange={e => setAssignedPf(e.target.value)} style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: '#0d2a6e', color: '#fff', fontSize: '14px', fontFamily: 'DM Sans, sans-serif', minWidth: '200px' }}>
+              <select value={assignedPf} onChange={e => setAssignedPf(e.target.value)} style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#ffffff', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif', minWidth: '200px' }}>
                 <option value="">-- Select --</option>
                 <option value="Evan Anderson">Evan Anderson</option>
                 <option value="Bridger Silvester">Bridger Silvester</option>
                 <option value="Ian Welham">Ian Welham</option>
               </select>
-              <button onClick={savePf} disabled={savingPf} style={{ padding: '8px 20px', borderRadius: '8px', background: savingPf ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: savingPf ? 'not-allowed' : 'pointer' }}>{savingPf ? 'Saving...' : 'Save'}</button>
-              {pfSaved && <span style={{ color: '#27ae60', fontSize: '14px', fontWeight: '600' }}>✓ Saved!</span>}
+              <button onClick={savePf} disabled={savingPf} style={{ padding: '8px 20px', borderRadius: '8px', background: savingPf ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '14px', cursor: savingPf ? 'not-allowed' : 'pointer' }}>{savingPf ? 'Saving...' : 'Save'}</button>
+              {pfSaved && <span style={{ color: '#1b9254', fontSize: '14px', fontWeight: '600' }}>✓ Saved!</span>}
             </div>
         }
       </div>
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Contact Info</div>
+        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Contact Info</div>
         <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
-          <div><div style={{ fontSize: '11px', color: '#8bacc8', marginBottom: '4px' }}>EMAIL</div><div style={{ fontSize: '14px', color: '#fff' }}>{client?.email || '—'}</div></div>
-          <div><div style={{ fontSize: '11px', color: '#8bacc8', marginBottom: '4px' }}>PHONE</div><div style={{ fontSize: '14px', color: '#fff' }}>{client?.phone || '—'}</div></div>
+          <div><div style={{ fontSize: '11px', color: '#4e6087', marginBottom: '4px' }}>EMAIL</div><div style={{ fontSize: '14px', color: '#16264a' }}>{client?.email || '—'}</div></div>
+          <div><div style={{ fontSize: '11px', color: '#4e6087', marginBottom: '4px' }}>PHONE</div><div style={{ fontSize: '14px', color: '#16264a' }}>{client?.phone || '—'}</div></div>
         </div>
-        {contacts?.length > 0 && <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          <div style={{ fontSize: '11px', color: '#8bacc8', marginBottom: '8px' }}>ADDITIONAL CONTACTS</div>
+        {contacts?.length > 0 && <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #ebf0f8' }}>
+          <div style={{ fontSize: '11px', color: '#4e6087', marginBottom: '8px' }}>ADDITIONAL CONTACTS</div>
           {contacts.map(c => (
-            <div key={c.id} style={{ fontSize: '14px', color: '#fff', marginBottom: '4px' }}>{c.first_name} {c.last_name}{c.email ? <span style={{ color: '#8bacc8', fontSize: '12px' }}> · {c.email}</span> : ''}</div>
+            <div key={c.id} style={{ fontSize: '14px', color: '#16264a', marginBottom: '4px' }}>{c.first_name} {c.last_name}{c.email ? <span style={{ color: '#4e6087', fontSize: '12px' }}> · {c.email}</span> : ''}</div>
           ))}
         </div>}
       </div>
       {!readOnly && (
         <div style={sectionStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px' }}>All Notes ({notes.length})</div>
+            <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px' }}>All Notes ({notes.length})</div>
             <AddGeneralNote clientId={client.id} notes={notes} onNotesChange={onNotesChange} programName={program?.name || null} />
           </div>
           {notes.map(note => (
-            <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid #f2f5fa' }}>
               {editingNoteId === note.id ? (
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <textarea value={editNoteText} onChange={e => setEditNoteText(e.target.value)} rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', resize: 'vertical' }} />
+                  <textarea value={editNoteText} onChange={e => setEditNoteText(e.target.value)} rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.4)', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <button onClick={() => updateNote(note.id)} style={{ padding: '4px 10px', borderRadius: '6px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>Save</button>
-                    <button onClick={() => setEditingNoteId(null)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
+                    <button onClick={() => updateNote(note.id)} style={{ padding: '4px 10px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>Save</button>
+                    <button onClick={() => setEditingNoteId(null)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div style={{ fontSize: '13px', color: '#fff', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
+                  <div style={{ fontSize: '13px', color: '#16264a', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{note.created_by}</span>
-                    <span style={{ fontSize: '11px', color: '#5a8ab5' }}>·</span>
-                    <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{note.created_at?.split('T')[0]}</span>
-                    {note.program_name && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(39,174,96,0.12)', color: '#27ae60', border: '1px solid rgba(39,174,96,0.2)' }}>{note.program_name}</span>}
-                    <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6', border: '1px solid rgba(91,159,230,0.2)' }}>{note.tab_name}</span>
-                    {note.phase_name !== 'General' && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: '#8bacc8' }}>{note.phase_name}</span>}
-                    <button onClick={() => { setEditingNoteId(note.id); setEditNoteText(note.note_text) }} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#5b9fe6', fontSize: '11px', cursor: 'pointer' }}>Edit</button>
-                    <button onClick={() => deleteNote(note.id)} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#e74c3c', fontSize: '11px', cursor: 'pointer' }}>Delete</button>
+                    <span style={{ fontSize: '11px', color: '#697a9c' }}>{note.created_by}</span>
+                    <span style={{ fontSize: '11px', color: '#697a9c' }}>·</span>
+                    <span style={{ fontSize: '11px', color: '#697a9c' }}>{note.created_at?.split('T')[0]}</span>
+                    {note.program_name && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.2)' }}>{note.program_name}</span>}
+                    <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.2)' }}>{note.tab_name}</span>
+                    {note.phase_name !== 'General' && <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '3px', background: '#f2f5fa', color: '#4e6087' }}>{note.phase_name}</span>}
+                    <button onClick={() => { setEditingNoteId(note.id); setEditNoteText(note.note_text) }} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#0095ff', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Edit</button>
+                    <button onClick={() => deleteNote(note.id)} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Delete</button>
                   </div>
                 </>
               )}
@@ -349,8 +350,8 @@ function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionSt
   const [contactLast, setContactLast] = useState('')
   const [contactEmail, setContactEmail] = useState('')
 
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif' }
-  const labelStyle = { fontSize: '12px', color: '#8bacc8', display: 'block', marginBottom: '6px' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const labelStyle = { fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }
 
   async function save() {
     setSaving(true)
@@ -381,7 +382,7 @@ function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionSt
   return (
     <div>
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Primary Contact</div>
+        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Primary Contact</div>
         <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>First Name</label><input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} /></div>
           <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>Last Name</label><input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} /></div>
@@ -391,41 +392,41 @@ function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionSt
           <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>Phone</label><input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} /></div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button onClick={save} disabled={saving} style={{ padding: '10px 24px', borderRadius: '8px', background: saving ? '#1a4a9e' : '#2563eb', border: 'none', color: '#fff', fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving...' : 'Save Changes'}</button>
-          {status === 'saved' && <span style={{ color: '#27ae60', fontSize: '14px', fontWeight: '600' }}>✓ Changes saved</span>}
-          {status === 'error' && <span style={{ color: '#e74c3c', fontSize: '14px' }}>Something went wrong</span>}
+          <button onClick={save} disabled={saving} style={{ padding: '10px 24px', borderRadius: '8px', background: saving ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving...' : 'Save Changes'}</button>
+          {status === 'saved' && <span style={{ color: '#1b9254', fontSize: '14px', fontWeight: '600' }}>✓ Changes saved</span>}
+          {status === 'error' && <span style={{ color: '#e74c3c', fontWeight: 500, fontSize: '14px' }}>Something went wrong</span>}
         </div>
       </div>
 
       <div style={sectionStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px' }}>Additional Contacts</div>
-          <button onClick={() => setShowAddContact(!showAddContact)} style={{ padding: '6px 14px', borderRadius: '6px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>+ Add</button>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px' }}>Additional Contacts</div>
+          <button onClick={() => setShowAddContact(!showAddContact)} style={{ padding: '6px 14px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>+ Add</button>
         </div>
 
         {showAddContact && (
-          <div style={{ padding: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', marginBottom: '16px' }}>
+          <div style={{ padding: '16px', background: '#eef2f9', borderRadius: '8px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>First Name *</label><input value={contactFirst} onChange={e => setContactFirst(e.target.value)} style={inputStyle} /></div>
               <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>Last Name *</label><input value={contactLast} onChange={e => setContactLast(e.target.value)} style={inputStyle} /></div>
               <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Email</label><input value={contactEmail} onChange={e => setContactEmail(e.target.value)} type="email" style={inputStyle} /></div>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={addContact} style={{ padding: '8px 20px', borderRadius: '8px', background: '#2563eb', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
-              <button onClick={() => setShowAddContact(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#8bacc8', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={addContact} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
+              <button onClick={() => setShowAddContact(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
         )}
 
-        {contactStatus === 'saved' && <div style={{ color: '#27ae60', fontSize: '14px', fontWeight: '600', marginBottom: '12px' }}>✓ Contact added</div>}
-        {contacts.length === 0 && !showAddContact && <p style={{ color: '#5a8ab5', fontSize: '14px' }}>No additional contacts yet.</p>}
+        {contactStatus === 'saved' && <div style={{ color: '#1b9254', fontSize: '14px', fontWeight: '600', marginBottom: '12px' }}>✓ Contact added</div>}
+        {contacts.length === 0 && !showAddContact && <p style={{ color: '#697a9c', fontSize: '14px' }}>No additional contacts yet.</p>}
         {contacts.map(c => (
-          <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #eef2f9' }}>
             <div>
-              <div style={{ fontSize: '14px', color: '#fff' }}>{c.first_name} {c.last_name}</div>
-              {c.email && <div style={{ fontSize: '12px', color: '#8bacc8', marginTop: '2px' }}>{c.email}</div>}
+              <div style={{ fontSize: '14px', color: '#16264a' }}>{c.first_name} {c.last_name}</div>
+              {c.email && <div style={{ fontSize: '12px', color: '#4e6087', marginTop: '2px' }}>{c.email}</div>}
             </div>
-            <button onClick={() => deleteContact(c.id)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontSize: '11px', cursor: 'pointer' }}>Remove</button>
+            <button onClick={() => deleteContact(c.id)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Remove</button>
           </div>
         ))}
       </div>

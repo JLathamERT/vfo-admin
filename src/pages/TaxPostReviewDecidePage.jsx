@@ -71,25 +71,25 @@ export default function TaxPostReviewDecidePage() {
 
 function getView(status, decision, error) {
   if (status === 'processing') {
-    return { icon: '⏳', color: '#3b82f6', title: 'Processing your response…', message: 'Please wait, do not close this page.' }
+    return { icon: '⏳', color: '#0095ff', title: 'Processing your response…', message: 'Please wait, do not close this page.' }
   }
   if (status === 'already_submitted') {
-    return { icon: 'ℹ️', color: '#3b82f6', title: 'Already Received', message: "We've already received your response — no further action is needed. Thank you!" }
+    return { icon: 'ℹ️', color: '#0095ff', title: 'Already Received', message: "We've already received your response — no further action is needed. Thank you!" }
   }
   if (status === 'window_expired') {
-    return { icon: '⏰', color: '#f59e0b', title: 'Window Closed', message: error || 'The refund window has closed. Your engagement has been locked in. Please contact us if you have questions.' }
+    return { icon: '⏰', color: '#e06717', title: 'Window Closed', message: error || 'The refund window has closed. Your engagement has been locked in. Please contact us if you have questions.' }
   }
   if (status === 'error') {
     return { icon: '⚠️', color: '#ef4444', title: 'Something Went Wrong', message: error || 'An unexpected error occurred. Please contact us.' }
   }
   if (decision === 'Refund') {
-    return { icon: '✓', color: '#22c55e', title: 'Refund Requested', message: 'Thank you — your refund request has been received and is being processed. You will receive a confirmation email shortly.' }
+    return { icon: '✓', color: '#16a34a', title: 'Refund Requested', message: 'Thank you — your refund request has been received and is being processed. You will receive a confirmation email shortly.' }
   }
-  return { icon: '✓', color: '#22c55e', title: 'Thank You — Moving Forward', message: "We're delighted to continue with your Tax Planning Engagement. Our team will be in touch with next steps shortly." }
+  return { icon: '✓', color: '#16a34a', title: 'Thank You — Moving Forward', message: "We're delighted to continue with your Tax Planning Engagement. Our team will be in touch with next steps shortly." }
 }
 
-const containerStyle = { fontFamily: '"DM Sans", sans-serif', background: '#0a1628', color: '#e2e8f0', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }
+const containerStyle = { fontFamily: '"Inter", sans-serif', background: '#ffffff', color: '#243757', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }
 const cardStyle = { textAlign: 'center', maxWidth: '480px', padding: '48px 32px' }
 const iconCircleStyle = { width: '72px', height: '72px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }
-const titleStyle = { fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '12px' }
-const messageStyle = { fontSize: '15px', color: '#94a3b8', lineHeight: 1.6 }
+const titleStyle = { fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }
+const messageStyle = { fontSize: '15px', color: '#4e6087', lineHeight: 1.6 }

@@ -20,10 +20,10 @@ const STAGE_LABELS = {
 }
 
 const STAGE_COLORS = {
-  c81: '#3b82f6', c13: '#8b5cf6', c14: '#f59e0b', c15: '#f59e0b',
-  c16: '#6366f1', c17: '#6366f1', c18: '#6366f1',
-  payment: '#ec4899', confirmation: '#14b8a6', invoice: '#14b8a6',
-  receipts: '#14b8a6', revshare: '#22c55e', complete: '#22c55e', closed: '#ef4444'
+  c81: '#0095ff', c13: '#7c3aed', c14: '#e06717', c15: '#e06717',
+  c16: '#4f46e5', c17: '#4f46e5', c18: '#4f46e5',
+  payment: '#db2777', confirmation: '#0d9488', invoice: '#0d9488',
+  receipts: '#0d9488', revshare: '#16a34a', complete: '#16a34a', closed: '#ef4444'
 }
 
 function getCurrentStage(row) {
@@ -82,7 +82,7 @@ function PaymentButtons({ row, onRefresh }) {
 
   const btnStyle = {
     padding: '4px 10px', fontSize: '11px', fontWeight: '600',
-    background: 'rgba(34,197,94,0.15)', color: '#22c55e',
+    background: 'rgba(34,197,94,0.15)', color: '#16a34a',
     border: '1px solid rgba(34,197,94,0.4)', borderRadius: '4px',
     cursor: 'pointer', fontFamily: 'inherit',
   }
@@ -117,7 +117,7 @@ function PaymentButtons({ row, onRefresh }) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
       {buttons}
-      {err && <span style={{ fontSize: '11px', color: '#ff6b6b', width: '100%', marginTop: '4px' }}>{err}</span>}
+      {err && <span style={{ fontSize: '11px', color: '#d93025', fontWeight: 600, width: '100%', marginTop: '4px' }}>{err}</span>}
     </div>
   )
 }
@@ -183,7 +183,7 @@ function ExpandedRow({ row, onRefresh }) {
   const sRev = (row.c24_email_sent || row.rec1_rev_email_sent_at) ? 'done' : has(row.rec1_rev_share) ? 'awaiting' : 'pending'
 
   return (
-    <div style={{ padding: '12px 24px 18px 48px', background: 'rgba(0,0,0,0.10)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+    <div style={{ padding: '12px 24px 18px 48px', background: '#f7f9fc', borderBottom: '1px solid #f4f7fb' }}>
 
       {/* 1 — PIP 1 reconfirmation / declined email */}
       <StepCard title="PIP 1 — Reconfirmation / Declined Email" status={s81}>
@@ -315,7 +315,7 @@ function ExpandedRow({ row, onRefresh }) {
       {/* Future / remaining quarterly payments (P2–P4) */}
       {(isQuarterly || has(row.pay2_status, row.pay2_date, row.pay3_status, row.pay4_status)) && (
         <div style={{ marginTop: '14px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: '#5a8ab5', margin: '4px 0 8px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: '#697a9c', margin: '4px 0 8px' }}>
             Quarterly Payments 2–4
           </div>
           {[2, 3, 4].map(n => {
@@ -339,7 +339,7 @@ function ExpandedRow({ row, onRefresh }) {
         </div>
       )}
 
-      <div style={{ marginTop: '10px', fontSize: '10px', color: '#4a7a9e' }}>
+      <div style={{ marginTop: '10px', fontSize: '10px', color: '#7c8aa6' }}>
         Created {fmtDate(row.created_at)} · Updated {fmtDate(row.updated_at)}
       </div>
     </div>
@@ -349,7 +349,7 @@ function ExpandedRow({ row, onRefresh }) {
 function SandboxBadge({ config, onClick }) {
   const sandbox = !!config?.sandbox_mode
   const palette = sandbox
-    ? { bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.4)', text: '#f59e0b', label: 'SANDBOX MODE' }
+    ? { bg: 'rgba(251,137,90,0.15)', border: 'rgba(251,137,90,0.4)', text: '#e06717', label: 'SANDBOX MODE' }
     : { bg: 'rgba(239,68,68,0.15)', border: 'rgba(239,68,68,0.4)', text: '#ef4444', label: 'LIVE MODE' }
   return (
     <button
@@ -372,18 +372,18 @@ function SandboxToggleModal({ currentlySandbox, onConfirm, onCancel, saving }) {
   const isGoingLive = switchingTo === 'LIVE'
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+      position: 'fixed', inset: 0, background: 'rgba(16,34,69,0.50)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-      fontFamily: '"DM Sans", sans-serif',
+      fontFamily: '"Inter", sans-serif',
     }}>
       <div style={{
-        background: '#0a1628', border: '1px solid rgba(255,255,255,0.1)',
+        background: '#ffffff', border: '1px solid #e3eaf5',
         borderRadius: '12px', padding: '32px', maxWidth: '440px', width: '90%',
       }}>
-        <h2 style={{ fontSize: '18px', color: '#fff', margin: '0 0 12px' }}>
+        <h2 style={{ fontSize: '18px', color: '#16264a', margin: '0 0 12px' }}>
           Switch to {switchingTo} mode?
         </h2>
-        <p style={{ fontSize: '14px', color: '#94a3b8', lineHeight: 1.6, margin: '0 0 24px' }}>
+        <p style={{ fontSize: '14px', color: '#4e6087', lineHeight: 1.6, margin: '0 0 24px' }}>
           {isGoingLive
             ? 'This will switch the MAP1 automation pipeline to use LIVE Stripe + BoldSign keys. Real emails will be sent to real clients/members/PFs and real cards will be charged. Are you sure?'
             : 'This will switch back to sandbox mode. All emails route to the sandbox address and Stripe/BoldSign use test keys.'}
@@ -394,8 +394,8 @@ function SandboxToggleModal({ currentlySandbox, onConfirm, onCancel, saving }) {
             disabled={saving}
             style={{
               padding: '10px 20px', borderRadius: '8px',
-              border: '1px solid rgba(255,255,255,0.15)', background: 'transparent',
-              color: '#94a3b8', fontSize: '14px', cursor: saving ? 'default' : 'pointer',
+              border: '1px solid #d6e0ee', background: 'transparent',
+              color: '#4e6087', fontSize: '14px', cursor: saving ? 'default' : 'pointer',
               fontFamily: 'inherit',
             }}
           >
@@ -406,7 +406,7 @@ function SandboxToggleModal({ currentlySandbox, onConfirm, onCancel, saving }) {
             disabled={saving}
             style={{
               padding: '10px 20px', borderRadius: '8px',
-              border: 'none', background: isGoingLive ? '#ef4444' : '#f59e0b',
+              border: 'none', background: isGoingLive ? '#ef4444' : '#e06717',
               color: '#fff', fontSize: '14px', fontWeight: 600,
               cursor: saving ? 'default' : 'pointer',
               fontFamily: 'inherit',
@@ -471,86 +471,86 @@ export default function AutomationPanel({ section }) {
     }
   }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>Loading...</div>
+  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>
 
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '24px', color: '#fff', margin: 0 }}>MAP 1 Pipeline</h2>
+          <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '24px', color: '#16264a', margin: 0 }}>MAP 1 Pipeline</h2>
           <SandboxBadge config={sandboxConfig} onClick={() => setShowModeModal(true)} />
         </div>
         {pipelines.length > 1 && (
           <select value={selectedPipeline?.id || ''} onChange={e => { const p = pipelines.find(p => p.id === parseInt(e.target.value)); if (p) setSelectedPipeline(p) }}
-            style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '14px', fontFamily: 'DM Sans, sans-serif' }}>
+            style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
             {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         )}
       </div>
 
-      {error && <div style={{ color: '#ff6b6b', fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
+      {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
 
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
         {[
-          { label: 'TOTAL', value: pipelineData.length, color: '#fff' },
-          { label: 'ACTIVE', value: pipelineData.filter(r => { const s = getCurrentStage(r); return s !== 'complete' && s !== 'closed' }).length, color: '#3b82f6' },
-          { label: 'COMPLETE', value: pipelineData.filter(r => getCurrentStage(r) === 'complete').length, color: '#22c55e' },
+          { label: 'TOTAL', value: pipelineData.length, color: '#16264a' },
+          { label: 'ACTIVE', value: pipelineData.filter(r => { const s = getCurrentStage(r); return s !== 'complete' && s !== 'closed' }).length, color: '#0095ff' },
+          { label: 'COMPLETE', value: pipelineData.filter(r => getCurrentStage(r) === 'complete').length, color: '#16a34a' },
           { label: 'CLOSED', value: pipelineData.filter(r => getCurrentStage(r) === 'closed').length, color: '#ef4444' },
-          { label: 'SANDBOX', value: pipelineData.filter(r => r.sandbox).length, color: '#f59e0b' },
+          { label: 'SANDBOX', value: pipelineData.filter(r => r.sandbox).length, color: '#e06717' },
         ].map(stat => (
-          <div key={stat.label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '14px 20px', minWidth: '100px' }}>
+          <div key={stat.label} style={{ background: '#f7f9fc', border: '1px solid #ebf0f8', borderRadius: '10px', padding: '14px 20px', minWidth: '100px' }}>
             <div style={{ fontSize: '28px', fontWeight: '700', color: stat.color }}>{stat.value}</div>
-            <div style={{ fontSize: '10px', color: '#8bacc8', letterSpacing: '1px' }}>{stat.label}</div>
+            <div style={{ fontSize: '10px', color: '#4e6087', letterSpacing: '1px' }}>{stat.label}</div>
           </div>
         ))}
       </div>
 
       {pipelineData.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <p style={{ color: '#8bacc8', fontSize: '15px', marginBottom: '8px' }}>No clients in pipeline yet</p>
-          <p style={{ color: '#5a8ab5', fontSize: '13px' }}>Clients will appear here as they enter the automation flow</p>
+        <div style={{ textAlign: 'center', padding: '60px', background: '#f8fafd', borderRadius: '12px', border: '1px solid #f2f5fa' }}>
+          <p style={{ color: '#4e6087', fontSize: '15px', marginBottom: '8px' }}>No clients in pipeline yet</p>
+          <p style={{ color: '#697a9c', fontSize: '13px' }}>Clients will appear here as they enter the automation flow</p>
         </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <tr style={{ borderBottom: '1px solid #e3eaf5' }}>
                 {['', 'Client', 'Member', 'PF', 'Stage', 'Decision', 'Service', 'Payment', 'Updated'].map(h => (
-                  <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', color: '#5a8ab5', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: '600', width: h === '' ? '30px' : undefined }}>{h}</th>
+                  <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', color: '#697a9c', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: '600', width: h === '' ? '30px' : undefined }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {pipelineData.map(row => {
                 const stage = getCurrentStage(row)
-                const stageColor = STAGE_COLORS[stage] || '#8bacc8'
+                const stageColor = STAGE_COLORS[stage] || '#4e6087'
                 const isExpanded = expandedRow === row.id
                 return (
                   <Fragment key={row.id}>
-                    <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', background: isExpanded ? 'rgba(255,255,255,0.03)' : 'transparent' }}
+                    <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid #f4f7fb', cursor: 'pointer', background: isExpanded ? '#f8fafd' : 'transparent' }}
                       onClick={() => setExpandedRow(isExpanded ? null : row.id)}
-                      onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+                      onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = '#f8fafd' }}
                       onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = 'transparent' }}
                     >
-                      <td style={{ padding: '12px 8px', fontSize: '10px', color: '#8bacc8' }}>
+                      <td style={{ padding: '12px 8px', fontSize: '10px', color: '#4e6087' }}>
                         <span style={{ display: 'inline-block', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
                       </td>
-                      <td style={{ padding: '12px', fontSize: '14px', color: '#fff' }}>
+                      <td style={{ padding: '12px', fontSize: '14px', color: '#16264a' }}>
                         <div>{row.client_name || row.client_ref || '—'}</div>
-                        {row.client_ref && row.client_name && <div style={{ fontSize: '11px', color: '#5a8ab5' }}>{row.client_ref}</div>}
-                        {row.sandbox && <span style={{ fontSize: '10px', color: '#f59e0b', fontStyle: 'italic' }}>sandbox</span>}
+                        {row.client_ref && row.client_name && <div style={{ fontSize: '11px', color: '#697a9c' }}>{row.client_ref}</div>}
+                        {row.sandbox && <span style={{ fontSize: '10px', color: '#e06717', fontWeight: 600, fontStyle: 'italic' }}>sandbox</span>}
                       </td>
-                      <td style={{ padding: '12px', fontSize: '13px', color: '#8bacc8' }}>{row.member_name || '—'}</td>
-                      <td style={{ padding: '12px', fontSize: '13px', color: '#8bacc8' }}>{row.pf || '—'}</td>
+                      <td style={{ padding: '12px', fontSize: '13px', color: '#4e6087' }}>{row.member_name || '—'}</td>
+                      <td style={{ padding: '12px', fontSize: '13px', color: '#4e6087' }}>{row.pf || '—'}</td>
                       <td style={{ padding: '12px' }}>
                         <span style={{ padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', background: `${stageColor}18`, color: stageColor, border: `1px solid ${stageColor}33` }}>
                           {STAGE_LABELS[stage] || stage}
                         </span>
                       </td>
-                      <td style={{ padding: '12px', fontSize: '13px', color: '#8bacc8' }}>{row.c15_final_decision || row.c13_decision || '—'}</td>
-                      <td style={{ padding: '12px', fontSize: '13px', color: '#8bacc8' }}>{row.service_level || row.c15_service_level || '—'}</td>
-                      <td style={{ padding: '12px', fontSize: '13px', color: '#8bacc8' }}>{row.pay1_status || '—'}</td>
-                      <td style={{ padding: '12px', fontSize: '12px', color: '#5a8ab5' }}>{row.updated_at ? row.updated_at.split('T')[0] : '—'}</td>
+                      <td style={{ padding: '12px', fontSize: '13px', color: '#4e6087' }}>{row.c15_final_decision || row.c13_decision || '—'}</td>
+                      <td style={{ padding: '12px', fontSize: '13px', color: '#4e6087' }}>{row.service_level || row.c15_service_level || '—'}</td>
+                      <td style={{ padding: '12px', fontSize: '13px', color: '#4e6087' }}>{row.pay1_status || '—'}</td>
+                      <td style={{ padding: '12px', fontSize: '12px', color: '#697a9c' }}>{row.updated_at ? row.updated_at.split('T')[0] : '—'}</td>
                     </tr>
                     {isExpanded && (
                       <tr>

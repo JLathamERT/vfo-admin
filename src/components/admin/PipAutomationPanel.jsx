@@ -13,12 +13,12 @@ const STAGE_LABELS = {
 }
 
 const STAGE_COLORS = {
-  purchase: '#8b5cf6',
-  payment_pending: '#ec4899',
-  paid: '#14b8a6',
-  invoice: '#14b8a6',
-  revshare: '#22c55e',
-  complete: '#22c55e',
+  purchase: '#7c3aed',
+  payment_pending: '#db2777',
+  paid: '#0d9488',
+  invoice: '#0d9488',
+  revshare: '#16a34a',
+  complete: '#16a34a',
 }
 
 function getCurrentStage(row) {
@@ -55,23 +55,23 @@ function PipPipelineRow({ row, expanded, onToggle }) {
     : (row.pip_rev_share_amount || /revenue share/i.test(row.pip_rev_share_status || '')) ? 'Revenue Share' : null
 
   return (
-    <div style={{ background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
+    <div style={{ background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
       <div onClick={onToggle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '15px', fontWeight: '600', color: '#fff' }}>{clientName}</span>
-          <span style={{ fontSize: '12px', color: '#5a8ab5', fontFamily: 'monospace' }}>{client.client_ref}</span>
-          <Badge text={purchaseLabel(row)} color="#5b9fe6" />
-          {row.pip_purchase_amount && <span style={{ fontSize: '12px', color: '#d1dce8' }}>{fmtMoney(row.pip_purchase_amount)}</span>}
+          <span style={{ fontSize: '15px', fontWeight: '600', color: '#16264a' }}>{clientName}</span>
+          <span style={{ fontSize: '12px', color: '#697a9c', fontFamily: 'monospace' }}>{client.client_ref}</span>
+          <Badge text={purchaseLabel(row)} color="#0095ff" />
+          {row.pip_purchase_amount && <span style={{ fontSize: '12px', color: '#243757' }}>{fmtMoney(row.pip_purchase_amount)}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {row.sandbox && <Badge text="SANDBOX" color="#f59e0b" />}
+          {row.sandbox && <Badge text="SANDBOX" color="#e06717" />}
           <Badge text={stageLabel} color={stageColor} />
-          <span style={{ color: '#8bacc8', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+          <span style={{ color: '#4e6087', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
         </div>
       </div>
 
       {expanded && (
-        <div style={{ padding: '8px 18px 18px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ padding: '8px 18px 18px', borderTop: '1px solid #f2f5fa' }}>
           <StepCard title="Purchase Details" status="done">
             <Detail l="Kind" v={purchaseLabel(row)} />
             <Detail l="Gross service value" v={fmtMoney(row.pip_purchase_gross)} />
@@ -124,7 +124,7 @@ function PipPipelineRow({ row, expanded, onToggle }) {
             ) : <Pending />}
           </StepCard>
 
-          <div style={{ marginTop: '10px', fontSize: '10px', color: '#4a7a9e' }}>
+          <div style={{ marginTop: '10px', fontSize: '10px', color: '#7c8aa6' }}>
             Track #{row.id} · Created {fmtDate(row.created_at)}
           </div>
         </div>
@@ -152,21 +152,21 @@ export default function PipAutomationPanel() {
     finally { setLoading(false) }
   }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>Loading...</div>
+  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>
 
   const stats = [
-    { label: 'TOTAL', value: rows.length, color: '#fff' },
-    { label: 'PAID', value: rows.filter(r => r.pip_payment_status === 'succeeded').length, color: '#14b8a6' },
-    { label: 'PENDING REVSHARE', value: rows.filter(r => r.pip_payment_status === 'succeeded' && !r.pip_rev_share_status?.startsWith('Completed')).length, color: '#ec4899' },
-    { label: 'COMPLETE', value: rows.filter(r => getCurrentStage(r) === 'complete').length, color: '#22c55e' },
-    { label: 'SANDBOX', value: rows.filter(r => r.sandbox).length, color: '#f59e0b' },
+    { label: 'TOTAL', value: rows.length, color: '#16264a' },
+    { label: 'PAID', value: rows.filter(r => r.pip_payment_status === 'succeeded').length, color: '#0d9488' },
+    { label: 'PENDING REVSHARE', value: rows.filter(r => r.pip_payment_status === 'succeeded' && !r.pip_rev_share_status?.startsWith('Completed')).length, color: '#db2777' },
+    { label: 'COMPLETE', value: rows.filter(r => getCurrentStage(r) === 'complete').length, color: '#16a34a' },
+    { label: 'SANDBOX', value: rows.filter(r => r.sandbox).length, color: '#e06717' },
   ]
 
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '24px', color: '#fff', margin: 0 }}>PIP Meetings Pipeline</h2>
+          <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '24px', color: '#16264a', margin: 0 }}>PIP Meetings Pipeline</h2>
           <SandboxModeToggle
             pipeline="MAP 1"
             label="PIP Meetings"
@@ -177,19 +177,19 @@ export default function PipAutomationPanel() {
         </div>
       </div>
 
-      {error && <div style={{ color: '#ff6b6b', fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
+      {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
 
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
         {stats.map(stat => (
-          <div key={stat.label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '14px 20px', minWidth: '100px' }}>
+          <div key={stat.label} style={{ background: '#f7f9fc', border: '1px solid #ebf0f8', borderRadius: '10px', padding: '14px 20px', minWidth: '100px' }}>
             <div style={{ fontSize: '28px', fontWeight: '700', color: stat.color }}>{stat.value}</div>
-            <div style={{ fontSize: '10px', color: '#8bacc8', letterSpacing: '1px' }}>{stat.label}</div>
+            <div style={{ fontSize: '10px', color: '#4e6087', letterSpacing: '1px' }}>{stat.label}</div>
           </div>
         ))}
       </div>
 
       {rows.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: '#5a8ab5', fontSize: '14px' }}>
+        <div style={{ textAlign: 'center', padding: '60px', color: '#697a9c', fontSize: '14px' }}>
           No PIP purchases yet.
         </div>
       ) : (

@@ -80,7 +80,7 @@ function getView(status, decision, serviceLevel, error) {
   if (status === 'processing') {
     return {
       icon: '⏳',
-      color: '#3b82f6',
+      color: '#0095ff',
       title: 'Processing your response…',
       message: 'Please wait, do not close this page.',
     }
@@ -88,7 +88,7 @@ function getView(status, decision, serviceLevel, error) {
   if (status === 'already_submitted') {
     return {
       icon: 'ℹ️',
-      color: '#3b82f6',
+      color: '#0095ff',
       title: 'Already Received',
       message: "We've already received your decision — no further action is needed. Thank you!",
     }
@@ -104,7 +104,7 @@ function getView(status, decision, serviceLevel, error) {
   if (decision === 'ExtraMeeting') {
     return {
       icon: '📅',
-      color: '#2563eb',
+      color: '#125ecc',
       title: 'Meeting Requested',
       message: 'Thank you — your Proactive Facilitator will be in touch to arrange an additional meeting.',
     }
@@ -112,23 +112,23 @@ function getView(status, decision, serviceLevel, error) {
   if (decision === 'Yes') {
     return {
       icon: '✓',
-      color: '#22c55e',
+      color: '#16a34a',
       title: 'Thank You!',
       message: `We're excited to move forward${serviceLevel ? ` with the ${serviceLevel} Membership` : ''}. We will be in touch shortly with next steps.`,
     }
   }
   return {
     icon: '✓',
-    color: '#22c55e',
+    color: '#16a34a',
     title: 'Thank You',
     message: "We appreciate you letting us know. If circumstances ever change, we'll be right here to help.",
   }
 }
 
 const containerStyle = {
-  fontFamily: '"DM Sans", sans-serif',
-  background: '#0a1628',
-  color: '#e2e8f0',
+  fontFamily: '"Inter", sans-serif',
+  background: '#ffffff',
+  color: '#243757',
   minHeight: '100vh',
   display: 'flex',
   alignItems: 'center',
@@ -155,12 +155,12 @@ const iconCircleStyle = {
 const titleStyle = {
   fontSize: '24px',
   fontWeight: 700,
-  color: '#fff',
+  color: '#16264a',
   marginBottom: '12px',
 }
 
 const messageStyle = {
   fontSize: '15px',
-  color: '#94a3b8',
+  color: '#4e6087',
   lineHeight: 1.6,
 }

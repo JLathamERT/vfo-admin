@@ -15,7 +15,7 @@ export default function SandboxModeToggle({ pipeline, label, sandboxConfig, onCh
 
   const sandbox = !!sandboxConfig.sandbox_mode
   const palette = sandbox
-    ? { bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.4)', text: '#f59e0b', txt: 'SANDBOX MODE' }
+    ? { bg: 'rgba(251,137,90,0.15)', border: 'rgba(251,137,90,0.4)', text: '#e06717', txt: 'SANDBOX MODE' }
     : { bg: 'rgba(239,68,68,0.15)', border: 'rgba(239,68,68,0.4)', text: '#ef4444', txt: 'LIVE MODE' }
   const name = label || pipeline
   const switchingTo = sandbox ? 'LIVE' : 'SANDBOX'
@@ -58,32 +58,32 @@ export default function SandboxModeToggle({ pipeline, label, sandboxConfig, onCh
 
       {showModal && (
         <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+          position: 'fixed', inset: 0, background: 'rgba(16,34,69,0.50)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-          fontFamily: '"DM Sans", sans-serif',
+          fontFamily: '"Inter", sans-serif',
         }}>
           <div style={{
-            background: '#0a1628', border: '1px solid rgba(255,255,255,0.1)',
+            background: '#ffffff', border: '1px solid #e3eaf5',
             borderRadius: '12px', padding: '32px', maxWidth: '440px', width: '90%',
           }}>
-            <h2 style={{ fontSize: '18px', color: '#fff', margin: '0 0 12px' }}>
+            <h2 style={{ fontSize: '18px', color: '#16264a', margin: '0 0 12px' }}>
               Switch {name} to {switchingTo} mode?
             </h2>
-            <p style={{ fontSize: '14px', color: '#94a3b8', lineHeight: 1.6, margin: '0 0 16px' }}>
+            <p style={{ fontSize: '14px', color: '#4e6087', lineHeight: 1.6, margin: '0 0 16px' }}>
               {goingLive
                 ? `This switches ${name} to LIVE Stripe + BoldSign keys. Real emails go to real clients/members/PFs and real cards are charged.`
                 : `This switches ${name} back to sandbox: emails route to the sandbox address and Stripe/BoldSign use test keys.`}
             </p>
-            {note && <p style={{ fontSize: '13px', color: '#f59e0b', lineHeight: 1.5, margin: '0 0 16px' }}>{note}</p>}
-            {err && <p style={{ fontSize: '13px', color: '#ff6b6b', margin: '0 0 16px' }}>{err}</p>}
+            {note && <p style={{ fontSize: '13px', color: '#e06717', fontWeight: 500, lineHeight: 1.5, margin: '0 0 16px' }}>{note}</p>}
+            {err && <p style={{ fontSize: '13px', color: '#d93025', fontWeight: 500, margin: '0 0 16px' }}>{err}</p>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button
                 onClick={() => setShowModal(false)}
                 disabled={saving}
                 style={{
                   padding: '10px 20px', borderRadius: '8px',
-                  border: '1px solid rgba(255,255,255,0.15)', background: 'transparent',
-                  color: '#94a3b8', fontSize: '14px', cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit',
+                  border: '1px solid #d6e0ee', background: 'transparent',
+                  color: '#4e6087', fontSize: '14px', cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit',
                 }}
               >
                 Cancel
@@ -93,7 +93,7 @@ export default function SandboxModeToggle({ pipeline, label, sandboxConfig, onCh
                 disabled={saving}
                 style={{
                   padding: '10px 20px', borderRadius: '8px', border: 'none',
-                  background: goingLive ? '#ef4444' : '#f59e0b', color: '#fff', fontSize: '14px', fontWeight: 600,
+                  background: goingLive ? '#ef4444' : '#e06717', color: '#fff', fontSize: '14px', fontWeight: 600,
                   cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit', opacity: saving ? 0.6 : 1,
                 }}
               >

@@ -72,34 +72,34 @@ export default function ClientVaultTab({ clientId, sectionStyle }) {
 
   return (
     <>
-      {error && <div style={{ color: '#e74c3c', fontSize: '13px', marginBottom: '12px' }}>{error}</div>}
+      {error && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginBottom: '12px' }}>{error}</div>}
       {SECTIONS.map(sec => (
         <div key={sec.key} style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#8bacc8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>{sec.title} {sec.sub && <span style={{ textTransform: 'none', fontSize: '12px' }}>{sec.sub}</span>}</div>
-          <p style={{ fontSize: '12px', color: '#5a8ab5', marginBottom: '16px' }}>{sec.blurb}</p>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>{sec.title} {sec.sub && <span style={{ textTransform: 'none', fontSize: '12px' }}>{sec.sub}</span>}</div>
+          <p style={{ fontSize: '12px', color: '#697a9c', marginBottom: '16px' }}>{sec.blurb}</p>
 
-          {loading ? <div style={{ color: '#8bacc8', fontSize: '13px' }}>Loading…</div> : (
+          {loading ? <div style={{ color: '#4e6087', fontSize: '13px' }}>Loading…</div> : (
             <>
-              {sec.files.length === 0 && <div style={{ color: '#5a8ab5', fontSize: '13px', marginBottom: '14px' }}>No documents uploaded yet.</div>}
+              {sec.files.length === 0 && <div style={{ color: '#697a9c', fontSize: '13px', marginBottom: '14px' }}>No documents uploaded yet.</div>}
               {sec.files.map(f => (
-                <div key={f.path} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', marginBottom: '8px' }}>
+                <div key={f.path} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: '#f7f9fc', border: '1px solid #ebf0f8', borderRadius: '8px', marginBottom: '8px' }}>
                   <span style={{ fontSize: '14px' }}>{sec.canManage ? '📄' : '🔒'}</span>
-                  <span style={{ fontSize: '13px', color: '#d1dce8', flex: 1 }}>{f.name}</span>
-                  <span style={{ fontSize: '11px', color: '#5a8ab5' }}>{fmtSize(f.size)}</span>
+                  <span style={{ fontSize: '13px', color: '#243757', flex: 1 }}>{f.name}</span>
+                  <span style={{ fontSize: '11px', color: '#697a9c' }}>{fmtSize(f.size)}</span>
                   {sec.canManage ? (
                     <>
-                      <button onClick={() => view(sec.actions, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(91,159,230,0.4)', background: 'rgba(91,159,230,0.12)', color: '#5b9fe6', cursor: 'pointer' }}>View</button>
-                      <button onClick={() => remove(sec.actions, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', cursor: 'pointer' }}>Delete</button>
+                      <button onClick={() => view(sec.actions, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>View</button>
+                      <button onClick={() => remove(sec.actions, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer' }}>Delete</button>
                     </>
                   ) : (
-                    <span style={{ fontSize: '11px', color: '#5a8ab5', fontStyle: 'italic' }}>locked</span>
+                    <span style={{ fontSize: '11px', color: '#697a9c', fontStyle: 'italic' }}>locked</span>
                   )}
                 </div>
               ))}
               {sec.canManage && (
-                <label style={{ display: 'block', textAlign: 'center', cursor: 'pointer', marginTop: '14px', padding: '18px', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.03)' }}>
+                <label style={{ display: 'block', textAlign: 'center', cursor: 'pointer', marginTop: '14px', padding: '18px', borderRadius: '8px', border: '1px dashed #c7d4e8', background: '#f8fafd' }}>
                   <input type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={e => { handleFiles(sec.key, sec.actions, e.target.files); e.target.value = '' }} />
-                  <span style={{ fontSize: '13px', color: '#8bacc8' }}>{busy === sec.key ? 'Uploading…' : '+ Add document'}</span>
+                  <span style={{ fontSize: '13px', color: '#4e6087' }}>{busy === sec.key ? 'Uploading…' : '+ Add document'}</span>
                 </label>
               )}
             </>

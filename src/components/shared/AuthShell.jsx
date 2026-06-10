@@ -1,0 +1,33 @@
+// Split-screen auth layout: navy brand panel + white form panel. Presentation only.
+import VfoWordmark from './VfoWordmark'
+
+export default function AuthShell({ children }) {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexWrap: 'wrap', background: '#ffffff', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{
+        flex: '1 1 380px', minHeight: '38vh', position: 'relative', overflow: 'hidden',
+        background: 'linear-gradient(160deg, #002973 0%, #0d47a8 55%, #125ecc 100%)',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '56px',
+      }}>
+        <svg width="560" height="560" viewBox="0 0 24 24" fill="none" style={{ position: 'absolute', bottom: '-200px', right: '-200px', opacity: 0.08 }} aria-hidden="true">
+          {[0, 60, 120, 180, 240, 300].map(a => (
+            <circle key={a} cx={12 + 4.4 * Math.cos((a * Math.PI) / 180)} cy={12 + 4.4 * Math.sin((a * Math.PI) / 180)} r="5.8" stroke="#ffffff" strokeWidth="0.5" />
+          ))}
+        </svg>
+        <VfoWordmark size={24} light />
+        <h1 style={{ fontWeight: 800, letterSpacing: '-0.02em', fontSize: '34px', color: '#ffffff', margin: '28px 0 14px', lineHeight: 1.15, maxWidth: '420px' }}>
+          Your personal team of financial experts.
+        </h1>
+        <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.72)', margin: 0, lineHeight: 1.6, maxWidth: '400px' }}>
+          One portal for planning, tax, wealth management, and everything in between — coordinated expertise without the complexity.
+        </p>
+        <div style={{ width: '46px', height: '4px', borderRadius: '99px', background: '#fb895a', marginTop: '26px' }} />
+      </div>
+      <div style={{ flex: '1.2 1 420px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 24px' }}>
+        <div style={{ width: '100%', maxWidth: '380px' }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -13,6 +13,7 @@ import AccountantAutomationPanel from '../components/admin/AccountantAutomationP
 import SpecialistAutomationPanel from '../components/admin/SpecialistAutomationPanel'
 import NotificationBell from '../components/NotificationBell'
 import EmailTemplatesPanel from '../components/admin/EmailTemplatesPanel'
+import VfoWordmark from '../components/shared/VfoWordmark'
 
 function NavDropdown({ label, items, onSelect, isActive }) {
   const [open, setOpen] = useState(false)
@@ -31,26 +32,26 @@ function NavDropdown({ label, items, onSelect, isActive }) {
     <div style={{ position: 'relative' }} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button style={{
         padding: '14px 20px', background: 'transparent', border: 'none',
-        borderBottom: isActive ? '2px solid #5b9fe6' : '2px solid transparent',
-        color: isActive ? '#fff' : '#8bacc8', fontSize: '14px',
-        fontWeight: isActive ? '600' : '400', cursor: 'pointer',
-        fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap',
+        borderBottom: isActive ? '2px solid #125ecc' : '2px solid transparent',
+        color: isActive ? '#125ecc' : '#4e6087', fontSize: '14px',
+        fontWeight: isActive ? '600' : '500', cursor: 'pointer',
+        fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
         display: 'flex', alignItems: 'center', gap: '6px'
       }}>
         {label}
         <span style={{ fontSize: '10px', opacity: 0.6 }}>▾</span>
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, background: '#0d2a6e', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', minWidth: '180px', zIndex: 200, paddingTop: '4px', paddingBottom: '4px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, background: '#ffffff', border: '1px solid #d6e0ee', borderRadius: '8px', minWidth: '180px', zIndex: 200, paddingTop: '4px', paddingBottom: '4px', boxShadow: '0 8px 24px rgba(20,45,95,0.18)' }}>
           {items.map(item => (
             <div key={item.key}>
               {item.header && (
-                <div style={{ padding: '8px 16px 4px', fontSize: '10px', color: '#5a8ab5', textTransform: 'uppercase', letterSpacing: '1px' }}>{item.header}</div>
+                <div style={{ padding: '8px 16px 4px', fontSize: '10px', color: '#697a9c', textTransform: 'uppercase', letterSpacing: '1px' }}>{item.header}</div>
               )}
               {item.options && item.options.map(opt => (
                 <button key={opt.key} onClick={() => { onSelect(opt.key); setOpen(false) }}
-                  style={{ display: 'block', width: '100%', padding: '8px 20px', background: 'transparent', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'DM Sans, sans-serif' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                  style={{ display: 'block', width: '100%', padding: '8px 20px', background: 'transparent', border: 'none', color: '#16264a', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#ebf0f8'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   {opt.label}
                 </button>
@@ -192,9 +193,10 @@ export default function AdminPortal() {
   if (!session) return null
 
   const headerStyle = {
-    background: '#0a2260', borderBottom: '1px solid rgba(255,255,255,0.1)',
+    background: 'linear-gradient(90deg, #002973 0%, #125ecc 100%)',
     padding: '0 24px', display: 'flex', alignItems: 'center',
-    justifyContent: 'space-between', height: '56px', position: 'sticky', top: 0, zIndex: 100
+    justifyContent: 'space-between', height: '58px', position: 'sticky', top: 0, zIndex: 100,
+    boxShadow: '0 2px 12px rgba(0,41,115,0.25)'
   }
 
   const advisorsDropdownItems = [
@@ -247,26 +249,24 @@ export default function AdminPortal() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: '#073991', color: '#fff', fontFamily: 'DM Sans, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#f4f7fd', color: '#16264a', fontFamily: 'Inter, sans-serif' }}>
       <div style={headerStyle}>
-        <span style={{ fontFamily: 'Playfair Display, serif', fontSize: '20px', cursor: 'pointer' }} onClick={handleTitleClick}>
-          VFO Portal
-        </span>
+        <VfoWordmark size={17} light onClick={handleTitleClick} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <NotificationBell />
-          <span style={{ fontSize: '14px', color: '#8bacc8' }}>{session.name}</span>
+          <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.88)', fontWeight: 500 }}>{session.name}</span>
           {session.is_superadmin && (
             <button onClick={() => { setShowEditor(true); setShowSettings(false); setActiveTab(null) }}
-              style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid rgba(212,175,55,0.3)', background: 'transparent', color: '#d4af37', fontSize: '13px', cursor: 'pointer' }}>
+              style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,205,150,0.5)', background: 'transparent', color: '#ffd9a0', fontWeight: 500, fontSize: '13px', cursor: 'pointer' }}>
               Admin Editor
             </button>
           )}
           <button onClick={() => { setShowSettings(true); setShowEditor(false); setActiveTab(null) }}
-            style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>
+            style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,255,255,0.32)', background: 'transparent', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>
             Settings
           </button>
           <button onClick={signOut}
-            style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>
+            style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,255,255,0.32)', background: 'transparent', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>
             Sign Out
           </button>
         </div>
@@ -277,7 +277,7 @@ export default function AdminPortal() {
 
       {!showEditor && !showSettings && (
         <>
-          <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', padding: '0 24px', background: '#0a2260' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', padding: '0 24px', background: '#ffffff', boxShadow: '0 2px 8px rgba(20,45,95,0.04)' }}>
             <NavDropdown
               label="Advisors"
               items={advisorsDropdownItems}
@@ -307,8 +307,9 @@ export default function AdminPortal() {
           <div style={{ flex: 1 }}>
           {!activeTab && (
             <div style={{ textAlign: 'center', padding: '60px 0 0' }}>
-              <p style={{ fontSize: '14px', color: '#8bacc8', marginBottom: '8px' }}>Welcome back</p>
-              <p style={{ fontFamily: 'Playfair Display, serif', fontSize: '36px', color: '#ffffff', margin: 0 }}>{session.name}</p>
+              <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2.5px', marginBottom: '10px' }}>Welcome back</p>
+              <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.02em', fontSize: '38px', color: '#002973', margin: 0 }}>{session.name}</p>
+              <div style={{ width: '46px', height: '4px', borderRadius: '99px', background: '#fb895a', margin: '18px auto 0' }} />
             </div>
           )}
 
@@ -357,7 +358,7 @@ export default function AdminPortal() {
             <EmailTemplatesPanel />
           )}
 
-          {loading && <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>Loading...</div>}
+          {loading && <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>}
           </div>
         </>
       )}

@@ -125,7 +125,7 @@ function withPending(emails, pending) {
   return emails
 }
 
-const inputStyle = { padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: '13px', fontFamily: 'DM Sans, sans-serif', width: '100%', boxSizing: 'border-box' }
+const inputStyle = { padding: '8px 12px', borderRadius: '6px', border: '1px solid #d6e0ee', background: '#f2f5fa', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', width: '100%', boxSizing: 'border-box' }
 
 function RecipientEditor({ title, accent, emails, onChange, input, setInput }) {
   const [warn, setWarn] = useState('')
@@ -140,12 +140,12 @@ function RecipientEditor({ title, accent, emails, onChange, input, setInput }) {
     <div style={{ marginBottom: '12px' }}>
       <label style={{ fontSize: '11px', color: accent, display: 'block', marginBottom: '6px', fontWeight: 600, letterSpacing: '0.4px' }}>{title}</label>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
-        {emails.length === 0 && <span style={{ fontSize: '12px', color: '#5a8ab5', fontStyle: 'italic' }}>None</span>}
+        {emails.length === 0 && <span style={{ fontSize: '12px', color: '#697a9c', fontStyle: 'italic' }}>None</span>}
         {emails.map(e => (
           <span key={e} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '3px 8px', borderRadius: '999px', background: `${accent}33`, color: '#fff', border: `1px solid ${accent}88` }}>
             {e}
             <button onClick={() => onChange(emails.filter(x => x !== e))} title="Remove"
-              style={{ border: 'none', background: 'transparent', color: '#fff', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: 0, opacity: 0.8 }}>×</button>
+              style={{ border: 'none', background: 'transparent', color: '#16264a', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: 0, opacity: 0.8 }}>×</button>
           </span>
         ))}
       </div>
@@ -157,7 +157,7 @@ function RecipientEditor({ title, accent, emails, onChange, input, setInput }) {
           style={{ ...inputStyle, maxWidth: '280px' }} />
         <button onClick={add} style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: `1px solid ${accent}66`, background: `${accent}1a`, color: accent, whiteSpace: 'nowrap' }}>Add</button>
       </div>
-      {warn && <div style={{ fontSize: '11px', color: '#ff6b6b', marginTop: '4px' }}>{warn}</div>}
+      {warn && <div style={{ fontSize: '11px', color: '#d93025', fontWeight: 600, marginTop: '4px' }}>{warn}</div>}
     </div>
   )
 }
@@ -189,47 +189,47 @@ function TemplateCard({ tmpl, label, sectionKey }) {
   }
 
   return (
-    <div style={{ background: 'rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', marginBottom: '8px', overflow: 'hidden' }}>
+    <div style={{ background: '#ffffff', border: '1px solid #ebf0f8', borderRadius: '10px', marginBottom: '8px', overflow: 'hidden' }}>
       <div onClick={() => setExpanded(!expanded)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', cursor: 'pointer', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-          <span style={{ fontSize: '10px', color: '#8bacc8', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
-          <span style={{ fontSize: '13px', color: '#fff', fontWeight: 500 }}>{label}</span>
+          <span style={{ fontSize: '10px', color: '#4e6087', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+          <span style={{ fontSize: '13px', color: '#16264a', fontWeight: 500 }}>{label}</span>
           {(cc.length > 0 || bcc.length > 0) && (
-            <span style={{ fontSize: '10px', color: '#5a8ab5' }}>
+            <span style={{ fontSize: '10px', color: '#697a9c' }}>
               {cc.length > 0 && `${cc.length} cc`}{cc.length > 0 && bcc.length > 0 && ' · '}{bcc.length > 0 && `${bcc.length} bcc`}
             </span>
           )}
         </div>
-        <div style={{ fontSize: '12px', color: '#5a8ab5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '40%' }}>
+        <div style={{ fontSize: '12px', color: '#697a9c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '40%' }}>
           {tmpl.subject}
         </div>
       </div>
 
       {expanded && (
-        <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ padding: '0 16px 16px', borderTop: '1px solid #f2f5fa' }}>
           <div style={{ marginTop: '14px' }}>
-            <RecipientEditor title="CC — internal team" accent="#5b9fe6" emails={cc} onChange={setCc} input={ccInput} setInput={setCcInput} />
-            <RecipientEditor title="BCC — internal team" accent="#a855f7" emails={bcc} onChange={setBcc} input={bccInput} setInput={setBccInput} />
+            <RecipientEditor title="CC — internal team" accent="#0095ff" emails={cc} onChange={setCc} input={ccInput} setInput={setCcInput} />
+            <RecipientEditor title="BCC — internal team" accent="#9333ea" emails={bcc} onChange={setBcc} input={bccInput} setInput={setBccInput} />
           </div>
 
-          <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '4px 0 12px' }} />
+          <div style={{ height: '1px', background: '#f2f5fa', margin: '4px 0 12px' }} />
 
           <div style={{ marginBottom: '10px' }}>
-            <label style={{ fontSize: '11px', color: '#5a8ab5', display: 'block', marginBottom: '4px' }}>Subject</label>
+            <label style={{ fontSize: '11px', color: '#697a9c', display: 'block', marginBottom: '4px' }}>Subject</label>
             <input value={subject} onChange={e => setSubject(e.target.value)} style={inputStyle} />
           </div>
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '11px', color: '#5a8ab5', display: 'block', marginBottom: '4px' }}>Body (HTML)</label>
+            <label style={{ fontSize: '11px', color: '#697a9c', display: 'block', marginBottom: '4px' }}>Body (HTML)</label>
             <textarea value={bodyText} onChange={e => setBodyText(e.target.value)} rows={10} style={{ ...inputStyle, resize: 'vertical' }} />
           </div>
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '11px', color: '#5a8ab5', display: 'block', marginBottom: '4px' }}>Preview</label>
+            <label style={{ fontSize: '11px', color: '#697a9c', display: 'block', marginBottom: '4px' }}>Preview</label>
             <div style={{ padding: '16px', background: '#fff', borderRadius: '6px', color: '#333', fontSize: '14px', fontFamily: 'Arial, sans-serif', lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: bodyText }} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button onClick={save} disabled={saving} style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '12px', cursor: saving ? 'default' : 'pointer', border: '1px solid rgba(39,174,96,0.4)', background: 'rgba(39,174,96,0.12)', color: '#27ae60', opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Save'}</button>
-            {savedMsg && <span style={{ fontSize: '12px', color: '#27ae60' }}>{savedMsg}</span>}
-            {err && <span style={{ fontSize: '12px', color: '#ff6b6b' }}>{err}</span>}
+            <button onClick={save} disabled={saving} style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '12px', cursor: saving ? 'default' : 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Save'}</button>
+            {savedMsg && <span style={{ fontSize: '12px', color: '#1b9254', fontWeight: 600 }}>{savedMsg}</span>}
+            {err && <span style={{ fontSize: '12px', color: '#d93025', fontWeight: 600 }}>{err}</span>}
           </div>
         </div>
       )}
@@ -252,7 +252,7 @@ export default function EmailTemplatesPanel() {
     finally { setLoading(false) }
   }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#8bacc8' }}>Loading...</div>
+  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>
 
   // index templates by pipeline + template_name
   const byPipeline = {}
@@ -263,12 +263,12 @@ export default function EmailTemplatesPanel() {
 
   return (
     <div style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto' }}>
-      <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '24px', color: '#fff', margin: '0 0 8px 0' }}>Email Templates</h2>
-      <p style={{ fontSize: '13px', color: '#8bacc8', margin: '0 0 24px' }}>
+      <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '24px', color: '#16264a', margin: '0 0 8px 0' }}>Email Templates</h2>
+      <p style={{ fontSize: '13px', color: '#4e6087', margin: '0 0 24px' }}>
         Emails listed in the order they fire for each program. Expand any email to set its subject, body, and which internal team members receive a CC or BCC.
       </p>
 
-      {error && <div style={{ color: '#ff6b6b', fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
+      {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
 
       {SECTIONS.map(section => {
         const meta = TEMPLATE_META[section.pipeline] || []
@@ -280,14 +280,14 @@ export default function EmailTemplatesPanel() {
 
         return (
           <div key={section.key} style={{ marginBottom: '32px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: '#5b9fe6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: section.sharedNote ? '2px' : '12px' }}>{section.label}</div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: section.sharedNote ? '2px' : '12px' }}>{section.label}</div>
             {section.sharedNote && (
-              <div style={{ fontSize: '11px', color: '#5a8ab5', marginBottom: '12px', fontStyle: 'italic' }}>
+              <div style={{ fontSize: '11px', color: '#697a9c', marginBottom: '12px', fontStyle: 'italic' }}>
                 Tax Priorities and Tax Planning share these templates — edits apply to both.
               </div>
             )}
             {rows.length === 0
-              ? <div style={{ fontSize: '12px', color: '#5a8ab5', padding: '8px 0' }}>No templates.</div>
+              ? <div style={{ fontSize: '12px', color: '#697a9c', padding: '8px 0' }}>No templates.</div>
               : rows.map(([name, label]) => (
                   <TemplateCard key={`${section.key}-${name}`} sectionKey={section.key} tmpl={inPipeline[name]} label={label} />
                 ))}
