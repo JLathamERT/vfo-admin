@@ -62,24 +62,34 @@ function PhaseStepper({ steps }) {
 // Designed progress hero for track views: gradient accent strip, eyebrow +
 // title, optional meta line, % + progress bar (when completed/total given),
 // optional right-side action node, optional phase stepper.
-export function TrackHero({ eyebrow, title, meta, action, completed, total, unitLabel = 'tasks completed', steps }) {
+// `accent={false}` drops the gradient strip; omitting `title` turns the card
+// into a pure progress card (counter shown in the title slot) — use these for
+// nested cards so stacked heroes don't repeat the same treatment.
+export function TrackHero({ eyebrow, title, meta, action, completed, total, unitLabel = 'tasks completed', steps, accent = true }) {
   const hasBar = typeof total === 'number' && total > 0
   const pct = hasBar ? Math.round(completed / total * 100) : 0
   return (
     <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', marginBottom: '20px', overflow: 'hidden' }}>
-      <div style={{ height: '4px', background: 'linear-gradient(90deg, #002973 0%, #125ecc 55%, #0a85e8 100%)' }} />
+      {accent && <div style={{ height: '4px', background: 'linear-gradient(90deg, #002973 0%, #125ecc 55%, #0a85e8 100%)' }} />}
       <div style={{ padding: '18px 22px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
           <div style={{ minWidth: '200px', flex: 1 }}>
             {eyebrow && <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '1.2px', color: '#0095ff', textTransform: 'uppercase', marginBottom: '5px' }}>{eyebrow}</div>}
-            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '22px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1.15 }}>{title}</div>
+            {title && <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '22px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1.15 }}>{title}</div>}
+            {!title && hasBar && (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px' }}>
+                <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '24px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{completed}</span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#9aa6bf' }}>/ {total}</span>
+                <span style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginLeft: '8px', textTransform: 'uppercase' }}>{unitLabel}</span>
+              </div>
+            )}
             {meta && <div style={{ fontSize: '12.5px', color: '#4e6087', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>{meta}</div>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
             {hasBar && (
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#125ecc', lineHeight: 1 }}>{pct}%</div>
-                <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.7px', color: '#4e6087', marginTop: '5px', textTransform: 'uppercase' }}>{completed} / {total} {unitLabel}</div>
+                {title && <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.7px', color: '#4e6087', marginTop: '5px', textTransform: 'uppercase' }}>{completed} / {total} {unitLabel}</div>}
               </div>
             )}
             {action}

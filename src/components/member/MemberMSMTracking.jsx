@@ -210,16 +210,14 @@ function MemberEnrolledView({ enrollment, program, member }) {
 
   return (
     <div>
-      <TrackHero
-        eyebrow="Program"
-        title={program.name}
-        meta={
-          <>
-            <span>Joined {enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</span>
-            {!isCoaching && enrollment.program_status && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#16264a' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[enrollment.program_status] || '#9aa6bf', flexShrink: 0 }} />{enrollment.program_status}</span></>}
-          </>
-        }
-      />
+      <div style={{ marginBottom: '20px' }}>
+        <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '1.2px', color: '#0095ff', textTransform: 'uppercase', marginBottom: '4px' }}>Program</div>
+        <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.03em', fontSize: '22px', color: '#002973' }}>{program.name}</div>
+        <div style={{ fontSize: '12.5px', color: '#4e6087', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span>Joined {enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</span>
+          {!isCoaching && enrollment.program_status && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#16264a' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[enrollment.program_status] || '#9aa6bf', flexShrink: 0 }} />{enrollment.program_status}</span></>}
+        </div>
+      </div>
       <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px' }}>
         {isCoaching ? (
           <>
@@ -284,8 +282,7 @@ function MemberTrainingView({ enrollment, program }) {
   return (
     <div>
       <TrackHero
-        eyebrow={program.name}
-        title="90 Day Plan"
+        accent={false}
         completed={completedTasks}
         total={totalTasks}
         steps={phases.map(ph => {

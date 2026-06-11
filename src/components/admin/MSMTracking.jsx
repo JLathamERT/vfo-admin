@@ -402,22 +402,22 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
 
   return (
     <div>
-      <TrackHero
-        eyebrow="Program"
-        title={program.name}
-        meta={
-          <>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginBottom: '20px' }}>
+        <div>
+          <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '1.2px', color: '#0095ff', textTransform: 'uppercase', marginBottom: '4px' }}>Program</div>
+          <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.03em', fontSize: '22px', color: '#002973' }}>{program.name}</div>
+          <div style={{ fontSize: '12.5px', color: '#4e6087', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <span>Joined {enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</span>
             {!isCoaching && enrollment.program_status && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#16264a' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[enrollment.program_status] || '#9aa6bf', flexShrink: 0 }} />{enrollment.program_status}</span></>}
             {!isCoaching && !isTaxPlanning && <><span style={{ color: '#c7d4e8' }}>·</span><PlanStatusBadge enrollmentId={enrollment.id} programId={program.id} /></>}
-          </>
-        }
-        action={!isCoaching && (
+          </div>
+        </div>
+        {!isCoaching && (
           <button onClick={() => setEditingEnrollment(!editingEnrollment)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '12px', cursor: 'pointer' }}>
             {editingEnrollment ? 'Cancel' : 'Edit'}
           </button>
         )}
-      />
+      </div>
       <div style={{ display: editingEnrollment ? 'block' : 'none' }}>
         {editingEnrollment && (
           <div style={{ ...sectionStyle, padding: '16px' }}>
@@ -545,8 +545,7 @@ function TrainingTrack({ enrollment, program }) {
   return (
     <div>
       <TrackHero
-        eyebrow={program.name}
-        title="90 Day Plan"
+        accent={false}
         completed={completedTasks}
         total={totalTasks}
         steps={phases.map(ph => ({ label: ph.name, state: getPhaseState(ph) }))}
