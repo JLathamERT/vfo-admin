@@ -933,7 +933,7 @@ function PlanStatusBadge({ enrollmentId, programId }) {
       ;(progressData.progress || []).forEach(p => { prog[p.task_id] = p })
       const allTasks = phases.flatMap(p => p.program_training_tasks || [])
       if (!allTasks.length) { setPlanStatus('Not Started'); return }
-      if (allTasks.every(t => prog[t.id]?.status === 'Completed')) { setPlanStatus('Completed'); return }
+      if (allTasks.every(t => prog[t.id]?.status && prog[t.id].status !== '')) { setPlanStatus('Completed'); return }
       for (let i = phases.length - 1; i >= 0; i--) {
         const tasks = phases[i].program_training_tasks || []
         if (tasks.some(t => prog[t.id]?.status)) { setPlanStatus(phases[i].name); return }

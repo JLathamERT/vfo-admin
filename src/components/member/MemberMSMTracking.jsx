@@ -124,14 +124,12 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
             if (!dbProgram) return null
             const isEnabled = enabledPrograms.some(e => e.program_id === dbProgram.id)
             if (!isEnabled) return null
-            const enrollment = getEnrollment(p.name)
             const tabKey = { holistic: 'msm_holistic', partnership: 'msm_partnership', tax: 'msm_tax', coaching: 'msm_coaching' }[p.key]
             return (
               <div key={p.key} onClick={() => onNavigate(tabKey)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #eef2f9', cursor: 'pointer' }}
                 onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                 <span style={{ fontSize: '14px', color: '#0095ff', fontWeight: 500 }}>{p.name}</span>
-                <span style={{ fontSize: '13px', color: '#16264a' }}>{enrollment ? enrollment.program_status || 'Enrolled' : 'Not Enrolled'}</span>
               </div>
             )
           })}
@@ -185,9 +183,11 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
 
     return (
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-        <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a', marginBottom: '20px' }}>{p.name}</div>
         {!enrollment
-          ? <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>You are not yet enrolled in this program.</div>
+          ? <>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a', marginBottom: '20px' }}>{p.name}</div>
+              <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>You are not yet enrolled in this program.</div>
+            </>
           : <MemberEnrolledView enrollment={enrollment} program={dbProgram} member={member} />
         }
       </div>

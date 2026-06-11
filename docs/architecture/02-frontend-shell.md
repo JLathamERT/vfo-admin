@@ -12,7 +12,7 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 
 | Path | Page | Auth | Purpose |
 |---|---|---|---|
-| `/` | [RolePicker](src/pages/RolePicker.jsx) | none | Two buttons: Admin / Member, navigates to login |
+| `/` | [RolePicker](src/pages/RolePicker.jsx) | none | Four tiles — VFOS/ERT, VFO Specialist, Member, Client — each navigates to its login |
 | `/admin/login` | [AdminLogin](src/pages/AdminLogin.jsx) | none | `admin_login` form |
 | `/member/login` | [MemberLogin](src/pages/MemberLogin.jsx) | none | `member_login` form |
 | `/admin` | [AdminPortal](src/pages/AdminPortal.jsx) | admin session | Top-level admin shell — Members / Specialists / Automation tabs |
@@ -145,7 +145,7 @@ The **fourth portal** (after admin/member/client), reached via `/specialist`. Ro
 
 - New pages: [`pages/SpecialistLogin.jsx`](src/pages/SpecialistLogin.jsx) and [`pages/SpecialistPortal.jsx`](src/pages/SpecialistPortal.jsx) (one Vault tab).
 - New components: [`components/specialist/SpecialistVault.jsx`](src/components/specialist/SpecialistVault.jsx) (single "General Documentation" section, mirrors `ClientVault`) and [`components/admin/SpecialistAdminVault.jsx`](src/components/admin/SpecialistAdminVault.jsx) (admin vault on Search Specialists → Vault tab — **view + add + remove** as of 2026-06-10, via `specialist_vault_admin_list`/`_admin_download`/`_admin_upload_url`/`_admin_delete`).
-- [`RolePicker.jsx`](src/pages/RolePicker.jsx): the **"Specialist" tile now links to `/specialist/login`** (was "Coming soon"). The VE/SP/ME/CL initials chips were **removed**, and the "Coordinated expertise without the complexity" footer was removed.
+- [`RolePicker.jsx`](src/pages/RolePicker.jsx): four tiles — **VFOS/ERT** ("Team access"), **VFO Specialist** ("Your secure Specialist portal", links to `/specialist/login`), **Member** ("Advisor and Accountant access"), **Client** ("Your secure Client portal") — tile 2's label was "Specialist" and the subheadings were reworded 2026-06-11. The VE/SP/ME/CL initials chips were **removed**, and the "Coordinated expertise without the complexity" footer was removed.
 - [`AuthShell.jsx`](src/components/shared/AuthShell.jsx) (split-screen login left panel): heading → "Virtual Family Office team", subtext → "Top national specialists in tax planning, legal services, risk mitigation, wealth management, and business advisory services."
 - [`SpecialistOnboarding.jsx`](src/components/admin/SpecialistOnboarding.jsx) **Stage 5 reworked**: Skool-invite green button (`automation_SPECIALIST_skoolinvite`), create-specialist button (`automation_SPECIALIST_createspecialist`), a **headshot checkbox** (the bios checkbox was **removed 2026-06-10** — bios auto-fill on go-live) with an "Open specialist →" link (deep-link to Search Specialists via `?expert=<id>&_n=<nonce>` — the nonce makes re-clicks re-fire; gotcha #107). New-Onboarding form **requires a valid email**. Stage-4 final approval no longer asks for Tim's tax-risk notes (Stage-2 only, 2026-06-10).
 
