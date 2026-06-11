@@ -7,6 +7,7 @@ import MSMTracking from './MSMTracking'
 import AdvisorOnboarding from './AdvisorOnboarding'
 import AccountantOnboarding from './AccountantOnboarding'
 import { MemberProfileDetailsSkeleton, Skeleton } from '../shared/Skeleton'
+import { TrackHero, ListHeader } from '../shared/TrackKit'
 
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
 import vfoCertifiedSeal from '../../assets/vfo-certified-emblem.png'
@@ -68,6 +69,7 @@ function AccountantsPanel({ allMembers, allExperts, allExclusionMap, onDataChang
       initialTab={initialTab}
       navClickCount={navClickCount}
       hiddenFields={['revenue_decision']}
+      listTitle="Accountants"
     />
   )
 }
@@ -220,6 +222,7 @@ function MemberDirectoryView({
   initialTab,
   navClickCount,
   hiddenFields = [],
+  listTitle = 'Members',
 }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'search')
   useEffect(() => { setActiveTab(initialTab || 'search') }, [initialTab])
@@ -257,6 +260,7 @@ function MemberDirectoryView({
 
       {activeTab === 'search' && !selectedMember && (
         <>
+          <ListHeader title={listTitle} count={displayMembers.length} />
           <div style={{ marginBottom: '16px' }}>
             <input placeholder="Search by name or member number..." style={inputStyle} onChange={e => setMemberSearch(e.target.value.toLowerCase())} value={memberSearch} />
           </div>
@@ -264,12 +268,14 @@ function MemberDirectoryView({
             {filteredMembers.map(m => (
               <div key={m.plugin_member_number}
                 onClick={() => { setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem(selectedKey, m.plugin_member_number); sessionStorage.setItem(featureTabKey, 'profile_details') }}
-                style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', marginBottom: '4px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
-                onMouseLeave={e => e.currentTarget.style.background = '#eef2f9'}>
+                style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 16px', marginBottom: '6px', background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '12px', boxShadow: '0 2px 8px rgba(20,45,95,0.04)', cursor: 'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,149,255,0.4)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#e9eef8'}>
                 <span style={{ fontSize: '12px', color: '#4e6087', width: '70px', flexShrink: 0, fontFamily: 'monospace' }}>{m.plugin_member_number}</span>
-                <span style={{ fontSize: '14px', color: '#16264a', width: '200px', flexShrink: 0 }}>{m.name}</span>
-                <span style={{ fontSize: '12px', color: m.elite_status === 'Active' ? '#1b9254' : m.elite_status === 'Lost' ? '#e74c3c' : '#4e6087', width: '80px', flexShrink: 0 }}>{m.elite_status || '—'}</span>
+                <span style={{ fontSize: '14px', color: '#16264a', fontWeight: 600, width: '200px', flexShrink: 0 }}>{m.name}</span>
+                <span style={{ width: '80px', flexShrink: 0 }}>
+                  <span style={{ fontSize: '11px', padding: '2px 9px', borderRadius: '999px', fontWeight: 600, background: m.elite_status === 'Active' ? 'rgba(27,146,84,0.13)' : m.elite_status === 'Lost' ? 'rgba(231,76,60,0.13)' : '#eef2f9', color: m.elite_status === 'Active' ? '#1b9254' : m.elite_status === 'Lost' ? '#e74c3c' : '#4e6087', border: `1px solid ${m.elite_status === 'Active' ? 'rgba(27,146,84,0.3)' : m.elite_status === 'Lost' ? 'rgba(231,76,60,0.3)' : '#dde5f2'}` }}>{m.elite_status || '—'}</span>
+                </span>
                 <span style={{ fontSize: '12px', color: '#4e6087', width: '160px', flexShrink: 0 }}>{m.member_type || '—'}</span>
                 <span style={{ fontSize: '12px', color: m.advisor_model === 'New Model' ? '#0095ff' : '#4e6087' }}>{m.advisor_model || '—'}</span>
               </div>
@@ -281,16 +287,19 @@ function MemberDirectoryView({
       {activeTab === 'search' && selectedMember && (
         <>
           <button onClick={() => { setSelectedMember(null); sessionStorage.removeItem(selectedKey); sessionStorage.removeItem(featureTabKey) }} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
-          <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e3eaf5' }}>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '28px', color: '#16264a' }}>{selectedMember.name}</div>
-            <div style={{ fontSize: '13px', color: '#4e6087', marginTop: '4px' }}>{selectedMember.plugin_member_number}</div>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-              {selectedMember.member_type && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>{selectedMember.member_type}</span>}
-              {selectedMember.elite_status && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${selectedMember.elite_status === 'Active' ? 'rgba(27,146,84,0.15)' : selectedMember.elite_status === 'Lost' ? 'rgba(231,76,60,0.15)' : '#eef2f9'}`, color: selectedMember.elite_status === 'Active' ? '#1b9254' : selectedMember.elite_status === 'Lost' ? '#e74c3c' : '#4e6087', border: `1px solid ${selectedMember.elite_status === 'Active' ? 'rgba(27,146,84,0.3)' : selectedMember.elite_status === 'Lost' ? 'rgba(231,76,60,0.3)' : '#e3eaf5'}` }}>{selectedMember.elite_status}</span>}
-              {selectedMember.paused && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(251,137,90,0.15)', color: '#e06717', fontWeight: 600, border: '1px solid rgba(251,137,90,0.3)' }}>Paused</span>}
-              {selectedMember.suspended && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600, border: '1px solid rgba(231,76,60,0.3)' }}>Suspended</span>}
-            </div>
-          </div>
+          <TrackHero
+            eyebrow={listTitle}
+            title={selectedMember.name}
+            meta={
+              <>
+                <span style={{ fontFamily: 'monospace' }}>{selectedMember.plugin_member_number}</span>
+                {selectedMember.member_type && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>{selectedMember.member_type}</span>}
+                {selectedMember.elite_status && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${selectedMember.elite_status === 'Active' ? 'rgba(27,146,84,0.15)' : selectedMember.elite_status === 'Lost' ? 'rgba(231,76,60,0.15)' : '#eef2f9'}`, color: selectedMember.elite_status === 'Active' ? '#1b9254' : selectedMember.elite_status === 'Lost' ? '#e74c3c' : '#4e6087', border: `1px solid ${selectedMember.elite_status === 'Active' ? 'rgba(27,146,84,0.3)' : selectedMember.elite_status === 'Lost' ? 'rgba(231,76,60,0.3)' : '#e3eaf5'}` }}>{selectedMember.elite_status}</span>}
+                {selectedMember.paused && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(251,137,90,0.15)', color: '#e06717', fontWeight: 600, border: '1px solid rgba(251,137,90,0.3)' }}>Paused</span>}
+                {selectedMember.suspended && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600, border: '1px solid rgba(231,76,60,0.3)' }}>Suspended</span>}
+              </>
+            }
+          />
           <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px', flexWrap: 'wrap', position: 'relative', zIndex: 50 }}>
           <FeatureTabDropdown label="Profile" isActive={['profile_details','profile_edit','profile_history'].includes(memberFeatureTab)} options={[{key:'profile_details',label:'Profile'},{key:'profile_edit',label:'Edit Profile'},{key:'profile_history',label:'Type History'}]} onSelect={setMemberFeatureTab} />
           <FeatureTabDropdown label="MSM" isActive={['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab)} options={[{key:'msm_meetings',label:'MSM'},{key:'msm_program_holistic',label:'VFO Holistic Planning'},{key:'msm_program_partnership',label:'Partnership Fast Track'},{key:'msm_program_tax',label:'VFO Tax Planning'},{key:'msm_program_coaching',label:'Advanced Coaching'}]} onSelect={k => { setMemberFeatureTab(k); sessionStorage.setItem(featureTabKey, k) }} />
@@ -327,6 +336,7 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, 
       initialTab={initialTab}
       navClickCount={navClickCount}
       hiddenFields={[]}
+      listTitle="Members"
     />
   )
 }
