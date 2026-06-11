@@ -903,8 +903,8 @@ function MsmAssignment({ member, onSaved }) {
   return (
     <div style={sectionStyle}>
       <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Assigned MSM</div>
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-        <select value={assignedMsm} onChange={e => setAssignedMsm(e.target.value)} style={{ ...inputStyle, background: '#ffffff', minWidth: '220px' }}>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <select value={assignedMsm} onChange={e => setAssignedMsm(e.target.value)} style={{ ...inputStyle, background: '#ffffff', flex: 1, minWidth: '150px' }}>
           <option value="">-- Select MSM --</option>
           {TEAM_MEMBERS.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
