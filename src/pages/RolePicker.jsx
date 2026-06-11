@@ -2,10 +2,10 @@ import { useNavigate } from 'react-router-dom'
 import VfoWordmark from '../components/shared/VfoWordmark'
 
 const ROLES = [
-  { label: 'VFOS/ERT', sub: 'Admin & team access', to: '/admin/login', initials: 'VE' },
-  { label: 'Specialist', sub: 'Your secure specialist portal', to: '/specialist/login', initials: 'SP' },
-  { label: 'Member', sub: 'Advisor & accountant access', to: '/member/login', initials: 'ME' },
-  { label: 'Client', sub: 'Your secure client portal', to: '/client/login', initials: 'CL' },
+  { label: 'VFOS/ERT', sub: 'Team access', to: '/admin/login', initials: 'VE' },
+  { label: 'VFO Specialist', sub: 'Your secure Specialist portal', to: '/specialist/login', initials: 'SP' },
+  { label: 'Member', sub: 'Advisor and Accountant access', to: '/member/login', initials: 'ME' },
+  { label: 'Client', sub: 'Your secure Client portal', to: '/client/login', initials: 'CL' },
 ]
 
 export default function RolePicker() {

@@ -211,6 +211,56 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
     return 'pending'
   }
 
+  // Header "X/Y" for the PC Admin phase. Its rows are pipeline-driven (the
+  // program_client_tasks never receive a progress status), so the generic
+  // doneTasks/nonAutoTasks count always reads 0/N. Mirror the autoStep()
+  // done-conditions of whichever decision branch is currently rendered so the
+  // pill reflects the steps actually shown. KEEP IN SYNC with the PC Admin body
+  // render below (the autoStep calls in the IIFE).
+  function pcAdminStepCounts() {
+    const pd = pipelineData
+    if (!pd) return { done: 0, total: 0 }
+    const pipTask = phases.find(ph => ph.name === 'MAP 1 - PIP Follow Up')?.program_client_tasks?.find(t => t.name === 'PIP Follow Up decision')
+    const pipStatus = pipTask ? (progress[pipTask.id]?.status || '') : ''
+    if (!pipStatus.startsWith('Completed')) return { done: 0, total: 0 }
+    const pipDecision = pipStatus.replace('Completed - ', '')
+    const isZeroShare = (v) => parseFloat(String(v ?? '').replace(/[$,]/g, '')) === 0
+    const steps = []
+    const add = (done, na = false) => steps.push(!!done || !!na)
+
+    if (pipDecision === 'Yes') {
+      add(pd?.c16_sent === 'Yes')
+      add(pd?.c17_client_signed === 'Yes')
+      add(pd?.c18_ceo_signed === 'Yes')
+      add(!!pd?.pay1_email_sent_at || !!pd?.pay1_status)
+      add(!!pd?.pay1_status)
+      add(pd?.pay1_status === 'succeeded')
+      add(!!pd?.invoice_number)
+      add(['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd?.rec1_rev_paid), isZeroShare(pd?.member_share))
+      add(pd?.c24_email_sent === true, isZeroShare(pd?.member_share))
+    } else if (pipDecision === 'Undecided') {
+      const finalDec = pd?.c15_final_decision
+      add(pd?.c14_email_sent === 'Yes')   // Decision email sent
+      add(!!finalDec)                      // Client response received
+      if (finalDec === 'Yes') {
+        add(!!pd?.gross_fee)               // PF completed pricing
+        if (pd?.gross_fee) {
+          add(pd?.c16_sent === 'Yes')
+          add(pd?.c17_client_signed === 'Yes')
+          add(pd?.c18_ceo_signed === 'Yes')
+          add(!!pd?.pay1_email_sent_at || !!pd?.pay1_status)
+          add(!!pd?.pay1_status)           // Payment received (undecided→yes branch)
+          add(!!pd?.invoice_number)
+          add(['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd?.rec1_rev_paid), isZeroShare(pd?.member_share))
+          add(pd?.c24_email_sent === true, isZeroShare(pd?.member_share))
+        }
+      } else if (finalDec === 'ExtraMeeting') {
+        add(true)                          // Extra meeting requested
+      }
+    }
+    return { done: steps.filter(Boolean).length, total: steps.length }
+  }
+
   function formatDate(d) {
     if (!d) return ''
     const parts = d.split('-')
@@ -256,7 +306,10 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
         const isExpanded = expanded[phase.id]
         const tasks = phase.program_client_tasks || []
         const nonAutoTasks = tasks.filter(t => t.status_options !== 'auto')
-        const doneTasks = nonAutoTasks.filter(t => progress[t.id]?.status && progress[t.id].status !== '').length
+        const isPCAdminPhase = phase.name === 'MAP 1 - PC Admin'
+        const pcCounts = isPCAdminPhase ? pcAdminStepCounts() : null
+        const doneTasks = isPCAdminPhase ? pcCounts.done : nonAutoTasks.filter(t => progress[t.id]?.status && progress[t.id].status !== '').length
+        const headerTotal = isPCAdminPhase ? pcCounts.total : nonAutoTasks.length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
         const titleColor = state === 'active' ? '#125ecc' : '#002973'
@@ -283,7 +336,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {!readOnly && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === phase.name && n.tab_name === 'MAP 1').length} isOpen={expanded[`notes_${phase.id}`]} onClick={() => setExpanded(p => ({ ...p, [`notes_${phase.id}`]: !p[`notes_${phase.id}`] }))} />}
                 {state === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
-                {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{nonAutoTasks.length}</span>}
+                {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{headerTotal}</span>}
                 {state === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
                 <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
               </div>
