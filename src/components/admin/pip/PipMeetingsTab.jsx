@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { callApi } from '../../../lib/api'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { PipMeetingsListSkeleton, PipMeetingDetailSkeleton } from '../../shared/Skeleton'
+import { TrackHero, PhaseBadge, ListHeader } from '../../shared/TrackKit'
 import PipPurchaseDecisionForm from './PipPurchaseDecisionForm'
 
 function fmtDate(d) {
@@ -140,11 +141,25 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
     return 'pending'
   }
 
+  // Display-only hero stats: same countedTasks/isTaskDone rules the phase
+  // pills already use, summed across phases.
+  const heroTotalTasks = phases.reduce((s, ph) => s + countedTasks(ph).length, 0)
+  const heroDoneTasks = phases.reduce((s, ph) => s + countedTasks(ph).filter(isTaskDone).length, 0)
+  const heroLabelColor = meetingLabelColor(track)
+
   return (
     <div>
       <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '20px', padding: 0 }}>← Back to PIP Meetings</button>
+      <TrackHero
+        eyebrow={`PIP Meeting${track.pip_engagement_year ? ` · Year ${track.pip_engagement_year}` : ''}`}
+        title="PIP Meeting"
+        meta={<span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${heroLabelColor}22`, color: heroLabelColor, border: `1px solid ${heroLabelColor}44`, fontWeight: 600 }}>{meetingLabel(track)}</span>}
+        completed={heroDoneTasks}
+        total={heroTotalTasks}
+        steps={phases.map(ph => ({ label: ph.name, state: getPhaseState(ph) }))}
+      />
 
-      {phases.map(phase => {
+      {phases.map((phase, phaseIdx) => {
         const state = getPhaseState(phase)
         const isExpanded = expanded[phase.id]
         const tasks = (phase.program_client_tasks || []).slice().sort((a, b) => (a.task_order ?? 0) - (b.task_order ?? 0))
@@ -157,8 +172,8 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
         return (
           <div key={phase.id} style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
-              <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
-                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
+              <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flex: 1 }}>
+                <PhaseBadge number={phaseIdx + 1} state={state} />
                 <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -436,10 +451,12 @@ function PipMeetingsTab({ clientId, programId, readOnly = false, notes = [], onN
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px' }}>{tracks.length} {tracks.length === 1 ? 'Meeting' : 'Meetings'}</div>
-        {!readOnly && <button onClick={() => showAdd ? setShowAdd(false) : openAdd()} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add Year</button>}
-      </div>
+      <ListHeader
+        title="PIP Meetings"
+        count={tracks.length}
+        action={!readOnly && <button onClick={() => showAdd ? setShowAdd(false) : openAdd()} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add Year</button>}
+      />
+
 
       {showAdd && (
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>

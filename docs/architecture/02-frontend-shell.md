@@ -149,6 +149,14 @@ The **fourth portal** (after admin/member/client), reached via `/specialist`. Ro
 - [`AuthShell.jsx`](src/components/shared/AuthShell.jsx) (split-screen login left panel): heading → "Virtual Family Office team", subtext → "Top national specialists in tax planning, legal services, risk mitigation, wealth management, and business advisory services."
 - [`SpecialistOnboarding.jsx`](src/components/admin/SpecialistOnboarding.jsx) **Stage 5 reworked**: Skool-invite green button (`automation_SPECIALIST_skoolinvite`), create-specialist button (`automation_SPECIALIST_createspecialist`), a **headshot checkbox** (the bios checkbox was **removed 2026-06-10** — bios auto-fill on go-live) with an "Open specialist →" link (deep-link to Search Specialists via `?expert=<id>&_n=<nonce>` — the nonce makes re-clicks re-fire; gotcha #107). New-Onboarding form **requires a valid email**. Stage-4 final approval no longer asks for Tim's tax-risk notes (Stage-2 only, 2026-06-10).
 
+#### Screen redesign additions (2026-06-10, branch `claude/goofy-panini-e681cd`)
+
+Styling/layout only — no routes, handlers, or data flow changed. See SESSION_REFERENCE gotcha #110 for the conventions + display-state rules.
+
+- New shared components: [`components/shared/TrackKit.jsx`](src/components/shared/TrackKit.jsx) (`TrackHero` / `PhaseBadge` / `ListHeader` — used by every track view, onboarding tracker, member/client/program header, and the 90 Day Plan) and [`components/shared/TokenShell.jsx`](src/components/shared/TokenShell.jsx) (branded wrapper around **all 12** public pay/decide token pages). [`components/admin/automation/StepKit.jsx`](src/components/admin/automation/StepKit.jsx) gained `PanelHero`, `EmptyState`, `TableCard` (used by all 6 automation panels).
+- [`SpecialistsPanel.jsx`](src/components/admin/SpecialistsPanel.jsx): Search Specialists → a specialist now has **3 tabs: Profile | Edit Specialist | Vault**. **Profile is the new default landing** — a read-only `SpecialistProfileView` presenting the already-loaded `experts` row (no new API calls). The Stage-5 `?expert=` deep links still land on **Edit** (they exist for headshot/bio entry).
+- [`MembersPanel.jsx`](src/components/admin/MembersPanel.jsx) profile details tab + [`ClientDetail.jsx`](src/pages/ClientDetail.jsx) Profile tab are now two-column layouts (field-grid main column + status/connections sidebar); both page headers are `TrackHero` cards with dot-separated meta.
+
 ### `ClientDetail.jsx` ([src/pages/ClientDetail.jsx](src/pages/ClientDetail.jsx)) — 384 lines
 
 A **dual-mode** page rendered by both `/admin/client/:clientId` and `/member/client/:clientId`. The `isMember = location.pathname.startsWith('/member')` flag at [line 55](src/pages/ClientDetail.jsx) cascades through the entire tree as `readOnly={isMember}`.

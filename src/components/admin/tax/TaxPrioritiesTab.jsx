@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { callApi, loadCachedAction } from '../../../lib/api'
 import { TaxPlanListSkeleton } from '../../shared/Skeleton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
+import { TrackHero, PhaseBadge, ListHeader } from '../../shared/TrackKit'
 
 function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, onSubmitted }) {
   const existing = existingData || {}
@@ -616,6 +617,15 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     return !!localProgress[k]?.status
   })) || decision2Status === 'Move to Implementation'
 
+  // A task counts as statused for display when its progress is recorded in
+  // client_tax_progress — or, for the two steps that write to client_tax_plans
+  // instead, when the corresponding plan column is set.
+  function isTaskStatused(t) {
+    if (t.status_options === 'tax_hlm_confirm') return !!livePlan?.tax4_meeting_date
+    if (t.status_options === 'tax_presentation_link') return !!livePlan?.presentation_send_date
+    return !!localProgress[t.id]?.status
+  }
+
   function getPhaseState(phase) {
     let tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
     if (phase.name === 'Tax 1 - Diagnostic' && !additionalInfoRequired) {
@@ -637,8 +647,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (phase.name === 'Tax 3 - ROI Meeting') {
       const decline = livePlan?.tax_decision === 'No' || livePlan?.tax_final_decision === 'No'
       const fullyDone = livePlan?.retainer_invoice_email_sent === true
-      if (decline || fullyDone) return 'done'
-      if (tasks.some(t => localProgress[t.id]?.status)) return 'active'
+      // Done needs the cascade endpoint (or a decline) AND every visible task
+      // statused — the cascade alone shouldn't green-check unset dropdowns.
+      if ((decline || fullyDone) && tasks.every(t => isTaskStatused(t))) return 'done'
+      if (decline || fullyDone || tasks.some(t => isTaskStatused(t))) return 'active'
       return 'pending'
     }
     if (phase.name === 'Tax 5 - Education & DD (Post Allocation)') {
@@ -656,8 +668,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const allAutoDone = autoTasks.length > 0 && autoTasks.every(t => localProgress[t.id]?.status)
       return allAutoDone ? 'done' : 'pending'
     }
-    if (tasks.every(t => localProgress[t.id]?.status)) return 'done'
-    if (tasks.some(t => localProgress[t.id]?.status)) return 'active'
+    if (tasks.every(t => isTaskStatused(t))) return 'done'
+    if (tasks.some(t => isTaskStatused(t))) return 'active'
     return 'pending'
   }
 
@@ -1543,15 +1555,61 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     )
   }
 
+  // Display-only summary for the hero stepper: short label + state per phase,
+  // in render order (before-spec phases, 5a, 5b, after-spec). 5a/5b states
+  // mirror the pill logic used on their cards below.
+  const tax5aHeroState = taxSpecialists.length > 0 && taxSpecialists.every(spec => tax5aTasks.filter(t => t.status_options !== 'specialist_select').every(t => localProgress[`${t.id}_${spec.id}`]?.status))
+    ? 'done'
+    : taxSpecialists.length > 0 && taxSpecialists.some(spec => tax5aTasks.filter(t => t.status_options !== 'specialist_select').some(t => localProgress[`${t.id}_${spec.id}`]?.status))
+      ? 'active' : 'pending'
+  const heroSteps = [
+    ...phasesBeforeSpec.map(ph => ({ label: ph.name.split(' - ')[0], state: getPhaseState(ph) })),
+    ...(tax5aPhase ? [{ label: 'Tax 5a', state: tax5aHeroState }] : []),
+    ...(tax5bPhase ? [{ label: 'Tax 5b', state: tax5bUnlocked ? getPhaseState(tax5bPhase) : 'pending' }] : []),
+    ...phasesAfterSpec.map(ph => ({ label: ph.name.split(' - ')[0], state: getPhaseState(ph) })),
+  ]
+  // Task-level hero counts, mirroring the same per-phase visibility rules the
+  // card pills use (Tax 1 children only when info required, refund only on
+  // Stop, hlm/presentation read from the plan row, 5a per specialist, 5b's
+  // decision read from the plan row).
+  const heroCountedTasks = (phase) => {
+    let tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
+    if (phase.name === 'Tax 1 - Diagnostic' && !additionalInfoRequired) {
+      tasks = tasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
+    }
+    if (phase.name === 'Set Up') {
+      const greenlightTask = (phase.program_client_tasks || []).find(t => t.status_options === 'tax_greenlight')
+      const greenlightStatus = greenlightTask ? localProgress[greenlightTask.id]?.status : ''
+      if (greenlightStatus !== 'Stop') tasks = tasks.filter(t => t.status_options !== 'tax_refund')
+    }
+    return tasks
+  }
+  const tax5aSpecTasks = tax5aTasks.filter(t => t.status_options !== 'specialist_select')
+  const tax5bCounted = tax5bPhase ? (tax5bPhase.program_client_tasks || []).filter(t => t.status_options !== 'auto') : []
+  const tax5bTaskDone = (t) => t.status_options === 'tax_implement_decision' ? !!livePlan?.implementation_decision : !!localProgress[t.id]?.status
+  const heroTotalTasks = [...phasesBeforeSpec, ...phasesAfterSpec].reduce((s, ph) => s + heroCountedTasks(ph).length, 0)
+    + taxSpecialists.length * tax5aSpecTasks.length
+    + tax5bCounted.length
+  const heroDoneTasks = [...phasesBeforeSpec, ...phasesAfterSpec].reduce((s, ph) => s + heroCountedTasks(ph).filter(t => isTaskStatused(t)).length, 0)
+    + taxSpecialists.reduce((s, spec) => s + tax5aSpecTasks.filter(t => !!localProgress[`${t.id}_${spec.id}`]?.status).length, 0)
+    + tax5bCounted.filter(tax5bTaskDone).length
+  const tax5aNumber = phasesBeforeSpec.length + 1
+  const tax5bNumber = phasesBeforeSpec.length + (tax5aPhase ? 1 : 0) + 1
+  const afterSpecNumberBase = phasesBeforeSpec.length + (tax5aPhase ? 1 : 0) + (tax5bPhase ? 1 : 0)
+
   return (
     <div>
       <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to Tax Plans</button>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a' }}>Tax Plan</div>
-        <div style={{ fontSize: '12px', color: '#4e6087' }}>Started {plan.created_at?.split('T')[0]}</div>
-      </div>
+      <TrackHero
+        eyebrow={programName}
+        title="Tax Plan"
+        meta={`Started ${plan.created_at?.split('T')[0] || ''}`}
+        completed={heroDoneTasks}
+        total={heroTotalTasks}
+        steps={heroSteps}
+      />
 
-      {phasesBeforeSpec.map(phase => {
+      {phasesBeforeSpec.map((phase, phaseIdx) => {
         const state = getPhaseState(phase)
         const isExpanded = expanded[phase.id] !== undefined ? expanded[phase.id] : (state === 'active')
         const tasks = phase.program_client_tasks || []
@@ -1580,8 +1638,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         return (
           <div key={phase.id} style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
-              <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !isExpanded }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
-                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
+              <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !isExpanded }))} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flex: 1 }}>
+                <PhaseBadge number={phaseIdx + 1} state={state} />
                 <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1603,11 +1661,11 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       })}
 
       {tax5aPhase && (
-        <div style={{ background: '#ffffff', border: '1px solid rgba(0,149,255,0.4)', borderRadius: '12px', marginBottom: '10px', overflow: 'hidden' }}>
+        <div style={{ background: '#ffffff', border: '1px solid rgba(0,149,255,0.4)', borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#0095ff', border: '1.5px solid #0095ff', flexShrink: 0 }} />
-              <span style={{ fontSize: '13px', fontWeight: '600', color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tax 5 - Education & DD (Specialist Allocation)</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <PhaseBadge number={tax5aNumber} state={tax5aHeroState} />
+              <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: tax5aHeroState === 'active' ? '#125ecc' : '#002973', textTransform: 'uppercase', letterSpacing: '1px' }}>Tax 5 - Education & DD (Specialist Allocation)</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               {!readOnly && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === 'Tax 5 - Education & DD (Specialist Allocation)' && n.tab_name === 'Tax Priorities').length} isOpen={expanded['notes_tax5a']} onClick={() => setExpanded(p => ({ ...p, ['notes_tax5a']: !p['notes_tax5a'] }))} />}
@@ -1678,11 +1736,11 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         const tax5bDotColor = tax5bState === 'done' ? '#1b9254' : tax5bState === 'active' ? '#0095ff' : 'transparent'
         const tax5bBorderColor = tax5bState === 'done' ? 'rgba(27,146,84,0.3)' : tax5bState === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
         return (
-        <div style={{ background: '#ffffff', border: `1px solid ${tax5bBorderColor}`, borderRadius: '12px', marginBottom: '10px', overflow: 'hidden', opacity: tax5bUnlocked ? 1 : 0.3, pointerEvents: tax5bUnlocked ? 'auto' : 'none' }}>
+        <div style={{ background: '#ffffff', border: `1px solid ${tax5bBorderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden', opacity: tax5bUnlocked ? 1 : 0.3, pointerEvents: tax5bUnlocked ? 'auto' : 'none' }}>
           <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: tax5bDotColor, border: `1.5px solid ${tax5bState === 'pending' ? '#c7d4e8' : tax5bDotColor}`, flexShrink: 0 }} />
-              <span style={{ fontSize: '13px', fontWeight: '600', color: tax5bState === 'active' ? '#0095ff' : '#16264a', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tax 5 - Education & DD (Post Allocation)</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <PhaseBadge number={tax5bNumber} state={tax5bState} />
+              <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: tax5bState === 'active' ? '#125ecc' : '#002973', textTransform: 'uppercase', letterSpacing: '1px' }}>Tax 5 - Education & DD (Post Allocation)</span>
               {!tax5bUnlocked && <span style={{ fontSize: '11px', color: '#e06717', fontWeight: 600 }}>(Unlocks when "Confirm ready for implementation" is set on any specialist)</span>}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1702,7 +1760,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         )
       })()}
 
-      {phasesAfterSpec.map(phase => {
+      {phasesAfterSpec.map((phase, phaseIdx) => {
         const state = getPhaseState(phase)
         const isExpanded = expanded[phase.id] !== undefined ? expanded[phase.id] : (state === 'active')
         const tasks = phase.program_client_tasks || []
@@ -1720,8 +1778,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         return (
           <div key={phase.id} style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
-              <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !isExpanded }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
-                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
+              <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !isExpanded }))} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flex: 1 }}>
+                <PhaseBadge number={afterSpecNumberBase + phaseIdx + 1} state={state} />
                 <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1832,10 +1890,12 @@ function TaxPrioritiesTab({ clientId, programId, programName, client, specialist
       )}
       {taxEnabled && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px' }}>{taxPlans.length} {taxPlans.length === 1 ? 'Tax Plan' : 'Tax Plans'}</div>
-            {!readOnly && <button onClick={startPlan} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Start Tax Plan</button>}
-          </div>
+          <ListHeader
+            title="Tax Plans"
+            count={taxPlans.length}
+            action={!readOnly && <button onClick={startPlan} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Start Tax Plan</button>}
+          />
+
           {taxPlans.length === 0 && (
             <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>No tax plans started yet.</div>
           )}

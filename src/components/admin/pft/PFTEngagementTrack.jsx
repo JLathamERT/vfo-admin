@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { callApi, loadCachedAction } from '../../../lib/api'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { PFTTrackSkeleton } from '../../shared/Skeleton'
+import { TrackHero, PhaseBadge } from '../../shared/TrackKit'
 
 const pftStatusColors = { Complete: '#1b9254', Completed: '#1b9254', 'Complete - Yes': '#1b9254', 'Complete - No': '#e74c3c', Yes: '#1b9254', No: '#e74c3c', Undecided: '#e06717', New: '#1b9254', 'Re-Set': '#1b9254', 'VFO FT': '#1b9254', 'VFO Associate': '#1b9254', Stopped: '#e74c3c', 'No show': '#e74c3c', 'Meeting 1 scheduled': '#1b9254', 'Meeting 2 scheduled': '#1b9254', 'Meeting 3 scheduled': '#1b9254', 'Confirmation email sent': '#1b9254', 'Email sent - date not yet arranged': '#1b9254', 'Meeting declined': '#e74c3c', 'No response': '#e74c3c', 'Call arranged': '#1b9254', 'VFO FT confirmed': '#1b9254', 'VFO Associate confirmed': '#1b9254', 'No confirmed': '#e74c3c' }
 const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
@@ -384,6 +385,37 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
   const onboarding = engagement?.onboarding || null
   const eng = engagement?.engagement || null
 
+  // Display-only hero steps: mirrors the phase visibility rules used in the
+  // render below (Meeting 3 hidden until the gate says Yes; Phase 6 variants
+  // hidden once a decision picks the other path). Also used to number the
+  // visible phase cards.
+  const heroSteps = []
+  phases.forEach(phase => {
+    const isAssociatePhase = phase.name.includes('VFO-Associate')
+    const isFTPhase = phase.name.includes('VFO-FT Accountant')
+    const isPhase6 = isAssociatePhase || isFTPhase
+    if (phase.name === 'Accountant Meeting 3' && gateStatus !== 'Yes') return
+    const matched6 = (isAssociatePhase && decisionStatus === 'VFO Associate confirmed') || (isFTPhase && decisionStatus === 'VFO FT confirmed')
+    if (isPhase6 && decisionStatus && !matched6) return
+    let state = getPhaseState(phase)
+    if (isPhase6) state = matched6 ? 'active' : 'pending'
+    heroSteps.push({ id: phase.id, label: phase.name.replace(/^Accountant /, ''), state })
+  })
+
+  // Task-level hero counts, mirroring the same visibility rules: Phase 6 is
+  // indicator-only (no countable tasks), Meeting 3 only exists once the gate
+  // says Yes, and Meeting 2's decision-email copy only shows on the No path.
+  let heroTotalTasks = 0
+  let heroDoneTasks = 0
+  phases.forEach(phase => {
+    if (phase.name.includes('VFO-Associate') || phase.name.includes('VFO-FT Accountant')) return
+    if (phase.name === 'Accountant Meeting 3' && gateStatus !== 'Yes') return
+    let counted = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !t.status_options?.startsWith('auto_'))
+    if (phase.name === 'Accountant Meeting 2' && gateStatus !== 'No') counted = counted.filter(t => t.name !== 'Accountant decision confirmation email')
+    heroTotalTasks += counted.length
+    heroDoneTasks += counted.filter(t => progress[t.id]?.status).length
+  })
+
   function renderTask(task, phase) {
     const p = progress[task.id] || {}
 
@@ -460,6 +492,14 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
 
   return (
     <div>
+      <TrackHero
+        eyebrow="Partnership Fast Track"
+        title="Engagement Process"
+        completed={heroDoneTasks}
+        total={heroTotalTasks}
+        steps={heroSteps}
+      />
+
       {phases.map(phase => {
         const isAssociatePhase = phase.name.includes('VFO-Associate')
         const isFTPhase = phase.name.includes('VFO-FT Accountant')
@@ -489,8 +529,8 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
         return (
           <div key={phase.id} style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden', opacity: phaseGreyedOut ? 0.3 : 1, pointerEvents: phaseGreyedOut ? 'none' : 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
-              <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
-                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
+              <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flex: 1 }}>
+                <PhaseBadge number={heroSteps.findIndex(s => s.id === phase.id) + 1} state={state} />
                 <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

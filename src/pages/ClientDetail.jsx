@@ -10,6 +10,7 @@ import TaxPrioritiesTab from '../components/admin/tax/TaxPrioritiesTab'
 import AddGeneralNote from '../components/shared/AddGeneralNote'
 import { PhaseNotesButton, PhaseNotesPanel } from '../components/shared/PhaseNotes'
 import { Skeleton, ProfileTabSkeleton } from '../components/shared/Skeleton'
+import { TrackHero } from '../components/shared/TrackKit'
 import VfoWordmark from '../components/shared/VfoWordmark'
 
 const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael', 'Bridger Silvester', 'Tracy Miller', 'Evan Anderson']
@@ -129,33 +130,32 @@ export default function ClientDetail() {
         <button onClick={handleBack} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>{backLabel}</button>
 
         {/* Client header */}
-        <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e3eaf5' }}>
-          {loading ? (
-            <>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-                <Skeleton width={260} height={32} />
-              </div>
-              <div style={{ display: 'flex', gap: '16px', marginTop: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <Skeleton width={90} height={14} />
-                <Skeleton width={130} height={14} />
-                <Skeleton width={70} height={20} style={{ borderRadius: '4px' }} />
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-                <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '28px', color: '#16264a' }}>{client?.first_name} {client?.last_name}</div>
-                {contacts?.length > 0 && <div style={{ fontSize: '14px', color: '#697a9c', fontStyle: 'italic' }}>with {contacts.map(c => `${c.first_name} ${c.last_name}`).join(', ')}</div>}
-              </div>
-              <div style={{ display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ fontSize: '13px', color: '#4e6087', fontFamily: 'monospace' }}>{client?.client_ref}</span>
-                {program && <span style={{ fontSize: '13px', color: '#0095ff', fontWeight: 500 }}>{program.name}</span>}
-                {client?.member_name && <span style={{ fontSize: '13px', color: '#4e6087' }}>Member: {client.member_name}</span>}
-                <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: '600', background: `${statusColors2[client?.status] || '#4e6087'}22`, color: statusColors2[client?.status] || '#4e6087', border: `1px solid ${statusColors2[client?.status] || '#4e6087'}44` }}>{client?.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : ''}</span>
-              </div>
-            </>
-          )}
-        </div>
+        {loading ? (
+          <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e3eaf5' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+              <Skeleton width={260} height={32} />
+            </div>
+            <div style={{ display: 'flex', gap: '16px', marginTop: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <Skeleton width={90} height={14} />
+              <Skeleton width={130} height={14} />
+              <Skeleton width={70} height={20} style={{ borderRadius: '4px' }} />
+            </div>
+          </div>
+        ) : (
+          <TrackHero
+            eyebrow="Clients"
+            title={`${client?.first_name} ${client?.last_name}`}
+            meta={
+              <>
+                <span style={{ fontFamily: 'monospace' }}>{client?.client_ref}</span>
+                {program && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ color: '#0095ff', fontWeight: 500 }}>{program.name}</span></>}
+                {client?.member_name && <><span style={{ color: '#c7d4e8' }}>·</span><span>Member: {client.member_name}</span></>}
+                {contacts?.length > 0 && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ fontStyle: 'italic' }}>with {contacts.map(c => `${c.first_name} ${c.last_name}`).join(', ')}</span></>}
+                {client?.status && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#16264a' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors2[client?.status] || '#9aa6bf', flexShrink: 0 }} />{client.status.charAt(0).toUpperCase() + client.status.slice(1)}</span></>}
+              </>
+            }
+          />
+        )}
 
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px', gap: '8px', paddingBottom: '10px' }}>
@@ -253,55 +253,41 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
     finally { setSaving(false) }
   }
 
+  const fieldLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: '#7c8aa6', textTransform: 'uppercase' }
+  const fieldValue = { fontSize: '15px', color: '#16264a', fontWeight: 600, marginTop: '5px', wordBreak: 'break-word' }
+  const initials = (first, last) => `${(first || '')[0] || ''}${(last || '')[0] || ''}`.toUpperCase()
+
   return (
-    <div>
+    <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+
+      {/* Main column — contact info + notes */}
+      <div style={{ flex: '2 1 400px', minWidth: '300px' }}>
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Client Status</div>
-        {readOnly
-          ? <span style={{ padding: '4px 14px', borderRadius: '6px', fontSize: '14px', fontWeight: '600', background: `${statusColors[status]}22`, color: statusColors[status], border: `1px solid ${statusColors[status]}44` }}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
-          : <div style={{ display: 'flex', gap: '8px' }}>
-              {[['active','Active'], ['pending','Pending'], ['lost','Lost']].map(([val, label]) => (
-                <button key={val} onClick={() => updateStatus(val)} disabled={saving}
-                  style={{ padding: '8px 20px', borderRadius: '6px', border: `1px solid ${status === val ? statusColors[val] : '#c7d4e8'}`, background: status === val ? `${statusColors[val]}22` : 'transparent', color: status === val ? statusColors[val] : '#4e6087', fontSize: '13px', cursor: 'pointer', fontWeight: status === val ? '600' : '400' }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-        }
-      </div>
-      <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Assigned PF</div>
-        {readOnly
-          ? <div style={{ fontSize: '14px', color: '#16264a' }}>{client?.assigned_pf || '—'}</div>
-          : <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <select value={assignedPf} onChange={e => setAssignedPf(e.target.value)} style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#ffffff', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif', minWidth: '200px' }}>
-                <option value="">-- Select --</option>
-                <option value="Evan Anderson">Evan Anderson</option>
-                <option value="Bridger Silvester">Bridger Silvester</option>
-                <option value="Ian Welham">Ian Welham</option>
-              </select>
-              <button onClick={savePf} disabled={savingPf} style={{ padding: '8px 20px', borderRadius: '8px', background: savingPf ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '14px', cursor: savingPf ? 'not-allowed' : 'pointer' }}>{savingPf ? 'Saving...' : 'Save'}</button>
-              {pfSaved && <span style={{ color: '#1b9254', fontSize: '14px', fontWeight: '600' }}>✓ Saved!</span>}
-            </div>
-        }
-      </div>
-      <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Contact Info</div>
-        <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
-          <div><div style={{ fontSize: '11px', color: '#4e6087', marginBottom: '4px' }}>EMAIL</div><div style={{ fontSize: '14px', color: '#16264a' }}>{client?.email || '—'}</div></div>
-          <div><div style={{ fontSize: '11px', color: '#4e6087', marginBottom: '4px' }}>PHONE</div><div style={{ fontSize: '14px', color: '#16264a' }}>{client?.phone || '—'}</div></div>
+        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Contact Info</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '18px 24px' }}>
+          <div><div style={fieldLabel}>Email</div><div style={fieldValue}>{client?.email || '—'}</div></div>
+          <div><div style={fieldLabel}>Phone</div><div style={fieldValue}>{client?.phone || '—'}</div></div>
         </div>
-        {contacts?.length > 0 && <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #ebf0f8' }}>
-          <div style={{ fontSize: '11px', color: '#4e6087', marginBottom: '8px' }}>ADDITIONAL CONTACTS</div>
-          {contacts.map(c => (
-            <div key={c.id} style={{ fontSize: '14px', color: '#16264a', marginBottom: '4px' }}>{c.first_name} {c.last_name}{c.email ? <span style={{ color: '#4e6087', fontSize: '12px' }}> · {c.email}</span> : ''}</div>
+        {contacts?.length > 0 && <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid #eef2f9' }}>
+          <div style={{ ...fieldLabel, marginBottom: '10px' }}>Additional Contacts</div>
+          {contacts.map((c, i) => (
+            <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: i < contacts.length - 1 ? '1px solid #eef2f9' : 'none' }}>
+              <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>{initials(c.first_name, c.last_name)}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#16264a' }}>{c.first_name} {c.last_name}</div>
+                {c.email && <div style={{ fontSize: '12px', color: '#4e6087', marginTop: '1px' }}>{c.email}</div>}
+              </div>
+            </div>
           ))}
         </div>}
       </div>
       {!readOnly && (
         <div style={sectionStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px' }}>All Notes ({notes.length})</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px' }}>All Notes</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>{notes.length}</span>
+            </div>
             <AddGeneralNote clientId={client.id} notes={notes} onNotesChange={onNotesChange} programName={program?.name || null} />
           </div>
           {notes.map(note => (
@@ -333,6 +319,41 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
           ))}
         </div>
       )}
+      </div>
+
+      {/* Side column — status + assigned PF */}
+      <div style={{ flex: '1 1 250px', minWidth: '250px' }}>
+        <div style={sectionStyle}>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Client Status</div>
+          {readOnly
+            ? <span style={{ padding: '4px 14px', borderRadius: '6px', fontSize: '14px', fontWeight: '600', background: `${statusColors[status]}22`, color: statusColors[status], border: `1px solid ${statusColors[status]}44` }}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
+            : <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {[['active','Active'], ['pending','Pending'], ['lost','Lost']].map(([val, label]) => (
+                  <button key={val} onClick={() => updateStatus(val)} disabled={saving}
+                    style={{ padding: '8px 20px', borderRadius: '6px', border: `1px solid ${status === val ? statusColors[val] : '#c7d4e8'}`, background: status === val ? `${statusColors[val]}22` : 'transparent', color: status === val ? statusColors[val] : '#4e6087', fontSize: '13px', cursor: 'pointer', fontWeight: status === val ? '600' : '400' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+          }
+        </div>
+        <div style={sectionStyle}>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Assigned PF</div>
+          {readOnly
+            ? <div style={{ fontSize: '14px', color: '#16264a' }}>{client?.assigned_pf || '—'}</div>
+            : <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <select value={assignedPf} onChange={e => setAssignedPf(e.target.value)} style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#ffffff', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif', minWidth: '160px', flex: 1 }}>
+                  <option value="">-- Select --</option>
+                  <option value="Evan Anderson">Evan Anderson</option>
+                  <option value="Bridger Silvester">Bridger Silvester</option>
+                  <option value="Ian Welham">Ian Welham</option>
+                </select>
+                <button onClick={savePf} disabled={savingPf} style={{ padding: '8px 20px', borderRadius: '8px', background: savingPf ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '14px', cursor: savingPf ? 'not-allowed' : 'pointer' }}>{savingPf ? 'Saving...' : 'Save'}</button>
+                {pfSaved && <span style={{ color: '#1b9254', fontSize: '14px', fontWeight: '600' }}>✓ Saved!</span>}
+              </div>
+          }
+        </div>
+      </div>
     </div>
   )
 }

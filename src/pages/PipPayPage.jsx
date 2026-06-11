@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import TokenShell from '../components/shared/TokenShell'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
@@ -52,13 +53,13 @@ export default function PipPayPage() {
   }
 
   if (status === 'loading') return (
-    <div style={containerStyle}>
-      <p style={{ color: '#4e6087', fontSize: '15px' }}>Loading payment details…</p>
-    </div>
+    <TokenShell>
+      <p style={{ color: '#4e6087', fontSize: '15px', textAlign: 'center', margin: 0 }}>Loading payment details…</p>
+    </TokenShell>
   )
 
   if (status === 'error') return (
-    <div style={containerStyle}>
+    <TokenShell maxWidth={520}>
       <div style={messageCardStyle}>
         <div style={{ ...iconCircleStyle, background: '#ef444420' }}>
           <span style={{ fontSize: '28px', lineHeight: 1 }}>⚠️</span>
@@ -66,13 +67,13 @@ export default function PipPayPage() {
         <h1 style={titleStyle}>Payment Error</h1>
         <p style={subtitleStyle}>{error}</p>
       </div>
-    </div>
+    </TokenShell>
   )
 
   if (status === 'redirecting') return (
-    <div style={containerStyle}>
-      <p style={{ color: '#4e6087', fontSize: '15px' }}>Redirecting to Stripe…</p>
-    </div>
+    <TokenShell>
+      <p style={{ color: '#4e6087', fontSize: '15px', textAlign: 'center', margin: 0 }}>Redirecting to Stripe…</p>
+    </TokenShell>
   )
 
   const baseAmount = Number(data.payment_amount) || 0
@@ -80,7 +81,7 @@ export default function PipPayPage() {
   const cardFee = Math.round((cardTotal - baseAmount) * 100) / 100
 
   return (
-    <div style={containerStyle}>
+    <TokenShell>
       <div style={pageContainerStyle}>
         <div style={{ ...iconCircleStyle, width: '64px', height: '64px', background: 'rgba(34,197,94,0.15)' }}>
           <span style={{ fontSize: '28px', lineHeight: 1 }}>🔒</span>
@@ -130,7 +131,7 @@ export default function PipPayPage() {
           VFO Services never sees or stores your payment information.
         </p>
       </div>
-    </div>
+    </TokenShell>
   )
 }
 
@@ -168,26 +169,13 @@ function formatMoney(n) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const containerStyle = {
-  fontFamily: '"Inter", sans-serif',
-  background: '#ffffff',
-  color: '#243757',
-  minHeight: '100vh',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '24px',
-}
-
 const pageContainerStyle = {
-  maxWidth: '540px',
   width: '100%',
 }
 
 const messageCardStyle = {
   textAlign: 'center',
-  maxWidth: '480px',
-  padding: '48px 32px',
+  padding: '12px 0',
 }
 
 const iconCircleStyle = {

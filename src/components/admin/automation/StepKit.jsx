@@ -108,6 +108,56 @@ export function Pending({ text = 'Not started yet' }) {
   return <span style={{ fontSize: '12px', color: '#697a9c', fontStyle: 'italic' }}>{text}</span>
 }
 
+// ---- panel hero -----------------------------------------------------------
+// Designed header card for an automation panel: gradient accent strip,
+// eyebrow + navy title, right-side action slot (sandbox toggle, selects),
+// and the panel's stat counters as a divided row. Presentation only.
+export function PanelHero({ eyebrow = 'Automation Pipeline', title, action, stats }) {
+  return (
+    <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', marginBottom: '20px', overflow: 'hidden' }}>
+      <div style={{ height: '4px', background: 'linear-gradient(90deg, #002973 0%, #125ecc 55%, #0a85e8 100%)' }} />
+      <div style={{ padding: '18px 22px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '1.2px', color: '#0095ff', textTransform: 'uppercase', marginBottom: '5px' }}>{eyebrow}</div>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '22px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1.15 }}>{title}</div>
+          </div>
+          {action && <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>{action}</div>}
+        </div>
+        {stats && stats.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', rowGap: '10px', marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #eef2f9' }}>
+            {stats.map((s, i) => (
+              <div key={s.label} style={{ padding: '2px 22px 2px 0', marginRight: '22px', borderRight: i < stats.length - 1 ? '1px solid #eef2f9' : 'none' }}>
+                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '24px', fontWeight: 800, letterSpacing: '-0.03em', color: s.color || '#002973', lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontSize: '10px', fontWeight: 600, color: '#4e6087', letterSpacing: '1px', marginTop: '4px', textTransform: 'uppercase' }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Designed empty state for a panel with no rows yet.
+export function EmptyState({ title, hint }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '48px 24px', background: '#eef2f9', borderRadius: '14px', border: '1px solid #dde5f2' }}>
+      <div style={{ color: '#16264a', fontSize: '15px', fontWeight: 600, marginBottom: '6px' }}>{title}</div>
+      {hint && <div style={{ color: '#697a9c', fontSize: '13px' }}>{hint}</div>}
+    </div>
+  )
+}
+
+// White card wrapper for the pipeline tables (horizontal scroll inside).
+export function TableCard({ children }) {
+  return (
+    <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', overflow: 'hidden' }}>
+      <div style={{ overflowX: 'auto' }}>{children}</div>
+    </div>
+  )
+}
+
 // ---- the step card ------------------------------------------------------
 export function StepCard({ title, status = 'pending', children }) {
   const s = STATUS[status] || STATUS.pending

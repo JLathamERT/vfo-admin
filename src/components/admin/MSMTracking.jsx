@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { callApi, getSession, loadCachedAction } from '../../lib/api'
 import { ClientsListSkeleton, TrainingTrackSkeleton, CoachingMeetingsSkeleton, CoachingRenewalSkeleton, AdminMsmHomeSkeleton, ProgramNotesSkeleton, AdminProgramViewSkeleton } from '../shared/Skeleton'
+import { TrackHero, PhaseBadge } from '../shared/TrackKit'
 
 const PROGRAMS = [
   { key: 'holistic', name: 'VFO Holistic Planning' },
@@ -149,24 +150,28 @@ export default function MSMTracking({ member, activeSection, onDataChange }) {
 
       {/* MSM HOME TAB */}
       {activeTab === 'home' && (
-        <div>
-          {/* MSM Assignment */}
-          <MsmAssignment member={member} onSaved={onDataChange} />
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
-          {/* Program Toggles */}
-          <ProgramToggles member={member} programs={programs} enabledPrograms={enabledPrograms} onToggle={loadData} />
+          {/* Side column — assignment + program toggles */}
+          <div style={{ flex: '1 1 250px', minWidth: '250px', order: 2 }}>
+            <MsmAssignment member={member} onSaved={onDataChange} />
+            <ProgramToggles member={member} programs={programs} enabledPrograms={enabledPrograms} onToggle={loadData} />
+          </div>
+
+          {/* Main column — meetings */}
+          <div style={{ flex: '2 1 400px', minWidth: '300px', order: 1 }}>
 
           {/* Meeting counts */}
           <div style={sectionStyle}>
             <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting Summary</div>
-            <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '20px' }}>
               {[
                 ['MSM Meetings', msmCount],
                 ['Advanced Meetings', advancedCount],
                 ['VFO 90 Day Plan', vfo90Count],
                 ['PFT 90 Day Plan', pft90Count],
               ].map(([label, count]) => (
-                <div key={label} style={{ textAlign: 'center' }}>
+                <div key={label} style={{ textAlign: 'center', padding: '12px 8px', background: '#eef2f9', border: '1px solid #e3eaf5', borderRadius: '12px' }}>
                   <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973' }}>{count}</div>
                   <div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '3px', textTransform: 'uppercase' }}>{label}</div>
                 </div>
@@ -227,6 +232,7 @@ export default function MSMTracking({ member, activeSection, onDataChange }) {
                 </div>
               ))
             }
+          </div>
           </div>
         </div>
       )}
@@ -396,21 +402,25 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
 
   return (
     <div>
-      <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a', marginBottom: '20px' }}>{program.name}</div>
-      <div style={sectionStyle}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: editingEnrollment ? '16px' : '0' }}>
-          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-            <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Joined</div><div style={{ fontSize: '14px', color: '#16264a', marginTop: '4px' }}>{enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</div></div>
-            {!isCoaching && <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Program Status</div><div style={{ fontSize: '14px', color: statusColors[enrollment.program_status] || '#16264a', marginTop: '4px', fontWeight: '600' }}>{enrollment.program_status}</div></div>}
-            {!isCoaching && !isTaxPlanning && <PlanStatusBadge enrollmentId={enrollment.id} programId={program.id} />}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginBottom: '20px' }}>
+        <div>
+          <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '1.2px', color: '#0095ff', textTransform: 'uppercase', marginBottom: '4px' }}>Program</div>
+          <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.03em', fontSize: '22px', color: '#002973' }}>{program.name}</div>
+          <div style={{ fontSize: '12.5px', color: '#4e6087', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span>Joined {enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</span>
+            {!isCoaching && enrollment.program_status && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#16264a' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[enrollment.program_status] || '#9aa6bf', flexShrink: 0 }} />{enrollment.program_status}</span></>}
+            {!isCoaching && !isTaxPlanning && <><span style={{ color: '#c7d4e8' }}>·</span><PlanStatusBadge enrollmentId={enrollment.id} programId={program.id} /></>}
           </div>
-          {!isCoaching && <button onClick={() => setEditingEnrollment(!editingEnrollment)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '12px', cursor: 'pointer' }}>
-            {editingEnrollment ? 'Cancel' : 'Edit'}
-          </button>}
         </div>
-
+        {!isCoaching && (
+          <button onClick={() => setEditingEnrollment(!editingEnrollment)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '12px', cursor: 'pointer' }}>
+            {editingEnrollment ? 'Cancel' : 'Edit'}
+          </button>
+        )}
+      </div>
+      <div style={{ display: editingEnrollment ? 'block' : 'none' }}>
         {editingEnrollment && (
-          <div style={{ padding: '16px', background: '#eef2f9', borderRadius: '8px' }}>
+          <div style={{ ...sectionStyle, padding: '16px' }}>
             <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '160px' }}>
                 <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Program Status</label>
@@ -534,19 +544,14 @@ function TrainingTrack({ enrollment, program }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap', background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '14px 20px', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px' }}>
-          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '24px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{completedTasks}</span>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: '#9aa6bf' }}>/ {totalTasks}</span>
-          <span style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginLeft: '8px' }}>TASKS COMPLETED</span>
-        </div>
-        <div style={{ flex: 1, minWidth: '140px', height: '8px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #e3eaf5', overflow: 'hidden' }}>
-          <div style={{ width: `${totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%`, height: '100%', borderRadius: '999px', background: 'linear-gradient(90deg, #125ecc 0%, #0a85e8 100%)', transition: 'width 0.3s' }} />
-        </div>
-        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '20px', fontWeight: 800, letterSpacing: '-0.02em', color: '#125ecc', lineHeight: 1 }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</span>
-      </div>
+      <TrackHero
+        accent={false}
+        completed={completedTasks}
+        total={totalTasks}
+        steps={phases.map(ph => ({ label: ph.name, state: getPhaseState(ph) }))}
+      />
 
-      {phases.map(phase => {
+      {phases.map((phase, phaseIdx) => {
         const state = getPhaseState(phase)
         const isExpanded = expanded[phase.id]
         const tasks = phase.program_training_tasks || []
@@ -556,11 +561,14 @@ function TrainingTrack({ enrollment, program }) {
         const titleColor = state === 'active' ? '#125ecc' : '#002973'
         const isReview = phase.name.includes('Review')
 
+        const phaseNumber = phases.slice(0, phaseIdx).filter(p => !p.name.includes('Review')).length + 1
         return (
           <div key={phase.id} style={{ background: isReview ? '#eef2f9' : '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: isReview ? '10px' : '10px', marginTop: isReview ? '-6px' : '0', marginLeft: isReview ? '20px' : '0', overflow: 'hidden', borderTopLeftRadius: isReview ? '0' : '12px', borderTopRightRadius: isReview ? '12px' : '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
-              <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
-                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
+              <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: isReview ? '10px' : '12px', cursor: 'pointer', flex: 1 }}>
+                {isReview
+                  ? <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
+                  : <PhaseBadge number={phaseNumber} state={state} />}
                 <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}{isReview && <span style={{ fontSize: '10px', color: '#4e6087', marginLeft: '8px', textTransform: 'none', fontWeight: '400', letterSpacing: '0' }}>checkpoint</span>}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -895,8 +903,8 @@ function MsmAssignment({ member, onSaved }) {
   return (
     <div style={sectionStyle}>
       <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Assigned MSM</div>
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-        <select value={assignedMsm} onChange={e => setAssignedMsm(e.target.value)} style={{ ...inputStyle, background: '#ffffff', minWidth: '220px' }}>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <select value={assignedMsm} onChange={e => setAssignedMsm(e.target.value)} style={{ ...inputStyle, background: '#ffffff', flex: 1, minWidth: '150px' }}>
           <option value="">-- Select MSM --</option>
           {TEAM_MEMBERS.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
@@ -935,10 +943,10 @@ function PlanStatusBadge({ enrollmentId, programId }) {
   }
 
   return (
-    <div>
-      <div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>90 Day Plan</div>
-      <div style={{ fontSize: '14px', color: '#16264a', marginTop: '4px', fontWeight: '600' }}>{planStatus}</div>
-    </div>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+      <span>90 Day Plan:</span>
+      <span style={{ fontWeight: 600, color: '#16264a' }}>{planStatus}</span>
+    </span>
   )
 }
 

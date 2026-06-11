@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { callApi, getSession } from '../../lib/api'
 import { AdvisorOnboardingListSkeleton, AdvisorOnboardingDetailSkeleton } from '../shared/Skeleton'
+import { TrackHero, PhaseBadge, ListHeader } from '../shared/TrackKit'
 
 const STAGE_NAMES = ['', 'Preliminary Meeting', 'PC Admin', 'Add New Advisor']
 
@@ -62,10 +63,11 @@ export default function AdvisorOnboarding() {
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a' }}>Advisor Onboarding</div>
-        <button onClick={() => setShowNew(!showNew)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>+ New Onboarding</button>
-      </div>
+      <ListHeader
+        title="Advisor Onboarding"
+        count={onboardings.length}
+        action={<button onClick={() => setShowNew(!showNew)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>+ New Onboarding</button>}
+      />
 
       {showNew && (
         <div style={{ ...sectionStyle, marginBottom: '24px' }}>
@@ -247,10 +249,16 @@ function OnboardingDetail({ id, onBack }) {
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
       <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
-      <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e3eaf5' }}>
-        <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '28px', color: '#16264a' }}>{ob.first_name} {ob.last_name}</div>
-        <div style={{ fontSize: '13px', color: '#4e6087', marginTop: '4px' }}>{ob.email || 'No email'}</div>
-      </div>
+      <TrackHero
+        eyebrow="Advisor Onboarding"
+        title={`${ob.first_name} ${ob.last_name}`}
+        meta={`${ob.email || 'No email'} · Started ${ob.created_at?.split('T')[0] || ''}`}
+        steps={[
+          { label: 'Preliminary Meeting', state: stage1State() },
+          { label: 'PC Admin', state: stage2State() },
+          { label: 'Add New Advisor', state: stage3State() },
+        ]}
+      />
 
       <StageBlock stage={1} title="Preliminary Meeting" state={stage1State()} expanded={expanded[1]} onToggle={() => setExpanded(p => ({ ...p, 1: !p[1] }))}>
         <Row label="Preliminary Meeting" done={!!ob.prelim_meeting_status} date={ob.prelim_meeting_status_at}>
@@ -350,13 +358,12 @@ function OnboardingDetail({ id, onBack }) {
 
 function StageBlock({ stage, title, state, expanded, onToggle, dimmed, children }) {
   const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
-  const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
   const titleColor = state === 'active' ? '#125ecc' : '#002973'
   return (
     <div style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden', opacity: dimmed ? 0.55 : 1 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer' }} onClick={onToggle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
-          <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+          <PhaseBadge number={stage} state={state} />
           <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{title}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

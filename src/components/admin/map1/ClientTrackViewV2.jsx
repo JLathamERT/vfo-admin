@@ -6,6 +6,7 @@ import PFExtraMeetingForm from './PFExtraMeetingForm'
 import PIPDecisionForm from './PIPDecisionForm'
 import MeetingCompleteButton from './MeetingCompleteButton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
+import { TrackHero, PhaseBadge } from '../../shared/TrackKit'
 
 // PIP meeting confirmation step (PIP 1 / PIP Follow-up) — 3-button post-meeting
 // decision mirroring Partnership Fast Track Meeting 1: "with date" (date/time/tz),
@@ -180,6 +181,12 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
     // non-auto tasks never get a status, so the generic logic below would leave
     // the header grey forever. Derive its state from the pipeline row instead.
     if (phase.name === 'MAP 1 - PC Admin') return pcAdminPhaseState()
+    // Allocation's two "Move to ..." tasks are alternatives — a client may do
+    // only Regular or only Tax — so either one enabled completes the phase.
+    if (phase.name === 'MAP 1 - Allocation') {
+      const allocTasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
+      return allocTasks.some(t => progress[t.id]?.status) ? 'done' : 'pending'
+    }
     const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
     if (tasks.length === 0) return 'done'
     if (tasks.every(t => progress[t.id]?.status)) return 'done'
@@ -215,7 +222,16 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
   if (loading) return <Map1TrackSkeleton />
 
 
-  const totalTasks = phases.reduce((s, p) => s + (p.program_client_tasks || []).filter(t => t.status_options !== 'auto').length, 0)
+  const totalTasks = phases.reduce((s, p) => {
+    const nonAuto = (p.program_client_tasks || []).filter(t => t.status_options !== 'auto')
+    // Allocation tasks are alternatives: once a path is enabled, only the
+    // enabled one(s) count so the unused path doesn't hold the % down.
+    if (p.name === 'MAP 1 - Allocation') {
+      const set = nonAuto.filter(t => progress[t.id]?.status).length
+      return s + (set > 0 ? set : nonAuto.length)
+    }
+    return s + nonAuto.length
+  }, 0)
   const completedTasks = phases.reduce((s, phase) => {
     const nonAuto = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
     // PC Admin's non-auto tasks are pipeline-driven (no progress status), so
@@ -226,20 +242,16 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap', background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '14px 20px', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px' }}>
-          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '24px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{completedTasks}</span>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: '#9aa6bf' }}>/ {totalTasks}</span>
-          <span style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginLeft: '8px' }}>TASKS COMPLETED</span>
-        </div>
-        <div style={{ flex: 1, minWidth: '140px', height: '8px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #e3eaf5', overflow: 'hidden' }}>
-          <div style={{ width: `${totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%`, height: '100%', borderRadius: '999px', background: 'linear-gradient(90deg, #125ecc 0%, #0a85e8 100%)', transition: 'width 0.3s' }} />
-        </div>
-        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '20px', fontWeight: 800, letterSpacing: '-0.02em', color: '#125ecc', lineHeight: 1 }}>{totalTasks > 0 ? Math.round(completedTasks / totalTasks * 100) : 0}%</span>
-      </div>
+      <TrackHero
+        eyebrow="VFO Holistic Planning"
+        title="MAP 1 — Engagement Process"
+        completed={completedTasks}
+        total={totalTasks}
+        steps={phases.map(ph => ({ label: ph.name.replace(/^MAP 1 - /, ''), state: getPhaseState(ph) }))}
+      />
 
       {/* Phases */}
-      {phases.map(phase => {
+      {phases.map((phase, phaseIdx) => {
         const state = getPhaseState(phase)
         const isExpanded = expanded[phase.id]
         const tasks = phase.program_client_tasks || []
@@ -264,8 +276,8 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
           <div key={phase.id} style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
             {/* Phase header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
-              <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
-                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${state === 'pending' ? '#c7d4e8' : dotColor}`, flexShrink: 0 }} />
+              <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flex: 1 }}>
+                <PhaseBadge number={phaseIdx + 1} state={state} />
                 <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

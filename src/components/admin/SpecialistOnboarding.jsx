@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { callApi, getSession } from '../../lib/api'
 import { SpecialistOnboardingListSkeleton, SpecialistOnboardingDetailSkeleton } from '../shared/Skeleton'
+import { TrackHero, PhaseBadge, ListHeader } from '../shared/TrackKit'
  
 const STAGE_NAMES = ['', 'Preliminary Meeting', 'Detail Meetings', 'Due Diligence', 'Contract & Details', 'Going Live']
 
@@ -106,10 +107,11 @@ export default function SpecialistOnboarding() {
  
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a' }}>Specialist Onboarding</div>
-        <button onClick={() => setShowNew(!showNew)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>+ New Onboarding</button>
-      </div>
+      <ListHeader
+        title="Specialist Onboarding"
+        count={onboardings.length}
+        action={<button onClick={() => setShowNew(!showNew)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>+ New Onboarding</button>}
+      />
  
       {showNew && (
         <div style={{ ...sectionStyle, marginBottom: '24px' }}>
@@ -327,17 +329,17 @@ function OnboardingDetail({ id, onBack }) {
   function StageHeader({ stage, title }) {
     const state = getStageState(stage)
     const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
-    const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
-    const dotBorder = state === 'pending' ? '#c7d4e8' : dotColor
     const titleColor = state === 'active' ? '#125ecc' : '#002973'
     const isExpanded = expanded[stage]
- 
+    // the numbered badge replaces the "Stage N — " text prefix
+    const displayTitle = title.replace(/^Stage \d+ — /, '')
+
     return (
       <div style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
-          <div onClick={() => setExpanded(p => ({ ...p, [stage]: !p[stage] }))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
-            <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: dotColor, border: `1.5px solid ${dotBorder}`, flexShrink: 0 }} />
-            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{title}</span>
+          <div onClick={() => setExpanded(p => ({ ...p, [stage]: !p[stage] }))} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flex: 1 }}>
+            <PhaseBadge number={stage} state={state} />
+            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{displayTitle}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <StageBadge stage={stage} />
@@ -1583,17 +1585,19 @@ function OnboardingDetail({ id, onBack }) {
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
       <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0, fontFamily: 'Inter, sans-serif' }}>← Back to list</button>
  
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-        <div>
-          <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a', marginBottom: '4px' }}>{ob.specialist_name}</div>
-          <div style={{ fontSize: '13px', color: '#4e6087' }}>{ob.specialist_email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          {isStopped && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600, border: '1px solid rgba(231,76,60,0.3)' }}>Stopped</span>}
-          {isCompleted && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Completed</span>}
-          {!isStopped && !isCompleted && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>Stage {ob.current_stage} · {STAGE_NAMES[ob.current_stage]}</span>}
-        </div>
-      </div>
+      <TrackHero
+        eyebrow="Specialist Onboarding"
+        title={ob.specialist_name}
+        meta={
+          <>
+            {isStopped && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600, border: '1px solid rgba(231,76,60,0.3)' }}>Stopped</span>}
+            {isCompleted && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Completed</span>}
+            {!isStopped && !isCompleted && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>Stage {ob.current_stage} · {STAGE_NAMES[ob.current_stage]}</span>}
+            <span>{ob.specialist_email || 'No email'} · Started {ob.created_at?.split('T')[0]}</span>
+          </>
+        }
+        steps={[1, 2, 3, 4, 5].map(s => ({ label: STAGE_NAMES[s], state: getStageState(s) }))}
+      />
  
       <StageHeader stage={1} title="Stage 1 — Preliminary Meeting" />
       <StageHeader stage={2} title="Stage 2 — Detail Meetings" />
