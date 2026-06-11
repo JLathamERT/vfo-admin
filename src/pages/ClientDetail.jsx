@@ -10,6 +10,7 @@ import TaxPrioritiesTab from '../components/admin/tax/TaxPrioritiesTab'
 import AddGeneralNote from '../components/shared/AddGeneralNote'
 import { PhaseNotesButton, PhaseNotesPanel } from '../components/shared/PhaseNotes'
 import { Skeleton, ProfileTabSkeleton } from '../components/shared/Skeleton'
+import { TrackHero } from '../components/shared/TrackKit'
 import VfoWordmark from '../components/shared/VfoWordmark'
 
 const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael', 'Bridger Silvester', 'Tracy Miller', 'Evan Anderson']
@@ -129,33 +130,32 @@ export default function ClientDetail() {
         <button onClick={handleBack} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>{backLabel}</button>
 
         {/* Client header */}
-        <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e3eaf5' }}>
-          {loading ? (
-            <>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-                <Skeleton width={260} height={32} />
-              </div>
-              <div style={{ display: 'flex', gap: '16px', marginTop: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <Skeleton width={90} height={14} />
-                <Skeleton width={130} height={14} />
-                <Skeleton width={70} height={20} style={{ borderRadius: '4px' }} />
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-                <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '28px', color: '#16264a' }}>{client?.first_name} {client?.last_name}</div>
-                {contacts?.length > 0 && <div style={{ fontSize: '14px', color: '#697a9c', fontStyle: 'italic' }}>with {contacts.map(c => `${c.first_name} ${c.last_name}`).join(', ')}</div>}
-              </div>
-              <div style={{ display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ fontSize: '13px', color: '#4e6087', fontFamily: 'monospace' }}>{client?.client_ref}</span>
-                {program && <span style={{ fontSize: '13px', color: '#0095ff', fontWeight: 500 }}>{program.name}</span>}
-                {client?.member_name && <span style={{ fontSize: '13px', color: '#4e6087' }}>Member: {client.member_name}</span>}
-                <span style={{ padding: '2px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: '600', background: `${statusColors2[client?.status] || '#4e6087'}22`, color: statusColors2[client?.status] || '#4e6087', border: `1px solid ${statusColors2[client?.status] || '#4e6087'}44` }}>{client?.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : ''}</span>
-              </div>
-            </>
-          )}
-        </div>
+        {loading ? (
+          <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e3eaf5' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+              <Skeleton width={260} height={32} />
+            </div>
+            <div style={{ display: 'flex', gap: '16px', marginTop: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <Skeleton width={90} height={14} />
+              <Skeleton width={130} height={14} />
+              <Skeleton width={70} height={20} style={{ borderRadius: '4px' }} />
+            </div>
+          </div>
+        ) : (
+          <TrackHero
+            eyebrow="Clients"
+            title={`${client?.first_name} ${client?.last_name}`}
+            meta={
+              <>
+                <span style={{ fontFamily: 'monospace' }}>{client?.client_ref}</span>
+                {program && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ color: '#0095ff', fontWeight: 500 }}>{program.name}</span></>}
+                {client?.member_name && <><span style={{ color: '#c7d4e8' }}>·</span><span>Member: {client.member_name}</span></>}
+                {contacts?.length > 0 && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ fontStyle: 'italic' }}>with {contacts.map(c => `${c.first_name} ${c.last_name}`).join(', ')}</span></>}
+                {client?.status && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#16264a' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors2[client?.status] || '#9aa6bf', flexShrink: 0 }} />{client.status.charAt(0).toUpperCase() + client.status.slice(1)}</span></>}
+              </>
+            }
+          />
+        )}
 
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px', gap: '8px', paddingBottom: '10px' }}>
