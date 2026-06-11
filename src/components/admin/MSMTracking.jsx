@@ -164,14 +164,14 @@ export default function MSMTracking({ member, activeSection, onDataChange }) {
           {/* Meeting counts */}
           <div style={sectionStyle}>
             <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting Summary</div>
-            <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(125px, 1fr))', gap: '16px 12px', marginBottom: '20px' }}>
               {[
                 ['MSM Meetings', msmCount],
                 ['Advanced Meetings', advancedCount],
                 ['VFO 90 Day Plan', vfo90Count],
                 ['PFT 90 Day Plan', pft90Count],
               ].map(([label, count]) => (
-                <div key={label} style={{ textAlign: 'center' }}>
+                <div key={label} style={{ textAlign: 'center', padding: '12px 8px', background: '#eef2f9', border: '1px solid #e3eaf5', borderRadius: '12px' }}>
                   <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973' }}>{count}</div>
                   <div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '3px', textTransform: 'uppercase' }}>{label}</div>
                 </div>
