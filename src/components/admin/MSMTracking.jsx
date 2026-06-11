@@ -150,12 +150,16 @@ export default function MSMTracking({ member, activeSection, onDataChange }) {
 
       {/* MSM HOME TAB */}
       {activeTab === 'home' && (
-        <div>
-          {/* MSM Assignment */}
-          <MsmAssignment member={member} onSaved={onDataChange} />
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
-          {/* Program Toggles */}
-          <ProgramToggles member={member} programs={programs} enabledPrograms={enabledPrograms} onToggle={loadData} />
+          {/* Side column — assignment + program toggles */}
+          <div style={{ flex: '1 1 250px', minWidth: '250px', order: 2 }}>
+            <MsmAssignment member={member} onSaved={onDataChange} />
+            <ProgramToggles member={member} programs={programs} enabledPrograms={enabledPrograms} onToggle={loadData} />
+          </div>
+
+          {/* Main column — meetings */}
+          <div style={{ flex: '2 1 400px', minWidth: '300px', order: 1 }}>
 
           {/* Meeting counts */}
           <div style={sectionStyle}>
@@ -228,6 +232,7 @@ export default function MSMTracking({ member, activeSection, onDataChange }) {
                 </div>
               ))
             }
+          </div>
           </div>
         </div>
       )}
@@ -403,9 +408,9 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
       </div>
       <div style={sectionStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: editingEnrollment ? '16px' : '0' }}>
-          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-            <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Joined</div><div style={{ fontSize: '14px', color: '#16264a', marginTop: '4px' }}>{enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</div></div>
-            {!isCoaching && <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Program Status</div><div style={{ fontSize: '14px', color: statusColors[enrollment.program_status] || '#16264a', marginTop: '4px', fontWeight: '600' }}>{enrollment.program_status}</div></div>}
+          <div style={{ display: 'flex', gap: '18px 32px', flexWrap: 'wrap' }}>
+            <div><div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: '#7c8aa6', textTransform: 'uppercase' }}>Date Joined</div><div style={{ fontSize: '15px', color: '#16264a', fontWeight: 600, marginTop: '5px' }}>{enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</div></div>
+            {!isCoaching && <div><div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: '#7c8aa6', textTransform: 'uppercase' }}>Program Status</div><div style={{ marginTop: '5px' }}><span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '999px', fontWeight: 600, background: `${statusColors[enrollment.program_status] || '#4e6087'}18`, color: statusColors[enrollment.program_status] || '#4e6087', border: `1px solid ${statusColors[enrollment.program_status] || '#4e6087'}33` }}>{enrollment.program_status}</span></div></div>}
             {!isCoaching && !isTaxPlanning && <PlanStatusBadge enrollmentId={enrollment.id} programId={program.id} />}
           </div>
           {!isCoaching && <button onClick={() => setEditingEnrollment(!editingEnrollment)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '12px', cursor: 'pointer' }}>

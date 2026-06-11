@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { callApi } from '../../lib/api'
 import SpecialistOnboarding from './SpecialistOnboarding'
@@ -34,7 +34,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   const [editCiqDrop, setEditCiqDrop] = useState('')
   const [editSearch, setEditSearch] = useState('')
   const [selectedExpert, setSelectedExpert] = useState(null)
-  const [specialistTab, setSpecialistTab] = useState('edit')
+  const [specialistTab, setSpecialistTab] = useState('profile')
   const [searchParams] = useSearchParams()
 
   // Deep-link from the Stage 5 onboarding links: /admin?...&expert=<id> opens
@@ -398,15 +398,19 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
 
       {activeTab === 'edit' && selectedExpert && (
         <div>
-          <button onClick={() => { setSelectedExpert(null); setEditingId(null); setSpecialistTab('edit') }} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
+          <button onClick={() => { setSelectedExpert(null); setEditingId(null); setSpecialistTab('profile') }} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
 
           <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', borderBottom: '1px solid #e3eaf5' }}>
-            {['edit', 'vault'].map(t => (
+            {['profile', 'edit', 'vault'].map(t => (
               <button key={t} onClick={() => setSpecialistTab(t)} style={{ padding: '8px 16px', border: 'none', background: 'none', borderBottom: specialistTab === t ? '2px solid #125ecc' : '2px solid transparent', color: specialistTab === t ? '#125ecc' : '#4e6087', fontWeight: specialistTab === t ? 600 : 400, fontSize: '14px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: '-1px' }}>
-                {t === 'edit' ? 'Edit Specialist' : 'Vault'}
+                {t === 'profile' ? 'Profile' : t === 'edit' ? 'Edit Specialist' : 'Vault'}
               </button>
             ))}
           </div>
+
+          {specialistTab === 'profile' && (
+            <SpecialistProfileView expert={selectedExpert} ecos={ecoMap[selectedExpert.id] || []} ciq={ciqMap[selectedExpert.id] || []} />
+          )}
 
           {specialistTab === 'edit' && (
             <div style={sectionStyle}>
@@ -421,7 +425,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
                   style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
                   Save Changes
                 </button>
-                <button onClick={() => { setSelectedExpert(null); setEditingId(null); setSpecialistTab('edit') }}
+                <button onClick={() => { setSelectedExpert(null); setEditingId(null); setSpecialistTab('profile') }}
                   style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '14px', cursor: 'pointer' }}>
                   Cancel
                 </button>
@@ -442,6 +446,131 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
       )}
 
       
+    </div>
+  )
+}
+
+// Read-only presentation of a specialist — same data the Edit form loads,
+// arranged as a profile (header card + main column + side column). No state,
+// no API calls; Edit Specialist remains the only place changes are made.
+function SpecialistProfileView({ expert, ecos, ciq }) {
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '16px' }
+  const cardTitle = { fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '14px' }
+  const fieldLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: '#7c8aa6', textTransform: 'uppercase' }
+  const chip = { fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.25)' }
+  const longField = (label, value) => value ? (
+    <div style={{ marginBottom: '16px' }}>
+      <div style={fieldLabel}>{label}</div>
+      <div style={{ fontSize: '13.5px', color: '#16264a', lineHeight: 1.6, marginTop: '6px', whiteSpace: 'pre-wrap' }}>{value}</div>
+    </div>
+  ) : null
+
+  const dbFields = [
+    ['Strategy / Expertise', expert['D&B_strategy_expertise']],
+    ['Cut-off Date for Strategy', expert['D&B_cutoff_date']],
+    ['Client Requirements', expert['D&B_client_requirements']],
+    ['Amount of Investment or Cost', expert['D&B_investment_cost']],
+    ['Ideal Client Description', expert['D&B_ideal_client']],
+    ['Summary of Benefits', expert['D&B_summary_benefits']],
+    ['Getting Started with a Client', expert['D&B_getting_started']],
+    ['Steps of Professional Process', expert['D&B_professional_process']],
+    ['What Makes Them Better Than the Competition', expert['D&B_competitive_advantage']],
+  ]
+  const auditQs = [
+    ['1. General risks of this strategy', expert['D&B_audit_risk_general']],
+    ['2. History of these risks coming to fruition', expert['D&B_audit_risk_history']],
+    ['3. Potential worst-case scenarios', expert['D&B_audit_risk_worst_case']],
+    ['4. Precautions to prevent or minimize the risks', expert['D&B_audit_risk_precautions']],
+  ]
+  const hasDb = dbFields.some(([, v]) => v)
+  const hasAudit = auditQs.some(([, v]) => v)
+
+  return (
+    <div>
+      {/* Profile header */}
+      <div style={{ ...sectionStyle, padding: 0, overflow: 'hidden' }}>
+        <div style={{ height: '4px', background: 'linear-gradient(90deg, #002973 0%, #125ecc 55%, #0a85e8 100%)' }} />
+        <div style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
+          <div style={{ width: '72px', height: '72px', borderRadius: '16px', overflow: 'hidden', background: '#eef2f9', border: '1px solid #dde5f2', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {expert.headshot_image
+              ? <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.src = HEADSHOT_BASE + expert.headshot_image }} />
+              : <span style={{ color: '#9aa6bf', fontSize: '24px', fontWeight: 700 }}>{(expert.name || '?').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()}</span>}
+          </div>
+          <div style={{ minWidth: '200px', flex: 1 }}>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '22px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1.15 }}>{expert.name}</div>
+            {expert.short_bio && <div style={{ fontSize: '13px', color: '#4e6087', marginTop: '4px' }}>{expert.short_bio}</div>}
+            <div style={{ display: 'flex', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
+              {expert.top_of_t && <span style={{ ...chip, background: 'rgba(251,137,90,0.13)', color: '#e06717', border: '1px solid rgba(251,137,90,0.3)' }}>Top of the T</span>}
+              {expert.background_check && <span style={chip}>Background check · {expert.background_check}</span>}
+              {expert['D&B_tax_risk_mindset'] && <span style={{ ...chip, background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>{expert['D&B_tax_risk_mindset']}</span>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        {/* Main column */}
+        <div style={{ flex: '2 1 380px', minWidth: '300px' }}>
+          {expert.long_bio && (
+            <div style={sectionStyle}>
+              <div style={cardTitle}>Biography</div>
+              <div style={{ fontSize: '14px', color: '#16264a', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{expert.long_bio}</div>
+            </div>
+          )}
+
+          <div style={sectionStyle}>
+            <div style={cardTitle}>Details &amp; Benefits</div>
+            {hasDb
+              ? dbFields.map(([label, value]) => <Fragment key={label}>{longField(label, value)}</Fragment>)
+              : <div style={{ fontSize: '13px', color: '#697a9c', fontStyle: 'italic' }}>No details entered yet — use Edit Specialist to add them.</div>}
+          </div>
+
+          {hasAudit && (
+            <div style={sectionStyle}>
+              <div style={cardTitle}>Tax Planning Audit Risk Questionnaire</div>
+              {auditQs.map(([label, value]) => <Fragment key={label}>{longField(label, value)}</Fragment>)}
+            </div>
+          )}
+
+          {expert['D&B_revenue_share'] && (
+            <div style={sectionStyle}>
+              <div style={cardTitle}>Revenue Share</div>
+              <div style={{ padding: '14px 16px', background: '#eef2f9', border: '1px solid #dde5f2', borderLeft: '3px solid #0095ff', borderRadius: '10px', fontSize: '13.5px', color: '#16264a', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{expert['D&B_revenue_share']}</div>
+            </div>
+          )}
+        </div>
+
+        {/* Side column */}
+        <div style={{ flex: '1 1 240px', minWidth: '240px' }}>
+          {ecos.length > 0 && (
+            <div style={sectionStyle}>
+              <div style={cardTitle}>VFO Ecosystem</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {ecos.map(e => <span key={e} style={chip}>{e}</span>)}
+              </div>
+            </div>
+          )}
+
+          {ciq.length > 0 && (
+            <div style={sectionStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <span style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px' }}>CIQ Topics</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>{ciq.length}</span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {ciq.map(t => <span key={t} style={{ ...chip, background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>{t}</span>)}
+              </div>
+            </div>
+          )}
+
+          {expert['D&B_tax_risk_notes'] && (
+            <div style={sectionStyle}>
+              <div style={cardTitle}>Tax Risk Notes</div>
+              <div style={{ fontSize: '13px', color: '#16264a', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{expert['D&B_tax_risk_notes']}</div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
