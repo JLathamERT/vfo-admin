@@ -531,64 +531,120 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
     <div>
       
 
-      {activeTab === 'details' && (
-        <div>
-          {profile.stripe_account_id && (
-            <div style={sectionStyle}>
-              <div style={labelStyle}>Stripe Account</div><div style={{ fontSize: '14px', color: '#4e6087', fontFamily: 'monospace', marginTop: '4px' }}>{profile.stripe_account_id}</div>
-            </div>
-          )}
-          <div style={sectionStyle}>
-            <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: '140px' }}><div style={labelStyle}>Join Date</div><div style={{ fontSize: '15px', color: '#16264a', marginTop: '4px' }}>{profile.join_date ? profile.join_date.split('T')[0] : '—'}</div></div>
-              {(profile.elite_status === 'Lost' || profile.elite_status === 'Removed') && <div style={{ flex: 1, minWidth: '140px' }}><div style={labelStyle}>Leave Date</div><div style={{ fontSize: '15px', color: '#16264a', marginTop: '4px' }}>{profile.leave_date ? profile.leave_date.split('T')[0] : '—'}</div></div>}
-              <div style={{ flex: 2, minWidth: '200px' }}><div style={labelStyle}>Email</div><div style={{ fontSize: '15px', color: '#16264a', marginTop: '4px' }}>{profile.email || '—'}</div></div>
-              {!hiddenFields.includes('revenue_decision') && (
-                <div style={{ flex: 1, minWidth: '160px' }}><div style={labelStyle}>Revenue Decision</div><div style={{ fontSize: '15px', color: '#16264a', marginTop: '4px' }}>{profile.revenue_decision || '—'}</div></div>
+      {activeTab === 'details' && (() => {
+        const fieldLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: '#7c8aa6', textTransform: 'uppercase' }
+        const fieldValue = { fontSize: '15px', color: '#16264a', fontWeight: 600, marginTop: '5px' }
+        const initials = (name) => (name || '').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+        return (
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+
+            {/* Main column — details, notes */}
+            <div style={{ flex: '2 1 400px', minWidth: '300px' }}>
+              <div style={sectionStyle}>
+                <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Member Details</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '18px 24px' }}>
+                  <div><div style={fieldLabel}>Join Date</div><div style={fieldValue}>{profile.join_date ? profile.join_date.split('T')[0] : '—'}</div></div>
+                  {(profile.elite_status === 'Lost' || profile.elite_status === 'Removed') && <div><div style={fieldLabel}>Leave Date</div><div style={fieldValue}>{profile.leave_date ? profile.leave_date.split('T')[0] : '—'}</div></div>}
+                  <div><div style={fieldLabel}>Email</div><div style={{ ...fieldValue, wordBreak: 'break-word' }}>{profile.email || '—'}</div></div>
+                  {!hiddenFields.includes('revenue_decision') && (
+                    <div><div style={fieldLabel}>Revenue Decision</div><div style={fieldValue}>{profile.revenue_decision || '—'}</div></div>
+                  )}
+                </div>
+                {profile.stripe_account_id && (
+                  <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid #eef2f9' }}>
+                    <div style={fieldLabel}>Stripe Account</div>
+                    <div style={{ display: 'inline-block', marginTop: '7px', fontSize: '13px', color: '#243757', fontFamily: 'monospace', padding: '6px 12px', background: '#eef2f9', border: '1px solid #dde5f2', borderRadius: '8px' }}>{profile.stripe_account_id}</div>
+                  </div>
+                )}
+              </div>
+
+              {profile.notes && (
+                <div style={sectionStyle}>
+                  <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Notes</div>
+                  <div style={{ padding: '14px 16px', background: '#eef2f9', border: '1px solid #dde5f2', borderLeft: '3px solid #0095ff', borderRadius: '10px', fontSize: '14px', color: '#16264a', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{profile.notes}</div>
+                </div>
+              )}
+
+              {programNotes.length > 0 && (
+                <div style={sectionStyle}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                    <span style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px' }}>All Program Notes</span>
+                    <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>{programNotes.length}</span>
+                  </div>
+                  {programNotes.map(note => (
+                    <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid #e9eef8' }}>
+                      <div style={{ fontSize: '13px', color: '#16264a', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '11px', color: '#697a9c' }}>{note.created_by}</span>
+                        <span style={{ fontSize: '11px', color: '#697a9c' }}>·</span>
+                        <span style={{ fontSize: '11px', color: '#697a9c' }}>{note.created_at?.split('T')[0]}</span>
+                        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.2)' }}>{note.program_name}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-            {(profile.vfo_certified_date || profile.vfo_accredited_date) && (
-              <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', paddingTop: '16px', borderTop: '1px solid #eef2f9', marginTop: '16px' }}>
-                {profile.vfo_certified_date && <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><img src={vfoCertifiedSeal} style={{ width: '36px', height: '36px' }} /><div><div style={{ fontSize: '14px', color: '#b08d26', fontWeight: '600' }}>VFO Certified</div><div style={{ fontSize: '11px', color: '#4e6087', marginTop: '2px' }}>{profile.vfo_certified_date.split('T')[0]}</div></div></div>}
-                {profile.vfo_accredited_date && <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><img src={vfoAccreditedSeal} style={{ width: '36px', height: '36px' }} /><div><div style={{ fontSize: '14px', color: '#4e6087', fontWeight: '600' }}>VFO Accredited</div><div style={{ fontSize: '11px', color: '#4e6087', marginTop: '2px' }}>{profile.vfo_accredited_date.split('T')[0]}</div></div></div>}
-              </div>
-            )}
-          </div>
-          
-          {corporateMembers.length > 0 && (
-            <div style={sectionStyle}>
-              <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Corporate Members</div>
-              {corporateMembers.map(cm => <div key={cm.plugin_member_number} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #eef2f9' }}><span style={{ fontSize: '14px', color: '#16264a' }}>{cm.name}</span><span style={{ fontSize: '13px', color: '#4e6087' }}>{cm.plugin_member_number}</span></div>)}
-            </div>
-          )}
-          {connectedMemberObj && !CORPORATE_TYPES.includes(member.member_type) && (
-            <div style={sectionStyle}>
-              <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Connected Member</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '14px', color: '#16264a' }}>{connectedMemberObj.name}</span>
-                <div style={{ textAlign: 'right' }}><div style={{ fontSize: '13px', color: '#4e6087' }}>{connectedMemberObj.plugin_member_number}</div>{profile.connection_type && <div style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600, marginTop: '2px' }}>{profile.connection_type}</div>}</div>
-              </div>
-            </div>
-          )}
-          {profile.notes && <div style={sectionStyle}><div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Notes</div><p style={{ fontSize: '14px', color: '#16264a', lineHeight: '1.6', margin: 0 }}>{profile.notes}</p></div>}
-          {programNotes.length > 0 && (
-            <div style={sectionStyle}>
-              <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>All Program Notes ({programNotes.length})</div>
-              {programNotes.map(note => (
-                <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid #e9eef8' }}>
-                  <div style={{ fontSize: '13px', color: '#16264a', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '11px', color: '#697a9c' }}>{note.created_by}</span>
-                    <span style={{ fontSize: '11px', color: '#697a9c' }}>·</span>
-                    <span style={{ fontSize: '11px', color: '#697a9c' }}>{note.created_at?.split('T')[0]}</span>
-                    <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.2)' }}>{note.program_name}</span>
+
+            {/* Side column — connections + certifications */}
+            <div style={{ flex: '1 1 250px', minWidth: '250px' }}>
+              {connectedMemberObj && !CORPORATE_TYPES.includes(member.member_type) && (
+                <div style={sectionStyle}>
+                  <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '14px' }}>Connected Member</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', flexShrink: 0, boxShadow: '0 2px 8px rgba(18,94,204,0.28)' }}>{initials(connectedMemberObj.name)}</div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#16264a' }}>{connectedMemberObj.name}</div>
+                      <div style={{ fontSize: '12px', color: '#4e6087', fontFamily: 'monospace', marginTop: '2px' }}>{connectedMemberObj.plugin_member_number}</div>
+                    </div>
                   </div>
+                  {profile.connection_type && (
+                    <div style={{ marginTop: '12px' }}>
+                      <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.25)' }}>{profile.connection_type}</span>
+                    </div>
+                  )}
                 </div>
-              ))}
+              )}
+
+              {corporateMembers.length > 0 && (
+                <div style={sectionStyle}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                    <span style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px' }}>Corporate Members</span>
+                    <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>{corporateMembers.length}</span>
+                  </div>
+                  {corporateMembers.map((cm, i) => (
+                    <div key={cm.plugin_member_number} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: i < corporateMembers.length - 1 ? '1px solid #eef2f9' : 'none' }}>
+                      <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>{initials(cm.name)}</div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#16264a' }}>{cm.name}</div>
+                        <div style={{ fontSize: '11px', color: '#4e6087', fontFamily: 'monospace', marginTop: '1px' }}>{cm.plugin_member_number}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(profile.vfo_certified_date || profile.vfo_accredited_date) && (
+                <div style={sectionStyle}>
+                  <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '14px' }}>Certifications</div>
+                  {profile.vfo_certified_date && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: profile.vfo_accredited_date ? '12px' : 0 }}>
+                      <img src={vfoCertifiedSeal} style={{ width: '36px', height: '36px' }} />
+                      <div><div style={{ fontSize: '14px', color: '#b08d26', fontWeight: '600' }}>VFO Certified</div><div style={{ fontSize: '11px', color: '#4e6087', marginTop: '2px' }}>{profile.vfo_certified_date.split('T')[0]}</div></div>
+                    </div>
+                  )}
+                  {profile.vfo_accredited_date && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <img src={vfoAccreditedSeal} style={{ width: '36px', height: '36px' }} />
+                      <div><div style={{ fontSize: '14px', color: '#4e6087', fontWeight: '600' }}>VFO Accredited</div><div style={{ fontSize: '11px', color: '#4e6087', marginTop: '2px' }}>{profile.vfo_accredited_date.split('T')[0]}</div></div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )
+      })()}
 
       {activeTab === 'edit' && (
         <>
