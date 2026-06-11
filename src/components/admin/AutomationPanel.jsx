@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
-import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate } from './automation/StepKit'
+import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate, PanelHero, EmptyState, TableCard } from './automation/StepKit'
 
 const STAGE_LABELS = {
   c81: 'PIP 1 — Reconfirmation Email',
@@ -474,48 +474,40 @@ export default function AutomationPanel({ section }) {
 
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '24px', color: '#16264a', margin: 0 }}>MAP 1 Pipeline</h2>
-          <SandboxBadge config={sandboxConfig} onClick={() => setShowModeModal(true)} />
-        </div>
-        {pipelines.length > 1 && (
-          <select value={selectedPipeline?.id || ''} onChange={e => { const p = pipelines.find(p => p.id === parseInt(e.target.value)); if (p) setSelectedPipeline(p) }}
-            style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
-            {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        )}
-      </div>
-
-      {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
-
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
-        {[
+      <PanelHero
+        eyebrow="Automation Pipeline"
+        title="MAP 1 Pipeline"
+        action={
+          <>
+            <SandboxBadge config={sandboxConfig} onClick={() => setShowModeModal(true)} />
+            {pipelines.length > 1 && (
+              <select value={selectedPipeline?.id || ''} onChange={e => { const p = pipelines.find(p => p.id === parseInt(e.target.value)); if (p) setSelectedPipeline(p) }}
+                style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
+                {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            )}
+          </>
+        }
+        stats={[
           { label: 'TOTAL', value: pipelineData.length, color: '#16264a' },
           { label: 'ACTIVE', value: pipelineData.filter(r => { const s = getCurrentStage(r); return s !== 'complete' && s !== 'closed' }).length, color: '#0095ff' },
           { label: 'COMPLETE', value: pipelineData.filter(r => getCurrentStage(r) === 'complete').length, color: '#16a34a' },
           { label: 'CLOSED', value: pipelineData.filter(r => getCurrentStage(r) === 'closed').length, color: '#ef4444' },
           { label: 'SANDBOX', value: pipelineData.filter(r => r.sandbox).length, color: '#e06717' },
-        ].map(stat => (
-          <div key={stat.label} style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '12px', padding: '14px 20px', minWidth: '100px', boxShadow: '0 2px 10px rgba(20,45,95,0.05)' }}>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: stat.color }}>{stat.value}</div>
-            <div style={{ fontSize: '10px', fontWeight: 600, color: '#4e6087', letterSpacing: '1px', marginTop: '2px' }}>{stat.label}</div>
-          </div>
-        ))}
-      </div>
+        ]}
+      />
+
+      {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
 
       {pipelineData.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', background: '#eef2f9', borderRadius: '12px', border: '1px solid #dde5f2' }}>
-          <p style={{ color: '#4e6087', fontSize: '15px', marginBottom: '8px' }}>No clients in pipeline yet</p>
-          <p style={{ color: '#697a9c', fontSize: '13px' }}>Clients will appear here as they enter the automation flow</p>
-        </div>
+        <EmptyState title="No clients in pipeline yet" hint="Clients will appear here as they enter the automation flow" />
       ) : (
-        <div style={{ overflowX: 'auto' }}>
+        <TableCard>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #e3eaf5' }}>
+              <tr style={{ borderBottom: '1px solid #e3eaf5', background: '#f7f9fc' }}>
                 {['', 'Client', 'Member', 'PF', 'Stage', 'Decision', 'Service', 'Payment', 'Updated'].map(h => (
-                  <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: '10px', color: '#697a9c', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: '600', width: h === '' ? '30px' : undefined }}>{h}</th>
+                  <th key={h} style={{ padding: '11px 12px', textAlign: 'left', fontSize: '10px', color: '#697a9c', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: '600', width: h === '' ? '30px' : undefined }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -561,7 +553,7 @@ export default function AutomationPanel({ section }) {
               })}
             </tbody>
           </table>
-        </div>
+        </TableCard>
       )}
       {showModeModal && (
         <SandboxToggleModal

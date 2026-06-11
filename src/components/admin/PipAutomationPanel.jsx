@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
-import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate } from './automation/StepKit'
+import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate, PanelHero, EmptyState } from './automation/StepKit'
 import SandboxModeToggle from './SandboxModeToggle'
 
 const STAGE_LABELS = {
@@ -55,7 +55,7 @@ function PipPipelineRow({ row, expanded, onToggle }) {
     : (row.pip_rev_share_amount || /revenue share/i.test(row.pip_rev_share_status || '')) ? 'Revenue Share' : null
 
   return (
-    <div style={{ background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
+    <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
       <div onClick={onToggle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '15px', fontWeight: '600', color: '#16264a' }}>{clientName}</span>
@@ -71,7 +71,7 @@ function PipPipelineRow({ row, expanded, onToggle }) {
       </div>
 
       {expanded && (
-        <div style={{ padding: '8px 18px 18px', borderTop: '1px solid #e9eef8' }}>
+        <div style={{ padding: '12px 18px 16px', borderTop: '1px solid #e9eef8', background: '#eef2f9' }}>
           <StepCard title="Purchase Details" status="done">
             <Detail l="Kind" v={purchaseLabel(row)} />
             <Detail l="Gross service value" v={fmtMoney(row.pip_purchase_gross)} />
@@ -164,9 +164,10 @@ export default function PipAutomationPanel() {
 
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '24px', color: '#16264a', margin: 0 }}>PIP Meetings Pipeline</h2>
+      <PanelHero
+        eyebrow="Automation Pipeline"
+        title="PIP Meetings Pipeline"
+        action={
           <SandboxModeToggle
             pipeline="MAP 1"
             label="PIP Meetings"
@@ -174,24 +175,14 @@ export default function PipAutomationPanel() {
             onChange={setSandboxConfig}
             note="PIP Meetings shares the MAP 1 sandbox flag — switching here also switches the MAP 1 pipeline."
           />
-        </div>
-      </div>
+        }
+        stats={stats}
+      />
 
       {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
 
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
-        {stats.map(stat => (
-          <div key={stat.label} style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '12px', padding: '14px 20px', minWidth: '100px', boxShadow: '0 2px 10px rgba(20,45,95,0.05)' }}>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: stat.color }}>{stat.value}</div>
-            <div style={{ fontSize: '10px', fontWeight: 600, color: '#4e6087', letterSpacing: '1px', marginTop: '2px' }}>{stat.label}</div>
-          </div>
-        ))}
-      </div>
-
       {rows.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: '#697a9c', fontSize: '14px' }}>
-          No PIP purchases yet.
-        </div>
+        <EmptyState title="No PIP purchases yet" hint="Purchases appear here once a PIP follow-on service is bought" />
       ) : (
         rows.map(r => (
           <PipPipelineRow

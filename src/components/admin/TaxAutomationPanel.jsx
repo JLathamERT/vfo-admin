@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
-import { StepCard, Detail, Badge, Pending, fmtDate } from './automation/StepKit'
+import { StepCard, Detail, Badge, Pending, fmtDate, PanelHero, EmptyState, TableCard } from './automation/StepKit'
 
 const STAGE_LABELS = {
   not_started:     'Not Started',
@@ -384,42 +384,30 @@ export default function TaxAutomationPanel({ programScope = 'holistic' }) {
 
   return (
     <div style={{ padding: 24, maxWidth: 1400, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: 24, color: '#16264a', margin: 0 }}>{programScope === 'standalone' ? 'Tax Planning Automation' : 'Holistic Tax Priorities Automation'}</h2>
-          <SandboxBadge config={sandboxConfig} onClick={() => setShowModeModal(true)} />
-        </div>
-      </div>
-
-      {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: 13, marginBottom: 16 }}>{error}</div>}
-
-      <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
-        {[
+      <PanelHero
+        eyebrow="Automation Pipeline"
+        title={programScope === 'standalone' ? 'Tax Planning Automation' : 'Holistic Tax Priorities Automation'}
+        action={<SandboxBadge config={sandboxConfig} onClick={() => setShowModeModal(true)} />}
+        stats={[
           { label: 'TOTAL', value: stats.total, color: '#16264a' },
           { label: 'ACTIVE', value: stats.active, color: '#0095ff' },
           { label: 'COMPLETE', value: stats.complete, color: '#16a34a' },
           { label: 'CLOSED', value: stats.closed, color: '#ef4444' },
           { label: 'SANDBOX', value: stats.sandbox, color: '#e06717' },
-        ].map(s => (
-          <div key={s.label} style={{ background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: 10, padding: '14px 20px', minWidth: 100 }}>
-            <div style={{ fontSize: 28, fontWeight: 700, color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: 10, color: '#4e6087', letterSpacing: 1 }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
+        ]}
+      />
+
+      {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: 13, marginBottom: 16 }}>{error}</div>}
 
       {rows.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 60, background: '#eef2f9', borderRadius: 12, border: '1px solid #dde5f2' }}>
-          <p style={{ color: '#4e6087', fontSize: 15, marginBottom: 8 }}>No tax plans yet</p>
-          <p style={{ color: '#697a9c', fontSize: 13 }}>Tax plans appear here as they enter the automation flow</p>
-        </div>
+        <EmptyState title="No tax plans yet" hint="Tax plans appear here as they enter the automation flow" />
       ) : (
-        <div style={{ overflowX: 'auto' }}>
+        <TableCard>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #e3eaf5' }}>
+              <tr style={{ borderBottom: '1px solid #e3eaf5', background: '#f7f9fc' }}>
                 {['', 'Client', 'Member', 'PF', 'Stage', 'Decision', 'Retainer', 'Payment', 'Started'].map(h => (
-                  <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, color: '#697a9c', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600, width: h === '' ? 30 : undefined }}>{h}</th>
+                  <th key={h} style={{ padding: '11px 12px', textAlign: 'left', fontSize: 10, color: '#697a9c', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600, width: h === '' ? 30 : undefined }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -464,7 +452,7 @@ export default function TaxAutomationPanel({ programScope = 'holistic' }) {
               })}
             </tbody>
           </table>
-        </div>
+        </TableCard>
       )}
 
       {showModeModal && (
