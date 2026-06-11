@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import TokenShell from '../components/shared/TokenShell'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
@@ -57,7 +58,7 @@ export default function TaxPostReviewDecidePage() {
 
   const view = getView(status, decision, error)
   return (
-    <div style={containerStyle}>
+    <TokenShell maxWidth={520}>
       <div style={cardStyle}>
         <div style={{ ...iconCircleStyle, background: view.color + '20' }}>
           <span style={{ fontSize: '32px', lineHeight: 1 }}>{view.icon}</span>
@@ -65,7 +66,7 @@ export default function TaxPostReviewDecidePage() {
         <h1 style={titleStyle}>{view.title}</h1>
         <p style={messageStyle}>{view.message}</p>
       </div>
-    </div>
+    </TokenShell>
   )
 }
 
@@ -88,8 +89,7 @@ function getView(status, decision, error) {
   return { icon: '✓', color: '#16a34a', title: 'Thank You — Moving Forward', message: "We're delighted to continue with your Tax Planning Engagement. Our team will be in touch with next steps shortly." }
 }
 
-const containerStyle = { fontFamily: '"Inter", sans-serif', background: '#ffffff', color: '#243757', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }
-const cardStyle = { textAlign: 'center', maxWidth: '480px', padding: '48px 32px' }
+const cardStyle = { textAlign: 'center', padding: '12px 0' }
 const iconCircleStyle = { width: '72px', height: '72px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }
 const titleStyle = { fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }
 const messageStyle = { fontSize: '15px', color: '#4e6087', lineHeight: 1.6 }

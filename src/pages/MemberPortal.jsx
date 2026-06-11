@@ -260,47 +260,65 @@ function MemberSpecialists({ member, allExperts, exclusions, onDataChange }) {
 }
 
 function MemberProfile({ member }) {
-  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
-  const labelStyle = { fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '16px' }
+  const fieldLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: '#7c8aa6', textTransform: 'uppercase' }
+  const fieldValue = { fontSize: '15px', color: '#16264a', fontWeight: 600, marginTop: '5px' }
   // Accountants have no revenue decision — hide the field for them. Advisors
   // and uncategorized members keep it. Mirrors the admin-side hiddenFields.
   const isAccountant = member.member_category === 'accountant'
+  const initials = (member.name || '').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
-      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-        <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '28px', color: '#16264a' }}>{member.name}</div>
-        {member.member_type && <div style={{ fontSize: '13px', color: '#4e6087', marginTop: '6px' }}>{member.member_type}</div>}
+      {/* Profile header */}
+      <div style={{ ...sectionStyle, padding: 0, overflow: 'hidden' }}>
+        <div style={{ height: '4px', background: 'linear-gradient(90deg, #002973 0%, #125ecc 55%, #0a85e8 100%)' }} />
+        <div style={{ padding: '22px 24px', display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '22px', flexShrink: 0, boxShadow: '0 2px 8px rgba(18,94,204,0.28)' }}>{initials}</div>
+          <div style={{ minWidth: '200px', flex: 1 }}>
+            <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '1.2px', color: '#0095ff', textTransform: 'uppercase', marginBottom: '4px' }}>Member Profile</div>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.03em', fontSize: '24px', color: '#002973', lineHeight: 1.15 }}>{member.name}</div>
+            {member.member_type && <div style={{ marginTop: '8px' }}><span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2', fontWeight: 600 }}>{member.member_type}</span></div>}
+          </div>
+        </div>
       </div>
+
+      {/* Details */}
+      <div style={sectionStyle}>
+        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Membership Details</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '18px 24px' }}>
+          <div><div style={fieldLabel}>Member Number</div><div style={{ ...fieldValue, fontFamily: 'monospace' }}>{member.member_number}</div></div>
+          <div><div style={fieldLabel}>Join Date</div><div style={fieldValue}>{member.join_date ? member.join_date.split('T')[0] : '—'}</div></div>
+          {!isAccountant && <div><div style={fieldLabel}>Revenue Decision</div><div style={fieldValue}>{member.revenue_decision || '—'}</div></div>}
+        </div>
+      </div>
+
+      {/* Certifications */}
       {(member.vfo_certified_date || member.vfo_accredited_date) && (
-        <div style={{ display: 'flex', gap: '24px', marginBottom: '24px', justifyContent: 'center' }}>
-          {member.vfo_certified_date && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-              <img src={vfoCertifiedSeal} style={{ width: '80px', height: '80px' }} />
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '13px', color: '#b08d26', fontWeight: '600' }}>VFO Certified</div>
-                <div style={{ fontSize: '11px', color: '#4e6087', marginTop: '2px' }}>{member.vfo_certified_date.split('T')[0]}</div>
+        <div style={sectionStyle}>
+          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Certifications</div>
+          <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
+            {member.vfo_certified_date && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <img src={vfoCertifiedSeal} style={{ width: '64px', height: '64px' }} />
+                <div>
+                  <div style={{ fontSize: '14px', color: '#b08d26', fontWeight: '600' }}>VFO Certified</div>
+                  <div style={{ fontSize: '11px', color: '#4e6087', marginTop: '2px' }}>{member.vfo_certified_date.split('T')[0]}</div>
+                </div>
               </div>
-            </div>
-          )}
-          {member.vfo_accredited_date && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-              <img src={vfoAccreditedSeal} style={{ width: '80px', height: '80px' }} />
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '13px', color: '#4e6087', fontWeight: '600' }}>VFO Accredited</div>
-                <div style={{ fontSize: '11px', color: '#4e6087', marginTop: '2px' }}>{member.vfo_accredited_date.split('T')[0]}</div>
+            )}
+            {member.vfo_accredited_date && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <img src={vfoAccreditedSeal} style={{ width: '64px', height: '64px' }} />
+                <div>
+                  <div style={{ fontSize: '14px', color: '#4e6087', fontWeight: '600' }}>VFO Accredited</div>
+                  <div style={{ fontSize: '11px', color: '#4e6087', marginTop: '2px' }}>{member.vfo_accredited_date.split('T')[0]}</div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <div style={{ ...sectionStyle, display: 'inline-flex', gap: '32px', flexWrap: 'wrap' }}>
-          <div style={{ textAlign: 'left' }}><div style={labelStyle}>Member Number</div><div style={{ fontSize: '15px', color: '#16264a', marginTop: '4px', fontFamily: 'monospace' }}>{member.member_number}</div></div>
-          <div style={{ textAlign: 'left' }}><div style={labelStyle}>Join Date</div><div style={{ fontSize: '15px', color: '#16264a', marginTop: '4px' }}>{member.join_date ? member.join_date.split('T')[0] : '—'}</div></div>
-          {!isAccountant && <div style={{ textAlign: 'left' }}><div style={labelStyle}>Revenue Decision</div><div style={{ fontSize: '15px', color: '#16264a', marginTop: '4px' }}>{member.revenue_decision || '—'}</div></div>}
-        </div>
-      </div>
     </div>
   )
 }

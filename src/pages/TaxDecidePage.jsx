@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import TokenShell from '../components/shared/TokenShell'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
@@ -58,7 +59,7 @@ export default function TaxDecidePage() {
   const view = getView(status, decision, error)
 
   return (
-    <div style={containerStyle}>
+    <TokenShell maxWidth={520}>
       <div style={cardStyle}>
         <div style={{ ...iconCircleStyle, background: view.color + '20' }}>
           <span style={{ fontSize: '32px', lineHeight: 1 }}>{view.icon}</span>
@@ -66,7 +67,7 @@ export default function TaxDecidePage() {
         <h1 style={titleStyle}>{view.title}</h1>
         <p style={messageStyle}>{view.message}</p>
       </div>
-    </div>
+    </TokenShell>
   )
 }
 
@@ -119,21 +120,9 @@ function getView(status, decision, error) {
   }
 }
 
-const containerStyle = {
-  fontFamily: '"Inter", sans-serif',
-  background: '#ffffff',
-  color: '#243757',
-  minHeight: '100vh',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '24px',
-}
-
 const cardStyle = {
   textAlign: 'center',
-  maxWidth: '480px',
-  padding: '48px 32px',
+  padding: '12px 0',
 }
 
 const iconCircleStyle = {
