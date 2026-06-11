@@ -181,6 +181,12 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
     // non-auto tasks never get a status, so the generic logic below would leave
     // the header grey forever. Derive its state from the pipeline row instead.
     if (phase.name === 'MAP 1 - PC Admin') return pcAdminPhaseState()
+    // Allocation's two "Move to ..." tasks are alternatives — a client may do
+    // only Regular or only Tax — so either one enabled completes the phase.
+    if (phase.name === 'MAP 1 - Allocation') {
+      const allocTasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
+      return allocTasks.some(t => progress[t.id]?.status) ? 'done' : 'pending'
+    }
     const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
     if (tasks.length === 0) return 'done'
     if (tasks.every(t => progress[t.id]?.status)) return 'done'
@@ -216,7 +222,16 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
   if (loading) return <Map1TrackSkeleton />
 
 
-  const totalTasks = phases.reduce((s, p) => s + (p.program_client_tasks || []).filter(t => t.status_options !== 'auto').length, 0)
+  const totalTasks = phases.reduce((s, p) => {
+    const nonAuto = (p.program_client_tasks || []).filter(t => t.status_options !== 'auto')
+    // Allocation tasks are alternatives: once a path is enabled, only the
+    // enabled one(s) count so the unused path doesn't hold the % down.
+    if (p.name === 'MAP 1 - Allocation') {
+      const set = nonAuto.filter(t => progress[t.id]?.status).length
+      return s + (set > 0 ? set : nonAuto.length)
+    }
+    return s + nonAuto.length
+  }, 0)
   const completedTasks = phases.reduce((s, phase) => {
     const nonAuto = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
     // PC Admin's non-auto tasks are pipeline-driven (no progress status), so

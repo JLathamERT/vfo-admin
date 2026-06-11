@@ -617,6 +617,15 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     return !!localProgress[k]?.status
   })) || decision2Status === 'Move to Implementation'
 
+  // A task counts as statused for display when its progress is recorded in
+  // client_tax_progress — or, for the two steps that write to client_tax_plans
+  // instead, when the corresponding plan column is set.
+  function isTaskStatused(t) {
+    if (t.status_options === 'tax_hlm_confirm') return !!livePlan?.tax4_meeting_date
+    if (t.status_options === 'tax_presentation_link') return !!livePlan?.presentation_send_date
+    return !!localProgress[t.id]?.status
+  }
+
   function getPhaseState(phase) {
     let tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
     if (phase.name === 'Tax 1 - Diagnostic' && !additionalInfoRequired) {
@@ -638,8 +647,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (phase.name === 'Tax 3 - ROI Meeting') {
       const decline = livePlan?.tax_decision === 'No' || livePlan?.tax_final_decision === 'No'
       const fullyDone = livePlan?.retainer_invoice_email_sent === true
-      if (decline || fullyDone) return 'done'
-      if (tasks.some(t => localProgress[t.id]?.status)) return 'active'
+      // Done needs the cascade endpoint (or a decline) AND every visible task
+      // statused — the cascade alone shouldn't green-check unset dropdowns.
+      if ((decline || fullyDone) && tasks.every(t => isTaskStatused(t))) return 'done'
+      if (decline || fullyDone || tasks.some(t => isTaskStatused(t))) return 'active'
       return 'pending'
     }
     if (phase.name === 'Tax 5 - Education & DD (Post Allocation)') {
@@ -657,8 +668,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const allAutoDone = autoTasks.length > 0 && autoTasks.every(t => localProgress[t.id]?.status)
       return allAutoDone ? 'done' : 'pending'
     }
-    if (tasks.every(t => localProgress[t.id]?.status)) return 'done'
-    if (tasks.some(t => localProgress[t.id]?.status)) return 'active'
+    if (tasks.every(t => isTaskStatused(t))) return 'done'
+    if (tasks.some(t => isTaskStatused(t))) return 'active'
     return 'pending'
   }
 
@@ -1557,6 +1568,31 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     ...(tax5bPhase ? [{ label: 'Tax 5b', state: tax5bUnlocked ? getPhaseState(tax5bPhase) : 'pending' }] : []),
     ...phasesAfterSpec.map(ph => ({ label: ph.name.split(' - ')[0], state: getPhaseState(ph) })),
   ]
+  // Task-level hero counts, mirroring the same per-phase visibility rules the
+  // card pills use (Tax 1 children only when info required, refund only on
+  // Stop, hlm/presentation read from the plan row, 5a per specialist, 5b's
+  // decision read from the plan row).
+  const heroCountedTasks = (phase) => {
+    let tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
+    if (phase.name === 'Tax 1 - Diagnostic' && !additionalInfoRequired) {
+      tasks = tasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
+    }
+    if (phase.name === 'Set Up') {
+      const greenlightTask = (phase.program_client_tasks || []).find(t => t.status_options === 'tax_greenlight')
+      const greenlightStatus = greenlightTask ? localProgress[greenlightTask.id]?.status : ''
+      if (greenlightStatus !== 'Stop') tasks = tasks.filter(t => t.status_options !== 'tax_refund')
+    }
+    return tasks
+  }
+  const tax5aSpecTasks = tax5aTasks.filter(t => t.status_options !== 'specialist_select')
+  const tax5bCounted = tax5bPhase ? (tax5bPhase.program_client_tasks || []).filter(t => t.status_options !== 'auto') : []
+  const tax5bTaskDone = (t) => t.status_options === 'tax_implement_decision' ? !!livePlan?.implementation_decision : !!localProgress[t.id]?.status
+  const heroTotalTasks = [...phasesBeforeSpec, ...phasesAfterSpec].reduce((s, ph) => s + heroCountedTasks(ph).length, 0)
+    + taxSpecialists.length * tax5aSpecTasks.length
+    + tax5bCounted.length
+  const heroDoneTasks = [...phasesBeforeSpec, ...phasesAfterSpec].reduce((s, ph) => s + heroCountedTasks(ph).filter(t => isTaskStatused(t)).length, 0)
+    + taxSpecialists.reduce((s, spec) => s + tax5aSpecTasks.filter(t => !!localProgress[`${t.id}_${spec.id}`]?.status).length, 0)
+    + tax5bCounted.filter(tax5bTaskDone).length
   const tax5aNumber = phasesBeforeSpec.length + 1
   const tax5bNumber = phasesBeforeSpec.length + (tax5aPhase ? 1 : 0) + 1
   const afterSpecNumberBase = phasesBeforeSpec.length + (tax5aPhase ? 1 : 0) + (tax5bPhase ? 1 : 0)
@@ -1568,9 +1604,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         eyebrow={programName}
         title="Tax Plan"
         meta={`Started ${plan.created_at?.split('T')[0] || ''}`}
-        completed={heroSteps.filter(s => s.state === 'done').length}
-        total={heroSteps.length}
-        unitLabel="phases completed"
+        completed={heroDoneTasks}
+        total={heroTotalTasks}
         steps={heroSteps}
       />
 

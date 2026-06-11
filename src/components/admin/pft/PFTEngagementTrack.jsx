@@ -402,6 +402,20 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
     heroSteps.push({ id: phase.id, label: phase.name.replace(/^Accountant /, ''), state })
   })
 
+  // Task-level hero counts, mirroring the same visibility rules: Phase 6 is
+  // indicator-only (no countable tasks), Meeting 3 only exists once the gate
+  // says Yes, and Meeting 2's decision-email copy only shows on the No path.
+  let heroTotalTasks = 0
+  let heroDoneTasks = 0
+  phases.forEach(phase => {
+    if (phase.name.includes('VFO-Associate') || phase.name.includes('VFO-FT Accountant')) return
+    if (phase.name === 'Accountant Meeting 3' && gateStatus !== 'Yes') return
+    let counted = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !t.status_options?.startsWith('auto_'))
+    if (phase.name === 'Accountant Meeting 2' && gateStatus !== 'No') counted = counted.filter(t => t.name !== 'Accountant decision confirmation email')
+    heroTotalTasks += counted.length
+    heroDoneTasks += counted.filter(t => progress[t.id]?.status).length
+  })
+
   function renderTask(task, phase) {
     const p = progress[task.id] || {}
 
@@ -481,9 +495,8 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
       <TrackHero
         eyebrow="Partnership Fast Track"
         title="Engagement Process"
-        completed={heroSteps.filter(s => s.state === 'done').length}
-        total={heroSteps.length}
-        unitLabel="phases completed"
+        completed={heroDoneTasks}
+        total={heroTotalTasks}
         steps={heroSteps}
       />
 

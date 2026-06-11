@@ -99,7 +99,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
   const inputStyle = { padding: '6px 10px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
 
   function getPhaseState(phase) {
-    const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
+    const tasks = countedPhaseTasks(phase)
     if (tasks.length === 0) {
       const autoTasks = phase.program_client_tasks || []
       const allAutoDone = autoTasks.length > 0 && autoTasks.every(t => localProgress[t.id]?.status)
@@ -114,14 +114,27 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
   const c253Status = localProgress[c253TaskId]?.status || ''
   const additionalInfoRequired = c253Status === 'Additional info required'
 
+  const ADD_INFO_CHILD_NAMES = ['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L']
+  // The "Additional information required" children live in MAP 3 in the DB but
+  // render nested under their parent in MAP 2 — so for display they count with
+  // the parent's phase, and only when additional info is actually required.
+  function countedPhaseTasks(phase) {
+    let tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !ADD_INFO_CHILD_NAMES.includes(t.name))
+    const hasParent = (phase.program_client_tasks || []).some(t => t.name === 'Additional information required')
+    if (hasParent && additionalInfoRequired) {
+      tasks = tasks.concat(phases.flatMap(p => p.program_client_tasks || []).filter(t => ADD_INFO_CHILD_NAMES.includes(t.name)))
+    }
+    return tasks
+  }
+
   function formatDate(d) {
     if (!d) return ''
     const parts = d.split('-')
     return `${parts[1]}/${parts[2]}`
   }
 
-  const totalTasks = phases.reduce((s, p) => s + (p.program_client_tasks || []).filter(t => t.status_options !== 'auto').length, 0)
-  const completedTasks = phases.reduce((s, phase) => s + (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && localProgress[t.id]?.status).length, 0)
+  const totalTasks = phases.reduce((s, p) => s + countedPhaseTasks(p).length, 0)
+  const completedTasks = phases.reduce((s, phase) => s + countedPhaseTasks(phase).filter(t => localProgress[t.id]?.status).length, 0)
 
   return (
     <div>
@@ -148,7 +161,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
         const state = getPhaseState(phase)
         const isExpanded = expanded[phase.id]
         const tasks = phase.program_client_tasks || []
-        const nonAutoTasks = tasks.filter(t => t.status_options !== 'auto')
+        const nonAutoTasks = countedPhaseTasks(phase)
         const doneTasks = nonAutoTasks.filter(t => localProgress[t.id]?.status).length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
