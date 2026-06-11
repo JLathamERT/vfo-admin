@@ -278,7 +278,7 @@ function MemberProfile({ member }) {
           <div style={{ minWidth: '200px', flex: 1 }}>
             <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '1.2px', color: '#0095ff', textTransform: 'uppercase', marginBottom: '4px' }}>Member Profile</div>
             <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.03em', fontSize: '24px', color: '#002973', lineHeight: 1.15 }}>{member.name}</div>
-            {member.member_type && <div style={{ marginTop: '8px' }}><span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2', fontWeight: 600 }}>{member.member_type}</span></div>}
+            {member.member_type && <div style={{ fontSize: '12.5px', color: '#4e6087', marginTop: '6px' }}>{member.member_type}</div>}
           </div>
         </div>
       </div>

@@ -293,10 +293,10 @@ function MemberDirectoryView({
             meta={
               <>
                 <span style={{ fontFamily: 'monospace' }}>{selectedMember.plugin_member_number}</span>
-                {selectedMember.member_type && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>{selectedMember.member_type}</span>}
-                {selectedMember.elite_status && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${selectedMember.elite_status === 'Active' ? 'rgba(27,146,84,0.15)' : selectedMember.elite_status === 'Lost' ? 'rgba(231,76,60,0.15)' : '#eef2f9'}`, color: selectedMember.elite_status === 'Active' ? '#1b9254' : selectedMember.elite_status === 'Lost' ? '#e74c3c' : '#4e6087', border: `1px solid ${selectedMember.elite_status === 'Active' ? 'rgba(27,146,84,0.3)' : selectedMember.elite_status === 'Lost' ? 'rgba(231,76,60,0.3)' : '#e3eaf5'}` }}>{selectedMember.elite_status}</span>}
-                {selectedMember.paused && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(251,137,90,0.15)', color: '#e06717', fontWeight: 600, border: '1px solid rgba(251,137,90,0.3)' }}>Paused</span>}
-                {selectedMember.suspended && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600, border: '1px solid rgba(231,76,60,0.3)' }}>Suspended</span>}
+                {selectedMember.member_type && <><span style={{ color: '#c7d4e8' }}>·</span><span>{selectedMember.member_type}</span></>}
+                {selectedMember.elite_status && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#16264a' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: selectedMember.elite_status === 'Active' ? '#1b9254' : selectedMember.elite_status === 'Lost' ? '#e74c3c' : '#9aa6bf', flexShrink: 0 }} />{selectedMember.elite_status}</span></>}
+                {selectedMember.paused && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#16264a' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e06717', flexShrink: 0 }} />Paused</span></>}
+                {selectedMember.suspended && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#16264a' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e74c3c', flexShrink: 0 }} />Suspended</span></>}
               </>
             }
           />
@@ -561,7 +561,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
               {profile.notes && (
                 <div style={sectionStyle}>
                   <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Notes</div>
-                  <div style={{ padding: '14px 16px', background: '#eef2f9', border: '1px solid #dde5f2', borderLeft: '3px solid #0095ff', borderRadius: '10px', fontSize: '14px', color: '#16264a', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{profile.notes}</div>
+                  <div style={{ fontSize: '14px', color: '#16264a', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{profile.notes}</div>
                 </div>
               )}
 

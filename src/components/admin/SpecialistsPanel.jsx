@@ -499,10 +499,12 @@ function SpecialistProfileView({ expert, ecos, ciq }) {
           <div style={{ minWidth: '200px', flex: 1 }}>
             <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '22px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1.15 }}>{expert.name}</div>
             {expert.short_bio && <div style={{ fontSize: '13px', color: '#4e6087', marginTop: '4px' }}>{expert.short_bio}</div>}
-            <div style={{ display: 'flex', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
-              {expert.top_of_t && <span style={{ ...chip, background: 'rgba(251,137,90,0.13)', color: '#e06717', border: '1px solid rgba(251,137,90,0.3)' }}>Top of the T</span>}
-              {expert.background_check && <span style={chip}>Background check · {expert.background_check}</span>}
-              {expert['D&B_tax_risk_mindset'] && <span style={{ ...chip, background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>{expert['D&B_tax_risk_mindset']}</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap', fontSize: '12.5px', color: '#4e6087' }}>
+              {expert.top_of_t && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#16264a' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e06717', flexShrink: 0 }} />Top of the T</span>}
+              {expert.top_of_t && expert.background_check && <span style={{ color: '#c7d4e8' }}>·</span>}
+              {expert.background_check && <span>Background check: {expert.background_check}</span>}
+              {(expert.top_of_t || expert.background_check) && expert['D&B_tax_risk_mindset'] && <span style={{ color: '#c7d4e8' }}>·</span>}
+              {expert['D&B_tax_risk_mindset'] && <span>{expert['D&B_tax_risk_mindset']}</span>}
             </div>
           </div>
         </div>
@@ -535,7 +537,7 @@ function SpecialistProfileView({ expert, ecos, ciq }) {
           {expert['D&B_revenue_share'] && (
             <div style={sectionStyle}>
               <div style={cardTitle}>Revenue Share</div>
-              <div style={{ padding: '14px 16px', background: '#eef2f9', border: '1px solid #dde5f2', borderLeft: '3px solid #0095ff', borderRadius: '10px', fontSize: '13.5px', color: '#16264a', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{expert['D&B_revenue_share']}</div>
+              <div style={{ fontSize: '13.5px', color: '#16264a', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{expert['D&B_revenue_share']}</div>
             </div>
           )}
         </div>
