@@ -210,12 +210,16 @@ function MemberEnrolledView({ enrollment, program, member }) {
 
   return (
     <div>
-      <div style={sectionStyle}>
-        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-          <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Joined</div><div style={{ fontSize: '14px', color: '#16264a', marginTop: '4px' }}>{enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</div></div>
-          {!isCoaching && <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Program Status</div><div style={{ fontSize: '14px', color: statusColors[enrollment.program_status] || '#16264a', marginTop: '4px', fontWeight: '600' }}>{enrollment.program_status || '—'}</div></div>}
-        </div>
-      </div>
+      <TrackHero
+        eyebrow="Program"
+        title={program.name}
+        meta={
+          <>
+            <span>Joined {enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</span>
+            {!isCoaching && enrollment.program_status && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#16264a' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[enrollment.program_status] || '#9aa6bf', flexShrink: 0 }} />{enrollment.program_status}</span></>}
+          </>
+        }
+      />
       <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px' }}>
         {isCoaching ? (
           <>

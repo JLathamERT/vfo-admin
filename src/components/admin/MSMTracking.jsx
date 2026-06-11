@@ -402,24 +402,25 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
 
   return (
     <div>
-      <div style={{ marginBottom: '20px' }}>
-        <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '1.2px', color: '#0095ff', textTransform: 'uppercase', marginBottom: '4px' }}>Program</div>
-        <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.03em', fontSize: '22px', color: '#002973' }}>{program.name}</div>
-      </div>
-      <div style={sectionStyle}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: editingEnrollment ? '16px' : '0' }}>
-          <div style={{ display: 'flex', gap: '18px 32px', flexWrap: 'wrap' }}>
-            <div><div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: '#7c8aa6', textTransform: 'uppercase' }}>Date Joined</div><div style={{ fontSize: '15px', color: '#16264a', fontWeight: 600, marginTop: '5px' }}>{enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</div></div>
-            {!isCoaching && <div><div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: '#7c8aa6', textTransform: 'uppercase' }}>Program Status</div><div style={{ marginTop: '5px' }}><span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '999px', fontWeight: 600, background: `${statusColors[enrollment.program_status] || '#4e6087'}18`, color: statusColors[enrollment.program_status] || '#4e6087', border: `1px solid ${statusColors[enrollment.program_status] || '#4e6087'}33` }}>{enrollment.program_status}</span></div></div>}
-            {!isCoaching && !isTaxPlanning && <PlanStatusBadge enrollmentId={enrollment.id} programId={program.id} />}
-          </div>
-          {!isCoaching && <button onClick={() => setEditingEnrollment(!editingEnrollment)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '12px', cursor: 'pointer' }}>
+      <TrackHero
+        eyebrow="Program"
+        title={program.name}
+        meta={
+          <>
+            <span>Joined {enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</span>
+            {!isCoaching && enrollment.program_status && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#16264a' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[enrollment.program_status] || '#9aa6bf', flexShrink: 0 }} />{enrollment.program_status}</span></>}
+            {!isCoaching && !isTaxPlanning && <><span style={{ color: '#c7d4e8' }}>·</span><PlanStatusBadge enrollmentId={enrollment.id} programId={program.id} /></>}
+          </>
+        }
+        action={!isCoaching && (
+          <button onClick={() => setEditingEnrollment(!editingEnrollment)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '12px', cursor: 'pointer' }}>
             {editingEnrollment ? 'Cancel' : 'Edit'}
-          </button>}
-        </div>
-
+          </button>
+        )}
+      />
+      <div style={{ display: editingEnrollment ? 'block' : 'none' }}>
         {editingEnrollment && (
-          <div style={{ padding: '16px', background: '#eef2f9', borderRadius: '8px' }}>
+          <div style={{ ...sectionStyle, padding: '16px' }}>
             <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '160px' }}>
                 <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Program Status</label>
@@ -943,10 +944,10 @@ function PlanStatusBadge({ enrollmentId, programId }) {
   }
 
   return (
-    <div>
-      <div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>90 Day Plan</div>
-      <div style={{ fontSize: '14px', color: '#16264a', marginTop: '4px', fontWeight: '600' }}>{planStatus}</div>
-    </div>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+      <span>90 Day Plan:</span>
+      <span style={{ fontWeight: 600, color: '#16264a' }}>{planStatus}</span>
+    </span>
   )
 }
 
