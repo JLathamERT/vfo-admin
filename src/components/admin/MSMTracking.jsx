@@ -164,7 +164,7 @@ export default function MSMTracking({ member, activeSection, onDataChange }) {
           {/* Meeting counts */}
           <div style={sectionStyle}>
             <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting Summary</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(125px, 1fr))', gap: '16px 12px', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '20px' }}>
               {[
                 ['MSM Meetings', msmCount],
                 ['Advanced Meetings', advancedCount],
