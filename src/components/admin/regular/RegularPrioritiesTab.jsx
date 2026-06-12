@@ -19,17 +19,176 @@ const REGULAR_PRIORITIES = [
   "Intellectual Property", "Legal Focus"
 ]
 
-function PriorityTrackView({ track, phases, progress, specialists, onBack, onProgressChange, readOnly = false, onTrackUpdate, notes = [], onNotesChange, clientId }) {
-  const [localProgress, setLocalProgress] = useState(() => {
-    // Auto-fill C25.1 with track's specialist if not already set
-    if (track.specialist_name) {
-      const c251Task = phases.flatMap(p => p.program_client_tasks || []).find(t => t.name === 'Allocate to VFO Specialist')
-      if (c251Task && !progress[c251Task.id]?.status) {
-        return { ...progress, [c251Task.id]: { ...progress[c251Task.id], task_id: c251Task.id, status: track.specialist_name } }
+// MAP 4 confirmation email step — 3-button post-meeting confirm mirroring MAP 1's
+// PIP 1 Confirmation Email (PipConfirmStep): "with date" (date/time/tz), "date not
+// confirmed", and "declined". Drafts the email via the backend, then records the
+// task status. Self-contained so its date/time inputs survive parent re-renders.
+function Map4ConfirmStep({ trackId, task, p, onDone }) {
+  const [showDate, setShowDate] = useState(false)
+  const [date, setDate] = useState('')
+  const [time, setTime] = useState('')
+  const [tz, setTz] = useState('ET')
+  const [pending, setPending] = useState(null)
+  const isDone = !!p.status
+  const statusColor = isDone ? '#1b9254' : '#4e6087'
+  const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
+  const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
+  const redBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600 }
+  const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid #d6e0ee', background: 'transparent', color: '#4e6087' }
+  function fmtDate(d) { if (!d) return ''; const parts = d.split('-'); return `${parts[1]}/${parts[2]}` }
+
+  async function fire(decision, d, t, z) {
+    setPending(decision)
+    try {
+      await callApi('automation_REGULAR_map4confirmemail', { priority_track_id: trackId, decision, meeting_date: d || null, meeting_time: t || null, meeting_tz: z || null })
+      const status = decision === 'declined' ? 'Sent declined email' : decision === 'confirm_no_date' ? 'Email sent - date not arranged' : 'Confirmation email sent'
+      const today = new Date().toISOString().split('T')[0]
+      await callApi('msm_save_priority_task', { priority_track_id: trackId, task_id: task.id, status, completed_date: today })
+      onDone(task.id, status, today)
+      setShowDate(false); setDate(''); setTime('')
+    } catch (err) { console.error('MAP 4 confirm error:', err) }
+    finally { setPending(null) }
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
+      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
+      <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
+      {isDone
+        ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
+        : showDate
+          ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+              <input type="time" value={time} onChange={e => setTime(e.target.value)} style={inputStyle} />
+              <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
+                <option value="ET">Eastern (ET)</option>
+                <option value="CT">Central (CT)</option>
+                <option value="MT">Mountain (MT)</option>
+                <option value="PT">Pacific (PT)</option>
+                <option value="AKT">Alaska (AKT)</option>
+                <option value="HT">Hawaii (HT)</option>
+              </select>
+              <button onClick={() => date && fire('confirm_date', date, time, tz)} disabled={!date || !!pending} style={{ ...greenBtn, opacity: (!date || pending) ? 0.6 : 1 }}>{pending === 'confirm_date' ? 'Sending…' : 'Send'}</button>
+              <button onClick={() => !pending && setShowDate(false)} disabled={!!pending} style={cancelBtn}>Cancel</button>
+            </div>
+          : <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <button onClick={() => setShowDate(true)} disabled={!!pending} style={greenBtn}>Send email (with date)</button>
+              <button onClick={() => fire('confirm_no_date')} disabled={!!pending} style={{ ...greenBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'confirm_no_date' ? 'Sending…' : 'Send email - date not confirmed'}</button>
+              <button onClick={() => fire('declined')} disabled={!!pending} style={{ ...redBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'declined' ? 'Sending…' : 'Meeting declined - email client'}</button>
+            </div>
       }
-    }
-    return progress
-  })
+      <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? fmtDate(p.completed_date) : ''}</span>
+    </div>
+  )
+}
+
+// MAP 4 follow-up step — admin enters the MAP 4 meeting date (date only), which arms
+// the daily cron to draft the follow-up email (To client, Cc member) 2 days later.
+// Below, an "AI PC Admin"-style auto group shows the email-sent + form-completed
+// sub-steps (the client's answers reveal under a chevron), mirroring the Specialist
+// Preliminary-Meeting pattern. Completion flags are read off the track.
+function Map4FollowupStep({ trackId, task, p, track, onDone }) {
+  const [showDate, setShowDate] = useState(false)
+  const [date, setDate] = useState('')
+  const [enteredDate, setEnteredDate] = useState(track.map4_meeting_date || '')
+  const [pending, setPending] = useState(false)
+  const [formOpen, setFormOpen] = useState(false)
+  const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
+  const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
+  const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid #d6e0ee', background: 'transparent', color: '#4e6087' }
+  function fmtLong(d) { if (!d) return ''; const dt = new Date(d + 'T00:00:00'); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }
+  function fmtDate(d) { if (!d) return ''; const parts = String(d).split('-'); return parts.length === 3 ? `${parts[1]}/${parts[2]}` : d }
+
+  async function saveDate() {
+    if (!date || pending) return
+    setPending(true)
+    try {
+      await callApi('automation_REGULAR_map4_setmeetingdate', { priority_track_id: trackId, meeting_date: date })
+      const today = new Date().toISOString().split('T')[0]
+      await callApi('msm_save_priority_task', { priority_track_id: trackId, task_id: task.id, status: 'Follow-up scheduled', completed_date: today })
+      setEnteredDate(date)
+      setShowDate(false)
+      onDone(task.id, 'Follow-up scheduled', today)
+    } catch (err) { console.error('MAP 4 set meeting date error:', err) }
+    finally { setPending(false) }
+  }
+
+  const emailSent = !!track.map4_followup_sent_at
+  const formDone = !!track.map4_form_submitted_at
+  const formData = track.map4_form_data || {}
+  const aipcDone = emailSent && formDone
+  const movingForward = formData.q3_moving_forward || ''
+
+  const autoStep = (label, done) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
+      <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
+      <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', marginLeft: 'auto', ...(done ? { background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 } : { background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }) }}>{done ? 'Done' : 'Awaiting'}</span>
+    </div>
+  )
+  const answer = (label, val) => (
+    <div style={{ marginBottom: '10px' }}>
+      <div style={{ fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{label}</div>
+      <div style={{ fontSize: '12px', color: '#16264a', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{val ? val : '—'}</div>
+    </div>
+  )
+
+  return (
+    <div style={{ padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: enteredDate ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${enteredDate ? '#1b9254' : '#c7d4e8'}` }} />
+        <span style={{ fontSize: '13px', color: enteredDate ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
+        {enteredDate
+          ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', border: '1px solid rgba(27,146,84,0.3)' }}>MAP 4 meeting: {fmtLong(enteredDate)}</span>
+          : showDate
+            ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+                <button onClick={saveDate} disabled={!date || pending} style={{ ...greenBtn, opacity: (!date || pending) ? 0.6 : 1 }}>{pending ? 'Saving…' : 'Save'}</button>
+                <button onClick={() => !pending && setShowDate(false)} disabled={pending} style={cancelBtn}>Cancel</button>
+              </div>
+            : <button onClick={() => setShowDate(true)} style={greenBtn}>Enter date of MAP 4 meeting</button>
+        }
+        <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? fmtDate(p.completed_date) : ''}</span>
+      </div>
+
+      {enteredDate && (
+        <div style={{ padding: '8px 0 2px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: aipcDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${aipcDone ? '#1b9254' : '#c7d4e8'}` }} />
+            <span style={{ fontSize: '13px', color: '#16264a', flex: 1, fontWeight: '600' }}>AI PC Admin</span>
+          </div>
+          <div style={{ marginLeft: '18px', padding: '8px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2' }}>
+            {autoStep('MAP 4 follow-up email sent', emailSent)}
+            <div>
+              <div onClick={() => formDone && setFormOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', cursor: formDone ? 'pointer' : 'default' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: formDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${formDone ? '#1b9254' : '#c7d4e8'}` }} />
+                <span style={{ fontSize: '12px', color: '#16264a' }}>MAP 4 form completed</span>
+                {formDone
+                  ? <>
+                      <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>
+                      <span style={{ color: '#4e6087', fontSize: '9px', transform: formOpen ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                    </>
+                  : <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087', marginLeft: 'auto' }}>Awaiting</span>}
+              </div>
+              {formDone && formOpen && (
+                <div style={{ padding: '10px 12px 4px 16px' }}>
+                  {answer('How was the meeting?', formData.q1_meeting)}
+                  {answer('Questions or concerns', formData.q2_concerns)}
+                  {answer('Moving forward to implement with the Specialist?', formData.q3_moving_forward)}
+                  {movingForward === 'Yes' && answer('Can we facilitate the next steps with the Specialist?', formData.q4_yes_facilitate)}
+                  {movingForward === 'No' && answer('Feedback / explore other solutions or specialists?', formData.q4_no_feedback)}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PriorityTrackView({ track, phases, progress, specialists, onBack, onProgressChange, readOnly = false, onTrackUpdate, notes = [], onNotesChange, clientId }) {
+  const [localProgress, setLocalProgress] = useState(progress)
   const [saving, setSaving] = useState({})
   const [expanded, setExpanded] = useState({})
   const [completedPhases, setCompletedPhases] = useState({})
@@ -69,16 +228,6 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
     finally { setSaving(p => ({ ...p, [taskId]: false })) }
   }
 
-  async function saveDate(taskId, date) {
-    const p = localProgress[taskId] || {}
-    setSaving(prev => ({ ...prev, [taskId]: true }))
-    try {
-      await callApi('msm_save_priority_task', { priority_track_id: track.id, task_id: taskId, status: p.status, completed_date: date || null })
-      setLocalProgress(prev => ({ ...prev, [taskId]: { ...prev[taskId], completed_date: date } }))
-    } catch (err) { console.error(err) }
-    finally { setSaving(prev => ({ ...prev, [taskId]: false })) }
-  }
-
   async function completePhase(phase) {
     const today = new Date().toISOString().split('T')[0]
     const autoCompleteCodes = { 'MAP 4 - Educate': ['MAP 4 meeting'] }
@@ -95,7 +244,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
     } catch (err) { console.error(err); setCompletedPhases(p => ({ ...p, [phase.id]: null })) }
   }
 
-  const statusColors = { Completed: '#1b9254', Yes: '#1b9254', 'No additional info required': '#1b9254', 'MAP 4 scheduled': '#1b9254', 'MAP 4 Scheduled': '#1b9254', No: '#e74c3c', 'No show': '#e74c3c', 'Additional info required': '#1b9254' }
+  const statusColors = { Completed: '#1b9254', Yes: '#1b9254', 'No additional info required': '#1b9254', 'Confirmation email sent': '#1b9254', 'Email sent - date not arranged': '#1b9254', 'Sent declined email': '#e74c3c', 'Follow-up scheduled': '#1b9254', Stopped: '#e74c3c', 'N/A': '#4e6087', No: '#e74c3c', 'No show': '#e74c3c', 'Additional info required': '#1b9254' }
   const inputStyle = { padding: '6px 10px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
 
   function getPhaseState(phase) {
@@ -115,9 +264,9 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
   const additionalInfoRequired = c253Status === 'Additional info required'
 
   const ADD_INFO_CHILD_NAMES = ['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L']
-  // The "Additional information required" children live in MAP 3 in the DB but
-  // render nested under their parent in MAP 2 — so for display they count with
-  // the parent's phase, and only when additional info is actually required.
+  // "Additional information required" and its children all live in MAP 3. The
+  // children render nested under the parent and only count toward the phase
+  // when additional info is actually required.
   function countedPhaseTasks(phase) {
     let tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !ADD_INFO_CHILD_NAMES.includes(t.name))
     const hasParent = (phase.program_client_tasks || []).some(t => t.name === 'Additional information required')
@@ -221,18 +370,6 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                     </div>
                   )
 
-                  if (task.status_options === 'specialist_select') return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? '#1b9254' : '#c7d4e8'}` }} />
-                      <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
-                      <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#ffffff', minWidth: '200px', color: isDone ? '#1b9254' : '#16264a', borderColor: isDone ? 'rgba(27,146,84,0.4)' : '#d6e0ee' }}>
-                        <option value="">-- Select Specialist --</option>
-                        {specialists.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                      </select>
-                      <input type="date" value={p.completed_date || ''} onChange={e => saveDate(task.id, e.target.value)} style={{ ...inputStyle, width: '130px' }} />
-                    </div>
-                  )
-
                   if (task.status_options === 'enter_details') return (
                     <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? '#1b9254' : '#c7d4e8'}` }} />
@@ -241,8 +378,37 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                         ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Completed</span>
                         : <button onClick={() => saveTask(task.id, 'Completed', p.completed_date)} style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600 }}>Enter details</button>
                       }
-                      <input type="date" value={p.completed_date || ''} onChange={e => saveDate(task.id, e.target.value)} style={{ ...inputStyle, width: '130px' }} />
+                      <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
+                  )
+
+                  if (task.status_options === 'map4_confirm') return (
+                    <Map4ConfirmStep
+                      key={task.id}
+                      trackId={track.id}
+                      task={task}
+                      p={p}
+                      onDone={(taskId, status, date) => {
+                        const updated = { task_id: taskId, status, completed_date: date }
+                        setLocalProgress(pr => ({ ...pr, [taskId]: { ...pr[taskId], ...updated } }))
+                        onProgressChange(taskId, updated)
+                      }}
+                    />
+                  )
+
+                  if (task.status_options === 'map4_followup') return (
+                    <Map4FollowupStep
+                      key={task.id}
+                      trackId={track.id}
+                      task={task}
+                      p={p}
+                      track={track}
+                      onDone={(taskId, status, date) => {
+                        const updated = { task_id: taskId, status, completed_date: date }
+                        setLocalProgress(pr => ({ ...pr, [taskId]: { ...pr[taskId], ...updated } }))
+                        onProgressChange(taskId, updated)
+                      }}
+                    />
                   )
 
                   // Skip tasks rendered as children inside Additional info handler
@@ -263,7 +429,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                             <option value="">-- Select --</option>
                             {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
-                          <input type="date" value={p.completed_date || ''} onChange={e => saveDate(task.id, e.target.value)} style={{ ...inputStyle, width: '130px' }} />
+                          <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                         </div>
                         <div style={{ marginLeft: '18px', borderLeft: '1px solid #ebf0f8', paddingLeft: '12px', paddingBottom: '4px', opacity: greyed ? 0.3 : 1, pointerEvents: greyed ? 'none' : 'auto' }}>
                           {childTasks.map(ct => {
@@ -278,7 +444,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                                   <option value="">-- Select --</option>
                                   {(ct.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
-                                <input type="date" value={cp.completed_date || ''} onChange={e => saveDate(ct.id, e.target.value)} style={{ ...inputStyle, width: '120px', fontSize: '11px' }} />
+                                <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{cDone && cp.completed_date ? formatDate(cp.completed_date) : ''}</span>
                               </div>
                             )
                           })}
@@ -296,7 +462,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                         <option value="">-- Select --</option>
                         {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
-                      <input type="date" value={p.completed_date || ''} onChange={e => saveDate(task.id, e.target.value)} style={{ ...inputStyle, width: '130px' }} />
+                      <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
                 })}
