@@ -6,6 +6,7 @@ import MemberVault from '../components/shared/MemberVault'
 import MemberCIQ from '../components/shared/MemberCIQ'
 import MemberGCMarketplace from '../components/member/MemberGCMarketplace'
 import MemberMSMTracking from '../components/member/MemberMSMTracking'
+import MemberShowroom from '../components/member/MemberShowroom'
 import VfoWordmark from '../components/shared/VfoWordmark'
 
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
@@ -20,6 +21,7 @@ export default function MemberPortal() {
   const [memberData, setMemberData] = useState(null)
   const [allExperts, setAllExperts] = useState([])
   const [exclusions, setExclusions] = useState([])
+  const [ecoMap, setEcoMap] = useState({})
   const [loading, setLoading] = useState(true)
   const [enabledPrograms, setEnabledPrograms] = useState([])
   const [allPrograms, setAllPrograms] = useState([])
@@ -43,6 +45,12 @@ export default function MemberPortal() {
         .filter(e => e.member_number === session.member_number)
         .map(e => e.expert_id)
       setExclusions(myExclusions)
+      const eco = {}
+      ;(data.ecosystems || []).forEach(e => {
+        if (!eco[e.expert_id]) eco[e.expert_id] = []
+        eco[e.expert_id].push(e.name)
+      })
+      setEcoMap(eco)
       setAllPrograms(progData.programs || [])
       setEnabledPrograms(enabledData.enabled || [])
     } catch (err) {
@@ -122,7 +130,7 @@ export default function MemberPortal() {
           {!loading && activeTab === 'specialists' && memberData && (
             <MemberSpecialists member={memberData} allExperts={allExperts} exclusions={exclusions} onDataChange={loadData} />
           )}
-          {!loading && activeTab === 'showroom' && <ComingSoon title="Showroom" />}
+          {!loading && activeTab === 'showroom' && <MemberShowroom experts={allExperts} exclusions={exclusions} ecoMap={ecoMap} />}
           {!loading && activeTab === 'website' && memberData && memberData.website_enabled && (
             <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
               <MemberWebsitePlugin member={memberData} onDataChange={loadData} />

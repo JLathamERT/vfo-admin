@@ -3,6 +3,7 @@ import { callApi, getSession } from '../../lib/api'
 import MemberWebsitePlugin from '../shared/MemberWebsitePlugin'
 import MemberVault from '../shared/MemberVault'
 import MemberCIQ from '../shared/MemberCIQ'
+import MemberShowroom from '../member/MemberShowroom'
 import MSMTracking from './MSMTracking'
 import AdvisorOnboarding from './AdvisorOnboarding'
 import AccountantOnboarding from './AccountantOnboarding'
@@ -34,25 +35,25 @@ const ACCOUNTANT_TYPES = [
   'FAC Historic',
 ]
 
-export default function MembersPanel({ allMembers, allExperts, allExclusionMap, onDataChange, section, navClickCount }) {
+export default function MembersPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, section, navClickCount }) {
   if (section === 'advisor_onboarding') return <AdvisorOnboarding />
   if (section === 'accountant_onboarding') return <AccountantOnboarding />
   if (section === 'accountant_search' || section === 'add_accountant') {
     return (
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-        <AccountantsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} initialTab={section === 'add_accountant' ? 'add' : 'search'} section={section} navClickCount={navClickCount} />
+        <AccountantsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} initialTab={section === 'add_accountant' ? 'add' : 'search'} section={section} navClickCount={navClickCount} />
       </div>
     )
   }
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-      <AdvisorsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} initialTab={section === 'add_advisor' ? 'add' : 'search'} section={section} navClickCount={navClickCount} />
+      <AdvisorsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} initialTab={section === 'add_advisor' ? 'add' : 'search'} section={section} navClickCount={navClickCount} />
     </div>
   )
 }
 
-function AccountantsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, initialTab, section, navClickCount }) {
+function AccountantsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount }) {
   // Accountants are tagged durably by member_category (set at create time).
   const accountantMembers = allMembers.filter(m => m.member_category === 'accountant')
 
@@ -62,6 +63,7 @@ function AccountantsPanel({ allMembers, allExperts, allExclusionMap, onDataChang
       allMembers={allMembers}
       allExperts={allExperts}
       allExclusionMap={allExclusionMap}
+      ecoMap={ecoMap}
       onDataChange={onDataChange}
       addForm={<AddAccountantForm allMembers={allMembers} onDataChange={onDataChange} />}
       selectedKey="adminSelectedAccountant"
@@ -215,6 +217,7 @@ function MemberDirectoryView({
   allMembers,
   allExperts,
   allExclusionMap,
+  ecoMap,
   onDataChange,
   addForm,
   selectedKey,
@@ -309,7 +312,7 @@ function MemberDirectoryView({
           </div>
           {['profile_details','profile_edit','profile_history'].includes(memberFeatureTab) && <MemberProfile member={selectedMember} allMembers={allMembers} onDataChange={onDataChange} activeSection={memberFeatureTab} hiddenFields={hiddenFields} />}
           {['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab) && <MSMTracking member={selectedMember} activeSection={memberFeatureTab} onDataChange={onDataChange} />}          {memberFeatureTab === 'specialists' && <MemberSpecialists member={selectedMember} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} />}
-          {memberFeatureTab === 'showroom' && <ComingSoon title="Showroom" />}
+          {memberFeatureTab === 'showroom' && <MemberShowroom experts={allExperts} exclusions={allExclusionMap[selectedMember.plugin_member_number] || []} ecoMap={ecoMap} />}
           {memberFeatureTab === 'website' && <MemberWebsitePlugin member={selectedMember} onDataChange={onDataChange} readOnly={false} isAdmin={true} />}
           {memberFeatureTab === 'ciq' && <MemberCIQ memberNumber={selectedMember.plugin_member_number} memberName={selectedMember.name} ciqEnabled={selectedMember.ciq_enabled} ciqVfosManaged={selectedMember.ciq_vfos_managed} isAdmin={true} />}
           {memberFeatureTab === 'growthplan' && <ComingSoon title="Growth Plan" />}
@@ -322,13 +325,14 @@ function MemberDirectoryView({
   )
 }
 
-function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, onDataChange, initialTab, section, navClickCount }) {
+function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount }) {
   return (
     <MemberDirectoryView
       displayMembers={allMembers.filter(m => m.member_category !== 'accountant')}
       allMembers={allMembers}
       allExperts={allExperts}
       allExclusionMap={allExclusionMap}
+      ecoMap={ecoMap}
       onDataChange={onDataChange}
       addForm={<AddAdvisorForm allMembers={allMembers} onDataChange={onDataChange} />}
       selectedKey="adminSelectedMember"
