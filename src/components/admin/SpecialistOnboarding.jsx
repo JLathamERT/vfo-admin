@@ -652,17 +652,6 @@ function OnboardingDetail({ id, onBack }) {
     const denied = r2BothDenied
     const approvedBanner = { fontSize: '12px', color: '#1b9254', fontWeight: 600, padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(27,146,84,0.3)', background: 'rgba(27,146,84,0.06)', marginBottom: '8px' }
 
-    const [revSharePercent, setRevSharePercent] = useState('')
-    const [submittingRevShare, setSubmittingRevShare] = useState(false)
-    async function submitRevShareProposal() {
-      if (!revSharePercent) return
-      setSubmittingRevShare(true)
-      try {
-        await saveProgress(2, 'rev_share_prepared', 'completed', revSharePercent.trim())
-      } catch (err) { console.error(err) }
-      finally { setSubmittingRevShare(false) }
-    }
-
     // Toggle a checklist item on/off (editable until the meeting is submitted).
     // 'unchecked' is treated as not-done by getTaskStatus.
     function toggleChecklist(index) {
@@ -804,18 +793,23 @@ function OnboardingDetail({ id, onBack }) {
         )}
 
         {/* Revenue share proposal — submitting it notifies Tracy (always) + Tim
-            (tax specialists only) to add their reviewer notes below. */}
+            (tax specialists only) to add their reviewer notes below. Uses the same
+            always-visible box as the reviewer notes: it never collapses after
+            submit and stays editable. */}
         <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
         <SectionLabel>Revenue share proposal</SectionLabel>
-        {!getTaskStatus(2, 'rev_share_prepared') ? (
-          <div style={{ padding: '14px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.3)', background: '#eef2f9', marginBottom: '12px' }}>
-            <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '8px' }}>Revenue Share Proposal</div>
-            <textarea value={revSharePercent} onChange={e => setRevSharePercent(e.target.value)} placeholder="Enter revenue share proposal details..." rows={6} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '10px' }} />
-            <ActionButton label={submittingRevShare ? 'Submitting...' : 'Submit revenue share proposal'} onClick={submitRevShareProposal} disabled={!revSharePercent.trim() || submittingRevShare} color="#1b9254" />
-          </div>
-        ) : (
-          <RevShareDisplay notes={progress['2-rev_share_prepared']?.notes || ''} edited={ob.rev_share_final_text} />
-        )}
+        <ReviewerNoteInput
+          label="Revenue Share Proposal"
+          placeholder="Enter revenue share proposal details..."
+          rows={6}
+          done={!!getTaskStatus(2, 'rev_share_prepared')}
+          currentNotes={progress['2-rev_share_prepared']?.notes || ''}
+          onSave={t => saveProgress(2, 'rev_share_prepared', 'completed', t)}
+          pendingBadge="Awaiting proposal"
+          doneBadge="Submitted"
+          saveLabel="Submit revenue share proposal"
+          updateLabel="Update revenue share proposal"
+        />
         <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
 
         {/* Reviewer notes — always visible (mirrors Stage 4). Tracy (always) + Tim
@@ -865,33 +859,8 @@ function OnboardingDetail({ id, onBack }) {
     )
   }
  
-  function RevShareDisplay({ notes, edited }) {
-    const [open, setOpen] = useState(false)
-    return (
-      <div style={{ marginBottom: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
-          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#1b9254', border: '1px solid #1b9254' }} />
-          <span style={{ fontSize: '12px', color: '#16264a', fontWeight: 600 }}>Revenue share proposal submitted</span>
-          <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>
-        </div>
-        <div onClick={() => setOpen(o => !o)} style={{ fontSize: '11px', color: '#0095ff', fontWeight: 600, cursor: 'pointer', marginTop: '4px' }}>{open ? '▼ Hide proposal' : '▶ View proposal'}</div>
-        {open && (
-          <div style={{ marginTop: '6px' }}>
-            <div style={{ fontSize: '10px', color: '#0095ff', fontWeight: 600, marginBottom: '3px' }}>{edited ? 'Original submission' : 'Submitted proposal'}</div>
-            <div style={{ fontSize: '12px', color: '#4e6087', lineHeight: '1.6', whiteSpace: 'pre-wrap', padding: '8px 12px', borderRadius: '6px', background: '#eef2f9', border: '1px solid #dde5f2' }}>{notes || '—'}</div>
-            {edited && (
-              <>
-                <div style={{ fontSize: '10px', color: '#4e6087', fontWeight: 600, margin: '8px 0 3px' }}>Edited final version</div>
-                <div style={{ fontSize: '12px', color: '#4e6087', lineHeight: '1.6', whiteSpace: 'pre-wrap', padding: '8px 12px', borderRadius: '6px', background: 'rgba(27,146,84,0.06)', border: '1px solid rgba(27,146,84,0.2)' }}>{edited}</div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-    )
-  }
 
-  function ReviewerNoteInput({ label, who, placeholder, done, currentNotes, onSave, hint }) {
+  function ReviewerNoteInput({ label, who, placeholder, done, currentNotes, onSave, hint, rows = 4, pendingBadge = 'Awaiting notes', doneBadge = 'Completed', saveLabel = 'Save notes', updateLabel = 'Update notes' }) {
     const [text, setText] = useState(currentNotes)
     const [saving, setSaving] = useState(false)
     const [justSaved, setJustSaved] = useState(false)
@@ -907,13 +876,13 @@ function OnboardingDetail({ id, onBack }) {
     return (
       <div style={{ padding: '12px 14px', borderRadius: '8px', border: `1px solid ${done ? 'rgba(27,146,84,0.3)' : 'rgba(251,137,90,0.3)'}`, background: '#eef2f9', marginBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <span style={{ fontSize: '13px', color: '#16264a', fontWeight: '600' }}>{label} <span style={{ color: '#4e6087', fontWeight: 400 }}>({who}){hint ? ` — ${hint}` : ''}</span></span>
+          <span style={{ fontSize: '13px', color: '#16264a', fontWeight: '600' }}>{label}{who && <span style={{ color: '#4e6087', fontWeight: 400 }}> ({who}){hint ? ` — ${hint}` : ''}</span>}</span>
           {done
-            ? <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Completed</span>
-            : <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(251,137,90,0.15)', color: '#e06717', fontWeight: 600, marginLeft: 'auto' }}>Awaiting notes</span>}
+            ? <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>{doneBadge}</span>
+            : <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(251,137,90,0.15)', color: '#e06717', fontWeight: 600, marginLeft: 'auto' }}>{pendingBadge}</span>}
         </div>
-        <textarea value={text} onChange={e => setText(e.target.value)} placeholder={placeholder} rows={4} disabled={isStopped} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '8px' }} />
-        <ActionButton label={justSaved ? '✓ Saved' : saving ? 'Saving...' : done ? 'Update notes' : 'Save notes'} onClick={handleSave} color={done ? '#1b9254' : '#0095ff'} disabled={!text.trim() || saving} />
+        <textarea value={text} onChange={e => setText(e.target.value)} placeholder={placeholder} rows={rows} disabled={isStopped} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '8px' }} />
+        <ActionButton label={justSaved ? '✓ Saved' : saving ? 'Saving...' : done ? updateLabel : saveLabel} onClick={handleSave} color={done ? '#1b9254' : '#0095ff'} disabled={!text.trim() || saving} />
       </div>
     )
   }

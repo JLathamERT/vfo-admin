@@ -42,7 +42,7 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | `/tax-upload` | [TaxUploadPage](src/pages/TaxUploadPage.jsx) | URL token | PUBLIC client page — drop tax returns. Token from `clients.tax_upload_token`; calls `vault_tax_upload_url` and PUTs files via signed upload URL into the private `client-tax-returns` bucket. |
 | `/client/login` | [ClientLogin](src/pages/ClientLogin.jsx) | none | New CLIENT login — calls `client_login`; sets session `{role:'client', client_id}`. |
 | `/client-setup` | [ClientSetupPage](src/pages/ClientSetupPage.jsx) | URL token | PUBLIC client page — `load_client_setup` then `submit_client_setup` (set passcode → creates `client_logins` row). |
-| `/client` | [ClientPortal](src/pages/ClientPortal.jsx) | client session | THIRD portal (after admin/member); role-guards `session.role==='client'`. Two tabs: Showroom (placeholder stub) + Vault. |
+| `/client` | [ClientPortal](src/pages/ClientPortal.jsx) | client session | THIRD portal (after admin/member); role-guards `session.role==='client'`. Two tabs: Showroom (the connected member's enabled specialists via `client_showroom_load`, rendered by the shared `MemberShowroom`) + Vault. |
 | `/specialist/login` | [SpecialistLogin](src/pages/SpecialistLogin.jsx) | none | Specialist portal login — calls `specialist_login`; sets session `{role:'specialist', expert_id}`. Added this session. |
 | `/specialist` | [SpecialistPortal](src/pages/SpecialistPortal.jsx) | specialist session | FOURTH portal; role-guards `session.role==='specialist'`. One Vault tab. Added this session. |
 | `*` | redirect to `/` | — | Catch-all |
@@ -115,7 +115,7 @@ The portal itself only fires `load_data` (line 85). All deeper actions are fired
 | `msm_home` | MSM Home | [MemberMSMTracking](src/components/member/MemberMSMTracking.jsx) (with `activeTab='msm_home'`) | `msm_load_programs`, `msm_load_enrollments`, `msm_load_enabled_programs`, `msm_load_meetings` ([lines 27-30](src/components/member/MemberMSMTracking.jsx)) |
 | `msm_holistic` / `msm_partnership` / `msm_tax` / `msm_coaching` | per-program views | same component, conditional rendering | additional: `msm_load_training_track`, `msm_load_training_progress`, `msm_load_clients`, `msm_load_client_track`, `msm_load_client_progress`, `member_load_pipeline`, `coaching_load_meetings`, `coaching_load_renewals` ([lines 42-43, 223-224, 375, 482-484, 711, 788](src/components/member/MemberMSMTracking.jsx)) |
 | `specialists` | Specialists | inline `MemberSpecialists` | `save_member` (saves exclusions) ([line 211](src/pages/MemberPortal.jsx)) |
-| `showroom` | Showroom | inline `ComingSoon` | — |
+| `showroom` | Showroom | [MemberShowroom](src/components/member/MemberShowroom.jsx) | none new — reads experts + `ecosystems` + the member's `exclusions` from the page's existing `load_data`; standard plugin look, shows only the member's enabled specialists |
 | `website` | Website Plugin | [MemberWebsitePlugin](src/components/shared/MemberWebsitePlugin.jsx) | `save_member` ([line 33](src/components/shared/MemberWebsitePlugin.jsx)) — **tab shown only when `memberData.website_enabled`** (hidden + un-rendered otherwise); the enable toggle renders only for admins (`isAdmin` prop) |
 | `ciq` | CIQ | [MemberCIQ](src/components/shared/MemberCIQ.jsx) | `ciq_load_settings`, `member_profile_save`, `ciq_load_list`, `load_member_contacts`, `msm_load_member_clients`, `ciq_create`, `ciq_add_client_and_create`, `ciq_load`, `ciq_load_priorities`, `ciq_load_priority_snapshots`, `ciq_save`, `ciq_complete`, `ciq_save_priorities`, `ciq_save_priority_snapshot` ([14 calls — see lines 40, 51, 64-65, 76, 90, 101, 112-114, 131, 144-145, 425-432](src/components/shared/MemberCIQ.jsx)) |
 | `growthplan` | Growth Plan | inline `ComingSoon` | — |
@@ -130,7 +130,7 @@ The **third portal** (after admin/member), reached via `/client`. Role-guards `s
 
 | Tab | Mounts | Notes |
 |---|---|---|
-| Showroom | inline placeholder stub | not yet built |
+| Showroom | [MemberShowroom](src/components/member/MemberShowroom.jsx) | `client_showroom_load` → the connected member's enabled specialists (standard plugin look, same component as the member/admin portals) |
 | Vault | [ClientVault](src/components/client/ClientVault.jsx) | client-scoped document vault — two sections, **Sensitive Documents** (→ `client-tax-returns` bucket) and **General Documentation** (→ `client-documents` bucket); calls `client_vault_list` / `client_vault_upload_url` / `client_vault_download` / `client_vault_delete` (all scoped server-side to the caller's own client) |
 
 ### `SpecialistPortal.jsx` ([src/pages/SpecialistPortal.jsx](src/pages/SpecialistPortal.jsx))
