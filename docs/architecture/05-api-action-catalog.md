@@ -249,9 +249,9 @@ Admin-facing handlers over the private client buckets. The `vault_tax_*` set gua
 | `vault_gen_download` | `actions/vault/gen-download.ts` | storage `client-documents` | — | Any admin. Signed download URL. |
 | `vault_gen_delete` | `actions/vault/gen-delete.ts` | — | storage `client-documents` (delete) | Any admin. Removes a file. |
 
-#### Client vault — client side (added this session, gated by `CLIENT_ALLOWED_ACTIONS`)
+#### Client portal — client side (gated by `CLIENT_ALLOWED_ACTIONS`)
 
-A `client` session may call ONLY these four. Each is scoped to `auth.callerClientId` — never a body `client_id`.
+A `client` session may call ONLY these (4 vault + `client_showroom_load`). Each is scoped to `auth.callerClientId` — never a body `client_id`.
 
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
@@ -259,6 +259,7 @@ A `client` session may call ONLY these four. Each is scoped to `auth.callerClien
 | `client_vault_upload_url` | `actions/vault/client-vault-upload-url.ts` | storage (own) | — | Signed upload URL; `body.section` ∈ {sensitive, general}. |
 | `client_vault_download` | `actions/vault/client-vault-download.ts` | storage (own) | — | 300s signed URL for own file. |
 | `client_vault_delete` | `actions/vault/client-vault-delete.ts` | — | storage (own file delete) | Removes own file. |
+| `client_showroom_load` | `actions/data/client-showroom-load.ts` | `clients` (own row → `member_number`) + `experts` + `vfo_ecosystem_assignments` + `member_exclusions` (connected member) | — | Returns the connected member's enabled specialists for the client-portal Showroom. No member PII/appearance. Added 2026-06-12. |
 
 #### Specialist vault — specialist side (added this session, gated by `SPECIALIST_ALLOWED_ACTIONS`)
 

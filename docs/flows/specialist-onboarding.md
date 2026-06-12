@@ -84,7 +84,7 @@ Admin picks (MAP1-style row, "Sending…" lock): **Continue — Send email (with
 ## Stage 2 — Detail Meetings
 
 - 9-item checklist; ticking is **toggleable** until the meeting is logged (`'unchecked'` sentinel, gotcha #62).
-- **Revenue Share Proposal** sits in Stage 2, before "Initial executive approval." The **final** proposal box (manual entry, "Submit final revenue share proposal") is what Anton & Paul vote on; shows a **▶ View proposal / ▼ Hide proposal** toggle after submit.
+- **Revenue Share Proposal** sits in Stage 2, before "Initial executive approval." The proposal box (manual entry, "Submit revenue share proposal") is what Anton & Paul vote on. **As of 2026-06-12 it behaves like the reviewer-notes box** (reuses `ReviewerNoteInput`): after submit the textarea stays on screen (badge "Awaiting proposal" → "Submitted") and is editable via "Update revenue share proposal" — the old submit-then-collapse `RevShareDisplay` (▶ View proposal toggle) was removed. The Stage-3 "Final revenue share proposal" Confirm/Edit flow is separate and unchanged.
 - **"Discuss revenue share (detail)"** is now just a **plain checklist item** (the per-meeting proposal textarea + email Approve/Propose-edit buttons + per-meeting "AI PC Admin" block were **removed 2026-06-04** — the specialist's rev-share sign-off moved to the Step 3 receipt email).
 - **"Still interested — Send email"** logs the meeting then drafts the Stage 2 email (save-meeting first, then stage2email with `meeting_id` — gotcha #63). Buttons collapse to a single "Still interested" (no date/no-date) when the current checks complete ALL items.
 - **Stop — Send email** logs a stopped meeting + fires `SPECIALIST_no`. Once stopped the live remaining-items checklist is read-only.
