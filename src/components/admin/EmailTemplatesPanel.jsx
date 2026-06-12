@@ -9,6 +9,7 @@ const SECTIONS = [
   { key: 'tax_holistic', label: 'Holistic Planning - Tax Priorities', pipeline: 'TAX', sharedNote: true },
   { key: 'tax_standalone', label: 'Tax Planning', pipeline: 'TAX', sharedNote: true },
   { key: 'pip', label: 'Holistic Planning - PIP Meetings', pipeline: 'PIP' },
+  { key: 'regular', label: 'Holistic Planning - Regular Priorities', pipeline: 'REGULAR' },
   { key: 'advisor', label: 'Advisor Onboarding', pipeline: 'ADVISOR_ONBOARDING' },
   { key: 'accountant', label: 'Accountant Onboarding', pipeline: 'ACCOUNTANT_ONBOARDING' },
   { key: 'specialist', label: 'Specialist Onboarding', pipeline: 'SPECIALIST_ONBOARDING' },
@@ -71,6 +72,11 @@ const TEMPLATE_META = {
     ['PIP_payment', 'Payment link'],
     ['PIP_confirmation', 'Payment confirmation'],
     ['PIP_invoicereceipt_email', 'Invoice & receipt'],
+  ],
+  'REGULAR': [
+    ['REGULAR_map4confirm', 'MAP 4 confirmation — meeting confirmed'],
+    ['REGULAR_map4declined', 'MAP 4 confirmation — declined'],
+    ['REGULAR_map4followup', 'MAP 4 meeting follow-up (2 days post-meeting)'],
   ],
   'ADVISOR_ONBOARDING': [
     ['ADVISOR_undecided', 'Stage 1 — undecided decision email'],

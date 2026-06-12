@@ -437,6 +437,18 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const [extraMeetingPricingOpen, setExtraMeetingPricingOpen] = useState(false)
   const [submittingExtraNo, setSubmittingExtraNo] = useState(false)
   const [depositPiDrafts, setDepositPiDrafts] = useState({})
+  const [trackStatus, setTrackStatus] = useState(plan.status || 'live')
+  const [togglingStatus, setTogglingStatus] = useState(false)
+
+  async function toggleTrackStatus() {
+    const newStatus = trackStatus === 'live' ? 'stopped' : 'live'
+    setTogglingStatus(true)
+    try {
+      await callApi('msm_update_tax_status', { tax_plan_id: plan.id, status: newStatus })
+      setTrackStatus(newStatus)
+    } catch (err) { console.error(err) }
+    finally { setTogglingStatus(false) }
+  }
 
   async function refreshLivePlan() {
     try {
@@ -1607,6 +1619,15 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         completed={heroDoneTasks}
         total={heroTotalTasks}
         steps={heroSteps}
+        action={!readOnly && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '13px', color: '#16264a', fontWeight: '600' }}>{trackStatus === 'live' ? 'Live' : 'Stopped'}</span>
+            <div onClick={() => !togglingStatus && toggleTrackStatus()}
+              style={{ width: '44px', height: '24px', borderRadius: '12px', background: trackStatus === 'live' ? '#1b9254' : '#e74c3c', cursor: 'pointer', position: 'relative', opacity: togglingStatus ? 0.5 : 1 }}>
+              <div style={{ position: 'absolute', top: '2px', left: trackStatus === 'live' ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+            </div>
+          </div>
+        )}
       />
 
       {phasesBeforeSpec.map((phase, phaseIdx) => {

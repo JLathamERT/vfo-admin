@@ -31,6 +31,7 @@ import SpecialistLogin from './pages/SpecialistLogin'
 import SpecialistPortal from './pages/SpecialistPortal'
 import SpecialistDdcHelpPage from './pages/SpecialistDdcHelpPage'
 import SpecialistRevShareFinalPage from './pages/SpecialistRevShareFinalPage'
+import Map4FormPage from './pages/Map4FormPage'
 
 export default function App() {
   return (
@@ -57,6 +58,7 @@ export default function App() {
       <Route path="/pip-pay" element={<PipPayPage />} />
       <Route path="/member-setup" element={<MemberSetupPage />} />
       <Route path="/specialist-sif" element={<SpecialistSifPage />} />
+      <Route path="/map4-form" element={<Map4FormPage />} />
       <Route path="/specialist-pay" element={<SpecialistPayPage />} />
       <Route path="/specialist-questions" element={<SpecialistQuestionsPage />} />
       <Route path="/specialist-ddc" element={<SpecialistDdcPage />} />
