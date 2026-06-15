@@ -136,6 +136,22 @@ Two cases (lines 394-438):
 
 > **How `metadata.payment_number` gets set for payments 2-4:** by `automation_CONTRACT_chargescheduled_sweep`, a daily-`pg_cron`-driven PUBLIC action (service-role gated). It uses the saved-on-customer payment method (captured by P1's `setup_future_usage: off_session`), creates the PaymentIntent server-side with `Idempotency-Key: chargescheduled-{client_id}-P{N}-{YYYY-MM-DD}`, and stamps `metadata.payment_number=N` so this webhook branch fires the correct chain. See [flows/contract-and-payment.md](../flows/contract-and-payment.md) Step 10½ and [flows/stripe-webhook.md](../flows/stripe-webhook.md).
 
+### Failure events (added 2026-06-15)
+
+Every money-movement failure routes an alert to Jake's bell via `utils/notify-jake-failure.ts` (`notifyJakeFailure`, with an `actionRequired` flag + `clearJakeFailure`/`clearJakeFailuresContaining` for auto-clear), in ADDITION to any existing Tracy/admin/PF alert. A shared `utils/resolve-stripe-failure.ts` maps a Stripe customer + metadata to the right pipeline row + status column (same cascade as `checkout.session.completed`).
+
+- **`checkout.session.async_payment_failed`** — an ACH first payment that bounced after the session completed (previously silent everywhere). Flips the row's first-payment status to `failed` across MAP 1 / Tax retainer / Advisor / Accountant / PIP / Specialist bg.
+- **`payment_intent.payment_failed`** — broadened beyond Specialist to all first-payment pipelines; skips off-session installments (`metadata.payment_number` / `payment_kind='implementation'`) which the charge sweeps already detect synchronously.
+- **`customer.subscription.updated` / `.deleted`** — Specialist $99/mo license past_due/canceled → "consider revoking access" alert (routed by `lic_subscription_id`); auto-clears + restores `lic_payment_status` on return to active.
+- **`charge.dispute.created` / `.closed`** — chargeback alert (action-required); close clears the opened alert, then posts the won/lost outcome.
+- **`charge.refunded`** + **`charge.refund.updated` / `refund.updated` / `refund.failed`** — tracks every refund (incl. Stripe-Dashboard-issued) and alerts on a failed refund.
+- **`transfer.reversed`** — a rev-share Connect transfer reversed/clawed back.
+- Catch-all `console.log("Stripe webhook event:", event.type)` logs every event for observability.
+
+These only fire if the Stripe endpoint subscribes to the event types (config, both live + sandbox). Alert policy: action-required + auto-clear for rev-share/license/disputes (clean recovery event); dismissible FYI for the rest (no programmatic recovery → would be permanent clutter).
+
+> Note: the `checkout.session.completed` / `payment_intent.succeeded` sections above are MAP 1-centric and carry pre-refactor line refs; the **authoritative current webhook routing** (tax / advisor / accountant / pip / specialist cascade + these failure events) lives in `SESSION_REFERENCE.md` → "Stripe webhook chain order".
+
 ## Stripe Connect & revenue share
 
 `automation_CONTRACT_revshare` ([line 1248](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) creates a Stripe Transfer:

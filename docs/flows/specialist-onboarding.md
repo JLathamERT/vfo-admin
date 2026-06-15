@@ -105,7 +105,7 @@ The Stage 3 admin tracker (`SpecialistOnboarding.jsx`) has a payment lead-in, th
 - **`SPECIALIST_step3` email** (auto-sent on exec approval) has **Core $350** / **Max $950** / **I Have Further Questions** buttons.
 - **Core/Max** → `/specialist-pay?token=<bg_checkout_token>&type=core|max` → ACH-or-Card picker → Stripe one-time. **Card:** `bgconfirmation` + `bgreceipt` fire immediately. **ACH:** confirmation at authorization, **receipt on clearance** (2–4 days, via `payment_intent.succeeded`).
 - **I Have Further Questions** → `/specialist-questions` → non-dismissible Tracy notif → admin **"Answer the specialist's background check questions"** bullet (stays as a paper trail) with **Questions answered** (re-send `SPECIALIST_step3_proceed`) / **Stop** (`SPECIALIST_no` + stop).
-- Payment failure (`payment_intent.payment_failed`, ACH-settle only) → `bg_payment_status='failed'` + Tracy FYI.
+- Payment failure → `bg_payment_status='failed'` + Tracy + Jake alert. Card declines surface via `payment_intent.payment_failed`; **ACH first-payment bounces surface via `checkout.session.async_payment_failed`** (added 2026-06-15) — both now handled.
 
 **Receipt email** (`SPECIALIST_bg_receipt`, fired on clearance) now carries the **DD Checklist** + **Request Help** buttons, the process image, and the **revenue-share proposal (Exhibit A)** with **Happy** / **Further Questions** buttons. `bg-receipt.ts` mints `ddc_token` + `rev_share_final_token`.
 
@@ -197,7 +197,7 @@ To **Tracy** (`tnmiller@elitert.com`), and **Tim/Anton/Paul** for their specific
 - ~~Stage 3 gate question~~ **RESOLVED** — Stage 3 → Stage 4 now requires all three (bg Passed + DD Approved + rev finalized) via `maybeAdvanceStage3`.
 - **Specialist pipeline is in sandbox** (`sandbox_mode=true`) — flip to live (via the panel toggle) before real payments.
 - ~~Frontend production deploy required~~ **DONE** — the whole Specialist UI is now deployed/live. (Code is deployed but **not yet committed** in git.)
-- Card declines don't webhook (only ACH-settle failures notify).
+- Card declines mid-Checkout don't webhook; **ACH first-payment bounces now do** (`checkout.session.async_payment_failed`, 2026-06-15 → `bg_payment_status='failed'` + Jake alert). License lapse/cancel also alerts now (`customer.subscription.updated`/`deleted` → "consider revoking access").
 
 ## Cross-references
 
