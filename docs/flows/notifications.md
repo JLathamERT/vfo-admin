@@ -109,7 +109,7 @@ Each `advisor_onboarding` / `accountant_onboarding` row carries an `onboarding_t
 
 ### Cross-pipeline: Jake payment/transfer-failure alerts (2026-06-09)
 
-[`utils/notify-jake-failure.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/notify-jake-failure.ts) `notifyJakeFailure()` — an FYI (deduped) to **`jlatham@elitert.com`** on every detectable money-movement failure, IN ADDITION to any existing notification: revshare Connect-transfer failed (MAP 1/Tax/PIP), MAP 1 quarterly off-session charge failed, Tax implementation charge failed, Specialist bg + license payment failed (`router/webhooks.ts`).
+[`utils/notify-jake-failure.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/notify-jake-failure.ts) `notifyJakeFailure()` — an alert (deduped) to **`jlatham@elitert.com`** on every detectable money-movement failure, IN ADDITION to any existing notification: revshare Connect-transfer failed (MAP 1/Tax/PIP), MAP 1 quarterly off-session charge failed, Tax implementation charge failed, Specialist bg + license payment failed (`router/webhooks.ts`). **Expanded 2026-06-15** to also cover ACH first-payment bounces (`checkout.session.async_payment_failed`, all pipelines), failed first-payment PaymentIntents (broadened beyond Specialist), Specialist license lapse/cancel (`customer.subscription.updated`/`deleted`), chargebacks (`charge.dispute.*`), refunds + failed refunds (`charge.refunded` / `refund.*`), and rev-share clawbacks (`transfer.reversed`). Gained an `actionRequired` flag (non-dismissible) + `clearJakeFailure`/`clearJakeFailuresContaining` auto-clear — action-required + auto-clear for rev-share/license/disputes, dismissible FYI for the rest.
 
 ## Step 3 — Mark read (single)
 
