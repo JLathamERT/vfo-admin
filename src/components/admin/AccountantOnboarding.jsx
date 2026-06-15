@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { callApi, getSession } from '../../lib/api'
 import { AccountantOnboardingListSkeleton, AccountantOnboardingDetailSkeleton } from '../shared/Skeleton'
 import { TrackHero, PhaseBadge, ListHeader } from '../shared/TrackKit'
+import NewModelSaleModal, { SALES_TEAM_NAMES } from './NewModelSaleModal'
 
 const STAGE_NAMES = ['', 'Preliminary Meeting', 'PC Admin', 'Add New Accountant']
 
@@ -19,7 +20,7 @@ export default function AccountantOnboarding() {
   const [creating, setCreating] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
   const [showStopped, setShowStopped] = useState(false)
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const session = getSession()
 
   const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
@@ -66,7 +67,11 @@ export default function AccountantOnboarding() {
   }
 
   if (view === 'detail' && selectedId) {
-    return <OnboardingDetail id={selectedId} onBack={() => { setView('list'); setSelectedId(null); loadList() }} />
+    return <OnboardingDetail id={selectedId} onBack={() => {
+      setView('list'); setSelectedId(null); loadList()
+      // Clear a consumed/stale deep-link param so a deleted id can't re-open.
+      if (searchParams.get('onboarding')) { const n = new URLSearchParams(searchParams); n.delete('onboarding'); n.delete('_n'); setSearchParams(n, { replace: true }) }
+    }} />
   }
 
   return (
@@ -192,6 +197,7 @@ function OnboardingDetail({ id, onBack }) {
   const [saving, setSaving] = useState(false)
   const [pendingDecision, setPendingDecision] = useState(null)
   const [creatingMember, setCreatingMember] = useState(false)
+  const [showSaleModal, setShowSaleModal] = useState(false)
   const [expanded, setExpanded] = useState({ 1: true, 2: true, 3: true })
 
   useEffect(() => { loadDetail() }, [id])
@@ -200,8 +206,14 @@ function OnboardingDetail({ id, onBack }) {
     setLoading(true)
     try {
       const data = await callApi('load_accountant_onboarding', { onboarding_id: id })
-      setOb(data.onboarding || null)
-    } catch (err) { console.error(err) }
+      if (!data?.onboarding) { onBack(); return }   // deleted/missing → back to list
+      setOb(data.onboarding)
+    } catch (err) {
+      // A stale deep-link to a deleted onboarding 404s — bounce to the list
+      // instead of getting stuck on an error.
+      if (String(err?.message || err).toLowerCase().includes('not found')) { onBack(); return }
+      console.error(err)
+    }
     finally { setLoading(false) }
   }
 
@@ -223,6 +235,15 @@ function OnboardingDetail({ id, onBack }) {
     finally { setSaving(false) }
   }
 
+  async function saveTeamMember(name) {
+    setSaving(true)
+    try {
+      const res = await callApi('save_accountant_team_member', { onboarding_id: id, team_member: name || null })
+      if (res?.onboarding) setOb(res.onboarding)
+    } catch (err) { console.error(err); alert('Error: ' + err.message) }
+    finally { setSaving(false) }
+  }
+
   async function saveDecision(decision) {
     setPendingDecision(decision)
     try {
@@ -232,18 +253,24 @@ function OnboardingDetail({ id, onBack }) {
     finally { setPendingDecision(null) }
   }
 
-  async function createAccountant() {
+  async function createAccountant(saleFields) {
     setCreatingMember(true)
     try {
-      const res = await callApi('automation_ACCOUNTANT_createmember', { onboarding_id: id })
+      const res = await callApi('automation_ACCOUNTANT_createmember', { onboarding_id: id, ...(saleFields || {}) })
       if (res?.error) { alert('Error: ' + res.error); return }
+      setShowSaleModal(false)
       await loadDetail()
     } catch (err) { console.error(err); alert('Error: ' + err.message) }
     finally { setCreatingMember(false) }
   }
 
   if (loading) return <AccountantOnboardingDetailSkeleton onBack={onBack} />
-  if (!ob) return <div style={{ padding: '40px', color: '#4e6087', textAlign: 'center' }}>Onboarding not found.</div>
+  if (!ob) return (
+    <div style={{ padding: '40px', color: '#4e6087', textAlign: 'center' }}>
+      <p>This onboarding no longer exists.</p>
+      <button onClick={onBack} style={{ marginTop: '8px', padding: '8px 16px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#0095ff', fontSize: '13px', cursor: 'pointer' }}>← Back to list</button>
+    </div>
+  )
 
   const decision = ob.prelim_meeting_decision
   // VFO Associate accountants pay nothing and sign nothing — skip Stage 1 & 2.
@@ -304,6 +331,12 @@ function OnboardingDetail({ id, onBack }) {
             <option value="Request no meeting">Request no meeting</option>
           </select>
         </Row>
+        <Row label="Team Member Responsible" done={!!ob.onboarding_team_member} date={ob.onboarding_team_member_at}>
+          <select value={ob.onboarding_team_member || ''} onChange={e => saveTeamMember(e.target.value)} disabled={saving} style={{ ...selectStyle, color: '#16264a' }}>
+            <option value="">-- Select --</option>
+            {SALES_TEAM_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </Row>
         <Row label="Partnership?" done={!!ob.accountant_partnership} date={ob.accountant_partnership_at}>
           <select value={ob.accountant_partnership || ''} onChange={e => savePartnership(e.target.value)} disabled={saving} style={{ ...selectStyle, color: '#16264a' }}>
             <option value="">-- Select --</option>
@@ -315,10 +348,10 @@ function OnboardingDetail({ id, onBack }) {
           {decision ? (
             <span style={pillStyle(decision === 'Yes' ? '#1b9254' : decision === 'No' ? '#e74c3c' : '#e06717')}>{decision}</span>
           ) : (
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', opacity: !ob.accountant_partnership ? 0.4 : 1 }}>
-              <button onClick={() => saveDecision('Yes')} disabled={!!pendingDecision || !ob.accountant_partnership} style={{ ...pendingBtn('#1b9254', pendingDecision, 'Yes'), cursor: !ob.accountant_partnership ? 'not-allowed' : 'pointer' }}>{pendingDecision === 'Yes' ? 'Sending…' : 'Yes'}</button>
-              <button onClick={() => saveDecision('Undecided')} disabled={!!pendingDecision || !ob.accountant_partnership} style={{ ...pendingBtn('#e06717', pendingDecision, 'Undecided'), cursor: !ob.accountant_partnership ? 'not-allowed' : 'pointer' }}>{pendingDecision === 'Undecided' ? 'Sending…' : 'Undecided'}</button>
-              <button onClick={() => saveDecision('No')} disabled={!!pendingDecision || !ob.accountant_partnership} style={{ ...pendingBtn('#e74c3c', pendingDecision, 'No'), cursor: !ob.accountant_partnership ? 'not-allowed' : 'pointer' }}>{pendingDecision === 'No' ? 'Sending…' : 'No'}</button>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', opacity: (!ob.accountant_partnership || !ob.onboarding_team_member) ? 0.4 : 1 }}>
+              <button onClick={() => saveDecision('Yes')} disabled={!!pendingDecision || !ob.accountant_partnership || !ob.onboarding_team_member} style={{ ...pendingBtn('#1b9254', pendingDecision, 'Yes'), cursor: (!ob.accountant_partnership || !ob.onboarding_team_member) ? 'not-allowed' : 'pointer' }}>{pendingDecision === 'Yes' ? 'Sending…' : 'Yes'}</button>
+              <button onClick={() => saveDecision('Undecided')} disabled={!!pendingDecision || !ob.accountant_partnership || !ob.onboarding_team_member} style={{ ...pendingBtn('#e06717', pendingDecision, 'Undecided'), cursor: (!ob.accountant_partnership || !ob.onboarding_team_member) ? 'not-allowed' : 'pointer' }}>{pendingDecision === 'Undecided' ? 'Sending…' : 'Undecided'}</button>
+              <button onClick={() => saveDecision('No')} disabled={!!pendingDecision || !ob.accountant_partnership || !ob.onboarding_team_member} style={{ ...pendingBtn('#e74c3c', pendingDecision, 'No'), cursor: (!ob.accountant_partnership || !ob.onboarding_team_member) ? 'not-allowed' : 'pointer' }}>{pendingDecision === 'No' ? 'Sending…' : 'No'}</button>
             </div>
           )}
         </Row>
@@ -389,12 +422,22 @@ function OnboardingDetail({ id, onBack }) {
           </>
         ) : (
           <div style={{ padding: '4px 0' }}>
-            <button onClick={createAccountant} disabled={creatingMember} style={{ padding: '10px 24px', borderRadius: '8px', background: creatingMember ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: creatingMember ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+            <button onClick={() => setShowSaleModal(true)} disabled={creatingMember} style={{ padding: '10px 24px', borderRadius: '8px', background: creatingMember ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: creatingMember ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
               {creatingMember ? 'Creating & sending...' : 'Create Accountant & Send Setup Link'}
             </button>
           </div>
         )}
       </StageBlock>
+
+      {showSaleModal && (
+        <NewModelSaleModal
+          ob={ob}
+          kind="accountant"
+          submitting={creatingMember}
+          onClose={() => setShowSaleModal(false)}
+          onConfirm={createAccountant}
+        />
+      )}
     </div>
   )
 }

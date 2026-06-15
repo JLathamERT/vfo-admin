@@ -12,6 +12,7 @@ const SECTIONS = [
   { key: 'regular', label: 'Holistic Planning - Regular Priorities', pipeline: 'REGULAR' },
   { key: 'advisor', label: 'Advisor Onboarding', pipeline: 'ADVISOR_ONBOARDING' },
   { key: 'accountant', label: 'Accountant Onboarding', pipeline: 'ACCOUNTANT_ONBOARDING' },
+  { key: 'team', label: 'Team Notification (Advisor & Accountant)', pipeline: 'TEAM' },
   { key: 'specialist', label: 'Specialist Onboarding', pipeline: 'SPECIALIST_ONBOARDING' },
   { key: 'pft', label: 'Partnership Fast Track', pipeline: 'PARTNERSHIP_FAST_TRACK' },
 ]
@@ -106,6 +107,9 @@ const TEMPLATE_META = {
     ['ACCOUNTANT_signing_reminder', 'Reminder — signature needed'],
     ['ACCOUNTANT_payment_reminder', 'Reminder — payment needed'],
   ],
+  'TEAM': [
+    ['new_model_sale', 'New Model Sale — fires when an advisor/accountant is created'],
+  ],
   'SPECIALIST_ONBOARDING': [
     ['SPECIALIST_yes', 'Stage 1 — yes / continue email'],
     ['SPECIALIST_no', 'Stage 1 — no / decline email'],
@@ -176,19 +180,31 @@ function TemplateCard({ tmpl, label, sectionKey }) {
   const [bcc, setBcc] = useState(Array.isArray(tmpl.bcc_list) ? tmpl.bcc_list : [])
   const [ccInput, setCcInput] = useState('')
   const [bccInput, setBccInput] = useState('')
+  // Team Notification templates use a single "Team (To)" list instead of CC/BCC.
+  const isTeam = tmpl.pipeline === 'TEAM'
+  const [to, setTo] = useState(Array.isArray(tmpl.to_list) ? tmpl.to_list : [])
+  const [toInput, setToInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
   const [savedMsg, setSavedMsg] = useState('')
 
   async function save() {
-    // Flush any email still typed in the CC/BCC box but not yet "Add"-ed.
-    const finalCc = withPending(cc, ccInput)
-    const finalBcc = withPending(bcc, bccInput)
-    setCc(finalCc); setBcc(finalBcc); setCcInput(''); setBccInput('')
     setSaving(true); setErr(''); setSavedMsg('')
     try {
-      await callApi('automation_save_email_template', { id: tmpl.id, subject, body: bodyText, cc_list: finalCc, bcc_list: finalBcc })
-      tmpl.subject = subject; tmpl.body = bodyText; tmpl.cc_list = finalCc; tmpl.bcc_list = finalBcc
+      if (isTeam) {
+        // Team Notification: one recipient list, sent directly TO each (no CC/BCC).
+        const finalTo = withPending(to, toInput)
+        setTo(finalTo); setToInput('')
+        await callApi('automation_save_email_template', { id: tmpl.id, subject, body: bodyText, to_list: finalTo })
+        tmpl.subject = subject; tmpl.body = bodyText; tmpl.to_list = finalTo
+      } else {
+        // Flush any email still typed in the CC/BCC box but not yet "Add"-ed.
+        const finalCc = withPending(cc, ccInput)
+        const finalBcc = withPending(bcc, bccInput)
+        setCc(finalCc); setBcc(finalBcc); setCcInput(''); setBccInput('')
+        await callApi('automation_save_email_template', { id: tmpl.id, subject, body: bodyText, cc_list: finalCc, bcc_list: finalBcc })
+        tmpl.subject = subject; tmpl.body = bodyText; tmpl.cc_list = finalCc; tmpl.bcc_list = finalBcc
+      }
       setSavedMsg('Saved'); setTimeout(() => setSavedMsg(''), 2500)
     } catch (e) { setErr(e.message || String(e)) }
     finally { setSaving(false) }
@@ -200,7 +216,9 @@ function TemplateCard({ tmpl, label, sectionKey }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
           <span style={{ fontSize: '10px', color: '#4e6087', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
           <span style={{ fontSize: '13px', color: '#16264a', fontWeight: 500 }}>{label}</span>
-          {(cc.length > 0 || bcc.length > 0) && (
+          {isTeam ? (
+            to.length > 0 && <span style={{ fontSize: '10px', color: '#697a9c' }}>{to.length} recipient{to.length === 1 ? '' : 's'}</span>
+          ) : (cc.length > 0 || bcc.length > 0) && (
             <span style={{ fontSize: '10px', color: '#697a9c' }}>
               {cc.length > 0 && `${cc.length} cc`}{cc.length > 0 && bcc.length > 0 && ' · '}{bcc.length > 0 && `${bcc.length} bcc`}
             </span>
@@ -214,8 +232,14 @@ function TemplateCard({ tmpl, label, sectionKey }) {
       {expanded && (
         <div style={{ padding: '0 16px 16px', borderTop: '1px solid #e9eef8' }}>
           <div style={{ marginTop: '14px' }}>
-            <RecipientEditor title="CC — internal team" accent="#0095ff" emails={cc} onChange={setCc} input={ccInput} setInput={setCcInput} />
-            <RecipientEditor title="BCC — internal team" accent="#9333ea" emails={bcc} onChange={setBcc} input={bccInput} setInput={setBccInput} />
+            {isTeam ? (
+              <RecipientEditor title="TEAM — sent directly TO each recipient (no CC/BCC)" accent="#1b9254" emails={to} onChange={setTo} input={toInput} setInput={setToInput} />
+            ) : (
+              <>
+                <RecipientEditor title="CC — internal team" accent="#0095ff" emails={cc} onChange={setCc} input={ccInput} setInput={setCcInput} />
+                <RecipientEditor title="BCC — internal team" accent="#9333ea" emails={bcc} onChange={setBcc} input={bccInput} setInput={setBccInput} />
+              </>
+            )}
           </div>
 
           <div style={{ height: '1px', background: '#e9eef8', margin: '4px 0 12px' }} />
