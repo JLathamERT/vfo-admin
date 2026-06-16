@@ -262,7 +262,7 @@ BoldSign fires `event.eventType='Signed'` with CEO email AND eventually `event.e
 - UPDATEs `pay1_status='succeeded'`, **chains** `automation_CONTRACT_invoicereceipt` for payment 1.
 
 **For quarterly payment 2-4** (subsequent `payment_intent.succeeded` with `metadata.payment_number` ∈ {2,3,4}):
-- UPDATEs `pay${n}_status='succeeded'`, **chains** `automation_CONTRACT_invoicereceipt` for that payment number.
+- UPDATEs `pay${n}_status='succeeded'`, **chains** `automation_CONTRACT_invoicereceipt` for that payment number. (The **confirmation** email for installments 2-4 is no longer chained here — the sweep now sends it at charge time; this webhook branch is the **receipt-on-clear** half of the two-stage flow. See Step 10½.)
 
 > **How payments 2-4 are created:** by the daily scheduled-payment charger — see Step 10½ below.
 
@@ -279,10 +279,11 @@ BoldSign fires `event.eventType='Signed'` with CEO email AND eventually `event.e
 2. Selects `pipeline_map1` rows where `pay1_status='succeeded'` AND `stripe_customer_id IS NOT NULL` AND `payment_method_type IN ('card','ach')` AND `payment_plan='Quarterly'`.
 3. For each row and each N in [2, 3, 4]: emits a candidate if `payN_date <= today` AND `payN_status` is not in (`succeeded`, `processing`, `pending`, `declined`, `auth_required`).
 4. For each candidate: lists saved payment methods on the Stripe customer (`GET /v1/customers/{cus}/payment_methods?type=card|us_bank_account`), picks the most recent.
-5. POSTs to `/v1/payment_intents` with `confirm=true off_session=true`, `metadata.payment_number=N`, `metadata.client_id`, `metadata.checkout_token`, and `Idempotency-Key: chargescheduled-{client_id}-P{N}-{YYYY-MM-DD}`.
-6. Charge amount uses the same gross-up as P1 checkout for card (`round((base + 0.30) / (1 - 0.029) * 100)` cents); ACH at base.
-7. **On success** (`status: succeeded` or `processing` for ACH): the handler does NOT write to the DB — Step 10 (the `payment_intent.succeeded` webhook branch) handles status flip + invoicereceipt + revshare chains.
-8. **On failure:** sets `payN_status='auth_required'` (Stripe code `authentication_required`) or `'declined'` (everything else), inserts one admin notification, drafts one Gmail email to the client with the fresh `/pay` link. Failed states are NOT retried by the sweep — recovery is client-driven via the `/pay` link, which on successful payment triggers the webhook and flips `payN_status` back to `succeeded`.
+5. Payment method: **prefers the row's `default_payment_method_id`** if set (an admin-updated card/bank — see [payment-method-change.md](payment-method-change.md)); otherwise lists the customer's saved methods (`GET /v1/customers/{cus}/payment_methods?type=card|us_bank_account`) and picks the most recent — the exact prior behavior for rows that never had a card update.
+6. POSTs to `/v1/payment_intents` with `confirm=true off_session=true`, `metadata.payment_number=N`, `metadata.client_id`, `metadata.checkout_token`, and `Idempotency-Key: chargescheduled-{client_id}-P{N}-{YYYY-MM-DD}`.
+7. Charge amount uses the same gross-up as P1 checkout for card (`round((base + 0.30) / (1 - 0.029) * 100)` cents); ACH at base.
+8. **On success** (`status: succeeded` or `processing` for ACH): the sweep now **stamps `payN_status` immediately** (card → `succeeded`, ACH → `processing`) so the Payments tab reflects the charge instead of staying "scheduled" until ACH clears (this also makes a same-day cron re-run skip the installment — `processing` is in `skipStatuses`). It then **chains `automation_CONTRACT_confirmationemail` for payment N** — installments 2-4 now get the **same two-stage flow as payment 1**: a confirmation email at charge time ("processed" for card / "processing, allow 2-4 days" for ACH), and the **receipt on clear** (the `payment_intent.succeeded` webhook branch still owns the `processing → succeeded` flip + the `invoicereceipt` + `revshare` chains — see Step 10).
+9. **On failure:** sets `payN_status='auth_required'` (Stripe code `authentication_required`) or `'declined'` (everything else), inserts one admin notification, drafts one Gmail email to the client with the fresh `/pay` link, and routes a Jake failure FYI (`utils/notify-jake-failure.ts`). Failed states are NOT retried by the sweep — recovery is client-driven via the `/pay` link, which on successful payment triggers the webhook and flips `payN_status` back to `succeeded`.
 
 ---
 

@@ -4,7 +4,7 @@ Tax engagements run alongside (and downstream of) the regular member-program. A 
 
 ## `client_tax_plans`
 
-State machine for the tax-planning engagement. **83 columns total** (4 original + 51 added via migration `20260518000000_tax_phase0_schema.sql` + 14 split column families + 6 deposit-refund columns added in the Tax Planning alignment session + 4 member-pays columns: `member_paying_on_behalf`, `tax4_meeting_time`, `tax4_meeting_timezone`, `tax4_meeting_confirm_email_sent_at` + 4 added in the presentation-step session: `member_presentation_link`, `presentation_send_date`, `presentation_scheduled_at`, `presentation_email_sent_at`). Parallel to `pipeline_map1` for MAP1; see [tax-planning flow](../flows/tax-planning.md) for end-to-end usage.
+State machine for the tax-planning engagement. **84 columns total** (4 original + 51 added via migration `20260518000000_tax_phase0_schema.sql` + 14 split column families + 6 deposit-refund columns added in the Tax Planning alignment session + 4 member-pays columns: `member_paying_on_behalf`, `tax4_meeting_time`, `tax4_meeting_timezone`, `tax4_meeting_confirm_email_sent_at` + 4 added in the presentation-step session: `member_presentation_link`, `presentation_send_date`, `presentation_scheduled_at`, `presentation_email_sent_at` + 1 Phase D admin card-update column: `default_payment_method_id`). Parallel to `pipeline_map1` for MAP1; see [tax-planning flow](../flows/tax-planning.md) for end-to-end usage.
 
 > **Program-aware**: rows are tagged with `program_id` so the same handlers serve both Holistic Planning's Tax Priorities track (program_id=1) and the standalone VFO Tax Planning program (program_id=4). Client-visible labels (invoice/receipt headers, Stripe line items, BoldSign agreement title) switch between "VFO Holistic Planning" and "VFO Tax Planning" via the `programLabel(programId)` helper in `utils/program-label.ts`.
 
@@ -160,6 +160,7 @@ Tax 5b "Implementation decision" mirrors Tax 4's 3-option pattern: Proceed picks
 | `implementation_pf_notified_at` | timestamptz | Undecided 96h PF notification timestamp. |
 | `implementation_charge_status` | text | `succeeded` / `processing` / `declined` / `auth_required` / `manual_required` (no PI on retainer, e.g. check). |
 | `implementation_payment_intent_id` | text | Off-session PaymentIntent created by `automation_TAX_charge_implementation`. |
+| `default_payment_method_id` | text | **Phase D (admin card-update).** Stripe PM id the implementation off-session charge prefers when set by the admin-initiated payment-method change (`/update-card` page, see `card_update_tokens` in [pipeline.md](pipeline.md)). |
 | `implementation_charge_date` | date | |
 | `implementation_confirmation_status` | text | Mirror retainer pattern — `Confirmation Needed` then `Sent`. Set by Stripe webhook → confirmation-email handler. |
 | `implementation_receipt_number` | text | REC-`<ref>`-`<seq>`. Receipt-only — no invoice for implementation (single retainer invoice covers the engagement). |

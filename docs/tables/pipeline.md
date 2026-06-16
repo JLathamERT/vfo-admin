@@ -101,6 +101,9 @@ Set by `automation_PCADMIN_pricing` ([PFPricingForm.jsx:19](src/components/admin
 | `stripe_bank_token` | text | |
 | `bank_token` | text | |
 | `acct_last4` | text | Last-4 captured from Stripe PaymentIntent expansion. NULL for check. |
+| `default_payment_method_id` | text | **Phase D (admin card-update).** Stripe PM id the quarterly sweep (`automation_CONTRACT_*` P2–P4 charge path) prefers when set by the admin-initiated payment-method change. Written via the `/update-card` page (see `card_update_tokens`). |
+| `pay1_method` … `pay4_method` | text | **Phase D.** Per-installment payment method (`'card'` / `'ach'`) frozen at the moment of a card-update, so the Payments tab shows each installment's actual method after a mid-plan change rather than the current one. |
+| `pay1_last4` … `pay4_last4` | text | **Phase D.** Per-installment last-4 frozen at a card-update — same purpose as the `*_method` columns, for per-installment-accurate Payments-tab display. |
 | `pay1_status` … `pay4_status` | text | Status fields. Stripe path: `"succeeded"` / `"processing"` (ACH in-flight) / `"declined"` / `"auth_required"`. Check path: `"check_pending"` (admin clicked Paid via check, waiting for bank to clear) → `"succeeded"` (admin clicked Check cleared P{N}). |
 | `pay1_date` … `pay4_date` | date | Set by Stripe webhook for card/ach (today + 91/182/273 for P2-4), or by `automation_CONTRACT_paidbycheck` for check P1 (same +91/182/273 schedule). |
 
@@ -148,3 +151,23 @@ Per-pipeline sandbox/live toggle. Read at the top of every automation handler to
 | `created_at` | timestamptz | default `now()` |
 
 **Touched by:** read by every `automation_*` handler. Frontend reads/writes via `automation_load_pipelines` payload.
+
+---
+
+## `card_update_tokens` (Phase D)
+
+A person-keyed one-time token backing the admin-initiated payment-method-change `/update-card` page. An admin generates a token for a specific person; the link lets that person re-enter card/bank details, which write the relevant `default_payment_method_id` (and freeze the per-installment `pay*_method`/`pay*_last4` on `pipeline_map1`). Cross-domain — `person_type` distinguishes which table the new PM id lands on (MAP1 `pipeline_map1`, tax `client_tax_plans`, specialist `specialist_onboarding`).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | identity pk |
+| `token` | text | **UNIQUE.** Embedded in the `/update-card?token=…` link. |
+| `person_type` | text | **CHECK IN (`'client'`, `'member'`, `'specialist'`)** — the only non-null CHECK added in Phase D. Selects the target table/flow. |
+| `person_ref` | text | The person identifier — client id / member_number / expert id, interpreted per `person_type`. |
+| `created_by` | text | Admin email that generated the token. |
+| `created_at` | timestamptz | default `now()` |
+| `expires_at` | timestamptz | Link expiry. |
+
+**Index:** `idx_card_update_tokens_token` ON `token`.
+
+**Email:** the link is delivered by the `card_update` email (`email_templates` id 156, pipeline `PAYMENTS`; placeholders `[First Name]` / `[UPDATE_LINK]`).

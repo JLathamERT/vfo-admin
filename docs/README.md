@@ -88,6 +88,7 @@ docs/
 |---|---|
 | Client signs an agreement | [flows/contract-and-payment.md](flows/contract-and-payment.md) (Steps 4-7) → [flows/boldsign-webhook.md](flows/boldsign-webhook.md) → [integrations/boldsign.md](integrations/boldsign.md) |
 | Client pays first quarterly payment | [flows/contract-and-payment.md](flows/contract-and-payment.md) (Steps 9-12) → [flows/stripe-webhook.md](flows/stripe-webhook.md) → [integrations/stripe.md](integrations/stripe.md) |
+| Admin changes a client/member/specialist's card or bank on file | [flows/payment-method-change.md](flows/payment-method-change.md) → [integrations/stripe.md](integrations/stripe.md) |
 | Member buys credits | [flows/gift-credits.md](flows/gift-credits.md) → [flows/stripe-webhook.md](flows/stripe-webhook.md#sub-branch-a1--gc-credit-purchase) |
 | Admin logs in | [architecture/04-auth-and-sessions.md](architecture/04-auth-and-sessions.md) |
 | Member fills out a CIQ | [flows/ciq.md](flows/ciq.md) → [tables/ciq.md](tables/ciq.md) |

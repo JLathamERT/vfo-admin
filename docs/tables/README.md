@@ -1,6 +1,6 @@
 # Tables
 
-51 public-schema tables in Supabase project `ejpsprsmhpufwogbmxjv` (VFO Showroom). All tables documented in this directory; this file is the index by group.
+52 public-schema tables in Supabase project `ejpsprsmhpufwogbmxjv` (VFO Showroom). All tables documented in this directory; this file is the index by group.
 
 Read-only schema mapping — column lists, types, defaults, FKs, and which actions/files touch each table. No commentary about whether the design is "good," only about what exists.
 
@@ -17,7 +17,7 @@ Read-only schema mapping — column lists, types, defaults, FKs, and which actio
 | [specialists.md](specialists.md) | `experts`, `vfo_ecosystem_assignments`, `specialist_onboarding`, `specialist_onboarding_meetings`, `specialist_onboarding_progress`, `specialist_onboarding_votes` | Specialist roster, ecosystem tags, onboarding workflow |
 | [coaching.md](coaching.md) | `coaching_meetings`, `coaching_renewals` | Member-coaching meetings and renewal log |
 | [marketplace-gc.md](marketplace-gc.md) | `gc_balances`, `gc_redemptions`, `gc_services`, `gc_transactions` | "Gift credit" marketplace — credits balance, services catalog, ledger |
-| [pipeline.md](pipeline.md) | `pipelines`, `pipeline_map1`, `pipeline_sandbox_config`, `advisor_onboarding`, `accountant_onboarding` | The automation pipeline registry + the **central MAP1 row** (`pipeline_map1`) driving the contract/payment chain + the Advisor & Accountant onboarding state rows |
+| [pipeline.md](pipeline.md) | `pipelines`, `pipeline_map1`, `pipeline_sandbox_config`, `card_update_tokens`, `advisor_onboarding`, `accountant_onboarding` | The automation pipeline registry + the **central MAP1 row** (`pipeline_map1`) driving the contract/payment chain + the Advisor & Accountant onboarding state rows + the Phase D admin card-update token |
 | [documents.md](documents.md) | `agreement_templates`, `email_templates`, `document_numbers` | BoldSign agreement templates, automation email copy, sequential invoice/receipt numbers |
 | [notifications.md](notifications.md) | `notifications` | In-portal notification feed |
 
@@ -32,10 +32,11 @@ Read-only schema mapping — column lists, types, defaults, FKs, and which actio
 
 ## CHECK constraints (whole DB)
 
-Only two non-null CHECK constraints exist (verified `pg_catalog`):
+Three non-null CHECK constraints exist (verified `pg_catalog`):
 
 - `ciq_priorities.decision IN ('drop', 'park', 'prioritize')`
 - `client_ciqs.status IN ('draft', 'completed')`
+- `card_update_tokens.person_type IN ('client', 'member', 'specialist')` (Phase D)
 
 Every other status/decision column is **convention-only** — values like `'Yes'/'No'`, `'pending'/'live'/'paid'`, etc. are not constrained at the DB level; the admin-api enforces them.
 
