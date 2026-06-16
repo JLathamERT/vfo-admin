@@ -230,6 +230,10 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
       return (isNaN(ta) ? Infinity : ta) - (isNaN(tb) ? Infinity : tb)
     })
     const first = kids[0]
+    // Overview method = the CURRENT method (what future charges use) = the latest
+    // installment's, not the oldest's — installment 1 keeps its frozen original
+    // method, so kids[0] would mislead after a payment-method change.
+    const latest = kids[kids.length - 1]
     const tg = rowTag(first)
     const total = kids.reduce((s, k) => s + (k.amount || 0), 0)
     const feeTotal = kids.reduce((s, k) => s + (k.fee || 0), 0)
@@ -265,7 +269,7 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
               {kids.length} {noun}
             </div>
           </td>
-          <td style={{ ...td, whiteSpace: 'nowrap', color: '#4e6087' }}>{fmtMethod(first.method, first.last4)}</td>
+          <td style={{ ...td, whiteSpace: 'nowrap', color: '#4e6087' }}>{fmtMethod(latest.method, latest.last4)}</td>
           <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
             <div style={{ fontWeight: 700, color: total < 0 ? '#b42318' : '#16264a' }}>{fmtMoney(total - feeTotal)}</div>
             {feeTotal > 0 && <div style={{ fontSize: '11px', color: '#94a3bd', marginTop: '2px', fontWeight: 500 }}>+ {fmtMoney(feeTotal)} fee</div>}

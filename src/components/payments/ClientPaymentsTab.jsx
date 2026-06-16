@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
 import { Skeleton } from '../shared/Skeleton'
 import PaymentsTable from './PaymentsTable'
+import PaymentsHeader from './PaymentsHeader'
 
 // Read-only Payments tab for a client (admin view). Aggregates their MAP 1, Tax and
 // PIP Meetings payments via client_payments_load. Member-paid-on-behalf rows are
@@ -53,7 +54,7 @@ export default function ClientPaymentsTab({ clientId, sectionStyle }) {
 
   return (
     <div style={sectionStyle}>
-      <h3 style={titleStyle}>Payments</h3>
+      <PaymentsHeader personType="client" personRef={clientId} />
       <PaymentsTable rows={rows} emptyText="No payments recorded for this client yet." />
     </div>
   )

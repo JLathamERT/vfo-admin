@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
 import { Skeleton } from '../shared/Skeleton'
 import PaymentsTable from './PaymentsTable'
+import PaymentsHeader from './PaymentsHeader'
 
 // Read-only Payments tab for a specialist (admin view). Shows the one-time
 // background-check payment + the full monthly $99 license history. The license
@@ -53,7 +54,7 @@ export default function SpecialistPaymentsTab({ expertId }) {
 
   return (
     <div style={cardStyle}>
-      <h3 style={titleStyle}>Payments</h3>
+      <PaymentsHeader personType="specialist" personRef={expertId} />
       {data && !data.has_onboarding && (
         <div style={{ marginBottom: '14px', padding: '10px 14px', background: '#eef2f9', border: '1px solid #dde5f2', borderRadius: '10px', color: '#4e6087', fontSize: '12.5px' }}>
           No onboarding record is linked to this specialist, so there are no background-check or license payments to show (they were likely added to the directory manually).

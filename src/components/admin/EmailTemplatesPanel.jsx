@@ -15,6 +15,7 @@ const SECTIONS = [
   { key: 'team', label: 'Team Notification (Advisor & Accountant)', pipeline: 'TEAM' },
   { key: 'specialist', label: 'Specialist Onboarding', pipeline: 'SPECIALIST_ONBOARDING' },
   { key: 'pft', label: 'Partnership Fast Track', pipeline: 'PARTNERSHIP_FAST_TRACK' },
+  { key: 'payments', label: 'Payments — Change Payment Method', pipeline: 'PAYMENTS' },
 ]
 
 // template_name -> plain-English label, in the order each email fires in the process.
@@ -123,6 +124,9 @@ const TEMPLATE_META = {
     ['PFT_decision_vfo_ft_reminder', 'Decision — VFO Fast Track reminder'],
     ['PFT_decision_vfo_associate', 'Decision — VFO Associate'],
     ['PFT_decision_no', 'Decision — No'],
+  ],
+  'PAYMENTS': [
+    ['card_update', 'Change payment method — secure update-link email'],
   ],
 }
 
