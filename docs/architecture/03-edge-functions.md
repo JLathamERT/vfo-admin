@@ -26,7 +26,7 @@ The 88-line orchestrator at `supabase/functions/vfo-admin-api/index.ts` does:
 5. **BoldSign webhook** (body-shape detection via `router/webhooks.ts::maybeHandleBoldSignWebhook`)
 6. **`PUBLIC_HANDLERS` dispatch** (router/dispatch.ts) — public-token + chain-callable handlers, no auth required (added this session: `load_client_setup` / `submit_client_setup` PUBLIC handlers in `actions/auth/client-setup-load.ts` / `client-setup-submit.ts`, plus the PUBLIC-token `tax_upload_url` in `actions/vault/tax-upload-url.ts`)
 7. **Auth gate** (`middleware/auth.ts::authenticate`) — validates body.token against `admin_sessions`, applies role gates from `constants/role-gates.ts`
-8. **`AUTH_HANDLERS` dispatch** (router/dispatch.ts) — every other action, post-auth (added 2026-06-15: the 3 read-only `*_payments_load` actions in a new `actions/payments/` group — per-person payment aggregation with shared `normalize.ts` row builders; admin-gated, portal-ready)
+8. **`AUTH_HANDLERS` dispatch** (router/dispatch.ts) — every other action, post-auth (`actions/payments/` group: 3 per-person `*_payments_load` [admin-only] added 2026-06-15 + `all_payments_load` [superadmin GLOBAL Payments page] added 2026-06-16, sharing `normalize.ts` row builders)
 9. **Unknown-action fallthrough** (200 if action missing, else 400)
 
 ### Top-of-file constants & helpers
@@ -154,7 +154,7 @@ Below the public dispatch step, every action does:
 1. Reads `body.token`. Returns 401 if missing.
 2. Looks up `admin_sessions` row by token. Returns 401 if missing or `expires_at` is past (and deletes the expired row).
 3. Detects role via `allowed_admins` row (admin), `member_logins.member_number` (member), the `client` role, or the `specialist` role (added this session — both deny-by-default gates; see [04-auth-and-sessions.md](04-auth-and-sessions.md)).
-4. Applies `SUPERADMIN_ONLY_ACTIONS` (NEW 2026-06-16 — 12 Automation-panel actions → 403 for any non-superadmin incl. regular admins; runs first) THEN `ADMIN_ONLY_ACTIONS` (constants/role-gates.ts) — 403 for member callers on listed actions.
+4. Applies `SUPERADMIN_ONLY_ACTIONS` (NEW 2026-06-16 — 13 actions: 12 Automation-panel + the global Payments page `all_payments_load` → 403 for any non-superadmin incl. regular admins; runs first) THEN `ADMIN_ONLY_ACTIONS` (constants/role-gates.ts) — 403 for member callers on listed actions.
 5. Applies `MEMBER_SCOPED_ACTIONS` (constants/role-gates.ts) — overwrites `body.member_number` with caller's for scoped reads/writes.
 6. For the `client` role, allows only `CLIENT_ALLOWED_ACTIONS` (deny-by-default) and scopes client-vault handlers to `auth.callerClientId`.
 7. For the `specialist` role, allows only `SPECIALIST_ALLOWED_ACTIONS` (deny-by-default) and scopes specialist-vault handlers to `auth.callerSpecialistId`.
