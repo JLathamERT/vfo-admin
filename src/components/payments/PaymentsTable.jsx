@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 
 // Shared read-only renderer for the per-person Payments tabs (client / member /
 // specialist). Takes a list of normalized rows from the *_payments_load actions,
@@ -41,6 +41,14 @@ function rowTag(r) {
   return t ? { text: t, fg: '#4e6087', bg: '#eef2f9' } : null
 }
 
+// Person-type tag colours for the global (admin) Payments page — shown in the Person
+// column + the "Who" filter chips. Absent on the per-person tabs (rows carry no person).
+const PTYPE_TAG = {
+  Client:     { fg: '#1d4ed8', bg: '#e6eefe' },
+  Member:     { fg: '#7839ee', bg: '#f0e9fe' },
+  Specialist: { fg: '#0e7490', bg: '#cffafe' },
+}
+
 // Preferred display order for the filter chips (categories not listed sort last).
 const CATEGORY_ORDER = [
   'MAP 1', 'Tax Priorities', 'Tax Planning', 'PIP Meetings',
@@ -76,14 +84,25 @@ function fmtMethod(method, last4) {
   return last4 ? `${m} ••${last4}` : m
 }
 
-function StatusPill({ status }) {
+function StatusPill({ status, count }) {
   const s = STATUS[status] || STATUS.unpaid
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', borderRadius: '999px', background: s.bg, color: s.fg, fontSize: '11.5px', fontWeight: 700, whiteSpace: 'nowrap' }}>
       <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: s.fg, flexShrink: 0 }} />
-      {s.label}
+      {s.label}{count > 1 ? ` ×${count}` : ''}
     </span>
   )
+}
+
+// Rows that fold into one expandable parent: MAP 1 quarterly installments
+// (keys map1-<id>-p<n>) and a tax plan's retainer/implementation/refunds
+// (keys tax-<id>-<kind>). Returns the shared parent key, or null for standalone
+// rows (pay-in-full MAP 1, PIP, onboarding fee, background check, rev-share payout).
+function groupKeyOf(r) {
+  const k = r.key || ''
+  let m = /^(map1-\d+)-p\d+$/.exec(k); if (m) return m[1]
+  m = /^(tax-\d+)-[a-z]+$/.exec(k); if (m) return m[1]
+  return null
 }
 
 function Tag({ children, fg = '#4e6087', bg = '#eef2f9' }) {
@@ -94,8 +113,11 @@ function Tag({ children, fg = '#4e6087', bg = '#eef2f9' }) {
   )
 }
 
-export default function PaymentsTable({ rows = [], emptyText = 'No payments recorded yet.' }) {
-  const [filter, setFilter] = useState('All')
+export default function PaymentsTable({ rows = [], emptyText = 'No payments recorded yet.', buckets = null }) {
+  const [filter, setFilter] = useState('All')   // payment-type (category) filter
+  const [ptype, setPtype] = useState('All')      // person-type filter (global admin page only)
+  const [bucketKey, setBucketKey] = useState(buckets ? buckets[0].key : null)  // 2-way money-in/out filter (global page)
+  const [expanded, setExpanded] = useState({})   // group key -> true once its installments are shown
 
   if (!rows.length) {
     return (
@@ -121,7 +143,36 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
     const tb = b.date ? Date.parse(b.date) : -Infinity
     return (isNaN(tb) ? -Infinity : tb) - (isNaN(ta) ? -Infinity : ta)
   })
-  const shown = filter === 'All' ? ordered : ordered.filter(r => (r.category || 'Other') === filter)
+  // Person dimension (present only on the global admin page — rows carry person/personType).
+  const hasPerson = rows.some(r => r.person)
+  const ptypeCounts = {}
+  if (hasPerson) for (const r of rows) { const t = r.personType || 'Other'; ptypeCounts[t] = (ptypeCounts[t] || 0) + 1 }
+  const ptypes = ['Client', 'Member', 'Specialist'].filter(t => ptypeCounts[t])
+
+  // When `buckets` is supplied (global admin page), a single 2-way filter — Payments
+  // received vs. Revenue share payouts — replaces the per-person category/Who chips.
+  const bucketCounts = {}
+  if (buckets) for (const b of buckets) bucketCounts[b.key] = ordered.filter(b.match).length
+  const activeBucket = buckets ? (buckets.find(b => b.key === bucketKey) || buckets[0]) : null
+
+  const shown = buckets
+    ? ordered.filter(activeBucket.match)
+    : ordered
+        .filter(r => filter === 'All' || (r.category || 'Other') === filter)
+        .filter(r => ptype === 'All' || (r.personType || 'Other') === ptype)
+
+  // Fold multi-payment engagements (quarterly MAP 1; tax retainer/implementation) into
+  // one expandable parent so scheduled installments don't clutter the list. Each group
+  // holds its place at the position of its first (newest) row; singles stay inline.
+  const entries = []
+  const gmap = new Map()
+  for (const r of shown) {
+    const gk = groupKeyOf(r)
+    if (!gk) { entries.push({ single: r }); continue }
+    let g = gmap.get(gk)
+    if (!g) { g = { key: gk, rows: [] }; gmap.set(gk, g); entries.push(g) }
+    g.rows.push(r)
+  }
 
   const chipStyle = (active) => ({ padding: '5px 13px', background: active ? '#125ecc' : '#eef2f9', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : '#4e6087', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' })
   const chipCount = (active) => ({ marginLeft: '5px', opacity: active ? 0.85 : 0.6, fontWeight: 700 })
@@ -129,26 +180,166 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
   const th = { textAlign: 'left', padding: '8px 12px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#7a89a8', borderBottom: '1px solid #e3eaf5', whiteSpace: 'nowrap' }
   const td = { padding: '12px', fontSize: '13px', color: '#16264a', borderBottom: '1px solid #eef2f7', verticalAlign: 'top' }
 
+  // One data row. Used for standalone rows AND, with child=true, the installment rows
+  // tucked under an expanded group parent (indented + lighter, no repeated person/tag).
+  function renderRow(r, child) {
+    const onBehalf = !!r.onBehalfByMember
+    const tg = rowTag(r)
+    return (
+      <tr key={r.key} style={{ ...(onBehalf ? { background: '#fffaf2' } : null), ...(child ? { background: '#fbfcfe' } : null) }}>
+        <td style={td} />
+        <td style={{ ...td, whiteSpace: 'nowrap', color: '#4e6087', ...(child ? { paddingLeft: '14px' } : null) }}>{fmtDate(r.date)}</td>
+        {hasPerson && (
+          <td style={{ ...td, whiteSpace: 'nowrap' }}>
+            {!child && <div style={{ fontWeight: 600 }}>{r.person}</div>}
+            {!child && r.personType && PTYPE_TAG[r.personType] && (
+              <div style={{ marginTop: '3px' }}><Tag fg={PTYPE_TAG[r.personType].fg} bg={PTYPE_TAG[r.personType].bg}>{r.personType}</Tag></div>
+            )}
+          </td>
+        )}
+        <td style={td}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {!child && tg && <Tag fg={tg.fg} bg={tg.bg}>{tg.text}</Tag>}
+            <span style={{ fontWeight: child ? 500 : 600, color: child ? '#475467' : '#16264a' }}>{r.label}</span>
+          </div>
+          {r.detail && <div style={{ fontSize: '12px', color: '#667085', marginTop: '3px' }}>{r.detail}</div>}
+          {onBehalf && <div style={{ marginTop: '5px' }}><Tag fg="#8a5200" bg="#fcefd6">Paid by {r.onBehalfByMember} — not the client’s own payment</Tag></div>}
+          {r.onBehalfForClient && <div style={{ marginTop: '5px' }}><Tag fg="#1d4ed8" bg="#e6eefe">On behalf of {r.onBehalfForClient}</Tag></div>}
+          {(r.invoiceNumber || r.receiptNumber) && (
+            <div style={{ fontSize: '11px', color: '#94a3bd', marginTop: '5px', fontFamily: 'ui-monospace, monospace' }}>
+              {[r.invoiceNumber, r.receiptNumber].filter(Boolean).join('  ·  ')}
+            </div>
+          )}
+        </td>
+        <td style={{ ...td, whiteSpace: 'nowrap', color: '#4e6087' }}>{fmtMethod(r.method, r.last4)}</td>
+        <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+          <div style={{ fontWeight: 700, color: r.amount < 0 ? '#b42318' : '#16264a' }}>{fmtMoney((r.amount || 0) - (r.fee || 0))}</div>
+          {r.fee > 0 && <div style={{ fontSize: '11px', color: '#94a3bd', marginTop: '2px', fontWeight: 500 }}>+ {fmtMoney(r.fee)} fee</div>}
+        </td>
+        <td style={td}><StatusPill status={r.status} /></td>
+      </tr>
+    )
+  }
+
+  // Collapsed parent for a multi-row engagement: engagement label, total, and a status
+  // tally (e.g. "Paid ×1 · Scheduled ×3"). Click toggles the installment rows.
+  function renderGroup(g) {
+    const kids = [...g.rows].sort((a, b) => {
+      const ta = a.date ? Date.parse(a.date) : Infinity
+      const tb = b.date ? Date.parse(b.date) : Infinity
+      return (isNaN(ta) ? Infinity : ta) - (isNaN(tb) ? Infinity : tb)
+    })
+    const first = kids[0]
+    const tg = rowTag(first)
+    const total = kids.reduce((s, k) => s + (k.amount || 0), 0)
+    const feeTotal = kids.reduce((s, k) => s + (k.fee || 0), 0)
+    const labels = kids.map(k => k.label)
+    const groupLabel = labels.every(l => l === labels[0]) ? labels[0] : (first.category || labels[0])
+    const noun = g.key.startsWith('map1') ? 'payments' : 'charges'
+    const startDate = (kids.find(k => k.date) || {}).date || null
+    const order = ['awaiting', 'scheduled', 'processing', 'paid', 'refunded', 'failed', 'unpaid']
+    const tally = {}
+    for (const k of kids) tally[k.status] = (tally[k.status] || 0) + 1
+    const open = !!expanded[g.key]
+    return (
+      <Fragment key={g.key}>
+        <tr onClick={() => setExpanded(p => ({ ...p, [g.key]: !p[g.key] }))} style={{ cursor: 'pointer', background: open ? '#f4f7fd' : '#ffffff' }}>
+          <td style={{ ...td, padding: '12px 4px', textAlign: 'center', color: '#5b6b8c' }}>
+            <span style={{ fontSize: '18px', lineHeight: 1, fontWeight: 700 }}>{open ? '▾' : '▸'}</span>
+          </td>
+          <td style={{ ...td, whiteSpace: 'nowrap', color: '#4e6087' }}>{fmtDate(startDate)}</td>
+          {hasPerson && (
+            <td style={{ ...td, whiteSpace: 'nowrap' }}>
+              <div style={{ fontWeight: 600 }}>{first.person}</div>
+              {first.personType && PTYPE_TAG[first.personType] && (
+                <div style={{ marginTop: '3px' }}><Tag fg={PTYPE_TAG[first.personType].fg} bg={PTYPE_TAG[first.personType].bg}>{first.personType}</Tag></div>
+              )}
+            </td>
+          )}
+          <td style={td}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {tg && <Tag fg={tg.fg} bg={tg.bg}>{tg.text}</Tag>}
+              <span style={{ fontWeight: 700 }}>{groupLabel}</span>
+            </div>
+            <div style={{ fontSize: '12px', color: '#667085', marginTop: '3px' }}>
+              {kids.length} {noun}
+            </div>
+          </td>
+          <td style={{ ...td, whiteSpace: 'nowrap', color: '#4e6087' }}>{fmtMethod(first.method, first.last4)}</td>
+          <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+            <div style={{ fontWeight: 700, color: total < 0 ? '#b42318' : '#16264a' }}>{fmtMoney(total - feeTotal)}</div>
+            {feeTotal > 0 && <div style={{ fontSize: '11px', color: '#94a3bd', marginTop: '2px', fontWeight: 500 }}>+ {fmtMoney(feeTotal)} fee</div>}
+          </td>
+          <td style={td}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+              {order.filter(s => tally[s]).map(s => <StatusPill key={s} status={s} count={tally[s]} />)}
+            </div>
+          </td>
+        </tr>
+        {open && kids.map(k => renderRow(k, true))}
+      </Fragment>
+    )
+  }
+
   return (
     <div>
-      {cats.length > 1 && (
+      {buckets ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
-          <button style={chipStyle(filter === 'All')} onClick={() => setFilter('All')}>
-            All<span style={chipCount(filter === 'All')}>{rows.length}</span>
-          </button>
-          {cats.map(c => (
-            <button key={c} style={chipStyle(filter === c)} onClick={() => setFilter(c)}>
-              {c}<span style={chipCount(filter === c)}>{counts[c]}</span>
+          {buckets.map(b => (
+            <button key={b.key} style={chipStyle(activeBucket.key === b.key)} onClick={() => setBucketKey(b.key)}>
+              {b.label}<span style={chipCount(activeBucket.key === b.key)}>{bucketCounts[b.key]}</span>
             </button>
           ))}
         </div>
+      ) : (
+        <>
+          {hasPerson && ptypes.length > 1 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#7a89a8', textTransform: 'uppercase', letterSpacing: '0.04em', marginRight: '2px' }}>Who</span>
+              <button style={chipStyle(ptype === 'All')} onClick={() => setPtype('All')}>
+                All<span style={chipCount(ptype === 'All')}>{rows.length}</span>
+              </button>
+              {ptypes.map(t => (
+                <button key={t} style={chipStyle(ptype === t)} onClick={() => setPtype(t)}>
+                  {t}<span style={chipCount(ptype === t)}>{ptypeCounts[t]}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {cats.length > 1 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
+              <button style={chipStyle(filter === 'All')} onClick={() => setFilter('All')}>
+                All<span style={chipCount(filter === 'All')}>{rows.length}</span>
+              </button>
+              {cats.map(c => (
+                <button key={c} style={chipStyle(filter === c)} onClick={() => setFilter(c)}>
+                  {c}<span style={chipCount(filter === c)}>{counts[c]}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter, sans-serif' }}>
+        {/* Fixed column widths so the layout is identical across filters/tabs (and the
+            expanded child rows) — otherwise auto-sizing shifts the headings per content. */}
+        <table style={{ width: '100%', minWidth: hasPerson ? '920px' : '680px', borderCollapse: 'collapse', tableLayout: 'fixed', fontFamily: 'Inter, sans-serif' }}>
+          <colgroup>
+            <col style={{ width: '38px' }} />
+            <col style={{ width: '120px' }} />
+            {hasPerson && <col style={{ width: '150px' }} />}
+            <col />
+            <col style={{ width: '135px' }} />
+            <col style={{ width: '120px' }} />
+            <col style={{ width: '150px' }} />
+          </colgroup>
           <thead>
             <tr>
+              <th style={th} />
               <th style={th}>Date</th>
+              {hasPerson && <th style={th}>Person</th>}
               <th style={th}>Description</th>
               <th style={th}>Method</th>
               <th style={{ ...th, textAlign: 'right' }}>Amount</th>
@@ -156,32 +347,9 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
             </tr>
           </thead>
           <tbody>
-            {shown.map(r => {
-              const onBehalf = !!r.onBehalfByMember
-              const tg = rowTag(r)
-              return (
-                <tr key={r.key} style={onBehalf ? { background: '#fffaf2' } : undefined}>
-                  <td style={{ ...td, whiteSpace: 'nowrap', color: '#4e6087' }}>{fmtDate(r.date)}</td>
-                  <td style={td}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      {tg && <Tag fg={tg.fg} bg={tg.bg}>{tg.text}</Tag>}
-                      <span style={{ fontWeight: 600 }}>{r.label}</span>
-                    </div>
-                    {r.detail && <div style={{ fontSize: '12px', color: '#667085', marginTop: '3px' }}>{r.detail}</div>}
-                    {onBehalf && <div style={{ marginTop: '5px' }}><Tag fg="#8a5200" bg="#fcefd6">Paid by {r.onBehalfByMember} — not the client’s own payment</Tag></div>}
-                    {r.onBehalfForClient && <div style={{ marginTop: '5px' }}><Tag fg="#1d4ed8" bg="#e6eefe">On behalf of {r.onBehalfForClient}</Tag></div>}
-                    {(r.invoiceNumber || r.receiptNumber) && (
-                      <div style={{ fontSize: '11px', color: '#94a3bd', marginTop: '5px', fontFamily: 'ui-monospace, monospace' }}>
-                        {[r.invoiceNumber, r.receiptNumber].filter(Boolean).join('  ·  ')}
-                      </div>
-                    )}
-                  </td>
-                  <td style={{ ...td, whiteSpace: 'nowrap', color: '#4e6087' }}>{fmtMethod(r.method, r.last4)}</td>
-                  <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700, color: r.amount < 0 ? '#b42318' : '#16264a' }}>{fmtMoney(r.amount)}</td>
-                  <td style={td}><StatusPill status={r.status} /></td>
-                </tr>
-              )
-            })}
+            {entries.map(e => e.single
+              ? renderRow(e.single, false)
+              : (e.rows.length === 1 ? renderRow(e.rows[0], false) : renderGroup(e)))}
           </tbody>
         </table>
       </div>
