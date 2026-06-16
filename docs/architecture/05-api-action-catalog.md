@@ -301,6 +301,16 @@ Admin read-only view of a specialist's vault by `expert_id` (Search Specialists 
 | `specialist_vault_admin_upload_url` | `actions/vault/specialist-vault-admin-upload-url.ts` | — | storage `specialist-documents` (upload by `expert_id`) | Admin-only (2026-06-10). Signed upload URL into a specialist's vault. |
 | `specialist_vault_admin_delete` | `actions/vault/specialist-vault-admin-delete.ts` | — | storage (delete by `expert_id`, path prefix-checked) | Admin-only (2026-06-10). Removes a file from a specialist's vault. |
 
+#### Payments — read-only per-person aggregation (added 2026-06-15, all in `ADMIN_ONLY_ACTIONS`; portal-ready)
+
+There is no unified ledger — payment data is inline across 6 tables — so each handler fans out and normalizes to one row shape `{date, label, amount, status, method+last4, invoice/receipt#}` via the shared builders in `actions/payments/normalize.ts`. Each has a dormant role branch (client→`callerClientId`, member→`callerMemberNumber`, specialist→`callerSpecialistId`, ignoring any passed id) but is admin-gated for now (gotcha #125). Two pull LIVE from Stripe.
+
+| Action | File | R | W | Chains |
+|---|---|---|---|---|
+| `client_payments_load` | `actions/payments/client-payments-load.ts` | `pipeline_map1` + `client_tax_plans` + `client_priority_tracks` (pip) + `clients`/`members` (on-behalf marker) | — | MAP 1 / Tax / PIP rows for one client; flags member-paid-on-behalf. |
+| `member_payments_load` | `actions/payments/member-payments-load.ts` | `advisor_onboarding`/`accountant_onboarding` (own fee) + their clients' `pipeline_map1`/`client_tax_plans` (on-behalf) + **Stripe `GET /v1/transfers?destination=`** (rev-share payouts) | — | 3 sections: own onboarding fee / on-behalf / live rev-share payouts. Graceful `payout_error` on Stripe failure. |
+| `specialist_payments_load` | `actions/payments/specialist-payments-load.ts` | `specialist_onboarding` (bg `bg_*`) + **Stripe `GET /v1/invoices?subscription=`** (full monthly-license history) | — | bg-check + live license history; sandbox key via `pipeline_sandbox_config[SPECIALIST_ONBOARDING]`. Graceful `license_error`. |
+
 ---
 
 ### Gift credits (GC marketplace)

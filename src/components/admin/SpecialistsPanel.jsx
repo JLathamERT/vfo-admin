@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { callApi } from '../../lib/api'
 import SpecialistOnboarding from './SpecialistOnboarding'
 import SpecialistAdminVault from './SpecialistAdminVault'
+import SpecialistPaymentsTab from '../payments/SpecialistPaymentsTab'
 
 const ECOSYSTEMS = ['Tax Planning', 'Business Advisory', 'Legal', 'Insurance', 'Wealth Management']
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
@@ -401,15 +402,19 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
           <button onClick={() => { setSelectedExpert(null); setEditingId(null); setSpecialistTab('profile') }} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
 
           <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', borderBottom: '1px solid #e3eaf5' }}>
-            {['profile', 'edit', 'vault'].map(t => (
+            {['profile', 'edit', 'vault', 'payments'].map(t => (
               <button key={t} onClick={() => setSpecialistTab(t)} style={{ padding: '8px 16px', border: 'none', background: 'none', borderBottom: specialistTab === t ? '2px solid #125ecc' : '2px solid transparent', color: specialistTab === t ? '#125ecc' : '#4e6087', fontWeight: specialistTab === t ? 600 : 400, fontSize: '14px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: '-1px' }}>
-                {t === 'profile' ? 'Profile' : t === 'edit' ? 'Edit Specialist' : 'Vault'}
+                {t === 'profile' ? 'Profile' : t === 'payments' ? 'Payments' : t === 'edit' ? 'Edit Specialist' : 'Vault'}
               </button>
             ))}
           </div>
 
           {specialistTab === 'profile' && (
             <SpecialistProfileView expert={selectedExpert} ecos={ecoMap[selectedExpert.id] || []} ciq={ciqMap[selectedExpert.id] || []} />
+          )}
+
+          {specialistTab === 'payments' && (
+            <SpecialistPaymentsTab expertId={selectedExpert.id} />
           )}
 
           {specialistTab === 'edit' && (

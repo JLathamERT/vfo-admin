@@ -1929,7 +1929,7 @@ function TaxPrioritiesTab({ clientId, programId, programName, client, specialist
                 onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
                 onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}>
                 <div>
-                  <div style={{ fontSize: '15px', fontWeight: '600', color: '#16264a', marginBottom: '4px' }}>Tax Plan</div>
+                  <div style={{ fontSize: '15px', fontWeight: '600', color: '#16264a', marginBottom: '4px' }}>{plan.program_id === 4 ? 'VFO Tax Planning' : 'VFO Holistic Planning · Tax Priorities'}</div>
                   <div style={{ fontSize: '12px', color: '#4e6087' }}>{plan.created_at?.split('T')[0]}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

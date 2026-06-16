@@ -1,0 +1,79 @@
+import { useState, useEffect } from 'react'
+import { callApi } from '../../lib/api'
+import { Skeleton } from '../shared/Skeleton'
+import PaymentsTable from './PaymentsTable'
+
+// Read-only Payments tab for a member (admin view). Unifies three sources into one
+// filterable, chronological list via member_payments_load:
+//   • Onboarding fee        — the advisor/accountant onboarding payment that created them
+//   • On behalf of clients  — MAP 1 / Tax payments they made for their clients
+//   • Rev-share payouts      — money paid OUT to them via Stripe Connect
+// The filter chips (in PaymentsTable) keep the three clearly separated.
+const cardStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px' }
+const titleStyle = { fontSize: '17px', fontWeight: 800, color: '#002973', margin: '0 0 16px', fontFamily: 'Inter, sans-serif' }
+
+export default function MemberPaymentsTab({ member }) {
+  const memberNumber = member?.plugin_member_number
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => { if (memberNumber) load() }, [memberNumber])
+
+  async function load() {
+    setLoading(true); setError(null)
+    try {
+      const d = await callApi('member_payments_load', { member_number: memberNumber })
+      setData(d)
+    } catch (e) {
+      setError(e?.message || 'Failed to load payments')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div style={cardStyle}>
+        <Skeleton width={140} height={22} />
+        <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {[0, 1, 2].map(i => <Skeleton key={i} width="100%" height={42} />)}
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={cardStyle}>
+        <h3 style={titleStyle}>Payments</h3>
+        <div style={{ marginTop: '12px', padding: '14px 16px', background: '#fdecea', border: '1px solid #f7c4bd', borderRadius: '10px', color: '#b42318', fontSize: '13px' }}>{error}</div>
+      </div>
+    )
+  }
+
+  // Merge the three sections into one list (on-behalf rows are re-tagged so they
+  // group under their own filter chip), then re-sort newest-first.
+  const rows = [
+    ...(data?.own || []),
+    ...(data?.on_behalf || []).map(r => ({ ...r, category: 'On behalf of clients' })),
+    ...(data?.payouts || []),
+  ]
+  rows.sort((a, b) => {
+    const ta = a.date ? Date.parse(a.date) : -Infinity
+    const tb = b.date ? Date.parse(b.date) : -Infinity
+    return (isNaN(tb) ? -Infinity : tb) - (isNaN(ta) ? -Infinity : ta)
+  })
+
+  return (
+    <div style={cardStyle}>
+      <h3 style={titleStyle}>Payments</h3>
+      {data?.payout_error && (
+        <div style={{ marginBottom: '14px', padding: '10px 14px', background: '#fff7e6', border: '1px solid #f3d9a6', borderRadius: '10px', color: '#8a5200', fontSize: '12.5px' }}>
+          Rev-share payout history could not be loaded from Stripe: {data.payout_error}
+        </div>
+      )}
+      <PaymentsTable rows={rows} emptyText="No payments recorded for this member yet." />
+    </div>
+  )
+}
