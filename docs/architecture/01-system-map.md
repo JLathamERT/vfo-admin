@@ -140,7 +140,7 @@ The top-level picture. Two repos, one Supabase project, four external integratio
               │  2. admin_login / member_login / login (inline,        │
               │     pre-webhook order preserved)                       │
               │  3. PUBLIC_HANDLERS map (router/dispatch.ts):          │
-              │       9 public-token + chain-callable handlers         │
+              │       100 public-token + chain-callable handlers      │
               │       (PCADMIN_finaldecision, CONTRACT_loadpayment,    │
               │        CONTRACT_stripecheckout — URL token             │
               │        endpoints; CONTRACT_ceocountersign,             │
@@ -150,11 +150,11 @@ The top-level picture. Two repos, one Supabase project, four external integratio
               │                                                        │
               │  ─── middleware/auth.ts (Token gate) ──────────        │
               │     Reads body.token, looks up admin_sessions.         │
-              │     Detects role: admin (allowed_admins) or member     │
-              │     (member_logins).                                   │
+              │     Role: admin / member / client / specialist;        │
+              │     is_superadmin = email == SUPERADMIN_EMAIL.          │
               │                                                        │
-              │  ADMIN_ONLY_ACTIONS (constants/role-gates.ts):         │
-              │     73 mutations → 403 for member callers              │
+              │  SUPERADMIN_ONLY_ACTIONS → 403 non-superadmin, then    │
+              │  ADMIN_ONLY_ACTIONS → 403 for member callers.          │
               │                                                        │
               │  MEMBER_SCOPED_ACTIONS (constants/role-gates.ts):      │
               │     23 reads/writes → body.member_number forced        │
