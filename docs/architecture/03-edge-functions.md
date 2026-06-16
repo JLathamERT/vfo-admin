@@ -26,7 +26,7 @@ The 88-line orchestrator at `supabase/functions/vfo-admin-api/index.ts` does:
 5. **BoldSign webhook** (body-shape detection via `router/webhooks.ts::maybeHandleBoldSignWebhook`)
 6. **`PUBLIC_HANDLERS` dispatch** (router/dispatch.ts) — public-token + chain-callable handlers, no auth required (added this session: `load_client_setup` / `submit_client_setup` PUBLIC handlers in `actions/auth/client-setup-load.ts` / `client-setup-submit.ts`, plus the PUBLIC-token `tax_upload_url` in `actions/vault/tax-upload-url.ts`)
 7. **Auth gate** (`middleware/auth.ts::authenticate`) — validates body.token against `admin_sessions`, applies role gates from `constants/role-gates.ts`
-8. **`AUTH_HANDLERS` dispatch** (router/dispatch.ts) — every other action, post-auth
+8. **`AUTH_HANDLERS` dispatch** (router/dispatch.ts) — every other action, post-auth (added 2026-06-15: the 3 read-only `*_payments_load` actions in a new `actions/payments/` group — per-person payment aggregation with shared `normalize.ts` row builders; admin-gated, portal-ready)
 9. **Unknown-action fallthrough** (200 if action missing, else 400)
 
 ### Top-of-file constants & helpers
