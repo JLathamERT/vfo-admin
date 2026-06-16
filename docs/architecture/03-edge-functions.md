@@ -83,13 +83,14 @@ serve(req)
   │      • Returns Response or null
   │
   ├─ 5. PUBLIC_HANDLERS[action]  (from router/dispatch.ts)
-  │      • 102 entries: public-token + server-to-server chain-callable
+  │      • 100 entries: public-token + server-to-server chain-callable (6 Tax actions moved to AUTH 2026-06-16)
   │      • Dispatched ctx: { body, supabase, json, req }
   │
   ├─ 6. await middleware/auth.ts::authenticate(action, body, supabase, json)
   │      • Reads body.token, looks up admin_sessions
   │      • Returns 401 if missing/expired
   │      • Detects role: admin (allowed_admins), member (member_logins), client, or specialist (both deny-by-default)
+  │      • Applies SUPERADMIN_ONLY_ACTIONS gate (NEW 2026-06-16; 403 for non-superadmin incl. regular admins; runs first)
   │      • Applies ADMIN_ONLY_ACTIONS gate (403 for member callers on listed actions)
   │      • Applies MEMBER_SCOPED_ACTIONS gate (forces body.member_number to caller's own)
   │      • Applies CLIENT_ALLOWED_ACTIONS gate (client role limited to 4 vault actions, scoped to auth.callerClientId)
@@ -153,7 +154,7 @@ Below the public dispatch step, every action does:
 1. Reads `body.token`. Returns 401 if missing.
 2. Looks up `admin_sessions` row by token. Returns 401 if missing or `expires_at` is past (and deletes the expired row).
 3. Detects role via `allowed_admins` row (admin), `member_logins.member_number` (member), the `client` role, or the `specialist` role (added this session — both deny-by-default gates; see [04-auth-and-sessions.md](04-auth-and-sessions.md)).
-4. Applies `ADMIN_ONLY_ACTIONS` (constants/role-gates.ts) — 403 for member callers on listed actions.
+4. Applies `SUPERADMIN_ONLY_ACTIONS` (NEW 2026-06-16 — 12 Automation-panel actions → 403 for any non-superadmin incl. regular admins; runs first) THEN `ADMIN_ONLY_ACTIONS` (constants/role-gates.ts) — 403 for member callers on listed actions.
 5. Applies `MEMBER_SCOPED_ACTIONS` (constants/role-gates.ts) — overwrites `body.member_number` with caller's for scoped reads/writes.
 6. For the `client` role, allows only `CLIENT_ALLOWED_ACTIONS` (deny-by-default) and scopes client-vault handlers to `auth.callerClientId`.
 7. For the `specialist` role, allows only `SPECIALIST_ALLOWED_ACTIONS` (deny-by-default) and scopes specialist-vault handlers to `auth.callerSpecialistId`.

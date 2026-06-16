@@ -57,7 +57,7 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | Auth check | line 79: `!session \|\| session.role !== 'admin'` → `navigate('/admin/login')` |
 | Initial load | line 85: `callApi('load_data')` — populates `allExperts`, `allMembers`, `allExclusionMap`, `ecoMap`, `ciqMap` |
 | Header | line 198-220: hover-style title, `NotificationBell`, session name, conditional Admin Editor (superadmin only), Settings, Sign Out |
-| Nav model | Three `NavDropdown` components (lines 228-245): **Members**, **Specialists**, **Automation** |
+| Nav model | Four `NavDropdown` components: **Advisors**, **Accountants**, **Specialists**, **Automation** — the **Automation** tab renders ONLY when `session.is_superadmin` (Jake-only lock, 2026-06-16; non-superadmin admins don't see it, and persisted-tab-restore + deep-link guards block reaching it). |
 | Active tab/section state | tracked in both React state AND `sessionStorage` (keys `adminActiveTab`, `adminMembersSection`, etc.) so refresh preserves location |
 | Body routing | lines 256-273: `activeTab === 'specialists'` → SpecialistsPanel; `'members'` → MembersPanel; `'automation' && automationSection === 'map1_pipeline'` → AutomationPanel; `'automation' && automationSection === 'email_templates'` → EmailTemplatesPanel |
 
