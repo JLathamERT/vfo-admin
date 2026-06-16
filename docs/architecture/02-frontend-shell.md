@@ -15,7 +15,7 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | `/` | [RolePicker](src/pages/RolePicker.jsx) | none | Four tiles — VFOS/ERT, VFO Specialist, Member, Client — each navigates to its login |
 | `/admin/login` | [AdminLogin](src/pages/AdminLogin.jsx) | none | `admin_login` form |
 | `/member/login` | [MemberLogin](src/pages/MemberLogin.jsx) | none | `member_login` form |
-| `/admin` | [AdminPortal](src/pages/AdminPortal.jsx) | admin session | Top-level admin shell — Members / Specialists / Automation tabs |
+| `/admin` | [AdminPortal](src/pages/AdminPortal.jsx) | admin session | Top-level admin shell — Advisors / Accountants / Specialists / Automation / Payments tabs (Automation + Payments are Jake-only) |
 | `/admin/client/:clientId` | [ClientDetail](src/pages/ClientDetail.jsx) | admin session | Client deep-dive (admin variant) |
 | `/member` | [MemberPortal](src/pages/MemberPortal.jsx) | member session | Top-level member shell |
 | `/member/client/:clientId` | [ClientDetail](src/pages/ClientDetail.jsx) | member session | Client deep-dive (member variant — `readOnly`) |
@@ -57,9 +57,9 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | Auth check | line 79: `!session \|\| session.role !== 'admin'` → `navigate('/admin/login')` |
 | Initial load | line 85: `callApi('load_data')` — populates `allExperts`, `allMembers`, `allExclusionMap`, `ecoMap`, `ciqMap` |
 | Header | line 198-220: hover-style title, `NotificationBell`, session name, conditional Admin Editor (superadmin only), Settings, Sign Out |
-| Nav model | Four `NavDropdown` components: **Advisors**, **Accountants**, **Specialists**, **Automation** — the **Automation** tab renders ONLY when `session.is_superadmin` (Jake-only lock, 2026-06-16; non-superadmin admins don't see it, and persisted-tab-restore + deep-link guards block reaching it). |
+| Nav model | Four `NavDropdown` components: **Advisors**, **Accountants**, **Specialists**, **Automation**, plus a plain **Payments** tab button — **Automation** AND **Payments** render ONLY when `session.is_superadmin` (Jake-only lock; non-superadmin admins don't see them, and persisted-tab-restore + deep-link guards block reaching them). The **Payments** tab (added 2026-06-16) mounts `AllPaymentsTab` — the admin GLOBAL Payments page. |
 | Active tab/section state | tracked in both React state AND `sessionStorage` (keys `adminActiveTab`, `adminMembersSection`, etc.) so refresh preserves location |
-| Body routing | lines 256-273: `activeTab === 'specialists'` → SpecialistsPanel; `'members'` → MembersPanel; `'automation' && automationSection === 'map1_pipeline'` → AutomationPanel; `'automation' && automationSection === 'email_templates'` → EmailTemplatesPanel |
+| Body routing | `activeTab === 'specialists'` → SpecialistsPanel; `'advisors'`/`'accountants'` → MembersPanel; `'automation' && automationSection === 'map1_pipeline'` → AutomationPanel; `'automation' && automationSection === 'email_templates'` → EmailTemplatesPanel; `'payments' && is_superadmin` → AllPaymentsTab (added 2026-06-16) |
 
 **Advisors dropdown items:**
 - Advisor Search / Add Advisor / Advisor Onboarding
@@ -196,7 +196,7 @@ A **dual-mode** page rendered by both `/admin/client/:clientId` and `/member/cli
 | [ClientVaultTab](src/components/admin/ClientVaultTab.jsx) | `activeTab === 'vault' && !isMember` (admin-only) | admin Vault tab — two sections: **Sensitive** (`vault_tax_list`/`vault_tax_download`/`vault_tax_admin_upload_url`/`vault_tax_delete`; all admins see titles, only the tax allowlist — Jake/Tim/Tray — get working View/Add/Delete via the `can_view` flag) + **General** (`vault_gen_*`; all admins can view/add/delete) |
 | [ClientPaymentsTab](src/components/payments/ClientPaymentsTab.jsx) | inside the **Profile** dropdown, `activeTab === 'payments' && !isMember` (admin-only) | `client_payments_load` → read-only Payments table (MAP 1 / Tax / PIP rows, member-on-behalf flagged). Added 2026-06-15. |
 
-> **Per-person Payments tabs (2026-06-15).** New shared `src/components/payments/`: `PaymentsTable.jsx` (read-only renderer — category filter chips, business-line row tags HOLISTIC/TAX PLANNING/TAX, soft-orange on-behalf marker, awaiting-rows-float-to-top) + `ClientPaymentsTab` / `MemberPaymentsTab` / `SpecialistPaymentsTab`. Wired as a read-only "Payments" view into **ClientDetail** (Profile dropdown), **MembersPanel** (Profile FeatureTabDropdown → "Payments"), and **SpecialistsPanel** (4th tab: Profile · Edit Specialist · Vault · Payments). All admin-only for now; the backend `*_payments_load` actions are portal-ready for the Track-3 self-service portal work.
+> **Per-person Payments tabs (2026-06-15) + admin GLOBAL page (2026-06-16).** Shared `src/components/payments/`: `PaymentsTable.jsx` (read-only renderer) + `ClientPaymentsTab` / `MemberPaymentsTab` / `SpecialistPaymentsTab` (per-person — wired into **ClientDetail** Profile dropdown, **MembersPanel** Profile FeatureTabDropdown → "Payments", **SpecialistsPanel** 4th tab) + `AllPaymentsTab.jsx` (the GLOBAL page, mounted by AdminPortal's Jake-only "Payments" top-level tab via `all_payments_load`). **All admin-only — the Track-3 self-service portal exposure was CANCELLED 2026-06-16 (payments stay admin-only).** `PaymentsTable` was extended 2026-06-16 (backward-compatible): a Person column + person-type ("Who") filter appear only when rows carry `person` (global page); multi-payment engagements (MAP 1 quarterly installments, tax retainer/implementation) fold into one expandable chevron parent; the global page passes a `buckets` prop (Payments received / Revenue share payouts) that replaces the category/Who chips there; fixed column layout (`table-layout:fixed` + colgroup); per-row base+fee split in the Amount column. See gotcha #129.
 
 ## MAP1 / contract / payment UI flow
 

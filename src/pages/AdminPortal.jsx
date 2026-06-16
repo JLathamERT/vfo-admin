@@ -14,6 +14,7 @@ import SpecialistAutomationPanel from '../components/admin/SpecialistAutomationP
 import NotificationBell from '../components/NotificationBell'
 import EmailTemplatesPanel from '../components/admin/EmailTemplatesPanel'
 import VfoWordmark from '../components/shared/VfoWordmark'
+import AllPaymentsTab from '../components/payments/AllPaymentsTab'
 
 function NavDropdown({ label, items, onSelect, isActive }) {
   const [open, setOpen] = useState(false)
@@ -70,8 +71,8 @@ export default function AdminPortal() {
   const session = getSession()
   const [activeTab, setActiveTab] = useState(() => {
     const t = sessionStorage.getItem('adminActiveTab')
-    // Automation is superadmin-only — never restore a non-superadmin into it.
-    if (t === 'automation' && !session?.is_superadmin) return null
+    // Automation + Payments are superadmin-only — never restore a non-superadmin into them.
+    if ((t === 'automation' || t === 'payments') && !session?.is_superadmin) return null
     return t === 'members' ? 'advisors' : (t || null)
   })
   const [advisorsSection, setAdvisorsSection] = useState(sessionStorage.getItem('adminAdvisorsSection') || 'advisor_search')
@@ -99,8 +100,8 @@ export default function AdminPortal() {
     const tab = params.get('tab')
     const section = params.get('section')
     if (!tab) return
-    // Automation is superadmin-only — ignore a deep-link into it for other admins.
-    if (tab === 'automation' && !session?.is_superadmin) return
+    // Automation + Payments are superadmin-only — ignore a deep-link into them for other admins.
+    if ((tab === 'automation' || tab === 'payments') && !session?.is_superadmin) return
     setActiveTab(tab)
     sessionStorage.setItem('adminActiveTab', tab)
     if (section) {
@@ -188,6 +189,15 @@ export default function AdminPortal() {
     sessionStorage.setItem('adminActiveTab', 'automation')
     setAutomationSection(key)
     sessionStorage.setItem('adminAutomationSection', key)
+    sessionStorage.removeItem('adminSelectedMember')
+    sessionStorage.removeItem('adminMemberFeatureTab')
+    setShowEditor(false)
+    setShowSettings(false)
+  }
+
+  function selectPaymentsTab() {
+    setActiveTab('payments')
+    sessionStorage.setItem('adminActiveTab', 'payments')
     sessionStorage.removeItem('adminSelectedMember')
     sessionStorage.removeItem('adminMemberFeatureTab')
     setShowEditor(false)
@@ -308,6 +318,19 @@ export default function AdminPortal() {
                 isActive={activeTab === 'automation'}
               />
             )}
+            {session.is_superadmin && (
+              <button
+                onClick={selectPaymentsTab}
+                style={{
+                  padding: '14px 20px', background: 'transparent', border: 'none',
+                  borderBottom: activeTab === 'payments' ? '2px solid #125ecc' : '2px solid transparent',
+                  color: activeTab === 'payments' ? '#125ecc' : '#4e6087', fontSize: '14px',
+                  fontWeight: activeTab === 'payments' ? '600' : '500', cursor: 'pointer',
+                  fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap'
+                }}>
+                Payments
+              </button>
+            )}
           </div>
 
           <div style={{ flex: 1 }}>
@@ -367,6 +390,10 @@ export default function AdminPortal() {
           )}
           {activeTab === 'automation' && !loading && automationSection === 'email_templates' && (
             <EmailTemplatesPanel />
+          )}
+
+          {activeTab === 'payments' && !loading && session.is_superadmin && (
+            <AllPaymentsTab />
           )}
 
           {loading && <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>}
