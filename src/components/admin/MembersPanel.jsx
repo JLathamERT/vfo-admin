@@ -4,6 +4,7 @@ import MemberWebsitePlugin from '../shared/MemberWebsitePlugin'
 import MemberVault from '../shared/MemberVault'
 import MemberCIQ from '../shared/MemberCIQ'
 import MemberShowroom from '../member/MemberShowroom'
+import MemberPaymentsTab from '../payments/MemberPaymentsTab'
 import MSMTracking from './MSMTracking'
 import AdvisorOnboarding from './AdvisorOnboarding'
 import AccountantOnboarding from './AccountantOnboarding'
@@ -304,13 +305,14 @@ function MemberDirectoryView({
             }
           />
           <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px', flexWrap: 'wrap', position: 'relative', zIndex: 50 }}>
-          <FeatureTabDropdown label="Profile" isActive={['profile_details','profile_edit','profile_history'].includes(memberFeatureTab)} options={[{key:'profile_details',label:'Profile'},{key:'profile_edit',label:'Edit Profile'},{key:'profile_history',label:'Type History'}]} onSelect={setMemberFeatureTab} />
+          <FeatureTabDropdown label="Profile" isActive={['profile_details','profile_edit','profile_history','profile_payments'].includes(memberFeatureTab)} options={[{key:'profile_details',label:'Profile'},{key:'profile_edit',label:'Edit Profile'},{key:'profile_history',label:'Type History'},{key:'profile_payments',label:'Payments'}]} onSelect={setMemberFeatureTab} />
           <FeatureTabDropdown label="MSM" isActive={['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab)} options={[{key:'msm_meetings',label:'MSM'},{key:'msm_program_holistic',label:'VFO Holistic Planning'},{key:'msm_program_partnership',label:'Partnership Fast Track'},{key:'msm_program_tax',label:'VFO Tax Planning'},{key:'msm_program_coaching',label:'Advanced Coaching'}]} onSelect={k => { setMemberFeatureTab(k); sessionStorage.setItem(featureTabKey, k) }} />
             {[['specialists','Specialists'],['showroom','Showroom'],['website','Website Plugin'],['ciq','CIQ'],['growthplan','Growth Plan'],['gc','GC Marketplace'],['vault','The Vault'],['settings','Settings']].map(([key, label]) => (
             <button key={key} style={{ padding: '7px 16px', background: memberFeatureTab === key ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: memberFeatureTab === key ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: memberFeatureTab === key ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' }} onClick={() => { setMemberFeatureTab(key); sessionStorage.setItem(featureTabKey, key) }}>{label}</button>
           ))}
           </div>
           {['profile_details','profile_edit','profile_history'].includes(memberFeatureTab) && <MemberProfile member={selectedMember} allMembers={allMembers} onDataChange={onDataChange} activeSection={memberFeatureTab} hiddenFields={hiddenFields} />}
+          {memberFeatureTab === 'profile_payments' && <MemberPaymentsTab member={selectedMember} />}
           {['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab) && <MSMTracking member={selectedMember} activeSection={memberFeatureTab} onDataChange={onDataChange} />}          {memberFeatureTab === 'specialists' && <MemberSpecialists member={selectedMember} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} />}
           {memberFeatureTab === 'showroom' && <MemberShowroom experts={allExperts} exclusions={allExclusionMap[selectedMember.plugin_member_number] || []} ecoMap={ecoMap} />}
           {memberFeatureTab === 'website' && <MemberWebsitePlugin member={selectedMember} onDataChange={onDataChange} readOnly={false} isAdmin={true} />}
