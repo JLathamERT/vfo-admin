@@ -70,6 +70,8 @@ export default function AdminPortal() {
   const session = getSession()
   const [activeTab, setActiveTab] = useState(() => {
     const t = sessionStorage.getItem('adminActiveTab')
+    // Automation is superadmin-only — never restore a non-superadmin into it.
+    if (t === 'automation' && !session?.is_superadmin) return null
     return t === 'members' ? 'advisors' : (t || null)
   })
   const [advisorsSection, setAdvisorsSection] = useState(sessionStorage.getItem('adminAdvisorsSection') || 'advisor_search')
@@ -97,6 +99,8 @@ export default function AdminPortal() {
     const tab = params.get('tab')
     const section = params.get('section')
     if (!tab) return
+    // Automation is superadmin-only — ignore a deep-link into it for other admins.
+    if (tab === 'automation' && !session?.is_superadmin) return
     setActiveTab(tab)
     sessionStorage.setItem('adminActiveTab', tab)
     if (section) {
@@ -296,12 +300,14 @@ export default function AdminPortal() {
               onSelect={selectSpecialistsSection}
               isActive={activeTab === 'specialists'}
             />
-            <NavDropdown
-              label="Automation"
-              items={automationDropdownItems}
-              onSelect={selectAutomationSection}
-              isActive={activeTab === 'automation'}
-            />
+            {session.is_superadmin && (
+              <NavDropdown
+                label="Automation"
+                items={automationDropdownItems}
+                onSelect={selectAutomationSection}
+                isActive={activeTab === 'automation'}
+              />
+            )}
           </div>
 
           <div style={{ flex: 1 }}>
