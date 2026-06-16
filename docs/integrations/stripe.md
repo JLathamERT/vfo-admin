@@ -1,6 +1,6 @@
 # Stripe integration
 
-Stripe handles **eight** distinct payment flows in this system:
+Stripe handles **nine** distinct payment flows in this system:
 
 1. **MAP1 service payments** — recurring quarterly or one-time payment for the VFO membership engagement. Customers, Checkout Sessions, PaymentIntents, and Transfers (revenue share to advisors).
 2. **Tax Planning payments** — retainer (Tax 3) + implementation off-session charge (Tax 5). Routed by `metadata.payment_kind` in `retainer` / `implementation`. See [../flows/tax-planning.md](../flows/tax-planning.md).
@@ -10,19 +10,20 @@ Stripe handles **eight** distinct payment flows in this system:
 6. **GC marketplace purchases** — one-shot Stripe Checkout for buying gift credits.
 7. **Specialist Onboarding background-check payments** (2026-06-03) — one-time Core ($350) or Max ($950) charge for the specialist's background check (Stage 3). ACH or Card; card grosses up the 2.9%+$0.30 fee. No `setup_future_usage`. Confirmation email at payment time; receipt + invoice PDFs on clearance. See [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md).
 8. **Specialist Onboarding monthly LICENSE** (2026-06-05) — the **first and only Stripe SUBSCRIPTION in the system** (`mode=subscription`). $99/mo recurring after the Stage-4 agreement is signed; card grossed-up / ACH flat; reuses the specialist's background-check Stripe customer. Stripe owns the recurring billing/dunning — **no custom sweep**. Routed by `metadata.payment_kind=license`. See [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md).
+9. **Admin-initiated payment-method change** (2026-06-16, Phase D) — the **first and only `mode=setup` / SetupIntent flow in the system**. **No charge** — it saves a new reusable card/bank so the **next** off-session charge of an existing engagement (MAP 1 quarterly sweep / Tax implementation / Specialist license renewal) uses it. An admin (Jake-only) emails the payer a `/update-card?token=` link; the payer enters the new method on Stripe's hosted setup page; a `checkout.session.completed` + `mode=setup` webhook saves it as the customer/engagement default. Routed by `metadata.payment_kind=card_update` (+ `pipeline` + `row_id`). Because each engagement has its **own** Stripe customer, a change is **per-engagement**. See [../flows/payment-method-change.md](../flows/payment-method-change.md).
 
-All eight flows route through the same webhook endpoint (the `vfo-admin-api` function gated by `stripe-signature`). They are disambiguated by Checkout-Session metadata. The webhook verifies the signature against BOTH `STRIPE_WEBHOOK_SECRET` and `STRIPE_WEBHOOK_SECRET_SANDBOX` — whichever validates wins. **Events handled:** `checkout.session.completed`, `payment_intent.succeeded`, `payment_intent.payment_failed` (SPECIALIST bg → `bg_payment_status='failed'`), and — added 2026-06-05 for the license subscription — **`invoice.paid` / `invoice.payment_succeeded`** (recurring billing + receipts; routed by `lic_stripe_customer_id`; subscription ref read from `invoice.parent.subscription_details.subscription`, SESSION_REFERENCE gotcha #76) and **`invoice.payment_failed`** (dunning FYI to Tracy). ⚠️ The two `invoice.*` events must be **enabled on the Stripe webhook endpoint** — done on **sandbox**; the **live** endpoint still needs them before any real specialist license payment (gotcha #75).
+All nine flows route through the same webhook endpoint (the `vfo-admin-api` function gated by `stripe-signature`). They are disambiguated by Checkout-Session metadata. The webhook verifies the signature against BOTH `STRIPE_WEBHOOK_SECRET` and `STRIPE_WEBHOOK_SECRET_SANDBOX` — whichever validates wins. **Events handled:** `checkout.session.completed` (now also handles **`mode=setup`** sessions — the Phase D card-update flow, 2026-06-16), `payment_intent.succeeded`, `payment_intent.payment_failed` (SPECIALIST bg → `bg_payment_status='failed'`), and — added 2026-06-05 for the license subscription — **`invoice.paid` / `invoice.payment_succeeded`** (recurring billing + receipts; routed by `lic_stripe_customer_id`; subscription ref read from `invoice.parent.subscription_details.subscription`, SESSION_REFERENCE gotcha #76) and **`invoice.payment_failed`** (dunning FYI to Tracy). ⚠️ The two `invoice.*` events must be **enabled on the Stripe webhook endpoint** — done on **sandbox**; the **live** endpoint still needs them before any real specialist license payment (gotcha #75).
 
 ### Metadata convention
 
-| Field | MAP1 | Tax | Advisor | Accountant | PIP | GC | Specialist |
-|---|---|---|---|---|---|---|---|
-| `metadata.pipeline` | (none) | `TAX` | `ADVISOR_ONBOARDING` | `ACCOUNTANT_ONBOARDING` | `PIP` | (none) | `SPECIALIST_ONBOARDING` |
-| `metadata.payment_kind` | (none — uses `payment_number` for quarterly) | `retainer` / `implementation` | `onboarding` | `onboarding` | `purchase` | (none — uses `member_number` + `credits`) | `background_check` (+ `bg_type=core\|max`) **or `license`** (`mode=subscription`, $99/mo) |
-| `metadata.payment_number` | `1` (P1) / `2-4` (chargescheduled sweep) | — | — | — | — | — |
-| `metadata.client_id` / `metadata.onboarding_id` | `client_id` | `tax_plan_id` (via `client_tax_plans`) | `onboarding_id` | `onboarding_id` | `priority_track_id` | — |
+| Field | MAP1 | Tax | Advisor | Accountant | PIP | GC | Specialist | Card-update |
+|---|---|---|---|---|---|---|---|---|
+| `metadata.pipeline` | (none) | `TAX` | `ADVISOR_ONBOARDING` | `ACCOUNTANT_ONBOARDING` | `PIP` | (none) | `SPECIALIST_ONBOARDING` | `MAP 1` / `TAX` / `SPECIALIST_LICENSE` (which engagement) |
+| `metadata.payment_kind` | (none — uses `payment_number` for quarterly) | `retainer` / `implementation` | `onboarding` | `onboarding` | `purchase` | (none — uses `member_number` + `credits`) | `background_check` (+ `bg_type=core\|max`) **or `license`** (`mode=subscription`, $99/mo) | **`card_update`** (`mode=setup`, no charge) |
+| `metadata.payment_number` | `1` (P1) / `2-4` (chargescheduled sweep) | — | — | — | — | — | — | — |
+| `metadata.client_id` / `metadata.onboarding_id` | `client_id` | `tax_plan_id` (via `client_tax_plans`) | `onboarding_id` | `onboarding_id` | `priority_track_id` | — | `row_id` (the engagement row) + `token` |
 
-The webhook router uses these fields to pick the right DB table on `checkout.session.completed` and `payment_intent.succeeded`. Fallback chain: MAP1 lookup by `stripe_customer_id` → Tax lookup → Advisor lookup → PIP lookup → Accountant lookup.
+The webhook router uses these fields to pick the right DB table on `checkout.session.completed` and `payment_intent.succeeded`. Fallback chain: MAP1 lookup by `stripe_customer_id` → Tax lookup → Advisor lookup → PIP lookup → Accountant lookup. The **card-update** `mode=setup` branch is matched by `payment_kind=card_update` and routed directly by `metadata.pipeline` + `metadata.row_id` (no customer-id cascade).
 
 ## Env vars
 
@@ -152,6 +153,43 @@ These only fire if the Stripe endpoint subscribes to the event types (config, bo
 
 > Note: the `checkout.session.completed` / `payment_intent.succeeded` sections above are MAP 1-centric and carry pre-refactor line refs; the **authoritative current webhook routing** (tax / advisor / accountant / pip / specialist cascade + these failure events) lives in `SESSION_REFERENCE.md` → "Stripe webhook chain order".
 
+## Setup mode / SetupIntent — admin-initiated card-update (2026-06-16, Phase D)
+
+This is the **first and only `mode=setup` / SetupIntent usage** in the system. Every other Checkout Session is `mode=payment` (charges) or `mode=subscription` (the specialist license). A setup session **saves a reusable payment method with no charge** so the *next* off-session charge of an existing engagement uses it. Full flow: [../flows/payment-method-change.md](../flows/payment-method-change.md).
+
+**Checkout Session shape — card-update** (`payments_cardupdate_checkout`, [actions/payments/card-update-checkout.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/payments/card-update-checkout.ts)):
+
+```
+mode: setup                         # no line_items, no charge
+customer: <the engagement's EXISTING Stripe customer>
+payment_method_types: ["card"] OR ["us_bank_account"]
+success_url: <portal>/update-card?token=<token>&updated=1
+cancel_url:  <portal>/update-card?token=<token>
+metadata.payment_kind: card_update
+metadata.pipeline:     MAP 1 | TAX | SPECIALIST_LICENSE
+metadata.row_id:       <engagement row id>
+metadata.token:        <card_update_tokens.token>
+setup_intent_data.metadata: { payment_kind, pipeline, row_id }   # mirrored onto the SetupIntent
+if ACH: payment_method_options.us_bank_account.verification_method: instant
+```
+
+**Webhook — `checkout.session.completed` with `mode==='setup'` and `metadata.payment_kind==='card_update'`** ([router/webhooks.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/router/webhooks.ts)): a NEW isolated branch (does **not** touch the MAP 1 `pipeRow` logic). It expands the **SetupIntent** (`GET /v1/setup_intents/{id}?expand[]=payment_method`) to read the new method's id/type/last4, then:
+
+1. `POST /v1/customers/{cus}` → `invoice_settings.default_payment_method = <pm>` (customer-level default for future invoices/charges).
+2. Writes the engagement row's `default_payment_method_id` (`lic_default_payment_method_id` for the specialist license) + `payment_method_type` + `acct_last4`.
+3. **MAP 1** also recomputes `card_processing_fee` for the new method and **freezes** already-paid installments' `pay{N}_method` / `pay{N}_last4`.
+4. **SPECIALIST_LICENSE** also `POST /v1/subscriptions/{sub}` → `default_payment_method = <pm>` so renewals bill the new method.
+
+> Because each engagement has its **own** Stripe customer (member-paid MAP 1 / Tax → the *member's* customer), a card-update is **per-engagement** — one setup session per customer. The `card_update_tokens` token is person-keyed, but the setup session and webhook operate on exactly one engagement.
+
+### Off-session charges now prefer the stored default PM
+
+After Phase D, the two custom off-session charge paths **prefer the engagement's `default_payment_method_id`** when set (saved by the card-update webhook), falling back to their prior method-selection otherwise:
+
+- **MAP 1 quarterly sweep** ([actions/pipeline/contract-chargescheduled-sweep.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/contract-chargescheduled-sweep.ts)) — uses `default_payment_method_id` if present, else lists the customer's saved methods and picks the most recent (prior behavior).
+- **Tax implementation** ([actions/tax/charge-implementation.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/charge-implementation.ts)) — uses `default_payment_method_id` if present (this also lets a check-paid retainer be charged off-session once a card/bank is added), else reuses the retainer charge's method. The idempotency-key PM suffix derives from `default_payment_method_id` when set, so the key auto-rotates when the method changes.
+- The **Specialist $99/mo license** already keys off its subscription's default PM, which the webhook repoints in step 4 above.
+
 ## Stripe Connect & revenue share
 
 `automation_CONTRACT_revshare` ([line 1248](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) creates a Stripe Transfer:
@@ -208,3 +246,5 @@ See [../tables/pipeline.md](../tables/pipeline.md) for the full column list. Qui
 - `payment_method_type`, `acct_last4`, `card_processing_fee` — set on first webhook
 - `pay1_status` … `pay4_status`, `pay1_date` … `pay4_date` — written by webhook
 - `rec1_rev_share` … `rec4_rev_share`, `rec1_rev_paid` … `rec4_rev_paid` — written by `_revshare`
+- `default_payment_method_id` (also `client_tax_plans.default_payment_method_id`, `specialist_onboarding.lic_default_payment_method_id`) — written by the **card-update** `mode=setup` webhook; preferred by the off-session charge paths. (Phase D, 2026-06-16)
+- `pay1_method` … `pay4_method`, `pay1_last4` … `pay4_last4` — frozen per-installment method/last4, written by the card-update webhook so the Payments tab keeps each past installment's real fee after a method change. (Phase D)

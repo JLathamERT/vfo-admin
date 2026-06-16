@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
 import { Skeleton } from '../shared/Skeleton'
 import PaymentsTable from './PaymentsTable'
+import PaymentsHeader from './PaymentsHeader'
 
 // Read-only Payments tab for a member (admin view). Unifies three sources into one
 // filterable, chronological list via member_payments_load:
@@ -67,7 +68,7 @@ export default function MemberPaymentsTab({ member }) {
 
   return (
     <div style={cardStyle}>
-      <h3 style={titleStyle}>Payments</h3>
+      <PaymentsHeader personType="member" personRef={memberNumber} />
       {data?.payout_error && (
         <div style={{ marginBottom: '14px', padding: '10px 14px', background: '#fff7e6', border: '1px solid #f3d9a6', borderRadius: '10px', color: '#8a5200', fontSize: '12.5px' }}>
           Rev-share payout history could not be loaded from Stripe: {data.payout_error}

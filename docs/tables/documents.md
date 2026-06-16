@@ -47,6 +47,8 @@ Editable subject/body for outbound automation emails. Pipeline-scoped.
 
 **New Model Sale team template (2026-06-15):** one row **id 155**, `pipeline='TEAM'` / `template_name='new_model_sale'` — the only `TEAM`-pipeline row and the only consumer of the `to_list` column. It's an internal notification drafted by `utils/new-model-sale-email.ts` (fired from `automation_ADVISOR_createmember` / `automation_ACCOUNTANT_createmember` as the final onboarding step), addressed `To` the `to_list` team members. Body placeholders are filled from the `advisor_onboarding`/`accountant_onboarding` row (member name/number/email, agreement name, selected plans, payment plan, invoice number, plus the `sale_closer`/`sale_setter`/`sale_introduced_by`/`sale_company_name`/`sale_website` sale-attribution fields). In sandbox the draft goes only to the pipeline's `sandbox_email`.
 
+**Card-update template (Phase D):** one row **id 156**, `pipeline='PAYMENTS'` / `template_name='card_update'` — the only `PAYMENTS`-pipeline row. The admin-initiated payment-method-change email; placeholders `[First Name]` / `[UPDATE_LINK]` (the `/update-card?token=…` link backed by `card_update_tokens`, see [pipeline.md](pipeline.md)).
+
 **Touched by:** `automation_load_email_templates`, `automation_save_email_template`, plus every `automation_*` handler that sends a Gmail draft (it pulls subject/body from this table). Frontend: [EmailTemplatesPanel.jsx](src/components/admin/EmailTemplatesPanel.jsx).
 
 ---

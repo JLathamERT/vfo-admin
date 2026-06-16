@@ -68,6 +68,22 @@ const encodedEmail = btoa(unescape(encodeURIComponent(rawEmail)))
   .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 ```
 
+### Shared draft helper + RFC 2047 subject encoding (`utils/gmail-draft.ts`)
+
+The newer handlers (Specialist Onboarding chain, the Phase D card-update email, the New Model Sale team email) build drafts via the shared [`utils/gmail-draft.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/gmail-draft.ts) helpers — `getGmailAccessToken()` (the token-refresh pattern above) + `draftGmail({to, subject, htmlBody, cc, bcc, attachments})` (builds the RFC 2822 raw message, single-part or multipart-with-PDF, and POSTs `drafts.create`).
+
+`draftGmail` runs the **subject** through an **RFC 2047 encoded-word** helper, `encodeHeaderWord()` ([gmail-draft.ts:21-25](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/gmail-draft.ts)):
+
+```ts
+function encodeHeaderWord(s: string): string {
+  if (/^[\x00-\x7F]*$/.test(s)) return s;            // pure-ASCII → unchanged
+  const b64 = btoa(unescape(encodeURIComponent(s))); // UTF-8 bytes → base64
+  return `=?UTF-8?B?${b64}?=`;                        // RFC 2047 encoded-word
+}
+```
+
+Email headers are ASCII-only, so a non-ASCII subject (e.g. an em dash "—") would otherwise arrive as mojibake (`â€"`) in the client. ASCII subjects pass through byte-identical; only non-ASCII ones get wrapped. **Only the subject is encoded** — the HTML *body* already declares `Content-Type: text/html; charset=UTF-8` and carries UTF-8 directly. The older inline single-part pattern above does **not** apply this (it predates the helper); subjects there are assumed ASCII.
+
 ### Multipart with PDF attachments (`automation_CONTRACT_invoicereceipt`)
 
 [Lines 2122-2159](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts):

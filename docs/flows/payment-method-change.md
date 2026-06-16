@@ -1,0 +1,193 @@
+# Payment-method change flow
+
+The admin-initiated "change the card/bank on file" flow (Phase D). Added 2026-06-16. An admin (Jake-only) clicks **Send Email to Change Payment Method** on a client / member / specialist Payments tab → the backend mints a person-keyed token and drafts a Gmail with a `/update-card?token=` link → the person enters a new card or bank account on Stripe's hosted **`mode:'setup'`** Checkout page (NO charge) → a webhook saves the new method as that engagement's default payment method → the **next** off-session charge (MAP 1 quarterly sweep / Tax implementation / Specialist license renewal) uses the new method automatically.
+
+Raw card/bank data is never seen or stored — the person types it directly into Stripe's hosted page, and the backend only ever handles the resulting payment-method id.
+
+This is the **first SetupIntent / `mode:'setup'`** usage in the system. Every prior Stripe flow either charges (`mode:'payment'`) or subscribes (`mode:'subscription'`); a setup session saves a reusable method with no charge.
+
+## Key modeling — per-engagement, person-keyed token
+
+Each engagement carries its **own** Stripe customer (`contract-stripe-customer.ts` creates one per `pipeline_map1` row; Tax creates one per `client_tax_plans` row; the Specialist license reuses the background-check customer). For **member-paid** MAP 1 / Tax engagements the customer holds the **member's** card, not the client's. So a payment-method change is fundamentally **per-engagement**: one Stripe setup session updates exactly one Stripe customer.
+
+The token, however, is keyed to the **person** (`card_update_tokens.person_type` + `person_ref`), not a single engagement. One emailed link therefore covers **every** reusable engagement that person pays. The `/update-card` page lists each one and lets the person update them **separately** — a different card or bank per engagement is allowed. "Reusable engagement" = one that has a future off-session charge whose method a change would actually affect (see [card-update-shared.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/payments/card-update-shared.ts)):
+
+| Pipeline | Table | Counts as updatable when… | Customer holds |
+|---|---|---|---|
+| `MAP 1` | `pipeline_map1` | `payment_plan='Quarterly'` AND a card/ACH method is on file AND any of `pay2/3/4_status` is not yet `succeeded` (a future installment remains) | client's card, or the member's for member-paid rows |
+| `TAX` | `client_tax_plans` | `implementation_amount > 0` AND a card/ACH method is on file AND `implementation_charge_status` is not `succeeded`/`processing` | client's, or member's for member-paid rows |
+| `SPECIALIST_LICENSE` | `specialist_onboarding` | the $99/mo license subscription exists (`lic_subscription_id` + `lic_stripe_customer_id` set) AND `lic_payment_status != 'canceled'` | the specialist's (reused from the background-check charge) |
+
+One-time / pay-in-full MAP 1, check-paid plans, and already-charged engagements are **not** listed — there is no future reusable charge to redirect.
+
+## Trigger graph
+
+```
+Admin opens a Payments tab (client / member / specialist) and clicks
+"Send Email to Change Payment Method"  [Jake-only button]
+  └─► payments_send_card_update  (AUTH, superadmin-only)
+        ├─ enumerate the payer's reusable engagements (card-update-shared.ts)
+        ├─ INSERT card_update_tokens row (person-keyed, 7-day expiry)
+        └─ draft Gmail from email_templates (PAYMENTS / card_update)
+              → link: /update-card?token=<token>
+
+Person clicks /update-card?token=...  (UpdateCardPage.jsx, no login)
+  ├─► payments_loadcardupdate     (PUBLIC token) → person + engagement list
+  └─► (per engagement, person picks card or bank)
+        payments_cardupdate_checkout  (PUBLIC token)
+          → Stripe Checkout Session, mode:'setup', NO charge
+            metadata: payment_kind=card_update, pipeline, row_id, token
+          → redirect to Stripe hosted page (person enters new card/bank)
+
+Stripe webhook  checkout.session.completed + mode='setup'
+                + metadata.payment_kind='card_update'   (router/webhooks.ts)
+  ├─ expand the SetupIntent → read the new payment_method (id, type, last4)
+  ├─ POST /v1/customers/{cus}  invoice_settings.default_payment_method = pm
+  └─ write the engagement row's default + display fields:
+       MAP 1  → default_payment_method_id, payment_method_type, acct_last4,
+                recompute card_processing_fee, FREEZE paid installments'
+                pay{N}_method / pay{N}_last4
+       TAX    → default_payment_method_id, payment_method_type, acct_last4
+       SPEC   → lic_default_payment_method_id, lic_payment_method_type,
+                lic_acct_last4, then PATCH the subscription's
+                default_payment_method (renewals use it)
+
+Next off-session charge prefers the stored default PM
+  ├─ MAP 1 quarterly sweep  (contract-chargescheduled-sweep.ts)
+  ├─ Tax implementation     (tax/charge-implementation.ts)
+  └─ Specialist license     (already keys off its subscription default PM)
+```
+
+## Tables touched
+
+| Table | R/W | Columns |
+|---|---|---|
+| `card_update_tokens` | R/W | NEW table. `token` (32-byte hex), `person_type` (`client`/`member`/`specialist`), `person_ref` (client id / member_number / expert id, as text), `created_by` (admin email), `expires_at` (now + 7 days). One row minted per send; re-read by the load + checkout actions. |
+| `pipeline_map1` | R/W | R: `stripe_customer_id`, `payment_method_type`, `acct_last4`, `payment_plan`, `service_level`, `member_paying_on_behalf`, `pay{1..4}_status`, `net_invoice`. W (webhook): `default_payment_method_id` (NEW), `payment_method_type`, `acct_last4`, `card_processing_fee` (recomputed), `pay{N}_method` / `pay{N}_last4` (NEW — frozen for already-paid installments). |
+| `client_tax_plans` | R/W | R: `stripe_customer_id`, `payment_method_type`, `acct_last4`, `implementation_amount`, `implementation_charge_status`, `member_paying_on_behalf`, `program_id`. W (webhook): `default_payment_method_id` (NEW), `payment_method_type`, `acct_last4`. |
+| `specialist_onboarding` | R/W | R: `lic_subscription_id`, `lic_stripe_customer_id`, `lic_payment_status`, `lic_payment_method_type`, `lic_acct_last4`, `specialist_name`, `specialist_email`. W (webhook): `lic_default_payment_method_id` (NEW), `lic_payment_method_type`, `lic_acct_last4`. |
+| `clients` | R only | `first_name`, `last_name`, `email`, `member_number` (person resolution + member→client fan-out). |
+| `members` | R only | `first_name`, `last_name`, `email` (member person resolution). |
+| `email_templates` | R only | id 156 — `(pipeline='PAYMENTS', template_name='card_update')`: `subject`, `body`, `cc_list`, `bcc_list`. Built-in fallback used if the row is missing. |
+| `pipeline_sandbox_config` | R only | One read per involved pipeline key (`MAP 1` / `TAX` / `SPECIALIST_ONBOARDING`) to pick the sandbox-vs-live Stripe secret + sandbox recipient email. |
+
+## Step-by-step
+
+### Step 1 — Admin clicks the button (Jake-only)
+
+[PaymentsHeader.jsx](src/components/payments/PaymentsHeader.jsx) renders a **Send Email to Change Payment Method** button, gated to Jake (superadmin) only. It calls `payments_send_card_update` with `person_type` (`client`/`member`/`specialist`) + `person_ref`.
+
+### Step 2 — Mint token + draft email
+
+`payments_send_card_update` ([actions/payments/card-update-send.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/payments/card-update-send.ts)) — **AUTH, superadmin-only** (listed in `SUPERADMIN_ONLY_ACTIONS`):
+
+1. Resolves the person + their updatable engagements via `loadCardUpdatePerson()` (shared with the load + checkout actions).
+2. **Short-circuits** with a friendly `{sent:false, reason}` if the person has no reusable engagement (`reason:"none"`) or no email on file (`reason:"no_email"`). Neither is an error.
+3. **Sandbox routing:** if **any** involved pipeline is in sandbox mode, the draft is redirected to that pipeline's `sandbox_email` (test-safe) and `sandbox:true` is returned.
+4. Inserts a `card_update_tokens` row — a fresh 32-byte hex token (`token32()`), `created_by` = the admin's email, `expires_at` = now + 7 days.
+5. Loads the editable email body from `email_templates` `(PAYMENTS, card_update)` (id 156); falls back to a built-in subject/body if the row is absent. Substitutes `[First Name]` and `[UPDATE_LINK]` (an HTML button → `/update-card?token=…`). Template `cc_list`/`bcc_list` are applied via `templateRecipients` (empty in sandbox).
+6. Drafts the Gmail via `draftGmail` / `getGmailAccessToken` ([utils/gmail-draft.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/gmail-draft.ts)). Like every other automation email it is a **draft**, not a sent message.
+
+Returns `{sent:true, count, to_email, sandbox}`. No charge, no Stripe call — this step only mints the token and drafts the email.
+
+### Step 3 — Person opens `/update-card`
+
+[UpdateCardPage.jsx](src/pages/UpdateCardPage.jsx) at `/update-card?token=<token>` (public route, no login). On mount it calls `payments_loadcardupdate`.
+
+`payments_loadcardupdate` ([actions/payments/card-update-load.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/payments/card-update-load.ts)) — **PUBLIC (token)**:
+
+1. Looks up the token; rejects with `404` if invalid, `410` if expired.
+2. Re-enumerates the person's engagements and returns `{person_name, engagements:[…]}` — each with `pipeline`, `row_id`, `label` ("what it's for"), `for_client_name` (member-on-behalf), and the **current** method + last4 (display only). The Stripe customer id is **not** exposed; the checkout action re-derives it server-side.
+
+The page lists every engagement and offers a card / bank choice for each.
+
+### Step 4 — Person picks an engagement + method → Stripe setup session
+
+`payments_cardupdate_checkout` ([actions/payments/card-update-checkout.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/payments/card-update-checkout.ts)) — **PUBLIC (token)**:
+
+1. Validates `token`, `pipeline`, `row_id`, `method` (`card`/`ach`).
+2. **Authorization:** re-enumerates the token's person and confirms the requested `(pipeline, row_id)` belongs to them — a token cannot touch a stranger's engagement.
+3. Picks the sandbox-vs-live Stripe secret for that engagement's pipeline.
+4. Creates a Stripe **Checkout Session** for the engagement's existing customer:
+   - `mode: setup` (no `line_items`, **no charge**)
+   - `customer: <engagement's stripe customer>`
+   - `payment_method_types[]: card` **or** `us_bank_account`
+   - `metadata: payment_kind=card_update, pipeline, row_id, token` (mirrored onto `setup_intent_data[metadata]` so the SetupIntent is tagged too)
+   - ACH adds `payment_method_options[us_bank_account][verification_method]=instant`
+   - `success_url = /update-card?token=…&updated=1`, `cancel_url = /update-card?token=…`
+5. Returns the Stripe URL; the page redirects. The person enters the new card/bank on Stripe's hosted page — **the only place raw payment data ever lives.**
+
+### Step 5 — Stripe webhook applies the new method
+
+[router/webhooks.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/router/webhooks.ts) — on `checkout.session.completed`, a NEW isolated branch fires when `session.mode === 'setup'` AND `session.metadata.payment_kind === 'card_update'`. It deliberately does **not** touch the existing MAP 1 `pipeRow` logic.
+
+1. Reads `pipeline` + `row_id` from session metadata, `customer` + `setup_intent` from the session.
+2. Picks the sandbox-vs-live key for that pipeline.
+3. **Expands the SetupIntent** (`GET /v1/setup_intents/{id}?expand[]=payment_method`) to read the newly-saved method's id, type, and last4 (`card` → `method='card'`; `us_bank_account` → `method='ach'`).
+4. `POST /v1/customers/{cus}` with `invoice_settings[default_payment_method]` = the new pm id — makes it the customer default for future invoices/charges.
+5. Writes the engagement row, per pipeline:
+   - **MAP 1**: `default_payment_method_id`, `payment_method_type`, `acct_last4`; **recomputes `card_processing_fee`** for the new method (card grossed up `(base+0.30)/(1−0.029)−base`; ACH = 0; base = `net_invoice/4` for Quarterly); and **freezes** already-paid/processing installments' method into `pay{N}_method` / `pay{N}_last4` (only those not already frozen) so the Payments tab keeps showing each past installment's real fee instead of re-skinning it to the new method. Scheduled installments stay `null` and are projected from the new method (= what they'll actually be charged).
+   - **TAX**: `default_payment_method_id`, `payment_method_type`, `acct_last4`.
+   - **SPECIALIST_LICENSE**: `lic_default_payment_method_id`, `lic_payment_method_type`, `lic_acct_last4`, **then PATCHes the live subscription** (`POST /v1/subscriptions/{sub}` `default_payment_method=pm`) so renewals bill the new method.
+
+### Step 6 — Next off-session charge uses the new method
+
+The new default is picked up by whichever off-session charge runs next; nothing fires immediately at update time.
+
+- **MAP 1 quarterly sweep** ([contract-chargescheduled-sweep.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/contract-chargescheduled-sweep.ts)) — **prefers `default_payment_method_id`** when set; otherwise falls back to listing the customer's saved methods and picking the most recent (the exact prior behavior for rows that never had an update).
+- **Tax implementation** ([tax/charge-implementation.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/charge-implementation.ts)) — **prefers `default_payment_method_id`** (this also covers a check-paid retainer that now has a reusable card/bank on file); otherwise reuses the retainer charge's payment method. The idempotency key's PM suffix derives from `default_payment_method_id` when present, so the key auto-rotates when the method changes.
+- **Specialist license** — already keys off the subscription's default PM, which Step 5 just repointed.
+
+## Stripe specifics
+
+| Aspect | This flow |
+|---|---|
+| Checkout mode | **`setup`** (first use in the system — no charge, saves a reusable method) |
+| Webhook event | `checkout.session.completed` with `mode==='setup'` (NEW handling — every prior `checkout.session.completed` branch assumes `mode==='payment'`) |
+| Metadata discriminant | `payment_kind='card_update'` + `pipeline` (`MAP 1`/`TAX`/`SPECIALIST_LICENSE`) + `row_id` + `token` |
+| Customer | the engagement's **existing** customer is reused — never a new one |
+| Default-PM mechanism | `invoice_settings.default_payment_method` on the customer + the row's `default_payment_method_id` (+ subscription `default_payment_method` for the specialist license) |
+| Sandbox | per-pipeline `pipeline_sandbox_config.sandbox_mode` selects `STRIPE_SECRET_KEY_SANDBOX` vs `STRIPE_SECRET_KEY` |
+
+See [../integrations/stripe.md](../integrations/stripe.md) for the cross-flow Stripe picture (metadata table, webhook routing, off-session charge preference).
+
+## Failure modes / open questions
+
+1. **No reusable engagement** — the person pays nothing off-session (one-time/check-paid/already-charged). `payments_send_card_update` returns `{sent:false, reason:"none"}` and drafts nothing — the admin sees a "nothing to change" message rather than an error.
+2. **No email on file** — `{sent:false, reason:"no_email"}`; no token is minted.
+3. **Token expired** (> 7 days) — `payments_loadcardupdate` / `_checkout` return `410`. The admin re-sends to mint a fresh token.
+4. **Engagement no longer updatable between load and checkout** (e.g. the last installment cleared in the interim) — re-enumeration in `_checkout` drops it; returns `404` "That payment is no longer available to update."
+5. **Person abandons the Stripe page** — `cancel_url` returns them to `/update-card`; no row changes; the old method stays in force. Re-attempt with the same (un-expired) link.
+6. **SetupIntent has no payment method** (rare Stripe edge) — the webhook branch no-ops (guarded on `pmId`); old method stays in force.
+7. **No automatic re-charge on update** — saving a new method does **not** retry a previously-failed installment. Recovery for a failed installment is still the client-driven `/pay` link (MAP 1) or the next sweep run. The card-update flow only redirects the **next** charge.
+8. **Multi-pipeline sandbox** — if a person pays one sandbox engagement and one live engagement, the **send** email routes to the sandbox address (any sandbox pipeline wins) while each engagement's **checkout** still uses its own pipeline's key. All pipelines are currently `sandbox_mode=true`, so this is the current testing posture, not a live concern yet.
+
+## Frontend surfaces
+
+| Surface | File |
+|---|---|
+| "Send Email to Change Payment Method" button (Jake-only) | [PaymentsHeader.jsx](src/components/payments/PaymentsHeader.jsx) |
+| Public update-card landing page | [UpdateCardPage.jsx](src/pages/UpdateCardPage.jsx) — `/update-card?token=` route (registered in `src/App.jsx`); lists engagements, per-engagement card/bank choice, redirects to Stripe |
+| Email body editor | Admin **Email Templates** tab → "Payments — Change Payment Method" (pipeline `PAYMENTS`, template_name `card_update`) |
+
+## Backend handlers
+
+| Action | File | Visibility |
+|---|---|---|
+| `payments_send_card_update` | `actions/payments/card-update-send.ts` | AUTH (superadmin-only) |
+| `payments_loadcardupdate` | `actions/payments/card-update-load.ts` | PUBLIC (token) |
+| `payments_cardupdate_checkout` | `actions/payments/card-update-checkout.ts` | PUBLIC (token) |
+| (shared enumeration) | `actions/payments/card-update-shared.ts` | — `loadCardUpdatePerson` + `sandboxInfo`, used by all three + mirrored by the webhook |
+| (webhook branch) | `router/webhooks.ts` — `checkout.session.completed` + `mode='setup'` + `payment_kind='card_update'` | service-role (Stripe signature) |
+
+## DB objects
+
+- **New table** `card_update_tokens` (person-keyed tokens, 7-day expiry).
+- **New columns**: `default_payment_method_id` on `pipeline_map1` + `client_tax_plans`; `lic_default_payment_method_id` on `specialist_onboarding`; `pay{N}_method` / `pay{N}_last4` (N = 1–4) on `pipeline_map1` (frozen per-installment method/last4 for the Payments-tab fee display).
+- **New email template** id 156 — `(pipeline='PAYMENTS', template_name='card_update')`.
+
+## Deployment / config status
+
+- Backend live **v483**.
+- **All pipelines currently `sandbox_mode=true`** — testing runs against Stripe sandbox.
+- Verified end-to-end via fixture **Test Client 57** (`pipeline_map1` id 86).

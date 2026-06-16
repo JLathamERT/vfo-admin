@@ -32,6 +32,7 @@ import SpecialistPortal from './pages/SpecialistPortal'
 import SpecialistDdcHelpPage from './pages/SpecialistDdcHelpPage'
 import SpecialistRevShareFinalPage from './pages/SpecialistRevShareFinalPage'
 import Map4FormPage from './pages/Map4FormPage'
+import UpdateCardPage from './pages/UpdateCardPage'
 
 export default function App() {
   return (
@@ -56,6 +57,7 @@ export default function App() {
       <Route path="/advisor-pay" element={<AdvisorPayPage />} />
       <Route path="/accountant-pay" element={<AccountantPayPage />} />
       <Route path="/pip-pay" element={<PipPayPage />} />
+      <Route path="/update-card" element={<UpdateCardPage />} />
       <Route path="/member-setup" element={<MemberSetupPage />} />
       <Route path="/specialist-sif" element={<SpecialistSifPage />} />
       <Route path="/map4-form" element={<Map4FormPage />} />
