@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { callApi, getSession } from '../../lib/api'
 import MemberWebsitePlugin from '../shared/MemberWebsitePlugin'
 import MemberVault from '../shared/MemberVault'
@@ -8,6 +8,8 @@ import MemberPaymentsTab from '../payments/MemberPaymentsTab'
 import MSMTracking from './MSMTracking'
 import AdvisorOnboarding from './AdvisorOnboarding'
 import AccountantOnboarding from './AccountantOnboarding'
+import AdminGrowthPlan from '../growth/AdminGrowthPlan'
+import { GP_STEPS } from '../growth/constants'
 import { MemberProfileDetailsSkeleton, Skeleton } from '../shared/Skeleton'
 import { TrackHero, ListHeader } from '../shared/TrackKit'
 
@@ -226,6 +228,7 @@ function MemberDirectoryView({
   initialTab,
   navClickCount,
   hiddenFields = [],
+  growthPlan = false,
   listTitle = 'Members',
 }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'search')
@@ -307,8 +310,11 @@ function MemberDirectoryView({
           <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px', flexWrap: 'wrap', position: 'relative', zIndex: 50 }}>
           <FeatureTabDropdown label="Profile" isActive={['profile_details','profile_edit','profile_history','profile_payments'].includes(memberFeatureTab)} options={[{key:'profile_details',label:'Profile'},{key:'profile_edit',label:'Edit Profile'},{key:'profile_history',label:'Type History'},{key:'profile_payments',label:'Payments'}]} onSelect={setMemberFeatureTab} />
           <FeatureTabDropdown label="MSM" isActive={['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab)} options={[{key:'msm_meetings',label:'MSM'},{key:'msm_program_holistic',label:'VFO Holistic Planning'},{key:'msm_program_partnership',label:'Partnership Fast Track'},{key:'msm_program_tax',label:'VFO Tax Planning'},{key:'msm_program_coaching',label:'Advanced Coaching'}]} onSelect={k => { setMemberFeatureTab(k); sessionStorage.setItem(featureTabKey, k) }} />
-            {[['specialists','Specialists'],['showroom','Showroom'],['website','Website Plugin'],['ciq','CIQ'],['growthplan','Growth Plan'],['gc','GC Marketplace'],['vault','The Vault'],['settings','Settings']].map(([key, label]) => (
-            <button key={key} style={{ padding: '7px 16px', background: memberFeatureTab === key ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: memberFeatureTab === key ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: memberFeatureTab === key ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' }} onClick={() => { setMemberFeatureTab(key); sessionStorage.setItem(featureTabKey, key) }}>{label}</button>
+            {[['specialists','Specialists'],['showroom','Showroom'],['website','Website Plugin'],['ciq','CIQ'],['gc','GC Marketplace'],['vault','The Vault'],['settings','Settings']].map(([key, label]) => (
+            <Fragment key={key}>
+              {growthPlan && key === 'ciq' && <FeatureTabDropdown label="Growth Plan" isActive={memberFeatureTab.startsWith('gp_')} options={GP_STEPS} onSelect={k => { setMemberFeatureTab(k); sessionStorage.setItem(featureTabKey, k) }} />}
+              <button style={{ padding: '7px 16px', background: memberFeatureTab === key ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: memberFeatureTab === key ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: memberFeatureTab === key ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' }} onClick={() => { setMemberFeatureTab(key); sessionStorage.setItem(featureTabKey, key) }}>{label}</button>
+            </Fragment>
           ))}
           </div>
           {['profile_details','profile_edit','profile_history'].includes(memberFeatureTab) && <MemberProfile member={selectedMember} allMembers={allMembers} onDataChange={onDataChange} activeSection={memberFeatureTab} hiddenFields={hiddenFields} />}
@@ -317,7 +323,7 @@ function MemberDirectoryView({
           {memberFeatureTab === 'showroom' && <MemberShowroom experts={allExperts} exclusions={allExclusionMap[selectedMember.plugin_member_number] || []} ecoMap={ecoMap} />}
           {memberFeatureTab === 'website' && <MemberWebsitePlugin member={selectedMember} onDataChange={onDataChange} readOnly={false} isAdmin={true} />}
           {memberFeatureTab === 'ciq' && <MemberCIQ memberNumber={selectedMember.plugin_member_number} memberName={selectedMember.name} ciqEnabled={selectedMember.ciq_enabled} ciqVfosManaged={selectedMember.ciq_vfos_managed} isAdmin={true} />}
-          {memberFeatureTab === 'growthplan' && <ComingSoon title="Growth Plan" />}
+          {growthPlan && memberFeatureTab.startsWith('gp_') && <AdminGrowthPlan member={selectedMember} activeStep={memberFeatureTab} onNavigate={k => { setMemberFeatureTab(k); sessionStorage.setItem(featureTabKey, k) }} />}
           {memberFeatureTab === 'gc' && <MemberGC member={selectedMember} />}
           {memberFeatureTab === 'vault' && <MemberVault memberNumber={selectedMember.plugin_member_number} />}
           {memberFeatureTab === 'settings' && <MemberSettings member={selectedMember} onDataChange={onDataChange} />}
@@ -342,6 +348,7 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onData
       initialTab={initialTab}
       navClickCount={navClickCount}
       hiddenFields={[]}
+      growthPlan={true}
       listTitle="Members"
     />
   )
