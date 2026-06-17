@@ -18,6 +18,7 @@ Four parallel automation chains follow the same pattern: **Tax Planning** ([flow
 docs/
 ├── README.md                         (this file — start here)
 ├── glossary.md                       (MAP1, PIP, PCADMIN, MSM, CIQ, etc.)
+├── GROWTH_PLAN_HANDOFF.md            (Advisor Growth Plan — in-progress feature build state + remaining Phases 7-8)
 │
 ├── architecture/                     (the "where" layer — files, routes, dispatchers)
 │   ├── 01-system-map.md              (top-level diagram)
@@ -40,6 +41,7 @@ docs/
 │   ├── coaching.md                   (coaching meetings + renewals)
 │   ├── marketplace-gc.md             (gc_*)
 │   ├── documents.md                  (agreement_templates + email_templates + document_numbers)
+│   ├── growth.md                     (growth_plan_scores/actions/partnerships — Advisor Growth Plan, in progress)
 │   └── notifications.md
 │
 ├── flows/                            (the "verb" layer — end-to-end business processes)
