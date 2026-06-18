@@ -19,6 +19,7 @@ docs/
 ├── README.md                         (this file — start here)
 ├── glossary.md                       (MAP1, PIP, PCADMIN, MSM, CIQ, etc.)
 ├── GROWTH_PLAN_HANDOFF.md            (Advisor Growth Plan — full feature build state; Phases 1–8 + custom priorities/sub-tasks)
+├── SPECIALIST_DOC_SHARING_HANDOFF.md (spec-only — future per-document client→specialist sharing feature; not built)
 │
 ├── architecture/                     (the "where" layer — files, routes, dispatchers)
 │   ├── 01-system-map.md              (top-level diagram)
@@ -66,6 +67,7 @@ docs/
     ├── google-sheets.md              (Revenue Master + per-batch sheet reads)
     ├── google-drive.md               (per-client folder PDF uploads)
     ├── supabase.md                   (project, RLS, storage buckets, migrations)
+    ├── sentry.md                     (frontend error monitoring; DSN hardcoded, not a secret)
     └── env-vars.md                   (complete env-var inventory + action matrix)
 ```
 

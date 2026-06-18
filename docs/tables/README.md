@@ -8,7 +8,7 @@ Read-only schema mapping — column lists, types, defaults, FKs, and which actio
 
 | Doc | Tables | One-liner |
 |---|---|---|
-| [auth.md](auth.md) | `admin_sessions`, `allowed_admins`, `member_logins` | Session tokens + login credentials for admin and member portals |
+| [auth.md](auth.md) | `admin_sessions`, `allowed_admins`, `member_logins`, `client_logins`, `specialist_logins`, `login_attempts` | Session tokens + login credentials for all four portals + the login brute-force throttle ledger |
 | [members.md](members.md) | `members`, `member_plugin_settings`, `member_type_history`, `member_exclusions` | The advisor/accountant member roster + per-member website widget config |
 | [clients.md](clients.md) | `clients`, `client_contacts`, `client_notes`, `client_enrollments`, `client_progress`, `client_priority_tracks`, `priority_progress` | The advisor's clients (downstream of members) + program/priority progress |
 | [ciq.md](ciq.md) | `client_ciqs`, `ciq_answers`, `ciq_priorities`, `ciq_priority_snapshots`, `ciq_assignments` | Client Intake Questionnaire data + ranked priority decisions + snapshots |
@@ -49,3 +49,13 @@ Every other status/decision column is **convention-only** — values like `'Yes'
 - `client_progress.task_id`, `client_tax_progress.task_id`, `priority_progress.task_id`, `member_training_progress.task_id`, `program_*_tasks.phase_id`, `program_*_phases.program_id`, `member_enrollments.program_id`, `member_program_enabled.program_id`, `gc_redemptions.service_id` are all `NO ACTION` (deleting a parent task/phase/program/service errors).
 - `pipeline_map1.client_id → clients.id` is `NO ACTION` — deleting a client will fail if a pipeline row exists, or orphan it. **Worth verifying behavior in practice.**
 - `notifications.client_id → clients.id` is `NO ACTION`.
+
+## RLS / access posture (2026-06-18 security remediation)
+
+All application data is reached through `vfo-admin-api` with the service-role key (which bypasses RLS); auth is enforced application-side. The intended baseline is therefore **RLS-on, no public policies (service-role only)** on every table. This session closed the gaps where that wasn't true:
+
+- **RLS enabled (C1)** on `card_update_tokens`, `document_numbers`, `member_number_baselines`, and `pft_engagement` — they had been reachable by the public anon key via PostgREST.
+- **Over-permissive policies replaced with deny-all (C1)** on `pipeline_map1`, `email_templates`, `pipelines`, and `pipeline_sandbox_config` — their `{public} USING(true)` "Allow all for authenticated" policies became `"Deny all access" USING(false)`, matching the service-role-only pattern.
+- `login_attempts` (new — see [auth.md](auth.md)) ships RLS-on / deny-all from creation.
+- **`storage.objects` (M7a):** the `"Allow public reads from headshots"` policy was dropped — the `headshots` bucket is no longer listable (public object-URL access is unchanged).
+- **Functions (M7b):** `cleanup_expired_sessions()` and `trigger_cleanup_on_login()` now set `search_path=''` and have EXECUTE revoked from `public`/`anon`/`authenticated` (service_role retains it; the login-fired cleanup trigger still works).

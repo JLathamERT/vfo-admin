@@ -68,6 +68,8 @@ Vite-style (`import.meta.env`):
 
 The hardcoded **anon key** is in [src/lib/api.js:2](src/lib/api.js) — not an env var. Rotating the anon key requires editing source + redeploying.
 
+The **Sentry DSN** (frontend error monitoring, added 2026-06-18) is likewise **hardcoded** in [src/main.jsx](src/main.jsx) — *not* an env var and *not* a secret. A DSN is a public, ingest-only key (it can only send error reports to the one project, never read), safe to ship like the anon key. There is therefore nothing to add to the secret inventory above. See [sentry.md](sentry.md).
+
 ## What's hardcoded that *could* be env vars
 
 This list is observational, not prescriptive — these values currently live in source.
@@ -86,6 +88,7 @@ This list is observational, not prescriptive — these values currently live in 
 | Stripe success URL | `actions/pipeline/contract-stripe-checkout.ts` | `https://www.vfo-services.com/payment-successful/` |
 | GC success/cancel URLs | `actions/gc/create-checkout.ts` | `https://jlathamert.github.io/vfo-portal/?gc_success=1` and `/` |
 | Frontend ANON_KEY | [src/lib/api.js:2](src/lib/api.js) | (committed JWT) |
+| Sentry DSN | [src/main.jsx](src/main.jsx) | (committed public ingest-only key — see [sentry.md](sentry.md)) |
 
 > **Removed in Phase 6 mechanical:** the hardcoded debug Gmail draft ID `r-8771745882155742140` (formerly in `automation_CONTRACT_invoicereceipt`) — was a leftover dev-debug fetch that always failed for any non-debug invocation. Deleted along with the surrounding debug `console.log`s.
 
@@ -123,5 +126,6 @@ Quick "what does this action need?" lookup:
   - [google-sheets.md](google-sheets.md)
   - [google-drive.md](google-drive.md)
   - [supabase.md](supabase.md)
+  - [sentry.md](sentry.md) (frontend error monitoring; DSN hardcoded, not a secret)
 - Edge function structure: [../architecture/03-edge-functions.md](../architecture/03-edge-functions.md)
 - Sandbox-mode mechanics: [../tables/pipeline.md#pipeline_sandbox_config](../tables/pipeline.md)
