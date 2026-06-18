@@ -13,6 +13,11 @@ function isReadAction(action) {
   return action === 'vault_list'
 }
 
+// Login actions return 401 on bad credentials — that's a wrong-password, NOT an
+// expired session, so callApi must surface it inline on the login page instead of
+// redirecting to the portal-selection page.
+const LOGIN_ACTIONS = ['admin_login', 'member_login', 'client_login', 'specialist_login', 'login']
+
 export async function callApi(action, payload = {}, retries = 3) {
   const session = JSON.parse(sessionStorage.getItem('vfo_session') || 'null')
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -33,6 +38,11 @@ export async function callApi(action, payload = {}, retries = 3) {
       clearTimeout(timeoutId)
       const data = await res.json()
       if (res.status === 401) {
+        // A 401 on a login action means bad credentials — surface it inline rather
+        // than treating it as an expired session and bouncing to the portal.
+        if (LOGIN_ACTIONS.includes(action)) {
+          throw new Error(data.error || 'Invalid credentials')
+        }
         clearSession()
         window.location.href = window.location.origin + '/vfo-portal/'
         throw new Error('Session expired — please log in again.')

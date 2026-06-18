@@ -113,6 +113,10 @@ These names/emails appear hardcoded in the codebase:
 | Term | Notes |
 |---|---|
 | **Edge function** | A Deno-based serverless function deployed to Supabase. Two of them in this system. |
+| **Error boundary** | A React class component that catches uncaught render/runtime errors in its child tree (`getDerivedStateFromError` + `componentDidCatch`) and renders a fallback UI instead of letting the whole app crash to a blank screen. The app-wide one is [`src/components/ErrorBoundary.jsx`](src/components/ErrorBoundary.jsx), mounted in `src/main.jsx` (2026-06-18). |
+| **Sentry** | Third-party frontend error-monitoring service (`@sentry/react`). Initialized in `src/main.jsx`; the error boundary forwards crashes via `Sentry.captureException`. Error monitoring only — no Session Replay, no performance tracing. The DSN is a public ingest-only key hardcoded in source (not a secret). See [integrations/sentry.md](integrations/sentry.md). |
+| **Rate limiting / 429** | Server-side throttle on repeated login attempts (security item H1). After too many tries the login action returns HTTP `429` "Too many login attempts"; the frontend surfaces it inline on the login form (see the `callApi` login-401/429 handling in [architecture/02-frontend-shell.md](architecture/02-frontend-shell.md#login-error-handling-in-callapi-2026-06-18)). |
+| **IDOR** | Insecure Direct Object Reference — an access-control bug where a caller reaches another user's record by supplying its id, because the server scopes the query off the request body instead of the session. The deny-by-default role gates + session-derived scoping (e.g. `auth.callerClientId` / `callerSpecialistId`, never the body) in [architecture/04-auth-and-sessions.md](architecture/04-auth-and-sessions.md) are the defenses against it. |
 | **RLS** | Row-Level Security in Postgres. Enabled on all public tables; bypassed by service-role key. |
 | **Anon key** | Public Supabase JWT used as a default `Authorization: Bearer` header by the frontend. Hardcoded in [src/lib/api.js](src/lib/api.js). |
 | **Service-role key** | Privileged Supabase JWT used by edge functions. Bypasses RLS. Never exposed to frontend. |

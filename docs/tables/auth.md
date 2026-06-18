@@ -88,6 +88,23 @@ The fourth login type (after admin/member/client) — per-specialist portal logi
 
 ---
 
+## `login_attempts`
+
+Brute-force throttle ledger for all five login handlers (H1, added 2026-06-18). One row per **failed** login attempt; rows are pruned opportunistically once older than 1h (the rolling window is only 15 min). RLS enabled, **deny-all** (no policies → service-role only; only the edge function via `utils/login-throttle.ts` touches it). Migration adds indexes on `(identifier, created_at)` and `(ip, created_at)` for the windowed count queries.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | identity pk | |
+| `identifier` | text | The normalized (lowercased/trimmed) login email the attempt was made against. |
+| `ip` | text | Source IP (first `x-forwarded-for` entry), nullable. |
+| `created_at` | timestamptz | default `now()`. The window column. |
+
+**Throttle rule:** a login is blocked (handler returns **429**) when ≥5 failures for the `identifier` OR ≥20 failures for the `ip` occurred in the last 15 minutes. `checkLoginThrottle` runs before the credential check; `recordLoginFailure` inserts on each 401; `clearLoginFailures` deletes the identifier's rows on a successful login.
+
+**Touched by:** `admin_login`, `member_login`, `client_login`, `specialist_login`, `login` (all via `utils/login-throttle.ts`).
+
+---
+
 ## Token flow
 
 1. Client calls `admin_login` / `member_login` with `{email, passcode}`.

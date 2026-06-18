@@ -2,11 +2,17 @@ import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
 import { Skeleton } from '../shared/Skeleton'
 
+// Escape DB/admin-authored text before it's rendered via dangerouslySetInnerHTML
+// (M1a) so a malicious gc_services.description can't inject script into member browsers.
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+
 function formatServiceDetails(description) {
   if (!description) return ''
   const parts = description.split('|')
   const labels = ['Objective', 'Available to', 'Includes', 'Tailoring Options']
-  return parts.map((part, i) => part.trim() ? `<div style="margin-bottom:8px;text-align:left;"><span style="color:#4e6087;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">${labels[i] || ''}</span><div style="color:#44557a;font-size:13px;margin-top:2px;">${part.trim()}</div></div>` : '').join('')
+  return parts.map((part, i) => part.trim() ? `<div style="margin-bottom:8px;text-align:left;"><span style="color:#4e6087;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">${labels[i] || ''}</span><div style="color:#44557a;font-size:13px;margin-top:2px;">${escapeHtml(part.trim())}</div></div>` : '').join('')
 }
 
 export default function MemberGCMarketplace({ memberNumber }) {

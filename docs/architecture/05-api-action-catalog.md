@@ -384,6 +384,8 @@ The "Send Email to Change Payment Method" button on every per-person Payments ta
 | `msm_toggle_program` | `actions/msm/toggle-program.ts` | — | `member_program_enabled` (upsert) | — |
 | `msm_update_assigned_msm` | `actions/msm/update-assigned-msm.ts` | — | `members.assigned_msm` | — |
 
+> **Caller-ownership (2026-06-18, C2):** `msm_update_client`, `msm_load_client_home`, `msm_load_client_detail`, `msm_save_client_task`, `msm_load_client_progress`, and `msm_delete_client_contact` now each call `denyIfNotOwnClient` (`utils/client-ownership.ts`) — a member caller's `body.client_id` must map to a `clients` row whose `member_number` is theirs, else 403 (admins unrestricted). Additionally `msm_update_client` now **ignores `status` + `assigned_pf` from member callers** (admin-controlled fields; members are view-only on them). Closes a member→other-member client IDOR.
+
 > **Removed in Phase 6 mechanical:** the duplicate `msm_update_client` handler (formerly `update-client-dup.ts`) was deleted. The original second `if (action === "msm_update_client")` block at baseline line 2427 was always unreachable because the first dispatch returned. Map dedupe in `router/dispatch.ts` accomplishes the same effect — only one registration of `msm_update_client` (pointing at `update-client.ts`).
 
 ---
@@ -392,12 +394,14 @@ The "Send Email to Change Payment Method" button on every per-person Payments ta
 
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
-| `coaching_load_meetings` | `actions/coaching/load-meetings.ts` | `coaching_meetings` | — | — |
+| `coaching_load_meetings` | `actions/coaching/load-meetings.ts` | `coaching_meetings` | — | `denyIfNotOwnEnrollment` (C2) — member caller scoped to their own enrollment. |
 | `coaching_log_meeting` | `actions/coaching/log-meeting.ts` | — | `coaching_meetings` | — |
 | `coaching_update_meeting` | `actions/coaching/update-meeting.ts` | — | `coaching_meetings` | — |
 | `coaching_delete_meeting` | `actions/coaching/delete-meeting.ts` | — | `coaching_meetings` (delete) | — |
-| `coaching_load_renewals` | `actions/coaching/load-renewals.ts` | `coaching_renewals` | — | — |
+| `coaching_load_renewals` | `actions/coaching/load-renewals.ts` | `coaching_renewals` | — | `denyIfNotOwnEnrollment` (C2) — member caller scoped to their own enrollment. |
 | `coaching_process_renewal` (uses auth) | `actions/coaching/process-renewal.ts` | — | `coaching_renewals` | — |
+
+> **Gate corrections (2026-06-18, C2):** the two coaching writes are now `ADMIN_ONLY` under their real names — `coaching_log_meeting` + `coaching_process_renewal` (the list had drifted to the non-existent `coaching_add_meeting` / `coaching_add_renewal`). The two read actions (`coaching_load_meetings`, `coaching_load_renewals`) stay member-callable but now enforce `denyIfNotOwnEnrollment` (caller's `body.enrollment_id` must map to their own `member_enrollments` row).
 
 ### Tax
 
@@ -430,6 +434,8 @@ The "Send Email to Change Payment Method" button on every per-person Payments ta
 | `update_client_note` | `actions/client-notes/update.ts` | — | `client_notes` | — |
 | `delete_client_note` | `actions/client-notes/delete.ts` | — | `client_notes` (delete) | — |
 
+> **All four are `ADMIN_ONLY` (corrected 2026-06-18, C2).** They were intended to be admin-only but had drifted under a dead name (`save_client_note`) in `role-gates.ts`, leaving them member-reachable; the list now carries the real names (`add_client_note` / `update_client_note` / `load_client_notes`, alongside the already-present `delete_client_note`), so a member caller now gets 403.
+
 ---
 
 ### CIQ
@@ -448,8 +454,10 @@ The "Send Email to Change Payment Method" button on every per-person Payments ta
 | `ciq_complete_priorities` | `actions/ciq/complete-priorities.ts` | — | `client_ciqs.priorities_completed_at` | — |
 | `ciq_save_priority_snapshot` | `actions/ciq/save-priority-snapshot.ts` | — | `ciq_priority_snapshots` | — |
 | `ciq_load_priority_snapshots` | `actions/ciq/load-priority-snapshots.ts` | `ciq_priority_snapshots` | — | — |
-| `ciq_load_settings` | `actions/ciq/load-settings.ts` | `members.ciq_enabled, ciq_vfos_managed` | — | — |
-| `ciq_set_accountability` | `actions/ciq/set-accountability.ts` | — | `client_ciqs.accountability_mode` | "Update Progress" toggle on the One Page Plan; AUTH, admin + member. |
+| `ciq_load_settings` | `actions/ciq/load-settings.ts` | `members.ciq_enabled, ciq_vfos_managed` | — | Added to `MEMBER_SCOPED_ACTIONS` 2026-06-18 — member caller's `body.member_number` forced to their own. |
+| `ciq_set_accountability` | `actions/ciq/set-accountability.ts` | — | `client_ciqs.accountability_mode` | "Update Progress" toggle on the One Page Plan; AUTH, admin + member; `denyIfNotOwnCiq` (C2). |
+
+> **Caller-ownership (2026-06-18, C2):** `ciq_load`, `ciq_save`, `ciq_complete`, `ciq_load_priorities`, `ciq_save_priorities`, `ciq_complete_priorities`, `ciq_save_priority_snapshot`, `ciq_load_priority_snapshots`, and `ciq_set_accountability` now each call `denyIfNotOwnCiq` (`actions/ciq/shared.ts`) — a member caller's `body.ciq_id` must map to a `client_ciqs` row whose `member_number` is theirs, else 403. Admins are unrestricted. Closes a member→other-member CIQ IDOR.
 
 ### Member program notes
 
@@ -561,7 +569,7 @@ These run AFTER the auth gate. The three handlers that take `req: Request` as a 
 | `automation_load_email_templates` | `actions/email-templates/load.ts` | `email_templates` | — | `select *` — returns `subject`/`body`/`cc_list`/`bcc_list`/`to_list`. |
 | `automation_save_email_template` | `actions/email-templates/save.ts` | — | `email_templates` (only the fields provided: `subject`, `body`, `cc_list`, `bcc_list`, `to_list` — each sanitized) | Recipients-only saves don't blank subject/body. `to_list` (the "Team (To)" list) is persisted here this session — used only by the `TEAM/new_model_sale` template. |
 | `save_sandbox_config` | `actions/pipeline/save-sandbox-config.ts` | — | `pipeline_sandbox_config` (MAP 1 row) — fields: `sandbox_mode`, `stripe_test_mode`, `boldsign_test_mode`, optional `sandbox_email` | — |
-| `member_load_pipeline` | `actions/pipeline/member-load-pipeline.ts` | `pmap1` | — | — |
+| `member_load_pipeline` | `actions/pipeline/member-load-pipeline.ts` | `pmap1` | — | `denyIfNotOwnClient` (C2, 2026-06-18) — member caller scoped to their own client's MAP 1 row. |
 
 ### Notifications
 
