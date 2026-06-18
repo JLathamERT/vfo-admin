@@ -73,7 +73,7 @@ export default function MemberPortal() {
     .map(p => PROGRAM_KEYS[p.name])
     .filter(Boolean)
 
-  const tabs = ['profile', 'msm_home', ...enabledProgramTabs, 'specialists', 'showroom', 'website', 'ciq', 'growthplan', 'gc', 'vault']
+  const tabs = ['profile', 'msm_home', ...enabledProgramTabs, 'specialists', 'showroom', 'website', 'growthplan', 'ciq', 'gc', 'vault']
   const tabLabels = {
     profile: 'Profile', msm_home: 'MSM Home',
     msm_holistic: 'Holistic Planning', msm_partnership: 'Partnership Fast Track',
@@ -112,7 +112,7 @@ export default function MemberPortal() {
               ]}
               onSelect={setActiveTab}
             />
-            {['specialists','showroom','website','ciq','growthplan','gc','vault'].filter(tab => tab !== 'website' || memberData?.website_enabled).map(tab => (
+            {['specialists','showroom','website','growthplan','ciq','gc','vault'].filter(tab => tab !== 'website' || memberData?.website_enabled).map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '14px 20px', background: 'transparent', border: 'none', borderBottom: activeTab === tab ? '2px solid #125ecc' : '2px solid transparent', color: activeTab === tab ? '#125ecc' : '#4e6087', fontSize: '14px', fontWeight: activeTab === tab ? '600' : '400', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>
                 {tabLabels[tab]}
               </button>

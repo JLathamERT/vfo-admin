@@ -507,10 +507,44 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
     if (ciqView === 'onePagePlan') {
       const planDate = activeCiq.priorities_completed_at?.split('T')[0] || new Date().toISOString().split('T')[0]
       const displayPriorities = selectedSnapshot ? (() => { try { const items = typeof selectedSnapshot.snapshot === 'string' ? JSON.parse(selectedSnapshot.snapshot) : selectedSnapshot.snapshot; const map = {}; items.forEach(p => { map[p.item_key] = p }); return map } catch { return priorities } })() : priorities
-      const immediateItems = Object.values(displayPriorities).filter(p => p.decision === 'prioritize')
+      const immediateItems = Object.values(displayPriorities).filter(p => p.decision === 'prioritize' && p.progress_status !== 'completed')
       const parkedItems = Object.values(displayPriorities).filter(p => p.decision === 'park')
+      const completedItems = Object.values(displayPriorities).filter(p => p.decision === 'prioritize' && p.progress_status === 'completed')
 
-      function renderPlanItems(items) {
+      const isLatest = oppSubTab === 'latest' && !selectedSnapshot
+      const progressMode = isLatest && !!activeCiq.accountability_mode
+
+      async function toggleProgressMode() {
+        const next = !activeCiq.accountability_mode
+        setActiveCiq(prev => ({ ...prev, accountability_mode: next }))
+        try { await callApi('ciq_set_accountability', { ciq_id: activeCiq.id, enabled: next }) }
+        catch (err) { console.error(err); setActiveCiq(prev => ({ ...prev, accountability_mode: !next })) }
+      }
+
+      // Persist a single priority change (status/decision) through the existing
+      // upsert handler; optimistic local update, revert on error.
+      async function savePriorityChange(itemKey, changes) {
+        const cur = priorities[itemKey]
+        if (!cur) return
+        const updated = { ...cur, ...changes }
+        setPriorities(p => ({ ...p, [itemKey]: updated }))
+        try {
+          await callApi('ciq_save_priorities', { ciq_id: activeCiq.id, priorities: [{
+            item_key: updated.item_key, item_label: updated.item_label, item_section: updated.item_section,
+            item_value: updated.item_value || '', decision: updated.decision, notes: updated.notes || '',
+            progress_status: updated.progress_status || null,
+          }] })
+        } catch (err) { console.error(err); setPriorities(p => ({ ...p, [itemKey]: cur })) }
+      }
+
+      const progressStatuses = [
+        { key: null, label: 'Not Started', color: '#4e6087' },
+        { key: 'in_progress', label: 'In Progress', color: '#e06717' },
+        { key: 'completed', label: 'Completed', color: '#1b9254' },
+      ]
+      const ctlBtnStyle = { padding: '5px 12px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }
+
+      function renderPlanItems(items, kind) {
         if (items.length === 0) return <div style={{ color: '#4e6087', fontSize: '14px', padding: '12px 0' }}>None</div>
         return items.map(item => {
           const isOther = item.item_key?.includes('other_focus')
@@ -518,10 +552,29 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
           const mainText = isOther ? (item.item_value || item.item_label) : item.item_label
           const displayLabel = bizMatch ? `${mainText} — ${bizMatch[1]}` : mainText
           const displaySection = bizMatch ? 'Business Advisory' : item.item_section
+          const curStatus = item.progress_status || null
           return (
-            <div key={item.item_key} style={{ padding: '8px 0', borderBottom: '1px solid #e9eef8' }}>
+            <div key={item.item_key} style={{ padding: '10px 0', borderBottom: '1px solid #e9eef8' }}>
               <div style={{ fontSize: '14px', color: '#16264a' }}>{displayLabel}{item.notes ? ` — ${item.notes}` : ''}</div>
               <div style={{ fontSize: '11px', color: '#4e6087', marginTop: '2px' }}>{displaySection}</div>
+              {progressMode && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
+                  {kind !== 'parked' && progressStatuses.map(s => {
+                    const active = curStatus === s.key
+                    return (
+                      <button key={s.label} onClick={() => savePriorityChange(item.item_key, { progress_status: s.key })}
+                        style={{ ...ctlBtnStyle, border: active ? `1px solid ${s.color}` : '1px solid #d6e0ee', background: active ? `${s.color}1a` : 'transparent', color: active ? s.color : '#4e6087', fontWeight: active ? 600 : 400 }}>{s.label}</button>
+                    )
+                  })}
+                  {kind === 'parked' && (
+                    <button onClick={() => savePriorityChange(item.item_key, { decision: 'prioritize' })} style={{ ...ctlBtnStyle, border: '1px solid #1b9254', color: '#1b9254', fontWeight: 600 }}>Set as Priority</button>
+                  )}
+                  {kind !== 'parked' && (
+                    <button onClick={() => savePriorityChange(item.item_key, { decision: 'park', progress_status: null })} style={ctlBtnStyle}>Move to Parked</button>
+                  )}
+                  <button onClick={() => savePriorityChange(item.item_key, { decision: 'drop', progress_status: null })} style={{ ...ctlBtnStyle, border: '1px solid rgba(231,76,60,0.4)', color: '#e74c3c' }}>Drop</button>
+                </div>
+              )}
             </div>
           )
         })
@@ -548,7 +601,15 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
           {/* Latest Version */}
           {oppSubTab === 'latest' && (
             <div>
-              <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '24px' }}>Plan Completed on {planDate}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ fontSize: '12px', color: '#4e6087' }}>Plan Completed on {planDate}</div>
+                <div onClick={toggleProgressMode} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                  <span style={{ fontSize: '13px', color: '#16264a', fontWeight: 500 }}>Update Progress</span>
+                  <div style={{ width: '44px', height: '24px', borderRadius: '12px', background: activeCiq.accountability_mode ? '#125ecc' : '#d6e0ee', position: 'relative', flexShrink: 0 }}>
+                    <div style={{ position: 'absolute', top: '2px', left: activeCiq.accountability_mode ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+                  </div>
+                </div>
+              </div>
               <div style={{ fontSize: '13px', color: '#4e6087', lineHeight: '1.8', marginBottom: '24px', paddingLeft: '4px' }}>
                 Having completed: Client Information Questionnaire to identify areas of interest, and Prioritization Process to determine immediate / later areas of focus.
               </div>
@@ -556,14 +617,22 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
               <div style={{ marginBottom: '24px' }}>
                 <div style={{ fontSize: '16px', fontWeight: '700', color: '#002973', marginBottom: '2px' }}>Immediate Priorities</div>
                 <div style={{ fontSize: '12px', color: '#4e6087', fontStyle: 'italic', marginBottom: '12px' }}>We will begin to address these priorities with immediate effect</div>
-                <div style={sectionStyle}>{renderPlanItems(immediateItems)}</div>
+                <div style={sectionStyle}>{renderPlanItems(immediateItems, 'priority')}</div>
               </div>
 
               <div style={{ marginBottom: '24px' }}>
                 <div style={{ fontSize: '16px', fontWeight: '700', color: '#002973', marginBottom: '2px' }}>Parked Priorities</div>
                 <div style={{ fontSize: '12px', color: '#4e6087', fontStyle: 'italic', marginBottom: '12px' }}>We will reconsider these parked priorities at our next Partners In Planning Meeting</div>
-                <div style={sectionStyle}>{renderPlanItems(parkedItems)}</div>
+                <div style={sectionStyle}>{renderPlanItems(parkedItems, 'parked')}</div>
               </div>
+
+              {completedItems.length > 0 && (
+                <div style={{ marginBottom: '24px' }}>
+                  <div style={{ fontSize: '16px', fontWeight: '700', color: '#1b9254', marginBottom: '2px' }}>Completed</div>
+                  <div style={{ fontSize: '12px', color: '#4e6087', fontStyle: 'italic', marginBottom: '12px' }}>Priorities that have been addressed and completed</div>
+                  <div style={sectionStyle}>{renderPlanItems(completedItems, 'priority')}</div>
+                </div>
+              )}
 
               <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px' }}>
                 <button onClick={() => { setCiqView('chooser'); setSelectedSnapshot(null) }} style={{ padding: '12px 28px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '14px', cursor: 'pointer' }}>← Back</button>
@@ -1384,14 +1453,8 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
   if (!settingsLoaded) return <CiqListSkeleton />
 
 
-  if (!isAdmin && !localCiqEnabled) {
-    return (
-      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-        <div style={{ fontSize: '18px', fontWeight: '600', color: '#16264a', marginBottom: '12px' }}>CIQ is not yet enabled for your account</div>
-        <div style={{ fontSize: '14px', color: '#4e6087' }}>Please contact your VFO Services representative to get started.</div>
-      </div>
-    )
-  }
+  // Members can always VIEW their CIQs. localCiqEnabled now only gates whether
+  // a member can START new CIQs (the "+ Start New CIQ" button below).
 
   // ─── CIQ list view ────────────────────────────────────
   if (loading) return <CiqListSkeleton />
@@ -1414,7 +1477,9 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
             <button onClick={() => setShowCiqSettings(!showCiqSettings)} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid #d6e0ee', background: showCiqSettings ? 'rgba(0,149,255,0.15)' : 'transparent', color: '#4e6087', fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Settings</button>
           )}
         </div>
-        <button onClick={() => { setShowAdd(!showAdd); setAddMode(null); setAddStatus('') }} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Start New CIQ</button>
+        {(isAdmin || localCiqEnabled) && (
+          <button onClick={() => { setShowAdd(!showAdd); setAddMode(null); setAddStatus('') }} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Start New CIQ</button>
+        )}
       </div>
 
       {showCiqSettings && isAdmin && (
@@ -1422,8 +1487,8 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
           <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>CIQ Settings</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e9eef8' }}>
             <div>
-              <div style={{ fontSize: '14px', color: '#16264a' }}>Enable CIQ for Member</div>
-              <div style={{ fontSize: '12px', color: '#4e6087', marginTop: '2px' }}>Allow this member to access the CIQ tab in their portal</div>
+              <div style={{ fontSize: '14px', color: '#16264a' }}>Allow Member to Start New CIQs</div>
+              <div style={{ fontSize: '12px', color: '#4e6087', marginTop: '2px' }}>When on, the member can start new CIQs on their own. When off, they can still view existing CIQs but can't create new ones.</div>
             </div>
             <div onClick={() => setLocalCiqEnabled(!localCiqEnabled)}
               style={{ width: '44px', height: '24px', borderRadius: '12px', background: localCiqEnabled ? '#125ecc' : '#d6e0ee', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
@@ -1527,7 +1592,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
 
       {/* CIQ list grouped by client */}
       {ciqs.length === 0 && !showAdd
-        ? <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>No CIQs yet. Click "Start New CIQ" to begin.</div>
+        ? <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>{(isAdmin || localCiqEnabled) ? 'No CIQs yet. Click "Start New CIQ" to begin.' : 'No CIQs yet. Your VFO Services representative will start one for you.'}</div>
         : Object.values(byClient).map(({ client, ciqs: clientCiqs }) => (
           <div key={client?.id} style={sectionStyle}>
             <div style={{ fontSize: '15px', fontWeight: '600', color: '#16264a', marginBottom: '4px' }}>{client?.first_name} {client?.last_name}</div>
