@@ -437,18 +437,19 @@ The "Send Email to Change Payment Method" button on every per-person Payments ta
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
 | `ciq_load_list` | `actions/ciq/load-list.ts` | `client_ciqs`, `clients` | — | — |
-| `ciq_create` | `actions/ciq/create.ts` | — | `client_ciqs` | — |
-| `ciq_add_client_and_create` | `actions/ciq/add-client-and-create.ts` | — | `clients`, optional `client_contacts`, `client_ciqs` | — |
+| `ciq_create` | `actions/ciq/create.ts` | — | `client_ciqs` | Member caller 403'd when `members.ciq_enabled` false (start-gate, `actions/ciq/shared.ts`); admins never gated. |
+| `ciq_add_client_and_create` | `actions/ciq/add-client-and-create.ts` | — | `clients`, optional `client_contacts`, `client_ciqs` | Same member start-gate as `ciq_create`. |
 | `ciq_load` | `actions/ciq/load.ts` | `client_ciqs`, `ciq_answers` | — | — |
 | `ciq_save` | `actions/ciq/save.ts` | — | `ciq_answers` (upsert) | — |
 | `ciq_complete` | `actions/ciq/complete.ts` | — | `client_ciqs.status='completed'`, `client_ciqs.completed_at` | — |
 | `load_member_contacts` | `actions/ciq/member-contacts.ts` | `clients`, `client_contacts` | — | — |
 | `ciq_load_priorities` | `actions/ciq/load-priorities.ts` | `ciq_priorities` | — | — |
-| `ciq_save_priorities` | `actions/ciq/save-priorities.ts` | — | `ciq_priorities` (upsert) | — |
+| `ciq_save_priorities` | `actions/ciq/save-priorities.ts` | — | `ciq_priorities` (upsert; incl. `progress_status`) | — |
 | `ciq_complete_priorities` | `actions/ciq/complete-priorities.ts` | — | `client_ciqs.priorities_completed_at` | — |
 | `ciq_save_priority_snapshot` | `actions/ciq/save-priority-snapshot.ts` | — | `ciq_priority_snapshots` | — |
 | `ciq_load_priority_snapshots` | `actions/ciq/load-priority-snapshots.ts` | `ciq_priority_snapshots` | — | — |
 | `ciq_load_settings` | `actions/ciq/load-settings.ts` | `members.ciq_enabled, ciq_vfos_managed` | — | — |
+| `ciq_set_accountability` | `actions/ciq/set-accountability.ts` | — | `client_ciqs.accountability_mode` | "Update Progress" toggle on the One Page Plan; AUTH, admin + member. |
 
 ### Member program notes
 

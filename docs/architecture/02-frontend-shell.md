@@ -106,7 +106,7 @@ The portal itself only fires `load_data` (line 85). All deeper actions are fired
 |---|---|
 | Auth check | line 27: `!session \|\| session.role !== 'member'` → `/member/login` |
 | Initial load | lines 33-37: parallel fetch of `load_data`, `msm_load_programs`, `msm_load_enabled_programs` |
-| Tabs | Static: Profile, MSM Tracking (dropdown), Specialists, Showroom, Website, CIQ, Growth Plan, GC, Vault. **Dynamic** subset of MSM Tracking dropdown: only programs the member has enabled (`member_program_enabled.enabled = true`) |
+| Tabs | Static: Profile, MSM Tracking (dropdown), Specialists, Showroom, Website, Growth Plan, CIQ, GC, Vault (Growth Plan precedes CIQ as of 2026-06-18). **Dynamic** subset of MSM Tracking dropdown: only programs the member has enabled (`member_program_enabled.enabled = true`) |
 | Tab → component map | lines 115-145 |
 | Hardcoded program-name → tab-key mapping | line 59: `PROGRAM_KEYS = {'VFO Holistic Planning': 'msm_holistic', 'Partnership Fast Track': 'msm_partnership', 'VFO Tax Planning': 'msm_tax', 'Advanced Coaching': 'msm_coaching'}`. Adding a new program in `programs` table would require a code change to surface as a tab. |
 
@@ -120,7 +120,7 @@ The portal itself only fires `load_data` (line 85). All deeper actions are fired
 | `specialists` | Specialists | inline `MemberSpecialists` | `save_member` (saves exclusions) ([line 211](src/pages/MemberPortal.jsx)) |
 | `showroom` | Showroom | [MemberShowroom](src/components/member/MemberShowroom.jsx) | none new — reads experts + `ecosystems` + the member's `exclusions` from the page's existing `load_data`; standard plugin look, shows only the member's enabled specialists |
 | `website` | Website Plugin | [MemberWebsitePlugin](src/components/shared/MemberWebsitePlugin.jsx) | `save_member` ([line 33](src/components/shared/MemberWebsitePlugin.jsx)) — **tab shown only when `memberData.website_enabled`** (hidden + un-rendered otherwise); the enable toggle renders only for admins (`isAdmin` prop) |
-| `ciq` | CIQ | [MemberCIQ](src/components/shared/MemberCIQ.jsx) | `ciq_load_settings`, `member_profile_save`, `ciq_load_list`, `load_member_contacts`, `msm_load_member_clients`, `ciq_create`, `ciq_add_client_and_create`, `ciq_load`, `ciq_load_priorities`, `ciq_load_priority_snapshots`, `ciq_save`, `ciq_complete`, `ciq_save_priorities`, `ciq_save_priority_snapshot` ([14 calls — see lines 40, 51, 64-65, 76, 90, 101, 112-114, 131, 144-145, 425-432](src/components/shared/MemberCIQ.jsx)) |
+| `ciq` | CIQ | [MemberCIQ](src/components/shared/MemberCIQ.jsx) | `ciq_load_settings`, `member_profile_save`, `ciq_load_list`, `load_member_contacts`, `msm_load_member_clients`, `ciq_create`, `ciq_add_client_and_create`, `ciq_load`, `ciq_load_priorities`, `ciq_load_priority_snapshots`, `ciq_save`, `ciq_complete`, `ciq_save_priorities`, `ciq_save_priority_snapshot`, `ciq_set_accountability` (One Page Plan "Update Progress" toggle) ([15 calls](src/components/shared/MemberCIQ.jsx)). Members always see this tab; the "+ Start New CIQ" button + Settings toggle ("Allow Member to Start New CIQs") gate only *starting* new CIQs via `localCiqEnabled`. |
 | `growthplan` | Growth Plan | [MemberGrowthPlan](src/components/member/MemberGrowthPlan.jsx) — **advisor-gated** (`member_category==='advisor'`, else `ComingSoon`) | `growth_plan_load` (self-scoped); under Accountability Mode `growth_plan_save_accountability` / `_save_actions` / `_add_action`. Three sub-tabs (shared [`GrowthAddPriority`](src/components/growth/GrowthAddPriority.jsx) for the latter two): One Page Plan (progress + per-row **Owned By / Assisted By** + "+ Add sub-task" editable under accountability) + Parking Garage (parked priorities → Add to Plan / Drop) + Dropped Priorities (off-plan non-parked pool → Add to Plan / Park, + "Create your own") |
 | `gc` | GC Marketplace | [MemberGCMarketplace](src/components/member/MemberGCMarketplace.jsx) | `gc_load_balance`, `gc_load_transactions`, `gc_load_services`, `gc_create_checkout`, `gc_redeem` ([lines 28-29, 40, 47, 55](src/components/member/MemberGCMarketplace.jsx)) |
 | `vault` | The Vault | [MemberVault](src/components/shared/MemberVault.jsx) | `vault_list`, `vault_upload`, `vault_delete` ([lines 14, 30, 40](src/components/shared/MemberVault.jsx)) |
@@ -250,5 +250,5 @@ The expanded-row view ([AutomationPanel.jsx:88-260](src/components/admin/Automat
 - Edge-function dispatcher and chain rules: [03-edge-functions.md](03-edge-functions.md)
 - Auth: [04-auth-and-sessions.md](04-auth-and-sessions.md)
 - Pipeline column dictionary: [../tables/pipeline.md](../tables/pipeline.md)
-- Member CIQ deep-dive (Phase E): forthcoming `flows/ciq.md`
+- Member CIQ deep-dive: [../flows/ciq.md](../flows/ciq.md) (incl. the One Page Plan "Update Progress" tracking)
 - Contract flow end-to-end (Phase E): forthcoming `flows/contract-and-payment.md`

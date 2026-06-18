@@ -15,10 +15,11 @@ One per (client, CIQ-run) pairing. Status moves `'draft'` → `'completed'`.
 | `created_at` | timestamptz | not null, default `now()` |
 | `completed_at` | timestamptz | Set when `status` flips to `'completed'`. |
 | `priorities_completed_at` | timestamptz | Set when priority ranking is finalized (separate step from CIQ completion). |
+| `accountability_mode` | boolean | not null, default `false`. **"Update Progress" toggle** for the One Page Plan. When true, per-priority progress controls render. Flippable by admin AND member via `ciq_set_accountability`; shared between both views. |
 
 **Status fields:** `status` (DB CHECK).
 
-**Touched by:** `ciq_load_list`, `ciq_create`, `ciq_add_client_and_create`, `ciq_load`, `ciq_save`, `ciq_complete`, `ciq_load_priorities`, `ciq_save_priorities`, `ciq_complete_priorities`, `ciq_save_priority_snapshot`, `ciq_load_priority_snapshots`, `ciq_load_settings`. Frontend: [MemberCIQ.jsx](src/components/shared/MemberCIQ.jsx).
+**Touched by:** `ciq_load_list`, `ciq_create`, `ciq_add_client_and_create`, `ciq_load`, `ciq_save`, `ciq_complete`, `ciq_load_priorities`, `ciq_save_priorities`, `ciq_complete_priorities`, `ciq_save_priority_snapshot`, `ciq_load_priority_snapshots`, `ciq_load_settings`, `ciq_set_accountability` (writes `accountability_mode`). Frontend: [MemberCIQ.jsx](src/components/shared/MemberCIQ.jsx).
 
 ---
 
@@ -49,12 +50,13 @@ Generated priority items derived from a completed CIQ. The advisor then assigns 
 | `item_label` | text | not null. Display text. |
 | `item_section` | text | not null. CIQ section grouping. |
 | `item_value` | text | |
-| `decision` | text | not null, default `'drop'`. **Status field. CHECK: `decision IN ('drop', 'park', 'prioritize')`.** |
+| `decision` | text | not null, default `'drop'`. **Status field. CHECK: `decision IN ('drop', 'park', 'prioritize')`.** The bucket assigned during the Prioritize step; also re-set from the One Page Plan ("Move to Parked" → `park`, "Drop" → `drop`, "Set as Priority" → `prioritize`). |
 | `notes` | text | |
+| `progress_status` | text | nullable. CHECK: `progress_status IN ('in_progress', 'completed')` (null = not started). **"Update Progress" status**, set per-priority on the One Page Plan when `accountability_mode` is on. Orthogonal to `decision`. `'completed'` items render in a separate Completed section. |
 
-**Status fields:** `decision` (DB CHECK).
+**Status fields:** `decision` (DB CHECK), `progress_status` (DB CHECK, nullable).
 
-**Touched by:** `ciq_load_priorities`, `ciq_save_priorities`, `ciq_complete_priorities`.
+**Touched by:** `ciq_load_priorities`, `ciq_save_priorities` (upserts `decision` + `progress_status`), `ciq_complete_priorities`.
 
 ---
 

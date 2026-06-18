@@ -28,12 +28,12 @@ The advisor/accountant roster. PK is `member_number` (text), not an integer — 
 | `notes` | text | |
 | `assigned_msm` | text | Member-Servicing-Manager identifier. |
 | `vfo_certified_date` / `vfo_accredited_date` | date | |
-| `ciq_enabled` | boolean | not null, default `false`. **CIQ feature gate** for this member. |
-| `ciq_vfos_managed` | boolean | not null, default `true`. CIQ behavior toggle. |
+| `ciq_enabled` | boolean | not null, default `false`. **CIQ "can start new CIQs" gate** for this member (admin toggle "Allow Member to Start New CIQs"). Members always *view* their CIQs regardless; this only gates *starting* new ones (enforced frontend + in `ciq_create`/`ciq_add_client_and_create`). Repurposed 2026-06-18 — previously hid the whole CIQ tab. |
+| `ciq_vfos_managed` | boolean | not null, default `true`. CIQ behavior toggle — when on, the One Page Plan shows "Powered by VFO Services". |
 | `created_at` | timestamptz | default `now()` |
 
 **Status fields:** `elite_status`, `suspended`, `paused`, `ciq_enabled`.
-**Automation fields:** `stripe_account_id` (revshare), `ciq_enabled` / `ciq_vfos_managed` (CIQ feature gate).
+**Automation fields:** `stripe_account_id` (revshare), `ciq_enabled` (CIQ start-new gate) / `ciq_vfos_managed` (CIQ "Powered by VFO Services" label).
 
 **Touched by:** `load_data`, `add_member`, `add_member_full`, `save_member`, `delete_member`, `member_profile_load`, `member_profile_save`, `automation_CONTRACT_revshare`. Frontend: [MembersPanel.jsx](src/components/admin/MembersPanel.jsx).
 

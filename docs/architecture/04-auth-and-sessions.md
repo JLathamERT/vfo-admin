@@ -120,7 +120,7 @@ The function returns either an `AuthResult` of kind `"response"` (early-return 4
 **Gaps explicitly visible:**
 - `add_client_note`, `update_client_note`, `delete_client_note` are in **neither** list — both admin and member can call them, with no DB-level scoping. Security relies on the caller knowing a `note_id` they're allowed to touch.
 - `gc_redeem` is not admin-gated; member callers can redeem services for their own `member_number` (which IS forced by `MEMBER_SCOPED_ACTIONS`).
-- The whole `ciq_*`, `tax_*`, `coaching_*`, `msm_save_priority_task`, `msm_save_client_task` family is also unrestricted at the role level — relies on application-level ownership checks.
+- The whole `ciq_*`, `tax_*`, `coaching_*`, `msm_save_priority_task`, `msm_save_client_task` family is also unrestricted at the role level — relies on application-level ownership checks. **Exception (2026-06-18):** `ciq_create` + `ciq_add_client_and_create` (both `MEMBER_SCOPED`) now carry an in-handler gate (`actions/ciq/shared.ts` `blockIfMemberCannotStart`) that 403s a member caller when `members.ciq_enabled` is false — a per-feature enablement check layered on top of the role gates, not a role gate itself. `ciq_set_accountability` ("Update Progress" toggle) is in neither list — callable by admin + member.
 
 ### Front-of-component auth checks
 
