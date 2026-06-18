@@ -23,7 +23,8 @@ The advisor/accountant roster. PK is `member_number` (text), not an integer — 
 | `stripe_account_id` | text | **Stripe Connect ID** — used by `automation_CONTRACT_revshare` for Transfers. |
 | `primary_relationship` / `advisor_engagement` | text | |
 | `connected_member_number` | text | fk → `members.member_number` (SET NULL). Self-referencing — links a junior member to a senior. |
-| `connection_type` | text | |
+| `connection_type` | text | Advisor-only revenue-share tier (e.g. `'5% - Regular Advisor'`). Accountants don't use it — the Edit-Profile dropdown + the details-view pill are hidden when `member_category='accountant'` (2026-06-18). |
+| `trading_name` | text | nullable. Added 2026-06-18. **Accountant firm / trading name.** Editable in the Add-Accountant form + accountant Edit Profile; shown in the accountant profile details. Advisors don't set it. Inserted by `add_member_full`, persisted by `member_profile_save` (passthrough upsert), returned by `load_data`. |
 | `email` | text | |
 | `notes` | text | |
 | `assigned_msm` | text | Member-Servicing-Manager identifier. |
@@ -36,6 +37,8 @@ The advisor/accountant roster. PK is `member_number` (text), not an integer — 
 **Automation fields:** `stripe_account_id` (revshare), `ciq_enabled` (CIQ start-new gate) / `ciq_vfos_managed` (CIQ "Powered by VFO Services" label).
 
 **Touched by:** `load_data`, `add_member`, `add_member_full`, `save_member`, `delete_member`, `member_profile_load`, `member_profile_save`, `automation_CONTRACT_revshare`. Frontend: [MembersPanel.jsx](src/components/admin/MembersPanel.jsx).
+
+**Roster size:** 556 rows as of 2026-06-18 — the 21 originals + **535 active advisors/accountants bulk-imported** from the legacy Google Sheets (gotcha #140; side-effect-free, OLD numbers preserved). **Member-number suffixes seen in live data** (all non-integer PKs, preserved verbatim, skipped by `nextMemberNumber()`): `-J<n>` legacy joint/secondary advisor · `-C<n>` Corporate Member · `-FC<n>` Free Corporate Member · `-FCL<n>` Free Corporate Member (Legacy) · `-TA<n>` accountant Team Member under a parent firm · `-NRA`/`-NRB` VFO Reconciliation (Free) sub-records · `-F<n>`/`-FF<n>` Free Catalyst/Fusion.
 
 ---
 

@@ -222,10 +222,10 @@ All dispatched AFTER `middleware/auth.ts::authenticate()` validates body.token. 
 | `load_exclusions` | `actions/members/load-exclusions.ts` | `member_exclusions` | — | — |
 | `add_member` | `actions/members/add.ts` | — | `member_plugin_settings` | — |
 | `delete_member` | `actions/members/delete.ts` | — | `member_plugin_settings` (delete; cascades) | — |
-| `add_member_full` | `actions/members/add-full.ts` | `members`, `member_number_baselines` (when auto-generating) | `member_plugin_settings`, `members` (incl. `advisor_model` + `member_category` from the Add forms; **auto-generates `member_number` via `nextMemberNumber()` when the caller leaves it blank** — gotcha #48; does NOT default `revenue_decision='Revenue Share'` when `member_category='accountant'`), optional `member_logins` | — |
+| `add_member_full` | `actions/members/add-full.ts` | `members`, `member_number_baselines` (when auto-generating) | `member_plugin_settings`, `members` (incl. `advisor_model` + `member_category` + `trading_name` from the Add forms; **auto-generates `member_number` via `nextMemberNumber()` when the caller leaves it blank** — gotcha #48; does NOT default `revenue_decision='Revenue Share'` when `member_category='accountant'`), optional `member_logins` | — |
 | `automation_ADVISOR_createmember` | `actions/advisor/create-member.ts` | `advisor_onboarding`, `members` + `member_number_baselines` (via `nextMemberNumber`) | `member_plugin_settings`, `members` (`member_type='Implementation'`, `elite_status='Active'`, `advisor_model='New Model'`, `member_category='advisor'`, `revenue_decision='Money Mapping'`, `onboarding_id=<advisor_onboarding.id>` FK), `advisor_onboarding` (`member_number`, `member_created_at`, `revenue_decision='Money Mapping'`, the 7 `sale_*` fields, `login_setup_token`, `login_setup_token_expires_at`), `notifications` (clears "Ready to create") | Fired from Advisor Onboarding Stage 3 "Create Advisor & Send Setup Link" button. Accepts the 7 `sale_*` body fields (closer/setter/introduced_by/introduced_member_number/introduced_member_name/company_name/website). Member number via category-relative `nextMemberNumber('advisor','New Model')` (gotcha #48 — no fixed 60100 start). Idempotent on `advisor_onboarding.member_number` already set. No Stripe Connect — Money Mapping only. After member create succeeds (or on idempotent retry), generates a 14-day single-use `login_setup_token` and chains `automation_ADVISOR_loginsetupemail` via service-role, fires `sendNewModelSaleEmail()` (TEAM/new_model_sale), and clears the "Ready to create" notification. |
 | `member_profile_load` | `actions/members/profile-load.ts` | `members` | — | — |
-| `member_profile_save` (uses auth) | `actions/members/profile-save.ts` | `members` (old type for history) | `members`, `member_type_history` (on type change) | — |
+| `member_profile_save` (uses auth) | `actions/members/profile-save.ts` | `members` (old type for history) | `members` (full passthrough upsert of the `profile` payload — incl. `trading_name`), `member_type_history` (on type change) | — |
 
 ### Admins (uses auth)
 
@@ -358,7 +358,7 @@ The "Send Email to Change Payment Method" button on every per-person Payments ta
 | `msm_delete_meeting` | `actions/msm/delete-meeting.ts` | — | `member_meetings` (delete) | — |
 | `msm_load_clients` | `actions/msm/load-clients.ts` | `clients`, `client_enrollments` | — | — |
 | `msm_load_member_clients` | `actions/msm/load-member-clients.ts` | `clients` | — | — |
-| `msm_add_client` | `actions/msm/add-client.ts` | — | `clients`, `client_enrollments`, optional `client_contacts` | — |
+| `msm_add_client` | `actions/msm/add-client.ts` | `clients` (existing refs, to derive next number) | `clients`, `client_enrollments`, optional `client_contacts` | client_ref = `<member>-<NNN>` (or `<member>-PFT<n>` for Partnership). **Numbered by `MAX(existing suffix)+1`, not count+1 (2026-06-18 — gotcha #139)** so deleting a non-last client can't cause a duplicate-key collision. |
 | `msm_link_existing_client` | `actions/msm/link-existing-client.ts` | — | `client_enrollments` | — |
 | `msm_update_client` | `actions/msm/update-client.ts` | — | `clients` | — |
 | `msm_load_client_track` | `actions/msm/load-client-track.ts` | `program_client_phases`, `program_client_tasks` | — | — |
