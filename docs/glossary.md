@@ -16,7 +16,7 @@ Acronyms and domain terms used across the codebase and this documentation. Defin
 | **PF** | Planning Facilitator | Per-client assigned role. Stored in `clients.assigned_pf` and `pipeline_map1.pf`. Hardcoded list in [admin-api:163-167](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts) covers Evan Anderson, Bridger Silvester, Lindsay Morris. |
 | **PFT** | Partnership Fast Track | A program type. Drives ClientDetail's tab branching (PFT-only view vs MAP1+Regular+Tax view). Component: [PFTEngagementTrack.jsx](src/components/admin/pft/PFTEngagementTrack.jsx). |
 | **MSM** | Member Servicing Manager | The role that manages member relationships. ~32 `msm_*` actions. Stored in `members.assigned_msm`, `member_enrollments.assigned_msm`. |
-| **CIQ** | Client Intake Questionnaire | A survey + ranked-priorities workflow run by members against their clients. ~14 `ciq_*` actions. See [flows/ciq.md](flows/ciq.md). |
+| **CIQ** | Client Intake Questionnaire | A survey + ranked-priorities workflow run by members against their clients, with optional per-priority progress tracking ("Update Progress") on the One Page Plan. ~15 `ciq_*` actions. See [flows/ciq.md](flows/ciq.md). |
 | **CEO** | Chief Executive Officer | Hardcoded as `aanderson@elitert.com` in code. Second signer on every BoldSign agreement. |
 | **GC** | Growth Credits (inferred from product copy) | Marketplace credits. Tables: `gc_balances`, `gc_redemptions`, `gc_services`, `gc_transactions`. The Stripe checkout product description reads `<amount> Growth Credits`. |
 | **D&B** | Details & Benefits | Public-facing marketing copy for specialists. Stored in `experts.D&B_*` columns. |
@@ -80,6 +80,7 @@ These string values appear in pipeline columns. Only two are DB-CHECK-constraine
 | `member_contrib_status` | `'Pending'`, `'Applied'` |
 | `client_ciqs.status` | `'draft'`, `'completed'` (DB CHECK constrained) |
 | `ciq_priorities.decision` | `'drop'`, `'park'`, `'prioritize'` (DB CHECK constrained) |
+| `ciq_priorities.progress_status` | `'in_progress'`, `'completed'`, or null=not started (DB CHECK constrained, nullable) — One Page Plan "Update Progress" |
 | `clients.status` | `'pending'`, `'active'`, `'lost'` (UI-defined) |
 | `members.elite_status` | `'Active'` default; other values not enumerated |
 | `members.revenue_decision` | `'Revenue Share'`, `'Money Mapping'` (read in revshare logic) |

@@ -6,7 +6,7 @@ A multi-step intake-and-prioritization process owned by a member, run for each o
 
 A member opens the CIQ tab in their portal: [MemberPortal.jsx → MemberCIQ](src/components/shared/MemberCIQ.jsx). Or, an admin opens a member's profile in [MembersPanel](src/components/admin/MembersPanel.jsx) and switches to the CIQ feature tab.
 
-The CIQ feature is gated by `members.ciq_enabled = true`. The toggle is admin-controlled via `member_profile_save`.
+Members can **always view** their CIQs. The `members.ciq_enabled` flag (admin-controlled via `member_profile_save`; settings toggle labelled "Allow Member to Start New CIQs") only gates whether a member can **start new** CIQs — when off, the "+ Start New CIQ" button is hidden and `ciq_create` / `ciq_add_client_and_create` 403 a member caller (`actions/ciq/shared.ts` `blockIfMemberCannotStart`). Admins are never gated. *(Historically `ciq_enabled=false` hid the entire tab; repurposed 2026-06-18.)*
 
 ## Step 1 — Load settings + list
 
@@ -71,10 +71,24 @@ The snapshot list is reloaded after each save via `ciq_load_priority_snapshots` 
 
 **Handler:** `ciq_complete_priorities({ciq_id})` ([admin-api:3729-3738](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)). UPDATEs `client_ciqs.priorities_completed_at=now()`. Note: this is a separate timestamp from `completed_at` — a CIQ can be marked "done" with answers but priorities still pending.
 
+## Step 9 — Track progress on the One Page Plan ("Update Progress")
+
+Once priorities are completed, the One Page Plan view (`ciqView === 'onePagePlan'`) lists Immediate (`decision='prioritize'`) and Parked (`decision='park'`) priorities. A per-CIQ **Update Progress** toggle (`client_ciqs.accountability_mode`) — flippable by admin AND member — reveals per-priority controls:
+
+- **Immediate** item: Not Started / In Progress / Completed (sets `ciq_priorities.progress_status`) + **Move to Parked** (`decision='park'`) + **Drop** (`decision='drop'`).
+- **Parked** item: **Set as Priority** (`decision='prioritize'`) + **Drop**.
+- Items set to **Completed** (`progress_status='completed'`) leave the Immediate list and render in a new **Completed** section at the bottom (shown whenever non-empty, even with the toggle off).
+
+**Handlers:**
+- `ciq_set_accountability({ciq_id, enabled})` ([actions/ciq/set-accountability.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/ciq/set-accountability.ts)) — UPDATEs `client_ciqs.accountability_mode`. AUTH; admin + member.
+- `ciq_save_priorities` — the existing upsert, now also persisting `progress_status`. Each control click sends a single-item array (optimistic local update, revert on error). Controls render only on the live "Latest Version", never on historical snapshots.
+
+No snapshots are written for progress updates (snapshots stay tied to the Prioritize step). No notifications/cron — unlike the Growth Plan accountability feature this mirrors.
+
 ## Tables touched
 
-- **Read:** `client_ciqs`, `clients`, `client_contacts`, `ciq_answers`, `ciq_priorities`, `ciq_priority_snapshots`, `members` (CIQ flags).
-- **Written:** `client_ciqs` (insert + status updates + timestamps), `ciq_answers` (upsert), `ciq_priorities` (upsert), `ciq_priority_snapshots` (insert), `clients` + `client_contacts` (`ciq_add_client_and_create` only).
+- **Read:** `client_ciqs`, `clients`, `client_contacts`, `ciq_answers`, `ciq_priorities`, `ciq_priority_snapshots`, `members` (CIQ flags incl. `ciq_enabled` start-gate).
+- **Written:** `client_ciqs` (insert + status/timestamp updates + `accountability_mode` via `ciq_set_accountability`), `ciq_answers` (upsert), `ciq_priorities` (upsert incl. `progress_status`), `ciq_priority_snapshots` (insert), `clients` + `client_contacts` (`ciq_add_client_and_create` only).
 
 ## Downstream chains
 
@@ -87,6 +101,8 @@ The same `MemberCIQ.jsx` component is used by both. The `isAdmin` prop different
 - Each action's `member_number` parameter being set correctly in the payload.
 
 > **Caveat:** there is no server-side scoping that prevents a member from passing a `client_id` belonging to another member's client. The handler trusts the payload. Worth flagging — security relies on UI not exposing other clients.
+
+> **Start-gate (2026-06-18):** `ciq_create` + `ciq_add_client_and_create` now receive `auth` and 403 a member caller when `members.ciq_enabled` is false (`actions/ciq/shared.ts`). Members can still view/continue existing CIQs; only *starting* new ones is gated. `ciq_set_accountability` (the "Update Progress" toggle) is callable by both roles, like the other CIQ writes.
 
 ## Failure modes
 
