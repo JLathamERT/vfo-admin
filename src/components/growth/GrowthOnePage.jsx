@@ -1,20 +1,24 @@
 import { useState } from 'react'
 import { callApi } from '../../lib/api'
 import { TrackHero } from '../shared/TrackKit'
-import { NAVY, INK, MUTED, BLUE, GREEN, AMBER, inputStyle, cardStyle, accentStrip, pillOutline, GrowthNeed, StepNav } from './ui'
+import { NAVY, INK, MUTED, BLUE, inputStyle, cardStyle, accentStrip, GrowthNeed, StepNav, GrowthTabs } from './ui'
 import { orderOnePage } from './grouping'
 import AddActionForm from './AddActionForm'
+import GrowthAddPriority from './GrowthAddPriority'
 
-// Accountability progress statuses + their bright dot colors. These keys satisfy
-// the growth_plan_actions.accountability_status CHECK constraint.
+// Accountability progress statuses + their dot colors (light dots — yellow,
+// light green — carry a `dark` flag so the matrix number stays navy/legible).
+// These keys satisfy the growth_plan_actions.accountability_status CHECK constraint.
 const STATUS_OPTIONS = [
-  { value: 'not_started', label: 'Not Started', color: '#e74c3c' },
-  { value: 'behind', label: 'Behind Expectations', color: '#e8638a' },
-  { value: 'progressing', label: 'Progressing on Plan', color: AMBER },
-  { value: 'ahead', label: 'Ahead of Expectations', color: GREEN },
+  { value: 'not_started', label: 'Not Started', color: '#f1c40f', dark: true },
+  { value: 'behind', label: 'Behind Expectations', color: '#e74c3c' },
+  { value: 'progressing', label: 'Progressing on Plan', color: '#86d6a0', dark: true },
+  { value: 'ahead', label: 'Ahead of Expectations', color: '#16a34a' },
   { value: 'completed', label: 'Completed', color: BLUE },
 ]
 const STATUS_COLOR = Object.fromEntries(STATUS_OPTIONS.map(o => [o.value, o.color]))
+// Light dots (yellow, light green) need dark text to stay legible.
+const STATUS_DARK = Object.fromEntries(STATUS_OPTIONS.map(o => [o.value, !!o.dark]))
 
 // Rows top→bottom = High/Medium/Low Value; cols left→right = Low/Medium/High Effort
 // (matches the legacy matrix orientation: top-left = high value / low effort).
@@ -49,7 +53,6 @@ export default function GrowthOnePage({ memberNumber, bundle, reload, onNavigate
   const [acctMode, setAcctMode] = useState(!!score?.accountability_mode)
   const [dues, setDues] = useState(() => seedField(bundle, 'due_date'))
   const [statuses, setStatuses] = useState(() => seedField(bundle, 'accountability_status'))
-  const [showAdd, setShowAdd] = useState(false)
 
   async function toggleAcct() {
     const next = !acctMode
@@ -75,10 +78,6 @@ export default function GrowthOnePage({ memberNumber, bundle, reload, onNavigate
       if (reload) reload()
     } catch (e) { setStatuses(s => ({ ...s, [id]: prev })); alert(e?.message || 'Failed to save progress') }
   }
-  async function addAction(fields) {
-    await callApi('growth_plan_add_action', { member_number: memberNumber, ...fields })
-    if (reload) await reload()
-  }
   async function onDelete(id) {
     if (typeof window !== 'undefined' && !window.confirm('Remove this custom priority? Any sub-tasks under it are removed too.')) return
     try { await callApi('growth_plan_delete_action', { member_number: memberNumber, id }); if (reload) await reload() }
@@ -87,6 +86,12 @@ export default function GrowthOnePage({ memberNumber, bundle, reload, onNavigate
   async function addSubtask(parentId, fields) {
     await callApi('growth_plan_add_action', { member_number: memberNumber, parent_action_id: parentId, ...fields })
     if (reload) await reload()
+  }
+  async function saveField(id, patch) {
+    try {
+      await callApi('growth_plan_save_actions', { member_number: memberNumber, updates: [{ id, ...patch }] })
+      if (reload) reload()
+    } catch (e) { alert(e?.message || 'Failed to save') }
   }
 
   if (!score) return <GrowthNeed text="Complete Scoring Growth first." cta="Go to Scoring Growth" onClick={() => onNavigate('gp_score')} />
@@ -145,35 +150,43 @@ export default function GrowthOnePage({ memberNumber, bundle, reload, onNavigate
           </div>
           {acctMode && (
             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #eef2f9' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#fff', border: '2px solid rgba(0,41,115,0.18)' }} />
+                <span style={{ fontSize: '11.5px', color: MUTED }}>Not set</span>
+              </span>
               {STATUS_OPTIONS.filter(o => o.value !== 'completed').map(o => (
                 <span key={o.value} style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                   <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: o.color }} />
                   <span style={{ fontSize: '11.5px', color: MUTED }}>{o.label}</span>
                 </span>
               ))}
-              <span style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#fff', border: '2px solid rgba(0,41,115,0.18)' }} />
-                <span style={{ fontSize: '11.5px', color: MUTED }}>Not set</span>
-              </span>
             </div>
           )}
         </div>
       </div>
 
-      <ActionTable title="New Action Items" rows={news} acct={acctMode} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={setDue} onStatus={setStatus} onDelete={onDelete} onAddSubtask={addSubtask} />
-      <ActionTable title="Ongoing Action Items" rows={ongoing} acct={acctMode} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={setDue} onStatus={setStatus} onDelete={onDelete} onAddSubtask={addSubtask} />
-      {numberedDone.length > 0 && <ActionTable title="Completed Action Items" rows={numberedDone} acct={acctMode} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={setDue} onStatus={setStatus} onDelete={onDelete} />}
-      {canEdit && (
-        <div style={cardStyle}>
-          <div style={accentStrip} />
-          <div style={{ padding: '16px 20px' }}>
-            {!showAdd
-              ? <button onClick={() => setShowAdd(true)} style={pillOutline}>+ Create your own priority</button>
-              : <AddActionForm idKey="g5add" submitLabel="Add to Plan" onCancel={() => setShowAdd(false)} onSubmit={async (f) => { await addAction(f); setShowAdd(false) }} />}
-          </div>
-        </div>
-      )}
+      <ActionTable title="New Action Items" rows={news} acct={acctMode} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={setDue} onStatus={setStatus} onDelete={onDelete} onAddSubtask={addSubtask} onSaveField={saveField} />
+      <ActionTable title="Ongoing Action Items" rows={ongoing} acct={acctMode} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={setDue} onStatus={setStatus} onDelete={onDelete} onAddSubtask={addSubtask} onSaveField={saveField} />
+      {numberedDone.length > 0 && <ActionTable title="Completed Action Items" rows={numberedDone} acct={acctMode} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={setDue} onStatus={setStatus} onDelete={onDelete} onSaveField={saveField} />}
+      {isAdmin && <AdminAddPriorities memberNumber={memberNumber} bundle={bundle} reload={reload} />}
       {isAdmin && <StepNav onBack={() => onNavigate('gp_build')} />}
+    </div>
+  )
+}
+
+const ADD_TABS = [{ key: 'parking', label: 'Parking Garage' }, { key: 'dropped', label: 'Dropped Priorities' }]
+
+// Admin-only section at the bottom of the One Page Plan: add off-plan priorities
+// to the plan, mirroring the member's Dropped Priorities / Parking Garage tabs.
+function AdminAddPriorities({ memberNumber, bundle, reload }) {
+  const [tab, setTab] = useState('parking')
+  return (
+    <div style={{ marginTop: '26px', marginBottom: '6px' }}>
+      <div style={{ fontSize: '15px', fontWeight: 800, color: NAVY, marginBottom: '12px' }}>Add Priorities</div>
+      <GrowthTabs tabs={ADD_TABS} active={tab} onChange={setTab} />
+      <div style={{ marginTop: '14px' }}>
+        <GrowthAddPriority role="admin" tab={tab} embedded memberNumber={memberNumber} bundle={bundle} reload={reload} />
+      </div>
     </div>
   )
 }
@@ -208,7 +221,7 @@ function Matrix({ items, acct, statuses }) {
             const cellItems = items.filter(a => (a.value_level || 'medium') === vr.key && (a.effort_level || 'medium') === ec.key)
             return (
               <div key={ec.key} style={{ ...matrixCell, background: cellBg(vr.key, ec.key), borderLeft: ci === 0 ? '1px solid #e9eef8' : '1px solid rgba(255,255,255,0.5)', borderBottom: ri < last ? '1px solid rgba(255,255,255,0.5)' : 'none' }}>
-                {cellItems.map(a => <MatrixDot key={a.id} num={a.num} color={acct ? STATUS_COLOR[statuses[a.id]] : undefined} />)}
+                {cellItems.map(a => <MatrixDot key={a.id} num={a.num} color={acct ? STATUS_COLOR[statuses[a.id]] : undefined} dark={acct ? STATUS_DARK[statuses[a.id]] : false} />)}
               </div>
             )
           })}
@@ -221,13 +234,13 @@ function Matrix({ items, acct, statuses }) {
 // Dots must stand out on any quadrant shade. White fill (navy number, faint navy
 // ring) by default; under Accountability Mode the fill becomes the bright status
 // color with a white ring so it still pops on the blue cells.
-function MatrixDot({ num, color }) {
+function MatrixDot({ num, color, dark }) {
   const filled = !!color
   return (
     <div style={{
       width: '34px', height: '34px', borderRadius: '50%',
       background: color || '#ffffff',
-      color: filled ? '#ffffff' : NAVY,
+      color: filled ? (dark ? NAVY : '#ffffff') : NAVY,
       fontWeight: 800, fontSize: '14px', fontFamily: 'Inter, sans-serif',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       border: filled ? '2px solid #ffffff' : '2px solid rgba(0,41,115,0.18)',
@@ -236,7 +249,7 @@ function MatrixDot({ num, color }) {
   )
 }
 
-function ActionTable({ title, rows, acct, isAdmin, canEdit, dues, statuses, onDue, onStatus, onDelete, onAddSubtask }) {
+function ActionTable({ title, rows, acct, isAdmin, canEdit, dues, statuses, onDue, onStatus, onDelete, onAddSubtask, onSaveField }) {
   const colCount = 4 + (acct ? 2 : 0)
   return (
     <div style={cardStyle}>
@@ -260,7 +273,7 @@ function ActionTable({ title, rows, acct, isAdmin, canEdit, dues, statuses, onDu
                 </thead>
                 <tbody>
                   {rows.map(a => (
-                    <ActionRow key={a.id} a={a} acct={acct} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={onDue} onStatus={onStatus} onDelete={onDelete} onAddSubtask={onAddSubtask} colCount={colCount} />
+                    <ActionRow key={a.id} a={a} acct={acct} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={onDue} onStatus={onStatus} onDelete={onDelete} onAddSubtask={onAddSubtask} onSaveField={onSaveField} colCount={colCount} />
                   ))}
                 </tbody>
               </table>
@@ -271,8 +284,10 @@ function ActionTable({ title, rows, acct, isAdmin, canEdit, dues, statuses, onDu
   )
 }
 
-function ActionRow({ a, acct, isAdmin, canEdit, dues, statuses, onDue, onStatus, onDelete, onAddSubtask, colCount }) {
+function ActionRow({ a, acct, isAdmin, canEdit, dues, statuses, onDue, onStatus, onDelete, onAddSubtask, onSaveField, colCount }) {
   const [adding, setAdding] = useState(false)
+  const [owned, setOwned] = useState(a.owned_by || '')
+  const [assisted, setAssisted] = useState(a.assisted_by || '')
   return (
     <>
       <tr>
@@ -287,8 +302,16 @@ function ActionRow({ a, acct, isAdmin, canEdit, dues, statuses, onDue, onStatus,
             </div>
           )}
         </td>
-        <td style={td}>{a.owned_by || '—'}</td>
-        <td style={td}>{a.assisted_by || '—'}</td>
+        <td style={td}>
+          {canEdit
+            ? <input value={owned} onChange={e => setOwned(e.target.value)} onBlur={() => { if ((a.owned_by || '') !== owned) onSaveField(a.id, { owned_by: owned }) }} placeholder="Name" style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
+            : (a.owned_by || '—')}
+        </td>
+        <td style={td}>
+          {canEdit
+            ? <input value={assisted} onChange={e => setAssisted(e.target.value)} onBlur={() => { if ((a.assisted_by || '') !== assisted) onSaveField(a.id, { assisted_by: assisted }) }} placeholder="Name" style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
+            : (a.assisted_by || '—')}
+        </td>
         {acct && (
           <td style={td}>
             {isAdmin

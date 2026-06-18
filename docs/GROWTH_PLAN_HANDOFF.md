@@ -4,29 +4,32 @@
 > Read this in full before doing anything. Then read the files it points to.
 
 ## TL;DR
-**Phases 1–8 + custom priorities/sub-tasks are BUILT + user-verified.** Backend
-live (**v490**; Phases 1–6 MERGED #52/#64, Phases 7–8 deployed-but-uncommitted this
-session); frontend dev-only (live is `live-14`). The feature is **advisor-only**
-for now; an accountant variant comes later (same structure, different
-question/action copy — keep copy isolated in `constants.js`). Remaining is config
-(frontend `npm run deploy` + commit/tag) + a few deferred UX items (see bottom).
+**Phases 1–8 + custom priorities/sub-tasks are BUILT + user-verified + DEPLOYED.**
+Backend live **v490** (MERGED edge #52/#53, tagged `backend-good-2026-06-17-v490`);
+frontend live **`live-15-growth-accountability`** (MERGED react #64/#65). A
+follow-up **Parking/Dropped UI-cleanup** pass (branch
+`claude/suspicious-lovelace-b2515f`, frontend-only) is dev-only until its own
+`npm run deploy`. The feature is **advisor-only** for now; an accountant variant
+comes later (same structure, different question/action copy — keep copy isolated
+in `constants.js`). Remaining is a few deferred UX items (see bottom).
 
 ---
 
 ## Where the work lives
 - **Phases 1–6 MERGED** (backend #52 → `backend-good-2026-06-17-v484`; frontend #64 → `live-14-growth-plan`) — on `main` in both repos.
-- **Phases 7–8 + custom/sub-tasks** built this session on branch `claude/practical-ritchie-4a1c91` (both repos). **Next chat: branch FRESH from main** (this work is being merged — do NOT reuse the old worktree).
-- **Deploy state (Phases 7–8):** 3 DB migrations + 1 cron **applied to live**; `vfo-admin-api` **deployed live at v490** (6 new actions); **frontend is dev-only (NOT deployed; live is `live-14`)**. Not yet committed/merged.
+- **Phases 7–8 + custom/sub-tasks MERGED + DEPLOYED** (backend #53 → `backend-good-2026-06-17-v490`, 6 new actions + 3 migrations + cron jobid 12; frontend #65 → `live-15-growth-accountability`) — on `main` in both repos.
+- **Parking/Dropped UI cleanup** (branch `claude/suspicious-lovelace-b2515f`, frontend-only, dev-only until `npm run deploy`): see the "UI cleanup" subsection below. **Next chat: branch FRESH from main.**
 
 ## Files
 **Frontend** (`vfo-react/src/components/growth/`)
 - `constants.js` — all G1 questions (15, 3 sections), word→number maps (Q2/Q6), Q10 preference, the 20 default actions, category labels, `GP_STEPS`, and score math (`computeScores`, `sectionPercent`, `partnershipAverage` — **partnership avg is rounded** to match the legacy tool).
-- `ui.jsx` — shared tokens + atoms (`cardStyle`, `accentStrip`, `pillSolid/Outline/Ghost`, `NumBadge`, `Radios`, `GrowthNeed`, `StepNav`). **Must be `.jsx`** (contains JSX).
+- `ui.jsx` — shared tokens + atoms (`cardStyle`, `accentStrip`, `pillSolid/Outline/Ghost`, `NumBadge`, `Radios`, `GrowthNeed`, `StepNav`, `GrowthTabs` [pill tab switcher]). **Must be `.jsx`** (contains JSX).
 - `AdminGrowthPlan.jsx` — container: loads the plan bundle (`growth_plan_load`), routes the `gp_*` sub-tabs, passes `{ memberNumber, memberName, bundle, reload, onNavigate }` down.
-- `GrowthScoring.jsx` (G1), `GrowthActions.jsx` (G2), `GrowthPrioritize.jsx` (G3), `GrowthBuildPlan.jsx` (G4), `GrowthOnePage.jsx` (G5).
+- `GrowthScoring.jsx` (G1), `GrowthActions.jsx` (G2), `GrowthPrioritize.jsx` (G3), `GrowthBuildPlan.jsx` (G4), `GrowthOnePage.jsx` (G5 — also embeds the admin **Add Priorities** Parking/Dropped switcher + inline-editable Owned By / Assisted By).
+- `GrowthAddPriority.jsx` — shared **Dropped Priorities / Parking Garage** add surface (member tabs + admin One Page Plan bottom). **`GrowthParking.jsx` was deleted** (its Move-to-Potential / Drop replaced by this surface).
 
 **Admin wiring** — `vfo-react/src/components/admin/MembersPanel.jsx`
-- Growth Plan is a `FeatureTabDropdown` (7 items = `GP_STEPS`), rendered **only when `growthPlan` prop is true** (passed by `AdvisorsPanel`, not `AccountantsPanel`), positioned **immediately left of CIQ** (injected in the tab `.map` before the `ciq` key, via `Fragment`).
+- Growth Plan is a `FeatureTabDropdown` (6 items = `GP_STEPS` — the standalone **Parking Garage** entry was removed), rendered **only when `growthPlan` prop is true** (passed by `AdvisorsPanel`, not `AccountantsPanel`), positioned **immediately left of CIQ** (injected in the tab `.map` before the `ciq` key, via `Fragment`).
 - Content render: `{growthPlan && memberFeatureTab.startsWith('gp_') && <AdminGrowthPlan member={selectedMember} activeStep={memberFeatureTab} onNavigate={...} />}`.
 
 **Backend** (`vfo-edge-functions/supabase/functions/vfo-admin-api/actions/growth/`)
@@ -68,7 +71,7 @@ question/action copy — keep copy isolated in `constants.js`). Remaining is con
 ## Decisions locked (do not re-litigate)
 - ~~Owned By / Assisted By = free-text inputs~~ → **overridden this session**: G4 Build uses a reusable per-plan name combobox (custom dropdown — type a new name or pick an existing one, shared across Owned/Assisted); the One Page Plan add-forms use plain text.
 - **No banner** on G5 (portal header + date only).
-- Matrix gradient: **darkest top-right** (High Value/High Effort) → lightest bottom-left. Dots must always stand out (white now; bright status colors under accountability, each with a contrasting ring).
+- Matrix gradient: **darkest top-right** (High Value/High Effort) → lightest bottom-left. Dots must always stand out (white when no status; under accountability each status has its own color — **Not Started = yellow `#f1c40f`, Behind = red `#e74c3c`, Progressing on Plan = light green `#86d6a0`, Ahead = bright green `#16a34a`, Completed = blue** — with a white ring; light dots (yellow / light green) use **dark navy numbers** for legibility, others white). Legend lists "Not set" first.
 - **Ongoing items also appear on the matrix** (matrix shows all One-Page items; shared 1…N numbering cross-references both tables).
 - Every "proceed" button is at the **bottom**; each linear stage has **← Back + forward** at the bottom (G1 first = no back; G5 last = no forward), and Back/Forward **save** before navigating.
 - Assigned-admin list = **`allowed_admins`** (12 people; store the chosen `email` so notification `recipient = email` reaches their bell).
@@ -80,12 +83,22 @@ question/action copy — keep copy isolated in `constants.js`). Remaining is con
 - **Re-score keeps the plan** — `save_score` copies prior actions verbatim + remaps `parent_action_id` (gotcha #136).
 - **7b Accountability Mode (G5)** — admin toggle (`set_accountability`) → per-priority **Update By** date + progress dropdowns (Not Started / Behind Expectations / Progressing on Plan / Ahead of Expectations / Completed); matrix dots recolor by status; **Completed Action Items** split out of the matrix/tables.
 - **7c notifications** — member progress update → FYI to assigned admin (on-time/late); daily cron `automation_GROWTH_overdue_sweep` (jobid 12, 10:00 UTC — gotcha #135) for overdue-no-progress priorities.
-- **8 audit log + Growth History** — `growth_plan_history` written by `logGrowthHistory` from every write handler; Growth History tab = activity log (newest-first, Admin/Member chips) + expandable past-plan snapshots. **Parking Garage** (admin: Move to Potential / Drop). **Member portal** `growthplan` tab live (advisor-gated): One Page Plan (read-only; progress + sub-task adds under accountability) + Add-a-Priority tab (presets + create-your-own).
+- **8 audit log + Growth History** — `growth_plan_history` written by `logGrowthHistory` from every write handler; Growth History tab = activity log (newest-first, Admin/Member chips) + expandable past-plan snapshots. **Member portal** `growthplan` tab live (advisor-gated). *(The original Phase-8 admin Parking Garage "Move to Potential / Drop" and the single member "Add a Priority" tab were reworked — see "UI cleanup" below.)*
 - **Custom priorities + sub-tasks** — "+ Create your own priority" (top-level) + per-priority "+ Add sub-task" (typed; own matrix dot; rendered "sub-task of: <parent>", one level deep); `add_action`/`delete_action`; × delete on custom rows.
 
+## UI cleanup (branch `claude/suspicious-lovelace-b2515f`, frontend-only — dev-only until deploy)
+Off-plan priority management was reorganized into two symmetric buckets, identical on both the admin One Page Plan (bottom **Add Priorities** switcher) and the member portal (top-level tabs). Tab order: **Parking Garage** left, **Dropped Priorities** right.
+- **Three buckets**, derived purely from existing status fields (no schema change): **On Plan** = `g3_status==='one_page_plan'`; **Parked** = `g2_status==='park' || g3_status==='park'`; **Dropped** = off-plan and not parked.
+- **Dropped Priorities** tab — off-plan non-parked pool. Per row: **Add to Plan** (opens Owned/Assisted/Value/Effort) or **Park**. Has the **"+ Create your own priority"** button (Dropped only).
+- **Parking Garage** tab — parked pool. Per row: **Add to Plan** or **Drop**.
+- **Status-transition writes** (all via `growth_plan_save_actions`): Add to Plan → `{ g3_status:'one_page_plan', g2_status:'potential', g3_action_type:'new', owned_by, assisted_by, value_level, effort_level }`; Park → `{ g2_status:'park', g3_status:'park' }`; Drop → `{ g2_status:'drop', g3_status:'' }`. **Add to Plan MUST set `g2_status:'potential'`** or a parked item stays half-parked (gotcha #138).
+- Removed the standalone admin **Parking Garage** `GP_STEPS` sub-tab + deleted `GrowthParking.jsx`; a stale persisted `gp_parking` tab key now falls back to `gp_onepage`.
+- Removed the admin One Page Plan's old bottom "+ Create your own priority" button (now inside the Dropped Priorities sub-tab); deleted `MemberAddPriority.jsx` (replaced by shared `GrowthAddPriority.jsx`).
+- **Accountability status recolor** (see "Conventions" colors above) + **Owned By / Assisted By inline-editable** on the One Page Plan (admin always; member under accountability; saved on blur via `growth_plan_save_actions`).
+
 ## DEFERRED (flagged, NOT built — the user's call)
-- A member **"remove from plan"** control (drop a priority back off the plan).
-- Member **editing of existing admin-set** owner/value/effort (members currently only ADD; existing rows are read-only to them).
+- A member **"remove from plan"** control (move an ON-plan priority back off the plan; Park/Drop only shuffle items between the two OFF-plan buckets).
+- Member **editing of existing admin-set value/effort** (Owned By / Assisted By are now editable on the One Page Plan under accountability — **resolved in the UI-cleanup pass**; value/effort of existing rows are still set only on add).
 - Reword the overdue/progress **notification copy "due date" → "update by"** to match the relabelled G5 column (backend `notify.ts` + `overdue-sweep.ts`).
 - The accountant variant of the whole feature (different question/action copy).
 

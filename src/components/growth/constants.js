@@ -108,7 +108,6 @@ export const GP_STEPS = [
   { key: 'gp_prioritize', label: 'Prioritize Growth Actions' },
   { key: 'gp_build', label: 'Build One Page Plan' },
   { key: 'gp_onepage', label: 'One Page Growth Plan' },
-  { key: 'gp_parking', label: 'Parking Garage' },
   { key: 'gp_history', label: 'Growth History' },
 ]
 

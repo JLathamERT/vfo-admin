@@ -5,13 +5,12 @@ import GrowthActions from './GrowthActions'
 import GrowthPrioritize from './GrowthPrioritize'
 import GrowthBuildPlan from './GrowthBuildPlan'
 import GrowthOnePage from './GrowthOnePage'
-import GrowthParking from './GrowthParking'
 import GrowthHistory from './GrowthHistory'
 import { GP_STEPS } from './constants'
 
 // Container for the Advisor Growth Plan tab in the admin member-detail view.
 // Loads the member's current plan bundle once, then routes the active sub-tab
-// (G1–G5 / Parking Garage / Growth History) to its view. `onNavigate(stepKey)`
+// (G1–G5 / Growth History) to its view. `onNavigate(stepKey)`
 // lets a sub-view advance the outer tab (e.g. G2 "Prioritize" → G3).
 export default function AdminGrowthPlan({ member, activeStep, onNavigate }) {
   const memberNumber = member?.plugin_member_number
@@ -35,7 +34,9 @@ export default function AdminGrowthPlan({ member, activeStep, onNavigate }) {
 
   useEffect(() => { setInitialLoading(true); reload() }, [reload])
 
-  const step = activeStep && activeStep.startsWith('gp_') ? activeStep : 'gp_score'
+  let step = activeStep && activeStep.startsWith('gp_') ? activeStep : 'gp_score'
+  // Parking Garage is no longer a standalone tab — it lives in the One Page Plan.
+  if (step === 'gp_parking') step = 'gp_onepage'
 
   if (initialLoading) return <GpMsg text="Loading growth plan…" />
   if (error) return <GpMsg text={error} retry={reload} />
@@ -53,8 +54,6 @@ export default function AdminGrowthPlan({ member, activeStep, onNavigate }) {
       return <GrowthBuildPlan key={memberNumber} {...common} />
     case 'gp_onepage':
       return <GrowthOnePage key={memberNumber} {...common} />
-    case 'gp_parking':
-      return <GrowthParking key={memberNumber} {...common} />
     case 'gp_history':
       return <GrowthHistory key={memberNumber} {...common} />
     default: {

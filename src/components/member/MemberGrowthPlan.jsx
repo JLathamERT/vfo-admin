@@ -1,13 +1,20 @@
 import { useState, useEffect, useCallback } from 'react'
 import { callApi } from '../../lib/api'
+import { GrowthTabs } from '../growth/ui'
 import GrowthOnePage from '../growth/GrowthOnePage'
-import MemberAddPriority from './MemberAddPriority'
+import GrowthAddPriority from '../growth/GrowthAddPriority'
 
 // Member-portal Growth Plan. The member sees their One Page Plan (G5) — read-only
 // normally; once their coach turns on Accountability Mode, the per-row progress
-// dropdowns become editable. They also get a Parking Garage where, under
-// accountability, they can add a parked action back to their plan or drop it.
-// All loaded self-scoped: the member's session scopes growth_plan_load.
+// dropdowns become editable and they can add priorities. Dropped Priorities holds
+// the off-plan (non-parked) pool — add to plan, park, or create your own; Parking
+// Garage holds parked priorities — add to plan or drop. All self-scoped.
+const TABS = [
+  { key: 'onepage', label: 'One Page Plan' },
+  { key: 'parking', label: 'Parking Garage' },
+  { key: 'dropped', label: 'Dropped Priorities' },
+]
+
 export default function MemberGrowthPlan({ memberNumber }) {
   const [bundle, setBundle] = useState({ score: null, actions: [], partnerships: [] })
   const [loading, setLoading] = useState(true)
@@ -34,26 +41,13 @@ export default function MemberGrowthPlan({ memberNumber }) {
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '24px' }}>
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '18px', flexWrap: 'wrap' }}>
-        <TabBtn active={view === 'onepage'} onClick={() => setView('onepage')}>One Page Plan</TabBtn>
-        <TabBtn active={view === 'add'} onClick={() => setView('add')}>Add a Priority</TabBtn>
+      <div style={{ marginBottom: '18px' }}>
+        <GrowthTabs tabs={TABS} active={view} onChange={setView} />
       </div>
-      {view === 'onepage'
-        ? <GrowthOnePage role="member" memberNumber={memberNumber} bundle={bundle} reload={reload} onNavigate={() => {}} />
-        : <MemberAddPriority memberNumber={memberNumber} bundle={bundle} reload={reload} />}
+      {view === 'onepage' && <GrowthOnePage role="member" memberNumber={memberNumber} bundle={bundle} reload={reload} onNavigate={() => {}} />}
+      {view === 'dropped' && <GrowthAddPriority role="member" tab="dropped" memberNumber={memberNumber} bundle={bundle} reload={reload} />}
+      {view === 'parking' && <GrowthAddPriority role="member" tab="parking" memberNumber={memberNumber} bundle={bundle} reload={reload} />}
     </div>
-  )
-}
-
-function TabBtn({ active, onClick, children }) {
-  return (
-    <button onClick={onClick} style={{
-      padding: '8px 18px', borderRadius: '999px', cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-      fontSize: '13px', fontWeight: active ? 700 : 600,
-      border: active ? 'none' : '1px solid #cdddf5',
-      background: active ? 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)' : '#fff',
-      color: active ? '#fff' : '#4e6087',
-    }}>{children}</button>
   )
 }
 

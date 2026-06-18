@@ -11,6 +11,27 @@ export const pillSolid = { padding: '9px 20px', borderRadius: '999px', border: '
 export const pillOutline = { padding: '8px 16px', borderRadius: '999px', border: `1px solid ${BLUE}`, background: 'transparent', color: BLUE, fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }
 export const pillGhost = { padding: '11px 20px', borderRadius: '999px', border: '1px solid #cdddf5', background: '#fff', color: MUTED, fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }
 
+// Rounded pill tab switcher used by the member Growth Plan tabs and the admin
+// One Page Plan "Add Priorities" switcher. `tabs` = [{ key, label }].
+export function GrowthTabs({ tabs, active, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+      {tabs.map(t => {
+        const on = active === t.key
+        return (
+          <button key={t.key} onClick={() => onChange(t.key)} style={{
+            padding: '8px 18px', borderRadius: '999px', cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+            fontSize: '13px', fontWeight: on ? 700 : 600,
+            border: on ? 'none' : '1px solid #cdddf5',
+            background: on ? 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)' : '#fff',
+            color: on ? '#fff' : MUTED,
+          }}>{t.label}</button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function NumBadge({ n }) {
   return <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#eef2f9', border: '1px solid #dde5f2', color: MUTED, fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{n}</span>
 }
