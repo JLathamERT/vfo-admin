@@ -81,6 +81,7 @@ function AccountantsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onD
 
 function AddAccountantForm({ allMembers, onDataChange }) {
   const [memberType, setMemberType] = useState('')
+  const [tradingName, setTradingName] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -115,6 +116,7 @@ function AddAccountantForm({ allMembers, onDataChange }) {
         first_name: firstName,
         last_name: lastName,
         member_type: memberType,
+        trading_name: tradingName.trim() || null,
         elite_status: eliteStatus,
         email,
         advisor_model: advisorModel,
@@ -122,7 +124,7 @@ function AddAccountantForm({ allMembers, onDataChange }) {
         connected_member_number: null,
       })
       await onDataChange()
-      setFirstName(''); setLastName(''); setEmail(''); setMemberType(''); setCustomMemberNumber(''); setAdvisorModel(''); setEliteStatus('')
+      setFirstName(''); setLastName(''); setEmail(''); setMemberType(''); setTradingName(''); setCustomMemberNumber(''); setAdvisorModel(''); setEliteStatus('')
       setStatusType('success'); setStatus(`Accountant created with number ${res.member_number}`)
     } catch (err) { setStatusType('error'); setStatus(err.message) }
     finally { setLoading(false) }
@@ -140,6 +142,10 @@ function AddAccountantForm({ allMembers, onDataChange }) {
             {ACCOUNTANT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
+      </div>
+      <div style={{ marginBottom: '16px' }}>
+        <label style={labelStyle}>Trading Name</label>
+        <input value={tradingName} onChange={e => setTradingName(e.target.value)} placeholder="Firm / trading name (optional)" style={inputStyle} />
       </div>
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
@@ -533,6 +539,10 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
   const rowStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #eef2f9' }
   const subTabStyle = (active) => ({ padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' })
   const CONNECTION_TYPES = ['5% - Regular Advisor', '10% - Accredited Introducer', '10% - Accredited Mentor', '20% - Accredited Introducer + Mentor']
+  // Accountants pick from their own product-tier list, and they connect to an
+  // advisor with no connection-type tier (the % tiers are advisor-only).
+  const isAccountant = member.member_category === 'accountant'
+  const typeOptions = isAccountant ? ACCOUNTANT_TYPES : MEMBER_TYPES
   const statusColors = { Active: '#1b9254', Lost: '#e74c3c', Removed: '#4e6087' }
 
   if (loading) return <MemberProfileDetailsSkeleton />
@@ -559,6 +569,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                   <div><div style={fieldLabel}>Join Date</div><div style={fieldValue}>{profile.join_date ? profile.join_date.split('T')[0] : '—'}</div></div>
                   {(profile.elite_status === 'Lost' || profile.elite_status === 'Removed') && <div><div style={fieldLabel}>Leave Date</div><div style={fieldValue}>{profile.leave_date ? profile.leave_date.split('T')[0] : '—'}</div></div>}
                   <div><div style={fieldLabel}>Email</div><div style={{ ...fieldValue, wordBreak: 'break-word' }}>{profile.email || '—'}</div></div>
+                  {isAccountant && <div><div style={fieldLabel}>Trading Name</div><div style={fieldValue}>{profile.trading_name || '—'}</div></div>}
                   {!hiddenFields.includes('revenue_decision') && (
                     <div><div style={fieldLabel}>Revenue Decision</div><div style={fieldValue}>{profile.revenue_decision || '—'}</div></div>
                   )}
@@ -611,7 +622,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                       <div style={{ fontSize: '12px', color: '#4e6087', fontFamily: 'monospace', marginTop: '2px' }}>{connectedMemberObj.plugin_member_number}</div>
                     </div>
                   </div>
-                  {profile.connection_type && (
+                  {!isAccountant && profile.connection_type && (
                     <div style={{ marginTop: '12px' }}>
                       <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.25)' }}>{profile.connection_type}</span>
                     </div>
@@ -668,12 +679,17 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
               <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>Last Name</label><input value={profile.last_name || ''} onChange={e => update('last_name', e.target.value)} style={inputStyle} /></div>
               <div style={{ flex: 2, minWidth: '200px' }}><label style={labelStyle}>Email</label><input value={profile.email || ''} onChange={e => update('email', e.target.value)} type="email" style={inputStyle} /></div>
             </div>
+            {isAccountant && (
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: '200px' }}><label style={labelStyle}>Trading Name</label><input value={profile.trading_name || ''} onChange={e => update('trading_name', e.target.value)} style={inputStyle} /></div>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '12px', marginBottom: '0', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '180px' }}>
                 <label style={labelStyle}>Member Type</label>
                 <select value={profile.member_type || ''} onChange={e => update('member_type', e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
                   <option value="">-- Select --</option>
-                  {MEMBER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  {typeOptions.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div style={{ flex: 1, minWidth: '140px' }}>
@@ -745,13 +761,15 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                 </div>
               )}
             </div>
-            <div>
-              <label style={labelStyle}>Connection Type</label>
-              <select value={profile.connection_type || ''} onChange={e => update('connection_type', e.target.value)} style={{ ...inputStyle, background: '#ffffff', marginTop: '6px' }}>
-                <option value="">-- Select --</option>
-                {CONNECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
+            {!isAccountant && (
+              <div>
+                <label style={labelStyle}>Connection Type</label>
+                <select value={profile.connection_type || ''} onChange={e => update('connection_type', e.target.value)} style={{ ...inputStyle, background: '#ffffff', marginTop: '6px' }}>
+                  <option value="">-- Select --</option>
+                  {CONNECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            )}
             {profile.connected_member_number && (
               <button onClick={() => { update('connected_member_number', null); update('connection_type', ''); setConnectedSearch('') }} style={{ marginTop: '12px', padding: '8px 16px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600, fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Remove Connection</button>
             )}
