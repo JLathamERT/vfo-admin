@@ -5,6 +5,8 @@ import GrowthActions from './GrowthActions'
 import GrowthPrioritize from './GrowthPrioritize'
 import GrowthBuildPlan from './GrowthBuildPlan'
 import GrowthOnePage from './GrowthOnePage'
+import GrowthParking from './GrowthParking'
+import GrowthHistory from './GrowthHistory'
 import { GP_STEPS } from './constants'
 
 // Container for the Advisor Growth Plan tab in the admin member-detail view.
@@ -38,19 +40,23 @@ export default function AdminGrowthPlan({ member, activeStep, onNavigate }) {
   if (initialLoading) return <GpMsg text="Loading growth plan…" />
   if (error) return <GpMsg text={error} retry={reload} />
 
-  const common = { key: memberNumber, memberNumber, memberName, bundle, reload, onNavigate }
+  const common = { memberNumber, memberName, bundle, reload, onNavigate }
 
   switch (step) {
     case 'gp_score':
-      return <GrowthScoring {...common} />
+      return <GrowthScoring key={memberNumber} {...common} />
     case 'gp_actions':
-      return <GrowthActions {...common} />
+      return <GrowthActions key={memberNumber} {...common} />
     case 'gp_prioritize':
-      return <GrowthPrioritize {...common} />
+      return <GrowthPrioritize key={memberNumber} {...common} />
     case 'gp_build':
-      return <GrowthBuildPlan {...common} />
+      return <GrowthBuildPlan key={memberNumber} {...common} />
     case 'gp_onepage':
-      return <GrowthOnePage {...common} />
+      return <GrowthOnePage key={memberNumber} {...common} />
+    case 'gp_parking':
+      return <GrowthParking key={memberNumber} {...common} />
+    case 'gp_history':
+      return <GrowthHistory key={memberNumber} {...common} />
     default: {
       const label = (GP_STEPS.find(s => s.key === step) || {}).label || 'Growth Plan'
       return <GpMsg text={`${label} — coming in the next build phase.`} />
