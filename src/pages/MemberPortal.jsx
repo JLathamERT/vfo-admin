@@ -7,6 +7,7 @@ import MemberCIQ from '../components/shared/MemberCIQ'
 import MemberGCMarketplace from '../components/member/MemberGCMarketplace'
 import MemberMSMTracking from '../components/member/MemberMSMTracking'
 import MemberShowroom from '../components/member/MemberShowroom'
+import MemberGrowthPlan from '../components/member/MemberGrowthPlan'
 import VfoWordmark from '../components/shared/VfoWordmark'
 
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
@@ -141,7 +142,11 @@ export default function MemberPortal() {
               <MemberCIQ memberNumber={session.member_number} memberName={session.name || session.member_number} ciqEnabled={session.ciq_enabled} ciqVfosManaged={session.ciq_vfos_managed} isAdmin={false} />
             </div>
           )}
-          {!loading && activeTab === 'growthplan' && <ComingSoon title="Growth Plan" />}
+          {!loading && activeTab === 'growthplan' && (
+            memberData?.member_category === 'advisor'
+              ? <MemberGrowthPlan memberNumber={session.member_number} />
+              : <ComingSoon title="Growth Plan" />
+          )}
           {!loading && activeTab === 'gc' && (
             <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
               <MemberGCMarketplace memberNumber={session.member_number} />

@@ -36,6 +36,21 @@ function initEnabled(score) {
   }
 }
 
+// A scored question is answered when it has a value OR is marked N/A. Q7
+// (partnerships) is exempt — an empty list already counts as N/A by the score
+// math. Q10 (preference) additionally requires one of its radio options chosen.
+function isAnswered(q, a, q10pref) {
+  if (q.type === 'partnerships') return true
+  if (a && a.na) return true
+  const hasValue = !!(a && a.value !== '' && a.value !== null && a.value !== undefined)
+  if (q.preference) return hasValue && !!q10pref
+  return hasValue
+}
+function firstUnanswered(answers, q10pref) {
+  for (const s of SECTIONS) for (const q of s.questions) if (!isAnswered(q, answers[q.id], q10pref)) return q.id
+  return null
+}
+
 export default function GrowthScoring({ memberNumber, bundle, reload, onNavigate }) {
   const score = bundle.score
   const [view, setView] = useState(score ? 'summary' : 'form')
@@ -44,12 +59,27 @@ export default function GrowthScoring({ memberNumber, bundle, reload, onNavigate
   const [q10pref, setQ10pref] = useState(score?.raw_answers?.q10_preference || '')
   const [enabled, setEnabled] = useState(initEnabled(score))
   const [saving, setSaving] = useState(false)
+  const [admins, setAdmins] = useState([])
+  const [assignedEmail, setAssignedEmail] = useState(score?.assigned_admin_email || '')
+  const [triedGenerate, setTriedGenerate] = useState(false)
+
+  // Load the admin roster for the required "Assigned Admin" picker. Reads the
+  // live allowed_admins each mount, so newly added admins appear automatically.
+  useEffect(() => {
+    let alive = true
+    callApi('growth_plan_load_admins')
+      .then(res => { if (alive) setAdmins(res?.admins || []) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   useEffect(() => {
     setAnswers({ ...blankAnswers(), ...(score?.raw_answers?.answers || {}) })
     setPartners(rowsFromBundle(bundle))
     setQ10pref(score?.raw_answers?.q10_preference || '')
     setEnabled(initEnabled(score))
+    setAssignedEmail(score?.assigned_admin_email || '')
+    setTriedGenerate(false)
     setView(score ? 'summary' : 'form')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [score?.id])
@@ -57,9 +87,18 @@ export default function GrowthScoring({ memberNumber, bundle, reload, onNavigate
   function setAns(qid, patch) { setAnswers(a => ({ ...a, [qid]: { ...a[qid], ...patch } })) }
 
   async function generate() {
+    if (!assignedEmail) { alert('Select an Assigned Admin before generating a score.'); return }
+    const missing = firstUnanswered(answers, q10pref)
+    if (missing) {
+      setTriedGenerate(true)
+      const el = typeof document !== 'undefined' ? document.getElementById('gpq-' + missing) : null
+      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
     setSaving(true)
     try {
       const sc = computeScores(answers, partners, { section1: true, section2: true, section3: true })
+      const admin = admins.find(a => a.email === assignedEmail)
       await callApi('growth_plan_save_score', {
         member_number: memberNumber,
         completed_at: new Date().toISOString(),
@@ -67,6 +106,8 @@ export default function GrowthScoring({ memberNumber, bundle, reload, onNavigate
         composite_score: sc.composite,
         section1_enabled: true, section2_enabled: true, section3_enabled: true,
         raw_answers: { answers, q10_preference: q10pref },
+        assigned_admin_email: assignedEmail,
+        assigned_admin_name: admin?.name || '',
         partnerships: partners
           .filter(r => (r.name && r.name.trim()) || r.is_na || r.score !== '')
           .map(r => ({ name: r.name?.trim() || null, score: r.is_na ? null : (r.score === '' ? null : Number(r.score)), is_na: !!r.is_na })),
@@ -98,7 +139,7 @@ export default function GrowthScoring({ memberNumber, bundle, reload, onNavigate
         <TrackHero
           eyebrow="Growth Plan"
           title="Growth Summary Score"
-          meta={<>Score completed on <strong style={{ color: '#243757' }}>{fmtCompleted(score.completed_at || score.created_at)}</strong></>}
+          meta={<>Score completed on <strong style={{ color: '#243757' }}>{fmtCompleted(score.completed_at || score.created_at)}</strong>{(score.assigned_admin_name || score.assigned_admin_email) && <> · Assigned admin <strong style={{ color: '#243757' }}>{score.assigned_admin_name || score.assigned_admin_email}</strong></>}</>}
         />
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
           {/* Scoring-on toggles — sized to content so the page background shows below */}
@@ -144,38 +185,60 @@ export default function GrowthScoring({ memberNumber, bundle, reload, onNavigate
         <StepNav
           onNext={() => onNavigate('gp_actions')}
           nextLabel="Continue →"
-          secondary={<button onClick={() => setView('form')} style={pillOutline}>Edit answers / Re-score</button>}
+          secondary={<button onClick={() => { setTriedGenerate(false); setView('form') }} style={pillOutline}>Edit answers / Re-score</button>}
         />
       </div>
     )
   }
 
   // ── Form view ─────────────────────────────────────────────────────────
+  const canGenerate = !!assignedEmail
+  const missingCount = SECTIONS.reduce((n, s) => n + s.questions.filter(q => !isAnswered(q, answers[q.id], q10pref)).length, 0)
   return (
     <div>
       <TrackHero
         eyebrow="Growth Plan"
         title="Scoring Growth"
       />
+      <div style={cardStyle}>
+        <div style={{ height: '3px', background: 'linear-gradient(90deg, #002973 0%, #125ecc 100%)' }} />
+        <div style={{ padding: '18px 22px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 800, color: NAVY, letterSpacing: '-0.01em' }}>Assigned Admin</div>
+            <span style={{ color: '#e74c3c', fontWeight: 700 }}>*</span>
+          </div>
+          <div style={{ fontSize: '12.5px', color: MUTED, margin: '6px 0 12px', lineHeight: 1.45, maxWidth: '560px' }}>
+            Who is accountable for coaching this Growth Plan? Required before you can generate a score — this person receives the accountability updates.
+          </div>
+          <select value={assignedEmail} onChange={e => setAssignedEmail(e.target.value)} style={{ ...inputStyle, minWidth: '280px' }}>
+            <option value="">-- Select an admin --</option>
+            {admins.map(a => <option key={a.email} value={a.email}>{a.name}</option>)}
+          </select>
+        </div>
+      </div>
       {SECTIONS.map((s, idx) => (
         <div key={s.key} style={cardStyle}>
           <div style={{ height: '3px', background: 'linear-gradient(90deg, #125ecc 0%, #0a85e8 100%)' }} />
           <div style={{ padding: '18px 22px' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
               <div style={{ fontSize: '13px', fontWeight: 800, color: NAVY, letterSpacing: '-0.01em' }}>{s.label}</div>
-              <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#9aa6bf', letterSpacing: '0.4px' }}>SECTION {idx + 1} · /50</div>
+              <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#9aa6bf', letterSpacing: '0.4px' }}>SECTION {idx + 1}</div>
             </div>
             {s.questions.map(q => (
               <QuestionRow key={q.id} q={q} ans={answers[q.id]} setAns={setAns}
                 partners={partners} setPartners={setPartners}
-                q10pref={q10pref} setQ10pref={setQ10pref} />
+                q10pref={q10pref} setQ10pref={setQ10pref}
+                invalid={triedGenerate && !isAnswered(q, answers[q.id], q10pref)} />
             ))}
           </div>
         </div>
       ))}
-      <button onClick={generate} disabled={saving} style={{ padding: '12px 28px', borderRadius: '999px', border: 'none', background: saving ? '#9bb4e3' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: saving ? 'default' : 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 14px rgba(18,94,204,0.32)' }}>
+      <button onClick={generate} disabled={saving || !canGenerate} style={{ padding: '12px 28px', borderRadius: '999px', border: 'none', background: (saving || !canGenerate) ? '#9bb4e3' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: (saving || !canGenerate) ? 'default' : 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 14px rgba(18,94,204,0.32)' }}>
         {saving ? 'Generating…' : 'Generate Score'}
       </button>
+      {!canGenerate && <div style={{ marginTop: '10px', fontSize: '12px', color: MUTED }}>Select an <strong style={{ color: INK }}>Assigned Admin</strong> above to enable scoring.</div>}
+      {score && canGenerate && <div style={{ marginTop: '10px', fontSize: '12px', color: MUTED }}>Re-scoring updates the score and <strong style={{ color: INK }}>keeps your prioritized actions</strong> — the previous version is saved to Growth History.</div>}
+      {triedGenerate && missingCount > 0 && <div style={{ marginTop: '10px', fontSize: '12.5px', color: '#e74c3c', fontWeight: 600 }}>Please answer the {missingCount} highlighted question{missingCount === 1 ? '' : 's'} — choose a score or check N/A.</div>}
     </div>
   )
 }
@@ -200,16 +263,19 @@ function ScoreRing({ value, label, size = 78, primary }) {
   )
 }
 
-function QuestionRow({ q, ans, setAns, partners, setPartners, q10pref, setQ10pref }) {
+function QuestionRow({ q, ans, setAns, partners, setPartners, q10pref, setQ10pref, invalid }) {
   const a = ans || { value: '', na: false, notes: '' }
+  const required = q.type !== 'partnerships'
+  const scoreMissing = !a.na && (a.value === '' || a.value === null || a.value === undefined)
+  const prefMissing = !!q.preference && !a.na && !q10pref
   return (
-    <div style={{ padding: '14px 0', borderTop: '1px solid #eef2f9' }}>
-      <div style={{ fontSize: '13.5px', color: INK, marginBottom: '10px', lineHeight: 1.5 }}>{q.text}</div>
+    <div id={'gpq-' + q.id} style={{ padding: '14px 0', borderTop: '1px solid #eef2f9' }}>
+      <div style={{ fontSize: '13.5px', color: INK, marginBottom: '10px', lineHeight: 1.5 }}>{q.text}{required && <span style={{ color: '#e74c3c', marginLeft: '4px' }}>*</span>}</div>
       {q.type === 'partnerships' ? (
         <PartnershipEditor partners={partners} setPartners={setPartners} />
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-          <select value={a.na ? '' : a.value} disabled={a.na} onChange={e => setAns(q.id, { value: e.target.value })} style={{ ...inputStyle, minWidth: '170px', opacity: a.na ? 0.5 : 1 }}>
+          <select value={a.na ? '' : a.value} disabled={a.na} onChange={e => setAns(q.id, { value: e.target.value })} style={{ ...inputStyle, minWidth: '170px', opacity: a.na ? 0.5 : 1, border: (invalid && scoreMissing) ? '1px solid #e74c3c' : inputStyle.border }}>
             <option value="">-- Select --</option>
             {q.type === 'words'
               ? q.options.map(o => <option key={o.label} value={o.value}>{o.label}</option>)
@@ -220,14 +286,16 @@ function QuestionRow({ q, ans, setAns, partners, setPartners, q10pref, setQ10pre
           </label>
         </div>
       )}
+      {invalid && required && scoreMissing && <div style={{ color: '#e74c3c', fontSize: '11.5px', marginTop: '8px' }}>Required — choose a score or check N/A.</div>}
       {q.preference && (
-        <div style={{ marginTop: '14px', paddingLeft: '2px' }}>
+        <div style={{ marginTop: '14px', paddingLeft: invalid && prefMissing ? '10px' : '2px', borderLeft: invalid && prefMissing ? '2px solid #e74c3c' : 'none' }}>
           {Q10_PREFERENCE_OPTIONS.map(o => (
             <label key={o.value} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12.5px', color: INK, marginBottom: '8px', cursor: 'pointer', lineHeight: 1.45 }}>
               <input type="radio" name={q.id + '_pref'} checked={q10pref === o.value} onChange={() => setQ10pref(o.value)} style={{ marginTop: '3px', accentColor: BLUE }} />
               <span>{o.label}</span>
             </label>
           ))}
+          {invalid && prefMissing && <div style={{ color: '#e74c3c', fontSize: '11.5px', marginTop: '2px' }}>Required — choose one of the options above.</div>}
         </div>
       )}
       <textarea value={a.notes || ''} onChange={e => setAns(q.id, { notes: e.target.value })} placeholder="Notes" style={{ ...inputStyle, width: '100%', boxSizing: 'border-box', marginTop: '10px', minHeight: '44px', resize: 'vertical' }} />
