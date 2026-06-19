@@ -97,6 +97,7 @@ export default function MemberShowroom({ experts = [], exclusions = [], ecoMap =
   const excluded = new Set(exclusions)
   const shown = experts
     .filter(ex => !excluded.has(ex.id))
+    .filter(ex => (ex.status || 'Active') === 'Active') // Feature C: only Active specialists appear in any showroom
     .map(ex => ({ ...ex, categories: ecoMap[ex.id] || [] }))
 
   const q = search.trim().toLowerCase()

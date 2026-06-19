@@ -1,8 +1,8 @@
-# VFO Session-Learned Gotchas — full registry (#1–#146)
+# VFO Session-Learned Gotchas — full registry (#1–#150)
 
 > Split out of `SESSION_REFERENCE.md` on 2026-06-19 to keep the live hub lean. This is the **complete** numbered list; the hub keeps only a curated ALWAYS-APPLIES subset.
 >
-> **Numbers are permanent.** Gotchas are referenced as `#N` from `SESSION_REFERENCE.md`, the operator prompts, and across `docs/` — **NEVER renumber.** Add new gotchas to the END of this list, incrementing from the current max (#146).
+> **Numbers are permanent.** Gotchas are referenced as `#N` from `SESSION_REFERENCE.md`, the operator prompts, and across `docs/` — **NEVER renumber.** Add new gotchas to the END of this list, incrementing from the current max (#150).
 >
 > Pre-existing ordering quirk preserved verbatim: **#87 physically precedes #86.** (Do not "fix" it — references are by number, not position.)
 
@@ -358,3 +358,11 @@ Full-reset extras (verify each per case): **`document_numbers`** (cols `id, type
 **145. Production deploys need an EXPLICIT "deploy" — the auto-mode classifier BLOCKS `supabase functions deploy` / `npm run deploy` on ambiguous approvals ("continue" / "yes" / "whatever you recommend") (2026-06-18).** Wait for the literal word before deploying.
 
 **146. The Bash tool's cwd PERSISTS across calls — a `cd <react worktree>` for `npm run build` then a backend `supabase functions deploy` failed with 400 "Entrypoint path does not exist" (it looked for `supabase/functions/…` under the react worktree) (2026-06-18).** Always `cd` to the correct repo's worktree (or use absolute paths) immediately before a deploy.
+
+**147. Hiding rows from a SHARED data source — filter in the rendering COMPONENT, not only the loader. Feature C hides Lost/Removed specialists from showrooms, but `load_data` returns ALL experts to admins (the admin Search-Specialists list needs the inactive ones), and the admin's showroom PREVIEW reuses the same `MemberShowroom` component as the member/client portals — so a loader-only filter still showed inactive specialists in the admin preview (2026-06-19).** Put the `status === 'Active'` filter in `MemberShowroom` itself (it covers all three showroom surfaces); keep defense-in-depth filters in `load_data`/`client_showroom_load` for the non-admin payloads.
+
+**148. The public website widget (`vfo-widget.js`, embedded on external sites via `data-vfo-key=<manage_key>`) reads the `experts` table DIRECTLY through the anon key + the `experts` `"Public read"` RLS policy — there is NO backend handler serving it (2026-06-19).** To hide rows from the widget you change the RLS policy (`USING(status='Active')`), not a handler. The edge function uses service-role and bypasses RLS, so admin surfaces are unaffected.
+
+**149. `save_specialist` (and any `update({...form})` passthrough) sends form fields verbatim — an empty date `<input>` is `''`, which Postgres rejects with "invalid input syntax for type date" (2026-06-19).** Convert empty date strings to `null` in the frontend before saving (`form.join_date || null`), and clear `leave_date` to `null` when status flips back to Active.
+
+**150. Worktree `npm run dev` resolves `node_modules` from the MAIN checkout (Node walks up the tree; git worktrees have no `node_modules` of their own) — a dependency a prior session added to `package.json` but never installed in the main checkout (e.g. `@sentry/react`) breaks the worktree dev server with "Failed to resolve import" (2026-06-19).** Fix: `npm install <pkg> --no-save` in `C:\vfo-react` (the shared store, so no tracked file changes); restart the dev server.

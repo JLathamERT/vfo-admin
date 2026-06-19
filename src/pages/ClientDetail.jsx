@@ -5,6 +5,7 @@ import ClientTrackViewV2 from '../components/admin/map1/ClientTrackViewV2'
 import RegularPrioritiesTab from '../components/admin/regular/RegularPrioritiesTab'
 import PipMeetingsTab from '../components/admin/pip/PipMeetingsTab'
 import ClientVaultTab from '../components/admin/ClientVaultTab'
+import SendSetupEmailButton from '../components/admin/SendSetupEmailButton'
 import ClientPaymentsTab from '../components/payments/ClientPaymentsTab'
 import PFTEngagementTrack from '../components/admin/pft/PFTEngagementTrack'
 import TaxPrioritiesTab from '../components/admin/tax/TaxPrioritiesTab'
@@ -170,7 +171,7 @@ export default function ClientDetail() {
             <>
               {isMember
                 ? <button style={tabStyle(activeTab === 'home')} onClick={() => setActiveTab('home')}>Profile</button>
-                : <ClientTabDropdown label="Profile" isActive={activeTab === 'home' || activeTab === 'details' || activeTab === 'vault' || activeTab === 'payments'} options={[{key:'home',label:'Profile'},{key:'details',label:'Edit Profile'},{key:'vault',label:'Vault'},{key:'payments',label:'Payments'}]} onSelect={setActiveTab} />
+                : <ClientTabDropdown label="Profile" isActive={activeTab === 'home' || activeTab === 'details' || activeTab === 'vault' || activeTab === 'payments' || activeTab === 'settings'} options={[{key:'home',label:'Profile'},{key:'details',label:'Edit Profile'},{key:'vault',label:'Vault'},{key:'payments',label:'Payments'},{key:'settings',label:'Settings'}]} onSelect={setActiveTab} />
               }
               {program?.name === 'Partnership Fast Track' ? (
                 <button style={tabStyle(activeTab === 'pft')} onClick={() => setActiveTab('pft')}>PFT Engagement Process</button>
@@ -199,8 +200,15 @@ export default function ClientDetail() {
             {activeTab === 'regular' && program && <RegularPrioritiesTab clientId={parseInt(clientId)} programId={program.id} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
             {activeTab === 'tax' && program && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} programName={program.name} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
             {activeTab === 'pip' && program && <PipMeetingsTab clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
-            {activeTab === 'vault' && !isMember && <ClientVaultTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} />}
+            {activeTab === 'vault' && !isMember && <ClientVaultTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} specialists={specialists} />}
             {activeTab === 'payments' && !isMember && <ClientPaymentsTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} />}
+            {activeTab === 'settings' && !isMember && (
+              <div style={sectionStyle}>
+                <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Client Login</div>
+                <p style={{ fontSize: '14px', color: '#697a9c', marginBottom: '16px' }}>Send a setup email so this client can create their own portal passcode.</p>
+                <SendSetupEmailButton loginType="client" subjectId={parseInt(clientId)} hint="Drafts a Gmail with a secure link. The client sets their own passcode." />
+              </div>
+            )}
           </>
         )}
       </div>
