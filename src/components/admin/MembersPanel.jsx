@@ -30,7 +30,8 @@ const MEMBER_TYPES = [
 const CORPORATE_TYPES = ['Corporate Member', 'Free Corporate Member', 'Free Corporate Member (Legacy)']
 
 const ACCOUNTANT_TYPES = [
-  'Implementation',
+  'Implementation - VFO FT (Direct)',
+  'Implementation - VFO FT (Advisor)',
   'Advanced (Direct)', 'Advanced (Advisor)',
   'Plus (Direct)', 'Plus (Advisor)',
   'VFO FT (Direct)', 'VFO FT (Advisor)',
@@ -370,7 +371,7 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onData
       navClickCount={navClickCount}
       hiddenFields={[]}
       growthPlan={true}
-      listTitle="Members"
+      listTitle="Advisors"
     />
   )
 }

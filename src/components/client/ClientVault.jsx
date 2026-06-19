@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
+import { fileSizeError } from '../../lib/fileUpload'
 
 const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/*,application/pdf'
 
@@ -29,6 +30,8 @@ export default function ClientVault() {
     if (!files.length) return
     setBusy(section); setError('')
     for (const file of files) {
+      const tooBig = fileSizeError(file)
+      if (tooBig) { setError(tooBig); continue }
       try {
         const d = await callApi('client_vault_upload_url', { section, filename: file.name })
         if (!d.signed_url) throw new Error(d.error || 'Could not start upload')

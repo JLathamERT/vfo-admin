@@ -242,6 +242,7 @@ export default function AdminPortal() {
         { key: 'specialist_search', label: 'Specialist Search' },
         { key: 'add_specialist', label: 'Add Specialist' },
         { key: 'specialist_onboarding', label: 'Specialist Onboarding' },
+        { key: 'specialist_showroom', label: 'Showroom' },
       ]
     },
   ]

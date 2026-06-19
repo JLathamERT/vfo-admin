@@ -48,7 +48,7 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | `/client-setup` | [ClientSetupPage](src/pages/ClientSetupPage.jsx) | URL token | PUBLIC client page — `load_client_setup` then `submit_client_setup` (set passcode → creates `client_logins` row). |
 | `/client` | [ClientPortal](src/pages/ClientPortal.jsx) | client session | THIRD portal (after admin/member); role-guards `session.role==='client'`. Two tabs: Showroom (the connected member's enabled specialists via `client_showroom_load`, rendered by the shared `MemberShowroom`) + Vault. |
 | `/specialist/login` | [SpecialistLogin](src/pages/SpecialistLogin.jsx) | none | Specialist portal login — calls `specialist_login`; sets session `{role:'specialist', expert_id}`. Added this session. |
-| `/specialist` | [SpecialistPortal](src/pages/SpecialistPortal.jsx) | specialist session | FOURTH portal; role-guards `session.role==='specialist'`. One Vault tab. Added this session. |
+| `/specialist` | [SpecialistPortal](src/pages/SpecialistPortal.jsx) | specialist session | FOURTH portal; role-guards `session.role==='specialist'`. Tabs: **Showroom** (first/default — all Active specialists, full-width; added 2026-06-19) · Vault · Shared with Me · Settings. |
 | `*` | redirect to `/` | — | Catch-all |
 
 ## Top-level shells
@@ -119,7 +119,7 @@ The portal itself only fires `load_data` (line 85). All deeper actions are fired
 | `profile` | Profile | inline `MemberProfile` | (data already in `memberData`) |
 | `msm_home` | MSM Home | [MemberMSMTracking](src/components/member/MemberMSMTracking.jsx) (with `activeTab='msm_home'`) | `msm_load_programs`, `msm_load_enrollments`, `msm_load_enabled_programs`, `msm_load_meetings` ([lines 27-30](src/components/member/MemberMSMTracking.jsx)) |
 | `msm_holistic` / `msm_partnership` / `msm_tax` / `msm_coaching` | per-program views | same component, conditional rendering | additional: `msm_load_training_track`, `msm_load_training_progress`, `msm_load_clients`, `msm_load_client_track`, `msm_load_client_progress`, `member_load_pipeline`, `coaching_load_meetings`, `coaching_load_renewals` ([lines 42-43, 223-224, 375, 482-484, 711, 788](src/components/member/MemberMSMTracking.jsx)) |
-| `specialists` | Specialists | inline `MemberSpecialists` | `save_member` (saves exclusions) ([line 211](src/pages/MemberPortal.jsx)) |
+| `specialists` | Specialists | inline `MemberSpecialists` | `member_save_exclusions` (MEMBER_SCOPED — saves the member's own exclusions; replaced admin-only `save_member` 2026-06-19) ([MemberPortal.jsx](src/pages/MemberPortal.jsx)) |
 | `showroom` | Showroom | [MemberShowroom](src/components/member/MemberShowroom.jsx) | none new — reads experts + `ecosystems` + the member's `exclusions` from the page's existing `load_data`; standard plugin look, shows only the member's enabled specialists |
 | `website` | Website Plugin | [MemberWebsitePlugin](src/components/shared/MemberWebsitePlugin.jsx) | `save_member` ([line 33](src/components/shared/MemberWebsitePlugin.jsx)) — **tab shown only when `memberData.website_enabled`** (hidden + un-rendered otherwise); the enable toggle renders only for admins (`isAdmin` prop) |
 | `ciq` | CIQ | [MemberCIQ](src/components/shared/MemberCIQ.jsx) | `ciq_load_settings`, `member_profile_save`, `ciq_load_list`, `load_member_contacts`, `msm_load_member_clients`, `ciq_create`, `ciq_add_client_and_create`, `ciq_load`, `ciq_load_priorities`, `ciq_load_priority_snapshots`, `ciq_save`, `ciq_complete`, `ciq_save_priorities`, `ciq_save_priority_snapshot`, `ciq_set_accountability` (One Page Plan "Update Progress" toggle) ([15 calls](src/components/shared/MemberCIQ.jsx)). Members always see this tab; the "+ Start New CIQ" button + Settings toggle ("Allow Member to Start New CIQs") gate only *starting* new CIQs via `localCiqEnabled`. |
@@ -140,11 +140,14 @@ The **third portal** (after admin/member), reached via `/client`. Role-guards `s
 
 ### `SpecialistPortal.jsx` ([src/pages/SpecialistPortal.jsx](src/pages/SpecialistPortal.jsx))
 
-The **fourth portal** (after admin/member/client), reached via `/specialist`. Role-guards `session.role==='specialist'`. One tab only:
+The **fourth portal** (after admin/member/client), reached via `/specialist`. Role-guards `session.role==='specialist'`. Tabs (Showroom is the first/default):
 
 | Tab | Mounts | Notes |
 |---|---|---|
+| Showroom | [MemberShowroom](src/components/member/MemberShowroom.jsx) | **first/default tab (added 2026-06-19).** All Active specialists via `specialist_showroom_load`, rendered FULL-WIDTH (mirrors the client/member showroom layout). |
 | Vault | [SpecialistVault](src/components/specialist/SpecialistVault.jsx) | specialist-scoped document vault — a single **General Documentation** section (mirrors `ClientVault`) over the private `specialist-documents` bucket; calls `specialist_vault_list` / `specialist_vault_upload_url` / `specialist_vault_download` / `specialist_vault_delete` (all scoped server-side to the caller's own `expert_id`) |
+| Shared with Me | [SpecialistShared](src/components/specialist/SpecialistShared.jsx) | client documents the VFO team shared with this specialist (Feature A); unread badge via `specialist_shared_unread_count`; lists via `specialist_shared_clients` / `specialist_shared_docs`, opens via `specialist_shared_download`. |
+| Settings | [ChangePasswordCard](src/components/shared/ChangePasswordCard.jsx) | self-service password change (`specialist_update_login`). |
 
 #### Specialist-portal page/component additions (this session)
 

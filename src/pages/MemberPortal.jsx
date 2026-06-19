@@ -222,7 +222,7 @@ function MemberSpecialists({ member, allExperts, exclusions, onDataChange }) {
   async function save() {
     const newExcluded = allExperts.filter(e => !enabled[e.id]).map(e => e.id)
     try {
-      await callApi('save_member', { member_number: member.member_number, exclusions: newExcluded })
+      await callApi('member_save_exclusions', { member_number: member.member_number, exclusions: newExcluded })
       await onDataChange()
       setDirty(false)
       setStatusType('success'); setStatus('Changes saved!')

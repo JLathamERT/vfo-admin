@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
+import { fileSizeError } from '../../lib/fileUpload'
 
 export default function MemberVault({ memberNumber }) {
   const [files, setFiles] = useState([])
@@ -19,6 +20,8 @@ export default function MemberVault({ memberNumber }) {
   async function handleUpload(e) {
     const file = e.target.files[0]
     if (!file) return
+    const tooBig = fileSizeError(file)
+    if (tooBig) { setStatusType('error'); setStatus(tooBig); return }
     setUploading(true)
     try {
       const base64 = await new Promise((resolve, reject) => {
@@ -51,7 +54,7 @@ export default function MemberVault({ memberNumber }) {
         <p style={{ color: '#4e6087', fontSize: '13px', marginBottom: '20px' }}>Upload and manage your files. Drag and drop or click to upload.</p>
         <label style={{ display: 'block', border: '2px dashed #bac9e1', borderRadius: '12px', padding: '40px 20px', textAlign: 'center', cursor: 'pointer', marginBottom: '20px' }}>
           <p style={{ color: '#4e6087', fontSize: '14px', marginBottom: '8px' }}>Drag files here or click to browse</p>
-          <p style={{ color: '#697a9c', fontSize: '12px' }}>Max 50MB per file</p>
+          <p style={{ color: '#697a9c', fontSize: '12px' }}>Max 40MB per file</p>
           <input type="file" multiple style={{ display: 'none' }} onChange={handleUpload} />
         </label>
         {uploading && <p style={{ color: '#4e6087', fontSize: '14px' }}>Uploading...</p>}
