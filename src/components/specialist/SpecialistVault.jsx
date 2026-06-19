@@ -67,7 +67,6 @@ export default function SpecialistVault() {
             {files.length === 0 && <div style={{ color: '#697a9c', fontSize: '13px', marginBottom: '12px' }}>No documents yet.</div>}
             {files.map(f => (
               <div key={f.path} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '8px', marginBottom: '8px' }}>
-                <span>📄</span>
                 <span style={{ fontSize: '13px', color: '#243757', flex: 1 }}>{f.name}</span>
                 <span style={{ fontSize: '11px', color: '#697a9c' }}>{fmtSize(f.size)}</span>
                 <button onClick={() => view(f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>View</button>

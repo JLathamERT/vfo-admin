@@ -79,7 +79,7 @@ export default function MemberPortal() {
     msm_holistic: 'Holistic Planning', msm_partnership: 'Partnership Fast Track',
     msm_tax: 'Tax Planning', msm_coaching: 'Advanced Coaching',
     specialists: 'Specialists', showroom: 'Showroom', website: 'Website Plugin',
-    ciq: 'CIQ', growthplan: 'Growth Plan', gc: 'GC Marketplace', vault: 'The Vault'
+    ciq: 'CIQ', growthplan: 'Growth Plan', gc: 'GC Marketplace', vault: 'Vault'
   }
 
   return (

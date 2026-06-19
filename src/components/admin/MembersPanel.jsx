@@ -10,6 +10,8 @@ import AdvisorOnboarding from './AdvisorOnboarding'
 import AccountantOnboarding from './AccountantOnboarding'
 import AdminGrowthPlan from '../growth/AdminGrowthPlan'
 import { GP_STEPS } from '../growth/constants'
+import SendSetupEmailButton from './SendSetupEmailButton'
+import ListFilterButton, { matchesFilter, sortByJoin, SortSelect } from './ListFilterButton'
 import { MemberProfileDetailsSkeleton, Skeleton } from '../shared/Skeleton'
 import { TrackHero, ListHeader } from '../shared/TrackKit'
 
@@ -63,6 +65,7 @@ function AccountantsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onD
   return (
     <MemberDirectoryView
       displayMembers={accountantMembers}
+      typeOptions={ACCOUNTANT_TYPES}
       allMembers={allMembers}
       allExperts={allExperts}
       allExclusionMap={allExclusionMap}
@@ -236,6 +239,7 @@ function MemberDirectoryView({
   hiddenFields = [],
   growthPlan = false,
   listTitle = 'Members',
+  typeOptions = [],
 }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'search')
   useEffect(() => { setActiveTab(initialTab || 'search') }, [initialTab])
@@ -259,12 +263,20 @@ function MemberDirectoryView({
   }, [allMembers])
   const [memberFeatureTab, setMemberFeatureTab] = useState(sessionStorage.getItem(featureTabKey) || 'profile')
   const [memberSearch, setMemberSearch] = useState('')
+  const [listFilter, setListFilter] = useState({ status: ['Active'] })
+  const [listSort, setListSort] = useState('default')
+  const filterGroups = [
+    { key: 'status', label: 'Status', options: ['Active', 'Lost', 'Removed'], get: m => m.elite_status || 'Active' },
+    { key: 'model', label: 'Model', options: ['New Model', 'Legacy Model'], get: m => m.advisor_model || '' },
+    ...(typeOptions.length ? [{ key: 'type', label: 'Member Type', options: typeOptions, get: m => m.member_type || '' }] : []),
+  ]
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
 
-  const filteredMembers = memberSearch
+  const searched = memberSearch
     ? displayMembers.filter(m => m.name?.toLowerCase().includes(memberSearch) || m.plugin_member_number?.toLowerCase().includes(memberSearch))
     : displayMembers
+  const filteredMembers = searched.filter(m => matchesFilter(m, filterGroups, listFilter))
 
   return (
     <div>
@@ -273,12 +285,14 @@ function MemberDirectoryView({
 
       {activeTab === 'search' && !selectedMember && (
         <>
-          <ListHeader title={listTitle} count={displayMembers.length} />
-          <div style={{ marginBottom: '16px' }}>
+          <ListHeader title={listTitle} count={filteredMembers.length} />
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
             <input placeholder="Search by name or member number..." style={inputStyle} onChange={e => setMemberSearch(e.target.value.toLowerCase())} value={memberSearch} />
+            <ListFilterButton groups={filterGroups} value={listFilter} onChange={setListFilter} />
+            <SortSelect value={listSort} onChange={setListSort} />
           </div>
           <div>
-            {filteredMembers.map(m => (
+            {sortByJoin(filteredMembers, listSort).map(m => (
               <div key={m.plugin_member_number}
                 onClick={() => { setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem(selectedKey, m.plugin_member_number); sessionStorage.setItem(featureTabKey, 'profile_details') }}
                 style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 16px', marginBottom: '6px', background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '12px', boxShadow: '0 2px 8px rgba(20,45,95,0.04)', cursor: 'pointer' }}
@@ -314,9 +328,9 @@ function MemberDirectoryView({
             }
           />
           <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px', flexWrap: 'wrap', position: 'relative', zIndex: 50 }}>
-          <FeatureTabDropdown label="Profile" isActive={['profile_details','profile_edit','profile_history','profile_payments'].includes(memberFeatureTab)} options={[{key:'profile_details',label:'Profile'},{key:'profile_edit',label:'Edit Profile'},{key:'profile_history',label:'Type History'},{key:'profile_payments',label:'Payments'}]} onSelect={setMemberFeatureTab} />
+          <FeatureTabDropdown label="Profile" isActive={['profile_details','profile_edit','profile_history','vault','profile_payments','settings'].includes(memberFeatureTab)} options={[{key:'profile_details',label:'Profile'},{key:'profile_edit',label:'Edit Profile'},{key:'profile_history',label:'Type History'},{key:'vault',label:'Vault'},{key:'profile_payments',label:'Payments'},{key:'settings',label:'Settings'}]} onSelect={setMemberFeatureTab} />
           <FeatureTabDropdown label="MSM" isActive={['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab)} options={[{key:'msm_meetings',label:'MSM'},{key:'msm_program_holistic',label:'VFO Holistic Planning'},{key:'msm_program_partnership',label:'Partnership Fast Track'},{key:'msm_program_tax',label:'VFO Tax Planning'},{key:'msm_program_coaching',label:'Advanced Coaching'}]} onSelect={k => { setMemberFeatureTab(k); sessionStorage.setItem(featureTabKey, k) }} />
-            {[['specialists','Specialists'],['showroom','Showroom'],['website','Website Plugin'],['ciq','CIQ'],['gc','GC Marketplace'],['vault','The Vault'],['settings','Settings']].map(([key, label]) => (
+            {[['specialists','Specialists'],['showroom','Showroom'],['website','Website Plugin'],['ciq','CIQ'],['gc','GC Marketplace']].map(([key, label]) => (
             <Fragment key={key}>
               {growthPlan && key === 'ciq' && <FeatureTabDropdown label="Growth Plan" isActive={memberFeatureTab.startsWith('gp_')} options={GP_STEPS} onSelect={k => { setMemberFeatureTab(k); sessionStorage.setItem(featureTabKey, k) }} />}
               <button style={{ padding: '7px 16px', background: memberFeatureTab === key ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: memberFeatureTab === key ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: memberFeatureTab === key ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' }} onClick={() => { setMemberFeatureTab(key); sessionStorage.setItem(featureTabKey, key) }}>{label}</button>
@@ -343,6 +357,7 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onData
   return (
     <MemberDirectoryView
       displayMembers={allMembers.filter(m => m.member_category !== 'accountant')}
+      typeOptions={MEMBER_TYPES}
       allMembers={allMembers}
       allExperts={allExperts}
       allExclusionMap={allExclusionMap}
@@ -1067,26 +1082,18 @@ function MemberSettings({ member, onDataChange }) {
     <div>
       <div style={sectionStyle}>
         <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Member Login</div>
-        {loginLoading && <p style={{ color: '#4e6087', fontSize: '14px' }}>Loading...</p>}
-        {!loginLoading && !existingLogin && (
-          <>
-            <p style={{ color: '#697a9c', fontSize: '14px', marginBottom: '16px' }}>No login set up. Create one to give this member portal access.</p>
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
-              <div style={{ flex: 1 }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Email *</label><input value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="member@example.com" style={inputStyle} /></div>
-              <div style={{ flex: 1 }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Passcode *</label><input value={loginPasscode} onChange={e => setLoginPasscode(e.target.value)} placeholder="Login passcode" style={inputStyle} /></div>
-            </div>
-            <button onClick={createLogin} style={{ padding: '10px 24px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>Create Login</button>
-          </>
-        )}
-        {!loginLoading && existingLogin && (
-          <>
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
-              <div style={{ flex: 1 }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Email</label><input value={loginEmail} onChange={e => setLoginEmail(e.target.value)} style={inputStyle} /></div>
-              <div style={{ flex: 1 }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>New Passcode (leave blank to keep)</label><input value={loginPasscode} onChange={e => setLoginPasscode(e.target.value)} placeholder="New passcode" style={inputStyle} /></div>
-            </div>
-            <button onClick={updateLogin} style={{ padding: '10px 24px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>Update Login</button>
-          </>
-        )}
+        {loginLoading
+          ? <p style={{ color: '#4e6087', fontSize: '14px' }}>Loading...</p>
+          : (
+            <>
+              <p style={{ color: '#697a9c', fontSize: '14px', marginBottom: '16px' }}>
+                {existingLogin
+                  ? <>This member can sign in as <strong>{existingLogin.email}</strong>. Send a setup email to let them set a new passcode.</>
+                  : <>No login yet. Send a setup email so this member can create their own passcode.</>}
+              </p>
+              <SendSetupEmailButton loginType="member" subjectId={member.plugin_member_number} hint="Drafts a Gmail with a secure link. The member sets their own passcode." />
+            </>
+          )}
         {loginStatus && <p style={{ color: loginStatusType === 'success' ? '#1b9254' : '#d93025', fontSize: '13px', marginTop: '12px' }}>{loginStatus}</p>}
       </div>
       <div style={{ ...sectionStyle, border: '1px solid rgba(231,76,60,0.3)' }}>

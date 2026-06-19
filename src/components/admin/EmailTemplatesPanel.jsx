@@ -16,10 +16,14 @@ const SECTIONS = [
   { key: 'specialist', label: 'Specialist Onboarding', pipeline: 'SPECIALIST_ONBOARDING' },
   { key: 'pft', label: 'Partnership Fast Track', pipeline: 'PARTNERSHIP_FAST_TRACK' },
   { key: 'payments', label: 'Payments — Change Payment Method', pipeline: 'PAYMENTS' },
+  { key: 'login_setup', label: 'Account Setup — Login Invite', pipeline: 'LOGIN_SETUP' },
 ]
 
 // template_name -> plain-English label, in the order each email fires in the process.
 const TEMPLATE_META = {
+  'LOGIN_SETUP': [
+    ['MANUAL_login_setup', 'Manual login invite (member / specialist / client)'],
+  ],
   'MAP 1': [
     ['PIP1_reconfirmation|Yes', 'PIP 1 re-confirmation — meeting confirmed'],
     ['PIP1_reconfirmation|No', 'PIP 1 re-confirmation — declined'],

@@ -4,8 +4,12 @@ import { callApi } from '../../lib/api'
 import SpecialistOnboarding from './SpecialistOnboarding'
 import SpecialistAdminVault from './SpecialistAdminVault'
 import SpecialistPaymentsTab from '../payments/SpecialistPaymentsTab'
+import SendSetupEmailButton from './SendSetupEmailButton'
+import ListFilterButton, { matchesFilter, sortByJoin, SortSelect } from './ListFilterButton'
 
 const ECOSYSTEMS = ['Tax Planning', 'Business Advisory', 'Legal', 'Insurance', 'Wealth Management']
+const STATUS_COLORS = { Active: '#1b9254', Lost: '#e74c3c', Removed: '#4e6087' }
+const SPEC_FILTER_GROUPS = [{ key: 'status', label: 'Status', options: ['Active', 'Lost', 'Removed'], get: e => e.status || 'Active' }]
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
 const HEADSHOT_BASE = 'https://biz-diagnostic.com/Uploads/ExpertPhotos/'
 
@@ -34,8 +38,11 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   const [editPreview, setEditPreview] = useState(null)
   const [editCiqDrop, setEditCiqDrop] = useState('')
   const [editSearch, setEditSearch] = useState('')
+  const [specFilter, setSpecFilter] = useState({ status: ['Active'] })
+  const [specSort, setSpecSort] = useState('default')
   const [selectedExpert, setSelectedExpert] = useState(null)
   const [specialistTab, setSpecialistTab] = useState('profile')
+  const [profileDropOpen, setProfileDropOpen] = useState(false)
   const [searchParams] = useSearchParams()
 
   // Deep-link from the Stage 5 onboarding links: /admin?...&expert=<id> opens
@@ -60,7 +67,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
 
   function handleEditSelect(expert) {
     setEditingId(expert.id)
-    setEditForm({ name: expert.name || '', short_bio: expert.short_bio || '', long_bio: expert.long_bio || '', background_check: expert.background_check || '', top_of_t: expert.top_of_t || false, 'D&B_strategy_expertise': expert['D&B_strategy_expertise'] || '', 'D&B_cutoff_date': expert['D&B_cutoff_date'] || '', 'D&B_client_requirements': expert['D&B_client_requirements'] || '', 'D&B_investment_cost': expert['D&B_investment_cost'] || '', 'D&B_ideal_client': expert['D&B_ideal_client'] || '', 'D&B_summary_benefits': expert['D&B_summary_benefits'] || '', 'D&B_getting_started': expert['D&B_getting_started'] || '', 'D&B_professional_process': expert['D&B_professional_process'] || '', 'D&B_competitive_advantage': expert['D&B_competitive_advantage'] || '', 'D&B_audit_risk_general': expert['D&B_audit_risk_general'] || '', 'D&B_audit_risk_history': expert['D&B_audit_risk_history'] || '', 'D&B_audit_risk_worst_case': expert['D&B_audit_risk_worst_case'] || '', 'D&B_audit_risk_precautions': expert['D&B_audit_risk_precautions'] || '', 'D&B_tax_risk_mindset': expert['D&B_tax_risk_mindset'] || '', 'D&B_tax_risk_notes': expert['D&B_tax_risk_notes'] || '', 'D&B_revenue_share': expert['D&B_revenue_share'] || '' })
+    setEditForm({ name: expert.name || '', email: expert.email || '', status: expert.status || 'Active', leave_date: expert.leave_date ? String(expert.leave_date).split('T')[0] : '', join_date: expert.join_date ? String(expert.join_date).split('T')[0] : '', short_bio: expert.short_bio || '', long_bio: expert.long_bio || '', background_check: expert.background_check || '', top_of_t: expert.top_of_t || false, 'D&B_strategy_expertise': expert['D&B_strategy_expertise'] || '', 'D&B_cutoff_date': expert['D&B_cutoff_date'] || '', 'D&B_client_requirements': expert['D&B_client_requirements'] || '', 'D&B_investment_cost': expert['D&B_investment_cost'] || '', 'D&B_ideal_client': expert['D&B_ideal_client'] || '', 'D&B_summary_benefits': expert['D&B_summary_benefits'] || '', 'D&B_getting_started': expert['D&B_getting_started'] || '', 'D&B_professional_process': expert['D&B_professional_process'] || '', 'D&B_competitive_advantage': expert['D&B_competitive_advantage'] || '', 'D&B_audit_risk_general': expert['D&B_audit_risk_general'] || '', 'D&B_audit_risk_history': expert['D&B_audit_risk_history'] || '', 'D&B_audit_risk_worst_case': expert['D&B_audit_risk_worst_case'] || '', 'D&B_audit_risk_precautions': expert['D&B_audit_risk_precautions'] || '', 'D&B_tax_risk_mindset': expert['D&B_tax_risk_mindset'] || '', 'D&B_tax_risk_notes': expert['D&B_tax_risk_notes'] || '', 'D&B_revenue_share': expert['D&B_revenue_share'] || '' })
     setEditEcos(ecoMap[expert.id] || [])
     setEditCiq(ciqMap[expert.id] || [])
     setEditFile(null)
@@ -130,6 +137,9 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
         await callApi('upload_headshot', { filename: headshotFilename, file_base64: base64, content_type: file.type })
       }
       const expertData = { ...form }
+      // Dates: empty string -> null (Postgres rejects ""); Active clears the leave date.
+      expertData.leave_date = (expertData.status === 'Active' || !expertData.leave_date) ? null : expertData.leave_date
+      expertData.join_date = expertData.join_date || null
       if (headshotFilename) expertData.headshot_image = headshotFilename
       if (which === 'add') {
         const maxId = allExperts.reduce((m, e) => e.id > m ? e.id : m, 0)
@@ -173,6 +183,28 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
         <div style={fieldStyle}>
           <label style={labelStyle}>Name *</label>
           <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Full name" style={inputStyle} />
+        </div>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Email</label>
+          <input value={form.email || ''} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="specialist@example.com" style={inputStyle} />
+        </div>
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Status</label>
+            <select value={form.status || 'Active'} onChange={e => setForm(p => ({ ...p, status: e.target.value }))} style={{ ...inputStyle, background: '#ffffff' }}>
+              {['Active', 'Lost', 'Removed'].map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          {(form.status === 'Lost' || form.status === 'Removed') && (
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Leave Date</label>
+              <input type="date" value={form.leave_date || ''} onChange={e => setForm(p => ({ ...p, leave_date: e.target.value }))} style={inputStyle} />
+            </div>
+          )}
+        </div>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Join Date</label>
+          <input type="date" value={form.join_date || ''} onChange={e => setForm(p => ({ ...p, join_date: e.target.value }))} style={{ ...inputStyle, width: '200px' }} />
         </div>
         <div style={fieldStyle}>
           <label style={labelStyle}>Short Bio</label>
@@ -374,11 +406,13 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
       {/* Search/Edit tab */}
       {activeTab === 'edit' && !selectedExpert && (
         <>
-          <div style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
             <input placeholder="Search by name..." style={inputStyle} onChange={e => setEditSearch(e.target.value.toLowerCase())} value={editSearch} />
+            <ListFilterButton groups={SPEC_FILTER_GROUPS} value={specFilter} onChange={setSpecFilter} />
+            <SortSelect value={specSort} onChange={setSpecSort} />
           </div>
           <div>
-            {(editSearch ? allExperts.filter(e => e.name.toLowerCase().includes(editSearch)) : allExperts).map(expert => (
+            {sortByJoin((editSearch ? allExperts.filter(e => e.name.toLowerCase().includes(editSearch)) : allExperts).filter(e => matchesFilter(e, SPEC_FILTER_GROUPS, specFilter)), specSort).map(expert => (
               <div key={expert.id}
                 onClick={() => handleEditSelect(expert)}
                 style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', marginBottom: '4px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}
@@ -391,6 +425,9 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
                   <div style={{ fontSize: '14px', color: '#16264a' }}>{expert.name}</div>
                   <div style={{ fontSize: '12px', color: '#4e6087' }}>{expert.short_bio || '—'}</div>
                 </div>
+                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: '#16264a' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: STATUS_COLORS[expert.status] || '#1b9254', flexShrink: 0 }} />{expert.status || 'Active'}
+                </span>
               </div>
             ))}
           </div>
@@ -401,12 +438,19 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
         <div>
           <button onClick={() => { setSelectedExpert(null); setEditingId(null); setSpecialistTab('profile') }} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
 
-          <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', borderBottom: '1px solid #e3eaf5' }}>
-            {['profile', 'edit', 'vault', 'payments'].map(t => (
-              <button key={t} onClick={() => setSpecialistTab(t)} style={{ padding: '8px 16px', border: 'none', background: 'none', borderBottom: specialistTab === t ? '2px solid #125ecc' : '2px solid transparent', color: specialistTab === t ? '#125ecc' : '#4e6087', fontWeight: specialistTab === t ? 600 : 400, fontSize: '14px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: '-1px' }}>
-                {t === 'profile' ? 'Profile' : t === 'payments' ? 'Payments' : t === 'edit' ? 'Edit Specialist' : 'Vault'}
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', borderBottom: '1px solid #e3eaf5', position: 'relative', zIndex: 50 }}>
+            <div style={{ position: 'relative' }} onMouseEnter={() => setProfileDropOpen(true)} onMouseLeave={() => setProfileDropOpen(false)}>
+              <button style={{ padding: '8px 16px', border: 'none', background: 'none', borderBottom: '2px solid #125ecc', color: '#125ecc', fontWeight: 600, fontSize: '14px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: '-1px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                Profile<span style={{ fontSize: '9px', opacity: 0.6 }}>▾</span>
               </button>
-            ))}
+              {profileDropOpen && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, background: '#ffffff', border: '1px solid #e3eaf5', borderRadius: '12px', minWidth: '150px', zIndex: 200, padding: '4px 0', boxShadow: '0 14px 36px rgba(20,45,95,0.16)' }}>
+                  {[['profile','Profile'],['edit','Edit Profile'],['vault','Vault'],['payments','Payments'],['settings','Settings']].map(([k, l]) => (
+                    <button key={k} onClick={() => { setSpecialistTab(k); setProfileDropOpen(false) }} style={{ display: 'block', width: '100%', padding: '8px 16px', background: specialistTab === k ? '#eef2f9' : 'transparent', border: 'none', color: specialistTab === k ? '#125ecc' : '#16264a', fontWeight: specialistTab === k ? 600 : 400, fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }} onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'} onMouseLeave={e => e.currentTarget.style.background = specialistTab === k ? '#eef2f9' : 'transparent'}>{l}</button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {specialistTab === 'profile' && (
@@ -434,12 +478,23 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
                   style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '14px', cursor: 'pointer' }}>
                   Cancel
                 </button>
-                <button onClick={deleteSpecialist}
-                  style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontWeight: 500, fontSize: '14px', cursor: 'pointer' }}>
-                  Delete
-                </button>
               </div>
             </div>
+          )}
+
+          {specialistTab === 'settings' && (
+            <>
+              <div style={sectionStyle}>
+                <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Specialist Login</div>
+                <p style={{ fontSize: '14px', color: '#697a9c', marginBottom: '16px' }}>{selectedExpert.email ? <>Send a setup email to <strong>{selectedExpert.email}</strong> so they can set their own portal passcode.</> : <>Add an email in Edit Profile first, then send the setup email.</>}</p>
+                <SendSetupEmailButton loginType="specialist" subjectId={selectedExpert.id} hint="Drafts a Gmail with a secure link. The specialist sets their own passcode." />
+              </div>
+              <div style={{ ...sectionStyle, border: '1px solid rgba(231,76,60,0.3)' }}>
+                <div style={{ fontSize: '13px', color: '#e74c3c', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Danger Zone</div>
+                <p style={{ fontSize: '13px', color: '#697a9c', marginBottom: '12px' }}>Permanently delete this specialist. This cannot be undone.</p>
+                <button onClick={deleteSpecialist} style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.4)', background: 'transparent', color: '#e74c3c', fontWeight: 500, fontSize: '14px', cursor: 'pointer' }}>Delete Specialist</button>
+              </div>
+            </>
           )}
 
           {specialistTab === 'vault' && (
@@ -511,6 +566,7 @@ function SpecialistProfileView({ expert, ecos, ciq }) {
               {(expert.top_of_t || expert.background_check) && expert['D&B_tax_risk_mindset'] && <span style={{ color: '#c7d4e8' }}>·</span>}
               {expert['D&B_tax_risk_mindset'] && <span>{expert['D&B_tax_risk_mindset']}</span>}
             </div>
+            {expert.email && <div style={{ fontSize: '12.5px', color: '#4e6087', marginTop: '6px' }}>{expert.email}</div>}
           </div>
         </div>
       </div>
