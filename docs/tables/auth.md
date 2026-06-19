@@ -19,7 +19,7 @@ Stores live admin tokens. Cleaned up by the `auto_cleanup_expired_sessions` migr
 
 ## `allowed_admins`
 
-The admin allow-list. Passcodes are stored as a salted PBKDF2 hash in `passcode_hash` (the unsalted-SHA-256 `passcode` column was dropped 2026-05-29 — see SESSION_REFERENCE gotcha #47).
+The admin allow-list. Passcodes are stored as a salted PBKDF2 hash in `passcode_hash` (the unsalted-SHA-256 `passcode` column was dropped 2026-05-29 — see GOTCHAS.md gotcha #47).
 
 | Column | Type | Notes |
 |---|---|---|

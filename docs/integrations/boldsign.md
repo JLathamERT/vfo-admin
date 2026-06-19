@@ -79,7 +79,7 @@ Both handlers listen for two `event.eventType` values. The handler resolves the 
 
 **MAP 1 branch:**
 
-> **⚠️ The `Signed (… email)` rows below are nominal.** The webhook reads `signerDetails.signerEmail`, but BoldSign sends `signerDetails` as an **array**, so the email is always `""` and the `Signed (CEO email)` row never actually fires — every `Signed` event takes the "other signer" row. Harmless today because the CEO signs last and `Completed` sets `ceo_signed`. See SESSION_REFERENCE gotcha #46 (applies to all four pipeline branches, not just MAP 1).
+> **⚠️ The `Signed (… email)` rows below are nominal.** The webhook reads `signerDetails.signerEmail`, but BoldSign sends `signerDetails` as an **array**, so the email is always `""` and the `Signed (CEO email)` row never actually fires — every `Signed` event takes the "other signer" row. Harmless today because the CEO signs last and `Completed` sets `ceo_signed`. See GOTCHAS.md gotcha #46 (applies to all four pipeline branches, not just MAP 1).
 
 | Event | Behavior |
 |---|---|

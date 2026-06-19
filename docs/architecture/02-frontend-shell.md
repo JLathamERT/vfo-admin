@@ -156,7 +156,7 @@ The **fourth portal** (after admin/member/client), reached via `/specialist`. Ro
 
 #### Screen redesign additions (2026-06-10, branch `claude/goofy-panini-e681cd`)
 
-Styling/layout only — no routes, handlers, or data flow changed. See SESSION_REFERENCE gotcha #110 for the conventions + display-state rules.
+Styling/layout only — no routes, handlers, or data flow changed. See GOTCHAS.md gotcha #110 for the conventions + display-state rules.
 
 - New shared components: [`components/shared/TrackKit.jsx`](src/components/shared/TrackKit.jsx) (`TrackHero` / `PhaseBadge` / `ListHeader` — used by every track view, onboarding tracker, member/client/program header, and the 90 Day Plan) and [`components/shared/TokenShell.jsx`](src/components/shared/TokenShell.jsx) (branded wrapper around **all 14** public pay/decide/update-card token pages). [`components/admin/automation/StepKit.jsx`](src/components/admin/automation/StepKit.jsx) gained `PanelHero`, `EmptyState`, `TableCard` (used by all 6 automation panels).
 - [`SpecialistsPanel.jsx`](src/components/admin/SpecialistsPanel.jsx): Search Specialists → a specialist now has **4 tabs: Profile | Edit Specialist | Vault | Payments** (read-only Payments added 2026-06-15, last). **Profile is the new default landing** — a read-only `SpecialistProfileView` presenting the already-loaded `experts` row (no new API calls). The Stage-5 `?expert=` deep links still land on **Edit** (they exist for headshot/bio entry).

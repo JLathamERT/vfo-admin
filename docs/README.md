@@ -17,6 +17,9 @@ Four parallel automation chains follow the same pattern: **Tax Planning** ([flow
 ```
 docs/
 ├── README.md                         (this file — start here)
+├── SESSION_REFERENCE.md              (the LEAN live-state hub — read in FULL at session start)
+├── CHANGELOG.md                      (archived session-by-session history — newest-first; read on demand)
+├── GOTCHAS.md                        (full numbered gotcha registry #1–#146 — read on demand)
 ├── glossary.md                       (MAP1, PIP, PCADMIN, MSM, CIQ, etc.)
 ├── GROWTH_PLAN_HANDOFF.md            (Advisor Growth Plan — full feature build state; Phases 1–8 + custom priorities/sub-tasks)
 ├── SPECIALIST_DOC_SHARING_HANDOFF.md (spec-only — future per-document client→specialist sharing feature; not built)
