@@ -1,6 +1,8 @@
 import { Fragment, useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { callApi } from '../../lib/api'
+import { fileSizeError } from '../../lib/fileUpload'
+import MemberShowroom from '../member/MemberShowroom'
 import SpecialistOnboarding from './SpecialistOnboarding'
 import SpecialistAdminVault from './SpecialistAdminVault'
 import SpecialistPaymentsTab from '../payments/SpecialistPaymentsTab'
@@ -15,6 +17,11 @@ const HEADSHOT_BASE = 'https://biz-diagnostic.com/Uploads/ExpertPhotos/'
 
 export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataChange, section }) {
   if (section === 'specialist_onboarding') return <SpecialistOnboarding />
+  if (section === 'specialist_showroom') return (
+    <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', overflow: 'hidden' }}>
+      <MemberShowroom experts={allExperts} exclusions={[]} ecoMap={ecoMap} />
+    </div>
+  )
   const activeTab = section === 'add_specialist' ? 'add' : 'edit'
   const [addStatus, setAddStatus] = useState('')
   const [addStatusType, setAddStatusType] = useState('success')
@@ -82,6 +89,8 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   function handleFileChange(which, e) {
     const file = e.target.files[0]
     if (!file) return
+    const tooBig = fileSizeError(file)
+    if (tooBig) { window.alert(tooBig); e.target.value = ''; return }
     if (which === 'add') setAddFile(file)
     else setEditFile(file)
     const reader = new FileReader()

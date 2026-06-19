@@ -5,18 +5,21 @@ import SpecialistVault from '../components/specialist/SpecialistVault'
 import SpecialistShared from '../components/specialist/SpecialistShared'
 import ChangePasswordCard from '../components/shared/ChangePasswordCard'
 import VfoWordmark from '../components/shared/VfoWordmark'
+import MemberShowroom from '../components/member/MemberShowroom'
 
 // The specialist portal: two content tabs — their own document vault, and
 // "Shared with Me" (client documents the VFO team shared with them to review).
 export default function SpecialistPortal() {
   const navigate = useNavigate()
   const session = getSession()
-  const [tab, setTab] = useState('vault')
+  const [tab, setTab] = useState('showroom')
   const [unread, setUnread] = useState(0)
+  const [showroom, setShowroom] = useState(null)
 
   useEffect(() => {
     if (!session || session.role !== 'specialist') { navigate('/specialist/login'); return }
     refreshUnread()
+    loadShowroom()
   }, [])
 
   async function refreshUnread() {
@@ -24,16 +27,25 @@ export default function SpecialistPortal() {
     catch { /* badge is best-effort */ }
   }
 
+  async function loadShowroom() {
+    try {
+      const d = await callApi('specialist_showroom_load', {})
+      const eco = {}
+      ;(d.ecosystems || []).forEach(e => { if (!eco[e.expert_id]) eco[e.expert_id] = []; eco[e.expert_id].push(e.name) })
+      setShowroom({ experts: d.experts || [], ecoMap: eco })
+    } catch { setShowroom({ experts: [], ecoMap: {} }) }
+  }
+
   if (!session || session.role !== 'specialist') return null
 
   function signOut() { clearSession(); navigate('/specialist/login') }
 
-  const TABS = [['vault', 'Vault'], ['shared', 'Shared with Me']]
+  const TABS = [['showroom', 'Showroom'], ['vault', 'Vault'], ['shared', 'Shared with Me']]
 
   return (
     <div style={{ minHeight: '100vh', background: '#f4f7fd', color: '#16264a', fontFamily: 'Inter, sans-serif' }}>
       <div style={{ background: 'linear-gradient(90deg, #002973 0%, #125ecc 100%)', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '58px', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(0,41,115,0.25)' }}>
-        <VfoWordmark size={17} light onClick={() => setTab('vault')} />
+        <VfoWordmark size={17} light onClick={() => setTab('showroom')} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.88)', fontWeight: 500 }}>{session.name || session.email}</span>
           <button onClick={() => setTab('settings')} style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,255,255,0.32)', background: tab === 'settings' ? 'rgba(255,255,255,0.18)' : 'transparent', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Settings</button>
@@ -41,26 +53,39 @@ export default function SpecialistPortal() {
         </div>
       </div>
 
-      <div style={{ maxWidth: '880px', margin: '0 auto', padding: '28px 24px' }}>
-        {tab === 'settings' ? (
+      {tab !== 'settings' && (
+        <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', padding: '0 24px', background: '#ffffff', position: 'relative', zIndex: 100 }}>
+          {TABS.map(([key, label]) => (
+            <button key={key} onClick={() => setTab(key)} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '14px 20px', background: 'transparent', border: 'none', borderBottom: tab === key ? '2px solid #125ecc' : '2px solid transparent', color: tab === key ? '#125ecc' : '#4e6087', fontSize: '14px', fontWeight: tab === key ? '600' : '400', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>
+              {label}
+              {key === 'shared' && unread > 0 && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '999px', background: '#e74c3c', color: '#fff', fontSize: '11px', fontWeight: 700 }}>{unread}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === 'showroom' && (
+        showroom
+          ? <MemberShowroom experts={showroom.experts} exclusions={[]} ecoMap={showroom.ecoMap} />
+          : <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading…</div>
+      )}
+      {tab === 'vault' && (
+        <div style={{ maxWidth: '880px', margin: '0 auto', padding: '28px 24px' }}>
+          <SpecialistVault />
+        </div>
+      )}
+      {tab === 'shared' && (
+        <div style={{ maxWidth: '880px', margin: '0 auto', padding: '28px 24px' }}>
+          <SpecialistShared onUnreadChange={refreshUnread} />
+        </div>
+      )}
+      {tab === 'settings' && (
+        <div style={{ maxWidth: '880px', margin: '0 auto', padding: '28px 24px' }}>
           <ChangePasswordCard action="specialist_update_login" />
-        ) : (
-          <>
-            <div style={{ display: 'flex', gap: '24px', borderBottom: '1px solid #e3eaf5', marginBottom: '24px' }}>
-              {TABS.map(([key, label]) => (
-                <button key={key} onClick={() => setTab(key)} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', background: 'transparent', border: 'none', cursor: 'pointer', padding: '10px 4px', fontSize: '15px', fontFamily: 'Inter, sans-serif', fontWeight: 600, color: tab === key ? '#125ecc' : '#4e6087', borderBottom: tab === key ? '2px solid #125ecc' : '2px solid transparent' }}>
-                  {label}
-                  {key === 'shared' && unread > 0 && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '999px', background: '#e74c3c', color: '#fff', fontSize: '11px', fontWeight: 700 }}>{unread}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-            {tab === 'vault' && <SpecialistVault />}
-            {tab === 'shared' && <SpecialistShared onUnreadChange={refreshUnread} />}
-          </>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

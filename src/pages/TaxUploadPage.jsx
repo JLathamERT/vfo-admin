@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { fileSizeError } from '../lib/fileUpload'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/*,application/pdf'
@@ -7,6 +8,8 @@ const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/*,application/p
 // Mint a one-time signed upload url (token-gated), then PUT the bytes straight
 // to the private client-tax-returns bucket. Mirrors the Specialist DDC pattern.
 async function uploadFile(token, file) {
+  const tooBig = fileSizeError(file)
+  if (tooBig) throw new Error(tooBig)
   const r1 = await fetch(API_URL, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'vault_tax_upload_url', token, filename: file.name }),

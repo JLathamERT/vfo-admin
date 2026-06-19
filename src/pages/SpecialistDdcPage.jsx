@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { fileSizeError } from '../lib/fileUpload'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
@@ -23,6 +24,8 @@ const EMPTY = {
 // Uploads a single file: mint a one-time signed upload url (token-gated), then PUT
 // the bytes straight to the private bucket. Returns the stored file reference.
 async function uploadFile(token, slot, file) {
+  const tooBig = fileSizeError(file)
+  if (tooBig) throw new Error(tooBig)
   const r1 = await fetch(API_URL, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'automation_SPECIALIST_ddcuploadurl', token, slot, filename: file.name }),

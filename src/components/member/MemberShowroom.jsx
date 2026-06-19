@@ -38,6 +38,51 @@ function Avatar({ expert, big }) {
   return <img src={src} alt={formatName(expert.name)} onError={() => setStage(s => s + 1)} />
 }
 
+// Background-check tiers, styled so the symbol is nicest for Max, a notch down
+// for Core, and minimal for Lite. Empty/unknown background_check → no badge.
+const BG_CHECK_TIERS = {
+  Max:  { bg: 'linear-gradient(135deg,#ffe7a0 0%,#e8b73e 100%)', fg: '#3a2c05', border: 'rgba(255,255,255,0.55)', glow: '0 3px 12px rgba(232,183,62,0.6)', star: true },
+  Core: { bg: 'linear-gradient(135deg,#d6e6ff 0%,#9cc0f2 100%)', fg: '#0c2c54', border: 'rgba(255,255,255,0.5)', glow: 'none', star: false },
+  Lite: { bg: 'rgba(255,255,255,0.14)', fg: 'rgba(255,255,255,0.9)', border: 'rgba(255,255,255,0.28)', glow: 'none', star: false },
+}
+
+function ShieldCheck({ size = 12 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" style={{ flexShrink: 0 }}>
+      <path d="M12 2 4 5v6c0 5 3.5 8.4 8 11 4.5-2.6 8-6 8-11V5l-8-3z" fill="currentColor" opacity="0.16" />
+      <path d="M12 2 4 5v6c0 5 3.5 8.4 8 11 4.5-2.6 8-6 8-11V5l-8-3z" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M8.4 12.1l2.3 2.3 4.9-4.9" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+// `large` = modal variant (shows the explicit tier); compact card variant otherwise.
+function BackgroundCheckBadge({ value, large = false }) {
+  const cfg = BG_CHECK_TIERS[value]
+  if (!cfg) return null
+  return (
+    <span
+      title={`Background check: ${value}`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: large ? '7px' : '5px',
+        padding: large ? '5px 13px' : '3px 10px', borderRadius: '999px',
+        background: cfg.bg, color: cfg.fg, border: `1px solid ${cfg.border}`,
+        boxShadow: cfg.glow, fontFamily: '"DM Sans", sans-serif',
+        fontSize: large ? '12px' : '10.5px', fontWeight: 700, letterSpacing: '0.02em',
+        lineHeight: 1, whiteSpace: 'nowrap',
+      }}
+    >
+      <ShieldCheck size={large ? 14 : 12} />
+      {large ? `Background Verified · ${value}` : 'Background Check'}
+      {cfg.star && (
+        <svg viewBox="0 0 24 24" width={large ? 12 : 10} height={large ? 12 : 10} fill="currentColor" style={{ flexShrink: 0 }}>
+          <path d="M12 2l2.4 5.9L20.5 9l-4.6 4 1.4 6.4L12 16.9 6.7 19.4 8.1 13 3.5 9l6.1-1.1L12 2z" />
+        </svg>
+      )}
+    </span>
+  )
+}
+
 function ShowroomModal({ expert, onClose }) {
   // useLayoutEffect (not useEffect) so the scroll lock applies BEFORE the browser
   // paints the modal — otherwise the background reflow lands a frame late and the
@@ -74,6 +119,7 @@ function ShowroomModal({ expert, onClose }) {
           <div>
             <h3 className="vfo-sr-modal-name">{formatName(expert.name)}</h3>
             <p className="vfo-sr-modal-tagline">{expert.short_bio || ''}</p>
+            {expert.background_check && <div style={{ marginTop: '10px' }}><BackgroundCheckBadge value={expert.background_check} large /></div>}
           </div>
         </div>
         {(expert.categories || []).length > 0 && (
@@ -138,6 +184,7 @@ export default function MemberShowroom({ experts = [], exclusions = [], ecoMap =
                     <h3 className="vfo-sr-card-name">{formatName(ex.name)}</h3>
                     <p className="vfo-sr-card-tagline">{ex.short_bio || ''}</p>
                   </div>
+                  {ex.background_check && <BackgroundCheckBadge value={ex.background_check} />}
                 </div>
               </div>
             ))}
