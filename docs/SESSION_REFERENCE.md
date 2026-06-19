@@ -20,6 +20,19 @@
 
 ---
 
+## 🔒 SECURITY INVARIANTS *(check on EVERY DB or handler change — these must NOT regress)*
+
+Non-negotiables from the 2026-06-18 security remediation. Re-check any time you add a table, policy, handler, or function — do not let a new feature quietly undo these:
+
+1. **Every new public table = RLS deny-all + verify.** Create it with `enable row level security` + `create policy "Deny all access" … for all to public using (false)` in the SAME migration, then confirm with an anon-key probe (`curl --head -H "apikey:<anon>" -H "Authorization:Bearer <anon>" -H "Prefer:count=exact" "<base>/rest/v1/<table>?select=*"` → must be `Content-Range: */0`). The anon key is PUBLIC and `anon`/`authenticated` hold full table grants, so RLS is the ONLY thing protecting the DB. (gotcha #141)
+2. **Every member-facing AUTH handler = caller-ownership check on `auth.callerMemberNumber`, NEVER a body id.** The edge fn runs as service-role (bypasses RLS), so a handler that reads/writes by a body `client_id`/`ciq_id`/`enrollment_id` without re-checking ownership is an IDOR. Reuse `utils/client-ownership.ts` (`denyIfNotOwnClient`/`denyIfNotOwnEnrollment`) + `actions/ciq/shared.ts denyIfNotOwnCiq`. Role-gates are deny-by-OMISSION + matched by EXACT action name. (gotcha #142)
+3. **Every new SECURITY DEFINER function = pin `search_path` + `REVOKE EXECUTE … FROM public`.** (gotcha #143)
+4. **After ANY DB/table/policy/function change → run the Supabase security advisor (`get_advisors`, type `security`) and confirm it's GREEN** — this is the automated net that catches a regressed (anon-reachable) table before it ships. It is part of the VERIFICATION GATE below.
+
+Full audit history + live-verified detail: CURRENT STATE entry + gotchas #141–#146.
+
+---
+
 ## REPOS
 
 **Frontend** (`vfo-react`)
@@ -352,6 +365,10 @@ cd C:\vfo-edge-functions  # or worktree path
 ```
 
 Pass = **0 errors**. Any error = fail. (Baseline was 7 until 2026-05-29; cleared via null-guards — see gotcha #45.)
+
+### Security advisor gate *(run after ANY DB / table / policy / function change)*
+
+Run the Supabase security advisor via MCP — `get_advisors { project_id: "ejpsprsmhpufwogbmxjv", type: "security" }` — and confirm it's **GREEN**. Acceptable remaining lints: the intentional `rls_enabled_no_policy` INFO on the deny-all tables + the `extension_in_public` (`pg_net`) WARN. **Any new `rls_disabled_in_public` / `sensitive_columns_exposed` (ERROR) or `rls_policy_always_true` (WARN) means a table regressed to anon-reachable → STOP and fix before committing.** See SECURITY INVARIANTS (top of this doc) + gotchas #141/#143.
 
 
 ```powershell
