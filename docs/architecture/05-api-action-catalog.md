@@ -220,6 +220,7 @@ All dispatched AFTER `middleware/auth.ts::authenticate()` validates body.token. 
 |---|---|---|---|---|
 | `save_member` | `actions/members/save.ts` | — | `member_plugin_settings`, `member_exclusions` (delete+insert) | — |
 | `load_exclusions` | `actions/members/load-exclusions.ts` | `member_exclusions` | — | — |
+| `member_save_exclusions` | `actions/members/save-exclusions.ts` | — | `member_exclusions` (delete+insert) | **MEMBER_SCOPED** (added 2026-06-19). The member-portal Specialists "Save" — writes ONLY the caller's own exclusions (`member_number` forced by middleware); never touches `member_plugin_settings`. Replaced the admin-only `save_member` here (fixed the member 403). |
 | `add_member` | `actions/members/add.ts` | — | `member_plugin_settings` | — |
 | `delete_member` | `actions/members/delete.ts` | — | `member_plugin_settings` (delete; cascades) | — |
 | `add_member_full` | `actions/members/add-full.ts` | `members`, `member_number_baselines` (when auto-generating) | `member_plugin_settings`, `members` (incl. `advisor_model` + `member_category` + `trading_name` from the Add forms; **auto-generates `member_number` via `nextMemberNumber()` when the caller leaves it blank** — gotcha #48; does NOT default `revenue_decision='Revenue Share'` when `member_category='accountant'`), optional `member_logins` | — |
@@ -282,7 +283,7 @@ A `client` session may call ONLY these (4 vault + `client_showroom_load`). Each 
 
 #### Specialist vault — specialist side (added this session, gated by `SPECIALIST_ALLOWED_ACTIONS`)
 
-A `specialist` session may call ONLY these four. Each is scoped to `auth.callerSpecialistId` — never a body `expert_id`. Single "General Documentation" section over the private `specialist-documents` bucket (namespaced by `expert_id`).
+A `specialist` session may call ONLY the `SPECIALIST_ALLOWED_ACTIONS` allowlist. The four vault actions below are scoped to `auth.callerSpecialistId` — never a body `expert_id`; single "General Documentation" section over the private `specialist-documents` bucket (namespaced by `expert_id`). The allowlist also includes the `specialist_shared_*` doc-sharing actions, `specialist_update_login`, and — new 2026-06-19 — **`specialist_showroom_load`** (`actions/data/specialist-showroom-load.ts`): returns all **Active** experts + ecosystems (email stripped, no exclusions) for the specialist-portal **Showroom** tab — the same data as the admin Showroom.
 
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
