@@ -9,6 +9,7 @@ import SendSetupEmailButton from '../components/admin/SendSetupEmailButton'
 import ClientPaymentsTab from '../components/payments/ClientPaymentsTab'
 import PFTEngagementTrack from '../components/admin/pft/PFTEngagementTrack'
 import TaxPrioritiesTab from '../components/admin/tax/TaxPrioritiesTab'
+import PaymentContinuationTab from '../components/admin/migration/PaymentContinuationTab'
 import AddGeneralNote from '../components/shared/AddGeneralNote'
 import { PhaseNotesButton, PhaseNotesPanel } from '../components/shared/PhaseNotes'
 import { Skeleton, ProfileTabSkeleton } from '../components/shared/Skeleton'
@@ -171,7 +172,7 @@ export default function ClientDetail() {
             <>
               {isMember
                 ? <button style={tabStyle(activeTab === 'home')} onClick={() => setActiveTab('home')}>Profile</button>
-                : <ClientTabDropdown label="Profile" isActive={activeTab === 'home' || activeTab === 'details' || activeTab === 'vault' || activeTab === 'payments' || activeTab === 'settings'} options={[{key:'home',label:'Profile'},{key:'details',label:'Edit Profile'},{key:'vault',label:'Vault'},{key:'payments',label:'Payments'},{key:'settings',label:'Settings'}]} onSelect={setActiveTab} />
+                : <ClientTabDropdown label="Profile" isActive={activeTab === 'home' || activeTab === 'details' || activeTab === 'vault' || activeTab === 'payments' || activeTab === 'settings' || activeTab === 'continuation'} options={[{key:'home',label:'Profile'},{key:'details',label:'Edit Profile'},{key:'vault',label:'Vault'},{key:'payments',label:'Payments'},{key:'settings',label:'Settings'},...(session?.is_superadmin ? [{key:'continuation',label:'Payment Continuation'}] : [])]} onSelect={setActiveTab} />
               }
               {program?.name === 'Partnership Fast Track' ? (
                 <button style={tabStyle(activeTab === 'pft')} onClick={() => setActiveTab('pft')}>PFT Engagement Process</button>
@@ -208,6 +209,9 @@ export default function ClientDetail() {
                 <p style={{ fontSize: '14px', color: '#697a9c', marginBottom: '16px' }}>Send a setup email so this client can create their own portal passcode.</p>
                 <SendSetupEmailButton loginType="client" subjectId={parseInt(clientId)} hint="Drafts a Gmail with a secure link. The client sets their own passcode." />
               </div>
+            )}
+            {activeTab === 'continuation' && !isMember && session?.is_superadmin && (
+              <PaymentContinuationTab clientId={parseInt(clientId)} client={client} />
             )}
           </>
         )}
