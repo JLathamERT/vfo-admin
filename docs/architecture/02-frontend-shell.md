@@ -62,13 +62,13 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | Header | line 198-220: hover-style title, `NotificationBell`, session name, conditional Admin Editor (superadmin only), Settings, Sign Out |
 | Nav model | Four `NavDropdown` components: **Advisors**, **Accountants**, **Specialists**, **Automation**, plus a plain **Payments** tab button — **Automation** AND **Payments** render ONLY when `session.is_superadmin` (Jake-only lock; non-superadmin admins don't see them, and persisted-tab-restore + deep-link guards block reaching them). The **Payments** tab (added 2026-06-16) mounts `AllPaymentsTab` — the admin GLOBAL Payments page. |
 | Active tab/section state | tracked in both React state AND `sessionStorage` (keys `adminActiveTab`, `adminMembersSection`, etc.) so refresh preserves location |
-| Body routing | `activeTab === 'specialists'` → SpecialistsPanel; `'advisors'`/`'accountants'` → MembersPanel; `'automation' && automationSection === 'map1_pipeline'` → AutomationPanel; `'automation' && automationSection === 'email_templates'` → EmailTemplatesPanel; `'payments' && is_superadmin` → AllPaymentsTab (added 2026-06-16) |
+| Body routing | `activeTab === 'specialists'` → SpecialistsPanel; `'advisors'`/`'accountants'` → MembersPanel (which early-returns `MemberKpiPanel` for the `advisor_kpis`/`accountant_kpis` sections); `'automation' && automationSection === 'map1_pipeline'` → AutomationPanel; `'automation' && automationSection === 'email_templates'` → EmailTemplatesPanel; `'payments' && is_superadmin` → AllPaymentsTab (added 2026-06-16) |
 
 **Advisors dropdown items:**
-- Advisor Search / Add Advisor / Advisor Onboarding
+- Advisor Search / **Advisor KPIs** / Add Advisor / Advisor Onboarding
 
 **Accountants dropdown items:**
-- Accountant Search / Add Accountant / Accountant Onboarding
+- Accountant Search / **Accountant KPIs** / Add Accountant / Accountant Onboarding
 
 **Specialists dropdown items:**
 - Search Specialists / Add Specialist / Onboarding
@@ -89,6 +89,8 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 - `showSettings`: mounts [AdminSettings](src/components/admin/AdminSettings.jsx) — calls `update_my_passcode`
 
 > **Note:** `MembersPanel` was refactored 2026-05-28 to share a `MemberDirectoryView` between Advisors and Accountants. Both `AdvisorsPanel` and `AccountantsPanel` are now thin wrappers around that shared view (search input + member list + click-into-profile with the full Profile / MSM / Specialists / Showroom / Website Plugin / CIQ / Growth Plan / GC Marketplace / The Vault / Settings multi-tab profile). Type-specific props the wrappers pass: `displayMembers` (filtered list — `AccountantsPanel` filters `member_category==='accountant'`, `AdvisorsPanel` shows everyone-not-accountant; the old `ACCOUNTANT_TYPES` heuristic was retired 2026-05-29, gotcha #48), `addForm` (`<AddAdvisorForm/>` vs `<AddAccountantForm/>`), `selectedKey` and `featureTabKey` (separate sessionStorage keys so advisor + accountant selections don't collide), and `hiddenFields` (array of field names to suppress in `MemberProfile` — accountants pass `['revenue_decision']` because accountants don't have a revenue decision; the member-side `MemberPortal.MemberProfile` independently hides it when `member_category==='accountant'`). To hide more tabs/fields per type later, just add the key to the array. There's also an `AccountantOnboarding` section that mounts the dedicated onboarding panel (separate from the search list).
+
+> **KPI pages (added 2026-06-23):** `MembersPanel` also early-returns [`MemberKpiPanel`](src/components/admin/MemberKpiPanel.jsx) for the `advisor_kpis` / `accountant_kpis` sections (2nd dropdown item under Advisors/Accountants). Single shared component, prop `category='advisor'|'accountant'`. Read-only membership analytics computed client-side from the already-loaded `load_data` `members` array — **no new backend action**. Advisor pool = `member_category !== 'accountant'` (includes null-category Corporate Members, matching Advisor Search); accountant pool = `member_category === 'accountant'`. Clickable status lens (Total/Active/Suspended/Paused/Lost/Removed) cross-filters the page — **Active includes suspended & paused** (both are booleans layered on Active; shown as subsets). Plus a Legacy-vs-New `advisor_model` split and a member-type family breakdown (exact type→family map + an "Other" catch-all so counts reconcile; multi-section families sort before single-type ones).
 
 #### AdminPortal `callApi` chain
 
