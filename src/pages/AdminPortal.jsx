@@ -218,6 +218,7 @@ export default function AdminPortal() {
       key: 'advisors', header: null,
       options: [
         { key: 'advisor_search', label: 'Advisor Search' },
+        { key: 'advisor_kpis', label: 'Advisor KPIs' },
         { key: 'add_advisor', label: 'Add Advisor' },
         { key: 'advisor_onboarding', label: 'Advisor Onboarding' },
       ]
@@ -229,6 +230,7 @@ export default function AdminPortal() {
       key: 'accountants', header: null,
       options: [
         { key: 'accountant_search', label: 'Accountant Search' },
+        { key: 'accountant_kpis', label: 'Accountant KPIs' },
         { key: 'add_accountant', label: 'Add Accountant' },
         { key: 'accountant_onboarding', label: 'Accountant Onboarding' },
       ]

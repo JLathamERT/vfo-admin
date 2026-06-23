@@ -8,6 +8,7 @@ import MemberPaymentsTab from '../payments/MemberPaymentsTab'
 import MSMTracking from './MSMTracking'
 import AdvisorOnboarding from './AdvisorOnboarding'
 import AccountantOnboarding from './AccountantOnboarding'
+import MemberKpiPanel from './MemberKpiPanel'
 import AdminGrowthPlan from '../growth/AdminGrowthPlan'
 import { GP_STEPS } from '../growth/constants'
 import SendSetupEmailButton from './SendSetupEmailButton'
@@ -44,6 +45,8 @@ const ACCOUNTANT_TYPES = [
 export default function MembersPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, section, navClickCount }) {
   if (section === 'advisor_onboarding') return <AdvisorOnboarding />
   if (section === 'accountant_onboarding') return <AccountantOnboarding />
+  if (section === 'advisor_kpis') return <MemberKpiPanel allMembers={allMembers} category="advisor" />
+  if (section === 'accountant_kpis') return <MemberKpiPanel allMembers={allMembers} category="accountant" />
   if (section === 'accountant_search' || section === 'add_accountant') {
     return (
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
