@@ -9,6 +9,7 @@ import SpecialistPaymentsTab from '../payments/SpecialistPaymentsTab'
 import SendSetupEmailButton from './SendSetupEmailButton'
 import SpecialistKpiPanel from './SpecialistKpiPanel'
 import ListFilterButton, { matchesFilter, sortByJoin, SortSelect } from './ListFilterButton'
+import ImageCropModal from './ImageCropModal'
 
 const ECOSYSTEMS = ['Tax Planning', 'Business Advisory', 'Legal', 'Insurance', 'Wealth Management']
 const STATUS_COLORS = { Active: '#1b9254', Lost: '#e74c3c', Removed: '#4e6087' }
@@ -30,6 +31,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   const [editStatus, setEditStatus] = useState('')
   const [editStatusType, setEditStatusType] = useState('success')
   const [editingId, setEditingId] = useState(null)
+  const [cropState, setCropState] = useState(null) // { which, src } while the zoom/crop editor is open
   const [connectBusy, setConnectBusy] = useState(false)
   const [connectMsg, setConnectMsg] = useState('')
 
@@ -95,14 +97,25 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
     if (!file) return
     const tooBig = fileSizeError(file)
     if (tooBig) { window.alert(tooBig); e.target.value = ''; return }
-    if (which === 'add') setAddFile(file)
-    else setEditFile(file)
+    // Open the zoom/crop editor instead of using the raw file — the cropped square
+    // PNG it returns becomes the upload.
     const reader = new FileReader()
-    reader.onload = ev => {
-      if (which === 'add') setAddPreview(ev.target.result)
-      else setEditPreview(ev.target.result)
-    }
+    reader.onload = ev => setCropState({ which, src: ev.target.result })
     reader.readAsDataURL(file)
+    e.target.value = '' // let the same file be re-picked later
+  }
+
+  function applyCrop(dataUrl) {
+    const which = cropState?.which || 'add'
+    // data URL -> File so the existing base64 upload path is unchanged.
+    const bstr = atob(dataUrl.split(',')[1])
+    let n = bstr.length
+    const u8 = new Uint8Array(n)
+    while (n--) u8[n] = bstr.charCodeAt(n)
+    const file = new File([u8], 'headshot.png', { type: 'image/png' })
+    if (which === 'add') { setAddFile(file); setAddPreview(dataUrl) }
+    else { setEditFile(file); setEditPreview(dataUrl) }
+    setCropState(null)
   }
 
   function toggleEco(which, eco) {
@@ -372,15 +385,24 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
         <div style={fieldStyle}>
           <label style={labelStyle}>Headshot</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '80px', height: '80px', borderRadius: '8px', background: '#eef2f9', border: '1px solid #d6e0ee', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              {preview ? <img src={preview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { if (which === 'edit') { const exp = allExperts.find(x => x.id === editingId); if (exp) e.target.src = HEADSHOT_BASE + exp.headshot_image } }} /> : <span style={{ color: '#4e6087', fontSize: '24px' }}>?</span>}
+            <div
+              onClick={() => { if (preview) setCropState({ which, src: preview }) }}
+              title={preview ? 'Click to adjust / zoom' : ''}
+              style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#eef2f9', border: '1px solid #d6e0ee', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: preview ? 'pointer' : 'default', flexShrink: 0 }}>
+              {preview ? <img src={preview} crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { if (which === 'edit') { const exp = allExperts.find(x => x.id === editingId); if (exp) e.target.src = HEADSHOT_BASE + exp.headshot_image } }} /> : <span style={{ color: '#4e6087', fontSize: '24px' }}>?</span>}
             </div>
             <div>
               <label style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #c7d4e8', background: '#eef2f9', color: '#16264a', fontSize: '13px', cursor: 'pointer' }}>
                 Choose Image
                 <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleFileChange(which, e)} />
               </label>
-              <p style={{ color: '#4e6087', fontSize: '12px', marginTop: '6px' }}>JPG or PNG, recommended 400×400px</p>
+              {preview && (
+                <button type="button" onClick={() => setCropState({ which, src: preview })}
+                  style={{ marginLeft: '8px', padding: '8px 16px', borderRadius: '6px', border: '1px solid #125ecc', background: '#fff', color: '#125ecc', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                  Adjust / Zoom
+                </button>
+              )}
+              <p style={{ color: '#4e6087', fontSize: '12px', marginTop: '6px' }}>JPG or PNG, recommended 400×400px. Click the photo to adjust &amp; zoom.</p>
             </div>
           </div>
         </div>
@@ -435,6 +457,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
+      {cropState && <ImageCropModal src={cropState.src} onApply={applyCrop} onCancel={() => setCropState(null)} />}
       {/* Section title */}
       <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a', marginBottom: '24px' }}>
         {activeTab === 'add' ? 'Add Specialist' : 'Search Specialists'}
@@ -610,7 +633,7 @@ function SpecialistProfileView({ expert, ecos, ciq }) {
       <div style={{ ...sectionStyle, padding: 0, overflow: 'hidden' }}>
         <div style={{ height: '4px', background: 'linear-gradient(90deg, #002973 0%, #125ecc 55%, #0a85e8 100%)' }} />
         <div style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
-          <div style={{ width: '72px', height: '72px', borderRadius: '16px', overflow: 'hidden', background: '#eef2f9', border: '1px solid #dde5f2', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '72px', height: '72px', borderRadius: '50%', overflow: 'hidden', background: '#eef2f9', border: '1px solid #dde5f2', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {expert.headshot_image
               ? <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.src = HEADSHOT_BASE + expert.headshot_image }} />
               : <span style={{ color: '#9aa6bf', fontSize: '24px', fontWeight: 700 }}>{(expert.name || '?').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()}</span>}
