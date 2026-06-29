@@ -79,6 +79,7 @@ export default function AdminPortal() {
   const [accountantsSection, setAccountantsSection] = useState(sessionStorage.getItem('adminAccountantsSection') || 'accountant_search')
   const [navClickCount, setNavClickCount] = useState(0)
   const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getItem('adminSpecialistsSection') || 'specialist_search')
+  const [strategicSection, setStrategicSection] = useState(sessionStorage.getItem('adminStrategicSection') || 'strategic_member_search')
   const [automationSection, setAutomationSection] = useState(sessionStorage.getItem('adminAutomationSection') || 'map1_pipeline')
   const [showEditor, setShowEditor] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -108,6 +109,7 @@ export default function AdminPortal() {
       const sectionSetters = {
         advisors: [setAdvisorsSection, 'adminAdvisorsSection'],
         accountants: [setAccountantsSection, 'adminAccountantsSection'],
+        strategic: [setStrategicSection, 'adminStrategicSection'],
         specialists: [setSpecialistsSection, 'adminSpecialistsSection'],
         automation: [setAutomationSection, 'adminAutomationSection'],
       }
@@ -168,6 +170,18 @@ export default function AdminPortal() {
     sessionStorage.setItem('adminAccountantsSection', key)
     sessionStorage.removeItem('adminSelectedMember')
     sessionStorage.removeItem('adminMemberFeatureTab')
+    setNavClickCount(c => c + 1)
+    setShowEditor(false)
+    setShowSettings(false)
+  }
+
+  function selectStrategicSection(key) {
+    setActiveTab('strategic')
+    sessionStorage.setItem('adminActiveTab', 'strategic')
+    setStrategicSection(key)
+    sessionStorage.setItem('adminStrategicSection', key)
+    sessionStorage.removeItem('adminSelectedStrategicMember')
+    sessionStorage.removeItem('adminStrategicFeatureTab')
     setNavClickCount(c => c + 1)
     setShowEditor(false)
     setShowSettings(false)
@@ -237,11 +251,23 @@ export default function AdminPortal() {
     },
   ]
 
+  const strategicDropdownItems = [
+    {
+      key: 'strategic', header: null,
+      options: [
+        { key: 'strategic_member_search', label: 'Strategic Member Search' },
+        { key: 'strategic_member_kpis', label: 'Strategic Member KPIs' },
+        { key: 'add_strategic_member', label: 'Add Strategic Member' },
+      ]
+    },
+  ]
+
   const specialistsDropdownItems = [
     {
       key: 'specialists', header: null,
       options: [
         { key: 'specialist_search', label: 'Specialist Search' },
+        { key: 'specialist_kpis', label: 'Specialist KPIs' },
         { key: 'add_specialist', label: 'Add Specialist' },
         { key: 'specialist_onboarding', label: 'Specialist Onboarding' },
         { key: 'specialist_showroom', label: 'Showroom' },
@@ -308,6 +334,12 @@ export default function AdminPortal() {
               isActive={activeTab === 'accountants'}
             />
             <NavDropdown
+              label="Strategic Members"
+              items={strategicDropdownItems}
+              onSelect={selectStrategicSection}
+              isActive={activeTab === 'strategic'}
+            />
+            <NavDropdown
               label="Specialists"
               items={specialistsDropdownItems}
               onSelect={selectSpecialistsSection}
@@ -367,6 +399,14 @@ export default function AdminPortal() {
               allMembers={allMembers} allExperts={allExperts}
               allExclusionMap={allExclusionMap} ecoMap={ecoMap} ciqMap={ciqMap}
               onDataChange={loadAllData} section={accountantsSection} navClickCount={navClickCount}
+            />
+          )}
+
+          {activeTab === 'strategic' && !loading && (
+            <MembersPanel
+              allMembers={allMembers} allExperts={allExperts}
+              allExclusionMap={allExclusionMap} ecoMap={ecoMap} ciqMap={ciqMap}
+              onDataChange={loadAllData} section={strategicSection} navClickCount={navClickCount}
             />
           )}
 

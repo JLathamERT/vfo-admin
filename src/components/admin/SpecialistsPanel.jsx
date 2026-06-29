@@ -7,6 +7,7 @@ import SpecialistOnboarding from './SpecialistOnboarding'
 import SpecialistAdminVault from './SpecialistAdminVault'
 import SpecialistPaymentsTab from '../payments/SpecialistPaymentsTab'
 import SendSetupEmailButton from './SendSetupEmailButton'
+import SpecialistKpiPanel from './SpecialistKpiPanel'
 import ListFilterButton, { matchesFilter, sortByJoin, SortSelect } from './ListFilterButton'
 
 const ECOSYSTEMS = ['Tax Planning', 'Business Advisory', 'Legal', 'Insurance', 'Wealth Management']
@@ -17,6 +18,7 @@ const HEADSHOT_BASE = 'https://biz-diagnostic.com/Uploads/ExpertPhotos/'
 
 export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataChange, section }) {
   if (section === 'specialist_onboarding') return <SpecialistOnboarding />
+  if (section === 'specialist_kpis') return <SpecialistKpiPanel experts={allExperts} ecoMap={ecoMap} />
   if (section === 'specialist_showroom') return (
     <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', overflow: 'hidden' }}>
       <MemberShowroom experts={allExperts} exclusions={[]} ecoMap={ecoMap} />

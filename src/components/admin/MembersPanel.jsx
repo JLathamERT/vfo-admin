@@ -12,7 +12,7 @@ import MemberKpiPanel from './MemberKpiPanel'
 import AdminGrowthPlan from '../growth/AdminGrowthPlan'
 import { GP_STEPS } from '../growth/constants'
 import SendSetupEmailButton from './SendSetupEmailButton'
-import ListFilterButton, { matchesFilter, sortByJoin, SortSelect } from './ListFilterButton'
+import ListFilterButton, { matchesFilter, sortMembers, SortSelect, MEMBER_SORT_OPTIONS } from './ListFilterButton'
 import { MemberProfileDetailsSkeleton, Skeleton } from '../shared/Skeleton'
 import { TrackHero, ListHeader } from '../shared/TrackKit'
 
@@ -29,6 +29,29 @@ const MEMBER_TYPES = [
 ]
 
 const CORPORATE_TYPES = ['Corporate Member', 'Free Corporate Member', 'Free Corporate Member (Legacy)']
+
+// Detail-view tab sets. Advisors/accountants get the full set; Strategic Members
+// get a trimmed view: Profile (all sub-tabs, always shown), MSM limited to
+// Holistic + Tax Planning, plus Specialists + Showroom (no Website Plugin / CIQ /
+// GC Marketplace / Growth Plan).
+const DEFAULT_MSM_OPTIONS = [
+  { key: 'msm_meetings', label: 'MSM' },
+  { key: 'msm_program_holistic', label: 'VFO Holistic Planning' },
+  { key: 'msm_program_partnership', label: 'Partnership Fast Track' },
+  { key: 'msm_program_tax', label: 'VFO Tax Planning' },
+  { key: 'msm_program_coaching', label: 'Advanced Coaching' },
+]
+const DEFAULT_EXTRA_TABS = [['specialists', 'Specialists'], ['showroom', 'Showroom'], ['website', 'Website Plugin'], ['ciq', 'CIQ'], ['gc', 'GC Marketplace']]
+const STRATEGIC_MSM_OPTIONS = [
+  { key: 'msm_meetings', label: 'MSM' },
+  { key: 'msm_program_holistic', label: 'VFO Holistic Planning' },
+  { key: 'msm_program_tax', label: 'VFO Tax Planning' },
+]
+// Strategic members only run Holistic + Tax, so their MSM Home shows just those
+// two program toggles and drops the Advanced (coaching) + PFT (partnership)
+// meeting counters.
+const STRATEGIC_PROGRAM_KEYS = ['holistic', 'tax']
+const STRATEGIC_EXTRA_TABS = [['specialists', 'Specialists'], ['showroom', 'Showroom']]
 
 const ACCOUNTANT_TYPES = [
   'Implementation - VFO FT (Direct)',
@@ -47,6 +70,14 @@ export default function MembersPanel({ allMembers, allExperts, allExclusionMap, 
   if (section === 'accountant_onboarding') return <AccountantOnboarding />
   if (section === 'advisor_kpis') return <MemberKpiPanel allMembers={allMembers} category="advisor" />
   if (section === 'accountant_kpis') return <MemberKpiPanel allMembers={allMembers} category="accountant" />
+  if (section === 'strategic_member_kpis') return <MemberKpiPanel allMembers={allMembers} category="strategic_member" />
+  if (section === 'strategic_member_search' || section === 'add_strategic_member') {
+    return (
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
+        <StrategicMembersPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} initialTab={section === 'add_strategic_member' ? 'add' : 'search'} section={section} navClickCount={navClickCount} />
+      </div>
+    )
+  }
   if (section === 'accountant_search' || section === 'add_accountant') {
     return (
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
@@ -244,6 +275,11 @@ function MemberDirectoryView({
   growthPlan = false,
   listTitle = 'Members',
   typeOptions = [],
+  showModel = true,
+  msmOptions = DEFAULT_MSM_OPTIONS,
+  extraTabs = DEFAULT_EXTRA_TABS,
+  msmBypassEnableGate = false,
+  msmAllowedPrograms = null,
 }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'search')
   useEffect(() => { setActiveTab(initialTab || 'search') }, [initialTab])
@@ -268,10 +304,10 @@ function MemberDirectoryView({
   const [memberFeatureTab, setMemberFeatureTab] = useState(sessionStorage.getItem(featureTabKey) || 'profile')
   const [memberSearch, setMemberSearch] = useState('')
   const [listFilter, setListFilter] = useState({ status: ['Active'] })
-  const [listSort, setListSort] = useState('default')
+  const [listSort, setListSort] = useState('number_asc')
   const filterGroups = [
     { key: 'status', label: 'Status', options: ['Active', 'Lost', 'Removed'], get: m => m.elite_status || 'Active' },
-    { key: 'model', label: 'Model', options: ['New Model', 'Legacy Model'], get: m => m.advisor_model || '' },
+    ...(showModel ? [{ key: 'model', label: 'Model', options: ['New Model', 'Legacy Model'], get: m => m.advisor_model || '' }] : []),
     ...(typeOptions.length ? [{ key: 'type', label: 'Member Type', options: typeOptions, get: m => m.member_type || '' }] : []),
   ]
 
@@ -293,10 +329,10 @@ function MemberDirectoryView({
           <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
             <input placeholder="Search by name or member number..." style={inputStyle} onChange={e => setMemberSearch(e.target.value.toLowerCase())} value={memberSearch} />
             <ListFilterButton groups={filterGroups} value={listFilter} onChange={setListFilter} />
-            <SortSelect value={listSort} onChange={setListSort} />
+            <SortSelect value={listSort} onChange={setListSort} options={MEMBER_SORT_OPTIONS} />
           </div>
           <div>
-            {sortByJoin(filteredMembers, listSort).map(m => (
+            {sortMembers(filteredMembers, listSort).map(m => (
               <div key={m.plugin_member_number}
                 onClick={() => { setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem(selectedKey, m.plugin_member_number); sessionStorage.setItem(featureTabKey, 'profile_details') }}
                 style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 16px', marginBottom: '6px', background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '12px', boxShadow: '0 2px 8px rgba(20,45,95,0.04)', cursor: 'pointer' }}
@@ -308,7 +344,7 @@ function MemberDirectoryView({
                   <span style={{ fontSize: '11px', padding: '2px 9px', borderRadius: '999px', fontWeight: 600, background: m.elite_status === 'Active' ? 'rgba(27,146,84,0.13)' : m.elite_status === 'Lost' ? 'rgba(231,76,60,0.13)' : '#eef2f9', color: m.elite_status === 'Active' ? '#1b9254' : m.elite_status === 'Lost' ? '#e74c3c' : '#4e6087', border: `1px solid ${m.elite_status === 'Active' ? 'rgba(27,146,84,0.3)' : m.elite_status === 'Lost' ? 'rgba(231,76,60,0.3)' : '#dde5f2'}` }}>{m.elite_status || '—'}</span>
                 </span>
                 <span style={{ fontSize: '12px', color: '#4e6087', width: '160px', flexShrink: 0 }}>{m.member_type || '—'}</span>
-                <span style={{ fontSize: '12px', color: m.advisor_model === 'New Model' ? '#0095ff' : '#4e6087' }}>{m.advisor_model || '—'}</span>
+                {showModel && <span style={{ fontSize: '12px', color: m.advisor_model === 'New Model' ? '#0095ff' : '#4e6087' }}>{m.advisor_model || '—'}</span>}
               </div>
             ))}
           </div>
@@ -333,17 +369,17 @@ function MemberDirectoryView({
           />
           <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px', flexWrap: 'wrap', position: 'relative', zIndex: 50 }}>
           <FeatureTabDropdown label="Profile" isActive={['profile_details','profile_edit','profile_history','vault','profile_payments','settings'].includes(memberFeatureTab)} options={[{key:'profile_details',label:'Profile'},{key:'profile_edit',label:'Edit Profile'},{key:'profile_history',label:'Type History'},{key:'vault',label:'Vault'},{key:'profile_payments',label:'Payments'},{key:'settings',label:'Settings'}]} onSelect={setMemberFeatureTab} />
-          <FeatureTabDropdown label="MSM" isActive={['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab)} options={[{key:'msm_meetings',label:'MSM'},{key:'msm_program_holistic',label:'VFO Holistic Planning'},{key:'msm_program_partnership',label:'Partnership Fast Track'},{key:'msm_program_tax',label:'VFO Tax Planning'},{key:'msm_program_coaching',label:'Advanced Coaching'}]} onSelect={k => { setMemberFeatureTab(k); sessionStorage.setItem(featureTabKey, k) }} />
-            {[['specialists','Specialists'],['showroom','Showroom'],['website','Website Plugin'],['ciq','CIQ'],['gc','GC Marketplace']].map(([key, label]) => (
+          <FeatureTabDropdown label="MSM" isActive={msmOptions.map(o => o.key).includes(memberFeatureTab)} options={msmOptions} onSelect={k => { setMemberFeatureTab(k); sessionStorage.setItem(featureTabKey, k) }} />
+            {extraTabs.map(([key, label]) => (
             <Fragment key={key}>
               {growthPlan && key === 'ciq' && <FeatureTabDropdown label="Growth Plan" isActive={memberFeatureTab.startsWith('gp_')} options={GP_STEPS} onSelect={k => { setMemberFeatureTab(k); sessionStorage.setItem(featureTabKey, k) }} />}
               <button style={{ padding: '7px 16px', background: memberFeatureTab === key ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: memberFeatureTab === key ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: memberFeatureTab === key ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' }} onClick={() => { setMemberFeatureTab(key); sessionStorage.setItem(featureTabKey, key) }}>{label}</button>
             </Fragment>
           ))}
           </div>
-          {['profile_details','profile_edit','profile_history'].includes(memberFeatureTab) && <MemberProfile member={selectedMember} allMembers={allMembers} onDataChange={onDataChange} activeSection={memberFeatureTab} hiddenFields={hiddenFields} />}
+          {['profile_details','profile_edit','profile_history'].includes(memberFeatureTab) && <MemberProfile member={selectedMember} allMembers={allMembers} onDataChange={onDataChange} activeSection={memberFeatureTab} hiddenFields={hiddenFields} typeOptionsOverride={showModel ? null : typeOptions} />}
           {memberFeatureTab === 'profile_payments' && <MemberPaymentsTab member={selectedMember} />}
-          {['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab) && <MSMTracking member={selectedMember} activeSection={memberFeatureTab} onDataChange={onDataChange} />}          {memberFeatureTab === 'specialists' && <MemberSpecialists member={selectedMember} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} />}
+          {['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching'].includes(memberFeatureTab) && <MSMTracking member={selectedMember} activeSection={memberFeatureTab} onDataChange={onDataChange} bypassEnableGate={msmBypassEnableGate} allowedProgramKeys={msmAllowedPrograms} />}          {memberFeatureTab === 'specialists' && <MemberSpecialists member={selectedMember} allExperts={allExperts} allExclusionMap={allExclusionMap} onDataChange={onDataChange} />}
           {memberFeatureTab === 'showroom' && <MemberShowroom experts={allExperts} exclusions={allExclusionMap[selectedMember.plugin_member_number] || []} ecoMap={ecoMap} />}
           {memberFeatureTab === 'website' && <MemberWebsitePlugin member={selectedMember} onDataChange={onDataChange} readOnly={false} isAdmin={true} />}
           {memberFeatureTab === 'ciq' && <MemberCIQ memberNumber={selectedMember.plugin_member_number} memberName={selectedMember.name} ciqEnabled={selectedMember.ciq_enabled} ciqVfosManaged={selectedMember.ciq_vfos_managed} isAdmin={true} />}
@@ -360,7 +396,7 @@ function MemberDirectoryView({
 function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount }) {
   return (
     <MemberDirectoryView
-      displayMembers={allMembers.filter(m => m.member_category !== 'accountant')}
+      displayMembers={allMembers.filter(m => m.member_category !== 'accountant' && m.member_category !== 'strategic_member')}
       typeOptions={MEMBER_TYPES}
       allMembers={allMembers}
       allExperts={allExperts}
@@ -504,7 +540,200 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
   )
 }
 
-function MemberProfile({ member, allMembers, onDataChange, activeSection, hiddenFields = [] }) {
+// ── Strategic Members ────────────────────────────────────────────────
+// A 3rd member category (member_category='strategic_member'). The "Member Type"
+// dropdown is DB-driven: each Strategic Member Group (a company) is an option,
+// and a strategic member (a person at that company) stores the group name in
+// member_type. No Legacy/New model — they auto-number from a single bucket.
+function StrategicMembersPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount }) {
+  const [groups, setGroups] = useState([])
+
+  async function loadGroups() {
+    try { const d = await callApi('strategic_groups_load'); setGroups(d.groups || []) }
+    catch (err) { console.error(err) }
+  }
+  useEffect(() => { loadGroups() }, [])
+
+  const strategicMembers = allMembers.filter(m => m.member_category === 'strategic_member')
+  const groupNames = groups.map(g => g.name)
+
+  return (
+    <MemberDirectoryView
+      displayMembers={strategicMembers}
+      typeOptions={groupNames}
+      allMembers={allMembers}
+      allExperts={allExperts}
+      allExclusionMap={allExclusionMap}
+      ecoMap={ecoMap}
+      onDataChange={onDataChange}
+      addForm={<AddStrategicSection groupNames={groupNames} allMembers={allMembers} onDataChange={onDataChange} onGroupsChange={loadGroups} />}
+      selectedKey="adminSelectedStrategicMember"
+      featureTabKey="adminStrategicFeatureTab"
+      initialTab={initialTab}
+      navClickCount={navClickCount}
+      hiddenFields={[]}
+      listTitle="Strategic Members"
+      showModel={false}
+      msmOptions={STRATEGIC_MSM_OPTIONS}
+      extraTabs={STRATEGIC_EXTRA_TABS}
+      msmBypassEnableGate={true}
+      msmAllowedPrograms={STRATEGIC_PROGRAM_KEYS}
+    />
+  )
+}
+
+// The Add view has TWO inner tabs (this two-tab pattern is unique to Strategic
+// Members): the person form + the one-field group-creation form.
+function AddStrategicSection({ groupNames, allMembers, onDataChange, onGroupsChange }) {
+  const [tab, setTab] = useState('member')
+  const pill = (active) => ({ padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '6px' })
+  return (
+    <div>
+      <div style={{ display: 'flex', marginBottom: '18px' }}>
+        <button style={pill(tab === 'member')} onClick={() => setTab('member')}>Add Strategic Member</button>
+        <button style={pill(tab === 'group')} onClick={() => setTab('group')}>Add Strategic Member Group</button>
+      </div>
+      {tab === 'member' && <AddStrategicMemberForm groupNames={groupNames} allMembers={allMembers} onDataChange={onDataChange} />}
+      {tab === 'group' && <AddStrategicGroupForm onGroupsChange={onGroupsChange} />}
+    </div>
+  )
+}
+
+function AddStrategicMemberForm({ groupNames, allMembers, onDataChange }) {
+  const [memberType, setMemberType] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [email, setEmail] = useState('')
+  const [eliteStatus, setEliteStatus] = useState('')
+  const [revenueDecision, setRevenueDecision] = useState('')
+  const [status, setStatus] = useState('')
+  const [statusType, setStatusType] = useState('success')
+  const [loading, setLoading] = useState(false)
+  const [customMemberNumber, setCustomMemberNumber] = useState('')
+
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const labelStyle = { fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
+
+  async function submit() {
+    if (!firstName || !lastName || !memberType) { setStatusType('error'); setStatus('First name, last name, and member type are required.'); return }
+    if (!email.trim()) { setStatusType('error'); setStatus('Email is required.'); return }
+    if (!eliteStatus) { setStatusType('error'); setStatus('Please pick a status.'); return }
+    if (!revenueDecision) { setStatusType('error'); setStatus('Please pick a revenue decision.'); return }
+    setLoading(true)
+    try {
+      const customNum = customMemberNumber.trim()
+      if (customNum) {
+        const exists = (allMembers || []).find(m => m.plugin_member_number === customNum)
+        if (exists) { setStatusType('error'); setStatus(`Member number ${customNum} already exists.`); setLoading(false); return }
+      }
+      // Strategic members carry no advisor_model — the backend auto-numbers them
+      // from the model-less strategic bucket when member_number is omitted.
+      const res = await callApi('add_member_full', {
+        name: `${firstName} ${lastName}`,
+        member_number: customNum || undefined,
+        first_name: firstName,
+        last_name: lastName,
+        member_type: memberType,
+        elite_status: eliteStatus,
+        email,
+        revenue_decision: revenueDecision,
+        member_category: 'strategic_member',
+        connected_member_number: null,
+      })
+      await onDataChange()
+      setFirstName(''); setLastName(''); setEmail(''); setMemberType(''); setCustomMemberNumber(''); setEliteStatus(''); setRevenueDecision('')
+      setStatusType('success'); setStatus(`Strategic member created with number ${res.member_number}`)
+    } catch (err) { setStatusType('error'); setStatus(err.message) }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div style={sectionStyle}>
+      {groupNames.length === 0 && (
+        <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(0,149,255,0.07)', border: '1px solid rgba(0,149,255,0.22)', color: '#16264a', fontSize: '13px' }}>
+          No Strategic Member Groups yet. Add one under the <strong>Add Strategic Member Group</strong> tab — each group becomes a Member Type option here.
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: '160px' }}><label style={labelStyle}>First Name *</label><input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} /></div>
+        <div style={{ flex: 1, minWidth: '160px' }}><label style={labelStyle}>Last Name *</label><input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} /></div>
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <label style={labelStyle}>Member Type *</label>
+          <select value={memberType} onChange={e => setMemberType(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }} disabled={groupNames.length === 0}>
+            <option value="">-- Select group --</option>
+            {groupNames.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
+        <div style={{ flex: 1, minWidth: '160px' }}>
+          <label style={labelStyle}>Status *</label>
+          <select value={eliteStatus} onChange={e => setEliteStatus(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
+            <option value="">-- Select --</option>
+            {['Active', 'Lost', 'Removed'].map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div style={{ flex: 1, minWidth: '180px' }}>
+          <label style={labelStyle}>Revenue Decision *</label>
+          <select value={revenueDecision} onChange={e => setRevenueDecision(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
+            <option value="">-- Select --</option>
+            <option value="Revenue Share">Revenue Share</option>
+            <option value="Money Mapping">Money Mapping</option>
+          </select>
+        </div>
+      </div>
+      <div style={{ marginBottom: '16px' }}>
+        <label style={labelStyle}>Member Number <span style={{ fontSize: '11px', color: '#697a9c', fontStyle: 'italic', textTransform: 'none', letterSpacing: 0 }}>— leave blank to auto-generate</span></label>
+        <input value={customMemberNumber} onChange={e => setCustomMemberNumber(e.target.value)} placeholder="e.g. 20000" style={{ ...inputStyle, maxWidth: '200px' }} />
+      </div>
+      <button onClick={submit} disabled={loading} style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}>
+        {loading ? 'Creating...' : 'Create Strategic Member'}
+      </button>
+      {status && <p style={{ color: statusType === 'success' ? '#1b9254' : '#d93025', fontSize: '13px', marginTop: '12px' }}>{status}</p>}
+    </div>
+  )
+}
+
+function AddStrategicGroupForm({ onGroupsChange }) {
+  const [groupName, setGroupName] = useState('')
+  const [status, setStatus] = useState('')
+  const [statusType, setStatusType] = useState('success')
+  const [loading, setLoading] = useState(false)
+
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const labelStyle = { fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }
+  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
+
+  async function submit() {
+    const name = groupName.trim()
+    if (!name) { setStatusType('error'); setStatus('Strategic Group Name is required.'); return }
+    setLoading(true)
+    try {
+      await callApi('strategic_group_add', { name })
+      await onGroupsChange()
+      setGroupName('')
+      setStatusType('success'); setStatus(`Group "${name}" created. It's now a Member Type option.`)
+    } catch (err) { setStatusType('error'); setStatus(err.message) }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div style={sectionStyle}>
+      <div style={{ marginBottom: '16px', maxWidth: '420px' }}>
+        <label style={labelStyle}>Strategic Group Name *</label>
+        <input value={groupName} onChange={e => setGroupName(e.target.value)} placeholder="e.g. Action Coach" style={inputStyle} onKeyDown={e => { if (e.key === 'Enter') submit() }} />
+      </div>
+      <button onClick={submit} disabled={loading} style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}>
+        {loading ? 'Creating...' : 'Create Group'}
+      </button>
+      {status && <p style={{ color: statusType === 'success' ? '#1b9254' : '#d93025', fontSize: '13px', marginTop: '12px' }}>{status}</p>}
+    </div>
+  )
+}
+
+function MemberProfile({ member, allMembers, onDataChange, activeSection, hiddenFields = [], typeOptionsOverride = null }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -517,6 +746,20 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
   const [connectedSearch, setConnectedSearch] = useState('')
   const [showConnectedSearch, setShowConnectedSearch] = useState(false)
   const [programNotes, setProgramNotes] = useState([])
+  const [stripeRequesting, setStripeRequesting] = useState(false)
+  const [stripeMsg, setStripeMsg] = useState('')
+  const [stripeMsgType, setStripeMsgType] = useState('success')
+
+  async function sendStripeRequest() {
+    setStripeRequesting(true); setStripeMsg('')
+    try {
+      const res = await callApi('member_stripe_connect_request', { member_number: member.plugin_member_number })
+      setStripeMsgType('success')
+      setStripeMsg(`Setup email drafted to ${res.to_email}${res.sandbox ? ' (sandbox)' : ''}. Account ${res.stripe_account_id} created — send the draft from Gmail.`)
+      await loadProfile()
+    } catch (err) { setStripeMsgType('error'); setStripeMsg(err.message) }
+    finally { setStripeRequesting(false) }
+  }
 
   useEffect(() => { loadProfile(); loadProgramNotes() }, [member.plugin_member_number])
 
@@ -561,7 +804,9 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
   // Accountants pick from their own product-tier list, and they connect to an
   // advisor with no connection-type tier (the % tiers are advisor-only).
   const isAccountant = member.member_category === 'accountant'
-  const typeOptions = isAccountant ? ACCOUNTANT_TYPES : MEMBER_TYPES
+  // Strategic members pick their "type" from the DB-driven group list (passed in
+  // as typeOptionsOverride); advisors/accountants use their hardcoded tier lists.
+  const typeOptions = (typeOptionsOverride && typeOptionsOverride.length) ? typeOptionsOverride : (isAccountant ? ACCOUNTANT_TYPES : MEMBER_TYPES)
   const statusColors = { Active: '#1b9254', Lost: '#e74c3c', Removed: '#4e6087' }
 
   if (loading) return <MemberProfileDetailsSkeleton />
@@ -749,11 +994,23 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
               </div>
             )}
             <div>
-              <label style={labelStyle}>Stripe Account ID</label>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                <input value={profile.stripe_account_id || ''} onChange={e => update('stripe_account_id', e.target.value)} placeholder="acct_..." style={inputStyle} />
-                <button style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Send Request</button>
-              </div>
+              <label style={labelStyle}>Payment Account (Stripe Connect)</label>
+              {profile.stripe_account_id ? (
+                <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '13px', color: '#243757', fontFamily: 'monospace', padding: '8px 12px', background: '#eef2f9', border: '1px solid #dde5f2', borderRadius: '8px' }}>{profile.stripe_account_id}</span>
+                  <button onClick={sendStripeRequest} disabled={stripeRequesting} style={{ padding: '9px 16px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: stripeRequesting ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: stripeRequesting ? 0.6 : 1 }}>
+                    {stripeRequesting ? 'Sending...' : 'Resend setup email'}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ marginTop: '6px' }}>
+                  <div style={{ fontSize: '13px', color: '#697a9c', marginBottom: '10px' }}>No payment account yet. Send the member a secure Stripe setup link — their account ID will appear here once it's created.</div>
+                  <button onClick={sendStripeRequest} disabled={stripeRequesting} style={{ padding: '10px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: stripeRequesting ? 'not-allowed' : 'pointer', opacity: stripeRequesting ? 0.6 : 1 }}>
+                    {stripeRequesting ? 'Sending...' : 'Set Up Payment Details'}
+                  </button>
+                </div>
+              )}
+              {stripeMsg && <p style={{ fontSize: '12.5px', marginTop: '10px', color: stripeMsgType === 'success' ? '#1b9254' : '#d93025' }}>{stripeMsg}</p>}
             </div>
           </div>
           <div style={sectionStyle}>

@@ -13,7 +13,7 @@ const PROGRAMS = [
 
 const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael Hopson', 'Ian Welham', 'Paul Latham']
 
-export default function MSMTracking({ member, activeSection, onDataChange }) {
+export default function MSMTracking({ member, activeSection, onDataChange, bypassEnableGate = false, allowedProgramKeys = null }) {
   const activeTab = activeSection === 'msm_meetings' ? 'home' : 'programs'
   const activeProgramKey = activeSection === 'msm_program_holistic' ? 'holistic'
     : activeSection === 'msm_program_partnership' ? 'partnership'
@@ -130,7 +130,9 @@ export default function MSMTracking({ member, activeSection, onDataChange }) {
                 </div>
               )
             }
-            const isEnabled = enabledPrograms.some(e => e.program_id === dbProgram.id)
+            // Strategic Members have no MSM Home to toggle programs from, so their
+            // two allowed programs (Holistic + Tax) bypass the enable gate.
+            const isEnabled = bypassEnableGate || enabledPrograms.some(e => e.program_id === dbProgram.id)
             if (!isEnabled) {
               return (
                 <div key={p.key} style={{ textAlign: 'center', padding: '60px 20px', color: '#4e6087' }}>
@@ -155,7 +157,7 @@ export default function MSMTracking({ member, activeSection, onDataChange }) {
           {/* Side column — assignment + program toggles */}
           <div style={{ flex: '1 1 250px', minWidth: '250px', order: 2 }}>
             <MsmAssignment member={member} onSaved={onDataChange} />
-            <ProgramToggles member={member} programs={programs} enabledPrograms={enabledPrograms} onToggle={loadData} />
+            <ProgramToggles member={member} programs={programs} enabledPrograms={enabledPrograms} onToggle={loadData} allowedProgramKeys={allowedProgramKeys} />
           </div>
 
           {/* Main column — meetings */}
@@ -167,9 +169,12 @@ export default function MSMTracking({ member, activeSection, onDataChange }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '20px' }}>
               {[
                 ['MSM Meetings', msmCount],
-                ['Advanced Meetings', advancedCount],
+                // Advanced (coaching) + PFT (partnership) counters only show when
+                // that program is in scope — strategic members run Holistic + Tax
+                // only, so both are hidden for them.
+                ...((!allowedProgramKeys || allowedProgramKeys.includes('coaching')) ? [['Advanced Meetings', advancedCount]] : []),
                 ['VFO 90 Day Plan', vfo90Count],
-                ['PFT 90 Day Plan', pft90Count],
+                ...((!allowedProgramKeys || allowedProgramKeys.includes('partnership')) ? [['PFT 90 Day Plan', pft90Count]] : []),
               ].map(([label, count]) => (
                 <div key={label} style={{ textAlign: 'center', padding: '12px 8px', background: '#eef2f9', border: '1px solid #e3eaf5', borderRadius: '12px' }}>
                   <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973' }}>{count}</div>
@@ -950,7 +955,8 @@ function PlanStatusBadge({ enrollmentId, programId }) {
   )
 }
 
-function ProgramToggles({ member, programs, enabledPrograms, onToggle }) {
+function ProgramToggles({ member, programs, enabledPrograms, onToggle, allowedProgramKeys = null }) {
+  const visiblePrograms = allowedProgramKeys ? PROGRAMS.filter(p => allowedProgramKeys.includes(p.key)) : PROGRAMS
   const [toggling, setToggling] = useState({})
   const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
 
@@ -966,7 +972,7 @@ function ProgramToggles({ member, programs, enabledPrograms, onToggle }) {
   return (
     <div style={sectionStyle}>
       <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Programs</div>
-      {PROGRAMS.map(p => {
+      {visiblePrograms.map(p => {
         const dbProgram = programs.find(prog => prog.name === p.name)
         if (!dbProgram) return null
         const isEnabled = enabledPrograms.some(e => e.program_id === dbProgram.id)

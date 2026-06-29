@@ -63,13 +63,55 @@ export function sortByJoin(arr, sortBy) {
   })
 }
 
-// Small sort dropdown for the admin lists (Newest / Oldest by join date).
-export function SortSelect({ value, onChange }) {
+// Richer sort for the member directories (advisors / accountants / strategic):
+// by member number (low/high), join date (oldest/newest), or name (A→Z / Z→A).
+// Member numbers are usually integers but corporate ones look like "<parent>-C<n>";
+// we sort on the leading integer, breaking ties (and non-numeric values) with a
+// string compare. Items with no join_date sort last in the date modes.
+export const MEMBER_SORT_OPTIONS = [
+  { value: 'number_asc', label: 'Member #: Low to High' },
+  { value: 'number_desc', label: 'Member #: High to Low' },
+  { value: 'date_oldest', label: 'Join date: Oldest' },
+  { value: 'date_newest', label: 'Join date: Newest' },
+  { value: 'az', label: 'Name: A to Z' },
+  { value: 'za', label: 'Name: Z to A' },
+]
+
+export function sortMembers(arr, sortBy) {
+  const list = [...arr]
+  const numKey = (m) => String(m.plugin_member_number ?? m.member_number ?? '')
+  const numOf = (m) => { const n = parseInt(numKey(m), 10); return Number.isNaN(n) ? Infinity : n }
+  const nameOf = (m) => (m.name || '').toLowerCase()
+  const byNumber = (a, b) => (numOf(a) - numOf(b)) || numKey(a).localeCompare(numKey(b))
+  const byDate = (a, b, dir) => {
+    const da = a.join_date || '', db = b.join_date || ''
+    if (!da && !db) return 0
+    if (!da) return 1
+    if (!db) return -1
+    return dir === 'newest' ? db.localeCompare(da) : da.localeCompare(db)
+  }
+  switch (sortBy) {
+    case 'number_desc': return list.sort((a, b) => byNumber(b, a))
+    case 'date_oldest': return list.sort((a, b) => byDate(a, b, 'oldest'))
+    case 'date_newest': return list.sort((a, b) => byDate(a, b, 'newest'))
+    case 'az': return list.sort((a, b) => nameOf(a).localeCompare(nameOf(b)))
+    case 'za': return list.sort((a, b) => nameOf(b).localeCompare(nameOf(a)))
+    case 'number_asc':
+    default: return list.sort(byNumber)
+  }
+}
+
+// Small sort dropdown for the admin lists. Defaults to the join-date options
+// (used by the specialist list); the member directories pass MEMBER_SORT_OPTIONS.
+const DEFAULT_SORT_OPTIONS = [
+  { value: 'default', label: 'Sort: Default' },
+  { value: 'newest', label: 'Join date: Newest' },
+  { value: 'oldest', label: 'Join date: Oldest' },
+]
+export function SortSelect({ value, onChange, options = DEFAULT_SORT_OPTIONS }) {
   return (
     <select value={value} onChange={e => onChange(e.target.value)} style={{ padding: '9px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#4e6087', fontSize: '13px', fontWeight: 600, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>
-      <option value="default">Sort: Default</option>
-      <option value="newest">Join date: Newest</option>
-      <option value="oldest">Join date: Oldest</option>
+      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   )
 }
