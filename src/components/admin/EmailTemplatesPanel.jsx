@@ -13,6 +13,7 @@ const SECTIONS = [
   { key: 'advisor', label: 'Advisor Onboarding', pipeline: 'ADVISOR_ONBOARDING' },
   { key: 'accountant', label: 'Accountant Onboarding', pipeline: 'ACCOUNTANT_ONBOARDING' },
   { key: 'specialist', label: 'Specialist Onboarding', pipeline: 'SPECIALIST_ONBOARDING' },
+  { key: 'specialist_revenue', label: 'VFO Specialist Revenue', pipeline: 'VFO_SPECIALIST_REVENUE' },
   { key: 'pft', label: 'Partnership Fast Track', pipeline: 'PARTNERSHIP_FAST_TRACK' },
   // Miscellaneous — standalone, non-pipeline emails grouped together (each row
   // is an explicit [pipeline, template_name] ref rather than a whole pipeline).
@@ -136,6 +137,15 @@ const TEMPLATE_META = {
   ],
   'PAYMENTS': [
     ['card_update', 'Change payment method — secure update-link email'],
+  ],
+  'VFO_SPECIALIST_REVENUE': [
+    ['SPECREV_payment_request', 'Payment request — to the specialist'],
+    ['SPECREV_payment_confirmation', 'Payment confirmation — to specialist (fires after card/ACH)'],
+    ['SPECREV_invoice_receipt_email', 'Invoice & receipt — to specialist (fires when funds clear)'],
+    ['SPECREV_payment_reminder', 'Payment reminder — to specialist (48h unpaid)'],
+    ['SPECREV_revenue_share_confirmation', 'Revenue share confirmation — to recipient (transfer sent)'],
+    ['SPECREV_money_mapping_notice', 'Money mapping notice — to recipient (allocated, no transfer)'],
+    ['SPECREV_connect_setup', 'Set up payment details — recipient has no Connect account'],
   ],
   'MEMBER_PAYOUT': [
     ['member_connect_setup', 'Member payout setup — Stripe Connect (revenue-share onboarding)'],

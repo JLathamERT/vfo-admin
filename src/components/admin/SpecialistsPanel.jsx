@@ -30,9 +30,11 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   const [editStatus, setEditStatus] = useState('')
   const [editStatusType, setEditStatusType] = useState('success')
   const [editingId, setEditingId] = useState(null)
+  const [connectBusy, setConnectBusy] = useState(false)
+  const [connectMsg, setConnectMsg] = useState('')
 
   // Add form state
-  const [addForm, setAddForm] = useState({ name: '', short_bio: '', long_bio: '', background_check: '', top_of_t: false, 'D&B_strategy_expertise': '', 'D&B_cutoff_date': '', 'D&B_client_requirements': '', 'D&B_investment_cost': '', 'D&B_ideal_client': '', 'D&B_summary_benefits': '', 'D&B_getting_started': '', 'D&B_professional_process': '', 'D&B_competitive_advantage': '', 'D&B_audit_risk_general': '', 'D&B_audit_risk_history': '', 'D&B_audit_risk_worst_case': '', 'D&B_audit_risk_precautions': '', 'D&B_tax_risk_mindset': '', 'D&B_tax_risk_notes': '', 'D&B_revenue_share': '' })
+  const [addForm, setAddForm] = useState({ name: '', short_bio: '', long_bio: '', background_check: '', top_of_t: false, revenue_decision: '', 'D&B_strategy_expertise': '', 'D&B_cutoff_date': '', 'D&B_client_requirements': '', 'D&B_investment_cost': '', 'D&B_ideal_client': '', 'D&B_summary_benefits': '', 'D&B_getting_started': '', 'D&B_professional_process': '', 'D&B_competitive_advantage': '', 'D&B_audit_risk_general': '', 'D&B_audit_risk_history': '', 'D&B_audit_risk_worst_case': '', 'D&B_audit_risk_precautions': '', 'D&B_tax_risk_mindset': '', 'D&B_tax_risk_notes': '', 'D&B_revenue_share': '' })
   const [addEcos, setAddEcos] = useState([])
   const [addCiq, setAddCiq] = useState([])
   const [addFile, setAddFile] = useState(null)
@@ -70,13 +72,13 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   }
 
   function clearAddForm() {
-    setAddForm({ name: '', short_bio: '', long_bio: '', background_check: '', top_of_t: false, 'D&B_strategy_expertise': '', 'D&B_cutoff_date': '', 'D&B_client_requirements': '', 'D&B_investment_cost': '', 'D&B_ideal_client': '', 'D&B_summary_benefits': '', 'D&B_getting_started': '', 'D&B_professional_process': '', 'D&B_competitive_advantage': '', 'D&B_audit_risk_general': '', 'D&B_audit_risk_history': '', 'D&B_audit_risk_worst_case': '', 'D&B_audit_risk_precautions': '', 'D&B_tax_risk_mindset': '', 'D&B_tax_risk_notes': '', 'D&B_revenue_share': '' })
+    setAddForm({ name: '', short_bio: '', long_bio: '', background_check: '', top_of_t: false, revenue_decision: '', 'D&B_strategy_expertise': '', 'D&B_cutoff_date': '', 'D&B_client_requirements': '', 'D&B_investment_cost': '', 'D&B_ideal_client': '', 'D&B_summary_benefits': '', 'D&B_getting_started': '', 'D&B_professional_process': '', 'D&B_competitive_advantage': '', 'D&B_audit_risk_general': '', 'D&B_audit_risk_history': '', 'D&B_audit_risk_worst_case': '', 'D&B_audit_risk_precautions': '', 'D&B_tax_risk_mindset': '', 'D&B_tax_risk_notes': '', 'D&B_revenue_share': '' })
     setAddEcos([]); setAddCiq([]); setAddFile(null); setAddPreview(null)
   }
 
   function handleEditSelect(expert) {
     setEditingId(expert.id)
-    setEditForm({ name: expert.name || '', email: expert.email || '', status: expert.status || 'Active', leave_date: expert.leave_date ? String(expert.leave_date).split('T')[0] : '', join_date: expert.join_date ? String(expert.join_date).split('T')[0] : '', short_bio: expert.short_bio || '', long_bio: expert.long_bio || '', background_check: expert.background_check || '', top_of_t: expert.top_of_t || false, 'D&B_strategy_expertise': expert['D&B_strategy_expertise'] || '', 'D&B_cutoff_date': expert['D&B_cutoff_date'] || '', 'D&B_client_requirements': expert['D&B_client_requirements'] || '', 'D&B_investment_cost': expert['D&B_investment_cost'] || '', 'D&B_ideal_client': expert['D&B_ideal_client'] || '', 'D&B_summary_benefits': expert['D&B_summary_benefits'] || '', 'D&B_getting_started': expert['D&B_getting_started'] || '', 'D&B_professional_process': expert['D&B_professional_process'] || '', 'D&B_competitive_advantage': expert['D&B_competitive_advantage'] || '', 'D&B_audit_risk_general': expert['D&B_audit_risk_general'] || '', 'D&B_audit_risk_history': expert['D&B_audit_risk_history'] || '', 'D&B_audit_risk_worst_case': expert['D&B_audit_risk_worst_case'] || '', 'D&B_audit_risk_precautions': expert['D&B_audit_risk_precautions'] || '', 'D&B_tax_risk_mindset': expert['D&B_tax_risk_mindset'] || '', 'D&B_tax_risk_notes': expert['D&B_tax_risk_notes'] || '', 'D&B_revenue_share': expert['D&B_revenue_share'] || '' })
+    setEditForm({ name: expert.name || '', email: expert.email || '', status: expert.status || 'Active', leave_date: expert.leave_date ? String(expert.leave_date).split('T')[0] : '', join_date: expert.join_date ? String(expert.join_date).split('T')[0] : '', short_bio: expert.short_bio || '', long_bio: expert.long_bio || '', background_check: expert.background_check || '', top_of_t: expert.top_of_t || false, revenue_decision: expert.revenue_decision || '', 'D&B_strategy_expertise': expert['D&B_strategy_expertise'] || '', 'D&B_cutoff_date': expert['D&B_cutoff_date'] || '', 'D&B_client_requirements': expert['D&B_client_requirements'] || '', 'D&B_investment_cost': expert['D&B_investment_cost'] || '', 'D&B_ideal_client': expert['D&B_ideal_client'] || '', 'D&B_summary_benefits': expert['D&B_summary_benefits'] || '', 'D&B_getting_started': expert['D&B_getting_started'] || '', 'D&B_professional_process': expert['D&B_professional_process'] || '', 'D&B_competitive_advantage': expert['D&B_competitive_advantage'] || '', 'D&B_audit_risk_general': expert['D&B_audit_risk_general'] || '', 'D&B_audit_risk_history': expert['D&B_audit_risk_history'] || '', 'D&B_audit_risk_worst_case': expert['D&B_audit_risk_worst_case'] || '', 'D&B_audit_risk_precautions': expert['D&B_audit_risk_precautions'] || '', 'D&B_tax_risk_mindset': expert['D&B_tax_risk_mindset'] || '', 'D&B_tax_risk_notes': expert['D&B_tax_risk_notes'] || '', 'D&B_revenue_share': expert['D&B_revenue_share'] || '' })
     setEditEcos(ecoMap[expert.id] || [])
     setEditCiq(ciqMap[expert.id] || [])
     setEditFile(null)
@@ -165,6 +167,21 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
     }
   }
 
+  async function handleSpecialistConnect() {
+    if (!editingId) return
+    setConnectBusy(true); setConnectMsg('')
+    try {
+      const res = await callApi('specialist_stripe_connect_request', { expert_id: editingId })
+      if (res?.error) { setConnectMsg(res.error); return }
+      setConnectMsg(`Setup email drafted to ${res.to_email}${res.sandbox ? ' (sandbox)' : ''}. Connect account: ${res.stripe_account_id}`)
+      await onDataChange()
+    } catch (e) {
+      setConnectMsg(e?.message || 'Failed to start Connect setup')
+    } finally {
+      setConnectBusy(false)
+    }
+  }
+
   async function deleteSpecialist() {
     if (!editingId) return
     try {
@@ -189,8 +206,11 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   
 
   function SpecialistForm({ which, form, setForm, ecos, file, preview, ciq, ciqDrop, setCiqDrop, statusMsg, statusType: sType }) {
+    const sectionHeader = { fontSize: '14px', color: '#16264a', fontWeight: 600, marginBottom: '18px', borderBottom: '1px solid #e3eaf5', paddingBottom: '12px' }
     return (
       <div>
+        <div style={sectionStyle}>
+        <div style={sectionHeader}>Profile &amp; Payout</div>
         <div style={fieldStyle}>
           <label style={labelStyle}>Name *</label>
           <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Full name" style={inputStyle} />
@@ -217,6 +237,33 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
           <label style={labelStyle}>Join Date</label>
           <input type="date" value={form.join_date || ''} onChange={e => setForm(p => ({ ...p, join_date: e.target.value }))} style={{ ...inputStyle, width: '200px' }} />
         </div>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Revenue Decision</label>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {['Revenue Share', 'Money Mapping'].map(v => (
+              <button key={v} type="button" onClick={() => setForm(p => ({ ...p, revenue_decision: v }))}
+                style={{ padding: '8px 16px', borderRadius: '8px', border: `1px solid ${form.revenue_decision === v ? '#125ecc' : '#c7d4e8'}`, background: form.revenue_decision === v ? 'rgba(18,94,204,0.12)' : '#fff', color: form.revenue_decision === v ? '#125ecc' : '#4e6087', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+        {which === 'edit' && (
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Stripe Connect (payouts)</label>
+            {selectedExpert?.stripe_account_id
+              ? <div style={{ fontSize: '13px', color: '#16264a', marginBottom: '8px' }}>Connected · <span style={{ fontFamily: 'monospace', color: '#4e6087' }}>{selectedExpert.stripe_account_id}</span></div>
+              : <div style={{ fontSize: '13px', color: '#697a9c', marginBottom: '8px' }}>No payout account yet.</div>}
+            <button type="button" onClick={handleSpecialistConnect} disabled={connectBusy}
+              style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #125ecc', background: '#fff', color: '#125ecc', fontSize: '13px', fontWeight: 600, cursor: connectBusy ? 'wait' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              {connectBusy ? 'Working…' : (selectedExpert?.stripe_account_id ? 'Resend Setup Link' : 'Set Up Payment Details')}
+            </button>
+            {connectMsg && <p style={{ fontSize: '12px', color: '#4e6087', marginTop: '8px' }}>{connectMsg}</p>}
+          </div>
+        )}
+        </div>{/* end Profile & Payout card */}
+        <div style={sectionStyle}>
+        <div style={sectionHeader}>Bio &amp; Marketing</div>
         <div style={fieldStyle}>
           <label style={labelStyle}>Short Bio</label>
           <input value={form.short_bio} onChange={e => setForm(p => ({ ...p, short_bio: e.target.value }))} placeholder="One-line specialty description" style={inputStyle} />
@@ -381,6 +428,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
           </div>
         </div>
         {statusMsg && <p style={{ color: sType === 'success' ? '#1b9254' : '#d93025', fontSize: '13px', margin: '8px 0' }}>{statusMsg}</p>}
+        </div>{/* end Bio & Marketing card */}
       </div>
     )
   }
@@ -394,7 +442,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
 
       {/* Add tab */}
       {activeTab === 'add' && (
-        <div style={sectionStyle}>
+        <div>
           {SpecialistForm({
             which: 'add', form: addForm, setForm: setAddForm,
             ecos: addEcos, file: addFile, preview: addPreview,
@@ -473,7 +521,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
           )}
 
           {specialistTab === 'edit' && (
-            <div style={sectionStyle}>
+            <div>
               {SpecialistForm({
                 which: 'edit', form: editForm, setForm: setEditForm,
                 ecos: editEcos, file: editFile, preview: editPreview,
@@ -577,7 +625,6 @@ function SpecialistProfileView({ expert, ecos, ciq }) {
               {(expert.top_of_t || expert.background_check) && expert['D&B_tax_risk_mindset'] && <span style={{ color: '#c7d4e8' }}>·</span>}
               {expert['D&B_tax_risk_mindset'] && <span>{expert['D&B_tax_risk_mindset']}</span>}
             </div>
-            {expert.email && <div style={{ fontSize: '12.5px', color: '#4e6087', marginTop: '6px' }}>{expert.email}</div>}
           </div>
         </div>
       </div>
@@ -616,6 +663,23 @@ function SpecialistProfileView({ expert, ecos, ciq }) {
 
         {/* Side column */}
         <div style={{ flex: '1 1 240px', minWidth: '240px' }}>
+          <div style={sectionStyle}>
+            <div style={cardTitle}>Account &amp; Payout</div>
+            {[
+              ['Email', expert.email || '—'],
+              ['Status', expert.status || 'Active'],
+              ...(expert.leave_date ? [['Leave date', String(expert.leave_date).split('T')[0]]] : []),
+              ['Join date', expert.join_date ? String(expert.join_date).split('T')[0] : '—'],
+              ['Revenue decision', expert.revenue_decision || '—'],
+              ['Stripe Connect', expert.stripe_account_id ? 'Connected' : 'Not set up'],
+            ].map(([label, value]) => (
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '7px 0', borderBottom: '1px solid #f1f4fa' }}>
+                <span style={fieldLabel}>{label}</span>
+                <span style={{ fontSize: '13px', color: '#16264a', fontWeight: 600, textAlign: 'right', wordBreak: 'break-word' }}>{value}</span>
+              </div>
+            ))}
+            {expert.stripe_account_id && <div style={{ fontSize: '11px', color: '#9aa6bf', fontFamily: 'monospace', marginTop: '8px', wordBreak: 'break-all' }}>{expert.stripe_account_id}</div>}
+          </div>
           {ecos.length > 0 && (
             <div style={sectionStyle}>
               <div style={cardTitle}>VFO Ecosystem</div>

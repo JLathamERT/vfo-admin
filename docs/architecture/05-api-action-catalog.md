@@ -582,6 +582,25 @@ These run AFTER the auth gate. The three handlers that take `req: Request` as a 
 | `load_notifications` (uses auth) | `actions/notifications/load.ts` | `notifications` (filtered by recipient = session.email \| 'admin' \| 'all', read=false) | — | — |
 | `mark_notification_read` | `actions/notifications/mark-read.ts` | — | `notifications.read=true` | — |
 
+### VFO Specialist Revenue (Accounting tab — added 2026-06-29)
+
+Bill a specialist, split proceeds to members. Tables `specialist_revenue_requests` + `specialist_revenue_lines` (both deny-all RLS). Stripe ops ride the shared `pipeline_sandbox_config` "MAP 1" row. SUPERADMIN actions are gated in `SUPERADMIN_ONLY_ACTIONS`; the PUBLIC ones bypass auth (token page + service-role webhook chains).
+
+| Action | File | Role | Notes |
+|---|---|---|---|
+| `specialist_revenue_send_request` | `actions/specialist-revenue/send-request.ts` | SUPERADMIN | Persists request+lines, creates a Stripe customer for the specialist, drafts the payment-request email (`SPECREV_payment_request`) with a `/specialist-revenue-pay?token=` link |
+| `specialist_revenue_pay_load` | `actions/specialist-revenue/pay-load.ts` | PUBLIC | Token → request summary for the pay page |
+| `specialist_revenue_checkout` | `actions/specialist-revenue/checkout.ts` | PUBLIC | Token+method → Stripe Checkout (card grossed up / ACH par); `metadata.pipeline='VFO_SPECIALIST_REVENUE'` |
+| `specialist_revenue_confirmationemail` | `actions/specialist-revenue/confirmation-email.ts` | PUBLIC (chained) | Payment confirmation to specialist (card+ACH); `SPECREV_payment_confirmation` w/ `[CARD_FEE_TEXT]` |
+| `specialist_revenue_invoicereceipt` | `actions/specialist-revenue/invoice-receipt.ts` | PUBLIC (chained) | INV/REC PDFs (`utils/specialist-revenue-invoice.ts`, numbers `INV-SPEC-<id>`/`REC-SPEC-<id>`) → Drive → email `SPECREV_invoice_receipt_email` w/ both attached |
+| `specialist_revenue_payout` | `actions/specialist-revenue/payout.ts` | PUBLIC (chained) | Runs `utils/specialist-revenue-payout.ts` for one request |
+| `specialist_revenue_payout_sweep` | `actions/specialist-revenue/payout-sweep.ts` | PUBLIC (cron 13) | Payout retry + 48h reminder / 96h Tracy FYI |
+| `specialist_revenue_load` | `actions/specialist-revenue/load.ts` | SUPERADMIN | Requests+lines (+ sandbox cfg) for the viewer + automation tracker |
+| `specialist_revenue_retry_payout` | `actions/specialist-revenue/retry-payout.ts` | SUPERADMIN | Manual "Retry payout" |
+| `specialist_stripe_connect_request` | `actions/specialists/stripe-connect-request.ts` | ADMIN | Connect Express setup for a specialist (mirrors `member_stripe_connect_request`) → `experts.stripe_account_id` |
+
+Payout engine per line: Money Mapping → no transfer + notice email; Revenue Share + active Connect acct → `/v1/transfers` (member_share) + confirmation; Revenue Share + missing/unfinished acct (`capabilities.transfers !== 'active'`) → setup email + `awaiting_connect`. Webhook: independent `VFO_SPECIALIST_REVENUE` branch in `router/webhooks.ts` (checkout.session.completed card→received chains confirmation+invoice+payout; ACH→processing chains confirmation, then payment_intent.succeeded→received chains invoice+payout) + a branch in `utils/resolve-stripe-failure.ts`.
+
 ---
 
 ## Notes & oddities
