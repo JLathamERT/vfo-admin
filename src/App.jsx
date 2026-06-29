@@ -35,6 +35,7 @@ import SpecialistRevShareFinalPage from './pages/SpecialistRevShareFinalPage'
 import Map4FormPage from './pages/Map4FormPage'
 import UpdateCardPage from './pages/UpdateCardPage'
 import ConnectCardPage from './pages/ConnectCardPage'
+import SpecialistRevenuePayPage from './pages/SpecialistRevenuePayPage'
 
 export default function App() {
   return (
@@ -61,6 +62,7 @@ export default function App() {
       <Route path="/pip-pay" element={<PipPayPage />} />
       <Route path="/update-card" element={<UpdateCardPage />} />
       <Route path="/connect-card" element={<ConnectCardPage />} />
+      <Route path="/specialist-revenue-pay" element={<SpecialistRevenuePayPage />} />
       <Route path="/member-setup" element={<MemberSetupPage />} />
       <Route path="/set-password" element={<SetPasswordPage />} />
       <Route path="/specialist-sif" element={<SpecialistSifPage />} />

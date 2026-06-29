@@ -15,6 +15,9 @@ import NotificationBell from '../components/NotificationBell'
 import EmailTemplatesPanel from '../components/admin/EmailTemplatesPanel'
 import VfoWordmark from '../components/shared/VfoWordmark'
 import AllPaymentsTab from '../components/payments/AllPaymentsTab'
+import SpecialistPaymentInput from '../components/admin/SpecialistPaymentInput'
+import SpecialistRevenuePanel from '../components/admin/SpecialistRevenuePanel'
+import SpecialistRevenueAutomationPanel from '../components/admin/SpecialistRevenueAutomationPanel'
 
 function NavDropdown({ label, items, onSelect, isActive }) {
   const [open, setOpen] = useState(false)
@@ -71,9 +74,12 @@ export default function AdminPortal() {
   const session = getSession()
   const [activeTab, setActiveTab] = useState(() => {
     const t = sessionStorage.getItem('adminActiveTab')
-    // Automation + Payments are superadmin-only — never restore a non-superadmin into them.
-    if ((t === 'automation' || t === 'payments') && !session?.is_superadmin) return null
-    return t === 'members' ? 'advisors' : (t || null)
+    // Automation + Accounting are superadmin-only — never restore a non-superadmin into them.
+    if ((t === 'automation' || t === 'accounting' || t === 'payments') && !session?.is_superadmin) return null
+    if (t === 'members') return 'advisors'
+    // Legacy: the standalone Payments tab is now a sub-tab of Accounting.
+    if (t === 'payments') return 'accounting'
+    return t || null
   })
   const [advisorsSection, setAdvisorsSection] = useState(sessionStorage.getItem('adminAdvisorsSection') || 'advisor_search')
   const [accountantsSection, setAccountantsSection] = useState(sessionStorage.getItem('adminAccountantsSection') || 'accountant_search')
@@ -81,6 +87,7 @@ export default function AdminPortal() {
   const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getItem('adminSpecialistsSection') || 'specialist_search')
   const [strategicSection, setStrategicSection] = useState(sessionStorage.getItem('adminStrategicSection') || 'strategic_member_search')
   const [automationSection, setAutomationSection] = useState(sessionStorage.getItem('adminAutomationSection') || 'map1_pipeline')
+  const [accountingSection, setAccountingSection] = useState(sessionStorage.getItem('adminAccountingSection') || 'payments')
   const [showEditor, setShowEditor] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [allExperts, setAllExperts] = useState([])
@@ -101,8 +108,8 @@ export default function AdminPortal() {
     const tab = params.get('tab')
     const section = params.get('section')
     if (!tab) return
-    // Automation + Payments are superadmin-only — ignore a deep-link into them for other admins.
-    if ((tab === 'automation' || tab === 'payments') && !session?.is_superadmin) return
+    // Automation + Accounting are superadmin-only — ignore a deep-link into them for other admins.
+    if ((tab === 'automation' || tab === 'accounting' || tab === 'payments') && !session?.is_superadmin) return
     setActiveTab(tab)
     sessionStorage.setItem('adminActiveTab', tab)
     if (section) {
@@ -112,6 +119,7 @@ export default function AdminPortal() {
         strategic: [setStrategicSection, 'adminStrategicSection'],
         specialists: [setSpecialistsSection, 'adminSpecialistsSection'],
         automation: [setAutomationSection, 'adminAutomationSection'],
+        accounting: [setAccountingSection, 'adminAccountingSection'],
       }
       const entry = sectionSetters[tab]
       if (entry) { entry[0](section); sessionStorage.setItem(entry[1], section) }
@@ -209,11 +217,14 @@ export default function AdminPortal() {
     setShowSettings(false)
   }
 
-  function selectPaymentsTab() {
-    setActiveTab('payments')
-    sessionStorage.setItem('adminActiveTab', 'payments')
+  function selectAccountingSection(key) {
+    setActiveTab('accounting')
+    sessionStorage.setItem('adminActiveTab', 'accounting')
+    setAccountingSection(key)
+    sessionStorage.setItem('adminAccountingSection', key)
     sessionStorage.removeItem('adminSelectedMember')
     sessionStorage.removeItem('adminMemberFeatureTab')
+    setNavClickCount(c => c + 1)
     setShowEditor(false)
     setShowSettings(false)
   }
@@ -286,7 +297,19 @@ export default function AdminPortal() {
         { key: 'advisor_pipeline', label: 'Advisor Onboarding' },
         { key: 'accountant_pipeline', label: 'Accountant Onboarding' },
         { key: 'specialist_pipeline', label: 'Specialist Onboarding' },
+        { key: 'specialist_revenue_pipeline', label: 'VFO Specialist Revenue' },
         { key: 'email_templates', label: 'Email Templates' },
+      ]
+    },
+  ]
+
+  const accountingDropdownItems = [
+    {
+      key: 'accounting', header: null,
+      options: [
+        { key: 'payments', label: 'Payments' },
+        { key: 'specialist_payment_input', label: 'VFO Specialist Payment Input' },
+        { key: 'specialist_revenue', label: 'VFO Specialist Revenue' },
       ]
     },
   ]
@@ -354,17 +377,12 @@ export default function AdminPortal() {
               />
             )}
             {session.is_superadmin && (
-              <button
-                onClick={selectPaymentsTab}
-                style={{
-                  padding: '14px 20px', background: 'transparent', border: 'none',
-                  borderBottom: activeTab === 'payments' ? '2px solid #125ecc' : '2px solid transparent',
-                  color: activeTab === 'payments' ? '#125ecc' : '#4e6087', fontSize: '14px',
-                  fontWeight: activeTab === 'payments' ? '600' : '500', cursor: 'pointer',
-                  fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap'
-                }}>
-                Payments
-              </button>
+              <NavDropdown
+                label="Accounting"
+                items={accountingDropdownItems}
+                onSelect={selectAccountingSection}
+                isActive={activeTab === 'accounting'}
+              />
             )}
           </div>
 
@@ -431,12 +449,21 @@ export default function AdminPortal() {
           {activeTab === 'automation' && !loading && automationSection === 'specialist_pipeline' && (
             <SpecialistAutomationPanel />
           )}
+          {activeTab === 'automation' && !loading && automationSection === 'specialist_revenue_pipeline' && (
+            <SpecialistRevenueAutomationPanel />
+          )}
           {activeTab === 'automation' && !loading && automationSection === 'email_templates' && (
             <EmailTemplatesPanel />
           )}
 
-          {activeTab === 'payments' && !loading && session.is_superadmin && (
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'payments' && (
             <AllPaymentsTab />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'specialist_payment_input' && (
+            <SpecialistPaymentInput allExperts={allExperts} allMembers={allMembers} />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'specialist_revenue' && (
+            <SpecialistRevenuePanel />
           )}
 
           {loading && <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>}
