@@ -12,11 +12,16 @@ const SECTIONS = [
   { key: 'regular', label: 'Holistic Planning - Regular Priorities', pipeline: 'REGULAR' },
   { key: 'advisor', label: 'Advisor Onboarding', pipeline: 'ADVISOR_ONBOARDING' },
   { key: 'accountant', label: 'Accountant Onboarding', pipeline: 'ACCOUNTANT_ONBOARDING' },
-  { key: 'team', label: 'Team Notification (Advisor & Accountant)', pipeline: 'TEAM' },
   { key: 'specialist', label: 'Specialist Onboarding', pipeline: 'SPECIALIST_ONBOARDING' },
   { key: 'pft', label: 'Partnership Fast Track', pipeline: 'PARTNERSHIP_FAST_TRACK' },
-  { key: 'payments', label: 'Payments — Change Payment Method', pipeline: 'PAYMENTS' },
-  { key: 'login_setup', label: 'Account Setup — Login Invite', pipeline: 'LOGIN_SETUP' },
+  // Miscellaneous — standalone, non-pipeline emails grouped together (each row
+  // is an explicit [pipeline, template_name] ref rather than a whole pipeline).
+  { key: 'misc', label: 'Miscellaneous', items: [
+    ['TEAM', 'new_model_sale'],
+    ['PAYMENTS', 'card_update'],
+    ['LOGIN_SETUP', 'MANUAL_login_setup'],
+    ['MEMBER_PAYOUT', 'member_connect_setup'],
+  ] },
 ]
 
 // template_name -> plain-English label, in the order each email fires in the process.
@@ -132,6 +137,15 @@ const TEMPLATE_META = {
   'PAYMENTS': [
     ['card_update', 'Change payment method — secure update-link email'],
   ],
+  'MEMBER_PAYOUT': [
+    ['member_connect_setup', 'Member payout setup — Stripe Connect (revenue-share onboarding)'],
+  ],
+}
+
+// Resolve a friendly label for a (pipeline, template_name) pair.
+function labelFor(pipeline, name) {
+  const hit = (TEMPLATE_META[pipeline] || []).find(([n]) => n === name)
+  return hit ? hit[1] : name
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -279,6 +293,11 @@ export default function EmailTemplatesPanel() {
   const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [openSections, setOpenSections] = useState(() => new Set())
+
+  function toggleSection(key) {
+    setOpenSections(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n })
+  }
 
   useEffect(() => { loadTemplates() }, [])
 
@@ -303,32 +322,52 @@ export default function EmailTemplatesPanel() {
     <div style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto' }}>
       <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '24px', color: '#16264a', margin: '0 0 8px 0' }}>Email Templates</h2>
       <p style={{ fontSize: '13px', color: '#4e6087', margin: '0 0 24px' }}>
-        Emails listed in the order they fire for each program. Expand any email to set its subject, body, and which internal team members receive a CC or BCC.
+        Click a section to expand it. Within a section, emails are listed in the order they fire; expand any email to set its subject, body, and which internal team members receive a CC or BCC.
       </p>
 
       {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginBottom: '16px' }}>{error}</div>}
 
       {SECTIONS.map(section => {
-        const meta = TEMPLATE_META[section.pipeline] || []
-        const inPipeline = byPipeline[section.pipeline] || {}
-        const known = new Set(meta.map(([name]) => name))
-        const orderedKnown = meta.filter(([name]) => inPipeline[name])
-        const extras = Object.keys(inPipeline).filter(name => !known.has(name)).map(name => [name, name])
-        const rows = [...orderedKnown, ...extras]
+        // Each section is either a whole pipeline, or an explicit list of
+        // [pipeline, template_name] refs (Miscellaneous). Build rows of [tmpl, label].
+        let rows
+        if (section.items) {
+          rows = section.items
+            .map(([pipeline, name]) => { const t = byPipeline[pipeline]?.[name]; return t ? [t, labelFor(pipeline, name)] : null })
+            .filter(Boolean)
+        } else {
+          const meta = TEMPLATE_META[section.pipeline] || []
+          const inPipeline = byPipeline[section.pipeline] || {}
+          const known = new Set(meta.map(([name]) => name))
+          const orderedKnown = meta.filter(([name]) => inPipeline[name]).map(([name, label]) => [inPipeline[name], label])
+          const extras = Object.keys(inPipeline).filter(name => !known.has(name)).map(name => [inPipeline[name], name])
+          rows = [...orderedKnown, ...extras]
+        }
+        const open = openSections.has(section.key)
 
         return (
-          <div key={section.key} style={{ marginBottom: '32px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: section.sharedNote ? '2px' : '12px' }}>{section.label}</div>
-            {section.sharedNote && (
-              <div style={{ fontSize: '11px', color: '#697a9c', marginBottom: '12px', fontStyle: 'italic' }}>
-                Tax Priorities and Tax Planning share these templates — edits apply to both.
+          <div key={section.key} style={{ marginBottom: '10px', border: '1px solid #e9eef8', borderRadius: '12px', overflow: 'hidden', background: '#ffffff', boxShadow: '0 2px 8px rgba(20,45,95,0.04)' }}>
+            <div onClick={() => toggleSection(section.key)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer', background: open ? '#eef4fd' : '#f7f9fc' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '10px', color: '#0095ff', transform: open ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#16264a', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{section.label}</span>
+              </div>
+              <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>{rows.length}</span>
+            </div>
+            {open && (
+              <div style={{ padding: '14px 18px 8px' }}>
+                {section.sharedNote && (
+                  <div style={{ fontSize: '11px', color: '#697a9c', marginBottom: '12px', fontStyle: 'italic' }}>
+                    Tax Priorities and Tax Planning share these templates — edits apply to both.
+                  </div>
+                )}
+                {rows.length === 0
+                  ? <div style={{ fontSize: '12px', color: '#697a9c', padding: '8px 0' }}>No templates.</div>
+                  : rows.map(([t, label]) => (
+                      <TemplateCard key={`${section.key}-${t.template_name}`} tmpl={t} label={label} />
+                    ))}
               </div>
             )}
-            {rows.length === 0
-              ? <div style={{ fontSize: '12px', color: '#697a9c', padding: '8px 0' }}>No templates.</div>
-              : rows.map(([name, label]) => (
-                  <TemplateCard key={`${section.key}-${name}`} sectionKey={section.key} tmpl={inPipeline[name]} label={label} />
-                ))}
           </div>
         )
       })}

@@ -32,13 +32,16 @@ const ACCOUNTANT_FAMILIES = [
 // `suspended` and `paused` are boolean flags that sit ON TOP of an Active
 // member, so they are SUBSETS of Active — clicking them re-scopes to the
 // active members carrying that flag. Lost/Removed come from elite_status.
+// Active is first (it's the default lens); Total sits last as the grand total —
+// its natural home as the sum of every status, and labelled so it's clear it
+// includes Lost & Removed (not just the active roster).
 const LENSES = [
-  { key: 'all', label: 'Total', color: '#125ecc', desc: 'all members' },
   { key: 'active', label: 'Active', color: '#1b9254', desc: 'of total' },
   { key: 'suspended', label: 'Suspended', color: '#c98a14', desc: 'of active', sub: true },
   { key: 'paused', label: 'Paused', color: '#e06717', desc: 'of active', sub: true },
   { key: 'lost', label: 'Lost', color: '#e74c3c', desc: 'of total' },
   { key: 'removed', label: 'Removed', color: '#7c8aa6', desc: 'of total' },
+  { key: 'all', label: 'Total', color: '#125ecc', desc: 'incl. lost & removed' },
 ]
 
 const statusOf = (m) => m.elite_status || 'Active'
@@ -169,27 +172,39 @@ function FamilyCard({ fam, scopedTotal, rank }) {
 }
 
 export default function MemberKpiPanel({ allMembers, category }) {
-  const [lens, setLens] = useState('all')
+  const [lens, setLens] = useState('active')
 
   const isAdvisorPage = category === 'advisor'
-  const families = isAdvisorPage ? ADVISOR_FAMILIES : ACCOUNTANT_FAMILIES
-  const title = isAdvisorPage ? 'Advisor KPIs' : 'Accountant KPIs'
+  const isStrategic = category === 'strategic_member'
+  const title = isAdvisorPage ? 'Advisor KPIs' : isStrategic ? 'Strategic Member KPIs' : 'Accountant KPIs'
+  const breakdownLabel = isStrategic ? 'Breakdown by group' : 'Breakdown by member type'
 
-  // Exact type -> family reverse map (built once per family set).
+  // The category pool. Advisors = everything that is NOT an accountant or
+  // strategic member (intentionally includes the null-category Corporate
+  // Members, matching the Advisor Search list); accountants / strategic members
+  // = exact member_category match.
+  const pool = useMemo(() => (
+    isAdvisorPage
+      ? allMembers.filter((m) => m.member_category !== 'accountant' && m.member_category !== 'strategic_member')
+      : allMembers.filter((m) => m.member_category === category)
+  ), [allMembers, isAdvisorPage, category])
+
+  // Family set. Advisors/accountants have curated family groupings; strategic
+  // members are grouped by their Strategic Group (member_type) — one single-type
+  // family per group, built dynamically from the pool.
+  const families = useMemo(() => {
+    if (isAdvisorPage) return ADVISOR_FAMILIES
+    if (!isStrategic) return ACCOUNTANT_FAMILIES
+    const groups = [...new Set(pool.map((m) => m.member_type).filter(Boolean))].sort()
+    return groups.map((g) => ({ key: g, label: g, types: [g] }))
+  }, [isAdvisorPage, isStrategic, pool])
+
+  // Exact type -> family reverse map (rebuilt when the family set changes).
   const typeToFamily = useMemo(() => {
     const map = {}
     families.forEach((f) => f.types.forEach((t) => { map[t] = f.key }))
     return map
   }, [families])
-
-  // The category pool. Advisors = everything that is NOT an accountant (this
-  // intentionally includes the null-category Corporate Members, matching the
-  // Advisor Search list); accountants = member_category === 'accountant'.
-  const pool = useMemo(() => (
-    isAdvisorPage
-      ? allMembers.filter((m) => m.member_category !== 'accountant')
-      : allMembers.filter((m) => m.member_category === 'accountant')
-  ), [allMembers, isAdvisorPage])
 
   // Headline status counts — always computed off the FULL pool so the lens
   // cards stay stable regardless of which lens is active.
@@ -274,13 +289,13 @@ export default function MemberKpiPanel({ allMembers, category }) {
         ))}
       </div>
 
-      {/* Model split (scoped) */}
-      <ModelSplit legacy={model.legacy} newModel={model.newModel} unknown={model.unknown} total={scoped.length} />
+      {/* Model split (scoped) — strategic members have no Legacy/New model */}
+      {!isStrategic && <ModelSplit legacy={model.legacy} newModel={model.newModel} unknown={model.unknown} total={scoped.length} />}
 
       {/* Family breakdown header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '18px', fontWeight: 800, letterSpacing: '-0.02em', color: '#002973' }}>Breakdown by member type</span>
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '18px', fontWeight: 800, letterSpacing: '-0.02em', color: '#002973' }}>{breakdownLabel}</span>
           <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>{scoped.length}</span>
         </div>
         {lens !== 'all' && (
@@ -297,7 +312,7 @@ export default function MemberKpiPanel({ allMembers, category }) {
       {/* Family grid */}
       {familyData.length === 0 ? (
         <div style={{ background: '#ffffff', border: '1px dashed #d6e0ee', borderRadius: '16px', padding: '40px', textAlign: 'center', color: '#9aa6bf', fontSize: '14px' }}>
-          No {isAdvisorPage ? 'advisors' : 'accountants'} match the <strong style={{ color: '#7c8aa6' }}>{activeLens.label}</strong> status.
+          No {isAdvisorPage ? 'advisors' : isStrategic ? 'strategic members' : 'accountants'} match the <strong style={{ color: '#7c8aa6' }}>{activeLens.label}</strong> status.
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '14px', alignItems: 'start' }}>
