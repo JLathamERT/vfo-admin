@@ -601,6 +601,23 @@ Bill a specialist, split proceeds to members. Tables `specialist_revenue_request
 
 Payout engine per line: Money Mapping → no transfer + notice email; Revenue Share + active Connect acct → `/v1/transfers` (member_share) + confirmation; Revenue Share + missing/unfinished acct (`capabilities.transfers !== 'active'`) → setup email + `awaiting_connect`. Webhook: independent `VFO_SPECIALIST_REVENUE` branch in `router/webhooks.ts` (checkout.session.completed card→received chains confirmation+invoice+payout; ACH→processing chains confirmation, then payment_intent.succeeded→received chains invoice+payout) + a branch in `utils/resolve-stripe-failure.ts`.
 
+### License Fee Continuation + Accounting reporting (added 2026-06-30)
+
+All SUPERADMIN, read-only except the two continuation actions. The reporting loaders feed the Accounting → Specialists / VFO Services / Members sub-menus; the frontend flattens per-payment cleared rows + filters by year/month client-side.
+
+| Action | File | Role | Notes |
+|--------|------|------|-------|
+| `specialist_license_continuation_start` | `actions/specialist-license/continuation-start.ts` | SUPERADMIN | Move an existing specialist onto the $99/mo license: find-or-create a `specialist_onboarding` row (`license_continuation=true`), ensure Stripe customer + `lic_checkout_token`, draft `SPECIALIST_lic_continuation_request` email (`/specialist-pay?kind=license`). Re-runnable = Resend. Refuses if a live subscription exists. |
+| `specialist_license_continuation_load` | `actions/specialist-license/continuation-load.ts` | SUPERADMIN | Current license state for the specialist's License Fee Continuation tab. |
+| `specialist_license_payments_load` | `actions/specialist-license/license-payments-load.ts` | SUPERADMIN | The `specialist_license_payments` ledger (one row per cleared monthly invoice). |
+| `specialist_bg_payments_load` | `actions/specialist-license/bg-payments-load.ts` | SUPERADMIN | Background-check payments from `specialist_onboarding` (`background_check_type` → Core $350 / Max $950). |
+| `holistic_planning_load` | `actions/holistic/load.ts` | SUPERADMIN | Enriched `pipeline_map1` rows (sandbox excluded) for Holistic Revenue + Reconciliation. |
+| `tax_planning_load` | `actions/holistic/tax-load.ts` | SUPERADMIN | Enriched `client_tax_plans` rows (program_id 1+4, sandbox excluded) for Tax Revenue + Reconciliation. |
+| `member_onboarding_payments_load` | `actions/holistic/member-onboarding-load.ts` | SUPERADMIN | Onboarding fee (`payment_amount`) from `advisor_onboarding` / `accountant_onboarding` (body.kind). |
+| `pip_additional_load` | `actions/holistic/pip-load.ts` | SUPERADMIN | Additional-PIP purchases from `client_priority_tracks` (splits stored on the row) for Additional PIP Revenue + Reconciliation. |
+
+Also (no new action): the license `invoice.paid` webhook block uses an atomic invoice-id claim (gotcha #161); `automation_SPECIALIST_licinvoicereceipt` appends to `specialist_license_payments`; `migration_send_setup_link` reads the client setup-link copy from the `CLIENT_PAYMENT_CONTINUATION`/`setup_link` template; `loadOnboardings` / `automation_load_specialist_pipelines` / the specialist sweep exclude `license_continuation=true` rows.
+
 ---
 
 ## Notes & oddities
