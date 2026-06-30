@@ -590,7 +590,7 @@ Bill a specialist, split proceeds to members. Tables `specialist_revenue_request
 |---|---|---|---|
 | `specialist_revenue_send_request` | `actions/specialist-revenue/send-request.ts` | SUPERADMIN | Persists request+lines, creates a Stripe customer for the specialist, drafts the payment-request email (`SPECREV_payment_request`) with a `/specialist-revenue-pay?token=` link |
 | `specialist_revenue_pay_load` | `actions/specialist-revenue/pay-load.ts` | PUBLIC | Token → request summary for the pay page |
-| `specialist_revenue_checkout` | `actions/specialist-revenue/checkout.ts` | PUBLIC | Token+method → Stripe Checkout (card grossed up / ACH par); `metadata.pipeline='VFO_SPECIALIST_REVENUE'` |
+| `specialist_revenue_checkout` | `actions/specialist-revenue/checkout.ts` | PUBLIC | Token → Stripe Checkout. **ACH-only** (2026-06-30): the `method` field is ignored/forced to ACH, charged at par (never grossed up); `metadata.pipeline='VFO_SPECIALIST_REVENUE'` |
 | `specialist_revenue_confirmationemail` | `actions/specialist-revenue/confirmation-email.ts` | PUBLIC (chained) | Payment confirmation to specialist (card+ACH); `SPECREV_payment_confirmation` w/ `[CARD_FEE_TEXT]` |
 | `specialist_revenue_invoicereceipt` | `actions/specialist-revenue/invoice-receipt.ts` | PUBLIC (chained) | INV/REC PDFs (`utils/specialist-revenue-invoice.ts`, numbers `INV-SPEC-<id>`/`REC-SPEC-<id>`) → Drive → email `SPECREV_invoice_receipt_email` w/ both attached |
 | `specialist_revenue_payout` | `actions/specialist-revenue/payout.ts` | PUBLIC (chained) | Runs `utils/specialist-revenue-payout.ts` for one request |

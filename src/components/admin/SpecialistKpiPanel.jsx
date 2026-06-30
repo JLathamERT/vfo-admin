@@ -3,11 +3,11 @@ import { useState, useMemo } from 'react'
 // Specialist (experts) analytics. Mirrors the member KPI page's visual language
 // but for the specialist data model: statuses are Active / Lost / Removed only
 // (no suspended/paused), the "model" split becomes Top of the T vs not, and the
-// type breakdown becomes the 5 ecosystems — which OVERLAP, because a specialist
-// can belong to more than one. So ecosystem counts intentionally sum to more
-// than the roster, and we say so.
+// type breakdown becomes the ecosystems — which OVERLAP, because a specialist
+// can belong to more than one (Member Services excepted — it's mutually exclusive).
+// So ecosystem counts intentionally sum to more than the roster, and we say so.
 
-const ECOSYSTEMS = ['Business Advisory', 'Insurance', 'Legal', 'Tax Planning', 'Wealth Management']
+const ECOSYSTEMS = ['Business Advisory', 'Risk Mitigation', 'Legal Services', 'Tax Planning', 'Wealth Management', 'Member Services']
 
 const LENSES = [
   { key: 'active', label: 'Active', color: '#1b9254', desc: 'of total' },

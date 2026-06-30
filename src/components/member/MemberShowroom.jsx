@@ -15,10 +15,15 @@ const S = {
   primary_color: '#fb895a',   // active buttons, tags, hover, underlines
   font: 'Playfair Display',
   widget_font_size: 14,
-  last_initial_only: true,
+  last_initial_only: false,
 }
 
-const FILTER_CATS = ['All', 'Tax Planning', 'Business Advisory', 'Legal', 'Insurance', 'Wealth Management']
+const FILTER_CATS = ['All', 'Tax Planning', 'Business Advisory', 'Legal Services', 'Risk Mitigation', 'Wealth Management']
+// "Member Services" is an internal-only ecosystem — shown only where showMemberServices
+// is passed (admin Specialists showroom, admin per-member preview, member portal). It is
+// mutually exclusive with the five public ecosystems, so a Member-Services specialist has
+// no other category and is filtered out entirely on surfaces that don't show it.
+const MEMBER_SERVICES = 'Member Services'
 
 function formatName(name) {
   if (!S.last_initial_only || !name) return name
@@ -134,10 +139,12 @@ function ShowroomModal({ expert, onClose }) {
   )
 }
 
-export default function MemberShowroom({ experts = [], exclusions = [], ecoMap = {} }) {
+export default function MemberShowroom({ experts = [], exclusions = [], ecoMap = {}, showMemberServices = false }) {
   const [activeFilter, setActiveFilter] = useState('All')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
+
+  const filterCats = showMemberServices ? [...FILTER_CATS, MEMBER_SERVICES] : FILTER_CATS
 
   // Member's chosen specialists = all experts minus their exclusions, with categories.
   const excluded = new Set(exclusions)
@@ -145,6 +152,8 @@ export default function MemberShowroom({ experts = [], exclusions = [], ecoMap =
     .filter(ex => !excluded.has(ex.id))
     .filter(ex => (ex.status || 'Active') === 'Active') // Feature C: only Active specialists appear in any showroom
     .map(ex => ({ ...ex, categories: ecoMap[ex.id] || [] }))
+    // Internal-only: hide Member-Services specialists where the category isn't shown.
+    .filter(ex => showMemberServices || !ex.categories.includes(MEMBER_SERVICES))
 
   const q = search.trim().toLowerCase()
   const filtered = shown.filter(ex => {
@@ -165,7 +174,7 @@ export default function MemberShowroom({ experts = [], exclusions = [], ecoMap =
         </div>
 
         <div className="vfo-sr-filters">
-          {FILTER_CATS.map(cat => (
+          {filterCats.map(cat => (
             <button key={cat} className={'vfo-sr-filter-btn' + (cat === activeFilter ? ' vfo-sr-active' : '')} onClick={() => setActiveFilter(cat)}>{cat}</button>
           ))}
         </div>
