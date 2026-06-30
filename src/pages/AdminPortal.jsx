@@ -15,9 +15,43 @@ import NotificationBell from '../components/NotificationBell'
 import EmailTemplatesPanel from '../components/admin/EmailTemplatesPanel'
 import VfoWordmark from '../components/shared/VfoWordmark'
 import AllPaymentsTab from '../components/payments/AllPaymentsTab'
-import SpecialistPaymentInput from '../components/admin/SpecialistPaymentInput'
 import SpecialistRevenuePanel from '../components/admin/SpecialistRevenuePanel'
+import SpecialistLicensePanel from '../components/admin/SpecialistLicensePanel'
+import SpecialistBgPanel from '../components/admin/SpecialistBgPanel'
+import SpecialistReconciliationPanel from '../components/admin/SpecialistReconciliationPanel'
+import HolisticRevenuePanel from '../components/admin/HolisticRevenuePanel'
+import HolisticReconciliationPanel from '../components/admin/HolisticReconciliationPanel'
+import TaxRevenuePanel from '../components/admin/TaxRevenuePanel'
+import TaxReconciliationPanel from '../components/admin/TaxReconciliationPanel'
+import PipRevenuePanel from '../components/admin/PipRevenuePanel'
+import PipReconciliationPanel from '../components/admin/PipReconciliationPanel'
+import MemberOnboardingPanel from '../components/admin/MemberOnboardingPanel'
+import MembershipFeesPanel from '../components/admin/MembershipFeesPanel'
 import SpecialistRevenueAutomationPanel from '../components/admin/SpecialistRevenueAutomationPanel'
+
+// A dropdown row that, on hover, flies out a submenu of options to the right.
+function SubmenuRow({ label, options, onSelect }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ position: 'relative' }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <button style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', width: '100%', padding: '8px 20px', background: open ? '#eef2f9' : 'transparent', border: 'none', color: '#16264a', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}>
+        {label}<span style={{ fontSize: '9px', opacity: 0.6 }}>▸</span>
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: '-4px', left: '100%', background: '#ffffff', border: '1px solid #e3eaf5', borderRadius: '12px', minWidth: '210px', zIndex: 210, paddingTop: '4px', paddingBottom: '4px', boxShadow: '0 14px 36px rgba(20,45,95,0.16)' }}>
+          {options.map(opt => (
+            <button key={opt.key} onClick={() => onSelect(opt.key)}
+              style={{ display: 'block', width: '100%', padding: '8px 20px', background: 'transparent', border: 'none', color: '#16264a', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function NavDropdown({ label, items, onSelect, isActive }) {
   const [open, setOpen] = useState(false)
@@ -49,6 +83,9 @@ function NavDropdown({ label, items, onSelect, isActive }) {
         <div style={{ position: 'absolute', top: '100%', left: 0, background: '#ffffff', border: '1px solid #e3eaf5', borderRadius: '12px', minWidth: '180px', zIndex: 200, paddingTop: '4px', paddingBottom: '4px', boxShadow: '0 14px 36px rgba(20,45,95,0.16)' }}>
           {items.map(item => (
             <div key={item.key}>
+              {item.submenu && (
+                <SubmenuRow label={item.submenuLabel} options={item.submenu} onSelect={(k) => { onSelect(k); setOpen(false) }} />
+              )}
               {item.header && (
                 <div style={{ padding: '8px 16px 4px', fontSize: '10px', color: '#697a9c', textTransform: 'uppercase', letterSpacing: '1px' }}>{item.header}</div>
               )}
@@ -308,9 +345,39 @@ export default function AdminPortal() {
       key: 'accounting', header: null,
       options: [
         { key: 'payments', label: 'Payments' },
-        { key: 'specialist_payment_input', label: 'VFO Specialist Payment Input' },
-        { key: 'specialist_revenue', label: 'VFO Specialist Revenue' },
       ]
+    },
+    {
+      key: 'accounting_specialists',
+      submenuLabel: 'Specialists',
+      submenu: [
+        { key: 'specialist_revenue', label: 'VFO Specialist Revenue' },
+        { key: 'specialist_reconciliation', label: 'VFO Specialist Reconciliation' },
+        { key: 'specialist_license', label: 'VFO Specialist License Fees' },
+        { key: 'specialist_bg', label: 'VFO Specialist Background Check Fees' },
+      ],
+    },
+    {
+      key: 'accounting_vfo_services',
+      submenuLabel: 'VFO Services',
+      submenu: [
+        { key: 'holistic_revenue', label: 'Holistic Planning Revenue' },
+        { key: 'holistic_reconciliation', label: 'Holistic Planning Reconciliation' },
+        { key: 'tax_revenue', label: 'Tax Planning Revenue' },
+        { key: 'tax_reconciliation', label: 'Tax Planning Reconciliation' },
+        { key: 'pip_revenue', label: 'Additional PIP Revenue' },
+        { key: 'pip_reconciliation', label: 'Additional PIP Reconciliation' },
+      ],
+    },
+    {
+      key: 'accounting_members',
+      submenuLabel: 'Members',
+      submenu: [
+        { key: 'advisor_onboarding_fees', label: 'Advisor Onboarding' },
+        { key: 'advisor_membership_fees', label: 'Advisor Membership Fees' },
+        { key: 'accountant_onboarding_fees', label: 'Accountant Onboarding' },
+        { key: 'accountant_membership_fees', label: 'Accountant Membership Fees' },
+      ],
     },
   ]
 
@@ -459,11 +526,47 @@ export default function AdminPortal() {
           {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'payments' && (
             <AllPaymentsTab />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'specialist_payment_input' && (
-            <SpecialistPaymentInput allExperts={allExperts} allMembers={allMembers} />
+          {activeTab === 'accounting' && !loading && session.is_superadmin && (accountingSection === 'specialist_revenue' || accountingSection === 'specialist_payment_input') && (
+            <SpecialistRevenuePanel allExperts={allExperts} allMembers={allMembers} />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'specialist_revenue' && (
-            <SpecialistRevenuePanel />
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'specialist_license' && (
+            <SpecialistLicensePanel />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'specialist_bg' && (
+            <SpecialistBgPanel />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'specialist_reconciliation' && (
+            <SpecialistReconciliationPanel allMembers={allMembers} />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'holistic_revenue' && (
+            <HolisticRevenuePanel />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'holistic_reconciliation' && (
+            <HolisticReconciliationPanel />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'tax_revenue' && (
+            <TaxRevenuePanel />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'tax_reconciliation' && (
+            <TaxReconciliationPanel />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'pip_revenue' && (
+            <PipRevenuePanel />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'pip_reconciliation' && (
+            <PipReconciliationPanel />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'advisor_onboarding_fees' && (
+            <MemberOnboardingPanel kind="advisor" title="Advisor Onboarding" />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'advisor_membership_fees' && (
+            <MembershipFeesPanel title="Advisor Membership Fees" />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'accountant_onboarding_fees' && (
+            <MemberOnboardingPanel kind="accountant" title="Accountant Onboarding" />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'accountant_membership_fees' && (
+            <MembershipFeesPanel title="Accountant Membership Fees" />
           )}
 
           {loading && <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>}

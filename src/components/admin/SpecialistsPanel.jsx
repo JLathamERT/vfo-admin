@@ -1,7 +1,8 @@
 import { Fragment, useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { callApi } from '../../lib/api'
+import { callApi, getSession } from '../../lib/api'
 import { fileSizeError } from '../../lib/fileUpload'
+import SpecialistLicenseContinuationTab from './SpecialistLicenseContinuationTab'
 import MemberShowroom from '../member/MemberShowroom'
 import SpecialistOnboarding from './SpecialistOnboarding'
 import SpecialistAdminVault from './SpecialistAdminVault'
@@ -26,6 +27,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
     </div>
   )
   const activeTab = section === 'add_specialist' ? 'add' : 'edit'
+  const isSuperadmin = !!getSession()?.is_superadmin
   const [addStatus, setAddStatus] = useState('')
   const [addStatusType, setAddStatusType] = useState('success')
   const [editStatus, setEditStatus] = useState('')
@@ -527,7 +529,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
               </button>
               {profileDropOpen && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, background: '#ffffff', border: '1px solid #e3eaf5', borderRadius: '12px', minWidth: '150px', zIndex: 200, padding: '4px 0', boxShadow: '0 14px 36px rgba(20,45,95,0.16)' }}>
-                  {[['profile','Profile'],['edit','Edit Profile'],['vault','Vault'],['payments','Payments'],['settings','Settings']].map(([k, l]) => (
+                  {[['profile','Profile'],['edit','Edit Profile'],['vault','Vault'],['payments','Payments'],['settings','Settings'],...(isSuperadmin ? [['license_continuation','License Fee Continuation']] : [])].map(([k, l]) => (
                     <button key={k} onClick={() => { setSpecialistTab(k); setProfileDropOpen(false) }} style={{ display: 'block', width: '100%', padding: '8px 16px', background: specialistTab === k ? '#eef2f9' : 'transparent', border: 'none', color: specialistTab === k ? '#125ecc' : '#16264a', fontWeight: specialistTab === k ? 600 : 400, fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }} onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'} onMouseLeave={e => e.currentTarget.style.background = specialistTab === k ? '#eef2f9' : 'transparent'}>{l}</button>
                   ))}
                 </div>
@@ -583,6 +585,10 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
             <div style={sectionStyle}>
               <SpecialistAdminVault expertId={selectedExpert.id} />
             </div>
+          )}
+
+          {specialistTab === 'license_continuation' && isSuperadmin && (
+            <SpecialistLicenseContinuationTab expert={selectedExpert} />
           )}
         </div>
       )}
