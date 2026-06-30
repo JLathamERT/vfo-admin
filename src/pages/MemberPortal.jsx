@@ -129,9 +129,9 @@ export default function MemberPortal() {
             <MemberMSMTracking member={memberData} activeTab={activeTab} onNavigate={setActiveTab} />
           )}
           {!loading && activeTab === 'specialists' && memberData && (
-            <MemberSpecialists member={memberData} allExperts={allExperts} exclusions={exclusions} onDataChange={loadData} />
+            <MemberSpecialists member={memberData} allExperts={allExperts} exclusions={exclusions} ecoMap={ecoMap} onDataChange={loadData} />
           )}
-          {!loading && activeTab === 'showroom' && <MemberShowroom experts={allExperts} exclusions={exclusions} ecoMap={ecoMap} />}
+          {!loading && activeTab === 'showroom' && <MemberShowroom experts={allExperts} exclusions={exclusions} ecoMap={ecoMap} showMemberServices />}
           {!loading && activeTab === 'website' && memberData && memberData.website_enabled && (
             <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
               <MemberWebsitePlugin member={memberData} onDataChange={loadData} />
@@ -201,10 +201,15 @@ function ComingSoon({ title }) {
   )
 }
 
-function MemberSpecialists({ member, allExperts, exclusions, onDataChange }) {
+function MemberSpecialists({ member, allExperts, exclusions, ecoMap = {}, onDataChange }) {
+  // Member Services specialists are internal-only (never shown to clients or in the
+  // website plugin), so they aren't enable/disable-able — listed separately below.
+  const isMemberService = (id) => (ecoMap[id] || []).includes('Member Services')
+  const regularExperts = allExperts.filter(e => !isMemberService(e.id))
+  const memberServiceExperts = allExperts.filter(e => isMemberService(e.id))
   const [enabled, setEnabled] = useState(() => {
     const set = {}
-    allExperts.forEach(e => { set[e.id] = !exclusions.includes(e.id) })
+    regularExperts.forEach(e => { set[e.id] = !exclusions.includes(e.id) })
     return set
   })
   const [search, setSearch] = useState('')
@@ -212,15 +217,17 @@ function MemberSpecialists({ member, allExperts, exclusions, onDataChange }) {
   const [status, setStatus] = useState('')
   const [statusType, setStatusType] = useState('success')
 
-  const enabledCount = Object.values(enabled).filter(Boolean).length
-  const filtered = search ? allExperts.filter(e => e.name.toLowerCase().includes(search.toLowerCase())) : allExperts
+  const enabledCount = regularExperts.filter(e => enabled[e.id]).length
+  const filtered = search ? regularExperts.filter(e => e.name.toLowerCase().includes(search.toLowerCase())) : regularExperts
 
   function toggle(id) { setEnabled(p => ({ ...p, [id]: !p[id] })); setDirty(true) }
-  function enableAll() { const s = {}; allExperts.forEach(e => s[e.id] = true); setEnabled(s); setDirty(true) }
-  function disableAll() { const s = {}; allExperts.forEach(e => s[e.id] = false); setEnabled(s); setDirty(true) }
+  function enableAll() { const s = {}; regularExperts.forEach(e => s[e.id] = true); setEnabled(s); setDirty(true) }
+  function disableAll() { const s = {}; regularExperts.forEach(e => s[e.id] = false); setEnabled(s); setDirty(true) }
 
   async function save() {
-    const newExcluded = allExperts.filter(e => !enabled[e.id]).map(e => e.id)
+    // Only the public five drive exclusions; preserve any pre-existing Member Services exclusions untouched.
+    const newExcluded = regularExperts.filter(e => !enabled[e.id]).map(e => e.id)
+      .concat(exclusions.filter(id => isMemberService(id)))
     try {
       await callApi('member_save_exclusions', { member_number: member.member_number, exclusions: newExcluded })
       await onDataChange()
@@ -237,7 +244,7 @@ function MemberSpecialists({ member, allExperts, exclusions, onDataChange }) {
       <p style={{ color: '#4e6087', fontSize: '13px', marginBottom: '20px', fontStyle: 'italic' }}>Changes here affect which specialists appear in your VFO Showroom and, if enabled, your Website Plugin.</p>
       <div style={{ display: 'flex', gap: '24px', marginBottom: '20px' }}>
         <div><div style={{ fontSize: '32px', fontWeight: '700', color: '#16264a' }}>{enabledCount}</div><div style={{ fontSize: '11px', color: '#4e6087', letterSpacing: '1px' }}>ENABLED</div></div>
-        <div><div style={{ fontSize: '32px', fontWeight: '700', color: '#16264a' }}>{allExperts.length}</div><div style={{ fontSize: '11px', color: '#4e6087', letterSpacing: '1px' }}>TOTAL</div></div>
+        <div><div style={{ fontSize: '32px', fontWeight: '700', color: '#16264a' }}>{regularExperts.length}</div><div style={{ fontSize: '11px', color: '#4e6087', letterSpacing: '1px' }}>TOTAL</div></div>
       </div>
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search specialists..." style={{ ...inputStyle, marginBottom: '12px' }} />
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
@@ -263,6 +270,26 @@ function MemberSpecialists({ member, allExperts, exclusions, onDataChange }) {
           </div>
         ))}
       </div>
+      {memberServiceExperts.length > 0 && (
+        <div style={{ marginTop: '20px', marginBottom: '8px' }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: '#4e6087', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '4px' }}>Member Services</div>
+          <p style={{ color: '#4e6087', fontSize: '12px', fontStyle: 'italic', marginBottom: '10px' }}>Visible only to you — these specialists never appear in your clients' showrooms or your website plugin, so there is nothing to enable or disable.</p>
+          {memberServiceExperts.map(expert => (
+            <div key={expert.id}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: '#f4f6fb', border: '1px dashed #d6e0ee', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: '#e3eaf5', flexShrink: 0 }}>
+                  {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                </div>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: '14px', color: '#16264a' }}>{expert.name}</div>
+                  <div style={{ fontSize: '12px', color: '#4e6087' }}>{expert.short_bio}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       <div style={{ position: 'sticky', bottom: 0, background: '#f4f7fd', borderTop: '1px solid #e3eaf5', padding: '16px 0', display: 'flex', alignItems: 'center', gap: '16px' }}>
         {dirty && <span style={{ fontSize: '13px', color: '#b08d26', fontWeight: 500 }}>You have unsaved changes</span>}
         <button onClick={save} style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>Save Changes</button>

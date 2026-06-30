@@ -134,8 +134,13 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
   }, [lines])
 
   const selectedExpert = expertKey ? specialistOptions.find(o => o.key === expertKey)?.expert : null
-  const validLines = lines.filter(l => l.recipientKey)
-  const canSend = !!selectedExpert && validLines.length > 0 && totals.gross > 0 && !sending
+  // Every line must have a recipient AND all three boxes filled before sending.
+  const lineComplete = (l) => !!l.recipientKey
+    && String(l.vfos_share).trim() !== ''
+    && String(l.member_share).trim() !== ''
+    && String(l.deals).trim() !== ''
+  const allLinesComplete = lines.length > 0 && lines.every(lineComplete)
+  const canSend = !!selectedExpert && !!selectedExpert.email && allLinesComplete && totals.gross > 0 && !sending
 
   async function send() {
     if (!canSend) return
@@ -143,7 +148,7 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
     try {
       const payload = {
         expert_id: selectedExpert.id,
-        lines: validLines.map(l => {
+        lines: lines.map(l => {
           const r = recipientByKey[l.recipientKey]
           return {
             recipient_type: r.recipient_type, member_number: r.member_number, expert_id: r.expert_id,
@@ -168,6 +173,7 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
   const wrap = { padding: '24px', maxWidth: '1100px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
   const card = { background: '#fff', border: '1px solid #e9eef8', borderRadius: '16px', padding: '22px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', marginBottom: '20px' }
   const numInput = { width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d6e0f0', fontSize: '13px', fontFamily: 'Inter, sans-serif', outline: 'none' }
+  const reqBorder = (v) => String(v).trim() === '' ? '1px solid #f3c0c0' : '1px solid #d6e0f0'
   const colLabel = { fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: '#697a9c' }
   const grid = '1fr 150px 150px 110px 36px'
 
@@ -221,9 +227,9 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
                 <SearchSelect options={recipientOptions} value={l.recipientKey} onChange={k => updateLine(l.id, { recipientKey: k })} placeholder="Select a member…" />
                 {r && <RevenueBadge decision={r.revenue_decision} />}
               </div>
-              <input style={numInput} inputMode="decimal" placeholder="0.00" value={l.vfos_share} onChange={e => updateLine(l.id, { vfos_share: e.target.value })} />
-              <input style={numInput} inputMode="decimal" placeholder="0.00" value={l.member_share} onChange={e => updateLine(l.id, { member_share: e.target.value })} />
-              <input style={numInput} inputMode="numeric" placeholder="0" value={l.deals} onChange={e => updateLine(l.id, { deals: e.target.value })} />
+              <input style={{ ...numInput, border: reqBorder(l.vfos_share) }} inputMode="decimal" placeholder="0.00" value={l.vfos_share} onChange={e => updateLine(l.id, { vfos_share: e.target.value })} />
+              <input style={{ ...numInput, border: reqBorder(l.member_share) }} inputMode="decimal" placeholder="0.00" value={l.member_share} onChange={e => updateLine(l.id, { member_share: e.target.value })} />
+              <input style={{ ...numInput, border: reqBorder(l.deals) }} inputMode="numeric" placeholder="0" value={l.deals} onChange={e => updateLine(l.id, { deals: e.target.value })} />
               <button type="button" onClick={() => removeLine(l.id)} title="Remove"
                 style={{ width: '36px', height: '38px', borderRadius: '8px', border: '1px solid #f3d0d0', background: '#fff5f5', color: '#dc2626', cursor: 'pointer', fontSize: '16px', lineHeight: 1 }}>×</button>
             </div>
@@ -253,10 +259,15 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
           <div style={colLabel}>Total gross (charged to specialist)</div>
           <div style={{ fontSize: '28px', fontWeight: 800, color: NAVY, marginTop: '4px' }}>{money(totals.gross)}</div>
         </div>
-        <button type="button" disabled={!canSend} onClick={send}
-          style={{ padding: '14px 28px', borderRadius: '10px', border: 'none', background: canSend ? `linear-gradient(90deg, ${NAVY} 0%, ${BLUE} 100%)` : '#c7d2e4', color: '#fff', fontWeight: 700, fontSize: '15px', cursor: canSend ? 'pointer' : 'not-allowed', fontFamily: 'Inter, sans-serif' }}>
-          {sending ? 'Sending…' : `Send Payment Request — ${money(totals.gross)}`}
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+          <button type="button" disabled={!canSend} onClick={send}
+            style={{ padding: '14px 28px', borderRadius: '10px', border: 'none', background: canSend ? `linear-gradient(90deg, ${NAVY} 0%, ${BLUE} 100%)` : '#c7d2e4', color: '#fff', fontWeight: 700, fontSize: '15px', cursor: canSend ? 'pointer' : 'not-allowed', fontFamily: 'Inter, sans-serif' }}>
+            {sending ? 'Sending…' : `Send Payment Request — ${money(totals.gross)}`}
+          </button>
+          {lines.length > 0 && !allLinesComplete && (
+            <div style={{ fontSize: '12px', color: '#b45309' }}>Fill in a recipient, VFOS $, Member $, and Deals for every line before sending.</div>
+          )}
+        </div>
       </div>
     </div>
   )

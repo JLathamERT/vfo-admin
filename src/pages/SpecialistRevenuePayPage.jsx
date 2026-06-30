@@ -5,13 +5,13 @@ import TokenShell from '../components/shared/TokenShell'
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
 // Public, no-login page reached from the specialist's "Payment request" email.
-// Mirrors the MAP 1 PayPage: ACH (no fee) vs Card (2.9% + $0.30), both totals shown.
+// ACH-only: there is no method choice — once the request loads (and isn't already
+// paid), the page goes straight to the Stripe ACH checkout.
 export default function SpecialistRevenuePayPage() {
   const [searchParams] = useSearchParams()
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
   const [data, setData] = useState(null)
-  const [hoveredOption, setHoveredOption] = useState(null)
 
   useEffect(() => {
     const token = searchParams.get('token')
@@ -29,7 +29,9 @@ export default function SpecialistRevenuePayPage() {
       const d = await res.json()
       if (d.error) { setError(d.error); setStatus('error'); return }
       setData(d)
-      setStatus(d.already_paid ? 'done' : 'ready')
+      if (d.already_paid) { setStatus('done'); return }
+      // ACH-only: skip the decision page and head straight to Stripe.
+      handleChoice('ach')
     } catch {
       setError('Failed to load payment details.')
       setStatus('error')
@@ -90,111 +92,15 @@ export default function SpecialistRevenuePayPage() {
     </TokenShell>
   )
 
-  const baseAmount = Number(data.gross_amount) || 0
-  const cardTotal = Math.round((baseAmount + 0.30) / (1 - 0.029) * 100) / 100
-  const cardFee = Math.round((cardTotal - baseAmount) * 100) / 100
-
+  // ACH-only: any non-terminal state means we're on our way to Stripe.
   return (
     <TokenShell>
-      <div style={pageContainerStyle}>
-        <div style={{ ...iconCircleStyle, width: '64px', height: '64px', background: 'rgba(34,197,94,0.15)' }}>
-          <span style={{ fontSize: '28px', lineHeight: 1 }}>🔒</span>
-        </div>
-        <h1 style={{ ...titleStyle, fontSize: '22px', textAlign: 'center', marginBottom: '8px' }}>Payment Request</h1>
-        <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '12px' }}>Choose your preferred payment method</p>
-        <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '32px', fontSize: '13px', color: '#64748b' }}>
-          VFO Services (working with ERT){data.specialist_name ? ` · ${data.specialist_name}` : ''}
-        </p>
-
-        <OptionCard
-          isHovered={hoveredOption === 'ach'}
-          onHover={() => setHoveredOption('ach')}
-          onLeave={() => setHoveredOption(null)}
-          onClick={() => handleChoice('ach')}
-          title="ACH Bank Transfer"
-          badgeText="No Fee"
-          badgeClass="green"
-          amount={baseAmount}
-          breakdown={[
-            { label: 'VFO Specialist Payment', value: `$${formatMoney(baseAmount)}`, valueColor: '#243757' },
-            { label: 'Processing Fee', value: '$0.00', valueColor: '#16a34a' },
-          ]}
-          footer="Funds transfer directly from your bank account. Takes 2-4 business days to process."
-        />
-
-        <div style={dividerStyle}>— or —</div>
-
-        <OptionCard
-          isHovered={hoveredOption === 'card'}
-          onHover={() => setHoveredOption('card')}
-          onLeave={() => setHoveredOption(null)}
-          onClick={() => handleChoice('card')}
-          title="Credit / Debit Card"
-          badgeText="2.9% + $0.30 Fee"
-          badgeClass="blue"
-          amount={cardTotal}
-          breakdown={[
-            { label: 'VFO Specialist Payment', value: `$${formatMoney(baseAmount)}`, valueColor: '#243757' },
-            { label: 'Card Processing Fee (2.9% + $0.30)', value: `$${formatMoney(cardFee)}`, valueColor: '#243757' },
-          ]}
-          footer="Processes immediately. The processing fee covers card transaction costs."
-        />
-
-        <p style={securityNoteStyle}>
-          Your payment details are handled securely by Stripe.<br />
-          VFO Services never sees or stores your payment information.
-        </p>
-      </div>
+      <p style={{ color: '#4e6087', fontSize: '15px', textAlign: 'center', margin: 0 }}>Redirecting to Stripe…</p>
     </TokenShell>
   )
 }
 
-function OptionCard({ isHovered, onHover, onLeave, onClick, title, badgeText, badgeClass, amount, breakdown, footer }) {
-  return (
-    <div
-      onClick={onClick}
-      onMouseEnter={onHover}
-      onMouseLeave={onLeave}
-      style={{
-        ...optionCardStyle,
-        borderColor: isHovered ? '#0095ff' : '#e3eaf5',
-        background: isHovered ? 'rgba(0,149,255,0.05)' : 'transparent',
-      }}
-    >
-      <div style={optionHeaderStyle}>
-        <span style={optionTitleStyle}>{title}</span>
-        <span style={{ ...optionBadgeBaseStyle, ...badgeStyles[badgeClass] }}>{badgeText}</span>
-      </div>
-      <div style={optionAmountStyle}>${formatMoney(amount)}</div>
-      <div style={{ marginBottom: '16px' }}>
-        {breakdown.map((row, i) => (
-          <div key={i} style={optionDetailRowStyle}>
-            <span style={{ color: '#64748b' }}>{row.label}</span>
-            <span style={{ color: row.valueColor, fontWeight: 600 }}>{row.value}</span>
-          </div>
-        ))}
-      </div>
-      <div style={optionFooterStyle}>{footer}</div>
-    </div>
-  )
-}
-
-function formatMoney(n) {
-  return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-const pageContainerStyle = { width: '100%' }
 const messageCardStyle = { textAlign: 'center', padding: '12px 0' }
 const iconCircleStyle = { width: '72px', height: '72px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }
 const titleStyle = { fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }
 const subtitleStyle = { fontSize: '14px', color: '#4e6087' }
-const optionCardStyle = { border: '2px solid #e3eaf5', borderRadius: '16px', padding: '28px', marginBottom: '16px', cursor: 'pointer', transition: 'all 0.2s' }
-const optionHeaderStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }
-const optionTitleStyle = { fontSize: '16px', fontWeight: 700, color: '#16264a' }
-const optionBadgeBaseStyle = { fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.5px' }
-const badgeStyles = { green: { background: 'rgba(34,197,94,0.15)', color: '#16a34a' }, blue: { background: 'rgba(0,149,255,0.15)', color: '#0095ff' } }
-const optionAmountStyle = { fontSize: '28px', fontWeight: 700, color: '#16264a', marginBottom: '16px' }
-const optionDetailRowStyle = { display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px' }
-const optionFooterStyle = { fontSize: '12px', color: '#4e6087', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e9eef8' }
-const dividerStyle = { textAlign: 'center', color: '#4e6087', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', margin: '8px 0' }
-const securityNoteStyle = { textAlign: 'center', color: '#4e6087', fontSize: '12px', marginTop: '24px', lineHeight: 1.6 }

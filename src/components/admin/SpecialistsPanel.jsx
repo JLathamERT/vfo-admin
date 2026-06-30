@@ -12,7 +12,10 @@ import SpecialistKpiPanel from './SpecialistKpiPanel'
 import ListFilterButton, { matchesFilter, sortByJoin, SortSelect } from './ListFilterButton'
 import ImageCropModal from './ImageCropModal'
 
-const ECOSYSTEMS = ['Tax Planning', 'Business Advisory', 'Legal', 'Insurance', 'Wealth Management']
+const ECOSYSTEMS = ['Tax Planning', 'Business Advisory', 'Legal Services', 'Risk Mitigation', 'Wealth Management', 'Member Services']
+// "Member Services" is internal-only and mutually exclusive with the five public
+// ecosystems: a specialist is either Member Services OR (some of) the public five.
+const MEMBER_SERVICES = 'Member Services'
 const STATUS_COLORS = { Active: '#1b9254', Lost: '#e74c3c', Removed: '#4e6087' }
 const SPEC_FILTER_GROUPS = [{ key: 'status', label: 'Status', options: ['Active', 'Lost', 'Removed'], get: e => e.status || 'Active' }]
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
@@ -23,7 +26,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   if (section === 'specialist_kpis') return <SpecialistKpiPanel experts={allExperts} ecoMap={ecoMap} />
   if (section === 'specialist_showroom') return (
     <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', overflow: 'hidden' }}>
-      <MemberShowroom experts={allExperts} exclusions={[]} ecoMap={ecoMap} />
+      <MemberShowroom experts={allExperts} exclusions={[]} ecoMap={ecoMap} showMemberServices />
     </div>
   )
   const activeTab = section === 'add_specialist' ? 'add' : 'edit'
@@ -121,11 +124,14 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   }
 
   function toggleEco(which, eco) {
-    if (which === 'add') {
-      setAddEcos(prev => prev.includes(eco) ? prev.filter(e => e !== eco) : [...prev, eco])
-    } else {
-      setEditEcos(prev => prev.includes(eco) ? prev.filter(e => e !== eco) : [...prev, eco])
-    }
+    const setter = which === 'add' ? setAddEcos : setEditEcos
+    setter(prev => {
+      if (prev.includes(eco)) return prev.filter(e => e !== eco)
+      // Enforce mutual exclusivity: Member Services clears the public five, and
+      // selecting any public ecosystem clears Member Services.
+      if (eco === MEMBER_SERVICES) return [MEMBER_SERVICES]
+      return [...prev.filter(e => e !== MEMBER_SERVICES), eco]
+    })
   }
 
   function addCiqTag(which) {
@@ -411,12 +417,18 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
         <div style={fieldStyle}>
           <label style={labelStyle}>VFO Ecosystem</label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {ECOSYSTEMS.map(eco => (
-              <button key={eco} onClick={() => toggleEco(which, eco)}
-                style={{ padding: '6px 14px', borderRadius: '20px', border: `1px solid ${ecos.includes(eco) ? '#0095ff' : '#c7d4e8'}`, background: ecos.includes(eco) ? 'rgba(0,149,255,0.15)' : 'transparent', color: ecos.includes(eco) ? '#0095ff' : '#4e6087', fontSize: '13px', cursor: 'pointer' }}>
-                {eco}
-              </button>
-            ))}
+            {ECOSYSTEMS.map(eco => {
+              const selected = ecos.includes(eco)
+              const msSelected = ecos.includes(MEMBER_SERVICES)
+              const otherSelected = ecos.some(e => e !== MEMBER_SERVICES)
+              const disabled = !selected && (eco === MEMBER_SERVICES ? otherSelected : msSelected)
+              return (
+                <button key={eco} type="button" disabled={disabled} onClick={() => toggleEco(which, eco)}
+                  style={{ padding: '6px 14px', borderRadius: '20px', border: `1px solid ${selected ? '#0095ff' : '#c7d4e8'}`, background: selected ? 'rgba(0,149,255,0.15)' : 'transparent', color: selected ? '#0095ff' : '#4e6087', fontSize: '13px', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1 }}>
+                  {eco}
+                </button>
+              )
+            })}
           </div>
         </div>
         <div style={fieldStyle}>
