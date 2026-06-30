@@ -42,11 +42,15 @@ export default function ListFilterButton({ groups, value, onChange }) {
 }
 
 // An item passes when every group is either unselected (no filter) or includes
-// the item's value for that group.
+// the item's value for that group. `get` may return a single value (scalar) or
+// an array of values (e.g. a specialist's ecosystems) — for an array, the item
+// matches when ANY of its values is selected.
 export function matchesFilter(item, groups, value) {
   return groups.every(g => {
     const sel = value[g.key] || []
-    return sel.length === 0 || sel.includes(g.get(item))
+    if (sel.length === 0) return true
+    const got = g.get(item)
+    return Array.isArray(got) ? got.some(v => sel.includes(v)) : sel.includes(got)
   })
 }
 
