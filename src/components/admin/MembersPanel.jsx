@@ -774,7 +774,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
     setLoading(true)
     try {
       const data = await callApi('member_profile_load', { member_number: member.plugin_member_number })
-      setProfile(data.profile || { member_number: member.plugin_member_number, first_name: member.name?.split(' ')[0] || '', last_name: member.name?.split(' ').slice(1).join(' ') || '', elite_status: 'Active', member_type: '', email: '', suspended: false, paused: false, revenue_decision: 'Revenue Share', stripe_account_id: '', connected_member_number: null, connection_type: '', notes: '' })
+      setProfile(data.profile || { member_number: member.plugin_member_number, first_name: member.name?.split(' ')[0] || '', last_name: member.name?.split(' ').slice(1).join(' ') || '', elite_status: 'Active', member_type: '', email: '', suspended: false, paused: false, revenue_decision: 'Revenue Share', credit_note_eligible: true, stripe_account_id: '', connected_member_number: null, connection_type: '', notes: '' })
       setTypeHistory(data.type_history || [])
       setCorporateMembers(allMembers.filter(m => m.plugin_member_number?.startsWith(member.plugin_member_number + '-C') || m.plugin_member_number?.startsWith(member.plugin_member_number + '-FC')))
     } catch (err) { console.error(err) }
@@ -837,6 +837,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                   {!hiddenFields.includes('revenue_decision') && (
                     <div><div style={fieldLabel}>Revenue Decision</div><div style={fieldValue}>{profile.revenue_decision || '—'}</div></div>
                   )}
+                  <div><div style={fieldLabel}>Eligible for Credit Note</div><div style={fieldValue}>{profile.credit_note_eligible === false ? 'No' : 'Yes'}</div></div>
                 </div>
                 {profile.stripe_account_id && (
                   <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid #eef2f9' }}>
@@ -1011,6 +1012,17 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                 </div>
               )}
               {stripeMsg && <p style={{ fontSize: '12.5px', marginTop: '10px', color: stripeMsgType === 'success' ? '#1b9254' : '#d93025' }}>{stripeMsg}</p>}
+            </div>
+            <div style={{ marginTop: '16px' }}>
+              <label style={labelStyle}>Eligible for Credit Note</label>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                {[['On', true], ['Off', false]].map(([lbl, v]) => {
+                  const active = (profile.credit_note_eligible !== false) === v
+                  return (
+                    <button key={lbl} onClick={() => update('credit_note_eligible', v)} style={{ padding: '8px 18px', borderRadius: '6px', border: `1px solid ${active ? '#0095ff' : '#c7d4e8'}`, background: active ? 'rgba(0,149,255,0.15)' : 'transparent', color: active ? '#0095ff' : '#4e6087', fontSize: '13px', cursor: 'pointer' }}>{lbl}</button>
+                  )
+                })}
+              </div>
             </div>
           </div>
           <div style={sectionStyle}>

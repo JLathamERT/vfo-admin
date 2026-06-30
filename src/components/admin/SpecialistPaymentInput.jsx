@@ -69,7 +69,7 @@ function RevenueBadge({ decision }) {
 
 let lineSeq = 1
 
-export default function SpecialistPaymentInput({ allExperts = [], allMembers = [] }) {
+export default function SpecialistPaymentInput({ allExperts = [], allMembers = [], onSent }) {
   const [expertKey, setExpertKey] = useState('')
   const [lines, setLines] = useState([])
   const [sending, setSending] = useState(false)
@@ -157,6 +157,7 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
       if (res?.error) { setError(res.error); return }
       setResult(res)
       setLines([]); setExpertKey('')
+      onSent?.(res)
     } catch (e) {
       setError(e?.message || 'Failed to send payment request')
     } finally {
