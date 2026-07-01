@@ -20,7 +20,7 @@ const STATUS_COLORS = { Active: '#1b9254', Lost: '#e74c3c', Removed: '#4e6087' }
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
 const HEADSHOT_BASE = 'https://biz-diagnostic.com/Uploads/ExpertPhotos/'
 
-export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataChange, section }) {
+export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, section }) {
   if (section === 'specialist_onboarding') return <SpecialistOnboarding />
   if (section === 'specialist_kpis') return <SpecialistKpiPanel experts={allExperts} ecoMap={ecoMap} />
   if (section === 'specialist_showroom') return (
@@ -42,18 +42,14 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   // Add form state
   const [addForm, setAddForm] = useState({ name: '', short_bio: '', long_bio: '', background_check: '', top_of_t: false, revenue_decision: '', 'D&B_strategy_expertise': '', 'D&B_cutoff_date': '', 'D&B_client_requirements': '', 'D&B_investment_cost': '', 'D&B_ideal_client': '', 'D&B_summary_benefits': '', 'D&B_getting_started': '', 'D&B_professional_process': '', 'D&B_competitive_advantage': '', 'D&B_audit_risk_general': '', 'D&B_audit_risk_history': '', 'D&B_audit_risk_worst_case': '', 'D&B_audit_risk_precautions': '', 'D&B_tax_risk_mindset': '', 'D&B_tax_risk_notes': '', 'D&B_revenue_share': '' })
   const [addEcos, setAddEcos] = useState([])
-  const [addCiq, setAddCiq] = useState([])
   const [addFile, setAddFile] = useState(null)
   const [addPreview, setAddPreview] = useState(null)
-  const [addCiqDrop, setAddCiqDrop] = useState('')
 
   // Edit form state
   const [editForm, setEditForm] = useState({ name: '', short_bio: '', long_bio: '', details_and_benefits: '' })
   const [editEcos, setEditEcos] = useState([])
-  const [editCiq, setEditCiq] = useState([])
   const [editFile, setEditFile] = useState(null)
   const [editPreview, setEditPreview] = useState(null)
-  const [editCiqDrop, setEditCiqDrop] = useState('')
   const [editSearch, setEditSearch] = useState('')
   const [specFilter, setSpecFilter] = useState({ status: ['Active'] })
   const [specSort, setSpecSort] = useState('default')
@@ -87,14 +83,13 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
 
   function clearAddForm() {
     setAddForm({ name: '', short_bio: '', long_bio: '', background_check: '', top_of_t: false, revenue_decision: '', 'D&B_strategy_expertise': '', 'D&B_cutoff_date': '', 'D&B_client_requirements': '', 'D&B_investment_cost': '', 'D&B_ideal_client': '', 'D&B_summary_benefits': '', 'D&B_getting_started': '', 'D&B_professional_process': '', 'D&B_competitive_advantage': '', 'D&B_audit_risk_general': '', 'D&B_audit_risk_history': '', 'D&B_audit_risk_worst_case': '', 'D&B_audit_risk_precautions': '', 'D&B_tax_risk_mindset': '', 'D&B_tax_risk_notes': '', 'D&B_revenue_share': '' })
-    setAddEcos([]); setAddCiq([]); setAddFile(null); setAddPreview(null)
+    setAddEcos([]); setAddFile(null); setAddPreview(null)
   }
 
   function handleEditSelect(expert) {
     setEditingId(expert.id)
     setEditForm({ name: expert.name || '', email: expert.email || '', status: expert.status || 'Active', leave_date: expert.leave_date ? String(expert.leave_date).split('T')[0] : '', join_date: expert.join_date ? String(expert.join_date).split('T')[0] : '', short_bio: expert.short_bio || '', long_bio: expert.long_bio || '', background_check: expert.background_check || '', top_of_t: expert.top_of_t || false, revenue_decision: expert.revenue_decision || '', 'D&B_strategy_expertise': expert['D&B_strategy_expertise'] || '', 'D&B_cutoff_date': expert['D&B_cutoff_date'] || '', 'D&B_client_requirements': expert['D&B_client_requirements'] || '', 'D&B_investment_cost': expert['D&B_investment_cost'] || '', 'D&B_ideal_client': expert['D&B_ideal_client'] || '', 'D&B_summary_benefits': expert['D&B_summary_benefits'] || '', 'D&B_getting_started': expert['D&B_getting_started'] || '', 'D&B_professional_process': expert['D&B_professional_process'] || '', 'D&B_competitive_advantage': expert['D&B_competitive_advantage'] || '', 'D&B_audit_risk_general': expert['D&B_audit_risk_general'] || '', 'D&B_audit_risk_history': expert['D&B_audit_risk_history'] || '', 'D&B_audit_risk_worst_case': expert['D&B_audit_risk_worst_case'] || '', 'D&B_audit_risk_precautions': expert['D&B_audit_risk_precautions'] || '', 'D&B_tax_risk_mindset': expert['D&B_tax_risk_mindset'] || '', 'D&B_tax_risk_notes': expert['D&B_tax_risk_notes'] || '', 'D&B_revenue_share': expert['D&B_revenue_share'] || '' })
     setEditEcos(ecoMap[expert.id] || [])
-    setEditCiq(ciqMap[expert.id] || [])
     setEditFile(null)
     if (expert.headshot_image) {
       setEditPreview(HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image))
@@ -141,27 +136,9 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
     })
   }
 
-  function addCiqTag(which) {
-    const val = which === 'add' ? addCiqDrop : editCiqDrop
-    if (!val) return
-    if (which === 'add') {
-      if (!addCiq.includes(val)) setAddCiq(prev => [...prev, val])
-      setAddCiqDrop('')
-    } else {
-      if (!editCiq.includes(val)) setEditCiq(prev => [...prev, val])
-      setEditCiqDrop('')
-    }
-  }
-
-  function removeCiqTag(which, topic) {
-    if (which === 'add') setAddCiq(prev => prev.filter(t => t !== topic))
-    else setEditCiq(prev => prev.filter(t => t !== topic))
-  }
-
   async function submitSpecialist(which) {
     const form = which === 'add' ? addForm : editForm
     const ecos = which === 'add' ? addEcos : editEcos
-    const ciq = which === 'add' ? addCiq : editCiq
     const file = which === 'add' ? addFile : editFile
     if (!form.name) { showStatus(which, 'error', 'Name is required.'); return }
     try {
@@ -186,7 +163,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
         const maxId = allExperts.reduce((m, e) => e.id > m ? e.id : m, 0)
         expertData.id = maxId + 1
       }
-      await callApi('save_specialist', { expert: expertData, ecosystems: ecos, ciq, editing_id: which === 'edit' ? editingId : null })
+      await callApi('save_specialist', { expert: expertData, ecosystems: ecos, editing_id: which === 'edit' ? editingId : null })
       await onDataChange()
       showStatus(which, 'success', which === 'add' ? 'Specialist added!' : 'Changes saved!')
       if (which === 'add') clearAddForm()
@@ -239,7 +216,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
 
   
 
-  function SpecialistForm({ which, form, setForm, ecos, file, preview, ciq, ciqDrop, setCiqDrop, statusMsg, statusType: sType }) {
+  function SpecialistForm({ which, form, setForm, ecos, file, preview, statusMsg, statusType: sType }) {
     const sectionHeader = { fontSize: '14px', color: '#16264a', fontWeight: 600, marginBottom: '18px', borderBottom: '1px solid #e3eaf5', paddingBottom: '12px' }
     return (
       <div>
@@ -454,28 +431,6 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
             <span style={{ fontSize: '14px', color: form.top_of_t ? '#16264a' : '#4e6087' }}>{form.top_of_t ? 'Yes' : 'No'}</span>
           </div>
         </div>
-        <div style={fieldStyle}>
-          <label style={labelStyle}>CIQ Topics</label>
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-            <select value={ciqDrop} onChange={e => setCiqDrop(e.target.value)}
-              style={{ ...inputStyle, flex: 1, background: '#ffffff' }}>
-              <option value="">-- Select a topic --</option>
-              {CIQ_TOPICS.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <button onClick={() => addCiqTag(which)}
-              style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #c7d4e8', background: '#eef2f9', color: '#16264a', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-              + Add
-            </button>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-            {ciq.map(topic => (
-              <span key={topic} style={{ padding: '4px 10px', borderRadius: '20px', background: 'rgba(0,149,255,0.15)', border: '1px solid rgba(0,149,255,0.3)', color: '#0095ff', fontWeight: 600, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {topic}
-                <span onClick={() => removeCiqTag(which, topic)} style={{ cursor: 'pointer', color: '#4e6087' }}>×</span>
-              </span>
-            ))}
-          </div>
-        </div>
         {statusMsg && <p style={{ color: sType === 'success' ? '#1b9254' : '#d93025', fontSize: '13px', margin: '8px 0' }}>{statusMsg}</p>}
         </div>{/* end Bio & Marketing card */}
       </div>
@@ -496,7 +451,6 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
           {SpecialistForm({
             which: 'add', form: addForm, setForm: setAddForm,
             ecos: addEcos, file: addFile, preview: addPreview,
-            ciq: addCiq, ciqDrop: addCiqDrop, setCiqDrop: setAddCiqDrop,
             statusMsg: addStatus, statusType: addStatusType,
           })}
           <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
@@ -566,7 +520,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
           </div>
 
           {specialistTab === 'profile' && (
-            <SpecialistProfileView expert={selectedExpert} ecos={ecoMap[selectedExpert.id] || []} ciq={ciqMap[selectedExpert.id] || []} />
+            <SpecialistProfileView expert={selectedExpert} ecos={ecoMap[selectedExpert.id] || []} />
           )}
 
           {specialistTab === 'payments' && (
@@ -578,7 +532,6 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
               {SpecialistForm({
                 which: 'edit', form: editForm, setForm: setEditForm,
                 ecos: editEcos, file: editFile, preview: editPreview,
-                ciq: editCiq, ciqDrop: editCiqDrop, setCiqDrop: setEditCiqDrop,
                 statusMsg: editStatus, statusType: editStatusType,
               })}
               <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
@@ -629,7 +582,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
 // Read-only presentation of a specialist — same data the Edit form loads,
 // arranged as a profile (header card + main column + side column). No state,
 // no API calls; Edit Specialist remains the only place changes are made.
-function SpecialistProfileView({ expert, ecos, ciq }) {
+function SpecialistProfileView({ expert, ecos }) {
   const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '16px' }
   const cardTitle = { fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '14px' }
   const fieldLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: '#7c8aa6', textTransform: 'uppercase' }
@@ -746,18 +699,6 @@ function SpecialistProfileView({ expert, ecos, ciq }) {
             </div>
           )}
 
-          {ciq.length > 0 && (
-            <div style={sectionStyle}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                <span style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px' }}>CIQ Topics</span>
-                <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>{ciq.length}</span>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {ciq.map(t => <span key={t} style={{ ...chip, background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>{t}</span>)}
-              </div>
-            </div>
-          )}
-
           {expert['D&B_tax_risk_notes'] && (
             <div style={sectionStyle}>
               <div style={cardTitle}>Tax Risk Notes</div>
@@ -769,5 +710,3 @@ function SpecialistProfileView({ expert, ecos, ciq }) {
     </div>
   )
 }
-
-const CIQ_TOPICS = ["1031 Exchange Review","179D Commercial Building Tax Deduction Review","401(k) Review","Advanced Business Tax Strategies Review","Advanced Personal Tax Strategies Review","Asset Protection Review","Business Continuation Planning Review","Business Entity Structure Review","Business Exit Planning Review","Business Finance & Costs - Banking Review","Business Finance & Costs - Merchant Processing (Credit Card Fees) Review","Business Growth - Revenue Generation Review","Business Planning Review","Business Valuation Review","Buy-Sell Agreement Review","Captive Insurance Review","Cash Balance Plan Review","Charitable Planning Review","Compensation & Benefits Review","Cost Recovery Review (Cost Segregation)","Cyber Insurance Review","Deferred Compensation Plan Review","Disability Income Protection Review","Employment Practices Liability Insurance (EPLI) Review","Estate Planning Review","Executive Benefits Review","Group Health Insurance Review","Guaranteed Asset Protection Gap Insurance Review","International Tax Strategies Review","Key Person Insurance Review","Leadership / Culture Review","Life Insurance Review","Life Settlements Review","Long-term Care Review","Merchant Processing (credit cards) Review","Opportunity Zones Review","Outsourced Bookkeeping, CFO and Tax Professionals Review","Outsourced CEO Review","Premium Finance Review","Property & Casualty Insurance Review","Qualified Plans Review","R&D Tax Credit Review","Real Estate Review","Risk Mitigation & Insurance Review","Sales Tax Exemption Review","SDIRA / Alternative Investments Review","Section 125 / Health Insurance Review","Solar Investment Review","Student Loan Repayment / Tuition Reimbursement Review","Surety Bonds Review","Tax Planning Review","Tax Resolution Review","Trust Review","Workers Compensation Review"]

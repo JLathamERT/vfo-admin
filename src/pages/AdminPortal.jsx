@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { getSession, clearSession, callApi } from '../lib/api'
 import SpecialistsPanel from '../components/admin/SpecialistsPanel'
 import MembersPanel from '../components/admin/MembersPanel'
+import MemberOverviewPanel from '../components/admin/MemberOverviewPanel'
 import AdminEditor from '../components/admin/AdminEditor'
 import AdminSettings from '../components/admin/AdminSettings'
 import AutomationPanel from '../components/admin/AutomationPanel'
@@ -53,7 +54,7 @@ function SubmenuRow({ label, options, onSelect }) {
   )
 }
 
-function NavDropdown({ label, items, onSelect, isActive }) {
+function NavDropdown({ label, items, onSelect, isActive, muted = false }) {
   const [open, setOpen] = useState(false)
   const closeTimer = useRef(null)
 
@@ -66,16 +67,27 @@ function NavDropdown({ label, items, onSelect, isActive }) {
     setOpen(false)
   }
 
+  // Key tabs (default) read as primary — larger, bolder, darker. Muted "other"
+  // tabs (Accounting / Automation) are visually secondary.
+  const btnStyle = muted ? {
+    padding: '14px 14px', background: 'transparent', border: 'none',
+    borderBottom: isActive ? '2px solid #125ecc' : '2px solid transparent',
+    color: isActive ? '#125ecc' : '#97a3ba', fontSize: '13px',
+    fontWeight: isActive ? '600' : '500', cursor: 'pointer',
+    fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
+    display: 'flex', alignItems: 'center', gap: '6px'
+  } : {
+    padding: '15px 20px', background: 'transparent', border: 'none',
+    borderBottom: isActive ? '2px solid #125ecc' : '2px solid transparent',
+    color: isActive ? '#125ecc' : '#16264a', fontSize: '14.5px',
+    fontWeight: isActive ? '700' : '600', cursor: 'pointer',
+    fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
+    display: 'flex', alignItems: 'center', gap: '6px'
+  }
+
   return (
     <div style={{ position: 'relative' }} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-      <button style={{
-        padding: '14px 20px', background: 'transparent', border: 'none',
-        borderBottom: isActive ? '2px solid #125ecc' : '2px solid transparent',
-        color: isActive ? '#125ecc' : '#4e6087', fontSize: '14px',
-        fontWeight: isActive ? '600' : '500', cursor: 'pointer',
-        fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
-        display: 'flex', alignItems: 'center', gap: '6px'
-      }}>
+      <button style={btnStyle}>
         {label}
         <span style={{ fontSize: '10px', opacity: 0.6 }}>▾</span>
       </button>
@@ -109,10 +121,15 @@ export default function AdminPortal() {
   const navigate = useNavigate()
   const location = useLocation()
   const session = getSession()
+  // The three superadmin-managed "other" tabs. A non-superadmin admin sees one
+  // only if Jake granted it (session.allowed_tabs). Superadmin sees all.
+  const canSeeTab = (key) => !!session?.is_superadmin || (session?.allowed_tabs || []).includes(key)
   const [activeTab, setActiveTab] = useState(() => {
     const t = sessionStorage.getItem('adminActiveTab')
-    // Automation + Accounting are superadmin-only — never restore a non-superadmin into them.
-    if ((t === 'automation' || t === 'accounting' || t === 'payments') && !session?.is_superadmin) return null
+    // The "other" tabs are access-gated — never restore an admin into one they lack.
+    if (t === 'automation' && !canSeeTab('automation')) return null
+    if ((t === 'accounting' || t === 'payments') && !canSeeTab('accounting')) return null
+    if (t === 'member_overview' && !canSeeTab('member_overview')) return null
     if (t === 'members') return 'advisors'
     // Legacy: the standalone Payments tab is now a sub-tab of Accounting.
     if (t === 'payments') return 'accounting'
@@ -131,7 +148,6 @@ export default function AdminPortal() {
   const [allMembers, setAllMembers] = useState([])
   const [allExclusionMap, setAllExclusionMap] = useState({})
   const [ecoMap, setEcoMap] = useState({})
-  const [ciqMap, setCiqMap] = useState({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -145,8 +161,10 @@ export default function AdminPortal() {
     const tab = params.get('tab')
     const section = params.get('section')
     if (!tab) return
-    // Automation + Accounting are superadmin-only — ignore a deep-link into them for other admins.
-    if ((tab === 'automation' || tab === 'accounting' || tab === 'payments') && !session?.is_superadmin) return
+    // The "other" tabs are access-gated — ignore a deep-link into one the admin lacks.
+    if (tab === 'automation' && !canSeeTab('automation')) return
+    if ((tab === 'accounting' || tab === 'payments') && !canSeeTab('accounting')) return
+    if (tab === 'member_overview' && !canSeeTab('member_overview')) return
     setActiveTab(tab)
     sessionStorage.setItem('adminActiveTab', tab)
     if (section) {
@@ -180,12 +198,6 @@ export default function AdminPortal() {
         eco[e.expert_id].push(e.name)
       })
       setEcoMap(eco)
-      const ciq = {}
-      ;(data.ciq || []).forEach(c => {
-        if (!ciq[c.expert_id]) ciq[c.expert_id] = []
-        ciq[c.expert_id].push(c.name)
-      })
-      setCiqMap(ciq)
     } catch (err) {
       console.error('Load error:', err)
     } finally {
@@ -261,6 +273,42 @@ export default function AdminPortal() {
     sessionStorage.setItem('adminAccountingSection', key)
     sessionStorage.removeItem('adminSelectedMember')
     sessionStorage.removeItem('adminMemberFeatureTab')
+    setNavClickCount(c => c + 1)
+    setShowEditor(false)
+    setShowSettings(false)
+  }
+
+  function selectMemberOverview() {
+    setActiveTab('member_overview')
+    sessionStorage.setItem('adminActiveTab', 'member_overview')
+    setNavClickCount(c => c + 1)
+    setShowEditor(false)
+    setShowSettings(false)
+  }
+
+  // Member Overview → open a member's full existing detail view in their own
+  // category tab (Advisors / Accountants / Strategic). Each MemberDirectoryView
+  // restores its selection from sessionStorage on mount, so we pre-seed the right
+  // selection key + feature tab, then switch tabs.
+  function openMemberProfile(m) {
+    const cat = m.member_category
+    let tab, sectionSetter, sectionKey, section, selKey, featKey
+    if (cat === 'accountant') {
+      tab = 'accountants'; sectionSetter = setAccountantsSection; sectionKey = 'adminAccountantsSection'; section = 'accountant_search'
+      selKey = 'adminSelectedAccountant'; featKey = 'adminAccountantFeatureTab'
+    } else if (cat === 'strategic_member') {
+      tab = 'strategic'; sectionSetter = setStrategicSection; sectionKey = 'adminStrategicSection'; section = 'strategic_member_search'
+      selKey = 'adminSelectedStrategicMember'; featKey = 'adminStrategicFeatureTab'
+    } else {
+      tab = 'advisors'; sectionSetter = setAdvisorsSection; sectionKey = 'adminAdvisorsSection'; section = 'advisor_search'
+      selKey = 'adminSelectedMember'; featKey = 'adminMemberFeatureTab'
+    }
+    sessionStorage.setItem(selKey, m.plugin_member_number)
+    sessionStorage.setItem(featKey, 'profile_details')
+    sectionSetter(section)
+    sessionStorage.setItem(sectionKey, section)
+    setActiveTab(tab)
+    sessionStorage.setItem('adminActiveTab', tab)
     setNavClickCount(c => c + 1)
     setShowEditor(false)
     setShowSettings(false)
@@ -411,7 +459,8 @@ export default function AdminPortal() {
 
       {!showEditor && !showSettings && (
         <>
-          <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', padding: '0 24px', background: '#ffffff', boxShadow: '0 2px 8px rgba(20,45,95,0.04)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #e3eaf5', padding: '0 24px', background: '#ffffff', boxShadow: '0 2px 8px rgba(20,45,95,0.04)' }}>
+            {/* Key tabs — the four primary member/specialist directories. */}
             <NavDropdown
               label="Advisors"
               items={advisorsDropdownItems}
@@ -436,21 +485,39 @@ export default function AdminPortal() {
               onSelect={selectSpecialistsSection}
               isActive={activeTab === 'specialists'}
             />
-            {session.is_superadmin && (
-              <NavDropdown
-                label="Automation"
-                items={automationDropdownItems}
-                onSelect={selectAutomationSection}
-                isActive={activeTab === 'automation'}
-              />
-            )}
-            {session.is_superadmin && (
-              <NavDropdown
-                label="Accounting"
-                items={accountingDropdownItems}
-                onSelect={selectAccountingSection}
-                isActive={activeTab === 'accounting'}
-              />
+
+            {/* Secondary "other" tabs — beside the key tabs, muted, access-gated,
+                separated by a faint divider. */}
+            {(canSeeTab('member_overview') || canSeeTab('automation') || canSeeTab('accounting')) && (
+              <div style={{ display: 'flex', alignItems: 'center', marginLeft: '10px', paddingLeft: '12px', borderLeft: '1px solid #eef2f9' }}>
+                {canSeeTab('member_overview') && (
+                  <button onClick={selectMemberOverview} style={{
+                    padding: '14px 14px', background: 'transparent', border: 'none',
+                    borderBottom: activeTab === 'member_overview' ? '2px solid #125ecc' : '2px solid transparent',
+                    color: activeTab === 'member_overview' ? '#125ecc' : '#97a3ba', fontSize: '13px',
+                    fontWeight: activeTab === 'member_overview' ? '600' : '500', cursor: 'pointer',
+                    fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap'
+                  }}>
+                    Member Overview
+                  </button>
+                )}
+                {canSeeTab('automation') && (
+                  <NavDropdown
+                    label="Automation" muted
+                    items={automationDropdownItems}
+                    onSelect={selectAutomationSection}
+                    isActive={activeTab === 'automation'}
+                  />
+                )}
+                {canSeeTab('accounting') && (
+                  <NavDropdown
+                    label="Accounting" muted
+                    items={accountingDropdownItems}
+                    onSelect={selectAccountingSection}
+                    isActive={activeTab === 'accounting'}
+                  />
+                )}
+              </div>
             )}
           </div>
 
@@ -469,13 +536,17 @@ export default function AdminPortal() {
             // returns <SpecialistOnboarding/> before its hooks, so changing section
             // in place would trip React's hooks-count check and the navigation
             // (e.g. the Stage-5 "Open specialist →" link) could silently fail.
-            <SpecialistsPanel key={specialistsSection} allExperts={allExperts} ecoMap={ecoMap} ciqMap={ciqMap} onDataChange={loadAllData} section={specialistsSection} />
+            <SpecialistsPanel key={specialistsSection} allExperts={allExperts} ecoMap={ecoMap} onDataChange={loadAllData} section={specialistsSection} />
+          )}
+
+          {activeTab === 'member_overview' && !loading && (
+            <MemberOverviewPanel allMembers={allMembers} onOpenMember={openMemberProfile} />
           )}
 
           {activeTab === 'advisors' && !loading && (
             <MembersPanel
               allMembers={allMembers} allExperts={allExperts}
-              allExclusionMap={allExclusionMap} ecoMap={ecoMap} ciqMap={ciqMap}
+              allExclusionMap={allExclusionMap} ecoMap={ecoMap}
               onDataChange={loadAllData} section={advisorsSection} navClickCount={navClickCount}
             />
           )}
@@ -483,7 +554,7 @@ export default function AdminPortal() {
           {activeTab === 'accountants' && !loading && (
             <MembersPanel
               allMembers={allMembers} allExperts={allExperts}
-              allExclusionMap={allExclusionMap} ecoMap={ecoMap} ciqMap={ciqMap}
+              allExclusionMap={allExclusionMap} ecoMap={ecoMap}
               onDataChange={loadAllData} section={accountantsSection} navClickCount={navClickCount}
             />
           )}
@@ -491,7 +562,7 @@ export default function AdminPortal() {
           {activeTab === 'strategic' && !loading && (
             <MembersPanel
               allMembers={allMembers} allExperts={allExperts}
-              allExclusionMap={allExclusionMap} ecoMap={ecoMap} ciqMap={ciqMap}
+              allExclusionMap={allExclusionMap} ecoMap={ecoMap}
               onDataChange={loadAllData} section={strategicSection} navClickCount={navClickCount}
             />
           )}

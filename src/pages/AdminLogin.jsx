@@ -25,7 +25,7 @@ export default function AdminLogin() {
       sessionStorage.removeItem('adminMembersSection')
       sessionStorage.removeItem('adminSelectedMember')
       sessionStorage.removeItem('adminMemberFeatureTab')
-      setSession({ token: data.token, email, name: data.name, role: 'admin', is_superadmin: data.is_superadmin })
+      setSession({ token: data.token, email, name: data.name, role: 'admin', is_superadmin: data.is_superadmin, allowed_tabs: data.allowed_tabs || [] })
       const next = new URLSearchParams(window.location.search).get('next')
       navigate(next && next.startsWith('/admin/') ? next : '/admin')
     } catch (err) {
