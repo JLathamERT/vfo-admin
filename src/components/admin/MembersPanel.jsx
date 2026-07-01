@@ -9,6 +9,7 @@ import MSMTracking from './MSMTracking'
 import AdvisorOnboarding from './AdvisorOnboarding'
 import AccountantOnboarding from './AccountantOnboarding'
 import MemberKpiPanel from './MemberKpiPanel'
+import StrategicPartnersPanel from './StrategicPartnersPanel'
 import AdminGrowthPlan from '../growth/AdminGrowthPlan'
 import { GP_STEPS } from '../growth/constants'
 import SendSetupEmailButton from './SendSetupEmailButton'
@@ -71,6 +72,13 @@ export default function MembersPanel({ allMembers, allExperts, allExclusionMap, 
   if (section === 'advisor_kpis') return <MemberKpiPanel allMembers={allMembers} category="advisor" />
   if (section === 'accountant_kpis') return <MemberKpiPanel allMembers={allMembers} category="accountant" />
   if (section === 'strategic_member_kpis') return <MemberKpiPanel allMembers={allMembers} category="strategic_member" />
+  if (section === 'strategic_partners') {
+    return (
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
+        <StrategicPartnersPanel />
+      </div>
+    )
+  }
   if (section === 'strategic_member_search' || section === 'add_strategic_member') {
     return (
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>

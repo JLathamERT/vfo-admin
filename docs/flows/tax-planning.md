@@ -438,10 +438,12 @@ Revshare + refund handler details follow below. The `tax-revshare-sweep-daily` c
 
 **Frontend:** Tax 4 `Client decision 1` Continue button at [TaxPrioritiesTab.jsx](src/components/admin/tax/TaxPrioritiesTab.jsx) `saveTask` → `callApi('automation_TAX_revshare', { tax_plan_id, payment_kind: 'retainer' })` → derived-status write to `Revenue share for initial 50%` subtask progress row (`Completed - Revenue Share` | `Completed - Money Mapping` | `Completed - N/A` | `Failed` | `Pending`).
 
+> **⚠️ Updated 2026-07-01 (gotcha #164):** the **Tracy Revenue-Master cross-check was REMOVED** from `tax/revshare.ts`. Steps 3–6 below (reading the sheet, matching the tab/receipt row, and the `K+L+M+N+O=J` reconciliation) **no longer happen** — the share now pays the instant the payment clears, amounts taken straight from the PF input form on `client_tax_plans`. The **trigger is unchanged** (still the Tax 4 Continue/Confirmed/24h-auto-lock decision — that business gate stayed). The handler also now transfers the 10% **strategic partner share** to the partner company (½ retainer / ½ implementation) + drafts the partner rev-share email when the connected member is a strategic member.
+
 **What it does:**
 1. Validates plan + receipt number exists, idempotent skip if `rev_paid` already resolved (`Yes`/`Money Mapping`/`N/A — No Share Due`).
 2. Sets `[revShareKey]='Pending'` upfront.
-3. Reads Tracy's Revenue Master sheet (`1PvUEWwTH70OBHabdHPh2SS9U7isITOzHmSd11GoHGJ0`, Home Page A1:I200), finds client_ref in col A, extracts batch sheet hyperlink from col I.
+3. ~~Reads Tracy's Revenue Master sheet~~ (removed 2026-07-01 — see banner above; steps 3–6 are historical).
 4. Walks batch sheet tabs, picks one whose name contains `client_ref` + a 4-digit year + NOT "account".
 5. Reads tab G7:O200, looks for row where col I = receipt number AND col J within $0.01 of expected payment AND K+L+M+N+O sums to col J. Side-scans for "Member Contribution" row in col G.
 6. On no batch sheet / no tab / no matching row → returns `{ pending: true, reason: "..." }`. Daily sweep retries (Phase 6c).

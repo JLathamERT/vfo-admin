@@ -86,29 +86,25 @@ export default function SpecialistLicensePanel() {
           {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
         </select>
         <button onClick={load} style={{ ...sel, color: '#125ecc', fontWeight: 600 }}>Refresh</button>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '24px' }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: '#697a9c' }}>Payments</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: '#16264a' }}>{filtered.length}</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: '#697a9c' }}>{periodLabel} total</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: NAVY }}>{money(periodTotal)}</div>
-          </div>
-        </div>
       </div>
 
       {loading && <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>Loading…</div>}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>{error}</div>}
-      {!loading && !error && filtered.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#9aa7be', fontSize: '14px' }}>No license payments for this period.</div>
-      )}
 
-      {!loading && !error && filtered.length > 0 && (
+      {!loading && !error && (
         <div style={{ border: '1px solid #e9eef8', borderRadius: '14px', overflow: 'hidden', background: '#fff', boxShadow: '0 4px 16px rgba(20,45,95,0.06)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 170px 120px 150px', gap: '8px', padding: '12px 18px', background: '#f7f9fc', borderBottom: '1px solid #e9eef8', fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: '#697a9c' }}>
             <span>Specialist</span><span>Status</span><span style={{ textAlign: 'right' }}>Amount</span><span style={{ textAlign: 'right' }}>Paid</span>
           </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 170px 120px 150px', gap: '8px', padding: '11px 18px', borderBottom: '2px solid #e3eaf5', background: '#fbfdff', alignItems: 'center', fontSize: '13px', fontWeight: 800, color: NAVY }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#697a9c' }}>Totals</span>
+            <span />
+            <span style={{ textAlign: 'right' }}>{money(periodTotal)}</span>
+            <span />
+          </div>
+          {filtered.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#9aa7be', fontSize: '14px' }}>No license payments for this period.</div>
+          )}
           {filtered.map(p => (
             <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '1fr 170px 120px 150px', gap: '8px', padding: '13px 18px', borderBottom: '1px solid #f0f3f9', alignItems: 'center', fontSize: '13px', color: '#16264a' }}>
               <span style={{ fontWeight: 600 }}>

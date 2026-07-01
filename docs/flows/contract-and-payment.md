@@ -381,8 +381,10 @@ For each payment cycle (P1 for one-time, P1+P2+P3+P4 for quarterly), the row sho
 
 ## Step 13 — Revenue share
 
+> **⚠️ Updated 2026-07-01 (gotcha #164):** the **Tracy Revenue-Master cross-check was REMOVED** from `contract-revshare.ts`. `_revshare` now pays the share **immediately** when the payment clears — no sheet lookup, no `K+L+M+N+O=J` reconciliation, no `pending` bailout; the share amounts come straight from the PF input form on `pipeline_map1`. It also now transfers the 10% **strategic partner share** to the partner company when the connected member is a strategic member (+ drafts the partner rev-share email). The Revenue-Master steps below are HISTORICAL.
+
 **Trigger (two paths, both automatic):**
-1. **Push chain from Stripe webhook:** `router/webhooks.ts` chains `_revshare` immediately after `_invoicereceipt` in all three Stripe webhook chain sites (MAP1 first-card, quarterly N succeeded, ACH cleared). First attempt usually returns `pending: true` because Tracy's Revenue Master sheet isn't updated yet — silent and non-fatal.
+1. **Push chain from Stripe webhook:** `router/webhooks.ts` chains `_revshare` immediately after `_invoicereceipt` in all three Stripe webhook chain sites (MAP1 first-card, quarterly N succeeded, ACH cleared). ~~First attempt usually returns `pending: true` because Tracy's Revenue Master sheet isn't updated yet~~ — as of 2026-07-01 it pays on clear (no pending).
 2. **Daily sweep via `automation_CONTRACT_revshare_sweep`:** `pg_cron` runs at 02:00 UTC (see `vfo-edge-functions/supabase/cron/revshare-sweep.sql`). The sweep enumerates every `pipeline_map1` row where any `rec1-4_number` is set but `rev_paid` is not yet `Yes`/`Money Mapping`/`N/A` — and re-invokes `_revshare` for each. Includes previously-`Failed` transfers, so misconfigured Stripe Connect accounts auto-recover once fixed. **The same sweep also drives the three-stall reminder ladder (PCADMIN Undecided, agreement signing, Pay1 link) — see "Reminder ladder" below.** No manual path.
 
 **Handler:** `automation_CONTRACT_revshare` ([actions/pipeline/contract-revshare.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/contract-revshare.ts)).

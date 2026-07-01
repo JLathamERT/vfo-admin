@@ -45,16 +45,17 @@ export default function TaxReconciliationPanel() {
       if (!p.memberNumber) continue
       if (!inPeriod(p.clearedAt, year, -1)) continue
       const k = p.memberNumber
-      const t = map[k] || (map[k] = { memberNumber: k, name: p.memberName || '—', member: 0, mm: 0, vfos: 0 })
+      const t = map[k] || (map[k] = { memberNumber: k, name: p.memberName || '—', member: 0, mm: 0, vfos: 0, strategic: 0 })
       if (!t.name && p.memberName) t.name = p.memberName
       if ((p.decision || '') === 'Money Mapping') t.mm += p.member
       else t.member += p.member
       t.vfos += p.vfos
+      t.strategic += p.strategic || 0
     }
     return Object.values(map).sort((a, b) => String(a.memberNumber).localeCompare(String(b.memberNumber), undefined, { numeric: true }))
   }, [payments, year])
 
-  const tot = members.reduce((s, m) => ({ member: s.member + m.member, mm: s.mm + m.mm, vfos: s.vfos + m.vfos }), { member: 0, mm: 0, vfos: 0 })
+  const tot = members.reduce((s, m) => ({ member: s.member + m.member, mm: s.mm + m.mm, vfos: s.vfos + m.vfos, strategic: s.strategic + m.strategic }), { member: 0, mm: 0, vfos: 0, strategic: 0 })
 
   const wrap = { padding: '24px', maxWidth: '1150px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
   const sel = { padding: '9px 12px', borderRadius: '8px', border: '1px solid #d6e0f0', background: '#fff', fontSize: '13px', fontFamily: 'Inter, sans-serif', color: '#16264a', cursor: 'pointer' }
@@ -88,7 +89,7 @@ export default function TaxReconciliationPanel() {
             <span style={{ textAlign: 'right' }}>{money(tot.member)}</span>
             <span style={{ textAlign: 'right' }}>{money(tot.mm)}</span>
             <span style={{ textAlign: 'right' }}>{money(tot.vfos)}</span>
-            <span style={{ textAlign: 'right', ...muted }}>—</span>
+            <span style={{ textAlign: 'right', ...(tot.strategic ? {} : muted) }}>{tot.strategic ? money(tot.strategic) : '—'}</span>
           </div>
           {members.map(m => (
             <div key={m.memberNumber} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', borderBottom: '1px solid #f0f3f9', alignItems: 'center', fontSize: '13px', color: '#16264a' }}>
@@ -97,13 +98,13 @@ export default function TaxReconciliationPanel() {
               <span style={{ textAlign: 'right', fontWeight: m.member ? 700 : 400, color: m.member ? '#16a34a' : '#c2cbdb' }}>{money(m.member)}</span>
               <span style={{ textAlign: 'right', fontWeight: m.mm ? 700 : 400, color: m.mm ? '#16264a' : '#c2cbdb' }}>{money(m.mm)}</span>
               <span style={{ textAlign: 'right', fontWeight: m.vfos ? 700 : 400, color: m.vfos ? '#16264a' : '#c2cbdb' }}>{money(m.vfos)}</span>
-              <span style={{ textAlign: 'right', ...muted }}>—</span>
+              <span style={{ textAlign: 'right', fontWeight: m.strategic ? 700 : 400, color: m.strategic ? '#8b5cf6' : '#c2cbdb' }}>{m.strategic ? money(m.strategic) : '—'}</span>
             </div>
           ))}
           {members.length === 0 && <div style={{ textAlign: 'center', padding: '40px', color: '#9aa7be', fontSize: '14px' }}>No Tax member activity for this year.</div>}
         </div>
       )}
-      <p style={{ fontSize: '11.5px', color: '#9aa7be', marginTop: '12px' }}>Shares are from Tax payments (retainer + implementation) that cleared in the selected year. ERT and strategic shares aren't tracked — shown blank.</p>
+      <p style={{ fontSize: '11.5px', color: '#9aa7be', marginTop: '12px' }}>Shares are from Tax payments (retainer + implementation) that cleared in the selected year. Strategic Share is the partner-company cut on strategic members' deals; blank for non-strategic members.</p>
     </div>
   )
 }

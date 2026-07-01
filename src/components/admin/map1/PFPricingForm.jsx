@@ -1,15 +1,32 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { callApi } from "../../../lib/api";
+import { hasStrategicSplit, computeStrategicShares } from "../../../lib/strategicSplits";
 
-function PFPricingForm({ clientId, serviceLevel, pipelineId, onComplete }) {
+function PFPricingForm({ clientId, serviceLevel, pipelineId, onComplete, memberCategory, memberType }) {
+  // MAP 1 is always Holistic Planning. For a strategic member the split is
+  // auto-computed off the gross (Member Contribution is removed, so net = gross).
+  const isStrategic = memberCategory === 'strategic_member' && hasStrategicSplit(memberType)
   const [grossFee, setGrossFee] = useState('')
   const [memberContribution, setMemberContribution] = useState('')
-  const netInvoice = ((parseFloat(grossFee) || 0) - (parseFloat(memberContribution) || 0)).toFixed(2)
+  const netInvoice = ((parseFloat(grossFee) || 0) - (isStrategic ? 0 : (parseFloat(memberContribution) || 0))).toFixed(2)
   const [memberShare, setMemberShare] = useState('')
   const [vfosShare, setVfosShare] = useState('')
+  const [strategicPartnerShare, setStrategicPartnerShare] = useState('')
   const [paymentPlan, setPaymentPlan] = useState('')
   const [pipMeetingCount, setPipMeetingCount] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!isStrategic) return
+    const shares = computeStrategicShares(memberType, 'holistic', grossFee)
+    if (shares) {
+      setMemberShare(shares.member.toFixed(2))
+      setVfosShare(shares.vfos.toFixed(2))
+      setStrategicPartnerShare(shares.strategic.toFixed(2))
+    } else {
+      setMemberShare(''); setVfosShare(''); setStrategicPartnerShare('')
+    }
+  }, [isStrategic, memberType, grossFee])
 
   async function handleSubmit() {
     if (!grossFee || !paymentPlan) return
@@ -21,10 +38,11 @@ function PFPricingForm({ clientId, serviceLevel, pipelineId, onComplete }) {
         client_id: clientId,
         service_level: serviceLevel,
         gross_fee: grossFee,
-        member_contribution: memberContribution,
+        member_contribution: isStrategic ? '0' : memberContribution,
         net_invoice: netInvoice,
         member_share: memberShare,
         vfos_share: vfosShare,
+        strategic_partner_share: isStrategic ? strategicPartnerShare : null,
         payment_plan: paymentPlan,
         pip_meeting_count: serviceLevel === 'Max' ? pipMeetingCount : (serviceLevel === 'Core' ? '4' : serviceLevel === 'Lite' ? '1' : null),
       })
@@ -44,10 +62,12 @@ function PFPricingForm({ clientId, serviceLevel, pipelineId, onComplete }) {
           <label style={labelStyle}>Gross Service Value ($)</label>
           <input value={grossFee} onChange={e => setGrossFee(e.target.value)} style={inputStyle} placeholder="e.g. 5400" />
         </div>
-        <div>
-          <label style={labelStyle}>Member Contribution ($)</label>
-          <input value={memberContribution} onChange={e => setMemberContribution(e.target.value)} style={inputStyle} placeholder="e.g. 0" />
-        </div>
+        {!isStrategic && (
+          <div>
+            <label style={labelStyle}>Member Contribution ($)</label>
+            <input value={memberContribution} onChange={e => setMemberContribution(e.target.value)} style={inputStyle} placeholder="e.g. 0" />
+          </div>
+        )}
         <div>
           <label style={labelStyle}>Net Invoice Value ($)</label>
           <input value={netInvoice} readOnly style={{ ...inputStyle, opacity: 0.6 }} />
@@ -66,13 +86,24 @@ function PFPricingForm({ clientId, serviceLevel, pipelineId, onComplete }) {
             <input value={pipMeetingCount} onChange={e => setPipMeetingCount(e.target.value)} style={inputStyle} placeholder="e.g. 4" />
           </div>
         )}
+        {isStrategic && (
+          <div style={{ fontSize: '11px', color: '#0095ff', fontWeight: 600, marginTop: '2px' }}>
+            Strategic member ({memberType}) — split auto-calculated from the gross.
+          </div>
+        )}
+        {isStrategic && (
+          <div>
+            <label style={labelStyle}>Strategic Partner Share ($)</label>
+            <input value={strategicPartnerShare} readOnly style={{ ...inputStyle, opacity: 0.6 }} placeholder="0.00" />
+          </div>
+        )}
         <div>
           <label style={labelStyle}>Member Share ($)</label>
-          <input value={memberShare} onChange={e => setMemberShare(e.target.value)} style={inputStyle} placeholder="e.g. 1200" />
+          <input value={memberShare} onChange={e => setMemberShare(e.target.value)} readOnly={isStrategic} style={{ ...inputStyle, ...(isStrategic ? { opacity: 0.6 } : {}) }} placeholder="e.g. 1200" />
         </div>
         <div>
           <label style={labelStyle}>VFOs Share ($)</label>
-          <input value={vfosShare} onChange={e => setVfosShare(e.target.value)} style={inputStyle} placeholder="e.g. 4200" />
+          <input value={vfosShare} onChange={e => setVfosShare(e.target.value)} readOnly={isStrategic} style={{ ...inputStyle, ...(isStrategic ? { opacity: 0.6 } : {}) }} placeholder="e.g. 4200" />
         </div>
       </div>
       <button onClick={handleSubmit} disabled={submitting || !grossFee || !paymentPlan}
