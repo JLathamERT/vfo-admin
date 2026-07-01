@@ -1,6 +1,8 @@
 # Google Sheets integration
 
-Used by exactly one action — `automation_CONTRACT_revshare` ([admin-api:1248](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)). The handler reads from two Google Sheets to verify Tracy's manual reconciliation before paying out a member's revenue share via Stripe Transfer.
+> **⚠️ REMOVED 2026-07-01 (gotcha #164).** The Tracy Revenue-Master cross-check documented here was **deleted** from both `contract-revshare.ts` (MAP 1) and `tax/revshare.ts`. Revenue share now pays the instant the payment clears, amounts taken straight from the PF input form on `pipeline_map1` / `client_tax_plans` — **no Google Sheet is read by any action anymore**, and the `MASTER_SHEET_ID` constant no longer exists in the code. The rest of this doc is **HISTORICAL** (kept only to explain how the old reconciliation worked).
+
+_Historical._ Used by one action — `automation_CONTRACT_revshare`. The handler read from two Google Sheets to verify Tracy's manual reconciliation before paying out a member's revenue share via Stripe Transfer.
 
 ## Env vars
 

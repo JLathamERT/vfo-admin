@@ -142,7 +142,7 @@ The cascade extends further: after Advisor miss → PIP lookup on `client_priori
 
 **Failure events (2026-06-15):** `checkout.session.async_payment_failed` (ACH first-payment bounce, all pipelines, via `utils/resolve-stripe-failure.ts` → flips the first-payment status to `failed`), broadened `payment_intent.payment_failed` (non-Specialist first payments; skips off-session installments owned by the sweeps), `customer.subscription.updated`/`deleted` (Specialist license lapse/cancel → revoke-access alert; auto-clears on return to active), `charge.dispute.created`/`closed` (chargebacks), `charge.refunded` + `charge.refund.updated`/`refund.updated`/`refund.failed` (refund tracking incl. Dashboard-issued + failed-refund alert), and `transfer.reversed` (rev-share clawback) all route to Jake via `notifyJakeFailure` (action-required + auto-clear for rev-share/license/disputes; dismissible FYI for the rest). A catch-all `console.log("Stripe webhook event:", event.type)` records every event. These require the matching event subscriptions on the Stripe endpoint.
 
-The revshare chain typically returns `pending: true` immediately after payment (Tracy's Revenue Master sheet not yet updated) — the daily `pg_cron` sweep (02:00 UTC, see `supabase/cron/revshare-sweep.sql`) retries until it succeeds or remains permanently failed.
+The revshare chain **pays the share immediately** on payment-clear (the Tracy Revenue-Master cross-check was removed 2026-07-01, gotcha #164 — amounts come from the PF input form on the row) — the daily `pg_cron` sweep (02:00 UTC, see `supabase/cron/revshare-sweep.sql`) now only retries **failed** transfers.
 
 #### BoldSign webhook (`router/webhooks.ts::maybeHandleBoldSignWebhook`)
 
@@ -179,7 +179,7 @@ These remain hardcoded in their respective handler files (preserved verbatim —
 | `aipc@vfo-services.com` | `actions/pipeline/contract-send-agreement.ts` | `From:` on `automation_CONTRACT_sendagreement` Gmail draft |
 | `https://jlathamert.github.io/vfo-portal/pay?token=...` | `actions/pipeline/contract-payment-email.ts`, `contract-stripe-checkout.ts` | Pay-page redirect URL |
 | `https://www.vfo-services.com/payment-successful/` | `actions/pipeline/contract-stripe-checkout.ts` | Stripe Checkout success URL |
-| `MASTER_SHEET_ID = "1PvUEWwTH70OBHabdHPh2SS9U7isITOzHmSd11GoHGJ0"` | `actions/pipeline/contract-revshare.ts` | Revenue Master Google Sheet |
+| ~~`MASTER_SHEET_ID`~~ | ~~`actions/pipeline/contract-revshare.ts`~~ | **REMOVED 2026-07-01 (gotcha #164)** — the Revenue-Master read is gone; no code reads a Google Sheet anymore |
 | `BrandId = "f6b2e092-73a4-438e-b786-ebd20e472732"` | `actions/pipeline/contract-send-agreement.ts` | BoldSign brand for `automation_CONTRACT_sendagreement` |
 
 ### Phase 6 mechanical removals (intentional behavior changes)

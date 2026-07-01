@@ -103,9 +103,9 @@ Each `advisor_onboarding` / `accountant_onboarding` row carries an `onboarding_t
 
 (The sweep's 14-day implicit-No auto-decline updates the row + chains the decline email but inserts **no** notification.)
 
-### Cross-pipeline: Tracy revenue-share sheet FYI (2026-06-09)
+### Cross-pipeline: Tracy "client has paid" FYI (repurposed 2026-06-30; sheet check removed 2026-07-01)
 
-[`utils/revshare-tracy-notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/revshare-tracy-notify.ts) `notifyTracyRevShareNeeded()` — an FYI (dismissable, deduped on the unread row) to **Tracy** (`tnmiller@`) telling her to enter the split into the **VFO Services - Private Info** sheet, fired from every `pending`/"numbers not yet verified" branch of MAP 1 (`contract-revshare.ts`) and Tax (`revshare.ts`). No auto-clear (she clicks Done; revshare completing just stops it re-appearing).
+[`utils/revshare-tracy-notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/revshare-tracy-notify.ts) `notifyTracyClientPaid()` — an FYI (dismissable, deduped once per payment) to **Tracy** (`tnmiller@`) that a client has paid and the case is cleared to proceed, fired once per payment from MAP 1 (`contract-revshare.ts`, with the client's chosen priorities) and Tax (`revshare.ts`), **independent of any rev-share sheet**. The old `notifyTracyRevShareNeeded()` ("enter the split into the VFO Services - Private Info sheet", fired on the Tracy-sheet `pending` branch) was repurposed to this — the Tracy Revenue-Master cross-check that produced the `pending` branch was removed (gotcha #164). No auto-clear.
 
 ### Cross-pipeline: Jake payment/transfer-failure alerts (2026-06-09)
 

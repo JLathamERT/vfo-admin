@@ -67,7 +67,7 @@ docs/
     ├── stripe.md                     (Customer/Checkout/PaymentIntent/Transfer/webhook)
     ├── boldsign.md                   (document/send + getEmbeddedSignLink + webhook)
     ├── gmail.md                      (drafts API + token-refresh pattern)
-    ├── google-sheets.md              (Revenue Master + per-batch sheet reads)
+    ├── google-sheets.md              (HISTORICAL — Revenue-Master read removed 2026-07-01, gotcha #164; no code reads Sheets now)
     ├── google-drive.md               (per-client folder PDF uploads)
     ├── supabase.md                   (project, RLS, storage buckets, migrations)
     ├── sentry.md                     (frontend error monitoring; DSN hardcoded, not a secret)
