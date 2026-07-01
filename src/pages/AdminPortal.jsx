@@ -305,6 +305,7 @@ export default function AdminPortal() {
       options: [
         { key: 'strategic_member_search', label: 'Strategic Member Search' },
         { key: 'strategic_member_kpis', label: 'Strategic Member KPIs' },
+        { key: 'strategic_partners', label: 'Strategic Partners' },
         { key: 'add_strategic_member', label: 'Add Strategic Member' },
       ]
     },

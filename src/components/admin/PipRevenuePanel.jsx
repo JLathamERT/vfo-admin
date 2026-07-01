@@ -76,40 +76,33 @@ export default function PipRevenuePanel() {
           {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
         </select>
         <button onClick={load} style={{ ...sel, color: '#125ecc', fontWeight: 600 }}>Refresh</button>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '24px' }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: '#697a9c' }}>Member revenue</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: '#16a34a' }}>{money(totMember)}</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: '#697a9c' }}>Elite VFO Income</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: '#16264a' }}>{money(totVfos)}</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: '#697a9c' }}>{periodLabel} received</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: NAVY }}>{money(totGross)}</div>
-          </div>
-        </div>
       </div>
 
       {loading && <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>Loading…</div>}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>{error}</div>}
-      {!loading && !error && filtered.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#9aa7be', fontSize: '14px' }}>No additional-PIP purchases cleared in this period.</div>
-      )}
 
-      {!loading && !error && filtered.length > 0 && (
+      {!loading && !error && (
         <div style={{ border: '1px solid #e9eef8', borderRadius: '14px', overflow: 'hidden', background: '#fff', boxShadow: '0 4px 16px rgba(20,45,95,0.06)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', background: '#f7f9fc', borderBottom: '1px solid #e9eef8', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#697a9c' }}>
-            <span>Cleared</span><span>Client</span><span>Connected Member</span><span>Purchased</span><span style={{ textAlign: 'right' }}>Received</span><span style={{ textAlign: 'right' }}>Member</span><span style={{ textAlign: 'right' }}>Elite VFO Income</span>
+            <span>Cleared</span><span>Client</span><span>Connected Member</span><span>Purchased</span><span style={{ textAlign: 'right', borderRight: '1px solid #cdd9ea', paddingRight: '12px' }}>Received</span><span style={{ textAlign: 'right' }}>Member</span><span style={{ textAlign: 'right' }}>Elite VFO Income</span>
           </div>
+          <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '11px 18px', borderBottom: '2px solid #e3eaf5', background: '#fbfdff', alignItems: 'center', fontSize: '13px', fontWeight: 800, color: NAVY }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#697a9c' }}>Totals</span>
+            <span /><span /><span />
+            <span style={{ textAlign: 'right', borderRight: '1px solid #cdd9ea', paddingRight: '12px' }}>{money(totGross)}</span>
+            <span style={{ textAlign: 'right' }}>{money(totMember)}</span>
+            <span style={{ textAlign: 'right' }}>{money(totVfos)}</span>
+          </div>
+          {filtered.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#9aa7be', fontSize: '14px' }}>No additional-PIP purchases cleared in this period.</div>
+          )}
           {filtered.map(p => (
             <div key={p.id} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', borderBottom: '1px solid #f0f3f9', alignItems: 'center', fontSize: '13px', color: '#16264a' }}>
               <span style={{ color: '#4e6087' }}>{fmtDate(p.clearedAt)}</span>
               <span style={{ fontWeight: 600 }}>{p.clientName}</span>
               <span>{p.memberName || '—'}{p.memberNumber && <span style={{ color: '#9aa7be' }}> · {p.memberNumber}</span>}</span>
               <span style={{ color: '#4e6087' }}>{p.kindLabel}</span>
-              <span style={{ textAlign: 'right', fontWeight: 700 }}>{money(p.amount)}</span>
+              <span style={{ textAlign: 'right', fontWeight: 700, borderRight: '1px solid #eef2f9', paddingRight: '12px' }}>{money(p.amount)}</span>
               <span style={{ textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>{money(p.member)}</span>
               <span style={{ textAlign: 'right' }}>{money(p.vfos)}</span>
             </div>

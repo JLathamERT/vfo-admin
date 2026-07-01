@@ -3,10 +3,15 @@ import { callApi, loadCachedAction } from '../../../lib/api'
 import { TaxPlanListSkeleton } from '../../shared/Skeleton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { TrackHero, PhaseBadge, ListHeader } from '../../shared/TrackKit'
+import { hasStrategicSplit, computeStrategicShares } from '../../../lib/strategicSplits'
 
-function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, onSubmitted }) {
+function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, onSubmitted, memberCategory, memberType, programType }) {
   const existing = existingData || {}
   const isViewMode = !!existingData
+  // Strategic members get a fixed three-way split (Strategic Partner Share +
+  // member + VFOS), auto-computed off the total fee. programType is 'holistic'
+  // (Tax Priorities, program_id 1) or 'tax' (Tax Planning, program_id 4).
+  const isStrategic = memberCategory === 'strategic_member' && hasStrategicSplit(memberType)
 
   const [decision, setDecision] = useState(existing.decision || '')
   const [memberPayingOnBehalf, setMemberPayingOnBehalf] = useState(existing.memberPayingOnBehalf || 'No')
@@ -16,6 +21,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   const [splitType, setSplitType] = useState(existing.splitType || '')
   const [memberShare, setMemberShare] = useState(existing.memberShare || '')
   const [vfosShare, setVfosShare] = useState(existing.vfosShare || '')
+  const [strategicPartnerShare, setStrategicPartnerShare] = useState(existing.strategicPartnerShare || '')
   const [potentialTaxSavings, setPotentialTaxSavings] = useState(existing.potentialTaxSavings || '')
   const [initialRetainer, setInitialRetainer] = useState(existing.initialRetainer || '')
   const [ccRecipients, setCcRecipients] = useState(existing.ccRecipients || [])
@@ -38,6 +44,20 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
       setVfosShare(half)
     }
   }, [splitType, totalFee])
+
+  // Strategic members: fixed three-way split auto-computed off the total fee.
+  useEffect(() => {
+    if (isViewMode || !isStrategic) return
+    if (splitType !== 'Strategic Partner') setSplitType('Strategic Partner')
+    const shares = computeStrategicShares(memberType, programType, totalFee)
+    if (shares) {
+      setMemberShare(shares.member.toFixed(2))
+      setVfosShare(shares.vfos.toFixed(2))
+      setStrategicPartnerShare(shares.strategic.toFixed(2))
+    } else {
+      setMemberShare(''); setVfosShare(''); setStrategicPartnerShare('')
+    }
+  }, [isStrategic, memberType, programType, totalFee, splitType])
 
   function handleMemberShareChange(val) {
     setMemberShare(val)
@@ -79,6 +99,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
       formData.splitType = splitType
       formData.memberShare = memberShare
       formData.vfosShare = vfosShare
+      if (isStrategic) formData.strategicPartnerShare = strategicPartnerShare
     } else if (decision === 'Undecided') {
       formData.potentialTaxSavings = potentialTaxSavings
       formData.initialRetainer = initialRetainer
@@ -191,8 +212,8 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
             <div style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Revenue split</div>
             <div style={{ marginBottom: '10px' }}>
               <label style={labelStyle}>Split type</label>
-              {isViewMode
-                ? <div style={readOnlyInput}>{splitType || '—'}</div>
+              {isViewMode || isStrategic
+                ? <div style={readOnlyInput}>{isStrategic ? `Strategic Partner (${memberType}) — auto-calculated` : (splitType || '—')}</div>
                 : <select value={splitType} onChange={e => setSplitType(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
                     <option value="">-- Select --</option>
                     {splitOptions.map(s => <option key={s} value={s}>{s}</option>)}
@@ -201,6 +222,15 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
             </div>
             {splitType && (
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                {(isStrategic || strategicPartnerShare) && (
+                  <div style={{ flex: 1, minWidth: '120px' }}>
+                    <label style={labelStyle}>Strategic Partner share</label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
+                      <input value={strategicPartnerShare} readOnly placeholder="0.00" style={{ ...readOnlyInput, paddingLeft: '28px' }} />
+                    </div>
+                  </div>
+                )}
                 <div style={{ flex: 1, minWidth: '120px' }}>
                   <label style={labelStyle}>Member share</label>
                   <div style={{ position: 'relative' }}>
@@ -285,13 +315,15 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
 // TaxDecisionForm but with no decision dropdown and a configurable submit
 // handler so the same component can fire either automation_TAX_pricing or
 // automation_TAX_extrameeting.
-function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel }) {
+function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCategory, memberType, programType }) {
+  const isStrategic = memberCategory === 'strategic_member' && hasStrategicSplit(memberType)
   const [taxRiskMindset, setTaxRiskMindset] = useState('')
   const [retainerPayment, setRetainerPayment] = useState('')
   const [implementationFee, setImplementationFee] = useState('')
   const [splitType, setSplitType] = useState('')
   const [memberShare, setMemberShare] = useState('')
   const [vfosShare, setVfosShare] = useState('')
+  const [strategicPartnerShare, setStrategicPartnerShare] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const totalFee = (parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0)
@@ -306,6 +338,20 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel }) {
       setMemberShare(half); setVfosShare(half)
     }
   }, [splitType, totalFee])
+
+  // Strategic members: fixed three-way split auto-computed off the total fee.
+  useEffect(() => {
+    if (!isStrategic) return
+    if (splitType !== 'Strategic Partner') setSplitType('Strategic Partner')
+    const shares = computeStrategicShares(memberType, programType, totalFee)
+    if (shares) {
+      setMemberShare(shares.member.toFixed(2))
+      setVfosShare(shares.vfos.toFixed(2))
+      setStrategicPartnerShare(shares.strategic.toFixed(2))
+    } else {
+      setMemberShare(''); setVfosShare(''); setStrategicPartnerShare('')
+    }
+  }, [isStrategic, memberType, programType, totalFee, splitType])
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
   const labelStyle = { fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }
@@ -341,6 +387,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel }) {
         splitType,
         memberShare,
         vfosShare,
+        ...(isStrategic ? { strategicPartnerShare } : {}),
       })
     } catch (err) {
       console.error(err)
@@ -391,13 +438,25 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel }) {
         <div style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Revenue split</div>
         <div style={{ marginBottom: '10px' }}>
           <label style={labelStyle}>Split type</label>
-          <select value={splitType} onChange={e => setSplitType(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
-            <option value="">-- Select --</option>
-            {splitOptions.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          {isStrategic
+            ? <div style={{ ...inputStyle, opacity: 0.6, pointerEvents: 'none' }}>{`Strategic Partner (${memberType}) — auto-calculated`}</div>
+            : <select value={splitType} onChange={e => setSplitType(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
+                <option value="">-- Select --</option>
+                {splitOptions.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+          }
         </div>
         {splitType && (
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {isStrategic && (
+              <div style={{ flex: 1, minWidth: '120px' }}>
+                <label style={labelStyle}>Strategic Partner share</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
+                  <input value={strategicPartnerShare} readOnly placeholder="0.00" style={{ ...inputStyle, paddingLeft: '28px', opacity: 0.6 }} />
+                </div>
+              </div>
+            )}
             <div style={{ flex: 1, minWidth: '120px' }}>
               <label style={labelStyle}>Member share</label>
               <div style={{ position: 'relative' }}>
@@ -747,6 +806,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 saveTask={saveTask}
                 taxSpecialistId={taxSpecialistId}
                 existingData={formData}
+                memberCategory={client?.member_category}
+                memberType={client?.member_type}
+                programType={plan.program_id === 4 ? 'tax' : 'holistic'}
                 onSubmitted={(status, data) => {
                   setLocalProgress(prev => ({ ...prev, [key]: { ...prev[key], task_id: task.id, status, completed_date: new Date().toISOString().split('T')[0], notes: JSON.stringify(data) } }))
                   refreshLivePlan()
@@ -865,6 +927,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                       {!hasPricing && !readOnly && (
                         <TaxPricingForm
                           submitLabel="Submit Pricing & Send Agreement"
+                          memberCategory={client?.member_category}
+                          memberType={client?.member_type}
+                          programType={plan.program_id === 4 ? 'tax' : 'holistic'}
                           onSubmit={async (data) => {
                             await callApi('automation_TAX_pricing', { tax_plan_id: plan.id, form_data: data })
                             refreshLivePlan()
@@ -908,6 +973,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                       {!viaExtra && extraMeetingPricingOpen && (
                         <TaxPricingForm
                           submitLabel="Submit Pricing & Send Agreement"
+                          memberCategory={client?.member_category}
+                          memberType={client?.member_type}
+                          programType={plan.program_id === 4 ? 'tax' : 'holistic'}
                           onCancel={() => setExtraMeetingPricingOpen(false)}
                           onSubmit={async (data) => {
                             await callApi('automation_TAX_extrameeting', { tax_plan_id: plan.id, outcome: 'Yes', form_data: data })

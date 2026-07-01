@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { callApi } from '../../../lib/api'
+import { hasStrategicSplit, computeStrategicShares } from '../../../lib/strategicSplits'
 
 const PIP_PRIORITIES = [
   { group: '— Business Advisory —', items: ['Business Growth', 'Business Exit', 'Business Advisory'] },
@@ -9,9 +10,12 @@ const PIP_PRIORITIES = [
   { group: '— Legal —', items: ['Family Law', 'Trusts and Wills (Estate Planning)', 'Contract / Corporate Law', 'Structuring Entities', 'Buy / Sell Agreements', 'Joint Venture Agreements', 'Intellectual Property', 'Legal Focus'] },
 ]
 
-function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }) {
+function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted, memberCategory, memberType }) {
   const existing = existingData || {}
   const isViewMode = !!existingData
+  // MAP 1 is always Holistic Planning. For a strategic member the split is
+  // auto-computed off the gross (Member Contribution is removed → net = gross).
+  const isStrategic = memberCategory === 'strategic_member' && hasStrategicSplit(memberType)
 
   const [memberPayingOnBehalf, setMemberPayingOnBehalf] = useState(existing.memberPayingOnBehalf || 'No')
   const [decision, setDecision] = useState(existing.decision || '')
@@ -22,9 +26,22 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }
   const [clientService, setClientService] = useState(existing.clientService || '')
   const [grossServiceValue, setGrossServiceValue] = useState(existing.grossServiceValue || '')
   const [memberContribution, setMemberContribution] = useState(existing.memberContribution || '')
-  const netInvoiceValue = ((parseFloat(grossServiceValue) || 0) - (parseFloat(memberContribution) || 0)).toFixed(2)
+  const netInvoiceValue = ((parseFloat(grossServiceValue) || 0) - (isStrategic ? 0 : (parseFloat(memberContribution) || 0))).toFixed(2)
   const [memberShare, setMemberShare] = useState(existing.memberShare || '')
   const [vfosShare, setVfosShare] = useState(existing.vfosShare || '')
+  const [strategicPartnerShare, setStrategicPartnerShare] = useState(existing.strategicPartnerShare || '')
+
+  useEffect(() => {
+    if (isViewMode || !isStrategic) return
+    const shares = computeStrategicShares(memberType, 'holistic', grossServiceValue)
+    if (shares) {
+      setMemberShare(shares.member.toFixed(2))
+      setVfosShare(shares.vfos.toFixed(2))
+      setStrategicPartnerShare(shares.strategic.toFixed(2))
+    } else {
+      setMemberShare(''); setVfosShare(''); setStrategicPartnerShare('')
+    }
+  }, [isStrategic, memberType, grossServiceValue, isViewMode])
   const [paymentPlan, setPaymentPlan] = useState(existing.paymentPlan || '')
   const [pipMeetingCount, setPipMeetingCount] = useState(existing.pipMeetingCount || '')
   const [undecidedReasons, setUndecidedReasons] = useState(existing.undecidedReasons || [])
@@ -66,7 +83,7 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }
       if (!grossServiceValue) { setSubmitError('Please enter gross service value'); return }
       if (!paymentPlan) { setSubmitError('Please select a payment plan'); return }
       if (clientService === 'Max' && !pipMeetingCount) { setSubmitError('Please enter PIP meeting count for Max'); return }
-      const splitTotal = (parseFloat(memberShare) || 0) + (parseFloat(vfosShare) || 0)
+      const splitTotal = (parseFloat(memberShare) || 0) + (parseFloat(vfosShare) || 0) + (isStrategic ? (parseFloat(strategicPartnerShare) || 0) : 0)
       const netVal = parseFloat(netInvoiceValue) || 0
       if (Math.abs(splitTotal - netVal) > 0.01) {
         setSubmitError(`Revenue split ($${splitTotal.toFixed(2)}) must equal Net Invoice Value ($${netVal.toFixed(2)})`)
@@ -88,10 +105,11 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }
       formData.parkedPriorities = parkedPriorities
       formData.clientService = clientService
       formData.grossServiceValue = grossServiceValue
-      formData.memberContribution = memberContribution
+      formData.memberContribution = isStrategic ? '0' : memberContribution
       formData.netInvoiceValue = netInvoiceValue.toString()
       formData.memberShare = memberShare
       formData.vfosShare = vfosShare
+      if (isStrategic) formData.strategicPartnerShare = strategicPartnerShare
       formData.paymentPlan = paymentPlan
       formData.pipMeetingCount = clientService === 'Max' ? pipMeetingCount : null
     } else if (decision === 'Undecided') {
@@ -209,13 +227,15 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }
                 <input value={grossServiceValue} onChange={e => setGrossServiceValue(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
               </div>
             </div>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={labelStyle}>Member contribution <span style={{ textTransform: 'none', opacity: 0.6 }}>(if applicable)</span></label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
-                <input value={memberContribution} onChange={e => setMemberContribution(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+            {!isStrategic && (
+              <div style={{ marginBottom: '10px' }}>
+                <label style={labelStyle}>Member contribution <span style={{ textTransform: 'none', opacity: 0.6 }}>(if applicable)</span></label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
+                  <input value={memberContribution} onChange={e => setMemberContribution(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+                </div>
               </div>
-            </div>
+            )}
             <div>
               <label style={labelStyle}>Net invoice value</label>
               <div style={{ position: 'relative' }}>
@@ -227,19 +247,33 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted }
 
           <div style={sectionStyle}>
             <div style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Revenue split</div>
+            {isStrategic && (
+              <div style={{ fontSize: '11px', color: '#0095ff', fontWeight: 600, marginBottom: '10px' }}>
+                Strategic member ({memberType}) — split auto-calculated from the gross.
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              {(isStrategic || strategicPartnerShare) && (
+                <div style={{ flex: 1, minWidth: '120px' }}>
+                  <label style={labelStyle}>Strategic Partner share</label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
+                    <input value={strategicPartnerShare} readOnly placeholder="0.00" style={{ ...readOnlyInput, paddingLeft: '28px' }} />
+                  </div>
+                </div>
+              )}
               <div style={{ flex: 1, minWidth: '120px' }}>
                 <label style={labelStyle}>Member share</label>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
-                  <input value={memberShare} onChange={e => setMemberShare(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+                  <input value={memberShare} onChange={e => setMemberShare(e.target.value)} placeholder="0.00" style={{ ...(isViewMode || isStrategic ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode || isStrategic} />
                 </div>
               </div>
               <div style={{ flex: 1, minWidth: '120px' }}>
                 <label style={labelStyle}>VFOS share</label>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
-                  <input value={vfosShare} onChange={e => setVfosShare(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+                  <input value={vfosShare} onChange={e => setVfosShare(e.target.value)} placeholder="0.00" style={{ ...(isViewMode || isStrategic ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode || isStrategic} />
                 </div>
               </div>
             </div>

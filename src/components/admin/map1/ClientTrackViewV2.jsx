@@ -75,7 +75,7 @@ function PipConfirmStep({ clientId, task, p, meeting, readOnly, onDone }) {
   )
 }
 
-function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], onNotesChange }) {
+function ClientTrackViewV2({ clientId, programId, client, readOnly = false, notes = [], onNotesChange }) {
   const [phases, setPhases] = useState([])
   const [progress, setProgress] = useState({})
   const [loading, setLoading] = useState(true)
@@ -430,7 +430,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                                 {finalDec === 'Yes' && (
                                   <>
                                     {needsPricing && !readOnly ? (
-                              <PFPricingForm clientId={clientId} serviceLevel={pd?.c15_service_level} pipelineId={pd?.id} onComplete={() => loadTrack()} />
+                              <PFPricingForm clientId={clientId} serviceLevel={pd?.c15_service_level} pipelineId={pd?.id} memberCategory={client?.member_category} memberType={client?.member_type} onComplete={() => loadTrack()} />
                                     ) : pd?.gross_fee ? (
                                       <>
                                         <div style={{ cursor: 'pointer' }} onClick={() => setExpanded(prev => ({ ...prev, pricing_details: !prev.pricing_details }))}>
@@ -468,7 +468,7 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                                 {finalDec === 'ExtraMeeting' && (
                                   <>
                                     {autoStep('Extra meeting requested', true)}
-                                    <PFExtraMeetingForm clientId={clientId} pipelineId={pd?.id} onComplete={() => loadTrack()} />
+                                    <PFExtraMeetingForm clientId={clientId} pipelineId={pd?.id} memberCategory={client?.member_category} memberType={client?.member_type} onComplete={() => loadTrack()} />
                                   </>
                                 )}
                               </div>
@@ -635,6 +635,8 @@ function ClientTrackViewV2({ clientId, programId, readOnly = false, notes = [], 
                             clientId={clientId}
                             saveTask={saveTask}
                             existingData={formData}
+                            memberCategory={client?.member_category}
+                            memberType={client?.member_type}
                             onSubmitted={(status, data) => {
                               setProgress(prev => ({ ...prev, [task.id]: { ...prev[task.id], task_id: task.id, status, completed_date: new Date().toISOString().split('T')[0], notes: JSON.stringify(data) } }))
                             }}

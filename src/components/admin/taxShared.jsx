@@ -19,6 +19,11 @@ export function clearedTaxPayments(rows) {
   const out = []
   for (const r of rows || []) {
     const memberRaw = parseNum(r.member_share)
+    // Strategic Partner Share (strategic members): a flat $ split half on
+    // retainer, half on implementation like the member share. Comes out of the
+    // VFOS slice (for strategic rows the split is off the full total fee).
+    const stratRaw = parseNum(r.strategic_partner_share)
+    const stratPer = (amt) => Math.min(Math.max(stratRaw / 2, 0), amt)
     const label = programLabel(r.program_id)
     const base = {
       clientName: r.client_name || `Client #${r.client_id}`,
@@ -33,7 +38,8 @@ export function clearedTaxPayments(rows) {
       const clearedAt = r.retainer_invoice_email_sent_at || r.retainer_date
       if (clearedAt) {
         const mp = memberPortion(memberRaw, ret)
-        out.push({ id: `${r.id}-ret`, kind: 'Retainer', clearedAt, amount: ret, member: mp, vfos: ret - mp, status: r.retainer_status, ...base })
+        const sp = stratPer(ret)
+        out.push({ id: `${r.id}-ret`, kind: 'Retainer', clearedAt, amount: ret, member: mp, strategic: sp, vfos: Math.max(ret - mp - sp, 0), status: r.retainer_status, ...base })
       }
     }
 
@@ -42,7 +48,8 @@ export function clearedTaxPayments(rows) {
       const clearedAt = r.implementation_charge_date || r.implementation_confirmation_email_sent_at
       if (clearedAt) {
         const mp = memberPortion(memberRaw, imp)
-        out.push({ id: `${r.id}-imp`, kind: 'Implementation', clearedAt, amount: imp, member: mp, vfos: imp - mp, status: r.implementation_charge_status, ...base })
+        const sp = stratPer(imp)
+        out.push({ id: `${r.id}-imp`, kind: 'Implementation', clearedAt, amount: imp, member: mp, strategic: sp, vfos: Math.max(imp - mp - sp, 0), status: r.implementation_charge_status, ...base })
       }
     }
   }

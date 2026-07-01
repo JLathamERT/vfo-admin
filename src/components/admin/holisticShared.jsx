@@ -22,6 +22,11 @@ export function clearedPayments(rows) {
       let mp = memberRaw > 100 ? (q ? memberRaw / 4 : memberRaw) : (memberRaw / 100) * amount
       return Math.min(Math.max(mp, 0), amount)
     })()
+    // Strategic Partner Share (strategic members only): a flat $ spread across
+    // installments like the member share. For strategic rows net = gross, so the
+    // strategic slice comes out of what would otherwise be counted as VFOS.
+    const stratRaw = parseNum(r.strategic_partner_share)
+    const stratPortion = Math.min(Math.max(q ? stratRaw / 4 : stratRaw, 0), amount)
     const tier = r.service_level || r.c15_service_level || ''
     for (let i = 1; i <= n; i++) {
       const status = r[`pay${i}_status`]
@@ -35,7 +40,8 @@ export function clearedPayments(rows) {
         clearedAt,
         amount,
         member: memberPortion,
-        vfos: amount - memberPortion,
+        strategic: stratPortion,
+        vfos: Math.max(amount - memberPortion - stratPortion, 0),
         clientName: r.client_name || `Client #${r.client_id}`,
         memberNumber: r.member_number || null,
         memberName: r.member_name || '',
