@@ -17,7 +17,6 @@ const ECOSYSTEMS = ['Tax Planning', 'Business Advisory', 'Legal Services', 'Risk
 // ecosystems: a specialist is either Member Services OR (some of) the public five.
 const MEMBER_SERVICES = 'Member Services'
 const STATUS_COLORS = { Active: '#1b9254', Lost: '#e74c3c', Removed: '#4e6087' }
-const SPEC_FILTER_GROUPS = [{ key: 'status', label: 'Status', options: ['Active', 'Lost', 'Removed'], get: e => e.status || 'Active' }]
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
 const HEADSHOT_BASE = 'https://biz-diagnostic.com/Uploads/ExpertPhotos/'
 
@@ -62,6 +61,14 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
   const [specialistTab, setSpecialistTab] = useState('profile')
   const [profileDropOpen, setProfileDropOpen] = useState(false)
   const [searchParams] = useSearchParams()
+
+  // Filter the specialist list by status and by ecosystem. Ecosystems are
+  // multi-valued per specialist (sourced from ecoMap), so `get` returns the
+  // array and matchesFilter does an any-of match.
+  const specFilterGroups = [
+    { key: 'status', label: 'Status', options: ['Active', 'Lost', 'Removed'], get: e => e.status || 'Active' },
+    { key: 'ecosystem', label: 'Ecosystem', options: ECOSYSTEMS, get: e => ecoMap[e.id] || [] },
+  ]
 
   // Deep-link from the Stage 5 onboarding links: /admin?...&expert=<id> opens
   // that specialist's detail in the Search Specialists view.
@@ -205,11 +212,17 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
 
   async function deleteSpecialist() {
     if (!editingId) return
+    if (!window.confirm(`Delete ${selectedExpert?.name || 'this specialist'} permanently? This cannot be undone.`)) return
+    const deletedName = selectedExpert?.name || 'Specialist'
     try {
       await callApi('delete_specialist', { expert_id: editingId })
       await onDataChange()
+      // Close the detail view and return to the list, then surface the result
+      // there (the Settings tab unmounts, so the message must show on the list).
+      setSelectedExpert(null)
       setEditingId(null)
-      showStatus('edit', 'success', 'Specialist deleted.')
+      setSpecialistTab('profile')
+      showStatus('edit', 'success', `${deletedName} deleted.`)
     } catch (err) {
       showStatus('edit', 'error', err.message)
     }
@@ -502,13 +515,16 @@ export default function SpecialistsPanel({ allExperts, ecoMap, ciqMap, onDataCha
       {/* Search/Edit tab */}
       {activeTab === 'edit' && !selectedExpert && (
         <>
+          {editStatus && (
+            <div style={{ marginBottom: '12px', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', background: editStatusType === 'success' ? 'rgba(27,146,84,0.1)' : 'rgba(231,76,60,0.1)', color: editStatusType === 'success' ? '#1b9254' : '#e74c3c', border: `1px solid ${editStatusType === 'success' ? 'rgba(27,146,84,0.3)' : 'rgba(231,76,60,0.3)'}` }}>{editStatus}</div>
+          )}
           <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
             <input placeholder="Search by name..." style={inputStyle} onChange={e => setEditSearch(e.target.value.toLowerCase())} value={editSearch} />
-            <ListFilterButton groups={SPEC_FILTER_GROUPS} value={specFilter} onChange={setSpecFilter} />
+            <ListFilterButton groups={specFilterGroups} value={specFilter} onChange={setSpecFilter} />
             <SortSelect value={specSort} onChange={setSpecSort} />
           </div>
           <div>
-            {sortByJoin((editSearch ? allExperts.filter(e => e.name.toLowerCase().includes(editSearch)) : allExperts).filter(e => matchesFilter(e, SPEC_FILTER_GROUPS, specFilter)), specSort).map(expert => (
+            {sortByJoin((editSearch ? allExperts.filter(e => e.name.toLowerCase().includes(editSearch)) : allExperts).filter(e => matchesFilter(e, specFilterGroups, specFilter)), specSort).map(expert => (
               <div key={expert.id}
                 onClick={() => handleEditSelect(expert)}
                 style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', marginBottom: '4px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}

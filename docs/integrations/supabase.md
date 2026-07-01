@@ -90,7 +90,9 @@ Seven storage buckets in use:
 | Bucket | Visibility | Used by | Notes |
 |---|---|---|---|
 | `headshots` | public | `upload_headshot` | Specialist headshots, served via direct public URL. |
-| `member-vault` | private | `vault_list` / `vault_upload` / `vault_delete` | Per-member files under `<member_number>/`, signed URLs (1h). |
+| `member-vault` | private | `vault_list` / `vault_upload_url` / `vault_download` / `vault_delete` | **General** section of the member vault, under `<member_number>/`. Signed-URL upload (was base64 `vault_upload`, still registered but unused). |
+| `member-tax-returns` | private | same `vault_*` actions, `section='sensitive'` | **Tax Documents** section of the member vault (added this session, 50 MB). |
+| `specialist-tax-returns` | private | `specialist_vault_*` / `specialist_vault_admin_*`, `section='sensitive'` | **Tax Documents** section of the specialist vault (added this session). General stays in `specialist-documents`. |
 | `tax-agreements` | public | `actions/tax/decision.ts` (Undecided branch) | Holds the static **Tax Planning Engagement Agreement** PDF (`tax-planning.pdf`). Fetched no-auth at email-draft time and attached as a multipart MIME part to the client's Undecided email. |
 | `map1-agreements` | public | `actions/pipeline/pipfu-decision.ts` (Undecided branch) | Holds the three MAP 1 service-level agreements: `proactive-lite.pdf`, `proactive-core.pdf`, `proactive-max.pdf`. All three are attached on Undecided emails by default; the Max PDF is suppressed when `form_data.maxNA === true` (admin ticked "N/A" for Max in the PIP Follow Up form). Created 2026-05-21. |
 | `advisor-onboarding-agreements` | public | `actions/advisor/decision.ts` (Undecided branch) | Holds the static **Advisor Onboarding Agreement** PDF (`Advisor_Implementation_Agreement.pdf`, uploaded 2026-06-01). Fetched no-auth at email-draft time and attached via multipart/mixed. Graceful fallback to plain HTML email if the PDF is missing. Created 2026-05-26; filename rename + made `advisor_address` required field on 2026-05-28. **Regenerated 2026-06-15 without the effective date** (matching the `[EFFECTIVE_DATE]` removal from the advisor agreement template). |
@@ -115,9 +117,11 @@ Per-member private file storage. Each member's files live under `<plugin_member_
 
 | Action | Where | Behavior |
 |---|---|---|
-| `vault_list` | `vfo-admin-api/actions/vault/list.ts` | Lists files under `<member_number>/`, generates signed URLs (3600s expiry) for each |
-| `vault_upload` | `vfo-admin-api/actions/vault/upload.ts` | Uploads to `<member_number>/<filename>` (upsert) |
-| `vault_delete` | `vfo-admin-api/actions/vault/delete.ts` | Deletes `<member_number>/<filename>` |
+| `vault_list` | `vfo-admin-api/actions/vault/list.ts` | Lists both sections (`member-vault` general + `member-tax-returns` sensitive) under `<member_number>/`; returns `{ sensitive, general }` (paths, no inline URL) |
+| `vault_upload_url` | `vfo-admin-api/actions/vault/upload-url.ts` | Mints a signed upload URL; `section`→bucket via `memberBucketFor`; token-prefixed path |
+| `vault_download` | `vfo-admin-api/actions/vault/download.ts` | 300s signed URL for one file (path prefix-checked against `member_number`) |
+| `vault_delete` | `vfo-admin-api/actions/vault/delete.ts` | Deletes one file by `path` + `section` (prefix-checked) |
+| `vault_upload` | `vfo-admin-api/actions/vault/upload.ts` | Legacy base64 upload to `member-vault` — still registered, no longer called by the UI |
 
 `config.toml` sets `file_size_limit = "50MiB"` for storage globally.
 

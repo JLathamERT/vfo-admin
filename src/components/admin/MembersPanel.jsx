@@ -309,6 +309,9 @@ function MemberDirectoryView({
     { key: 'status', label: 'Status', options: ['Active', 'Lost', 'Removed'], get: m => m.elite_status || 'Active' },
     ...(showModel ? [{ key: 'model', label: 'Model', options: ['New Model', 'Legacy Model'], get: m => m.advisor_model || '' }] : []),
     ...(typeOptions.length ? [{ key: 'type', label: 'Member Type', options: typeOptions, get: m => m.member_type || '' }] : []),
+    // Suspended / Paused are boolean flags that sit on top of an Active member.
+    // `get` returns the set of flags so a member matches when EITHER is selected.
+    { key: 'standing', label: 'Standing', options: ['Suspended', 'Paused'], get: m => { const f = []; if (m.suspended) f.push('Suspended'); if (m.paused) f.push('Paused'); return f } },
   ]
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }

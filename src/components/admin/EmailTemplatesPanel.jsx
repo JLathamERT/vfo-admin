@@ -43,6 +43,7 @@ const TEMPLATE_META = {
     ['CONTRACT_confirmationemail|card', 'Payment confirmation (card)'],
     ['CONTRACT_confirmationemail|ach', 'Payment confirmation (ACH)'],
     ['CONTRACT_confirmationemail|check', 'Payment confirmation (check)'],
+    ['CONTRACT_tracy_newcase', 'New VFO Services case — internal (to Tracy)'],
     ['CONTRACT_invoicereceipt_email|first', 'Invoice & receipt — first payment'],
     ['CONTRACT_invoicereceipt_email|subsequent', 'Receipt — later quarterly payment'],
     ['CONTRACT_invoicereceipt_email|failed', 'Payment failed (action required)'],

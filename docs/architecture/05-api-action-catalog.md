@@ -253,9 +253,11 @@ All dispatched AFTER `middleware/auth.ts::authenticate()` validates body.token. 
 
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
-| `vault_list` | `actions/vault/list.ts` | storage `member-vault` (list) | — | — |
-| `vault_upload` | `actions/vault/upload.ts` | — | storage `member-vault` (upload) | — |
-| `vault_delete` | `actions/vault/delete.ts` | — | storage `member-vault` (delete) | — |
+| `vault_list` | `actions/vault/list.ts` | storage `member-vault` + `member-tax-returns` (list) | — | returns `{sensitive,general}` |
+| `vault_upload_url` | `actions/vault/upload-url.ts` | — | storage `member-vault`/`member-tax-returns` (signed upload url) | — |
+| `vault_download` | `actions/vault/download.ts` | storage (signed url, 300s) | — | — |
+| `vault_upload` | `actions/vault/upload.ts` | — | storage `member-vault` (base64 upload — legacy, unused by UI) | — |
+| `vault_delete` | `actions/vault/delete.ts` | — | storage `member-vault`/`member-tax-returns` (delete by path+section) | — |
 
 #### Client vault — admin side (added this session, all in `ADMIN_ONLY_ACTIONS`)
 

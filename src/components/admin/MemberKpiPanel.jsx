@@ -6,25 +6,28 @@ import { useState, useMemo } from 'react'
 // "Implementation - VFO FT (Direct)" lands in its own family and is NOT swept
 // into "VFO FT". Any member_type not listed here falls into a synthetic
 // "Other" family so every member is always counted somewhere.
+// Display order is the array order below (advisor + accountant KPI grids render
+// families in this exact sequence — see familyData, which preserves source order
+// for the curated advisor/accountant sets).
 const ADVISOR_FAMILIES = [
-  { key: 'catalyst', label: 'Catalyst', types: ['Free Catalyst', 'Catalyst', 'Catalyst A'] },
-  { key: 'fusion', label: 'Fusion', types: ['Free Fusion', 'Fusion', 'Fusion A', 'Fusion A - I/M', 'Legacy Fusion'] },
-  { key: 'accelerator', label: 'Accelerator', types: ['Accelerator', 'Accelerator A', 'Legacy Accelerator'] },
-  { key: 'tbm', label: 'Legacy TBM', types: ['Free Legacy TBM'] },
   { key: 'implementation', label: 'Implementation', types: ['Implementation'] },
+  { key: 'catalyst', label: 'Catalyst', types: ['Free Catalyst', 'Catalyst', 'Catalyst A'] },
+  { key: 'accelerator', label: 'Accelerator', types: ['Accelerator', 'Accelerator A', 'Legacy Accelerator'] },
+  { key: 'fusion', label: 'Fusion', types: ['Free Fusion', 'Fusion', 'Fusion A', 'Fusion A - I/M', 'Legacy Fusion'] },
+  { key: 'corporate', label: 'Corporate Members', types: ['Corporate Member', 'Free Corporate Member', 'Free Corporate Member (Legacy)'] },
+  { key: 'tbm', label: 'Legacy TBM', types: ['Free Legacy TBM'] },
   { key: 'financial', label: 'Financial Collaborator', types: ['Financial Collaborator'] },
   { key: 'reconciliation', label: 'VFO Reconciliation', types: ['VFO Reconciliation (Free)'] },
-  { key: 'corporate', label: 'Corporate Members', types: ['Corporate Member', 'Free Corporate Member', 'Free Corporate Member (Legacy)'] },
 ]
 
 const ACCOUNTANT_FAMILIES = [
   { key: 'impl_ft', label: 'Implementation — VFO FT', types: ['Implementation - VFO FT (Direct)', 'Implementation - VFO FT (Advisor)'] },
-  { key: 'advanced', label: 'Advanced', types: ['Advanced (Direct)', 'Advanced (Advisor)'] },
-  { key: 'plus', label: 'Plus', types: ['Plus (Direct)', 'Plus (Advisor)'] },
   { key: 'vfo_ft', label: 'VFO FT', types: ['VFO FT (Direct)', 'VFO FT (Advisor)'] },
+  { key: 'plus', label: 'Plus', types: ['Plus (Direct)', 'Plus (Advisor)'] },
+  { key: 'advanced', label: 'Advanced', types: ['Advanced (Direct)', 'Advanced (Advisor)'] },
   { key: 'vfo_associate', label: 'VFO Associate', types: ['VFO Associate (Direct)', 'VFO Associate (Advisor)'] },
-  { key: 'team', label: 'Team Member', types: ['Team Member'] },
   { key: 'survey', label: 'Survey', types: ['Survey #1', 'Survey #2', 'Survey #3'] },
+  { key: 'team', label: 'Team Member', types: ['Team Member'] },
   { key: 'fac', label: 'FAC Historic', types: ['FAC Historic'] },
 ]
 
@@ -238,6 +241,8 @@ export default function MemberKpiPanel({ allMembers, category }) {
       subs[key][t] = (subs[key][t] || 0) + 1
     })
     const ordered = [...families, { key: 'other', label: 'Other', types: [] }]
+    const orderIndex = {}
+    ordered.forEach((f, i) => { orderIndex[f.key] = i })
     return ordered
       .filter((f) => counts[f.key] > 0)
       .map((f) => ({
@@ -246,15 +251,16 @@ export default function MemberKpiPanel({ allMembers, category }) {
         count: counts[f.key],
         subtypes: Object.entries(subs[f.key]).map(([type, count]) => ({ type, count })).sort((a, b) => b.count - a.count),
       }))
-      // Families WITH sub-types ("big" cards) sort ahead of single-type ("small")
-      // cards, each group then ordered by count desc — avoids big/small/big jitter.
+      // Advisor/accountant: render in the curated source-array order (the manual
+      // KPI layout). Strategic groups are built dynamically, so they keep the
+      // count-desc ordering ("other" always sorts last there).
       .sort((a, b) => {
-        const am = a.subtypes.length > 1 ? 0 : 1
-        const bm = b.subtypes.length > 1 ? 0 : 1
-        if (am !== bm) return am - bm
+        if (!isStrategic) return orderIndex[a.key] - orderIndex[b.key]
+        if (a.key === 'other') return 1
+        if (b.key === 'other') return -1
         return b.count - a.count
       })
-  }, [scoped, typeToFamily, families])
+  }, [scoped, typeToFamily, families, isStrategic])
 
   const activeLens = LENSES.find((l) => l.key === lens)
   const wrap = { maxWidth: '1180px', margin: '0 auto', padding: '24px' }
