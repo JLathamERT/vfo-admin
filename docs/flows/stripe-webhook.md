@@ -74,7 +74,7 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
    - `confirmation_status='Confirmation Needed'`
 6. **Chains** `automation_CONTRACT_confirmationemail` (always).
 7. **Chains** `automation_CONTRACT_invoicereceipt` for card only (ACH waits for `payment_intent.succeeded` to chain).
-8. **Chains** `automation_CONTRACT_revshare` for card only (P1). First attempt typically returns `pending: true` (Tracy's sheet not yet updated). The daily 02:00-UTC `_revshare_sweep` cron retries.
+8. **Chains** `automation_CONTRACT_revshare` for card only (P1). As of 2026-07-01 (gotcha #164) the Tracy Revenue-Master cross-check was removed — this **pays the share immediately** on clear (amounts from the PF input form) and also transfers the 10% strategic-partner share when the connected member is a strategic member; the daily 02:00-UTC `_revshare_sweep` cron now only retries **failed** transfers.
 
 **Tables read:** `pipeline_map1`, `pipeline_sandbox_config`.
 **Tables written:** `pipeline_map1` (many columns).
