@@ -59,7 +59,7 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | Aspect | Detail |
 |---|---|
 | Auth check | line 79: `!session \|\| session.role !== 'admin'` → `navigate('/admin/login')` |
-| Initial load | line 85: `callApi('load_data')` — populates `allExperts`, `allMembers`, `allExclusionMap`, `ecoMap`, `ciqMap` |
+| Initial load | `callApi('load_data')` — populates `allExperts`, `allMembers`, `allExclusionMap`, `ecoMap` (the `ciqMap` was removed 2026-07-01 with specialist CIQ topics, gotcha #168) |
 | Header | line 198-220: hover-style title, `NotificationBell`, session name, conditional Admin Editor (superadmin only), Settings, Sign Out |
 | Nav model | Four `NavDropdown` components: **Advisors**, **Accountants**, **Specialists**, **Automation**, plus a plain **Payments** tab button — **Automation** AND **Payments** render ONLY when `session.is_superadmin` (Jake-only lock; non-superadmin admins don't see them, and persisted-tab-restore + deep-link guards block reaching them). The **Payments** tab (added 2026-06-16) mounts `AllPaymentsTab` — the admin GLOBAL Payments page. |
 | Active tab/section state | tracked in both React state AND `sessionStorage` (keys `adminActiveTab`, `adminMembersSection`, etc.) so refresh preserves location |

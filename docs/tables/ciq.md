@@ -76,14 +76,6 @@ Append-only history of the entire priority list at each save. Every "save priori
 
 ---
 
-## `ciq_assignments`
+## `ciq_assignments` — **DROPPED 2026-07-01**
 
-Maps experts to CIQ-section names. Used to produce the "who handles this priority" recommendations.
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | bigint | pk |
-| `expert_id` | bigint | fk → `experts.id` (CASCADE) |
-| `name` | text | not null. Section/category name (e.g., `"Tax Planning"`). |
-
-**Touched by:** `load_data` (returned as `data.ciq` map). Joined into `ciqMap` in [AdminPortal.jsx:101](src/pages/AdminPortal.jsx).
+This table (specialist/expert "CIQ Topics" tag assignments) was **removed entirely** — the specialist CIQ-topics feature is gone (gotcha #168). `load_data` no longer returns a `ciq` array, `ciqMap` no longer exists in `AdminPortal`, and `save_specialist`/`delete_specialist` no longer touch it. This is UNRELATED to the member "CIQ One Page Plan" tables above, which remain fully in use.

@@ -201,15 +201,15 @@ All dispatched AFTER `middleware/auth.ts::authenticate()` validates body.token. 
 
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
-| `load_data` | `actions/data/load-data.ts` | `experts`, `vfo_ecosystem_assignments`, `ciq_assignments`, `member_plugin_settings`, `member_exclusions`, `members`, `pipeline_sandbox_config` (MAP 1 row) | — | Response shape: `{experts, ecosystems, ciq, members, exclusions, sandbox_config}`. Each `members` object now includes `member_category` (`advisor`/`accountant`/null) + `accountant_onboarding_id` (added 2026-05-29, gotcha #48). |
+| `load_data` | `actions/data/load-data.ts` | `experts`, `vfo_ecosystem_assignments`, `member_plugin_settings`, `member_exclusions`, `members`, `pipeline_sandbox_config` (MAP 1 row) | — | Response shape: `{experts, ecosystems, members, exclusions, sandbox_config}` (the `ciq` array was **removed 2026-07-01** — specialist CIQ topics gone, gotcha #168). Each `members` object includes `member_category` (`advisor`/`accountant`/`strategic_member`/null), `accountant_onboarding_id` (gotcha #48), and `engagement_level` (added 2026-07-01). |
 
 ### Specialists (admin-only mutations)
 
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
-| `save_specialist` | `actions/specialists/save.ts` | — | `experts`, `vfo_ecosystem_assignments` (delete+insert), `ciq_assignments` (delete+insert). On **insert** (no `editing_id`), also renormalizes `experts.sort_order` for every row to its 1-based alphabetical position by `name`. **Edit** branch does not touch `sort_order`. | — |
+| `save_specialist` | `actions/specialists/save.ts` | — | `experts`, `vfo_ecosystem_assignments` (delete+insert). On **insert** (no `editing_id`), also renormalizes `experts.sort_order` for every row to its 1-based alphabetical position by `name`. **Edit** branch does not touch `sort_order`. (No longer touches `ciq_assignments` — removed 2026-07-01, gotcha #168.) | — |
 | `save_specialist_order` | `actions/specialists/save-order.ts` | — | `experts.sort_order` | — |
-| `delete_specialist` | `actions/specialists/delete.ts` | — | `member_exclusions`, `vfo_ecosystem_assignments`, `ciq_assignments`, `experts` (delete chain) | — |
+| `delete_specialist` | `actions/specialists/delete.ts` | — | `member_exclusions`, `vfo_ecosystem_assignments`, `experts` (delete chain; no longer `ciq_assignments` — removed 2026-07-01) | — |
 | `upload_headshot` | `actions/specialists/upload-headshot.ts` | — | Supabase storage `headshots` bucket | — |
 
 > **Removed in Phase 6 mechanical:** `delete_specialist` previously also targeted `vfo_assignments` (a non-existent table) — that line was deleted; the silent no-op is gone.
@@ -230,6 +230,8 @@ All dispatched AFTER `middleware/auth.ts::authenticate()` validates body.token. 
 | `automation_ADVISOR_createmember` | `actions/advisor/create-member.ts` | `advisor_onboarding`, `members` + `member_number_baselines` (via `nextMemberNumber`) | `member_plugin_settings`, `members` (`member_type='Implementation'`, `elite_status='Active'`, `advisor_model='New Model'`, `member_category='advisor'`, `revenue_decision='Money Mapping'`, `onboarding_id=<advisor_onboarding.id>` FK), `advisor_onboarding` (`member_number`, `member_created_at`, `revenue_decision='Money Mapping'`, the 7 `sale_*` fields, `login_setup_token`, `login_setup_token_expires_at`), `notifications` (clears "Ready to create") | Fired from Advisor Onboarding Stage 3 "Create Advisor & Send Setup Link" button. Accepts the 7 `sale_*` body fields (closer/setter/introduced_by/introduced_member_number/introduced_member_name/company_name/website). Member number via category-relative `nextMemberNumber('advisor','New Model')` (gotcha #48 — no fixed 60100 start). Idempotent on `advisor_onboarding.member_number` already set. No Stripe Connect — Money Mapping only. After member create succeeds (or on idempotent retry), generates a 14-day single-use `login_setup_token` and chains `automation_ADVISOR_loginsetupemail` via service-role, fires `sendNewModelSaleEmail()` (TEAM/new_model_sale), and clears the "Ready to create" notification. |
 | `member_profile_load` | `actions/members/profile-load.ts` | `members` | — | — |
 | `member_profile_save` (uses auth) | `actions/members/profile-save.ts` | `members` (old type for history) | `members` (full passthrough upsert of the `profile` payload — incl. `trading_name`), `member_type_history` (on type change) | — |
+| `member_overview_relations` (ADMIN + tab `member_overview`) | `actions/members/overview-relations.ts` | `member_enrollments`+`programs`, `clients`, `client_enrollments` | — | Added 2026-07-01. One bulk call for the Member Overview tab → `{programsByMember: {member_number: [name]}, clientsByMember: {member_number: [{id, ref, name, status, pf, joined, programs:[{id,name}]}]}}`. Avoids N+1 across all members. |
+| `member_save_engagement` (ADMIN + tab `member_overview`) | `actions/members/save-engagement.ts` | — | `members.engagement_level` (validates highly/reasonably/somewhat_engaged·disengaged; empty clears) | Added 2026-07-01. |
 
 ### Admins (uses auth)
 
@@ -238,6 +240,7 @@ All dispatched AFTER `middleware/auth.ts::authenticate()` validates body.token. 
 | `load_admins` | `actions/admins/load.ts` | `allowed_admins` | — | — |
 | `create_admin` | `actions/admins/create.ts` | — | `allowed_admins` (salted `passcode_hash`) | — |
 | `delete_admin` | `actions/admins/delete.ts` | — | `allowed_admins` (delete) | — |
+| `admin_update_tabs` | `actions/admins/update-tabs.ts` | — | `allowed_admins.allowed_tabs` (text[], filtered to the grantable set) | Added 2026-07-01. Superadmin-only (in-handler); sets which of the 3 "other" tabs (accounting/automation/member_overview) an admin may access — see gotcha #167. |
 | `update_my_passcode` | `actions/admins/update-passcode.ts` | — | `allowed_admins.passcode_hash` / `member_logins.passcode_hash` (salted PBKDF2) | — |
 
 ### Member logins

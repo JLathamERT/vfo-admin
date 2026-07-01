@@ -28,6 +28,7 @@ The advisor/accountant roster. PK is `member_number` (text), not an integer — 
 | `email` | text | |
 | `notes` | text | |
 | `assigned_msm` | text | Member-Servicing-Manager identifier. |
+| `engagement_level` | text | nullable. Admin-set engagement rating shown/editable on the **Member Overview** tab: `highly_engaged` / `reasonably_engaged` / `somewhat_engaged` / `disengaged` (or null = not set). Saved via `member_save_engagement`. Added 2026-07-01. |
 | `vfo_certified_date` / `vfo_accredited_date` | date | |
 | `ciq_enabled` | boolean | not null, default `false`. **CIQ "can start new CIQs" gate** for this member (admin toggle "Allow Member to Start New CIQs"). Members always *view* their CIQs regardless; this only gates *starting* new ones (enforced frontend + in `ciq_create`/`ciq_add_client_and_create`). Repurposed 2026-06-18 — previously hid the whole CIQ tab. |
 | `ciq_vfos_managed` | boolean | not null, default `true`. CIQ behavior toggle — when on, the One Page Plan shows "Powered by VFO Services". |
