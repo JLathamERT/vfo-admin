@@ -649,12 +649,14 @@ function VideoTask({ task, progress, enrollmentId, onComplete }) {
   const playerRef = useRef(null)
   const containerId = `yt-player-${task.id}`
 
-  const isWistia = (task.video_url || '').includes('wistia')
-  const videoId = isWistia ? null : task.video_url?.match(/v=([^&]+)/)?.[1]
+  const url = task.video_url || ''
+  // Wistia and Loom are plain iframe embeds; anything else is treated as a YouTube watch URL.
+  const isEmbed = url.includes('wistia') || url.includes('loom')
+  const videoId = isEmbed ? null : url.match(/v=([^&]+)/)?.[1]
   const statusColor = completed ? '#1b9254' : '#0095ff'
 
   useEffect(() => {
-    if (!showVideo || isWistia || !videoId) return
+    if (!showVideo || isEmbed || !videoId) return
     if (!window.YT) {
       const tag = document.createElement('script')
       tag.src = 'https://www.youtube.com/iframe_api'
@@ -698,9 +700,9 @@ function VideoTask({ task, progress, enrollmentId, onComplete }) {
       </div>
       {showVideo && (
         <div style={{ borderRadius: '8px', overflow: 'hidden', marginLeft: '22px' }}>
-          {isWistia ? (
+          {isEmbed ? (
             <div style={{ position: 'relative', paddingTop: '56.25%' }}>
-              <iframe src={task.video_url} title={task.name} allow="autoplay; fullscreen" allowFullScreen frameBorder="0" scrolling="no" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }} />
+              <iframe src={url} title={task.name} allow="autoplay; fullscreen" allowFullScreen frameBorder="0" scrolling="no" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }} />
             </div>
           ) : (
             <div id={containerId} />

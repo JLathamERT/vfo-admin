@@ -650,7 +650,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     'Introductions Completed': '#1b9254', 'Combo Tax Plan': '#1b9254', 'ROI Plan': '#1b9254',
     'Continue Process': '#1b9254', 'Move to Implementation': '#1b9254', 'Refund Completed': '#1b9254',
     'Schedule Tax 3': '#1b9254', 'Paid': '#1b9254',
-    'Yes - Confirmation email to client': '#1b9254', 'No - Declined email to client': '#e74c3c',
+    'Yes - Confirmation email to client': '#1b9254', 'Yes - Confirmation email (date TBC)': '#1b9254', 'No - Declined email to client': '#e74c3c',
     'Tim Gacsy': '#1b9254', 'Steven Cox': '#1b9254',
     'Yes — Risk 1 — Very Conservative Mindset': '#1b9254', 'Yes — Risk 2 - Moderately Conservative Mindset': '#1b9254',
     'Yes — Risk 3 — Average Risk Mindset': '#1b9254', 'Yes — Risk 4 — Moderately Aggressive Mindset': '#1b9254',
