@@ -219,10 +219,10 @@ function RecipientEditor({ title, accent, emails, onChange, input, setInput }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
         {emails.length === 0 && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontStyle: 'italic' }}>None</span>}
         {emails.map(e => (
-          <span key={e} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '3px 8px', borderRadius: '999px', background: `${accent}33`, color: '#fff', border: `1px solid ${accent}88` }}>
+          <span key={e} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, padding: '3px 8px', borderRadius: '999px', background: `${accent}1f`, color: accent, border: `1px solid ${accent}66` }}>
             {e}
             <button onClick={() => onChange(emails.filter(x => x !== e))} title="Remove"
-              style={{ border: 'none', background: 'transparent', color: 'var(--vfo-ink)', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: 0, opacity: 0.8 }}>×</button>
+              style={{ border: 'none', background: 'transparent', color: accent, cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: 0, opacity: 0.8 }}>×</button>
           </span>
         ))}
       </div>
