@@ -1050,17 +1050,17 @@ function CoachingMeetings({ enrollment, member }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '32px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'flex-end', paddingLeft: '24px' }}>
-        <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)' }}>{completedCount}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: 'var(--vfo-muted)' }}>COMPLETED</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)' }}>{scheduledCount}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: 'var(--vfo-muted)' }}>SCHEDULED</div></div>
-        {nextScheduled && (
-          <div style={{ textAlign: 'center' }}><div style={{ fontSize: '16px', fontWeight: '600', color: '#0095ff' }}>{nextScheduled.meeting_date.split('T')[0]}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: 'var(--vfo-muted)' }}>NEXT MEETING</div></div>
-        )}
-      </div>
-
-      <div style={{ marginBottom: '20px' }}>
-        <button onClick={() => setShowLog(!showLog)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Log Meeting</button>
-      </div>
+      <TrackHero
+        eyebrow="Advanced Coaching"
+        title="Coaching Meetings"
+        meta={<>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1b9254', flexShrink: 0 }} />{completedCount} completed</span>
+          <span style={{ color: 'var(--vfo-border-mid)' }}>·</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0095ff', flexShrink: 0 }} />{scheduledCount} scheduled</span>
+          {nextScheduled && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span>Next meeting {nextScheduled.meeting_date.split('T')[0]}</span></>}
+        </>}
+        action={<button onClick={() => setShowLog(!showLog)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Log Meeting</button>}
+      />
 
       {showLog && (
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>
@@ -1241,19 +1241,19 @@ function CoachingRenewal({ enrollment, member }) {
 
   return (
     <div>
-      <div style={sectionStyle}>
-        <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
-          <div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Join Date</div><div style={{ fontSize: '15px', color: 'var(--vfo-ink)', marginTop: '4px' }}>{joinDate || '—'}</div></div>
-          <div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div><div style={{ fontSize: '15px', color: statusColor, marginTop: '4px', fontWeight: '600' }}>{currentStatus}</div></div>
-          <div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Current Period</div><div style={{ fontSize: '15px', color: 'var(--vfo-ink)', marginTop: '4px' }}>{currentPeriod}</div></div>
-          {nextDate && <div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Period Ends</div><div style={{ fontSize: '15px', color: renewalUrgency, marginTop: '4px', fontWeight: '600' }}>{nextDate.split('T')[0]}</div></div>}
-          {daysUntilRenewal !== null && <div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{daysUntilRenewal < 0 ? 'Overdue' : 'Days Remaining'}</div><div style={{ fontSize: '15px', color: renewalUrgency, marginTop: '4px', fontWeight: '600' }}>{daysUntilRenewal < 0 ? `${Math.abs(daysUntilRenewal)} days` : `${daysUntilRenewal} days`}</div></div>}
-        </div>
-      </div>
-
-      <div style={{ marginBottom: '20px' }}>
-        <button onClick={() => setShowLog(!showLog)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Log Renewal</button>
-      </div>
+      <TrackHero
+        eyebrow="Advanced Coaching"
+        title="Membership Renewal"
+        meta={<>
+          <span>Joined {joinDate || '—'}</span>
+          <span style={{ color: 'var(--vfo-border-mid)' }}>·</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColor, flexShrink: 0 }} />{currentStatus}</span>
+          <span style={{ color: 'var(--vfo-border-mid)' }}>·</span>
+          <span>{currentPeriod}</span>
+          {nextDate && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ fontWeight: 600, color: renewalUrgency }}>{daysUntilRenewal !== null && daysUntilRenewal < 0 ? `Overdue ${Math.abs(daysUntilRenewal)} days` : `Ends ${nextDate.split('T')[0]}${daysUntilRenewal !== null ? ` (${daysUntilRenewal} days)` : ''}`}</span></>}
+        </>}
+        action={<button onClick={() => setShowLog(!showLog)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Log Renewal</button>}
+      />
 
       {showLog && (
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>

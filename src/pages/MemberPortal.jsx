@@ -304,6 +304,9 @@ function MemberSpecialists({ member, allExperts, exclusions, ecoMap = {}, onData
 }
 
 function MemberProfile({ member }) {
+  // Mirrors the admin-side member profile (MembersPanel MemberProfile):
+  // hero header with status meta, then a two-column body — details grid on
+  // the left, certifications in the sidebar.
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '16px' }
   const fieldLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--vfo-faint)', textTransform: 'uppercase' }
   const fieldValue = { fontSize: '15px', color: 'var(--vfo-ink)', fontWeight: 600, marginTop: '5px' }
@@ -311,9 +314,11 @@ function MemberProfile({ member }) {
   // and uncategorized members keep it. Mirrors the admin-side hiddenFields.
   const isAccountant = member.member_category === 'accountant'
   const initials = (member.name || '').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+  const statusColors = { Active: '#1b9254', Lost: '#e74c3c', Removed: '#e74c3c' }
+  const hasCerts = member.vfo_certified_date || member.vfo_accredited_date
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
+    <div style={{ maxWidth: '980px', margin: '0 auto', padding: '24px' }}>
       {/* Profile header */}
       <div style={{ ...sectionStyle, padding: 0, overflow: 'hidden' }}>
         <div style={{ height: '4px', background: 'linear-gradient(90deg, #002973 0%, #125ecc 55%, #0a85e8 100%)' }} />
@@ -322,47 +327,63 @@ function MemberProfile({ member }) {
           <div style={{ minWidth: '200px', flex: 1 }}>
             <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '1.2px', color: '#0095ff', textTransform: 'uppercase', marginBottom: '4px' }}>Member Profile</div>
             <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.03em', fontSize: '24px', color: 'var(--vfo-heading)', lineHeight: 1.15 }}>{member.name}</div>
-            {member.member_type && <div style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', marginTop: '6px' }}>{member.member_type}</div>}
+            <div style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'monospace' }}>{member.member_number}</span>
+              {member.member_type && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span>{member.member_type}</span></>}
+              {member.elite_status && (
+                <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[member.elite_status] || 'var(--vfo-faint)', flexShrink: 0 }} />
+                  {member.elite_status}
+                </span></>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Details */}
-      <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Membership Details</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '18px 24px' }}>
-          <div><div style={fieldLabel}>Member Number</div><div style={{ ...fieldValue, fontFamily: 'monospace' }}>{member.member_number}</div></div>
-          <div><div style={fieldLabel}>Join Date</div><div style={fieldValue}>{member.join_date ? member.join_date.split('T')[0] : '—'}</div></div>
-          {!isAccountant && <div><div style={fieldLabel}>Revenue Decision</div><div style={fieldValue}>{member.revenue_decision || '—'}</div></div>}
-        </div>
-      </div>
-
-      {/* Certifications */}
-      {(member.vfo_certified_date || member.vfo_accredited_date) && (
-        <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Certifications</div>
-          <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
-            {member.vfo_certified_date && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <img src={vfoCertifiedSeal} style={{ width: '64px', height: '64px' }} />
-                <div>
-                  <div style={{ fontSize: '14px', color: '#b08d26', fontWeight: '600' }}>VFO Certified</div>
-                  <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{member.vfo_certified_date.split('T')[0]}</div>
-                </div>
-              </div>
-            )}
-            {member.vfo_accredited_date && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <img src={vfoAccreditedSeal} style={{ width: '64px', height: '64px' }} />
-                <div>
-                  <div style={{ fontSize: '14px', color: 'var(--vfo-muted)', fontWeight: '600' }}>VFO Accredited</div>
-                  <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{member.vfo_accredited_date.split('T')[0]}</div>
-                </div>
-              </div>
-            )}
+      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        {/* Main column — membership details */}
+        <div style={{ flex: '2 1 400px', minWidth: '300px' }}>
+          <div style={sectionStyle}>
+            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Membership Details</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '18px 24px' }}>
+              <div><div style={fieldLabel}>Member Number</div><div style={{ ...fieldValue, fontFamily: 'monospace' }}>{member.member_number}</div></div>
+              <div><div style={fieldLabel}>Join Date</div><div style={fieldValue}>{member.join_date ? member.join_date.split('T')[0] : '—'}</div></div>
+              {member.email && <div><div style={fieldLabel}>Email</div><div style={{ ...fieldValue, wordBreak: 'break-word' }}>{member.email}</div></div>}
+              {isAccountant && member.trading_name && <div><div style={fieldLabel}>Trading Name</div><div style={fieldValue}>{member.trading_name}</div></div>}
+              {!isAccountant && <div><div style={fieldLabel}>Revenue Decision</div><div style={fieldValue}>{member.revenue_decision || '—'}</div></div>}
+            </div>
           </div>
         </div>
-      )}
+
+        {/* Side column — certifications */}
+        {hasCerts && (
+          <div style={{ flex: '1 1 250px', minWidth: '250px' }}>
+            <div style={sectionStyle}>
+              <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '14px' }}>Certifications</div>
+              {member.vfo_certified_date && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: member.vfo_accredited_date ? '14px' : 0 }}>
+                  <img src={vfoCertifiedSeal} style={{ width: '44px', height: '44px' }} />
+                  <div>
+                    <div style={{ fontSize: '14px', color: '#b08d26', fontWeight: '600' }}>VFO Certified</div>
+                    <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{member.vfo_certified_date.split('T')[0]}</div>
+                  </div>
+                </div>
+              )}
+              {member.vfo_accredited_date && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <img src={vfoAccreditedSeal} style={{ width: '44px', height: '44px' }} />
+                  <div>
+                    <div style={{ fontSize: '14px', color: 'var(--vfo-muted)', fontWeight: '600' }}>VFO Accredited</div>
+                    <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{member.vfo_accredited_date.split('T')[0]}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
