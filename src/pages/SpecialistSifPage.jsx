@@ -78,7 +78,7 @@ export default function SpecialistSifPage() {
   if (state === 'loading') {
     return (
       <div style={{ ...pageStyle, alignItems: 'center' }}>
-        <div style={{ textAlign: 'center', maxWidth: '480px', padding: '48px 32px', color: '#4e6087', fontSize: '15px' }}>Loading…</div>
+        <div style={{ textAlign: 'center', maxWidth: '480px', padding: '48px 32px', color: 'var(--vfo-muted)', fontSize: '15px' }}>Loading…</div>
       </div>
     )
   }
@@ -90,8 +90,8 @@ export default function SpecialistSifPage() {
           <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#ef444420', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
             <span style={{ fontSize: '32px', lineHeight: 1 }}>⚠️</span>
           </div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }}>Link Not Valid</h1>
-          <p style={{ fontSize: '15px', color: '#4e6087', lineHeight: 1.6 }}>This Specialist Information Form link is invalid or has expired. Please contact your VFO representative for a new link.</p>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--vfo-ink)', marginBottom: '12px' }}>Link Not Valid</h1>
+          <p style={{ fontSize: '15px', color: 'var(--vfo-muted)', lineHeight: 1.6 }}>This Specialist Information Form link is invalid or has expired. Please contact your VFO representative for a new link.</p>
         </div>
       </div>
     )
@@ -104,8 +104,8 @@ export default function SpecialistSifPage() {
           <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#16a34a20', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
             <span style={{ fontSize: '32px', lineHeight: 1 }}>✓</span>
           </div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }}>Thank You!</h1>
-          <p style={{ fontSize: '15px', color: '#4e6087', lineHeight: 1.6 }}>Your Specialist Information Form has been submitted. We'll review it ahead of your next meeting and be in touch shortly.</p>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--vfo-ink)', marginBottom: '12px' }}>Thank You!</h1>
+          <p style={{ fontSize: '15px', color: 'var(--vfo-muted)', lineHeight: 1.6 }}>Your Specialist Information Form has been submitted. We'll review it ahead of your next meeting and be in touch shortly.</p>
         </div>
       </div>
     )
@@ -115,8 +115,8 @@ export default function SpecialistSifPage() {
     <div style={pageStyle}>
       <div style={cardStyle}>
         <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-          <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '28px', color: '#16264a', marginBottom: '6px' }}>VFO Specialist Information</div>
-          <div style={{ color: '#4e6087', fontSize: '14px' }}>Basic information on the Specialist</div>
+          <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '28px', color: 'var(--vfo-ink)', marginBottom: '6px' }}>VFO Specialist Information</div>
+          <div style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>Basic information on the Specialist</div>
         </div>
 
         <SectionLabel n="1">Please provide the following information about you as a VFO Specialist</SectionLabel>
@@ -174,7 +174,7 @@ export default function SpecialistSifPage() {
 }
 
 function SectionLabel({ n, children, required }) {
-  return <div style={{ fontSize: '13px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '28px 0 12px', borderTop: '1px solid #ebf0f8', paddingTop: '20px' }}>{n}. {children}{required && <span style={{ color: '#d93025' }}> *</span>}</div>
+  return <div style={{ fontSize: '13px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '28px 0 12px', borderTop: '1px solid var(--vfo-tint-deep)', paddingTop: '20px' }}>{n}. {children}{required && <span style={{ color: '#d93025' }}> *</span>}</div>
 }
 
 function Field({ label, value, onChange, hint, required, flex, maxLength }) {
@@ -197,8 +197,8 @@ function SelectField({ label, value, onChange, options, hint, required }) {
     <div style={{ marginBottom: '14px' }}>
       <label style={labelStyle}>{label}{required && <span style={{ color: '#d93025' }}> *</span>}</label>
       <select value={value} onChange={e => onChange(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-        <option value="" style={{ background: '#ffffff', color: '#16264a' }}>-- Select --</option>
-        {options.map(o => <option key={o} value={o} style={{ background: '#ffffff', color: '#16264a' }}>{o}</option>)}
+        <option value="" style={{ background: 'var(--vfo-card)', color: 'var(--vfo-ink)' }}>-- Select --</option>
+        {options.map(o => <option key={o} value={o} style={{ background: 'var(--vfo-card)', color: 'var(--vfo-ink)' }}>{o}</option>)}
       </select>
       {hint && <div style={hintStyle}>{hint}</div>}
     </div>
@@ -217,7 +217,7 @@ function Area({ value, onChange, hint, label, required }) {
 
 const pageStyle = {
   fontFamily: '"Inter", sans-serif',
-  background: '#ffffff',
+  background: 'var(--vfo-card)',
   minHeight: '100vh',
   padding: '40px 20px',
   display: 'flex',
@@ -228,13 +228,13 @@ const pageStyle = {
 const cardStyle = {
   width: '100%',
   maxWidth: '720px',
-  background: '#eef2f9',
-  border: '1px solid #ebf0f8',
+  background: 'var(--vfo-tint)',
+  border: '1px solid var(--vfo-tint-deep)',
   borderRadius: '16px',
   padding: '36px 40px',
 }
 
-const labelStyle = { display: 'block', fontSize: '13px', color: '#4e6087', marginBottom: '6px' }
-const hintStyle = { fontSize: '11px', color: '#697a9c', marginTop: '5px', fontStyle: 'italic', lineHeight: 1.5 }
-const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif' }
+const labelStyle = { display: 'block', fontSize: '13px', color: 'var(--vfo-muted)', marginBottom: '6px' }
+const hintStyle = { fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '5px', fontStyle: 'italic', lineHeight: 1.5 }
+const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', fontFamily: 'Inter, sans-serif' }
 const rowStyle = { display: 'flex', gap: '12px', flexWrap: 'wrap' }

@@ -54,18 +54,18 @@ function PFExtraMeetingForm({ clientId, pipelineId, onComplete, memberCategory, 
     finally { setSubmitting(false) }
   }
 
-  const inputStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', width: '100%' }
-  const labelStyle = { fontSize: '11px', color: '#697a9c', marginBottom: '4px', display: 'block' }
+  const inputStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', width: '100%' }
+  const labelStyle = { fontSize: '11px', color: 'var(--vfo-muted)', marginBottom: '4px', display: 'block' }
 
   const canSubmit = decision === 'No' || (decision === 'Yes' && serviceLevel && grossFee && paymentPlan && (serviceLevel !== 'Max' || pipMeetingCount))
 
   return (
-    <div style={{ padding: '12px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.2)', marginTop: '8px', marginBottom: '8px' }}>
+    <div style={{ padding: '12px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.2)', marginTop: '8px', marginBottom: '8px' }}>
       <div style={{ fontSize: '12px', fontWeight: '600', color: '#0095ff', marginBottom: '12px' }}>Extra Meeting Outcome</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
         <div>
           <label style={labelStyle}>Client Decision After Meeting</label>
-          <select value={decision} onChange={e => setDecision(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
+          <select value={decision} onChange={e => setDecision(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
             <option value="">-- Select --</option>
             <option value="Yes">Yes — Moving Forward</option>
             <option value="No">No — Not Moving Forward</option>
@@ -76,7 +76,7 @@ function PFExtraMeetingForm({ clientId, pipelineId, onComplete, memberCategory, 
           <>
             <div>
               <label style={labelStyle}>Service Level</label>
-              <select value={serviceLevel} onChange={e => setServiceLevel(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
+              <select value={serviceLevel} onChange={e => setServiceLevel(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
                 <option value="">-- Select --</option>
                 <option value="Lite">Lite</option>
                 <option value="Core">Core</option>
@@ -99,7 +99,7 @@ function PFExtraMeetingForm({ clientId, pipelineId, onComplete, memberCategory, 
             </div>
             <div>
               <label style={labelStyle}>Payment Plan</label>
-              <select value={paymentPlan} onChange={e => setPaymentPlan(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
+              <select value={paymentPlan} onChange={e => setPaymentPlan(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
                 <option value="">-- Select --</option>
                 <option value="1 Time Payment">1 Time Payment</option>
                 <option value="Quarterly">Quarterly</option>

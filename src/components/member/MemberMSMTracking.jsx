@@ -62,7 +62,7 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
     return enrollments.find(e => e.programs?.name === programName) || null
   }
 
-  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
+  const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
 
   const msmCount = meetings.filter(m => m.meeting_type === 'MSM Meeting').length
   const advancedCount = meetings.filter(m => m.meeting_type === 'Advanced Meeting').length
@@ -79,7 +79,7 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
     return (
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
         <Skeleton width={240} height={28} style={{ marginBottom: '20px' }} />
-        <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }}>
+        <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }}>
           <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <Skeleton width={90} height={11} />
@@ -93,7 +93,7 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '24px', marginBottom: '24px', paddingBottom: '10px', borderBottom: '1px solid #e3eaf5' }}>
+        <div style={{ display: 'flex', gap: '24px', marginBottom: '24px', paddingBottom: '10px', borderBottom: '1px solid var(--vfo-border)' }}>
           <Skeleton width={80} height={20} />
           {activeTab !== 'msm_tax' && <Skeleton width={80} height={20} />}
         </div>
@@ -113,12 +113,12 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
     return (
       <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Assigned MSM</div>
-          <div style={{ fontSize: '16px', color: '#16264a', fontWeight: '600' }}>{member.assigned_msm || '—'}</div>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Assigned MSM</div>
+          <div style={{ fontSize: '16px', color: 'var(--vfo-ink)', fontWeight: '600' }}>{member.assigned_msm || '—'}</div>
         </div>
 
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Your Programs</div>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Your Programs</div>
           {PROGRAMS.map(p => {
             const dbProgram = programs.find(prog => prog.name === p.name)
             if (!dbProgram) return null
@@ -126,39 +126,39 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
             if (!isEnabled) return null
             const tabKey = { holistic: 'msm_holistic', partnership: 'msm_partnership', tax: 'msm_tax', coaching: 'msm_coaching' }[p.key]
             return (
-              <div key={p.key} onClick={() => onNavigate(tabKey)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #eef2f9', cursor: 'pointer' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
+              <div key={p.key} onClick={() => onNavigate(tabKey)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--vfo-tint)', cursor: 'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-tint)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                 <span style={{ fontSize: '14px', color: '#0095ff', fontWeight: 500 }}>{p.name}</span>
               </div>
             )
           })}
-          {enabledPrograms.length === 0 && <p style={{ color: '#4e6087', fontSize: '14px' }}>No programs enabled yet.</p>}
+          {enabledPrograms.length === 0 && <p style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>No programs enabled yet.</p>}
         </div>
 
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting Summary</div>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting Summary</div>
           <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
             {[['MSM Meetings', msmCount], ['Advanced Meetings', advancedCount], ['VFO 90 Day Plan', vfo90Count], ['PFT 90 Day Plan', pft90Count]].map(([label, count]) => (
               <div key={label} style={{ textAlign: 'center' }}>
-                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973' }}>{count}</div>
-                <div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '3px', textTransform: 'uppercase' }}>{label}</div>
+                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)' }}>{count}</div>
+                <div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: 'var(--vfo-muted)', marginTop: '3px', textTransform: 'uppercase' }}>{label}</div>
               </div>
             ))}
           </div>
         </div>
 
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting History</div>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting History</div>
           {meetings.length === 0
-            ? <p style={{ color: '#697a9c', fontSize: '14px' }}>No meetings logged yet.</p>
+            ? <p style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>No meetings logged yet.</p>
             : meetings.map(m => (
-              <div key={m.id} style={{ padding: '10px 0', borderBottom: '1px solid #eef2f9' }}>
-                <div style={{ fontSize: '14px', color: '#16264a' }}>{m.meeting_type}</div>
-                <div style={{ fontSize: '12px', color: '#4e6087', marginTop: '2px' }}>
+              <div key={m.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
+                <div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{m.meeting_type}</div>
+                <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>
                   {new Date(m.meeting_date + 'T12:00:00').toLocaleDateString()}{m.conducted_by ? ` · ${m.conducted_by}` : ''}
                 </div>
-                {m.notes && <div style={{ fontSize: '12px', color: '#697a9c', marginTop: '2px' }}>{m.notes}</div>}
+                {m.notes && <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{m.notes}</div>}
               </div>
             ))
           }
@@ -173,8 +173,8 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
     const isEnabled = dbProgram && enabledPrograms.some(e => e.program_id === dbProgram.id)
 
     if (!isEnabled) return (
-      <div style={{ textAlign: 'center', padding: '60px 20px', color: '#4e6087' }}>
-        <div style={{ fontSize: '18px', color: '#16264a', marginBottom: '8px', fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em' }}>{p?.name}</div>
+      <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--vfo-muted)' }}>
+        <div style={{ fontSize: '18px', color: 'var(--vfo-ink)', marginBottom: '8px', fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em' }}>{p?.name}</div>
         <div style={{ fontSize: '14px' }}>This program is not enabled.</div>
       </div>
     )
@@ -185,8 +185,8 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
         {!enrollment
           ? <>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a', marginBottom: '20px' }}>{p.name}</div>
-              <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>You are not yet enrolled in this program.</div>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: 'var(--vfo-ink)', marginBottom: '20px' }}>{p.name}</div>
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>You are not yet enrolled in this program.</div>
             </>
           : <MemberEnrolledView enrollment={enrollment} program={dbProgram} member={member} />
         }
@@ -204,21 +204,21 @@ function MemberEnrolledView({ enrollment, program, member }) {
   const defaultTab = isCoaching ? 'meetings' : program.name === 'VFO Tax Planning' ? 'clients' : 'training'
   const [activeTab, setActiveTab] = useState(defaultTab)
   useEffect(() => { setActiveTab(defaultTab) }, [program.id])
-  const tabStyle = (active) => ({ padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' })
-  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
-  const statusColors = { 'On Fast Track': '#1b9254', 'Paused Fast Track': '#e06717', 'Lost/Removed': '#e74c3c', 'Revert to Legacy': '#4e6087', 'Active': '#1b9254' }
+  const tabStyle = (active) => ({ padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' })
+  const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
+  const statusColors = { 'On Fast Track': '#1b9254', 'Paused Fast Track': '#e06717', 'Lost/Removed': '#e74c3c', 'Revert to Legacy': 'var(--vfo-muted)', 'Active': '#1b9254' }
 
   return (
     <div>
       <div style={{ marginBottom: '20px' }}>
         <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '1.2px', color: '#0095ff', textTransform: 'uppercase', marginBottom: '4px' }}>Program</div>
-        <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.03em', fontSize: '22px', color: '#002973' }}>{program.name}</div>
-        <div style={{ fontSize: '12.5px', color: '#4e6087', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.03em', fontSize: '22px', color: 'var(--vfo-heading)' }}>{program.name}</div>
+        <div style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <span>Joined {enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</span>
-          {!isCoaching && enrollment.program_status && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#16264a' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[enrollment.program_status] || '#9aa6bf', flexShrink: 0 }} />{enrollment.program_status}</span></>}
+          {!isCoaching && enrollment.program_status && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[enrollment.program_status] || 'var(--vfo-faint)', flexShrink: 0 }} />{enrollment.program_status}</span></>}
         </div>
       </div>
-      <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--vfo-border)', marginBottom: '24px' }}>
         {isCoaching ? (
           <>
             <button style={tabStyle(activeTab === 'meetings')} onClick={() => setActiveTab('meetings')}>Meetings</button>
@@ -269,12 +269,12 @@ function MemberTrainingView({ enrollment, program }) {
     finally { setLoading(false) }
   }
 
-  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '16px' }
-  const statusColors = { Completed: '#1b9254', 'Have Watched': '#1b9254', 'In Progress': '#e06717', 'N/A': '#4e6087', Pending: '#e74c3c' }
+  const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '16px' }
+  const statusColors = { Completed: '#1b9254', 'Have Watched': '#1b9254', 'In Progress': '#e06717', 'N/A': 'var(--vfo-muted)', Pending: '#e74c3c' }
   const statusBg = { Completed: 'rgba(27,146,84,0.15)', 'Have Watched': 'rgba(27,146,84,0.15)', 'In Progress': 'rgba(251,137,90,0.15)', 'N/A': 'rgba(91,107,140,0.15)', Pending: 'rgba(231,76,60,0.15)' }
 
   if (loading) return <TrainingTrackSkeleton />
-  if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>No training track defined yet.</div>
+  if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>No training track defined yet.</div>
 
   const totalTasks = phases.reduce((s, p) => s + (p.program_training_tasks?.length || 0), 0)
   const completedTasks = Object.values(progress).filter(p => p.status && p.status !== '').length
@@ -295,8 +295,8 @@ function MemberTrainingView({ enrollment, program }) {
       {phases.map(phase => {
         const isReview = phase.name.includes('Review')
         return (
-        <div key={phase.id} style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '16px', marginTop: isReview ? '-6px' : '0', marginLeft: isReview ? '20px' : '0', borderTopLeftRadius: isReview ? '0' : '12px' }}>
-          <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: '#002973', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}{isReview && <span style={{ fontSize: '10px', color: '#4e6087', marginLeft: '8px', textTransform: 'none', fontWeight: '400', letterSpacing: '0' }}>checkpoint</span>}</div>
+        <div key={phase.id} style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '16px', marginTop: isReview ? '-6px' : '0', marginLeft: isReview ? '20px' : '0', borderTopLeftRadius: isReview ? '0' : '12px' }}>
+          <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: 'var(--vfo-heading)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}{isReview && <span style={{ fontSize: '10px', color: 'var(--vfo-muted)', marginLeft: '8px', textTransform: 'none', fontWeight: '400', letterSpacing: '0' }}>checkpoint</span>}</div>
           {(phase.program_training_tasks || []).map(task => {
             const p = progress[task.id] || {}
 
@@ -306,13 +306,13 @@ function MemberTrainingView({ enrollment, program }) {
 
             // --- NORMAL TASKS ---
             return (
-              <div key={task.id} style={{ padding: '10px 0', borderBottom: '1px solid #eef2f9', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: statusColors[p.status] || 'transparent', flexShrink: 0, border: '1px solid #c7d4e8' }} />
+              <div key={task.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--vfo-tint)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: statusColors[p.status] || 'transparent', flexShrink: 0, border: '1px solid var(--vfo-border-mid)' }} />
                 <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: '14px', color: '#16264a' }}>{task.name}</span>
+                  <span style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{task.name}</span>
                 </div>
                 {p.status && (
-                  <span style={{ padding: '3px 10px', borderRadius: '4px', fontSize: '12px', background: statusBg[p.status] || '#eef2f9', color: statusColors[p.status] || '#16264a' }}>{p.status}</span>
+                  <span style={{ padding: '3px 10px', borderRadius: '4px', fontSize: '12px', background: statusBg[p.status] || 'var(--vfo-tint)', color: statusColors[p.status] || 'var(--vfo-ink)' }}>{p.status}</span>
                 )}
               </div>
             )
@@ -366,8 +366,8 @@ function MemberClientsView({ enrollment, member, program }) {
     } catch (err) { setAddStatus(err.message) }
   }
 
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
-  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '16px' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '16px' }
   const statusColors = { pending: '#e06717', active: '#1b9254', declined: '#e74c3c' }
 
   if (loading) return <ClientsListSkeleton />
@@ -377,20 +377,20 @@ function MemberClientsView({ enrollment, member, program }) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', width: '100%' }}>
         <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-end', paddingLeft: '24px' }}>
-          <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{clients.length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '4px' }}>TOTAL</div></div>
-          <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1 }}>{clients.filter(c => c.status === 'active').length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '4px' }}>ACTIVE</div></div>
+          <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)', lineHeight: 1 }}>{clients.length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: 'var(--vfo-muted)', marginTop: '4px' }}>TOTAL</div></div>
+          <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)', lineHeight: 1 }}>{clients.filter(c => c.status === 'active').length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: 'var(--vfo-muted)', marginTop: '4px' }}>ACTIVE</div></div>
         </div>
         <button onClick={() => setShowAdd(!showAdd)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add Client</button>
       </div>
 
       {showAdd && (
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>
-          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add New Client</div>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add New Client</div>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>First Name *</label><input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} /></div>
-            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Last Name *</label><input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} /></div>
-            <div style={{ flex: 1, minWidth: '180px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
-            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Phone</label><input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>First Name *</label><input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Last Name *</label><input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '180px' }}><label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
+            <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Phone</label><input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} /></div>
           </div>
           {!showAdditional && (
             <button onClick={() => setShowAdditional(true)} style={{ padding: '8px 14px', borderRadius: '6px', border: '1px dashed rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.06)', color: '#0095ff', fontWeight: 600, fontSize: '12px', cursor: 'pointer', marginBottom: '12px', fontFamily: 'Inter, sans-serif' }}>+ Add additional contact (e.g. spouse)</button>
@@ -399,39 +399,39 @@ function MemberClientsView({ enrollment, member, program }) {
             <div style={{ padding: '16px', background: 'rgba(0,149,255,0.06)', border: '1px solid rgba(0,149,255,0.2)', borderRadius: '8px', marginBottom: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <div style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600, fontStyle: 'italic' }}>Additional contact (not the primary client)</div>
-                <button onClick={() => { setShowAdditional(false); setAddFirstName(''); setAddLastName(''); setAddEmail('') }} style={{ background: 'none', border: 'none', color: '#4e6087', fontSize: '11px', cursor: 'pointer' }}>Remove</button>
+                <button onClick={() => { setShowAdditional(false); setAddFirstName(''); setAddLastName(''); setAddEmail('') }} style={{ background: 'none', border: 'none', color: 'var(--vfo-muted)', fontSize: '11px', cursor: 'pointer' }}>Remove</button>
               </div>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: '120px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>First Name</label><input value={addFirstName} onChange={e => setAddFirstName(e.target.value)} style={inputStyle} /></div>
-                <div style={{ flex: 1, minWidth: '120px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Last Name</label><input value={addLastName} onChange={e => setAddLastName(e.target.value)} style={inputStyle} /></div>
-                <div style={{ flex: 1, minWidth: '160px' }}><label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Email</label><input value={addEmail} onChange={e => setAddEmail(e.target.value)} type="email" style={inputStyle} /></div>
+                <div style={{ flex: 1, minWidth: '120px' }}><label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>First Name</label><input value={addFirstName} onChange={e => setAddFirstName(e.target.value)} style={inputStyle} /></div>
+                <div style={{ flex: 1, minWidth: '120px' }}><label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Last Name</label><input value={addLastName} onChange={e => setAddLastName(e.target.value)} style={inputStyle} /></div>
+                <div style={{ flex: 1, minWidth: '160px' }}><label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Email</label><input value={addEmail} onChange={e => setAddEmail(e.target.value)} type="email" style={inputStyle} /></div>
               </div>
             </div>
           )}
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={addClient} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
-            <button onClick={() => setShowAdd(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={() => setShowAdd(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
           </div>
           {addStatus && <p style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '8px' }}>{addStatus}</p>}
         </div>
       )}
 
       {clients.length === 0
-        ? <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>No clients added yet.</div>
+        ? <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>No clients added yet.</div>
         : clients.map(client => (
           <div key={client.id} style={{ ...sectionStyle, cursor: 'pointer' }}
             onClick={() => navigate(`/member/client/${client.id}`, { state: { enrollment_id: enrollment.id } })}
-            onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
-            onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}>
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-tint)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--vfo-card)'}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '15px', fontWeight: '600', color: '#16264a' }}>{client.first_name} {client.last_name}</span>
-                  <span style={{ fontSize: '11px', color: '#4e6087' }}>{client.client_ref}</span>
-                  <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', background: `${statusColors[client.status] || '#4e6087'}22`, color: statusColors[client.status] || '#4e6087', border: `1px solid ${statusColors[client.status] || '#4e6087'}44` }}>{client.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : ''}</span>
+                  <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--vfo-ink)' }}>{client.first_name} {client.last_name}</span>
+                  <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{client.client_ref}</span>
+                  <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', background: `${statusColors[client.status] || 'var(--vfo-muted)'}22`, color: statusColors[client.status] || 'var(--vfo-muted)', border: `1px solid ${statusColors[client.status] || 'var(--vfo-muted)'}44` }}>{client.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : ''}</span>
                 </div>
-                {(client.email || client.phone) && <div style={{ fontSize: '12px', color: '#4e6087', marginTop: '4px' }}>{client.email}{client.email && client.phone ? ' · ' : ''}{client.phone}</div>}
-                {contactsMap[client.id]?.length > 0 && <div style={{ fontSize: '12px', color: '#697a9c', marginTop: '2px', fontStyle: 'italic' }}>with {contactsMap[client.id].map(c => `${c.first_name} ${c.last_name}`).join(', ')}</div>}
+                {(client.email || client.phone) && <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '4px' }}>{client.email}{client.email && client.phone ? ' · ' : ''}{client.phone}</div>}
+                {contactsMap[client.id]?.length > 0 && <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px', fontStyle: 'italic' }}>with {contactsMap[client.id].map(c => `${c.first_name} ${c.last_name}`).join(', ')}</div>}
               </div>
               <span style={{ color: '#0095ff', fontWeight: 500, fontSize: '13px' }}>View →</span>
             </div>
@@ -493,8 +493,8 @@ function MemberClientTrackView({ client, program }) {
 
   const statusColors = { Completed: '#1b9254', Confirmed: '#1b9254', Yes: '#1b9254', 'Call arranged': '#1b9254', 'PIP 1 scheduled': '#1b9254', 'Follow-up scheduled': '#1b9254', 'PIP Follow-up confirmed': '#1b9254', 'Send confirmation email': '#1b9254', 'Regular priorities tab enabled': '#1b9254', 'Tax priorities tab enabled': '#1b9254', 'Completed + N/A': '#1b9254', 'Completed + Risk 1': '#1b9254', 'Completed + Risk 2': '#1b9254', 'Completed + Risk 3': '#1b9254', 'Completed + Risk 4': '#1b9254', 'Completed + Risk 5': '#1b9254', Lite: '#1b9254', Core: '#1b9254', Max: '#1b9254', 'In Progress': '#e06717', Undecided: '#e06717', 'No response': '#e74c3c', No: '#e74c3c', 'PIP Follow-up declined': '#e74c3c', 'Send declined email': '#e74c3c' }
 
-  if (loading) return <div style={{ color: '#4e6087', fontSize: '13px', padding: '16px' }}>Loading track...</div>
-  if (phases.length === 0) return <div style={{ color: '#4e6087', fontSize: '13px', padding: '16px' }}>No client track defined yet.</div>
+  if (loading) return <div style={{ color: 'var(--vfo-muted)', fontSize: '13px', padding: '16px' }}>Loading track...</div>
+  if (phases.length === 0) return <div style={{ color: 'var(--vfo-muted)', fontSize: '13px', padding: '16px' }}>No client track defined yet.</div>
 
   const totalTasks = phases.reduce((s, p) => s + (p.program_client_tasks || []).filter(t => t.status_options !== 'auto').length, 0)
   const completedTasks = phases.reduce((s, phase) => s + (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && progress[t.id]?.status && progress[t.id].status !== '').length, 0)
@@ -515,7 +515,7 @@ function MemberClientTrackView({ client, program }) {
         const tasks = phase.program_client_tasks || []
         const nonAutoTasks = tasks.filter(t => t.status_options !== 'auto')
         const doneTasks = nonAutoTasks.filter(t => progress[t.id]?.status && progress[t.id].status !== '').length
-        const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
+        const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
         const titleColor = state === 'active' ? '#125ecc' : '#002973'
         const c10TaskId = phases.find(ph => ph.name === 'MAP 1 - PIP Follow Up')?.program_client_tasks?.find(t => t.task_code === 'C10')?.id
@@ -523,7 +523,7 @@ function MemberClientTrackView({ client, program }) {
         const c14c15Active = c10Status === 'No' || c10Status === 'Undecided'
 
         return (
-          <div key={phase.id} style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
+          <div key={phase.id} style={{ background: 'var(--vfo-card)', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
             <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -533,8 +533,8 @@ function MemberClientTrackView({ client, program }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {state === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
                 {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{nonAutoTasks.length}</span>}
-                {state === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
-                <span style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                {state === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>}
+                <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
               </div>
             </div>
 
@@ -543,7 +543,7 @@ function MemberClientTrackView({ client, program }) {
                 {tasks.map(task => {
                   const p = progress[task.id] || {}
                   const isDone = !!p.status && p.status !== ''
-                  const statusColor = statusColors[p.status] || '#4e6087'
+                  const statusColor = statusColors[p.status] || 'var(--vfo-muted)'
                   const isGreyedOut = (task.task_code === 'C14' || task.task_code === 'C15') && !c14c15Active
 
                   if (task.name === 'AI PC Admin' && pipelineData) {
@@ -551,9 +551,9 @@ function MemberClientTrackView({ client, program }) {
                     const pipDecision = pd?.c13_decision
                     const finalDec = pd?.c15_final_decision
                     const autoStep = (label, done, tag = null) => (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
-                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
-                        <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+                        <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
                         <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
                           {done && tag && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{tag}</span>}
                           {done && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>}
@@ -561,10 +561,10 @@ function MemberClientTrackView({ client, program }) {
                       </div>
                     )
                     return (
-                      <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid #e9eef8' }}>
+                      <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: pd?.c18_ceo_signed === 'Yes' ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${pd?.c18_ceo_signed === 'Yes' ? '#1b9254' : '#c7d4e8'}` }} />
-                          <span style={{ fontSize: '13px', color: '#16264a', flex: 1 }}>{task.name}</span>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: pd?.c18_ceo_signed === 'Yes' ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${pd?.c18_ceo_signed === 'Yes' ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+                          <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
                         </div>
                         {pipDecision && (
                           <div style={{ marginLeft: '18px' }}>
@@ -590,17 +590,17 @@ function MemberClientTrackView({ client, program }) {
                   }
 
                   return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', opacity: isGreyedOut ? 0.3 : 1 }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: task.status_options === 'auto' || isDone ? (task.status_options === 'auto' ? '#1b9254' : statusColor) : 'transparent', flexShrink: 0, border: `1.5px solid ${task.status_options === 'auto' || isDone ? (task.status_options === 'auto' ? '#1b9254' : statusColor) : '#c7d4e8'}` }} />
-                      <span style={{ fontSize: '12px', color: '#4e6087', fontFamily: 'monospace', width: '32px' }}>{task.task_code}</span>
-                      <span style={{ fontSize: '13px', color: isDone || task.status_options === 'auto' ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', opacity: isGreyedOut ? 0.3 : 1 }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: task.status_options === 'auto' || isDone ? (task.status_options === 'auto' ? '#1b9254' : statusColor) : 'transparent', flexShrink: 0, border: `1.5px solid ${task.status_options === 'auto' || isDone ? (task.status_options === 'auto' ? '#1b9254' : statusColor) : 'var(--vfo-border-mid)'}` }} />
+                      <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontFamily: 'monospace', width: '32px' }}>{task.task_code}</span>
+                      <span style={{ fontSize: '13px', color: isDone || task.status_options === 'auto' ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
                       {task.status_options === 'auto'
                         ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
                         : isDone
                           ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
-                          : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
+                          : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>
                       }
-                      {isDone && p.completed_date && <span style={{ fontSize: '11px', color: '#697a9c' }}>{formatDate(p.completed_date)}</span>}
+                      {isDone && p.completed_date && <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{formatDate(p.completed_date)}</span>}
                     </div>
                   )
                 })}
@@ -651,12 +651,12 @@ function VideoTask({ task, progress, enrollmentId, onComplete }) {
   
 
   return (
-    <div style={{ padding: '10px 0', borderBottom: '1px solid #eef2f9' }}>
+    <div style={{ padding: '10px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: showVideo ? '12px' : '0' }}>
-        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: completed ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${completed ? '#1b9254' : '#c7d4e8'}` }} />
+        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: completed ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${completed ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
         <div style={{ flex: 1 }}>
-          <span style={{ fontSize: '13px', color: '#4e6087', marginRight: '8px' }}>{task.task_code}</span>
-          <span style={{ fontSize: '14px', color: completed ? '#4e6087' : '#16264a' }}>{task.name}</span>
+          <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginRight: '8px' }}>{task.task_code}</span>
+          <span style={{ fontSize: '14px', color: completed ? 'var(--vfo-muted)' : 'var(--vfo-ink)' }}>{task.name}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button onClick={() => setShowVideo(!showVideo)} style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: `1px solid rgba(0,149,255,0.4)`, background: showVideo ? 'rgba(231,76,60,0.15)' : 'rgba(0,149,255,0.15)', color: showVideo ? '#e74c3c' : '#0095ff' }}>
@@ -679,7 +679,7 @@ function MemberCoachingMeetings({ enrollment }) {
   const [loading, setLoading] = useState(true)
   const [expandedMeeting, setExpandedMeeting] = useState(null)
 
-  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
+  const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
 
   useEffect(() => { loadMeetings() }, [enrollment.id])
 
@@ -701,19 +701,19 @@ function MemberCoachingMeetings({ enrollment }) {
   return (
     <div>
       <div style={{ display: 'flex', gap: '32px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'flex-end', paddingLeft: '24px' }}>
-        <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973' }}>{completedMeetings.length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087' }}>COMPLETED</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973' }}>{scheduledMeetings.length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087' }}>SCHEDULED</div></div>
+        <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)' }}>{completedMeetings.length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: 'var(--vfo-muted)' }}>COMPLETED</div></div>
+        <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)' }}>{scheduledMeetings.length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: 'var(--vfo-muted)' }}>SCHEDULED</div></div>
         {nextScheduled && (
-          <div style={{ textAlign: 'center' }}><div style={{ fontSize: '16px', fontWeight: '600', color: '#0095ff' }}>{nextScheduled.meeting_date.split('T')[0]}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087' }}>NEXT MEETING</div></div>
+          <div style={{ textAlign: 'center' }}><div style={{ fontSize: '16px', fontWeight: '600', color: '#0095ff' }}>{nextScheduled.meeting_date.split('T')[0]}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: 'var(--vfo-muted)' }}>NEXT MEETING</div></div>
         )}
       </div>
 
       {scheduledMeetings.length > 0 && (
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Upcoming</div>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Upcoming</div>
           {scheduledMeetings.map(m => (
-            <div key={m.id} style={{ padding: '12px 0', borderBottom: '1px solid #eef2f9', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '14px', color: '#16264a' }}>{m.meeting_date.split('T')[0]}</span>
+            <div key={m.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--vfo-tint)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{m.meeting_date.split('T')[0]}</span>
               <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>Scheduled</span>
             </div>
           ))}
@@ -721,27 +721,27 @@ function MemberCoachingMeetings({ enrollment }) {
       )}
 
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting History</div>
+        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting History</div>
         {completedMeetings.length === 0
-          ? <p style={{ color: '#697a9c', fontSize: '14px' }}>No meetings completed yet.</p>
+          ? <p style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>No meetings completed yet.</p>
           : completedMeetings.map(m => (
-            <div key={m.id} style={{ borderBottom: '1px solid #eef2f9' }}>
+            <div key={m.id} style={{ borderBottom: '1px solid var(--vfo-tint)' }}>
               <div onClick={() => setExpandedMeeting(expandedMeeting === m.id ? null : m.id)}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', cursor: m.notes ? 'pointer' : 'default' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '14px', color: '#16264a' }}>{m.meeting_date.split('T')[0]}</span>
+                  <span style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{m.meeting_date.split('T')[0]}</span>
                   <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Completed</span>
                 </div>
                 {m.notes && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', color: '#697a9c' }}>has notes</span>
-                    <span style={{ color: '#4e6087', fontSize: '10px', transform: expandedMeeting === m.id ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                    <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>has notes</span>
+                    <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: expandedMeeting === m.id ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
                   </div>
                 )}
               </div>
               {expandedMeeting === m.id && m.notes && (
                 <div style={{ padding: '0 0 12px 0' }}>
-                  <p style={{ fontSize: '13px', color: '#4e6087', lineHeight: '1.5', margin: 0 }}>{m.notes}</p>
+                  <p style={{ fontSize: '13px', color: 'var(--vfo-muted)', lineHeight: '1.5', margin: 0 }}>{m.notes}</p>
                 </div>
               )}
             </div>
@@ -756,7 +756,7 @@ function MemberCoachingRenewal({ enrollment }) {
   const [renewals, setRenewals] = useState([])
   const [loading, setLoading] = useState(true)
 
-  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
+  const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
 
   useEffect(() => { loadRenewals() }, [enrollment.id])
 
@@ -795,26 +795,26 @@ function MemberCoachingRenewal({ enrollment }) {
     <div>
       <div style={sectionStyle}>
         <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
-          <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Join Date</div><div style={{ fontSize: '15px', color: '#16264a', marginTop: '4px' }}>{joinDate || '—'}</div></div>
-          <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div><div style={{ fontSize: '15px', color: statusColor, marginTop: '4px', fontWeight: '600' }}>{currentStatus}</div></div>
-          <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Current Period</div><div style={{ fontSize: '15px', color: '#16264a', marginTop: '4px' }}>{currentPeriod}</div></div>
-          {nextDate && <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Period Ends</div><div style={{ fontSize: '15px', color: renewalUrgency, marginTop: '4px', fontWeight: '600' }}>{nextDate.split('T')[0]}</div></div>}
-          {daysUntilRenewal !== null && <div><div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{daysUntilRenewal < 0 ? 'Overdue' : 'Days Remaining'}</div><div style={{ fontSize: '15px', color: renewalUrgency, marginTop: '4px', fontWeight: '600' }}>{daysUntilRenewal < 0 ? `${Math.abs(daysUntilRenewal)} days` : `${daysUntilRenewal} days`}</div></div>}
+          <div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Join Date</div><div style={{ fontSize: '15px', color: 'var(--vfo-ink)', marginTop: '4px' }}>{joinDate || '—'}</div></div>
+          <div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div><div style={{ fontSize: '15px', color: statusColor, marginTop: '4px', fontWeight: '600' }}>{currentStatus}</div></div>
+          <div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Current Period</div><div style={{ fontSize: '15px', color: 'var(--vfo-ink)', marginTop: '4px' }}>{currentPeriod}</div></div>
+          {nextDate && <div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Period Ends</div><div style={{ fontSize: '15px', color: renewalUrgency, marginTop: '4px', fontWeight: '600' }}>{nextDate.split('T')[0]}</div></div>}
+          {daysUntilRenewal !== null && <div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{daysUntilRenewal < 0 ? 'Overdue' : 'Days Remaining'}</div><div style={{ fontSize: '15px', color: renewalUrgency, marginTop: '4px', fontWeight: '600' }}>{daysUntilRenewal < 0 ? `${Math.abs(daysUntilRenewal)} days` : `${daysUntilRenewal} days`}</div></div>}
         </div>
       </div>
 
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Renewal History</div>
+        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Renewal History</div>
         {renewals.length === 0
-          ? <p style={{ color: '#697a9c', fontSize: '14px' }}>No renewals recorded yet.</p>
+          ? <p style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>No renewals recorded yet.</p>
           : renewals.map(r => (
-            <div key={r.id} style={{ padding: '12px 0', borderBottom: '1px solid #eef2f9' }}>
+            <div key={r.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${actionColors[r.action] || '#4e6087'}22`, color: actionColors[r.action] || '#4e6087', border: `1px solid ${actionColors[r.action] || '#4e6087'}44`, textTransform: 'capitalize' }}>{r.action}</span>
-                <span style={{ fontSize: '14px', color: '#16264a' }}>{r.action_date?.split('T')[0]}</span>
+                <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${actionColors[r.action] || 'var(--vfo-muted)'}22`, color: actionColors[r.action] || 'var(--vfo-muted)', border: `1px solid ${actionColors[r.action] || 'var(--vfo-muted)'}44`, textTransform: 'capitalize' }}>{r.action}</span>
+                <span style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{r.action_date?.split('T')[0]}</span>
                 {r.period_label && <span style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600 }}>{r.period_label}</span>}
               </div>
-              {r.notes && <div style={{ fontSize: '12px', color: '#697a9c', marginTop: '4px' }}>{r.notes}</div>}
+              {r.notes && <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '4px' }}>{r.notes}</div>}
             </div>
           ))
         }

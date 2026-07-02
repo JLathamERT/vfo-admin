@@ -183,7 +183,7 @@ function ExpandedRow({ row, onRefresh }) {
   const sRev = (row.c24_email_sent || row.rec1_rev_email_sent_at) ? 'done' : has(row.rec1_rev_share) ? 'awaiting' : 'pending'
 
   return (
-    <div style={{ padding: '12px 24px 18px 48px', background: '#eef2f9', borderBottom: '1px solid #f4f7fb' }}>
+    <div style={{ padding: '12px 24px 18px 48px', background: 'var(--vfo-tint)', borderBottom: '1px solid var(--vfo-tint)' }}>
 
       {/* 1 — PIP 1 reconfirmation / declined email */}
       <StepCard title="PIP 1 — Reconfirmation / Declined Email" status={s81}>
@@ -315,7 +315,7 @@ function ExpandedRow({ row, onRefresh }) {
       {/* Future / remaining quarterly payments (P2–P4) */}
       {(isQuarterly || has(row.pay2_status, row.pay2_date, row.pay3_status, row.pay4_status)) && (
         <div style={{ marginTop: '14px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: '#697a9c', margin: '4px 0 8px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--vfo-muted)', margin: '4px 0 8px' }}>
             Quarterly Payments 2–4
           </div>
           {[2, 3, 4].map(n => {
@@ -339,7 +339,7 @@ function ExpandedRow({ row, onRefresh }) {
         </div>
       )}
 
-      <div style={{ marginTop: '10px', fontSize: '10px', color: '#7c8aa6' }}>
+      <div style={{ marginTop: '10px', fontSize: '10px', color: 'var(--vfo-faint)' }}>
         Created {fmtDate(row.created_at)} · Updated {fmtDate(row.updated_at)}
       </div>
     </div>
@@ -377,12 +377,12 @@ function SandboxToggleModal({ currentlySandbox, onConfirm, onCancel, saving }) {
       fontFamily: '"Inter", sans-serif',
     }}>
       <div style={{
-        background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', padding: '32px', maxWidth: '440px', width: '90%', boxShadow: '0 24px 64px rgba(10,25,60,0.25)',
+        background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', padding: '32px', maxWidth: '440px', width: '90%', boxShadow: '0 24px 64px rgba(10,25,60,0.25)',
       }}>
-        <h2 style={{ fontFamily: 'Inter, sans-serif', fontSize: '19px', fontWeight: 800, letterSpacing: '-0.02em', color: '#002973', margin: '0 0 12px' }}>
+        <h2 style={{ fontFamily: 'Inter, sans-serif', fontSize: '19px', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--vfo-heading)', margin: '0 0 12px' }}>
           Switch to {switchingTo} mode?
         </h2>
-        <p style={{ fontSize: '14px', color: '#4e6087', lineHeight: 1.6, margin: '0 0 24px' }}>
+        <p style={{ fontSize: '14px', color: 'var(--vfo-muted)', lineHeight: 1.6, margin: '0 0 24px' }}>
           {isGoingLive
             ? 'This will switch the MAP1 automation pipeline to use LIVE Stripe + BoldSign keys. Real emails will be sent to real clients/members/PFs and real cards will be charged. Are you sure?'
             : 'This will switch back to sandbox mode. All emails route to the sandbox address and Stripe/BoldSign use test keys.'}
@@ -393,8 +393,8 @@ function SandboxToggleModal({ currentlySandbox, onConfirm, onCancel, saving }) {
             disabled={saving}
             style={{
               padding: '10px 20px', borderRadius: '8px',
-              border: '1px solid #d6e0ee', background: 'transparent',
-              color: '#4e6087', fontSize: '14px', cursor: saving ? 'default' : 'pointer',
+              border: '1px solid var(--vfo-border-strong)', background: 'transparent',
+              color: 'var(--vfo-muted)', fontSize: '14px', cursor: saving ? 'default' : 'pointer',
               fontFamily: 'inherit',
             }}
           >
@@ -470,7 +470,7 @@ export default function AutomationPanel({ section }) {
     }
   }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>
+  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: 'var(--vfo-muted)' }}>Loading...</div>
 
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
@@ -482,14 +482,14 @@ export default function AutomationPanel({ section }) {
             <SandboxBadge config={sandboxConfig} onClick={() => setShowModeModal(true)} />
             {pipelines.length > 1 && (
               <select value={selectedPipeline?.id || ''} onChange={e => { const p = pipelines.find(p => p.id === parseInt(e.target.value)); if (p) setSelectedPipeline(p) }}
-                style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
+                style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
                 {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             )}
           </>
         }
         stats={[
-          { label: 'TOTAL', value: pipelineData.length, color: '#16264a' },
+          { label: 'TOTAL', value: pipelineData.length, color: 'var(--vfo-ink)' },
           { label: 'ACTIVE', value: pipelineData.filter(r => { const s = getCurrentStage(r); return s !== 'complete' && s !== 'closed' }).length, color: '#0095ff' },
           { label: 'COMPLETE', value: pipelineData.filter(r => getCurrentStage(r) === 'complete').length, color: '#16a34a' },
           { label: 'CLOSED', value: pipelineData.filter(r => getCurrentStage(r) === 'closed').length, color: '#ef4444' },
@@ -505,43 +505,43 @@ export default function AutomationPanel({ section }) {
         <TableCard>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #e3eaf5', background: '#f7f9fc' }}>
+              <tr style={{ borderBottom: '1px solid var(--vfo-border)', background: 'var(--vfo-input)' }}>
                 {['', 'Client', 'Member', 'PF', 'Stage', 'Decision', 'Service', 'Payment', 'Updated'].map(h => (
-                  <th key={h} style={{ padding: '11px 12px', textAlign: 'left', fontSize: '10px', color: '#697a9c', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: '600', width: h === '' ? '30px' : undefined }}>{h}</th>
+                  <th key={h} style={{ padding: '11px 12px', textAlign: 'left', fontSize: '10px', color: 'var(--vfo-muted)', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: '600', width: h === '' ? '30px' : undefined }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {pipelineData.map(row => {
                 const stage = getCurrentStage(row)
-                const stageColor = STAGE_COLORS[stage] || '#4e6087'
+                const stageColor = STAGE_COLORS[stage] || 'var(--vfo-muted)'
                 const isExpanded = expandedRow === row.id
                 return (
                   <Fragment key={row.id}>
-                    <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid #f4f7fb', cursor: 'pointer', background: isExpanded ? '#eef2f9' : 'transparent' }}
+                    <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--vfo-tint)', cursor: 'pointer', background: isExpanded ? 'var(--vfo-tint)' : 'transparent' }}
                       onClick={() => setExpandedRow(isExpanded ? null : row.id)}
-                      onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = '#eef2f9' }}
+                      onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = 'var(--vfo-tint)' }}
                       onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = 'transparent' }}
                     >
-                      <td style={{ padding: '12px 8px', fontSize: '10px', color: '#4e6087' }}>
+                      <td style={{ padding: '12px 8px', fontSize: '10px', color: 'var(--vfo-muted)' }}>
                         <span style={{ display: 'inline-block', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
                       </td>
-                      <td style={{ padding: '12px', fontSize: '14px', color: '#16264a' }}>
+                      <td style={{ padding: '12px', fontSize: '14px', color: 'var(--vfo-ink)' }}>
                         <div>{row.client_name || row.client_ref || '—'}</div>
-                        {row.client_ref && row.client_name && <div style={{ fontSize: '11px', color: '#697a9c' }}>{row.client_ref}</div>}
+                        {row.client_ref && row.client_name && <div style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{row.client_ref}</div>}
                         {row.sandbox && <span style={{ fontSize: '10px', color: '#e06717', fontWeight: 600, fontStyle: 'italic' }}>sandbox</span>}
                       </td>
-                      <td style={{ padding: '12px', fontSize: '13px', color: '#4e6087' }}>{row.member_name || '—'}</td>
-                      <td style={{ padding: '12px', fontSize: '13px', color: '#4e6087' }}>{row.pf || '—'}</td>
+                      <td style={{ padding: '12px', fontSize: '13px', color: 'var(--vfo-muted)' }}>{row.member_name || '—'}</td>
+                      <td style={{ padding: '12px', fontSize: '13px', color: 'var(--vfo-muted)' }}>{row.pf || '—'}</td>
                       <td style={{ padding: '12px' }}>
                         <span style={{ padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', background: `${stageColor}18`, color: stageColor, border: `1px solid ${stageColor}33` }}>
                           {STAGE_LABELS[stage] || stage}
                         </span>
                       </td>
-                      <td style={{ padding: '12px', fontSize: '13px', color: '#4e6087' }}>{row.c15_final_decision || row.c13_decision || '—'}</td>
-                      <td style={{ padding: '12px', fontSize: '13px', color: '#4e6087' }}>{row.service_level || row.c15_service_level || '—'}</td>
-                      <td style={{ padding: '12px', fontSize: '13px', color: '#4e6087' }}>{row.pay1_status || '—'}</td>
-                      <td style={{ padding: '12px', fontSize: '12px', color: '#697a9c' }}>{row.updated_at ? row.updated_at.split('T')[0] : '—'}</td>
+                      <td style={{ padding: '12px', fontSize: '13px', color: 'var(--vfo-muted)' }}>{row.c15_final_decision || row.c13_decision || '—'}</td>
+                      <td style={{ padding: '12px', fontSize: '13px', color: 'var(--vfo-muted)' }}>{row.service_level || row.c15_service_level || '—'}</td>
+                      <td style={{ padding: '12px', fontSize: '13px', color: 'var(--vfo-muted)' }}>{row.pay1_status || '—'}</td>
+                      <td style={{ padding: '12px', fontSize: '12px', color: 'var(--vfo-muted)' }}>{row.updated_at ? row.updated_at.split('T')[0] : '—'}</td>
                     </tr>
                     {isExpanded && (
                       <tr>

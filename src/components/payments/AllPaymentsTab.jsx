@@ -10,8 +10,8 @@ import PaymentsTable from './PaymentsTable'
 // Stripe (specialist month-by-month license history; member rev-share payouts) are NOT
 // shown here — they live on each person's own Payments tab; this page says so.
 const wrap = { maxWidth: '1040px', margin: '0 auto', padding: '28px 24px' }
-const card = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px' }
-const titleStyle = { fontSize: '22px', fontWeight: 800, color: '#002973', margin: 0, fontFamily: 'Inter, sans-serif', letterSpacing: '-0.02em' }
+const card = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px' }
+const titleStyle = { fontSize: '22px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0, fontFamily: 'Inter, sans-serif', letterSpacing: '-0.02em' }
 
 export default function AllPaymentsTab() {
   const [data, setData] = useState(null)

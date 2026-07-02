@@ -35,15 +35,15 @@ function SubmenuRow({ label, options, onSelect }) {
   const [open, setOpen] = useState(false)
   return (
     <div style={{ position: 'relative' }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-      <button style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', width: '100%', padding: '8px 20px', background: open ? '#eef2f9' : 'transparent', border: 'none', color: '#16264a', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}>
+      <button style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', width: '100%', padding: '8px 20px', background: open ? 'var(--vfo-tint)' : 'transparent', border: 'none', color: 'var(--vfo-ink)', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}>
         {label}<span style={{ fontSize: '9px', opacity: 0.6 }}>▸</span>
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: '-4px', left: '100%', background: '#ffffff', border: '1px solid #e3eaf5', borderRadius: '12px', minWidth: '210px', zIndex: 210, paddingTop: '4px', paddingBottom: '4px', boxShadow: '0 14px 36px rgba(20,45,95,0.16)' }}>
+        <div style={{ position: 'absolute', top: '-4px', left: '100%', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border)', borderRadius: '12px', minWidth: '210px', zIndex: 210, paddingTop: '4px', paddingBottom: '4px', boxShadow: '0 14px 36px rgba(20,45,95,0.16)' }}>
           {options.map(opt => (
             <button key={opt.key} onClick={() => onSelect(opt.key)}
-              style={{ display: 'block', width: '100%', padding: '8px 20px', background: 'transparent', border: 'none', color: '#16264a', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
+              style={{ display: 'block', width: '100%', padding: '8px 20px', background: 'transparent', border: 'none', color: 'var(--vfo-ink)', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-tint)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               {opt.label}
             </button>
@@ -79,7 +79,7 @@ function NavDropdown({ label, items, onSelect, isActive, muted = false }) {
   } : {
     padding: '15px 20px', background: 'transparent', border: 'none',
     borderBottom: isActive ? '2px solid #125ecc' : '2px solid transparent',
-    color: isActive ? '#125ecc' : '#16264a', fontSize: '14.5px',
+    color: isActive ? '#125ecc' : 'var(--vfo-ink)', fontSize: '14.5px',
     fontWeight: isActive ? '700' : '600', cursor: 'pointer',
     fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
     display: 'flex', alignItems: 'center', gap: '6px'
@@ -92,19 +92,19 @@ function NavDropdown({ label, items, onSelect, isActive, muted = false }) {
         <span style={{ fontSize: '10px', opacity: 0.6 }}>▾</span>
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, background: '#ffffff', border: '1px solid #e3eaf5', borderRadius: '12px', minWidth: '180px', zIndex: 200, paddingTop: '4px', paddingBottom: '4px', boxShadow: '0 14px 36px rgba(20,45,95,0.16)' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--vfo-card)', border: '1px solid var(--vfo-border)', borderRadius: '12px', minWidth: '180px', zIndex: 200, paddingTop: '4px', paddingBottom: '4px', boxShadow: '0 14px 36px rgba(20,45,95,0.16)' }}>
           {items.map(item => (
             <div key={item.key}>
               {item.submenu && (
                 <SubmenuRow label={item.submenuLabel} options={item.submenu} onSelect={(k) => { onSelect(k); setOpen(false) }} />
               )}
               {item.header && (
-                <div style={{ padding: '8px 16px 4px', fontSize: '10px', color: '#697a9c', textTransform: 'uppercase', letterSpacing: '1px' }}>{item.header}</div>
+                <div style={{ padding: '8px 16px 4px', fontSize: '10px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>{item.header}</div>
               )}
               {item.options && item.options.map(opt => (
                 <button key={opt.key} onClick={() => { onSelect(opt.key); setOpen(false) }}
-                  style={{ display: 'block', width: '100%', padding: '8px 20px', background: 'transparent', border: 'none', color: '#16264a', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
+                  style={{ display: 'block', width: '100%', padding: '8px 20px', background: 'transparent', border: 'none', color: 'var(--vfo-ink)', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-tint)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   {opt.label}
                 </button>
@@ -431,7 +431,7 @@ export default function AdminPortal() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f4f7fd', color: '#16264a', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--vfo-page)', color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif' }}>
       <div style={headerStyle}>
         <VfoWordmark size={17} light onClick={handleTitleClick} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -459,7 +459,7 @@ export default function AdminPortal() {
 
       {!showEditor && !showSettings && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #e3eaf5', padding: '0 24px', background: '#ffffff', boxShadow: '0 2px 8px rgba(20,45,95,0.04)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--vfo-border)', padding: '0 24px', background: 'var(--vfo-card)', boxShadow: '0 2px 8px rgba(20,45,95,0.04)' }}>
             {/* Key tabs — the four primary member/specialist directories. */}
             <NavDropdown
               label="Advisors"
@@ -489,7 +489,7 @@ export default function AdminPortal() {
             {/* Secondary "other" tabs — beside the key tabs, muted, access-gated,
                 separated by a faint divider. */}
             {(canSeeTab('member_overview') || canSeeTab('automation') || canSeeTab('accounting')) && (
-              <div style={{ display: 'flex', alignItems: 'center', marginLeft: '10px', paddingLeft: '12px', borderLeft: '1px solid #eef2f9' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginLeft: '10px', paddingLeft: '12px', borderLeft: '1px solid var(--vfo-tint)' }}>
                 {canSeeTab('member_overview') && (
                   <button onClick={selectMemberOverview} style={{
                     padding: '14px 14px', background: 'transparent', border: 'none',
@@ -525,7 +525,7 @@ export default function AdminPortal() {
           {!activeTab && (
             <div style={{ textAlign: 'center', padding: '60px 0 0' }}>
               <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2.5px', marginBottom: '10px' }}>Welcome back</p>
-              <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.02em', fontSize: '38px', color: '#002973', margin: 0 }}>{session.name}</p>
+              <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.02em', fontSize: '38px', color: 'var(--vfo-heading)', margin: 0 }}>{session.name}</p>
               <div style={{ width: '46px', height: '4px', borderRadius: '99px', background: '#fb895a', margin: '18px auto 0' }} />
             </div>
           )}
@@ -641,7 +641,7 @@ export default function AdminPortal() {
             <MembershipFeesPanel title="Accountant Membership Fees" />
           )}
 
-          {loading && <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>}
+          {loading && <div style={{ textAlign: 'center', padding: '60px', color: 'var(--vfo-muted)' }}>Loading...</div>}
           </div>
         </>
       )}

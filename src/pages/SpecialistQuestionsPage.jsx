@@ -25,7 +25,7 @@ export default function SpecialistQuestionsPage() {
   }
 
   if (state === 'loading') return (
-    <div style={pageStyle}><div style={{ color: '#4e6087', fontSize: '15px' }}>One moment…</div></div>
+    <div style={pageStyle}><div style={{ color: 'var(--vfo-muted)', fontSize: '15px' }}>One moment…</div></div>
   )
 
   if (state === 'invalid') return (
@@ -49,7 +49,7 @@ export default function SpecialistQuestionsPage() {
   )
 }
 
-const pageStyle = { fontFamily: '"Inter", sans-serif', background: '#ffffff', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px 20px' }
+const pageStyle = { fontFamily: '"Inter", sans-serif', background: 'var(--vfo-card)', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px 20px' }
 const circle = { width: '72px', height: '72px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }
-const h1 = { fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }
-const p = { fontSize: '15px', color: '#4e6087', lineHeight: 1.6 }
+const h1 = { fontSize: '24px', fontWeight: 700, color: 'var(--vfo-ink)', marginBottom: '12px' }
+const p = { fontSize: '15px', color: 'var(--vfo-muted)', lineHeight: 1.6 }

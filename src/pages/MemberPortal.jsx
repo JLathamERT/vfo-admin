@@ -9,6 +9,7 @@ import MemberMSMTracking from '../components/member/MemberMSMTracking'
 import MemberShowroom from '../components/member/MemberShowroom'
 import MemberGrowthPlan from '../components/member/MemberGrowthPlan'
 import VfoWordmark from '../components/shared/VfoWordmark'
+import AppearanceCard from '../components/shared/AppearanceCard'
 
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
 import vfoCertifiedSeal from '../assets/vfo-certified-emblem.png'
@@ -83,7 +84,7 @@ export default function MemberPortal() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f4f7fd', color: '#16264a', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--vfo-page)', color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif' }}>
       <div style={{ background: 'linear-gradient(90deg, #002973 0%, #125ecc 100%)', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '58px', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(0,41,115,0.25)' }}>
         <VfoWordmark size={17} light onClick={handleTitleClick} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -97,8 +98,8 @@ export default function MemberPortal() {
 
       {!showSettings && (
         <>
-          <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', padding: '0 24px', background: '#ffffff', position: 'relative', zIndex: 100 }}>
-            <button onClick={() => setActiveTab('profile')} style={{ padding: '14px 20px', background: 'transparent', border: 'none', borderBottom: activeTab === 'profile' ? '2px solid #125ecc' : '2px solid transparent', color: activeTab === 'profile' ? '#125ecc' : '#4e6087', fontSize: '14px', fontWeight: activeTab === 'profile' ? '600' : '400', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>Profile</button>
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--vfo-border)', padding: '0 24px', background: 'var(--vfo-card)', position: 'relative', zIndex: 100 }}>
+            <button onClick={() => setActiveTab('profile')} style={{ padding: '14px 20px', background: 'transparent', border: 'none', borderBottom: activeTab === 'profile' ? '2px solid #125ecc' : '2px solid transparent', color: activeTab === 'profile' ? '#125ecc' : 'var(--vfo-muted)', fontSize: '14px', fontWeight: activeTab === 'profile' ? '600' : '400', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>Profile</button>
             <NavDropdown
               label="MSM Tracking"
               isActive={activeTab === 'msm_home' || activeTab?.startsWith('msm_')}
@@ -113,14 +114,14 @@ export default function MemberPortal() {
               onSelect={setActiveTab}
             />
             {['specialists','showroom','website','growthplan','ciq','gc','vault'].filter(tab => tab !== 'website' || memberData?.website_enabled).map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '14px 20px', background: 'transparent', border: 'none', borderBottom: activeTab === tab ? '2px solid #125ecc' : '2px solid transparent', color: activeTab === tab ? '#125ecc' : '#4e6087', fontSize: '14px', fontWeight: activeTab === tab ? '600' : '400', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>
+              <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '14px 20px', background: 'transparent', border: 'none', borderBottom: activeTab === tab ? '2px solid #125ecc' : '2px solid transparent', color: activeTab === tab ? '#125ecc' : 'var(--vfo-muted)', fontSize: '14px', fontWeight: activeTab === tab ? '600' : '400', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>
                 {tabLabels[tab]}
               </button>
             ))}
           </div>
 
           <div style={{ flex: 1, overflow: 'auto' }}>
-          {loading && activeTab && <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>}
+          {loading && activeTab && <div style={{ textAlign: 'center', padding: '60px', color: 'var(--vfo-muted)' }}>Loading...</div>}
 
           {!loading && activeTab === 'profile' && memberData && (
             <MemberProfile member={memberData} />
@@ -173,15 +174,15 @@ function NavDropdown({ label, isActive, options, activeTab, onSelect }) {
 
   return (
     <div style={{ position: 'relative' }} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-      <button style={{ padding: '14px 20px', background: 'transparent', border: 'none', borderBottom: isActive ? '2px solid #125ecc' : '2px solid transparent', color: isActive ? '#125ecc' : '#4e6087', fontSize: '14px', fontWeight: isActive ? '600' : '400', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
+      <button style={{ padding: '14px 20px', background: 'transparent', border: 'none', borderBottom: isActive ? '2px solid #125ecc' : '2px solid transparent', color: isActive ? '#125ecc' : 'var(--vfo-muted)', fontSize: '14px', fontWeight: isActive ? '600' : '400', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
         {label}<span style={{ fontSize: '9px', opacity: 0.6 }}>▾</span>
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, background: '#ffffff', border: '1px solid #e3eaf5', borderRadius: '12px', minWidth: '200px', zIndex: 200, padding: '4px 0', boxShadow: '0 14px 36px rgba(20,45,95,0.16)' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--vfo-card)', border: '1px solid var(--vfo-border)', borderRadius: '12px', minWidth: '200px', zIndex: 200, padding: '4px 0', boxShadow: '0 14px 36px rgba(20,45,95,0.16)' }}>
           {options.map(opt => (
             <button key={opt.key} onClick={() => { onSelect(opt.key); setOpen(false) }}
-              style={{ display: 'block', width: '100%', padding: '8px 16px', background: activeTab === opt.key ? 'rgba(0,149,255,0.15)' : 'transparent', border: 'none', color: activeTab === opt.key ? '#0095ff' : '#16264a', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
+              style={{ display: 'block', width: '100%', padding: '8px 16px', background: activeTab === opt.key ? 'rgba(0,149,255,0.15)' : 'transparent', border: 'none', color: activeTab === opt.key ? '#0095ff' : 'var(--vfo-ink)', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-tint)'}
               onMouseLeave={e => e.currentTarget.style.background = activeTab === opt.key ? 'rgba(0,149,255,0.15)' : 'transparent'}>
               {opt.label}
             </button>
@@ -195,8 +196,8 @@ function NavDropdown({ label, isActive, options, activeTab, onSelect }) {
 function ComingSoon({ title }) {
   return (
     <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-      <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: '#16264a', marginBottom: '12px' }}>{title}</p>
-      <p style={{ fontSize: '14px', color: '#4e6087' }}>Coming soon.</p>
+      <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '22px', color: 'var(--vfo-ink)', marginBottom: '12px' }}>{title}</p>
+      <p style={{ fontSize: '14px', color: 'var(--vfo-muted)' }}>Coming soon.</p>
     </div>
   )
 }
@@ -237,60 +238,60 @@ function MemberSpecialists({ member, allExperts, exclusions, ecoMap = {}, onData
     } catch (err) { setStatusType('error'); setStatus(err.message) }
   }
 
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 24px 0' }}>
-      <p style={{ color: '#4e6087', fontSize: '13px', marginBottom: '20px', fontStyle: 'italic' }}>Changes here affect which specialists appear in your VFO Showroom and, if enabled, your Website Plugin.</p>
+      <p style={{ color: 'var(--vfo-muted)', fontSize: '13px', marginBottom: '20px', fontStyle: 'italic' }}>Changes here affect which specialists appear in your VFO Showroom and, if enabled, your Website Plugin.</p>
       <div style={{ display: 'flex', gap: '24px', marginBottom: '20px' }}>
-        <div><div style={{ fontSize: '32px', fontWeight: '700', color: '#16264a' }}>{enabledCount}</div><div style={{ fontSize: '11px', color: '#4e6087', letterSpacing: '1px' }}>ENABLED</div></div>
-        <div><div style={{ fontSize: '32px', fontWeight: '700', color: '#16264a' }}>{regularExperts.length}</div><div style={{ fontSize: '11px', color: '#4e6087', letterSpacing: '1px' }}>TOTAL</div></div>
+        <div><div style={{ fontSize: '32px', fontWeight: '700', color: 'var(--vfo-ink)' }}>{enabledCount}</div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', letterSpacing: '1px' }}>ENABLED</div></div>
+        <div><div style={{ fontSize: '32px', fontWeight: '700', color: 'var(--vfo-ink)' }}>{regularExperts.length}</div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', letterSpacing: '1px' }}>TOTAL</div></div>
       </div>
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search specialists..." style={{ ...inputStyle, marginBottom: '12px' }} />
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-        <button onClick={enableAll} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer' }}>Enable All</button>
-        <button onClick={disableAll} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer' }}>Disable All</button>
+        <button onClick={enableAll} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Enable All</button>
+        <button onClick={disableAll} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Disable All</button>
       </div>
       <div style={{ marginBottom: '8px' }}>
         {filtered.map(expert => (
           <div key={expert.id} onClick={() => toggle(expert.id)}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '8px', cursor: 'pointer' }}>
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', cursor: 'pointer' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: '#e3eaf5', flexShrink: 0 }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: 'var(--vfo-border)', flexShrink: 0 }}>
                 {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
               </div>
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '14px', color: '#16264a' }}>{expert.name}</div>
-                <div style={{ fontSize: '12px', color: '#4e6087' }}>{expert.short_bio}</div>
+                <div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{expert.name}</div>
+                <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>{expert.short_bio}</div>
               </div>
             </div>
-            <div style={{ width: '20px', height: '20px', borderRadius: '4px', border: `2px solid ${enabled[expert.id] ? '#0095ff' : '#c7d4e8'}`, background: enabled[expert.id] ? '#0095ff' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {enabled[expert.id] && <span style={{ color: '#16264a', fontSize: '12px' }}>✓</span>}
+            <div style={{ width: '20px', height: '20px', borderRadius: '4px', border: `2px solid ${enabled[expert.id] ? '#0095ff' : 'var(--vfo-border-mid)'}`, background: enabled[expert.id] ? '#0095ff' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {enabled[expert.id] && <span style={{ color: 'var(--vfo-ink)', fontSize: '12px' }}>✓</span>}
             </div>
           </div>
         ))}
       </div>
       {memberServiceExperts.length > 0 && (
         <div style={{ marginTop: '20px', marginBottom: '8px' }}>
-          <div style={{ fontSize: '12px', fontWeight: 700, color: '#4e6087', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '4px' }}>Member Services</div>
-          <p style={{ color: '#4e6087', fontSize: '12px', fontStyle: 'italic', marginBottom: '10px' }}>Visible only to you — these specialists never appear in your clients' showrooms or your website plugin, so there is nothing to enable or disable.</p>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--vfo-muted)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '4px' }}>Member Services</div>
+          <p style={{ color: 'var(--vfo-muted)', fontSize: '12px', fontStyle: 'italic', marginBottom: '10px' }}>Visible only to you — these specialists never appear in your clients' showrooms or your website plugin, so there is nothing to enable or disable.</p>
           {memberServiceExperts.map(expert => (
             <div key={expert.id}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: '#f4f6fb', border: '1px dashed #d6e0ee', borderRadius: '8px' }}>
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: 'var(--vfo-tint)', border: '1px dashed var(--vfo-border-strong)', borderRadius: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: '#e3eaf5', flexShrink: 0 }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: 'var(--vfo-border)', flexShrink: 0 }}>
                   {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                 </div>
                 <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: '14px', color: '#16264a' }}>{expert.name}</div>
-                  <div style={{ fontSize: '12px', color: '#4e6087' }}>{expert.short_bio}</div>
+                  <div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{expert.name}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>{expert.short_bio}</div>
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
-      <div style={{ position: 'sticky', bottom: 0, background: '#f4f7fd', borderTop: '1px solid #e3eaf5', padding: '16px 0', display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ position: 'sticky', bottom: 0, background: 'var(--vfo-page)', borderTop: '1px solid var(--vfo-border)', padding: '16px 0', display: 'flex', alignItems: 'center', gap: '16px' }}>
         {dirty && <span style={{ fontSize: '13px', color: '#b08d26', fontWeight: 500 }}>You have unsaved changes</span>}
         <button onClick={save} style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>Save Changes</button>
         {status && <span style={{ color: statusType === 'success' ? '#1b9254' : '#d93025', fontSize: '13px' }}>{status}</span>}
@@ -300,9 +301,9 @@ function MemberSpecialists({ member, allExperts, exclusions, ecoMap = {}, onData
 }
 
 function MemberProfile({ member }) {
-  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '16px' }
-  const fieldLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: '#7c8aa6', textTransform: 'uppercase' }
-  const fieldValue = { fontSize: '15px', color: '#16264a', fontWeight: 600, marginTop: '5px' }
+  const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '16px' }
+  const fieldLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--vfo-faint)', textTransform: 'uppercase' }
+  const fieldValue = { fontSize: '15px', color: 'var(--vfo-ink)', fontWeight: 600, marginTop: '5px' }
   // Accountants have no revenue decision — hide the field for them. Advisors
   // and uncategorized members keep it. Mirrors the admin-side hiddenFields.
   const isAccountant = member.member_category === 'accountant'
@@ -317,15 +318,15 @@ function MemberProfile({ member }) {
           <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '22px', flexShrink: 0, boxShadow: '0 2px 8px rgba(18,94,204,0.28)' }}>{initials}</div>
           <div style={{ minWidth: '200px', flex: 1 }}>
             <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '1.2px', color: '#0095ff', textTransform: 'uppercase', marginBottom: '4px' }}>Member Profile</div>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.03em', fontSize: '24px', color: '#002973', lineHeight: 1.15 }}>{member.name}</div>
-            {member.member_type && <div style={{ fontSize: '12.5px', color: '#4e6087', marginTop: '6px' }}>{member.member_type}</div>}
+            <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.03em', fontSize: '24px', color: 'var(--vfo-heading)', lineHeight: 1.15 }}>{member.name}</div>
+            {member.member_type && <div style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', marginTop: '6px' }}>{member.member_type}</div>}
           </div>
         </div>
       </div>
 
       {/* Details */}
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Membership Details</div>
+        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Membership Details</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '18px 24px' }}>
           <div><div style={fieldLabel}>Member Number</div><div style={{ ...fieldValue, fontFamily: 'monospace' }}>{member.member_number}</div></div>
           <div><div style={fieldLabel}>Join Date</div><div style={fieldValue}>{member.join_date ? member.join_date.split('T')[0] : '—'}</div></div>
@@ -336,14 +337,14 @@ function MemberProfile({ member }) {
       {/* Certifications */}
       {(member.vfo_certified_date || member.vfo_accredited_date) && (
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Certifications</div>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Certifications</div>
           <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
             {member.vfo_certified_date && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <img src={vfoCertifiedSeal} style={{ width: '64px', height: '64px' }} />
                 <div>
                   <div style={{ fontSize: '14px', color: '#b08d26', fontWeight: '600' }}>VFO Certified</div>
-                  <div style={{ fontSize: '11px', color: '#4e6087', marginTop: '2px' }}>{member.vfo_certified_date.split('T')[0]}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{member.vfo_certified_date.split('T')[0]}</div>
                 </div>
               </div>
             )}
@@ -351,8 +352,8 @@ function MemberProfile({ member }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <img src={vfoAccreditedSeal} style={{ width: '64px', height: '64px' }} />
                 <div>
-                  <div style={{ fontSize: '14px', color: '#4e6087', fontWeight: '600' }}>VFO Accredited</div>
-                  <div style={{ fontSize: '11px', color: '#4e6087', marginTop: '2px' }}>{member.vfo_accredited_date.split('T')[0]}</div>
+                  <div style={{ fontSize: '14px', color: 'var(--vfo-muted)', fontWeight: '600' }}>VFO Accredited</div>
+                  <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{member.vfo_accredited_date.split('T')[0]}</div>
                 </div>
               </div>
             )}
@@ -381,14 +382,14 @@ function MemberSettings({ session }) {
     } catch (err) { showStatus('error', err.message) }
   }
 
-  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
-  const labelStyle = { fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }
+  const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const labelStyle = { fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }
 
   return (
     <div style={{ maxWidth: '500px', margin: '0 auto', padding: '32px 24px' }}>
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Account Settings</div>
+        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Account Settings</div>
         <div style={{ marginBottom: '12px' }}>
           <label style={labelStyle}>Email</label>
           <input value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} />
@@ -406,6 +407,7 @@ function MemberSettings({ session }) {
         <button onClick={update} style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>Update</button>
         {status && <p style={{ color: statusType === 'success' ? '#1b9254' : '#d93025', fontSize: '13px', marginTop: '12px' }}>{status}</p>}
       </div>
+      <AppearanceCard />
     </div>
   )
 }

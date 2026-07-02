@@ -58,7 +58,7 @@ export default function SpecialistRevenuePayPage() {
 
   if (status === 'loading') return (
     <TokenShell>
-      <p style={{ color: '#4e6087', fontSize: '15px', textAlign: 'center', margin: 0 }}>Loading payment details…</p>
+      <p style={{ color: 'var(--vfo-muted)', fontSize: '15px', textAlign: 'center', margin: 0 }}>Loading payment details…</p>
     </TokenShell>
   )
 
@@ -76,7 +76,7 @@ export default function SpecialistRevenuePayPage() {
 
   if (status === 'redirecting') return (
     <TokenShell>
-      <p style={{ color: '#4e6087', fontSize: '15px', textAlign: 'center', margin: 0 }}>Redirecting to Stripe…</p>
+      <p style={{ color: 'var(--vfo-muted)', fontSize: '15px', textAlign: 'center', margin: 0 }}>Redirecting to Stripe…</p>
     </TokenShell>
   )
 
@@ -95,12 +95,12 @@ export default function SpecialistRevenuePayPage() {
   // ACH-only: any non-terminal state means we're on our way to Stripe.
   return (
     <TokenShell>
-      <p style={{ color: '#4e6087', fontSize: '15px', textAlign: 'center', margin: 0 }}>Redirecting to Stripe…</p>
+      <p style={{ color: 'var(--vfo-muted)', fontSize: '15px', textAlign: 'center', margin: 0 }}>Redirecting to Stripe…</p>
     </TokenShell>
   )
 }
 
 const messageCardStyle = { textAlign: 'center', padding: '12px 0' }
 const iconCircleStyle = { width: '72px', height: '72px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }
-const titleStyle = { fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }
-const subtitleStyle = { fontSize: '14px', color: '#4e6087' }
+const titleStyle = { fontSize: '24px', fontWeight: 700, color: 'var(--vfo-ink)', marginBottom: '12px' }
+const subtitleStyle = { fontSize: '14px', color: 'var(--vfo-muted)' }

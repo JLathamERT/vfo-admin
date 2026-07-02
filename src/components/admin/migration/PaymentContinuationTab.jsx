@@ -13,13 +13,13 @@ const PLAN_OPTIONS = [
   { key: 'tax4', label: 'Tax Planning', action: 'migration_backfill_tax', program_id: 4, sbPipeline: 'TAX', pipeline: 'TAX' },
 ]
 
-const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
-const sectionTitle = { fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px', fontWeight: 700 }
-const labelStyle = { fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px', fontWeight: 600 }
-const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
-const readonlyInput = { ...inputStyle, background: '#eef2f9', opacity: 0.85, cursor: 'not-allowed' }
+const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
+const sectionTitle = { fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px', fontWeight: 700 }
+const labelStyle = { fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px', fontWeight: 600 }
+const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+const readonlyInput = { ...inputStyle, background: 'var(--vfo-tint)', opacity: 0.85, cursor: 'not-allowed' }
 const primaryBtn = (disabled) => ({ padding: '10px 24px', borderRadius: '8px', background: disabled ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '14px', cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 600 })
-const ghostBtn = { padding: '10px 22px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '14px', cursor: 'pointer', fontWeight: 600 }
+const ghostBtn = { padding: '10px 22px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '14px', cursor: 'pointer', fontWeight: 600 }
 
 function Field({ label, children }) {
   return <div style={{ flex: 1, minWidth: '150px' }}><label style={labelStyle}>{label}</label>{children}</div>
@@ -27,9 +27,9 @@ function Field({ label, children }) {
 
 function ModeChip({ active, onClick, title, sub }) {
   return (
-    <button onClick={onClick} style={{ flex: 1, minWidth: '220px', textAlign: 'left', padding: '14px 16px', borderRadius: '12px', cursor: 'pointer', border: `1.5px solid ${active ? '#125ecc' : '#d6e0ee'}`, background: active ? 'rgba(18,94,204,0.06)' : '#fff' }}>
-      <div style={{ fontSize: '14px', fontWeight: 700, color: active ? '#125ecc' : '#16264a' }}>{title}</div>
-      <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>{sub}</div>
+    <button onClick={onClick} style={{ flex: 1, minWidth: '220px', textAlign: 'left', padding: '14px 16px', borderRadius: '12px', cursor: 'pointer', border: `1.5px solid ${active ? '#125ecc' : 'var(--vfo-border-strong)'}`, background: active ? 'rgba(18,94,204,0.06)' : '#fff' }}>
+      <div style={{ fontSize: '14px', fontWeight: 700, color: active ? '#125ecc' : 'var(--vfo-ink)' }}>{title}</div>
+      <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '3px' }}>{sub}</div>
     </button>
   )
 }
@@ -220,8 +220,8 @@ export default function PaymentContinuationTab({ clientId, client }) {
             {rows.map((r, i) => {
               const paid = i < numPaid
               return (
-                <div key={i} style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', padding: '12px', borderRadius: '10px', marginTop: '10px', background: paid ? 'rgba(27,146,84,0.06)' : '#f7f9fc', border: `1px solid ${paid ? 'rgba(27,146,84,0.2)' : '#e9eef8'}` }}>
-                  <div style={{ width: '92px', fontSize: '13px', fontWeight: 700, color: paid ? '#1b9254' : '#4e6087' }}>Payment {i + 1}<div style={{ fontSize: '11px', fontWeight: 500 }}>{paid ? 'Paid' : 'Scheduled'}</div></div>
+                <div key={i} style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', padding: '12px', borderRadius: '10px', marginTop: '10px', background: paid ? 'rgba(27,146,84,0.06)' : 'var(--vfo-input)', border: `1px solid ${paid ? 'rgba(27,146,84,0.2)' : 'var(--vfo-border-soft)'}` }}>
+                  <div style={{ width: '92px', fontSize: '13px', fontWeight: 700, color: paid ? '#1b9254' : 'var(--vfo-muted)' }}>Payment {i + 1}<div style={{ fontSize: '11px', fontWeight: 500 }}>{paid ? 'Paid' : 'Scheduled'}</div></div>
                   <Field label={paid ? 'Date paid' : 'Scheduled date'}><input type="date" value={r.date} onChange={e => setRow(i, { date: e.target.value })} style={inputStyle} /></Field>
                   {paid && <Field label="Receipt number"><input value={r.receipt_number} onChange={e => setRow(i, { receipt_number: e.target.value })} style={inputStyle} /></Field>}
                 </div>
@@ -230,7 +230,7 @@ export default function PaymentContinuationTab({ clientId, client }) {
           </>
         ) : (
           <>
-            <p style={{ fontSize: '13px', color: '#64748b', marginTop: 0, marginBottom: '12px' }}>Record the retainer they already paid. The implementation fee is charged later via the normal Tax 5 step against the saved card.</p>
+            <p style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: 0, marginBottom: '12px' }}>Record the retainer they already paid. The implementation fee is charged later via the normal Tax 5 step against the saved card.</p>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <Field label="Retainer date paid"><input type="date" value={retDate} onChange={e => setRetDate(e.target.value)} style={inputStyle} /></Field>
               <Field label="Retainer receipt number"><input value={retReceipt} onChange={e => setRetReceipt(e.target.value)} style={inputStyle} /></Field>
@@ -252,14 +252,14 @@ export default function PaymentContinuationTab({ clientId, client }) {
             {lookupErr && <p style={{ color: '#e74c3c', fontSize: '13px', marginTop: '10px' }}>{lookupErr}</p>}
             {lookup && (
               <div style={{ marginTop: '14px' }}>
-                <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '8px' }}>{lookup.mode === 'sandbox' ? 'Sandbox account' : 'Live account'} · {lookup.customer?.email || ''}</div>
+                <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '8px' }}>{lookup.mode === 'sandbox' ? 'Sandbox account' : 'Live account'} · {lookup.customer?.email || ''}</div>
                 {(lookup.payment_methods || []).length === 0 ? (
                   <p style={{ color: '#e06717', fontSize: '13px' }}>No saved card/bank found on this customer{lookup.legacy_default_source ? ' (a legacy source is on file — they may need the setup-link path instead)' : ''}.</p>
                 ) : (
                   (lookup.payment_methods || []).map(pm => (
-                    <label key={pm.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '10px', marginBottom: '8px', cursor: 'pointer', border: `1.5px solid ${chosenPm?.id === pm.id ? '#1b9254' : '#d6e0ee'}`, background: chosenPm?.id === pm.id ? 'rgba(27,146,84,0.06)' : '#fff' }}>
+                    <label key={pm.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '10px', marginBottom: '8px', cursor: 'pointer', border: `1.5px solid ${chosenPm?.id === pm.id ? '#1b9254' : 'var(--vfo-border-strong)'}`, background: chosenPm?.id === pm.id ? 'rgba(27,146,84,0.06)' : '#fff' }}>
                       <input type="radio" checked={chosenPm?.id === pm.id} onChange={() => setChosenPm(pm)} />
-                      <span style={{ fontSize: '14px', color: '#16264a', fontWeight: 600 }}>{pmLabel(pm)}</span>
+                      <span style={{ fontSize: '14px', color: 'var(--vfo-ink)', fontWeight: 600 }}>{pmLabel(pm)}</span>
                       {pm.kind === 'ach' ? <span style={tag('#0095ff')}>No fee</span> : <span style={tag('#e06717')}>+ card fee</span>}
                     </label>
                   ))
@@ -268,7 +268,7 @@ export default function PaymentContinuationTab({ clientId, client }) {
             )}
           </>
         ) : (
-          <p style={{ fontSize: '14px', color: '#4e6087', margin: 0 }}>
+          <p style={{ fontSize: '14px', color: 'var(--vfo-muted)', margin: 0 }}>
             On save, a Stripe customer is created and a secure setup link is emailed to <strong>{client?.email || 'the client'}</strong>. Once they add a card or bank, the engine starts charging automatically (card → fee added; bank → fee-free).
           </p>
         )}
@@ -278,8 +278,8 @@ export default function PaymentContinuationTab({ clientId, client }) {
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
         <button onClick={() => run(true)} disabled={busy || !sumOk} style={ghostBtn}>{busy ? 'Working…' : 'Preview'}</button>
         <button onClick={() => run(false)} disabled={saveDisabled} style={primaryBtn(saveDisabled)}>{busy ? 'Working…' : (stripeMode === 'setup_link' ? 'Save & send setup link' : 'Save')}</button>
-        {!sumOk && <span style={{ fontSize: '12px', color: '#697a9c' }}>Enter member + VFO share (dollars) that sum to the total.</span>}
-        {sumOk && stripeMode === 'existing' && !chosenPm && <span style={{ fontSize: '12px', color: '#697a9c' }}>Look up + pick a card to enable Save.</span>}
+        {!sumOk && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Enter member + VFO share (dollars) that sum to the total.</span>}
+        {sumOk && stripeMode === 'existing' && !chosenPm && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Look up + pick a card to enable Save.</span>}
       </div>
 
       {err && <div style={{ ...sectionStyle, border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.05)', color: '#c0392b', fontSize: '14px' }}>{err}</div>}
@@ -287,10 +287,10 @@ export default function PaymentContinuationTab({ clientId, client }) {
       {preview && (
         <div style={sectionStyle}>
           <div style={sectionTitle}>Preview — {preview.action} ({preview.mode}{preview.stripe_mode === 'setup_link' ? ', dormant until card connected' : ''})</div>
-          {preview.per_installment_amount && <p style={{ fontSize: '14px', color: '#16264a', margin: '0 0 10px' }}>Per-quarter charge: <strong>${preview.per_installment_amount}</strong></p>}
+          {preview.per_installment_amount && <p style={{ fontSize: '14px', color: 'var(--vfo-ink)', margin: '0 0 10px' }}>Per-quarter charge: <strong>${preview.per_installment_amount}</strong></p>}
           {(preview.warnings || []).map((w, i) => <p key={i} style={{ fontSize: '13px', color: '#e06717', margin: '4px 0' }}>• {w}</p>)}
           <details style={{ marginTop: '10px' }}>
-            <summary style={{ cursor: 'pointer', fontSize: '13px', color: '#4e6087', fontWeight: 600 }}>Exact row to be written</summary>
+            <summary style={{ cursor: 'pointer', fontSize: '13px', color: 'var(--vfo-muted)', fontWeight: 600 }}>Exact row to be written</summary>
             <pre style={{ background: '#0f1b33', color: '#cfe0ff', padding: '14px', borderRadius: '10px', fontSize: '12px', overflowX: 'auto', marginTop: '8px' }}>{JSON.stringify(preview.would_write, null, 2)}</pre>
           </details>
         </div>
@@ -299,10 +299,10 @@ export default function PaymentContinuationTab({ clientId, client }) {
       {result && (
         <div style={{ ...sectionStyle, border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.05)' }}>
           <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f7a3d', marginBottom: '6px' }}>Plan {result.action} (id {result.pipeline_id || result.tax_plan_id}) · {result.mode}</div>
-          {result.linkResult?.sent && <p style={{ fontSize: '14px', color: '#16264a', margin: '4px 0' }}>Setup link drafted to <strong>{result.linkResult.to_email}</strong>{result.linkResult.sandbox ? ' (sandbox)' : ''}. Send it from Gmail Drafts.</p>}
+          {result.linkResult?.sent && <p style={{ fontSize: '14px', color: 'var(--vfo-ink)', margin: '4px 0' }}>Setup link drafted to <strong>{result.linkResult.to_email}</strong>{result.linkResult.sandbox ? ' (sandbox)' : ''}. Send it from Gmail Drafts.</p>}
           {result.linkResult && !result.linkResult.sent && <p style={{ fontSize: '14px', color: '#e74c3c', margin: '4px 0' }}>Row saved, but setup link failed: {result.linkResult.error || 'unknown'}</p>}
           {(result.warnings || []).map((w, i) => <p key={i} style={{ fontSize: '13px', color: '#e06717', margin: '4px 0' }}>• {w}</p>)}
-          {stripeMode === 'existing' && <p style={{ fontSize: '13px', color: '#64748b', margin: '6px 0 0' }}>The engine will charge the remaining {isMap1 ? 'installments on their dates' : 'implementation via the Tax 5 step'} against the saved card.</p>}
+          {stripeMode === 'existing' && <p style={{ fontSize: '13px', color: 'var(--vfo-muted)', margin: '6px 0 0' }}>The engine will charge the remaining {isMap1 ? 'installments on their dates' : 'implementation via the Tax 5 step'} against the saved card.</p>}
         </div>
       )}
     </div>

@@ -60,12 +60,12 @@ export default function GrowthPrioritize({ memberNumber, bundle, reload, onNavig
           <div key={cat} style={cardStyle}>
             <div style={accentStrip} />
             <div style={{ padding: '16px 20px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 800, color: NAVY }}>{CATEGORY_LABELS[cat]}</div>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--vfo-heading)' }}>{CATEGORY_LABELS[cat]}</div>
               {catRows.map(r => (
-                <div key={r.id} style={{ padding: '14px 0', borderTop: '1px solid #eef2f9', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                <div key={r.id} style={{ padding: '14px 0', borderTop: '1px solid var(--vfo-tint)', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                   <NumBadge n={r.action_number} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '13.5px', color: '#16264a', lineHeight: 1.5, marginBottom: '12px', paddingTop: '3px' }}>{r.action_text}</div>
+                    <div style={{ fontSize: '13.5px', color: 'var(--vfo-ink)', lineHeight: 1.5, marginBottom: '12px', paddingTop: '3px' }}>{r.action_text}</div>
                     <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
                       <div><div style={miniLabel}>Destination</div><Radios name={`s_${r.id}`} value={r.g3_status} onChange={v => update(r.id, { g3_status: v })} options={G3_STATUS} /></div>
                       <div><div style={miniLabel}>Type</div><Radios name={`t_${r.id}`} value={r.g3_action_type} onChange={v => update(r.id, { g3_action_type: v })} options={G3_TYPE} /></div>

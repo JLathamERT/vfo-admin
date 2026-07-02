@@ -10,8 +10,8 @@ import PaymentsHeader from './PaymentsHeader'
 //   • On behalf of clients  — MAP 1 / Tax payments they made for their clients
 //   • Rev-share payouts      — money paid OUT to them via Stripe Connect
 // The filter chips (in PaymentsTable) keep the three clearly separated.
-const cardStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px' }
-const titleStyle = { fontSize: '17px', fontWeight: 800, color: '#002973', margin: '0 0 16px', fontFamily: 'Inter, sans-serif' }
+const cardStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px' }
+const titleStyle = { fontSize: '17px', fontWeight: 800, color: 'var(--vfo-heading)', margin: '0 0 16px', fontFamily: 'Inter, sans-serif' }
 
 export default function MemberPaymentsTab({ member }) {
   const memberNumber = member?.plugin_member_number

@@ -26,7 +26,7 @@ export default function ClientPaymentsTab({ clientId, sectionStyle }) {
     }
   }
 
-  const titleStyle = { fontSize: '17px', fontWeight: 800, color: '#002973', margin: '0 0 16px', fontFamily: 'Inter, sans-serif' }
+  const titleStyle = { fontSize: '17px', fontWeight: 800, color: 'var(--vfo-heading)', margin: '0 0 16px', fontFamily: 'Inter, sans-serif' }
 
   if (loading) {
     return (

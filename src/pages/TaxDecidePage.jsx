@@ -138,12 +138,12 @@ const iconCircleStyle = {
 const titleStyle = {
   fontSize: '24px',
   fontWeight: 700,
-  color: '#16264a',
+  color: 'var(--vfo-ink)',
   marginBottom: '12px',
 }
 
 const messageStyle = {
   fontSize: '15px',
-  color: '#4e6087',
+  color: 'var(--vfo-muted)',
   lineHeight: 1.6,
 }

@@ -85,5 +85,5 @@ function getView(status, decision, error) {
 
 const cardStyle = { textAlign: 'center', padding: '12px 0' }
 const iconCircleStyle = { width: '72px', height: '72px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }
-const titleStyle = { fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }
-const messageStyle = { fontSize: '15px', color: '#4e6087', lineHeight: 1.6 }
+const titleStyle = { fontSize: '24px', fontWeight: 700, color: 'var(--vfo-ink)', marginBottom: '12px' }
+const messageStyle = { fontSize: '15px', color: 'var(--vfo-muted)', lineHeight: 1.6 }

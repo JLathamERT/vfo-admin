@@ -10,7 +10,7 @@ const STAGE_LABELS = {
   paid: 'Paid', complete: 'Complete',
 }
 const STAGE_COLORS = {
-  new: '#4e6087', sif_sent: '#0095ff', sif_review: '#0095ff', voting: '#9333ea',
+  new: 'var(--vfo-muted)', sif_sent: '#0095ff', sif_review: '#0095ff', voting: '#9333ea',
   approved: '#0d9488', declined: '#ef4444', stopped: '#ef4444',
   awaiting_payment: '#db2777', payment_processing: '#e06717', paid: '#16a34a', complete: '#16a34a',
 }
@@ -52,7 +52,7 @@ function getCurrentStage(row) {
 
 // Colored badge for a single exec's vote value (admin oversight — full visibility).
 function voteBadge(v) {
-  if (!v) return <span style={{ color: '#4e6087', fontSize: '12px' }}>Awaiting</span>
+  if (!v) return <span style={{ color: 'var(--vfo-muted)', fontSize: '12px' }}>Awaiting</span>
   const c = v === 'Approved' ? '#16a34a' : v === 'Denied' ? '#ef4444' : '#e06717'
   return <Badge text={v} color={c} />
 }
@@ -79,21 +79,21 @@ function SpecialistPipelineRow({ row, expanded, onToggle }) {
   }[vo.outcome]
 
   return (
-    <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
+    <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
       <div onClick={onToggle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '15px', fontWeight: '600', color: '#16264a' }}>{name}</span>
+          <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--vfo-ink)' }}>{name}</span>
           {isTax && <Badge text="Tax Specialist" color="#0095ff" />}
-          {row.background_check_type && <span style={{ fontSize: '12px', color: '#243757' }}>{row.background_check_type} · {fmtMoney(row.background_check_type === 'Max' ? 950 : 350)}</span>}
+          {row.background_check_type && <span style={{ fontSize: '12px', color: 'var(--vfo-ink-2)' }}>{row.background_check_type} · {fmtMoney(row.background_check_type === 'Max' ? 950 : 350)}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Badge text={STAGE_LABELS[stage]} color={STAGE_COLORS[stage]} />
-          <span style={{ color: '#4e6087', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+          <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
         </div>
       </div>
 
       {expanded && (
-        <div style={{ padding: '12px 18px 16px', borderTop: '1px solid #e9eef8', background: '#eef2f9' }}>
+        <div style={{ padding: '12px 18px 16px', borderTop: '1px solid var(--vfo-border-soft)', background: 'var(--vfo-tint)' }}>
           <StepCard title="SIF Form" status={sifStatus}>
             {row.sif_token ? (
               <>
@@ -109,10 +109,10 @@ function SpecialistPipelineRow({ row, expanded, onToggle }) {
               <>
                 {row.meetings.map((m, i) => {
                   const items = (m.items_discussed || []).length
-                  const respColor = m.rev_proposal_response === 'Approved' ? '#16a34a' : m.rev_proposal_response ? '#e06717' : '#4e6087'
+                  const respColor = m.rev_proposal_response === 'Approved' ? '#16a34a' : m.rev_proposal_response ? '#e06717' : 'var(--vfo-muted)'
                   return (
-                    <div key={m.id} style={{ padding: '6px 0', borderBottom: '1px solid #f4f7fb' }}>
-                      <div style={{ fontSize: '12px', color: '#243757' }}>
+                    <div key={m.id} style={{ padding: '6px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--vfo-ink-2)' }}>
                         Meeting {i + 1} · {m.meeting_date} · {m.outcome === 'stopped' ? 'Stopped' : 'Still interested'} · {items} item{items === 1 ? '' : 's'} covered
                       </div>
                       {m.rev_proposal_text && (
@@ -134,12 +134,12 @@ function SpecialistPipelineRow({ row, expanded, onToggle }) {
             {(row.votes || []).length > 0 ? (
               <>
                 <Detail l="Outcome" v={outcomeBadge} showEmpty />
-                <div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '8px 0 2px' }}>Round 1 — Initial vote</div>
+                <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '8px 0 2px' }}>Round 1 — Initial vote</div>
                 <Detail l="Anton Anderson" v={voteBadge(vo.r1['Anton Anderson'])} showEmpty />
                 <Detail l="Paul Latham" v={voteBadge(vo.r1['Paul Latham'])} showEmpty />
                 {Object.keys(vo.r2).length > 0 && (
                   <>
-                    <div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '10px 0 2px' }}>Round 2 — After further questions</div>
+                    <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '10px 0 2px' }}>Round 2 — After further questions</div>
                     <Detail l="Anton Anderson" v={voteBadge(vo.r2['Anton Anderson'])} showEmpty />
                     <Detail l="Paul Latham" v={voteBadge(vo.r2['Paul Latham'])} showEmpty />
                   </>
@@ -186,7 +186,7 @@ function SpecialistPipelineRow({ row, expanded, onToggle }) {
             ) : <Pending />}
           </StepCard>
 
-          <div style={{ marginTop: '10px', fontSize: '10px', color: '#7c8aa6' }}>
+          <div style={{ marginTop: '10px', fontSize: '10px', color: 'var(--vfo-faint)' }}>
             Onboarding #{row.id} · Started {fmtDate(row.created_at)} · {row.specialist_email || 'no email'}
           </div>
         </div>
@@ -214,10 +214,10 @@ export default function SpecialistAutomationPanel() {
     finally { setLoading(false) }
   }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>
+  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: 'var(--vfo-muted)' }}>Loading...</div>
 
   const stats = [
-    { label: 'TOTAL', value: rows.length, color: '#16264a' },
+    { label: 'TOTAL', value: rows.length, color: 'var(--vfo-ink)' },
     { label: 'IN PROGRESS', value: rows.filter(r => { const s = getCurrentStage(r); return s !== 'complete' && s !== 'stopped' && s !== 'declined' }).length, color: '#0095ff' },
     { label: 'APPROVED', value: rows.filter(r => voteOutcome(r.votes).outcome === 'approved').length, color: '#0d9488' },
     { label: 'PAID', value: rows.filter(r => r.bg_payment_status === 'succeeded').length, color: '#16a34a' },

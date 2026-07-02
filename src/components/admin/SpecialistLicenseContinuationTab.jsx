@@ -6,8 +6,8 @@ import { callApi } from '../../lib/api'
 // /specialist-pay?kind=license link; the specialist enters card/ACH on Stripe and the
 // existing license webhook chain takes over. Nothing is charged here.
 
-const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
-const sectionTitle = { fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px', fontWeight: 700 }
+const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
+const sectionTitle = { fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px', fontWeight: 700 }
 const primaryBtn = (disabled) => ({ padding: '11px 26px', borderRadius: '8px', background: disabled ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '14px', cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 600 })
 
 function fmtDate(s) {
@@ -21,7 +21,7 @@ function StatusPill({ tone, label }) {
     blue: { bg: 'rgba(18,94,204,0.10)', fg: '#125ecc' },
     amber: { bg: 'rgba(214,158,46,0.14)', fg: '#b7791f' },
     red: { bg: 'rgba(231,76,60,0.12)', fg: '#e74c3c' },
-    grey: { bg: 'rgba(78,96,135,0.12)', fg: '#4e6087' },
+    grey: { bg: 'rgba(78,96,135,0.12)', fg: 'var(--vfo-muted)' },
   }
   const t = tones[tone] || tones.grey
   return <span style={{ display: 'inline-block', padding: '4px 12px', borderRadius: '20px', background: t.bg, color: t.fg, fontSize: '12px', fontWeight: 700 }}>{label}</span>
@@ -61,7 +61,7 @@ export default function SpecialistLicenseContinuationTab({ expert }) {
     }
   }
 
-  if (loading) return <div style={sectionStyle}><p style={{ color: '#4e6087', fontSize: '14px', margin: 0 }}>Loading license status…</p></div>
+  if (loading) return <div style={sectionStyle}><p style={{ color: 'var(--vfo-muted)', fontSize: '14px', margin: 0 }}>Loading license status…</p></div>
 
   const s = state || {}
   const status = s.payment_status || null
@@ -99,7 +99,7 @@ export default function SpecialistLicenseContinuationTab({ expert }) {
     <div>
       <div style={sectionStyle}>
         <div style={sectionTitle}>License Fee Continuation</div>
-        <p style={{ fontSize: '14px', color: '#697a9c', marginTop: 0, marginBottom: '20px', lineHeight: 1.6 }}>
+        <p style={{ fontSize: '14px', color: 'var(--vfo-muted)', marginTop: 0, marginBottom: '20px', lineHeight: 1.6 }}>
           Move <strong>{expert.name}</strong> onto the portal's native <strong>$99/month</strong> VFO Specialist license subscription.
           We'll draft an email with a secure payment link; once they enter a card or bank account, the portal bills them automatically each month.
         </p>
@@ -108,7 +108,7 @@ export default function SpecialistLicenseContinuationTab({ expert }) {
           {pill}
           {s.is_continuation && <span style={{ fontSize: '11px', color: '#94a3b8' }}>(continuation record)</span>}
         </div>
-        <p style={{ fontSize: '13px', color: '#4e6087', margin: '0 0 20px', lineHeight: 1.6 }}>{summary}</p>
+        <p style={{ fontSize: '13px', color: 'var(--vfo-muted)', margin: '0 0 20px', lineHeight: 1.6 }}>{summary}</p>
 
         {noEmail ? (
           <p style={{ fontSize: '13px', color: '#b7791f', background: 'rgba(214,158,46,0.10)', padding: '12px 14px', borderRadius: '10px', margin: 0 }}>
@@ -119,14 +119,14 @@ export default function SpecialistLicenseContinuationTab({ expert }) {
             {busy ? 'Working…' : btnLabel}
           </button>
         ) : (
-          <div style={{ border: '1px solid #d6e0ee', borderRadius: '12px', padding: '16px', background: '#f7f9fc' }}>
-            <p style={{ fontSize: '13px', color: '#16264a', marginTop: 0, marginBottom: '14px', lineHeight: 1.6 }}>
+          <div style={{ border: '1px solid var(--vfo-border-strong)', borderRadius: '12px', padding: '16px', background: 'var(--vfo-input)' }}>
+            <p style={{ fontSize: '13px', color: 'var(--vfo-ink)', marginTop: 0, marginBottom: '14px', lineHeight: 1.6 }}>
               Draft a <strong>$99/month license</strong> setup email to <strong>{s.expert_email}</strong>?
               No charge happens now — the specialist enters their own payment method on Stripe's secure page.
             </p>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button disabled={busy} onClick={send} style={primaryBtn(busy)}>{busy ? 'Drafting…' : 'Draft email'}</button>
-              <button disabled={busy} onClick={() => setConfirming(false)} style={{ padding: '11px 22px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '14px', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+              <button disabled={busy} onClick={() => setConfirming(false)} style={{ padding: '11px 22px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '14px', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
             </div>
           </div>
         )}
@@ -135,9 +135,9 @@ export default function SpecialistLicenseContinuationTab({ expert }) {
         {err && <p style={{ fontSize: '13px', color: '#e74c3c', marginTop: '16px', marginBottom: 0 }}>{err}</p>}
       </div>
 
-      <div style={{ ...sectionStyle, background: '#f7f9fc' }}>
+      <div style={{ ...sectionStyle, background: 'var(--vfo-input)' }}>
         <div style={sectionTitle}>Reminder</div>
-        <p style={{ fontSize: '13px', color: '#697a9c', margin: 0, lineHeight: 1.6 }}>
+        <p style={{ fontSize: '13px', color: 'var(--vfo-muted)', margin: 0, lineHeight: 1.6 }}>
           Once the specialist's portal subscription is active, cancel their existing $99/month charge on the old system so they aren't billed twice.
           To change a payment method on an active subscription, use the <strong>Payments</strong> tab.
         </p>

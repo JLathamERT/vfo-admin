@@ -49,9 +49,9 @@ export default function ClientSetupPage() {
     finally { setSubmitting(false) }
   }
 
-  const wrap = { minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#f4f7fd',fontFamily:'Inter, sans-serif' }
-  const card = { background:'#ffffff',padding:'40px',borderRadius:'16px',width:'380px',border:'1px solid #e3eaf5',color:'#16264a' }
-  const input = { padding:'10px 14px',borderRadius:'8px',border:'1px solid #d6e0ee',background:'#f7f9fc',color:'#16264a',fontSize:'14px',width:'100%',boxSizing:'border-box' }
+  const wrap = { minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'var(--vfo-page)',fontFamily:'Inter, sans-serif' }
+  const card = { background:'var(--vfo-card)',padding:'40px',borderRadius:'16px',width:'380px',border:'1px solid var(--vfo-border)',color:'var(--vfo-ink)' }
+  const input = { padding:'10px 14px',borderRadius:'8px',border:'1px solid var(--vfo-border-strong)',background:'var(--vfo-input)',color:'var(--vfo-ink)',fontSize:'14px',width:'100%',boxSizing:'border-box' }
 
   if (status === 'loading') return <div style={wrap}><div style={card}>Loading…</div></div>
   if (status === 'invalid') return <div style={wrap}><div style={card}>This setup link is invalid or has expired. Please contact us for a new one.</div></div>
@@ -61,7 +61,7 @@ export default function ClientSetupPage() {
     <div style={wrap}>
       <div style={card}>
         <h2 style={{fontFamily:'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em',marginBottom:'6px',fontSize:'23px'}}>Set Up Your Portal Login</h2>
-        <p style={{color:'#4e6087',fontSize:'13px',marginBottom:'20px'}}>{data?.client_name} · {data?.email}</p>
+        <p style={{color:'var(--vfo-muted)',fontSize:'13px',marginBottom:'20px'}}>{data?.client_name} · {data?.email}</p>
         <form onSubmit={handleSubmit} style={{display:'flex',flexDirection:'column',gap:'12px'}}>
           <input value={passcode} onChange={e=>setPasscode(e.target.value)} placeholder="Choose a passcode (min 6 chars)" type="password" required style={input} />
           <input value={confirm} onChange={e=>setConfirm(e.target.value)} placeholder="Confirm passcode" type="password" required style={input} />

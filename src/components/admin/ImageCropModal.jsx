@@ -65,14 +65,14 @@ export default function ImageCropModal({ src, onApply, onCancel, output = 500, v
   }
 
   const overlay = { position: 'fixed', inset: 0, background: 'rgba(16,38,74,0.55)', backdropFilter: 'blur(2px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif' }
-  const card = { background: '#fff', borderRadius: '16px', padding: '24px', width: 'min(380px, 92vw)', boxShadow: '0 24px 60px rgba(20,45,95,0.3)' }
-  const frame = { width: viewport, height: viewport, maxWidth: '100%', margin: '0 auto', borderRadius: '50%', overflow: 'hidden', position: 'relative', background: '#eef2f9', border: '1px solid #d6e0ee', cursor: 'grab', touchAction: 'none', userSelect: 'none' }
+  const card = { background: 'var(--vfo-card)', borderRadius: '16px', padding: '24px', width: 'min(380px, 92vw)', boxShadow: '0 24px 60px rgba(20,45,95,0.3)' }
+  const frame = { width: viewport, height: viewport, maxWidth: '100%', margin: '0 auto', borderRadius: '50%', overflow: 'hidden', position: 'relative', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-strong)', cursor: 'grab', touchAction: 'none', userSelect: 'none' }
 
   return (
     <div style={overlay} onClick={onCancel}>
       <div style={card} onClick={e => e.stopPropagation()}>
-        <div style={{ fontSize: '15px', fontWeight: 700, color: '#16264a', marginBottom: '4px' }}>Adjust photo</div>
-        <div style={{ fontSize: '12px', color: '#697a9c', marginBottom: '16px' }}>Drag to reposition · slide to zoom</div>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--vfo-ink)', marginBottom: '4px' }}>Adjust photo</div>
+        <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '16px' }}>Drag to reposition · slide to zoom</div>
 
         <div
           style={frame}
@@ -88,16 +88,16 @@ export default function ImageCropModal({ src, onApply, onCancel, output = 500, v
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '18px 2px 0' }}>
-          <span style={{ fontSize: '16px', color: '#697a9c' }}>−</span>
+          <span style={{ fontSize: '16px', color: 'var(--vfo-muted)' }}>−</span>
           <input type="range" min="1" max="4" step="0.01" value={zoom}
             onChange={e => setZoom(parseFloat(e.target.value))}
             style={{ flex: 1, accentColor: '#125ecc', cursor: 'pointer' }} />
-          <span style={{ fontSize: '18px', color: '#697a9c' }}>+</span>
+          <span style={{ fontSize: '18px', color: 'var(--vfo-muted)' }}>+</span>
         </div>
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
           <button type="button" onClick={onCancel}
-            style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #c7d4e8', background: '#fff', color: '#4e6087', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Cancel</button>
+            style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'var(--vfo-card)', color: 'var(--vfo-muted)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Cancel</button>
           <button type="button" onClick={apply}
             style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Apply</button>
         </div>

@@ -51,7 +51,7 @@ class ErrorBoundary extends React.Component {
 
 const S = {
   wrap: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #0f2a4a 0%, #1e3a5f 100%)', padding: '24px', fontFamily: 'Arial, Helvetica, sans-serif' },
-  card: { background: '#ffffff', borderRadius: '14px', maxWidth: '440px', width: '100%', padding: '40px 32px', textAlign: 'center', boxShadow: '0 20px 50px rgba(0,0,0,0.25)' },
+  card: { background: 'var(--vfo-card)', borderRadius: '14px', maxWidth: '440px', width: '100%', padding: '40px 32px', textAlign: 'center', boxShadow: '0 20px 50px rgba(0,0,0,0.25)' },
   brand: { fontSize: '20px', fontWeight: 'bold', color: '#1e3a5f', letterSpacing: '0.5px', marginBottom: '20px' },
   brandLight: { color: '#3b82f6' },
   icon: { fontSize: '40px', marginBottom: '8px', color: '#e0a800' },
@@ -59,7 +59,7 @@ const S = {
   msg: { fontSize: '15px', color: '#5b6b7f', lineHeight: 1.6, margin: '0 0 28px' },
   actions: { display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' },
   primary: { background: '#2563eb', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px 22px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' },
-  secondary: { background: '#eef2f7', color: '#1e3a5f', border: 'none', borderRadius: '8px', padding: '12px 22px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' },
+  secondary: { background: 'var(--vfo-border-soft)', color: '#1e3a5f', border: 'none', borderRadius: '8px', padding: '12px 22px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' },
 }
 
 export default ErrorBoundary

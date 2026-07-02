@@ -37,8 +37,8 @@ function formatLong(d) {
   return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
-const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#ffffff', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
-const labelStyle = { fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px', fontWeight: 600 }
+const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+const labelStyle = { fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px', fontWeight: 600 }
 
 // Modal that opens on the Stage-3 "Create Advisor/Accountant" click. Collects the
 // New-Model-Sale form fields, then on confirm hands them to onConfirm() which fires
@@ -110,16 +110,16 @@ export default function NewModelSaleModal({ ob, kind, submitting, onClose, onCon
 
   return (
     <div onClick={() => { if (!submitting) onClose() }} style={{ position: 'fixed', inset: 0, background: 'rgba(16,24,40,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 12px 40px rgba(20,45,95,0.25)', padding: '24px', width: '100%', maxWidth: '540px', maxHeight: '90vh', overflowY: 'auto', fontFamily: 'Inter, sans-serif' }}>
-        <div style={{ fontSize: '18px', fontWeight: 700, color: '#16264a', marginBottom: '4px' }}>New Model Sale</div>
-        <div style={{ fontSize: '13px', color: '#4e6087', marginBottom: '16px' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: '0 12px 40px rgba(20,45,95,0.25)', padding: '24px', width: '100%', maxWidth: '540px', maxHeight: '90vh', overflowY: 'auto', fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--vfo-ink)', marginBottom: '4px' }}>New Model Sale</div>
+        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginBottom: '16px' }}>
           Fill in the details below. On confirm, the {isAcct ? 'accountant' : 'advisor'} is created and the team notification email is drafted.
         </div>
 
-        <div style={{ background: '#eef2f9', border: '1px solid #dde5f2', borderRadius: '10px', padding: '12px 14px', marginBottom: '18px', fontSize: '12.5px', color: '#16264a', lineHeight: 1.7 }}>
-          <div><strong>{memberName}</strong>{ob.member_number ? <span style={{ color: '#4e6087', fontFamily: 'monospace', marginLeft: '8px' }}>#{ob.member_number}</span> : null}</div>
-          <div style={{ color: '#4e6087' }}>{agreementName} — {selectedPlans}</div>
-          <div style={{ color: '#4e6087' }}>{paymentPlan} · Invoice {ob.invoice_number || 'n/a'} · 6-month transition {formatLong(ob.renewal_date)}</div>
+        <div style={{ background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '10px', padding: '12px 14px', marginBottom: '18px', fontSize: '12.5px', color: 'var(--vfo-ink)', lineHeight: 1.7 }}>
+          <div><strong>{memberName}</strong>{ob.member_number ? <span style={{ color: 'var(--vfo-muted)', fontFamily: 'monospace', marginLeft: '8px' }}>#{ob.member_number}</span> : null}</div>
+          <div style={{ color: 'var(--vfo-muted)' }}>{agreementName} — {selectedPlans}</div>
+          <div style={{ color: 'var(--vfo-muted)' }}>{paymentPlan} · Invoice {ob.invoice_number || 'n/a'} · 6-month transition {formatLong(ob.renewal_date)}</div>
         </div>
 
         <div style={{ marginBottom: '14px' }}>
@@ -137,9 +137,9 @@ export default function NewModelSaleModal({ ob, kind, submitting, onClose, onCon
         <div style={{ marginBottom: '20px', position: 'relative' }}>
           <label style={labelStyle}>Member introduction (search advisors &amp; accountants)</label>
           {selectedMember ? (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '7px 12px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', border: '1px solid rgba(0,149,255,0.3)', fontSize: '13px', color: '#16264a' }}>
-              {selectedMember.name}{selectedMember.number ? <span style={{ fontFamily: 'monospace', color: '#4e6087' }}>#{selectedMember.number}</span> : null}
-              <button onClick={() => setSelectedMember(null)} title="Clear" style={{ border: 'none', background: 'transparent', color: '#4e6087', cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: 0 }}>×</button>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '7px 12px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', border: '1px solid rgba(0,149,255,0.3)', fontSize: '13px', color: 'var(--vfo-ink)' }}>
+              {selectedMember.name}{selectedMember.number ? <span style={{ fontFamily: 'monospace', color: 'var(--vfo-muted)' }}>#{selectedMember.number}</span> : null}
+              <button onClick={() => setSelectedMember(null)} title="Clear" style={{ border: 'none', background: 'transparent', color: 'var(--vfo-muted)', cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: 0 }}>×</button>
             </div>
           ) : (
             <>
@@ -148,15 +148,15 @@ export default function NewModelSaleModal({ ob, kind, submitting, onClose, onCon
                 onFocus={() => setShowResults(true)}
                 style={{ ...inputStyle }} />
               {showResults && results.length > 0 && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 5, background: '#fff', border: '1px solid #d6e0ee', borderRadius: '8px', boxShadow: '0 6px 20px rgba(20,45,95,0.15)', maxHeight: '200px', overflowY: 'auto', marginTop: '4px' }}>
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 5, background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-strong)', borderRadius: '8px', boxShadow: '0 6px 20px rgba(20,45,95,0.15)', maxHeight: '200px', overflowY: 'auto', marginTop: '4px' }}>
                   {results.map(m => (
                     <div key={m.member_number || m.plugin_member_number}
                       onClick={() => pickMember(m)}
-                      style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '13px', color: '#16264a', borderBottom: '1px solid #f0f3f9' }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f4f7fd'}
-                      onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                      style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '13px', color: 'var(--vfo-ink)', borderBottom: '1px solid var(--vfo-border-soft)' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-page)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'var(--vfo-card)'}>
                       {m.name || `${m.first_name || ''} ${m.last_name || ''}`}
-                      <span style={{ color: '#697a9c', fontFamily: 'monospace', fontSize: '11px', marginLeft: '6px' }}>#{m.member_number || m.plugin_member_number} · {m.member_category}</span>
+                      <span style={{ color: 'var(--vfo-muted)', fontFamily: 'monospace', fontSize: '11px', marginLeft: '6px' }}>#{m.member_number || m.plugin_member_number} · {m.member_category}</span>
                     </div>
                   ))}
                 </div>
@@ -166,7 +166,7 @@ export default function NewModelSaleModal({ ob, kind, submitting, onClose, onCon
         </div>
 
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} disabled={submitting} style={{ padding: '10px 18px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>Cancel</button>
+          <button onClick={onClose} disabled={submitting} style={{ padding: '10px 18px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>Cancel</button>
           <button onClick={confirm} disabled={submitting} style={{ padding: '10px 24px', borderRadius: '8px', background: submitting ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
             {submitting ? 'Creating…' : `Create ${isAcct ? 'Accountant' : 'Advisor'} & Notify Team`}
           </button>

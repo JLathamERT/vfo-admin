@@ -8,7 +8,7 @@ import { callApi, getSession } from '../../lib/api'
 //
 // personType: 'client' | 'member' | 'specialist'
 // personRef:  client id / member_number / expert id
-const titleStyle = { fontSize: '17px', fontWeight: 800, color: '#002973', margin: 0, fontFamily: 'Inter, sans-serif' }
+const titleStyle = { fontSize: '17px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0, fontFamily: 'Inter, sans-serif' }
 
 export default function PaymentsHeader({ personType, personRef }) {
   const isSuper = getSession()?.is_superadmin

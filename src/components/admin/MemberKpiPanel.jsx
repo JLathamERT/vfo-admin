@@ -43,7 +43,7 @@ const LENSES = [
   { key: 'suspended', label: 'Suspended', color: '#c98a14', desc: 'of active', sub: true },
   { key: 'paused', label: 'Paused', color: '#e06717', desc: 'of active', sub: true },
   { key: 'lost', label: 'Lost', color: '#e74c3c', desc: 'of total' },
-  { key: 'removed', label: 'Removed', color: '#7c8aa6', desc: 'of total' },
+  { key: 'removed', label: 'Removed', color: 'var(--vfo-faint)', desc: 'of total' },
   { key: 'all', label: 'Total', color: '#125ecc', desc: 'incl. lost & removed' },
 ]
 
@@ -81,7 +81,7 @@ function StatCard({ lens, value, total, selected, onClick }) {
       onClick={onClick}
       style={{
         position: 'relative', textAlign: 'left', cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-        border: selected ? `1.5px solid ${c}` : `1px solid ${lens.sub ? '#eef2f9' : '#e9eef8'}`,
+        border: selected ? `1.5px solid ${c}` : `1px solid ${lens.sub ? 'var(--vfo-tint)' : 'var(--vfo-border-soft)'}`,
         background: selected ? `linear-gradient(135deg, ${c} 0%, ${darken(c)} 100%)` : '#ffffff',
         borderRadius: '14px', padding: '14px 16px 13px', overflow: 'hidden', minWidth: 0, width: '100%',
         boxShadow: selected ? `0 10px 24px ${hexA(c, 0.34)}` : '0 2px 10px rgba(20,45,95,0.05)',
@@ -91,9 +91,9 @@ function StatCard({ lens, value, total, selected, onClick }) {
       onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = selected ? `0 10px 24px ${hexA(c, 0.34)}` : '0 2px 10px rgba(20,45,95,0.05)' }}
     >
       {!selected && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: c }} />}
-      <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.7px', textTransform: 'uppercase', color: selected ? 'rgba(255,255,255,0.88)' : '#7c8aa6' }}>{lens.label}</div>
-      <div style={{ fontSize: '30px', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.05, marginTop: '6px', color: selected ? '#ffffff' : '#16264a', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-      <div style={{ fontSize: '11px', fontWeight: 600, marginTop: '3px', color: selected ? 'rgba(255,255,255,0.82)' : '#9aa6bf' }}>
+      <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.7px', textTransform: 'uppercase', color: selected ? 'rgba(255,255,255,0.88)' : 'var(--vfo-faint)' }}>{lens.label}</div>
+      <div style={{ fontSize: '30px', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.05, marginTop: '6px', color: selected ? '#ffffff' : 'var(--vfo-ink)', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+      <div style={{ fontSize: '11px', fontWeight: 600, marginTop: '3px', color: selected ? 'rgba(255,255,255,0.82)' : 'var(--vfo-faint)' }}>
         {lens.key === 'all' ? lens.desc : `${pct}% ${lens.desc}`}
       </div>
     </button>
@@ -109,12 +109,12 @@ function ModelSplit({ legacy, newModel, unknown, total }) {
   ]
   const pct = (n) => (total > 0 ? (n / total) * 100 : 0)
   return (
-    <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '18px 22px', marginBottom: '22px' }}>
+    <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '18px 22px', marginBottom: '22px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-        <span style={{ fontSize: '13px', fontWeight: 700, color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Legacy vs New Model</span>
-        <span style={{ fontSize: '12px', color: '#9aa6bf', fontWeight: 600 }}>{total} in view</span>
+        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Legacy vs New Model</span>
+        <span style={{ fontSize: '12px', color: 'var(--vfo-faint)', fontWeight: 600 }}>{total} in view</span>
       </div>
-      <div style={{ display: 'flex', height: '14px', borderRadius: '999px', overflow: 'hidden', background: '#eef2f9', border: '1px solid #e3eaf5' }}>
+      <div style={{ display: 'flex', height: '14px', borderRadius: '999px', overflow: 'hidden', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border)' }}>
         {seg.map((s) => s.n > 0 && (
           <div key={s.label} title={`${s.label}: ${s.n}`} style={{ width: `${pct(s.n)}%`, background: s.color, transition: 'width .3s' }} />
         ))}
@@ -123,9 +123,9 @@ function ModelSplit({ legacy, newModel, unknown, total }) {
         {seg.map((s) => (
           <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ width: '11px', height: '11px', borderRadius: '3px', background: s.color, flexShrink: 0 }} />
-            <span style={{ fontSize: '13px', color: '#16264a', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{s.n}</span>
-            <span style={{ fontSize: '12px', color: '#697a9c' }}>{s.label}</span>
-            <span style={{ fontSize: '11px', color: '#9aa6bf', fontWeight: 600 }}>{Math.round(pct(s.n))}%</span>
+            <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{s.n}</span>
+            <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>{s.label}</span>
+            <span style={{ fontSize: '11px', color: 'var(--vfo-faint)', fontWeight: 600 }}>{Math.round(pct(s.n))}%</span>
           </div>
         ))}
       </div>
@@ -140,29 +140,29 @@ function FamilyCard({ fam, scopedTotal, rank }) {
   const isMulti = fam.subtypes.length > 1
   return (
     <div
-      style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 3px 14px rgba(20,45,95,0.05)', overflow: 'hidden', transition: 'transform .15s ease, box-shadow .15s ease', display: 'flex', flexDirection: 'column' }}
+      style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: '0 3px 14px rgba(20,45,95,0.05)', overflow: 'hidden', transition: 'transform .15s ease, box-shadow .15s ease', display: 'flex', flexDirection: 'column' }}
       onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 12px 28px rgba(20,45,95,0.13)' }}
       onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 3px 14px rgba(20,45,95,0.05)' }}
     >
-      <div style={{ height: '3px', background: rank === 0 ? 'linear-gradient(90deg,#002973 0%,#125ecc 60%,#0a85e8 100%)' : '#e3eaf5' }} />
+      <div style={{ height: '3px', background: rank === 0 ? 'linear-gradient(90deg,#002973 0%,#125ecc 60%,#0a85e8 100%)' : 'var(--vfo-border)' }} />
       <div style={{ padding: '16px 18px 17px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: '#16264a', letterSpacing: '-0.01em' }}>{fam.label}</div>
-            <div style={{ fontSize: '11px', color: '#9aa6bf', fontWeight: 600, marginTop: '3px' }}>{sharePct}% of view{isMulti ? ` · ${fam.subtypes.length} types` : ''}</div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)', letterSpacing: '-0.01em' }}>{fam.label}</div>
+            <div style={{ fontSize: '11px', color: 'var(--vfo-faint)', fontWeight: 600, marginTop: '3px' }}>{sharePct}% of view{isMulti ? ` · ${fam.subtypes.length} types` : ''}</div>
           </div>
           <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#125ecc', lineHeight: 1, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{fam.count}</div>
         </div>
 
         {isMulti && (
-          <div style={{ marginTop: '14px', paddingTop: '13px', borderTop: '1px solid #eef2f9', display: 'flex', flexDirection: 'column', gap: '9px' }}>
+          <div style={{ marginTop: '14px', paddingTop: '13px', borderTop: '1px solid var(--vfo-tint)', display: 'flex', flexDirection: 'column', gap: '9px' }}>
             {fam.subtypes.map((st) => (
               <div key={st.type}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '12.5px', color: '#4e6087', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.type || '— (unset)'}</span>
-                  <span style={{ fontSize: '12.5px', color: '#16264a', fontWeight: 700, fontVariantNumeric: 'tabular-nums', marginLeft: '8px', flexShrink: 0 }}>{st.count}</span>
+                  <span style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.type || '— (unset)'}</span>
+                  <span style={{ fontSize: '12.5px', color: 'var(--vfo-ink)', fontWeight: 700, fontVariantNumeric: 'tabular-nums', marginLeft: '8px', flexShrink: 0 }}>{st.count}</span>
                 </div>
-                <div style={{ height: '5px', borderRadius: '999px', background: '#eef2f9', overflow: 'hidden' }}>
+                <div style={{ height: '5px', borderRadius: '999px', background: 'var(--vfo-tint)', overflow: 'hidden' }}>
                   <div style={{ width: `${(st.count / top) * 100}%`, height: '100%', borderRadius: '999px', background: 'linear-gradient(90deg,#125ecc,#0a85e8)' }} />
                 </div>
               </div>
@@ -301,8 +301,8 @@ export default function MemberKpiPanel({ allMembers, category }) {
       {/* Family breakdown header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '18px', fontWeight: 800, letterSpacing: '-0.02em', color: '#002973' }}>{breakdownLabel}</span>
-          <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>{scoped.length}</span>
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '18px', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--vfo-heading)' }}>{breakdownLabel}</span>
+          <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{scoped.length}</span>
         </div>
         {lens !== 'all' && (
           <button
@@ -317,8 +317,8 @@ export default function MemberKpiPanel({ allMembers, category }) {
 
       {/* Family grid */}
       {familyData.length === 0 ? (
-        <div style={{ background: '#ffffff', border: '1px dashed #d6e0ee', borderRadius: '16px', padding: '40px', textAlign: 'center', color: '#9aa6bf', fontSize: '14px' }}>
-          No {isAdvisorPage ? 'advisors' : isStrategic ? 'strategic members' : 'accountants'} match the <strong style={{ color: '#7c8aa6' }}>{activeLens.label}</strong> status.
+        <div style={{ background: 'var(--vfo-card)', border: '1px dashed var(--vfo-border-strong)', borderRadius: '16px', padding: '40px', textAlign: 'center', color: 'var(--vfo-faint)', fontSize: '14px' }}>
+          No {isAdvisorPage ? 'advisors' : isStrategic ? 'strategic members' : 'accountants'} match the <strong style={{ color: 'var(--vfo-faint)' }}>{activeLens.label}</strong> status.
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '14px', alignItems: 'start' }}>

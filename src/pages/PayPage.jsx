@@ -54,7 +54,7 @@ export default function PayPage() {
 
   if (status === 'loading') return (
     <TokenShell>
-      <p style={{ color: '#4e6087', fontSize: '15px', textAlign: 'center', margin: 0 }}>Loading payment details…</p>
+      <p style={{ color: 'var(--vfo-muted)', fontSize: '15px', textAlign: 'center', margin: 0 }}>Loading payment details…</p>
     </TokenShell>
   )
 
@@ -72,7 +72,7 @@ export default function PayPage() {
 
   if (status === 'redirecting') return (
     <TokenShell>
-      <p style={{ color: '#4e6087', fontSize: '15px', textAlign: 'center', margin: 0 }}>Redirecting to Stripe…</p>
+      <p style={{ color: 'var(--vfo-muted)', fontSize: '15px', textAlign: 'center', margin: 0 }}>Redirecting to Stripe…</p>
     </TokenShell>
   )
 
@@ -88,7 +88,7 @@ export default function PayPage() {
         </div>
         <h1 style={{ ...titleStyle, fontSize: '22px', textAlign: 'center', marginBottom: '8px' }}>VFO Services Payment</h1>
         <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '12px' }}>Choose your preferred payment method</p>
-        <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '32px', fontSize: '13px', color: '#64748b' }}>
+        <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '32px', fontSize: '13px', color: 'var(--vfo-muted)' }}>
           Payment {data.payment_x} of {data.payment_y} — {data.service_level} Membership · {data.client_name}
         </p>
 
@@ -102,7 +102,7 @@ export default function PayPage() {
           badgeClass="green"
           amount={baseAmount}
           breakdown={[
-            { label: 'VFO Services Membership', value: `$${formatMoney(baseAmount)}`, valueColor: '#243757' },
+            { label: 'VFO Services Membership', value: `$${formatMoney(baseAmount)}`, valueColor: 'var(--vfo-ink-2)' },
             { label: 'Processing Fee', value: '$0.00', valueColor: '#16a34a' },
           ]}
           footer="Funds transfer directly from your bank account. Takes 2-4 business days to process."
@@ -120,8 +120,8 @@ export default function PayPage() {
           badgeClass="blue"
           amount={cardTotal}
           breakdown={[
-            { label: 'VFO Services Membership', value: `$${formatMoney(baseAmount)}`, valueColor: '#243757' },
-            { label: 'Card Processing Fee (2.9% + $0.30)', value: `$${formatMoney(cardFee)}`, valueColor: '#243757' },
+            { label: 'VFO Services Membership', value: `$${formatMoney(baseAmount)}`, valueColor: 'var(--vfo-ink-2)' },
+            { label: 'Card Processing Fee (2.9% + $0.30)', value: `$${formatMoney(cardFee)}`, valueColor: 'var(--vfo-ink-2)' },
           ]}
           footer="Processes immediately. The processing fee covers card transaction costs."
         />
@@ -143,7 +143,7 @@ function OptionCard({ isHovered, onHover, onLeave, onClick, title, badgeText, ba
       onMouseLeave={onLeave}
       style={{
         ...optionCardStyle,
-        borderColor: isHovered ? '#0095ff' : '#e3eaf5',
+        borderColor: isHovered ? '#0095ff' : 'var(--vfo-border)',
         background: isHovered ? 'rgba(0,149,255,0.05)' : 'transparent',
       }}
     >
@@ -155,7 +155,7 @@ function OptionCard({ isHovered, onHover, onLeave, onClick, title, badgeText, ba
       <div style={{ marginBottom: '16px' }}>
         {breakdown.map((row, i) => (
           <div key={i} style={optionDetailRowStyle}>
-            <span style={{ color: '#64748b' }}>{row.label}</span>
+            <span style={{ color: 'var(--vfo-muted)' }}>{row.label}</span>
             <span style={{ color: row.valueColor, fontWeight: 600 }}>{row.value}</span>
           </div>
         ))}
@@ -191,17 +191,17 @@ const iconCircleStyle = {
 const titleStyle = {
   fontSize: '24px',
   fontWeight: 700,
-  color: '#16264a',
+  color: 'var(--vfo-ink)',
   marginBottom: '12px',
 }
 
 const subtitleStyle = {
   fontSize: '14px',
-  color: '#4e6087',
+  color: 'var(--vfo-muted)',
 }
 
 const optionCardStyle = {
-  border: '2px solid #e3eaf5',
+  border: '2px solid var(--vfo-border)',
   borderRadius: '16px',
   padding: '28px',
   marginBottom: '16px',
@@ -219,7 +219,7 @@ const optionHeaderStyle = {
 const optionTitleStyle = {
   fontSize: '16px',
   fontWeight: 700,
-  color: '#16264a',
+  color: 'var(--vfo-ink)',
 }
 
 const optionBadgeBaseStyle = {
@@ -239,7 +239,7 @@ const badgeStyles = {
 const optionAmountStyle = {
   fontSize: '28px',
   fontWeight: 700,
-  color: '#16264a',
+  color: 'var(--vfo-ink)',
   marginBottom: '16px',
 }
 
@@ -252,15 +252,15 @@ const optionDetailRowStyle = {
 
 const optionFooterStyle = {
   fontSize: '12px',
-  color: '#4e6087',
+  color: 'var(--vfo-muted)',
   marginTop: '12px',
   paddingTop: '12px',
-  borderTop: '1px solid #e9eef8',
+  borderTop: '1px solid var(--vfo-border-soft)',
 }
 
 const dividerStyle = {
   textAlign: 'center',
-  color: '#4e6087',
+  color: 'var(--vfo-muted)',
   fontSize: '12px',
   fontWeight: 600,
   textTransform: 'uppercase',
@@ -270,7 +270,7 @@ const dividerStyle = {
 
 const securityNoteStyle = {
   textAlign: 'center',
-  color: '#4e6087',
+  color: 'var(--vfo-muted)',
   fontSize: '12px',
   marginTop: '24px',
   lineHeight: 1.6,

@@ -63,12 +63,12 @@ export default function SandboxModeToggle({ pipeline, label, sandboxConfig, onCh
           fontFamily: '"Inter", sans-serif',
         }}>
           <div style={{
-            background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', padding: '32px', maxWidth: '440px', width: '90%', boxShadow: '0 24px 64px rgba(10,25,60,0.25)',
+            background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', padding: '32px', maxWidth: '440px', width: '90%', boxShadow: '0 24px 64px rgba(10,25,60,0.25)',
           }}>
-            <h2 style={{ fontFamily: 'Inter, sans-serif', fontSize: '19px', fontWeight: 800, letterSpacing: '-0.02em', color: '#002973', margin: '0 0 12px' }}>
+            <h2 style={{ fontFamily: 'Inter, sans-serif', fontSize: '19px', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--vfo-heading)', margin: '0 0 12px' }}>
               Switch {name} to {switchingTo} mode?
             </h2>
-            <p style={{ fontSize: '14px', color: '#4e6087', lineHeight: 1.6, margin: '0 0 16px' }}>
+            <p style={{ fontSize: '14px', color: 'var(--vfo-muted)', lineHeight: 1.6, margin: '0 0 16px' }}>
               {goingLive
                 ? `This switches ${name} to LIVE Stripe + BoldSign keys. Real emails go to real clients/members/PFs and real cards are charged.`
                 : `This switches ${name} back to sandbox: emails route to the sandbox address and Stripe/BoldSign use test keys.`}
@@ -81,8 +81,8 @@ export default function SandboxModeToggle({ pipeline, label, sandboxConfig, onCh
                 disabled={saving}
                 style={{
                   padding: '10px 20px', borderRadius: '8px',
-                  border: '1px solid #d6e0ee', background: 'transparent',
-                  color: '#4e6087', fontSize: '14px', cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit',
+                  border: '1px solid var(--vfo-border-strong)', background: 'transparent',
+                  color: 'var(--vfo-muted)', fontSize: '14px', cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit',
                 }}
               >
                 Cancel

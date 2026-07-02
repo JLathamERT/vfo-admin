@@ -25,7 +25,7 @@ export default function AddActionForm({ onSubmit, onCancel, submitLabel = 'Add t
   }
 
   return (
-    <div style={{ background: '#f7f9fc', border: '1px solid #e9eef8', borderRadius: '10px', padding: '14px 16px' }}>
+    <div style={{ background: 'var(--vfo-input)', border: '1px solid var(--vfo-border-soft)', borderRadius: '10px', padding: '14px 16px' }}>
       <div style={{ marginBottom: '12px' }}>
         <div style={miniLabel}>Description</div>
         <textarea value={text} onChange={e => setText(e.target.value)} placeholder={placeholder} style={{ ...inputStyle, width: '100%', boxSizing: 'border-box', minHeight: '48px', resize: 'vertical' }} />

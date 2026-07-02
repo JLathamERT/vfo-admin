@@ -3,7 +3,7 @@ import VfoWordmark from './VfoWordmark'
 
 export default function AuthShell({ children }) {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexWrap: 'wrap', background: '#ffffff', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexWrap: 'wrap', background: 'var(--vfo-card)', fontFamily: 'Inter, sans-serif' }}>
       <div style={{
         flex: '1 1 380px', minHeight: '38vh', position: 'relative', overflow: 'hidden',
         background: 'linear-gradient(160deg, #002973 0%, #0d47a8 55%, #125ecc 100%)',

@@ -75,13 +75,13 @@ export default function AdminEditor({ onBack }) {
     }
   }
 
-  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
 
   return (
     <div style={{ maxWidth: '760px', margin: '0 auto', padding: '32px 24px' }}>
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add Admin</div>
+        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add Admin</div>
         <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
           <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Email" style={inputStyle} />
           <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Name" style={inputStyle} />
@@ -94,20 +94,20 @@ export default function AdminEditor({ onBack }) {
       </div>
 
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Current Admins</div>
-        <p style={{ fontSize: '12px', color: '#8494b0', margin: '0 0 16px' }}>
+        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Current Admins</div>
+        <p style={{ fontSize: '12px', color: 'var(--vfo-faint)', margin: '0 0 16px' }}>
           The four key tabs (Advisors, Accountants, Strategic Members, Specialists) are open to every admin. Tick the boxes below to grant an admin access to any of the three managed tabs.
         </p>
-        {loading && <p style={{ color: '#4e6087', fontSize: '14px' }}>Loading...</p>}
+        {loading && <p style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>Loading...</p>}
         {admins.map(admin => {
           const isSuper = admin.email.toLowerCase() === myEmail
           const tabs = admin.allowed_tabs || []
           return (
-            <div key={admin.email} style={{ padding: '14px 0', borderBottom: '1px solid #eef2f9' }}>
+            <div key={admin.email} style={{ padding: '14px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isSuper ? 0 : '10px' }}>
                 <div>
-                  <span style={{ fontSize: '14px', color: '#16264a', fontWeight: 600 }}>{admin.name}</span>
-                  <span style={{ fontSize: '13px', color: '#4e6087', marginLeft: '12px' }}>{admin.email}</span>
+                  <span style={{ fontSize: '14px', color: 'var(--vfo-ink)', fontWeight: 600 }}>{admin.name}</span>
+                  <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginLeft: '12px' }}>{admin.email}</span>
                   {isSuper && <span style={{ fontSize: '11px', color: '#0a85e8', fontWeight: 700, marginLeft: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Superadmin · all tabs</span>}
                 </div>
                 {!isSuper && (
@@ -120,12 +120,12 @@ export default function AdminEditor({ onBack }) {
               {!isSuper && (
                 <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap', alignItems: 'center' }}>
                   {TAB_OPTIONS.map(t => (
-                    <label key={t.key} style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '13px', color: '#16264a', cursor: 'pointer' }}>
+                    <label key={t.key} style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '13px', color: 'var(--vfo-ink)', cursor: 'pointer' }}>
                       <input type="checkbox" checked={tabs.includes(t.key)} disabled={!!savingTabs[admin.email]} onChange={() => toggleTab(admin, t.key)} style={{ accentColor: '#125ecc', cursor: 'pointer' }} />
                       {t.label}
                     </label>
                   ))}
-                  {savingTabs[admin.email] && <span style={{ fontSize: '12px', color: '#8494b0' }}>Saving…</span>}
+                  {savingTabs[admin.email] && <span style={{ fontSize: '12px', color: 'var(--vfo-faint)' }}>Saving…</span>}
                 </div>
               )}
             </div>

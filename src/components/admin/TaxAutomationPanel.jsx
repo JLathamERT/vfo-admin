@@ -21,7 +21,7 @@ const STAGE_LABELS = {
 }
 
 const STAGE_COLORS = {
-  not_started: '#4e6087',
+  not_started: 'var(--vfo-muted)',
   ready_for_tax3: '#0095ff',
   decision: '#7c3aed',
   final_decision: '#e06717',
@@ -130,7 +130,7 @@ function ExpandedRow({ row, onRefresh }) {
   )
 
   return (
-    <div style={{ padding: '12px 24px 18px 48px', background: '#eef2f9', borderBottom: '1px solid #f4f7fb' }}>
+    <div style={{ padding: '12px 24px 18px 48px', background: 'var(--vfo-tint)', borderBottom: '1px solid var(--vfo-tint)' }}>
 
       <StepCard title="Ready for Tax 3 — Email" status={sReady}>
         {row.ready_for_tax3_decision ? (
@@ -284,7 +284,7 @@ function ExpandedRow({ row, onRefresh }) {
           : <Pending />}
       </StepCard>
 
-      <div style={{ marginTop: '10px', fontSize: '10px', color: '#7c8aa6' }}>
+      <div style={{ marginTop: '10px', fontSize: '10px', color: 'var(--vfo-faint)' }}>
         Plan #{row.id} · Created {fmtDate(row.created_at)}
       </div>
     </div>
@@ -309,15 +309,15 @@ function SandboxToggleModal({ currentlySandbox, onConfirm, onCancel, saving }) {
   const isGoingLive = switchingTo === 'LIVE'
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,25,60,0.45)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, fontFamily: '"Inter", sans-serif' }}>
-      <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: 16, padding: 32, maxWidth: 440, width: '90%', boxShadow: '0 24px 64px rgba(10,25,60,0.25)' }}>
-        <h2 style={{ fontFamily: 'Inter, sans-serif', fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', color: '#002973', margin: '0 0 12px' }}>Switch Tax pipeline to {switchingTo} mode?</h2>
-        <p style={{ fontSize: 14, color: '#4e6087', lineHeight: 1.6, margin: '0 0 24px' }}>
+      <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: 16, padding: 32, maxWidth: 440, width: '90%', boxShadow: '0 24px 64px rgba(10,25,60,0.25)' }}>
+        <h2 style={{ fontFamily: 'Inter, sans-serif', fontSize: 19, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--vfo-heading)', margin: '0 0 12px' }}>Switch Tax pipeline to {switchingTo} mode?</h2>
+        <p style={{ fontSize: 14, color: 'var(--vfo-muted)', lineHeight: 1.6, margin: '0 0 24px' }}>
           {isGoingLive
             ? 'This will switch the TAX automation pipeline to use LIVE Stripe + BoldSign keys. Real emails will be sent to real clients and real cards will be charged. Are you sure?'
             : 'This will switch back to sandbox mode. Emails route to sandbox_email and Stripe/BoldSign use test keys.'}
         </p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-          <button onClick={onCancel} disabled={saving} style={{ padding: '10px 20px', borderRadius: 8, border: '1px solid #d6e0ee', background: 'transparent', color: '#4e6087', fontSize: 14, cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+          <button onClick={onCancel} disabled={saving} style={{ padding: '10px 20px', borderRadius: 8, border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: 14, cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit' }}>Cancel</button>
           <button onClick={onConfirm} disabled={saving} style={{ padding: '10px 20px', borderRadius: 8, border: 'none', background: isGoingLive ? '#ef4444' : '#e06717', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit', opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : `Switch to ${switchingTo}`}</button>
         </div>
       </div>
@@ -380,7 +380,7 @@ export default function TaxAutomationPanel({ programScope = 'holistic' }) {
     sandbox: rows.filter(p => p.sandbox).length,
   }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: 60, color: '#4e6087' }}>Loading…</div>
+  if (loading) return <div style={{ textAlign: 'center', padding: 60, color: 'var(--vfo-muted)' }}>Loading…</div>
 
   return (
     <div style={{ padding: 24, maxWidth: 1400, margin: '0 auto' }}>
@@ -389,7 +389,7 @@ export default function TaxAutomationPanel({ programScope = 'holistic' }) {
         title={programScope === 'standalone' ? 'Tax Planning Automation' : 'Holistic Tax Priorities Automation'}
         action={<SandboxBadge config={sandboxConfig} onClick={() => setShowModeModal(true)} />}
         stats={[
-          { label: 'TOTAL', value: stats.total, color: '#16264a' },
+          { label: 'TOTAL', value: stats.total, color: 'var(--vfo-ink)' },
           { label: 'ACTIVE', value: stats.active, color: '#0095ff' },
           { label: 'COMPLETE', value: stats.complete, color: '#16a34a' },
           { label: 'CLOSED', value: stats.closed, color: '#ef4444' },
@@ -405,42 +405,42 @@ export default function TaxAutomationPanel({ programScope = 'holistic' }) {
         <TableCard>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #e3eaf5', background: '#f7f9fc' }}>
+              <tr style={{ borderBottom: '1px solid var(--vfo-border)', background: 'var(--vfo-input)' }}>
                 {['', 'Client', 'Member', 'PF', 'Stage', 'Decision', 'Retainer', 'Payment', 'Started'].map(h => (
-                  <th key={h} style={{ padding: '11px 12px', textAlign: 'left', fontSize: 10, color: '#697a9c', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600, width: h === '' ? 30 : undefined }}>{h}</th>
+                  <th key={h} style={{ padding: '11px 12px', textAlign: 'left', fontSize: 10, color: 'var(--vfo-muted)', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600, width: h === '' ? 30 : undefined }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rows.map(row => {
                 const stage = getCurrentStage(row)
-                const stageColor = STAGE_COLORS[stage] || '#4e6087'
+                const stageColor = STAGE_COLORS[stage] || 'var(--vfo-muted)'
                 const isExpanded = expandedRow === row.id
                 return (
                   <Fragment key={row.id}>
-                    <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid #f4f7fb', cursor: 'pointer', background: isExpanded ? '#eef2f9' : 'transparent' }}
+                    <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--vfo-tint)', cursor: 'pointer', background: isExpanded ? 'var(--vfo-tint)' : 'transparent' }}
                       onClick={() => setExpandedRow(isExpanded ? null : row.id)}
-                      onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = '#eef2f9' }}
+                      onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = 'var(--vfo-tint)' }}
                       onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = 'transparent' }}>
-                      <td style={{ padding: '12px 8px', fontSize: 10, color: '#4e6087' }}>
+                      <td style={{ padding: '12px 8px', fontSize: 10, color: 'var(--vfo-muted)' }}>
                         <span style={{ display: 'inline-block', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
                       </td>
-                      <td style={{ padding: 12, fontSize: 14, color: '#16264a' }}>
+                      <td style={{ padding: 12, fontSize: 14, color: 'var(--vfo-ink)' }}>
                         <div>{row.client_name || row.client_ref || '—'}</div>
-                        {row.client_ref && row.client_name && <div style={{ fontSize: 11, color: '#697a9c' }}>{row.client_ref}</div>}
+                        {row.client_ref && row.client_name && <div style={{ fontSize: 11, color: 'var(--vfo-muted)' }}>{row.client_ref}</div>}
                         {row.sandbox && <span style={{ fontSize: 10, color: '#e06717', fontWeight: 600, fontStyle: 'italic' }}>sandbox</span>}
                       </td>
-                      <td style={{ padding: 12, fontSize: 13, color: '#4e6087' }}>{row.member_name || row.member_number || '—'}</td>
-                      <td style={{ padding: 12, fontSize: 13, color: '#4e6087' }}>{row.assigned_pf || '—'}</td>
+                      <td style={{ padding: 12, fontSize: 13, color: 'var(--vfo-muted)' }}>{row.member_name || row.member_number || '—'}</td>
+                      <td style={{ padding: 12, fontSize: 13, color: 'var(--vfo-muted)' }}>{row.assigned_pf || '—'}</td>
                       <td style={{ padding: 12 }}>
                         <span style={{ padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: `${stageColor}18`, color: stageColor, border: `1px solid ${stageColor}33` }}>
                           {STAGE_LABELS[stage] || stage}
                         </span>
                       </td>
-                      <td style={{ padding: 12, fontSize: 13, color: '#4e6087' }}>{row.tax_final_decision || row.tax_decision || '—'}</td>
-                      <td style={{ padding: 12, fontSize: 13, color: '#4e6087' }}>{fmtMoney(row.retainer_amount) ? `$${fmtMoney(row.retainer_amount)}` : '—'}</td>
-                      <td style={{ padding: 12, fontSize: 13, color: '#4e6087' }}>{row.retainer_status || '—'}</td>
-                      <td style={{ padding: 12, fontSize: 12, color: '#697a9c' }}>{row.created_at ? row.created_at.split('T')[0] : '—'}</td>
+                      <td style={{ padding: 12, fontSize: 13, color: 'var(--vfo-muted)' }}>{row.tax_final_decision || row.tax_decision || '—'}</td>
+                      <td style={{ padding: 12, fontSize: 13, color: 'var(--vfo-muted)' }}>{fmtMoney(row.retainer_amount) ? `$${fmtMoney(row.retainer_amount)}` : '—'}</td>
+                      <td style={{ padding: 12, fontSize: 13, color: 'var(--vfo-muted)' }}>{row.retainer_status || '—'}</td>
+                      <td style={{ padding: 12, fontSize: 12, color: 'var(--vfo-muted)' }}>{row.created_at ? row.created_at.split('T')[0] : '—'}</td>
                     </tr>
                     {isExpanded && (
                       <tr>

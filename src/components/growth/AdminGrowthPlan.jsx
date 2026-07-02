@@ -65,7 +65,7 @@ export default function AdminGrowthPlan({ member, activeStep, onNavigate }) {
 
 function GpMsg({ text, retry }) {
   return (
-    <div style={{ padding: '40px', textAlign: 'center', color: '#5b6b8c', fontSize: '14px' }}>
+    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--vfo-muted)', fontSize: '14px' }}>
       {text}
       {retry && (
         <div style={{ marginTop: '12px' }}>

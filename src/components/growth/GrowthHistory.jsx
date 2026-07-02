@@ -86,7 +86,7 @@ export default function GrowthHistory({ memberNumber, onNavigate }) {
 
 function HistoryRow({ h }) {
   return (
-    <div style={{ display: 'flex', gap: '12px', padding: '11px 0', borderTop: '1px solid #eef2f9' }}>
+    <div style={{ display: 'flex', gap: '12px', padding: '11px 0', borderTop: '1px solid var(--vfo-tint)' }}>
       <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: BLUE, flexShrink: 0, marginTop: '6px' }} />
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: '13px', fontWeight: 600, color: INK }}>{EVENT_LABEL[h.event] || h.event}{detailSummary(h)}</div>
@@ -122,11 +122,11 @@ function ArchivedRow({ s, memberNumber }) {
   const onePage = (snap?.actions || []).filter(a => a.g3_status === 'one_page_plan').sort((a, b) => a.action_number - b.action_number)
 
   return (
-    <div style={{ borderTop: '1px solid #eef2f9' }}>
+    <div style={{ borderTop: '1px solid var(--vfo-tint)' }}>
       <button onClick={toggle} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '12px 0', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}>
         <span style={{ fontSize: '13px', fontWeight: 600, color: INK }}>{fmtDate(s.completed_at || s.created_at)}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <span style={{ fontSize: '12px', color: MUTED }}>Score <strong style={{ color: NAVY }}>{s.composite_score ?? 'N/A'}</strong></span>
+          <span style={{ fontSize: '12px', color: MUTED }}>Score <strong style={{ color: 'var(--vfo-heading)' }}>{s.composite_score ?? 'N/A'}</strong></span>
           <span style={{ color: MUTED, fontSize: '11px' }}>{open ? '▲' : '▼'}</span>
         </span>
       </button>
@@ -142,7 +142,7 @@ function ArchivedRow({ s, memberNumber }) {
                     <tbody>
                       {onePage.map((a, i) => (
                         <tr key={a.id}>
-                          <td style={{ ...td, fontWeight: 700, color: NAVY }}>{i + 1}</td>
+                          <td style={{ ...td, fontWeight: 700, color: 'var(--vfo-heading)' }}>{i + 1}</td>
                           <td style={td}>{a.action_text}</td>
                           <td style={td}>{a.owned_by || '—'}</td>
                           <td style={td}>{cap(a.value_level)}</td>
@@ -161,10 +161,10 @@ function ArchivedRow({ s, memberNumber }) {
 }
 
 function GpMsg({ text }) {
-  return <div style={{ padding: '40px', textAlign: 'center', color: '#5b6b8c', fontSize: '14px' }}>{text}</div>
+  return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--vfo-muted)', fontSize: '14px' }}>{text}</div>
 }
 
-const sectionTitle = { fontSize: '13px', fontWeight: 800, color: NAVY, marginBottom: '4px' }
+const sectionTitle = { fontSize: '13px', fontWeight: 800, color: 'var(--vfo-heading)', marginBottom: '4px' }
 const emptyText = { fontSize: '12.5px', color: MUTED, paddingTop: '10px' }
-const th = (w) => ({ textAlign: 'left', fontSize: '9.5px', fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: '#7c8aa6', padding: '6px 10px', borderBottom: '2px solid #eef2f9', width: w ? `${w}px` : 'auto' })
-const td = { fontSize: '12.5px', color: INK, padding: '8px 10px', borderBottom: '1px solid #eef2f9', verticalAlign: 'top', lineHeight: 1.4 }
+const th = (w) => ({ textAlign: 'left', fontSize: '9.5px', fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--vfo-faint)', padding: '6px 10px', borderBottom: '2px solid var(--vfo-tint)', width: w ? `${w}px` : 'auto' })
+const td = { fontSize: '12.5px', color: INK, padding: '8px 10px', borderBottom: '1px solid var(--vfo-tint)', verticalAlign: 'top', lineHeight: 1.4 }

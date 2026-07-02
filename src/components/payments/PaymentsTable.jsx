@@ -9,10 +9,10 @@ const STATUS = {
   paid:       { label: 'Paid',              fg: '#1a7f5a', bg: '#e7f5ee' },
   processing: { label: 'Processing',        fg: '#9a6700', bg: '#fdf3d8' },
   failed:     { label: 'Failed',            fg: '#b42318', bg: '#fdecea' },
-  refunded:   { label: 'Refunded',          fg: '#475467', bg: '#eef2f9' },
+  refunded:   { label: 'Refunded',          fg: '#475467', bg: 'var(--vfo-tint)' },
   scheduled:  { label: 'Scheduled',         fg: '#1570ef', bg: '#e3effd' },
   awaiting:   { label: 'Awaiting decision', fg: '#7839ee', bg: '#f0e9fe' },
-  unpaid:     { label: 'Not paid',          fg: '#667085', bg: '#f2f4f7' },
+  unpaid:     { label: 'Not paid',          fg: 'var(--vfo-faint)', bg: '#f2f4f7' },
 }
 
 // Other-context tags (member / specialist rows). Client rows (MAP 1 / Tax / PIP)
@@ -30,7 +30,7 @@ const PIPELINE_TAG = {
 // The Holistic vs Tax Planning split for a Tax row is read off its label
 // ("Tax Planning — …" = program 4, else Holistic). Non-client rows keep their
 // context tag (ADVISOR / PAYOUT / BG CHECK / LICENSE).
-const HOLISTIC_TAG = { text: 'HOLISTIC', fg: '#1d4ed8', bg: '#e6eefe' }
+const HOLISTIC_TAG = { text: 'HOLISTIC', fg: '#1d4ed8', bg: 'var(--vfo-tint)' }
 const TAXPLANNING_TAG = { text: 'TAX PLANNING', fg: '#0e7490', bg: '#cffafe' }
 const TAX_TAG = { text: 'TAX', fg: '#854d0e', bg: '#fdf0d9' }   // tax payout, program not on the transfer
 function rowTag(r) {
@@ -38,13 +38,13 @@ function rowTag(r) {
   if (r.pipeline === 'Tax') return /^Tax Planning/.test(r.label || '') ? TAXPLANNING_TAG : HOLISTIC_TAG
   if (r.pipeline === 'Tax-Payout') return TAX_TAG
   const t = PIPELINE_TAG[r.pipeline]
-  return t ? { text: t, fg: '#4e6087', bg: '#eef2f9' } : null
+  return t ? { text: t, fg: 'var(--vfo-muted)', bg: 'var(--vfo-tint)' } : null
 }
 
 // Person-type tag colours for the global (admin) Payments page — shown in the Person
 // column + the "Who" filter chips. Absent on the per-person tabs (rows carry no person).
 const PTYPE_TAG = {
-  Client:     { fg: '#1d4ed8', bg: '#e6eefe' },
+  Client:     { fg: '#1d4ed8', bg: 'var(--vfo-tint)' },
   Member:     { fg: '#7839ee', bg: '#f0e9fe' },
   Specialist: { fg: '#0e7490', bg: '#cffafe' },
 }
@@ -105,7 +105,7 @@ function groupKeyOf(r) {
   return null
 }
 
-function Tag({ children, fg = '#4e6087', bg = '#eef2f9' }) {
+function Tag({ children, fg = 'var(--vfo-muted)', bg = 'var(--vfo-tint)' }) {
   return (
     <span style={{ display: 'inline-block', padding: '1px 7px', borderRadius: '5px', background: bg, color: fg, fontSize: '10px', fontWeight: 700, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
       {children}
@@ -121,7 +121,7 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
 
   if (!rows.length) {
     return (
-      <div style={{ padding: '28px 16px', textAlign: 'center', color: '#667085', fontSize: '13.5px', background: '#f8fafd', border: '1px dashed #dde5f2', borderRadius: '12px' }}>
+      <div style={{ padding: '28px 16px', textAlign: 'center', color: 'var(--vfo-faint)', fontSize: '13.5px', background: '#f8fafd', border: '1px dashed var(--vfo-border-chip)', borderRadius: '12px' }}>
         {emptyText}
       </div>
     )
@@ -174,11 +174,11 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
     g.rows.push(r)
   }
 
-  const chipStyle = (active) => ({ padding: '5px 13px', background: active ? '#125ecc' : '#eef2f9', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : '#4e6087', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' })
+  const chipStyle = (active) => ({ padding: '5px 13px', background: active ? '#125ecc' : 'var(--vfo-tint)', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' })
   const chipCount = (active) => ({ marginLeft: '5px', opacity: active ? 0.85 : 0.6, fontWeight: 700 })
 
-  const th = { textAlign: 'left', padding: '8px 12px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#7a89a8', borderBottom: '1px solid #e3eaf5', whiteSpace: 'nowrap' }
-  const td = { padding: '12px', fontSize: '13px', color: '#16264a', borderBottom: '1px solid #eef2f7', verticalAlign: 'top' }
+  const th = { textAlign: 'left', padding: '8px 12px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#7a89a8', borderBottom: '1px solid var(--vfo-border)', whiteSpace: 'nowrap' }
+  const td = { padding: '12px', fontSize: '13px', color: 'var(--vfo-ink)', borderBottom: '1px solid var(--vfo-border-soft)', verticalAlign: 'top' }
 
   // One data row. Used for standalone rows AND, with child=true, the installment rows
   // tucked under an expanded group parent (indented + lighter, no repeated person/tag).
@@ -188,7 +188,7 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
     return (
       <tr key={r.key} style={{ ...(onBehalf ? { background: '#fffaf2' } : null), ...(child ? { background: '#fbfcfe' } : null) }}>
         <td style={td} />
-        <td style={{ ...td, whiteSpace: 'nowrap', color: '#4e6087', ...(child ? { paddingLeft: '14px' } : null) }}>{fmtDate(r.date)}</td>
+        <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--vfo-muted)', ...(child ? { paddingLeft: '14px' } : null) }}>{fmtDate(r.date)}</td>
         {hasPerson && (
           <td style={{ ...td, whiteSpace: 'nowrap' }}>
             {!child && <div style={{ fontWeight: 600 }}>{r.person}</div>}
@@ -200,21 +200,21 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
         <td style={td}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             {!child && tg && <Tag fg={tg.fg} bg={tg.bg}>{tg.text}</Tag>}
-            <span style={{ fontWeight: child ? 500 : 600, color: child ? '#475467' : '#16264a' }}>{r.label}</span>
+            <span style={{ fontWeight: child ? 500 : 600, color: child ? '#475467' : 'var(--vfo-ink)' }}>{r.label}</span>
           </div>
-          {r.detail && <div style={{ fontSize: '12px', color: '#667085', marginTop: '3px' }}>{r.detail}</div>}
+          {r.detail && <div style={{ fontSize: '12px', color: 'var(--vfo-faint)', marginTop: '3px' }}>{r.detail}</div>}
           {onBehalf && <div style={{ marginTop: '5px' }}><Tag fg="#8a5200" bg="#fcefd6">Paid by {r.onBehalfByMember} — not the client’s own payment</Tag></div>}
-          {r.onBehalfForClient && <div style={{ marginTop: '5px' }}><Tag fg="#1d4ed8" bg="#e6eefe">On behalf of {r.onBehalfForClient}</Tag></div>}
+          {r.onBehalfForClient && <div style={{ marginTop: '5px' }}><Tag fg="#1d4ed8" bg="var(--vfo-tint)">On behalf of {r.onBehalfForClient}</Tag></div>}
           {(r.invoiceNumber || r.receiptNumber) && (
-            <div style={{ fontSize: '11px', color: '#94a3bd', marginTop: '5px', fontFamily: 'ui-monospace, monospace' }}>
+            <div style={{ fontSize: '11px', color: 'var(--vfo-placeholder)', marginTop: '5px', fontFamily: 'ui-monospace, monospace' }}>
               {[r.invoiceNumber, r.receiptNumber].filter(Boolean).join('  ·  ')}
             </div>
           )}
         </td>
-        <td style={{ ...td, whiteSpace: 'nowrap', color: '#4e6087' }}>{fmtMethod(r.method, r.last4)}</td>
+        <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--vfo-muted)' }}>{fmtMethod(r.method, r.last4)}</td>
         <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-          <div style={{ fontWeight: 700, color: r.amount < 0 ? '#b42318' : '#16264a' }}>{fmtMoney((r.amount || 0) - (r.fee || 0))}</div>
-          {r.fee > 0 && <div style={{ fontSize: '11px', color: '#94a3bd', marginTop: '2px', fontWeight: 500 }}>+ {fmtMoney(r.fee)} fee</div>}
+          <div style={{ fontWeight: 700, color: r.amount < 0 ? '#b42318' : 'var(--vfo-ink)' }}>{fmtMoney((r.amount || 0) - (r.fee || 0))}</div>
+          {r.fee > 0 && <div style={{ fontSize: '11px', color: 'var(--vfo-placeholder)', marginTop: '2px', fontWeight: 500 }}>+ {fmtMoney(r.fee)} fee</div>}
         </td>
         <td style={td}><StatusPill status={r.status} /></td>
       </tr>
@@ -247,11 +247,11 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
     const open = !!expanded[g.key]
     return (
       <Fragment key={g.key}>
-        <tr onClick={() => setExpanded(p => ({ ...p, [g.key]: !p[g.key] }))} style={{ cursor: 'pointer', background: open ? '#f4f7fd' : '#ffffff' }}>
-          <td style={{ ...td, padding: '12px 4px', textAlign: 'center', color: '#5b6b8c' }}>
+        <tr onClick={() => setExpanded(p => ({ ...p, [g.key]: !p[g.key] }))} style={{ cursor: 'pointer', background: open ? 'var(--vfo-page)' : 'var(--vfo-card)' }}>
+          <td style={{ ...td, padding: '12px 4px', textAlign: 'center', color: 'var(--vfo-muted)' }}>
             <span style={{ fontSize: '18px', lineHeight: 1, fontWeight: 700 }}>{open ? '▾' : '▸'}</span>
           </td>
-          <td style={{ ...td, whiteSpace: 'nowrap', color: '#4e6087' }}>{fmtDate(startDate)}</td>
+          <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--vfo-muted)' }}>{fmtDate(startDate)}</td>
           {hasPerson && (
             <td style={{ ...td, whiteSpace: 'nowrap' }}>
               <div style={{ fontWeight: 600 }}>{first.person}</div>
@@ -265,14 +265,14 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
               {tg && <Tag fg={tg.fg} bg={tg.bg}>{tg.text}</Tag>}
               <span style={{ fontWeight: 700 }}>{groupLabel}</span>
             </div>
-            <div style={{ fontSize: '12px', color: '#667085', marginTop: '3px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--vfo-faint)', marginTop: '3px' }}>
               {kids.length} {noun}
             </div>
           </td>
-          <td style={{ ...td, whiteSpace: 'nowrap', color: '#4e6087' }}>{fmtMethod(latest.method, latest.last4)}</td>
+          <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--vfo-muted)' }}>{fmtMethod(latest.method, latest.last4)}</td>
           <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-            <div style={{ fontWeight: 700, color: total < 0 ? '#b42318' : '#16264a' }}>{fmtMoney(total - feeTotal)}</div>
-            {feeTotal > 0 && <div style={{ fontSize: '11px', color: '#94a3bd', marginTop: '2px', fontWeight: 500 }}>+ {fmtMoney(feeTotal)} fee</div>}
+            <div style={{ fontWeight: 700, color: total < 0 ? '#b42318' : 'var(--vfo-ink)' }}>{fmtMoney(total - feeTotal)}</div>
+            {feeTotal > 0 && <div style={{ fontSize: '11px', color: 'var(--vfo-placeholder)', marginTop: '2px', fontWeight: 500 }}>+ {fmtMoney(feeTotal)} fee</div>}
           </td>
           <td style={td}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>

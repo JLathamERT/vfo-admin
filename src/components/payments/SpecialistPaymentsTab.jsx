@@ -8,8 +8,8 @@ import PaymentsHeader from './PaymentsHeader'
 // background-check payment + the full monthly $99 license history. The license
 // history is pulled live from Stripe by specialist_payments_load (only the latest
 // month is stored locally), so it reflects the real subscription invoices.
-const cardStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px' }
-const titleStyle = { fontSize: '17px', fontWeight: 800, color: '#002973', margin: '0 0 16px', fontFamily: 'Inter, sans-serif' }
+const cardStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px' }
+const titleStyle = { fontSize: '17px', fontWeight: 800, color: 'var(--vfo-heading)', margin: '0 0 16px', fontFamily: 'Inter, sans-serif' }
 
 export default function SpecialistPaymentsTab({ expertId }) {
   const [data, setData] = useState(null)
@@ -56,7 +56,7 @@ export default function SpecialistPaymentsTab({ expertId }) {
     <div style={cardStyle}>
       <PaymentsHeader personType="specialist" personRef={expertId} />
       {data && !data.has_onboarding && (
-        <div style={{ marginBottom: '14px', padding: '10px 14px', background: '#eef2f9', border: '1px solid #dde5f2', borderRadius: '10px', color: '#4e6087', fontSize: '12.5px' }}>
+        <div style={{ marginBottom: '14px', padding: '10px 14px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '10px', color: 'var(--vfo-muted)', fontSize: '12.5px' }}>
           No onboarding record is linked to this specialist, so there are no background-check or license payments to show (they were likely added to the directory manually).
         </div>
       )}

@@ -33,21 +33,21 @@ function SearchSelect({ options, value, onChange, placeholder }) {
   return (
     <div ref={boxRef} style={{ position: 'relative' }}>
       <button type="button" onClick={() => setOpen(o => !o)}
-        style={{ width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d6e0f0', background: '#fff', fontSize: '13px', color: selected ? '#16264a' : '#9aa7be', cursor: 'pointer', fontFamily: 'Inter, sans-serif', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+        style={{ width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', fontSize: '13px', color: selected ? 'var(--vfo-ink)' : 'var(--vfo-faint)', cursor: 'pointer', fontFamily: 'Inter, sans-serif', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected ? selected.label : (placeholder || 'Select…')}</span>
         <span style={{ fontSize: '10px', opacity: 0.6 }}>▾</span>
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '4px', background: '#fff', border: '1px solid #e3eaf5', borderRadius: '10px', zIndex: 50, boxShadow: '0 14px 36px rgba(20,45,95,0.16)', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '4px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border)', borderRadius: '10px', zIndex: 50, boxShadow: '0 14px 36px rgba(20,45,95,0.16)', overflow: 'hidden' }}>
           <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Search…"
-            style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: 'none', borderBottom: '1px solid #eef2f9', fontSize: '13px', outline: 'none', fontFamily: 'Inter, sans-serif' }} />
+            style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: 'none', borderBottom: '1px solid var(--vfo-tint)', fontSize: '13px', outline: 'none', fontFamily: 'Inter, sans-serif' }} />
           <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
-            {filtered.length === 0 && <div style={{ padding: '12px', fontSize: '12px', color: '#9aa7be' }}>No matches</div>}
+            {filtered.length === 0 && <div style={{ padding: '12px', fontSize: '12px', color: 'var(--vfo-faint)' }}>No matches</div>}
             {filtered.map(o => (
               <button key={o.key} type="button" onClick={() => { onChange(o.key); setOpen(false); setQuery('') }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', background: o.key === value ? '#eef2f9' : 'transparent', color: '#16264a', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
-                onMouseLeave={e => e.currentTarget.style.background = o.key === value ? '#eef2f9' : 'transparent'}>
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', background: o.key === value ? 'var(--vfo-tint)' : 'transparent', color: 'var(--vfo-ink)', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-tint)'}
+                onMouseLeave={e => e.currentTarget.style.background = o.key === value ? 'var(--vfo-tint)' : 'transparent'}>
                 {o.label}
               </button>
             ))}
@@ -171,17 +171,17 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
   }
 
   const wrap = { padding: '24px', maxWidth: '1100px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
-  const card = { background: '#fff', border: '1px solid #e9eef8', borderRadius: '16px', padding: '22px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', marginBottom: '20px' }
-  const numInput = { width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d6e0f0', fontSize: '13px', fontFamily: 'Inter, sans-serif', outline: 'none' }
-  const reqBorder = (v) => String(v).trim() === '' ? '1px solid #f3c0c0' : '1px solid #d6e0f0'
-  const colLabel = { fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: '#697a9c' }
+  const card = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', padding: '22px', boxShadow: 'var(--vfo-shadow-card)', marginBottom: '20px' }
+  const numInput = { width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', fontSize: '13px', fontFamily: 'Inter, sans-serif', outline: 'none' }
+  const reqBorder = (v) => String(v).trim() === '' ? '1px solid #f3c0c0' : '1px solid var(--vfo-border-strong)'
+  const colLabel = { fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)' }
   const grid = '1fr 150px 150px 110px 36px'
 
   return (
     <div style={wrap}>
       <div style={{ marginBottom: '20px' }}>
         <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 6px' }}>Accounting</p>
-        <h2 style={{ fontSize: '24px', fontWeight: 800, color: NAVY, margin: 0 }}>VFO Specialist Payment Input</h2>
+        <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>VFO Specialist Payment Input</h2>
       </div>
 
       {result && (
@@ -207,7 +207,7 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
 
       {/* Recipient lines */}
       <div style={card}>
-        <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '12px', alignItems: 'end', paddingBottom: '10px', borderBottom: '1px solid #eef2f9' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '12px', alignItems: 'end', paddingBottom: '10px', borderBottom: '1px solid var(--vfo-tint)' }}>
           <div style={colLabel}>Member / Recipient</div>
           <div style={colLabel}>VFOS Share $</div>
           <div style={colLabel}>Member Share $</div>
@@ -216,13 +216,13 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
         </div>
 
         {lines.length === 0 && (
-          <div style={{ padding: '20px 0', textAlign: 'center', color: '#9aa7be', fontSize: '13px' }}>No recipients yet — click "Add member" to start.</div>
+          <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--vfo-faint)', fontSize: '13px' }}>No recipients yet — click "Add member" to start.</div>
         )}
 
         {lines.map(l => {
           const r = l.recipientKey ? recipientByKey[l.recipientKey] : null
           return (
-            <div key={l.id} style={{ display: 'grid', gridTemplateColumns: grid, gap: '12px', alignItems: 'start', padding: '14px 0', borderBottom: '1px solid #f4f7fb' }}>
+            <div key={l.id} style={{ display: 'grid', gridTemplateColumns: grid, gap: '12px', alignItems: 'start', padding: '14px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
               <div>
                 <SearchSelect options={recipientOptions} value={l.recipientKey} onChange={k => updateLine(l.id, { recipientKey: k })} placeholder="Select a member…" />
                 {r && <RevenueBadge decision={r.revenue_decision} />}
@@ -238,17 +238,17 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
 
         {/* Totals row aligned to columns */}
         {lines.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '12px', alignItems: 'center', padding: '14px 0 4px', borderTop: '2px solid #e9eef8', marginTop: '2px' }}>
-            <div style={{ fontWeight: 700, color: NAVY, fontSize: '13px' }}>Totals</div>
-            <div style={{ fontWeight: 700, color: '#16264a', fontSize: '13px' }}>{money(totals.vfos)}</div>
-            <div style={{ fontWeight: 700, color: '#16264a', fontSize: '13px' }}>{money(totals.member)}</div>
-            <div style={{ fontWeight: 700, color: '#16264a', fontSize: '13px' }}>{totals.deals}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '12px', alignItems: 'center', padding: '14px 0 4px', borderTop: '2px solid var(--vfo-border-soft)', marginTop: '2px' }}>
+            <div style={{ fontWeight: 700, color: 'var(--vfo-heading)', fontSize: '13px' }}>Totals</div>
+            <div style={{ fontWeight: 700, color: 'var(--vfo-ink)', fontSize: '13px' }}>{money(totals.vfos)}</div>
+            <div style={{ fontWeight: 700, color: 'var(--vfo-ink)', fontSize: '13px' }}>{money(totals.member)}</div>
+            <div style={{ fontWeight: 700, color: 'var(--vfo-ink)', fontSize: '13px' }}>{totals.deals}</div>
             <div />
           </div>
         )}
 
         <button type="button" onClick={addLine}
-          style={{ marginTop: '14px', padding: '9px 16px', borderRadius: '8px', border: `1px solid ${BLUE}`, background: '#fff', color: BLUE, fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          style={{ marginTop: '14px', padding: '9px 16px', borderRadius: '8px', border: `1px solid ${BLUE}`, background: 'var(--vfo-card)', color: BLUE, fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
           + Add member
         </button>
       </div>
@@ -257,7 +257,7 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
       <div style={{ ...card, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <div style={colLabel}>Total gross (charged to specialist)</div>
-          <div style={{ fontSize: '28px', fontWeight: 800, color: NAVY, marginTop: '4px' }}>{money(totals.gross)}</div>
+          <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--vfo-heading)', marginTop: '4px' }}>{money(totals.gross)}</div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
           <button type="button" disabled={!canSend} onClick={send}
