@@ -30,7 +30,7 @@ The 32 `msm_*` actions fall into 5 subsystems. Each is a small CRUD island — n
 
 | Action | Tables | Notes |
 |---|---|---|
-| `msm_load_training_track` | `program_training_phases`, `program_training_tasks` | The training curriculum template. |
+| `msm_load_training_track` | `program_training_phases`, `program_training_tasks` | The training curriculum template. `program_training_tasks.task_type` ∈ `'dropdown'`\|`'section'`\|`'substep'`: `'section'` rows are label-only sub-headings (never counted), `'substep'` rows render indented inside the enclosing section box — see gotcha #173 + `tables/programs.md`. |
 | `msm_load_training_progress` | `member_training_progress` | Per-enrollment task progress. |
 | `msm_save_training_task` | upserts `member_training_progress` | Keyed by `(enrollment_id, task_id)`. |
 
