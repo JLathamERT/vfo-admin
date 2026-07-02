@@ -29,7 +29,7 @@ const EFFORT_COLS = [{ key: 'low', label: 'Low Effort' }, { key: 'medium', label
 // (top-right) → lightest at low-value/low-effort (bottom-left).
 const V_WEIGHT = { high: 2, medium: 1, low: 0 }
 const E_WEIGHT = { high: 2, medium: 1, low: 0 }
-const CELL_BLUES = ['var(--vfo-tint)', '#c3d9f7', '#94bbef', '#5b93e4', '#2f6fd6']
+const CELL_BLUES = ['#eef2f9', '#c3d9f7', '#94bbef', '#5b93e4', '#2f6fd6']
 function cellBg(vKey, eKey) {
   const d = (V_WEIGHT[vKey] ?? 1) + (E_WEIGHT[eKey] ?? 1)
   return CELL_BLUES[d]
@@ -203,24 +203,26 @@ function Toggle({ on, onClick }) {
   )
 }
 
+// The Value/Effort matrix keeps its designed colors in BOTH themes (Jake's call,
+// 2026-07-02) — every color in this box is a fixed literal on purpose.
 function Matrix({ items, acct, statuses }) {
   const cols = '120px repeat(3, 1fr)'
   const last = VALUE_ROWS.length - 1
   return (
-    <div style={{ border: '1px solid var(--vfo-border-strong)', borderRadius: '12px', overflow: 'hidden' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: cols, background: 'var(--vfo-card)' }}>
-        <div style={{ borderBottom: '1px solid var(--vfo-border-soft)' }} />
+    <div style={{ border: '1px solid #d6e0ee', borderRadius: '12px', overflow: 'hidden' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: cols, background: '#ffffff' }}>
+        <div style={{ borderBottom: '1px solid #e9eef8' }} />
         {EFFORT_COLS.map(c => (
-          <div key={c.key} style={{ ...colHeader, borderBottom: '1px solid var(--vfo-border-soft)' }}>{c.label}</div>
+          <div key={c.key} style={{ ...colHeader, borderBottom: '1px solid #e9eef8' }}>{c.label}</div>
         ))}
       </div>
       {VALUE_ROWS.map((vr, ri) => (
         <div key={vr.key} style={{ display: 'grid', gridTemplateColumns: cols }}>
-          <div style={{ ...rowHeader, background: 'var(--vfo-card)', borderBottom: ri < last ? '1px solid var(--vfo-border-soft)' : 'none' }}>{vr.label}</div>
+          <div style={{ ...rowHeader, background: '#ffffff', borderBottom: ri < last ? '1px solid #e9eef8' : 'none' }}>{vr.label}</div>
           {EFFORT_COLS.map((ec, ci) => {
             const cellItems = items.filter(a => (a.value_level || 'medium') === vr.key && (a.effort_level || 'medium') === ec.key)
             return (
-              <div key={ec.key} style={{ ...matrixCell, background: cellBg(vr.key, ec.key), borderLeft: ci === 0 ? '1px solid var(--vfo-border-soft)' : '1px solid rgba(255,255,255,0.5)', borderBottom: ri < last ? '1px solid rgba(255,255,255,0.5)' : 'none' }}>
+              <div key={ec.key} style={{ ...matrixCell, background: cellBg(vr.key, ec.key), borderLeft: ci === 0 ? '1px solid #e9eef8' : '1px solid rgba(255,255,255,0.5)', borderBottom: ri < last ? '1px solid rgba(255,255,255,0.5)' : 'none' }}>
                 {cellItems.map(a => <MatrixDot key={a.id} num={a.num} color={acct ? STATUS_COLOR[statuses[a.id]] : undefined} dark={acct ? STATUS_DARK[statuses[a.id]] : false} />)}
               </div>
             )
@@ -239,8 +241,8 @@ function MatrixDot({ num, color, dark }) {
   return (
     <div style={{
       width: '34px', height: '34px', borderRadius: '50%',
-      background: color || 'var(--vfo-card)',
-      color: filled ? (dark ? NAVY : '#ffffff') : 'var(--vfo-heading)',
+      background: color || '#ffffff',
+      color: filled ? (dark ? NAVY : '#ffffff') : NAVY,
       fontWeight: 800, fontSize: '14px', fontFamily: 'Inter, sans-serif',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       border: filled ? '2px solid #ffffff' : '2px solid rgba(0,41,115,0.18)',
@@ -342,8 +344,8 @@ function ActionRow({ a, acct, isAdmin, canEdit, dues, statuses, onDue, onStatus,
   )
 }
 
-const colHeader = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--vfo-heading)', textAlign: 'center', padding: '11px 8px' }
-const rowHeader = { fontSize: '11px', fontWeight: 700, color: 'var(--vfo-heading)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', textAlign: 'right', padding: '0 12px' }
+const colHeader = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#002973', textAlign: 'center', padding: '11px 8px' }
+const rowHeader = { fontSize: '11px', fontWeight: 700, color: '#002973', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', textAlign: 'right', padding: '0 12px' }
 const matrixCell = { minHeight: '80px', padding: '10px', display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center', alignItems: 'center', alignContent: 'center' }
 const th = (w) => ({ textAlign: 'left', fontSize: '9.5px', fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--vfo-faint)', padding: '6px 10px', borderBottom: '2px solid var(--vfo-tint)', width: w ? `${w}px` : 'auto' })
 const td = { fontSize: '13px', color: INK, padding: '9px 10px', borderBottom: '1px solid var(--vfo-tint)', verticalAlign: 'top', lineHeight: 1.45 }

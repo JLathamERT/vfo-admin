@@ -247,16 +247,13 @@ const eyebrowLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '1.2p
 const pillOutline = { padding: '8px 16px', borderRadius: '999px', border: `1px solid ${BLUE}`, background: 'transparent', color: BLUE, fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }
 
 function ScoreRing({ value, label, size = 78, primary }) {
-  // Composite = dark blue with white number; sections = much lighter with navy number.
-  const grad = primary
-    ? 'linear-gradient(135deg, #002060 0%, #0a3f9e 100%)'
-    : 'linear-gradient(135deg, var(--vfo-tint-deep) 0%, var(--vfo-tint) 100%)'
-  const numColor = primary ? '#ffffff' : 'var(--vfo-heading)'
-  const shadow = primary ? '0 10px 24px rgba(0,32,96,0.38)' : '0 4px 12px rgba(18,94,204,0.16)'
+  // Fixed white circle with VFO-navy number in BOTH themes (Jake's call,
+  // 2026-07-02) — literals on purpose, do not migrate to var(--vfo-*).
+  const shadow = primary ? '0 10px 24px rgba(0,32,96,0.30)' : '0 4px 12px rgba(18,94,204,0.16)'
   return (
     <div style={{ textAlign: 'center' }}>
-      <div style={{ width: size, height: size, borderRadius: '50%', margin: '0 auto', background: grad, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: shadow }}>
-        <span style={{ color: numColor, fontWeight: 800, fontSize: Math.round(size * 0.36) + 'px', fontFamily: 'Inter, sans-serif', letterSpacing: '-0.02em' }}>{value == null ? 'N/A' : value}</span>
+      <div style={{ width: size, height: size, borderRadius: '50%', margin: '0 auto', background: '#ffffff', border: '1px solid #dbe4f2', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: shadow }}>
+        <span style={{ color: '#002973', fontWeight: 800, fontSize: Math.round(size * 0.36) + 'px', fontFamily: 'Inter, sans-serif', letterSpacing: '-0.02em' }}>{value == null ? 'N/A' : value}</span>
       </div>
       {label && <div style={{ fontSize: '11px', fontWeight: 600, color: MUTED, marginTop: '10px', maxWidth: size + 90, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.35 }}>{label}</div>}
     </div>
