@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
-import { CiqListSkeleton } from './Skeleton'
+import { CiqListSkeleton, SkeletonText } from './Skeleton'
 
 export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true, ciqVfosManaged = true, isAdmin = false }) {
   const [ciqs, setCiqs] = useState([])
@@ -1531,7 +1531,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>
           <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Select Client</div>
           {loadingClients
-            ? <div style={{ padding: '20px', color: 'var(--vfo-muted)', textAlign: 'center' }}>Loading...</div>
+            ? <SkeletonText lines={3} />
             : allClients.length === 0
               ? <div style={{ padding: '20px', color: 'var(--vfo-muted)', textAlign: 'center' }}>No clients found for this member.</div>
               : <>

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { callApi } from '../../lib/api'
 import { NAVY, money } from './specialistRevenueShared'
 import { clearedPayments, inPeriod } from './holisticShared'
+import { AccountingTableSkeleton } from '../shared/Skeleton'
 
 // Accounting > VFO Services > Holistic Planning Revenue. Each payment that actually
 // cleared (hit the bank) in the chosen month/year — connected member, Lite/Core/Max,
@@ -85,7 +86,7 @@ export default function HolisticRevenuePanel() {
         <button onClick={load} style={{ ...sel, color: '#125ecc', fontWeight: 600 }}>Refresh</button>
       </div>
 
-      {loading && <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>Loading…</div>}
+      {loading && <AccountingTableSkeleton cols={8} />}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>{error}</div>}
 
       {!loading && !error && (

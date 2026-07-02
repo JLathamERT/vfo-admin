@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
+import { EmailTemplatesSkeleton } from '../shared/Skeleton'
 
 // Program sections — same six that have automation tabs. The standalone Tax
 // Planning program shares the TAX templates with Holistic Tax Priorities, so
@@ -353,7 +354,7 @@ export default function EmailTemplatesPanel() {
     finally { setLoading(false) }
   }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: 'var(--vfo-muted)' }}>Loading...</div>
+  if (loading) return <EmailTemplatesSkeleton />
 
   // index templates by pipeline + template_name
   const byPipeline = {}

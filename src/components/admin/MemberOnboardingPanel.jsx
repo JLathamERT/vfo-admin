@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { callApi } from '../../lib/api'
 import { NAVY, money } from './specialistRevenueShared'
+import { AccountingTableSkeleton } from '../shared/Skeleton'
 
 // Accounting > Members > Advisor/Accountant Onboarding. The one-time onboarding fee each
 // member paid when they went through onboarding. kind = 'advisor' | 'accountant'.
@@ -88,7 +89,7 @@ export default function MemberOnboardingPanel({ kind = 'advisor', title }) {
         <button onClick={load} style={{ ...sel, color: '#125ecc', fontWeight: 600 }}>Refresh</button>
       </div>
 
-      {loading && <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>Loading…</div>}
+      {loading && <AccountingTableSkeleton cols={6} />}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>{error}</div>}
 
       {!loading && !error && (

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
 import { TrackHero } from '../shared/TrackKit'
 import { NAVY, INK, MUTED, BLUE, cardStyle, accentStrip } from './ui'
+import { SkeletonText } from '../shared/Skeleton'
 
 const EVENT_LABEL = {
   scored: 'Plan scored',
@@ -132,7 +133,7 @@ function ArchivedRow({ s, memberNumber }) {
       </button>
       {open && (
         <div style={{ padding: '0 0 14px' }}>
-          {loading ? <div style={emptyText}>Loading…</div> : (
+          {loading ? <SkeletonText lines={3} /> : (
             onePage.length === 0
               ? <div style={emptyText}>No one-page items in this plan.</div>
               : (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { TokenFormSkeleton } from '../components/shared/Skeleton'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
@@ -108,7 +109,7 @@ export default function MemberSetupPage() {
 
   if (status === 'loading') return (
     <div style={containerStyle}>
-      <p style={{ color: 'var(--vfo-muted)', fontSize: '15px' }}>Loading…</p>
+      <TokenFormSkeleton />
     </div>
   )
 

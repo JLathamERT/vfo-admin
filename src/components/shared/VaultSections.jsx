@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
 import { fileSizeError } from '../../lib/fileUpload'
+import { VaultRowsSkeleton } from './Skeleton'
 
 const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/*,application/pdf'
 
@@ -74,7 +75,7 @@ export default function VaultSections({ actions, params = {}, sections = DEFAULT
           <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '16px' }}>{sec.hint}</p>
 
           {loading ? (
-            <div style={{ color: 'var(--vfo-muted)', fontSize: '13px' }}>Loading…</div>
+            <VaultRowsSkeleton rows={2} />
           ) : (
             <>
               {(data[sec.key] || []).length === 0 && <div style={{ color: 'var(--vfo-muted)', fontSize: '13px', marginBottom: '12px' }}>No documents yet.</div>}

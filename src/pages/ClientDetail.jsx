@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { getSession, callApi, loadCachedData } from '../lib/api'
+import { usePortalTheme } from '../lib/theme'
 import ClientTrackViewV2 from '../components/admin/map1/ClientTrackViewV2'
 import RegularPrioritiesTab from '../components/admin/regular/RegularPrioritiesTab'
 import PipMeetingsTab from '../components/admin/pip/PipMeetingsTab'
@@ -50,6 +51,7 @@ export default function ClientDetail() {
   const navigate = useNavigate()
   const location = useLocation()
   const session = getSession()
+  usePortalTheme()
   console.log('session on client detail:', session)
   const [activeTab, setActiveTab] = useState(new URLSearchParams(window.location.search).get('tab') || 'home')
   const [client, setClient] = useState(null)

@@ -5,14 +5,17 @@ import SpecialistVault from '../components/specialist/SpecialistVault'
 import SpecialistShared from '../components/specialist/SpecialistShared'
 import ChangePasswordCard from '../components/shared/ChangePasswordCard'
 import AppearanceCard from '../components/shared/AppearanceCard'
+import { usePortalTheme } from '../lib/theme'
 import VfoWordmark from '../components/shared/VfoWordmark'
 import MemberShowroom from '../components/member/MemberShowroom'
+import { ShowroomSkeleton } from '../components/shared/Skeleton'
 
 // The specialist portal: two content tabs — their own document vault, and
 // "Shared with Me" (client documents the VFO team shared with them to review).
 export default function SpecialistPortal() {
   const navigate = useNavigate()
   const session = getSession()
+  usePortalTheme()
   const [tab, setTab] = useState('showroom')
   const [unread, setUnread] = useState(0)
   const [showroom, setShowroom] = useState(null)
@@ -70,7 +73,7 @@ export default function SpecialistPortal() {
       {tab === 'showroom' && (
         showroom
           ? <MemberShowroom experts={showroom.experts} exclusions={[]} ecoMap={showroom.ecoMap} />
-          : <div style={{ textAlign: 'center', padding: '60px', color: 'var(--vfo-muted)' }}>Loading…</div>
+          : <ShowroomSkeleton />
       )}
       {tab === 'vault' && (
         <div style={{ maxWidth: '880px', margin: '0 auto', padding: '28px 24px' }}>

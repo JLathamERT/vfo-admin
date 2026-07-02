@@ -3,6 +3,7 @@ import { callApi } from '../../lib/api'
 import { NAVY, money } from './specialistRevenueShared'
 import { inPeriod } from './holisticShared'
 import { clearedTaxPayments } from './taxShared'
+import { AccountingTableSkeleton } from '../shared/Skeleton'
 
 // Accounting > VFO Services > Tax Planning Reconciliation. Pick a year → each member
 // with Tax activity that year and their revenue split from payments that CLEARED in the
@@ -76,7 +77,7 @@ export default function TaxReconciliationPanel() {
         <button onClick={load} style={{ ...sel, color: '#125ecc', fontWeight: 600 }}>Refresh</button>
       </div>
 
-      {loading && <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>Loading…</div>}
+      {loading && <AccountingTableSkeleton cols={6} />}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>{error}</div>}
       {!loading && !error && (
         <div style={{ border: '1px solid var(--vfo-border-soft)', borderRadius: '14px', overflow: 'hidden', background: 'var(--vfo-card)', boxShadow: 'var(--vfo-shadow-card)' }}>

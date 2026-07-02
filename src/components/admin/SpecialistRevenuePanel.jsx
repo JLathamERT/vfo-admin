@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { callApi } from '../../lib/api'
 import { NAVY, money, requestDate, RequestRow } from './specialistRevenueShared'
 import SpecialistPaymentInput from './SpecialistPaymentInput'
+import { OnboardingListSkeleton } from '../shared/Skeleton'
 
 // Accounting → VFO Specialist Revenue. Pick year + month to see the specialist
 // payment requests for that period, expand each to see recipients and statuses.
@@ -128,7 +129,7 @@ export default function SpecialistRevenuePanel({ allExperts = [], allMembers = [
         ))}
       </div>
 
-      {loading && <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>Loading…</div>}
+      {loading && <OnboardingListSkeleton rows={3} />}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>{error}</div>}
       {!loading && !error && filtered.length === 0 && (
         <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>No specialist payments for this period.</div>

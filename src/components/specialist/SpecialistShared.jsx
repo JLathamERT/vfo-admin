@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
+import { VaultRowsSkeleton, SharedDocsSkeleton } from '../shared/Skeleton'
 
 // Specialist "Shared with Me": the clients who have >=1 document shared to THIS
 // specialist → pick a client → that client's shared documents → open in-portal
@@ -55,7 +56,7 @@ export default function SpecialistShared({ onUnreadChange }) {
             <button onClick={backToClients} style={{ background: 'transparent', border: 'none', color: '#125ecc', fontSize: '13px', cursor: 'pointer', padding: 0, marginBottom: '14px', fontWeight: 600 }}>← All clients</button>
             <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>{active.name || `Client #${active.client_id}`}{active.member_name ? ` (${active.member_name})` : ''}</div>
             <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '16px' }}>Documents shared with you. Click View — they open securely in your browser.</p>
-            {docsLoading ? <div style={{ color: 'var(--vfo-muted)', fontSize: '13px' }}>Loading…</div> : (
+            {docsLoading ? <VaultRowsSkeleton rows={2} /> : (
               <>
                 {docs.length === 0 && <div style={{ color: 'var(--vfo-muted)', fontSize: '13px' }}>No documents shared.</div>}
                 {docs.map(doc => (
@@ -73,7 +74,7 @@ export default function SpecialistShared({ onUnreadChange }) {
           <>
             <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Shared with Me</div>
             <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '16px' }}>Client documents your VFO team has shared with you to review.</p>
-            {loading ? <div style={{ color: 'var(--vfo-muted)', fontSize: '13px' }}>Loading…</div> : (
+            {loading ? <SharedDocsSkeleton /> : (
               <>
                 {clients.length === 0 && <div style={{ color: 'var(--vfo-muted)', fontSize: '13px' }}>No documents have been shared with you yet.</div>}
                 {clients.map(c => (

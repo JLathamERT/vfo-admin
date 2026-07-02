@@ -10,14 +10,17 @@ import MemberShowroom from '../components/member/MemberShowroom'
 import MemberGrowthPlan from '../components/member/MemberGrowthPlan'
 import VfoWordmark from '../components/shared/VfoWordmark'
 import AppearanceCard from '../components/shared/AppearanceCard'
+import { usePortalTheme } from '../lib/theme'
 
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
 import vfoCertifiedSeal from '../assets/vfo-certified-emblem.png'
 import vfoAccreditedSeal from '../assets/vfo-accredited-emblem.png'
+import { MemberProfileSkeleton } from '../components/shared/Skeleton'
 
 export default function MemberPortal() {
   const navigate = useNavigate()
   const session = getSession()
+  usePortalTheme()
   const [activeTab, setActiveTab] = useState('profile')
   const [showSettings, setShowSettings] = useState(false)
   const [memberData, setMemberData] = useState(null)
@@ -121,7 +124,7 @@ export default function MemberPortal() {
           </div>
 
           <div style={{ flex: 1, overflow: 'auto' }}>
-          {loading && activeTab && <div style={{ textAlign: 'center', padding: '60px', color: 'var(--vfo-muted)' }}>Loading...</div>}
+          {loading && activeTab && <MemberProfileSkeleton />}
 
           {!loading && activeTab === 'profile' && memberData && (
             <MemberProfile member={memberData} />

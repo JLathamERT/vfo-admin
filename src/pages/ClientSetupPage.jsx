@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { TokenFormSkeleton } from '../components/shared/Skeleton'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
@@ -53,7 +54,7 @@ export default function ClientSetupPage() {
   const card = { background:'var(--vfo-card)',padding:'40px',borderRadius:'16px',width:'380px',border:'1px solid var(--vfo-border)',color:'var(--vfo-ink)' }
   const input = { padding:'10px 14px',borderRadius:'8px',border:'1px solid var(--vfo-border-strong)',background:'var(--vfo-input)',color:'var(--vfo-ink)',fontSize:'14px',width:'100%',boxSizing:'border-box' }
 
-  if (status === 'loading') return <div style={wrap}><div style={card}>Loading…</div></div>
+  if (status === 'loading') return <div style={wrap}><div style={card}><TokenFormSkeleton /></div></div>
   if (status === 'invalid') return <div style={wrap}><div style={card}>This setup link is invalid or has expired. Please contact us for a new one.</div></div>
   if (status === 'already_setup') return <div style={wrap}><div style={card}><p>Your login is already set up.</p><button onClick={()=>navigate('/client/login')} style={{...input,background:'#125ecc',cursor:'pointer',marginTop:'12px'}}>Go to login</button></div></div>
 

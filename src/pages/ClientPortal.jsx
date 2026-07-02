@@ -6,10 +6,13 @@ import MemberShowroom from '../components/member/MemberShowroom'
 import VfoWordmark from '../components/shared/VfoWordmark'
 import ChangePasswordCard from '../components/shared/ChangePasswordCard'
 import AppearanceCard from '../components/shared/AppearanceCard'
+import { usePortalTheme } from '../lib/theme'
+import { ShowroomSkeleton } from '../components/shared/Skeleton'
 
 export default function ClientPortal() {
   const navigate = useNavigate()
   const session = getSession()
+  usePortalTheme()
   const [tab, setTab] = useState(sessionStorage.getItem('clientActiveTab') || 'showroom')
   const [showroom, setShowroom] = useState(null)
   const [showroomLoading, setShowroomLoading] = useState(true)
@@ -67,7 +70,7 @@ export default function ClientPortal() {
 
       {tab === 'showroom' && (
         showroomLoading
-          ? <div style={{ textAlign: 'center', padding: '60px', color: 'var(--vfo-muted)' }}>Loading…</div>
+          ? <ShowroomSkeleton />
           : <MemberShowroom experts={showroom.experts} exclusions={showroom.exclusions} ecoMap={showroom.ecoMap} />
       )}
       {tab === 'vault' && (

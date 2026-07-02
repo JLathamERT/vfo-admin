@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
+import { SkeletonText } from '../shared/Skeleton'
 
 // Jake-only per-specialist tool: move an EXISTING specialist (already paying $99/mo on
 // the old system) onto the portal's native $99/mo license subscription. Sends a secure
@@ -61,7 +62,7 @@ export default function SpecialistLicenseContinuationTab({ expert }) {
     }
   }
 
-  if (loading) return <div style={sectionStyle}><p style={{ color: 'var(--vfo-muted)', fontSize: '14px', margin: 0 }}>Loading license status…</p></div>
+  if (loading) return <div style={sectionStyle}><SkeletonText lines={2} /></div>
 
   const s = state || {}
   const status = s.payment_status || null

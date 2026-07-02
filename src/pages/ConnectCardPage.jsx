@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import TokenShell from '../components/shared/TokenShell'
+import { TokenFormSkeleton } from '../components/shared/Skeleton'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
@@ -57,7 +58,7 @@ export default function ConnectCardPage() {
   }
 
   if (status === 'loading') return (
-    <TokenShell><p style={centerMuted}>Loading…</p></TokenShell>
+    <TokenShell><TokenFormSkeleton /></TokenShell>
   )
   if (status === 'redirecting') return (
     <TokenShell><p style={centerMuted}>Redirecting to Stripe…</p></TokenShell>

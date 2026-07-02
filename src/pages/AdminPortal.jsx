@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { getSession, clearSession, callApi } from '../lib/api'
+import { usePortalTheme } from '../lib/theme'
 import SpecialistsPanel from '../components/admin/SpecialistsPanel'
 import MembersPanel from '../components/admin/MembersPanel'
 import MemberOverviewPanel from '../components/admin/MemberOverviewPanel'
@@ -29,6 +30,7 @@ import PipReconciliationPanel from '../components/admin/PipReconciliationPanel'
 import MemberOnboardingPanel from '../components/admin/MemberOnboardingPanel'
 import MembershipFeesPanel from '../components/admin/MembershipFeesPanel'
 import SpecialistRevenueAutomationPanel from '../components/admin/SpecialistRevenueAutomationPanel'
+import { DirectoryListSkeleton } from '../components/shared/Skeleton'
 
 // A dropdown row that, on hover, flies out a submenu of options to the right.
 function SubmenuRow({ label, options, onSelect }) {
@@ -121,6 +123,7 @@ export default function AdminPortal() {
   const navigate = useNavigate()
   const location = useLocation()
   const session = getSession()
+  usePortalTheme()
   // The three superadmin-managed "other" tabs. A non-superadmin admin sees one
   // only if Jake granted it (session.allowed_tabs). Superadmin sees all.
   const canSeeTab = (key) => !!session?.is_superadmin || (session?.allowed_tabs || []).includes(key)
@@ -641,7 +644,7 @@ export default function AdminPortal() {
             <MembershipFeesPanel title="Accountant Membership Fees" />
           )}
 
-          {loading && <div style={{ textAlign: 'center', padding: '60px', color: 'var(--vfo-muted)' }}>Loading...</div>}
+          {loading && activeTab && <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px' }}><DirectoryListSkeleton /></div>}
           </div>
         </>
       )}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
 import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate, PanelHero, EmptyState } from './automation/StepKit'
 import SandboxModeToggle from './SandboxModeToggle'
+import { AutomationTrackerSkeleton } from '../shared/Skeleton'
 
 const STAGE_LABELS = {
   new: 'New',
@@ -186,7 +187,7 @@ export default function AccountantAutomationPanel() {
     finally { setLoading(false) }
   }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: 'var(--vfo-muted)' }}>Loading...</div>
+  if (loading) return <AutomationTrackerSkeleton cols={7} />
 
   const inProgress = rows.filter(r => {
     const s = getCurrentStage(r)

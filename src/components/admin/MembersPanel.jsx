@@ -14,7 +14,7 @@ import AdminGrowthPlan from '../growth/AdminGrowthPlan'
 import { GP_STEPS } from '../growth/constants'
 import SendSetupEmailButton from './SendSetupEmailButton'
 import ListFilterButton, { matchesFilter, sortMembers, SortSelect, MEMBER_SORT_OPTIONS } from './ListFilterButton'
-import { MemberProfileDetailsSkeleton, Skeleton } from '../shared/Skeleton'
+import { MemberProfileDetailsSkeleton, Skeleton, SkeletonText } from '../shared/Skeleton'
 import { TrackHero, ListHeader } from '../shared/TrackKit'
 
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
@@ -1394,7 +1394,7 @@ function MemberSettings({ member, onDataChange }) {
       <div style={sectionStyle}>
         <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Member Login</div>
         {loginLoading
-          ? <p style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>Loading...</p>
+          ? <SkeletonText lines={2} />
           : (
             <>
               <p style={{ color: 'var(--vfo-muted)', fontSize: '14px', marginBottom: '16px' }}>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { callApi, getSession, loadCachedAction } from '../../lib/api'
-import { ClientsListSkeleton, TrainingTrackSkeleton, CoachingMeetingsSkeleton, CoachingRenewalSkeleton, AdminMsmHomeSkeleton, ProgramNotesSkeleton, AdminProgramViewSkeleton } from '../shared/Skeleton'
+import { ClientsListSkeleton, TrainingTrackSkeleton, CoachingMeetingsSkeleton, CoachingRenewalSkeleton, AdminMsmHomeSkeleton, ProgramNotesSkeleton, AdminProgramViewSkeleton, SkeletonText, PhaseListSkeleton } from '../shared/Skeleton'
 import { TrackHero, PhaseBadge } from '../shared/TrackKit'
 
 const PROGRAMS = [
@@ -734,7 +734,7 @@ function ClientsPanel({ enrollment, member, program }) {
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>
           <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add Existing Client</div>
           {loadingExisting
-            ? <div style={{ padding: '20px', color: 'var(--vfo-muted)', textAlign: 'center' }}>Loading...</div>
+            ? <SkeletonText lines={3} />
             : allMemberClients.length === 0
               ? <div style={{ padding: '20px', color: 'var(--vfo-muted)', textAlign: 'center' }}>No other clients found for this member.</div>
               : <>
@@ -855,7 +855,7 @@ function ClientTrack({ client, program }) {
   const STATUS_OPTIONS = ['', 'Completed', 'In Progress', 'Confirmed', 'Yes', 'No', 'N/A', 'Pending', 'Scheduled']
   const statusColors = { Completed: '#1b9254', Confirmed: '#1b9254', Yes: '#1b9254', 'In Progress': '#e06717', Scheduled: '#0095ff', No: '#e74c3c', 'N/A': 'var(--vfo-muted)', Pending: '#e06717' }
 
-  if (loading) return <div style={{ color: 'var(--vfo-muted)', fontSize: '13px', padding: '16px' }}>Loading track...</div>
+  if (loading) return <PhaseListSkeleton phases={3} rowsPerPhase={3} />
   if (phases.length === 0) return <div style={{ color: 'var(--vfo-muted)', fontSize: '13px', padding: '16px' }}>No client track defined for this program yet.</div>
 
   return (

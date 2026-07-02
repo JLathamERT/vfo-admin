@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { callApi } from '../../lib/api'
 import SandboxModeToggle from './SandboxModeToggle'
 import { NAVY, BLUE, money, RequestRow } from './specialistRevenueShared'
+import { TableSkeleton } from '../shared/Skeleton'
 
 // Automation → VFO Specialist Revenue. One row per specialist payment request, with
 // where-everything-is-at status and a Retry-payout action. Sandbox toggle shares the
@@ -95,7 +96,7 @@ export default function SpecialistRevenueAutomationPanel() {
         <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af', borderRadius: '12px', padding: '12px 16px', fontSize: '13px', marginBottom: '14px' }}>{retryMsg}</div>
       )}
 
-      {loading && <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>Loading…</div>}
+      {loading && <TableSkeleton cols={[2, 1, 1, 1]} rows={2} />}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>{error}</div>}
       {!loading && !error && requests.length === 0 && (
         <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>No specialist payment requests yet.</div>

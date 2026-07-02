@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
 import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate, PanelHero, EmptyState, TableCard } from './automation/StepKit'
+import { AutomationTrackerSkeleton } from '../shared/Skeleton'
 
 const STAGE_LABELS = {
   c81: 'PIP 1 — Reconfirmation Email',
@@ -470,7 +471,7 @@ export default function AutomationPanel({ section }) {
     }
   }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: 'var(--vfo-muted)' }}>Loading...</div>
+  if (loading) return <AutomationTrackerSkeleton cols={9} />
 
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>

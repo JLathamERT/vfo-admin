@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { callApi } from '../../lib/api'
 import { NAVY, money } from './specialistRevenueShared'
+import { AccountingTableSkeleton } from '../shared/Skeleton'
 
 // Accounting > Specialists > VFO Specialist Background Check Fees. One-time Core ($350)
 // / Max ($950) background-check payments. Read-only year/month view.
@@ -90,7 +91,7 @@ export default function SpecialistBgPanel() {
         <button onClick={load} style={{ ...sel, color: '#125ecc', fontWeight: 600 }}>Refresh</button>
       </div>
 
-      {loading && <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>Loading…</div>}
+      {loading && <AccountingTableSkeleton cols={5} />}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>{error}</div>}
 
       {!loading && !error && (
