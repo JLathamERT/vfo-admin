@@ -13,6 +13,27 @@ const PROGRAMS = [
 
 const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael Hopson', 'Ian Welham', 'Paul Latham']
 
+// Training-track section headers (task_type='section') are labels only — never counted toward completion.
+const countableTasks = (list) => (list || []).filter(t => t.task_type !== 'section')
+
+// Group a phase's tasks so each section header owns the contiguous sub-steps beneath it,
+// letting the UI enclose the group and keep following standalone tasks visually separate.
+const groupTasks = (list) => {
+  const tasks = list || []
+  const nodes = []
+  for (let i = 0; i < tasks.length; i++) {
+    const t = tasks[i]
+    if (t.task_type === 'section') {
+      const subs = []
+      while (i + 1 < tasks.length && tasks[i + 1].task_type === 'substep') { subs.push(tasks[i + 1]); i++ }
+      nodes.push({ kind: 'group', section: t, subs })
+    } else {
+      nodes.push({ kind: 'task', task: t })
+    }
+  }
+  return nodes
+}
+
 export default function MSMTracking({ member, activeSection, onDataChange, bypassEnableGate = false, allowedProgramKeys = null }) {
   const activeTab = activeSection === 'msm_meetings' ? 'home' : 'programs'
   const activeProgramKey = activeSection === 'msm_program_holistic' ? 'holistic'
@@ -64,7 +85,7 @@ export default function MSMTracking({ member, activeSection, onDataChange, bypas
         ;(progressData.progress || []).forEach(p => { prog[p.task_id] = p })
         const completedPhases = phases.filter(phase => {
           if (phase.name.includes('Review')) return false
-          const tasks = phase.program_training_tasks || []
+          const tasks = countableTasks(phase.program_training_tasks)
           return tasks.length > 0 && tasks.every(t => prog[t.id]?.status)
         }).length
         setVfo90Count(completedPhases)
@@ -501,7 +522,7 @@ function TrainingTrack({ enrollment, program }) {
 
       const expandState = {}
       loadedPhases.forEach(phase => {
-        const tasks = phase.program_training_tasks || []
+        const tasks = countableTasks(phase.program_training_tasks)
         const allDone = tasks.length > 0 && tasks.every(t => prog[t.id]?.status)
         expandState[phase.id] = !allDone
       })
@@ -523,7 +544,7 @@ function TrainingTrack({ enrollment, program }) {
   }
 
   function getPhaseState(phase) {
-    const tasks = phase.program_training_tasks || []
+    const tasks = countableTasks(phase.program_training_tasks)
     if (tasks.length === 0) return 'pending'
     if (tasks.every(t => progress[t.id]?.status)) return 'done'
     if (tasks.some(t => progress[t.id]?.status)) return 'active'
@@ -544,7 +565,7 @@ function TrainingTrack({ enrollment, program }) {
 
   if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>No training track defined for this program yet.</div>
 
-  const totalTasks = phases.reduce((s, p) => s + (p.program_training_tasks?.length || 0), 0)
+  const totalTasks = phases.reduce((s, p) => s + countableTasks(p.program_training_tasks).length, 0)
   const completedTasks = Object.values(progress).filter(p => p.status && p.status !== '').length
 
   return (
@@ -560,10 +581,11 @@ function TrainingTrack({ enrollment, program }) {
         const state = getPhaseState(phase)
         const isExpanded = expanded[phase.id]
         const tasks = phase.program_training_tasks || []
-        const doneTasks = tasks.filter(t => progress[t.id]?.status).length
+        const countable = countableTasks(tasks)
+        const doneTasks = countable.filter(t => progress[t.id]?.status).length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
-        const titleColor = state === 'active' ? '#125ecc' : '#002973'
+        const titleColor = state === 'active' ? 'var(--vfo-primary)' : 'var(--vfo-heading)'
         const isReview = phase.name.includes('Review')
 
         const phaseNumber = phases.slice(0, phaseIdx).filter(p => !p.name.includes('Review')).length + 1
@@ -578,7 +600,7 @@ function TrainingTrack({ enrollment, program }) {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {state === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
-                {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{tasks.length}</span>}
+                {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{countable.length}</span>}
                 {state === 'pending' && !isReview && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>}
                 <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
               </div>
@@ -586,25 +608,34 @@ function TrainingTrack({ enrollment, program }) {
 
             {isExpanded && (
               <div style={{ borderTop: `1px solid ${borderColor}`, padding: '12px 18px' }}>
-                {tasks.map(task => {
-                  const p = progress[task.id] || {}
-                  const isDone = !!p.status
-                  const statusColor = statusColors[p.status] || 'var(--vfo-muted)'
-
-                  return (
-                    <div key={task.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--vfo-tint)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
-                      <div style={{ flex: 1, minWidth: '150px' }}>
-                        <span style={{ fontSize: '14px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)' }}>{task.name}</span>
+                {(() => {
+                  const renderRow = (task, inGroup) => {
+                    const p = progress[task.id] || {}
+                    const isDone = !!p.status
+                    const statusColor = statusColors[p.status] || 'var(--vfo-muted)'
+                    return (
+                      <div key={task.id} style={{ padding: '8px 0', borderBottom: inGroup ? 'none' : '1px solid var(--vfo-tint)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
+                        <div style={{ flex: 1, minWidth: '150px' }}>
+                          <span style={{ fontSize: '14px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)' }}>{task.name}</span>
+                        </div>
+                        <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, phase.id)} disabled={saving[task.id]} style={{ ...inputStyle, background: 'var(--vfo-card)', minWidth: '130px', borderColor: isDone ? `${statusColor}66` : 'var(--vfo-border-strong)', color: isDone ? statusColor : 'var(--vfo-ink)' }}>
+                          <option value="">-- Status --</option>
+                          {(task.status_options || 'Completed|Outstanding|Stopped').split('|').map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
                       </div>
-                      <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, phase.id)} disabled={saving[task.id]} style={{ ...inputStyle, background: 'var(--vfo-card)', minWidth: '130px', borderColor: isDone ? `${statusColor}66` : 'var(--vfo-border-strong)', color: isDone ? statusColor : 'var(--vfo-ink)' }}>
-                        <option value="">-- Status --</option>
-                        {(task.status_options || 'Completed|Outstanding|Stopped').split('|').map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                    )
+                  }
+                  return groupTasks(tasks).map(node => node.kind === 'group' ? (
+                    <div key={`sec-${node.section.id}`} style={{ margin: '12px 0', padding: '4px 14px 6px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-soft)', borderRadius: '12px' }}>
+                      <div style={{ padding: '8px 0 4px' }}>
+                        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '11.5px', fontWeight: 800, color: 'var(--vfo-heading)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{node.section.name}</span>
+                      </div>
+                      {node.subs.map(t => renderRow(t, true))}
                     </div>
-                  )
-                })}
+                  ) : renderRow(node.task, false))
+                })()}
               </div>
             )}
           </div>
@@ -936,11 +967,11 @@ function PlanStatusBadge({ enrollmentId, programId }) {
       const phases = trackData.phases || []
       const prog = {}
       ;(progressData.progress || []).forEach(p => { prog[p.task_id] = p })
-      const allTasks = phases.flatMap(p => p.program_training_tasks || [])
+      const allTasks = phases.flatMap(p => countableTasks(p.program_training_tasks))
       if (!allTasks.length) { setPlanStatus('Not Started'); return }
       if (allTasks.every(t => prog[t.id]?.status && prog[t.id].status !== '')) { setPlanStatus('Completed'); return }
       for (let i = phases.length - 1; i >= 0; i--) {
-        const tasks = phases[i].program_training_tasks || []
+        const tasks = countableTasks(phases[i].program_training_tasks)
         if (tasks.some(t => prog[t.id]?.status)) { setPlanStatus(phases[i].name); return }
       }
       setPlanStatus('Not Started')

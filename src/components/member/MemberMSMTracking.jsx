@@ -4,6 +4,27 @@ import { callApi, loadCachedAction } from '../../lib/api'
 import { Skeleton, ClientsListSkeleton, TrainingTrackSkeleton, CoachingMeetingsSkeleton, CoachingRenewalSkeleton, MsmHomeSkeleton } from '../shared/Skeleton'
 import { TrackHero, PhaseBadge } from '../shared/TrackKit'
 
+// Training-track section headers (task_type='section') are labels only — never counted toward completion.
+const countableTasks = (list) => (list || []).filter(t => t.task_type !== 'section')
+
+// Group a phase's tasks so each section header owns the contiguous sub-steps beneath it,
+// letting the UI enclose the group and keep following standalone tasks visually separate.
+const groupTasks = (list) => {
+  const tasks = list || []
+  const nodes = []
+  for (let i = 0; i < tasks.length; i++) {
+    const t = tasks[i]
+    if (t.task_type === 'section') {
+      const subs = []
+      while (i + 1 < tasks.length && tasks[i + 1].task_type === 'substep') { subs.push(tasks[i + 1]); i++ }
+      nodes.push({ kind: 'group', section: t, subs })
+    } else {
+      nodes.push({ kind: 'task', task: t })
+    }
+  }
+  return nodes
+}
+
 const PROGRAMS = [
   { key: 'holistic', name: 'VFO Holistic Planning' },
   { key: 'partnership', name: 'Partnership Fast Track' },
@@ -49,7 +70,7 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
         ;(progressData.progress || []).forEach(p => { prog[p.task_id] = p })
         const completedPhases = phases.filter(phase => {
           if (phase.name.includes('Review')) return false
-          const tasks = phase.program_training_tasks || []
+          const tasks = countableTasks(phase.program_training_tasks)
           return tasks.length > 0 && tasks.every(t => prog[t.id]?.status)
         }).length
         setVfo90Count(completedPhases)
@@ -276,7 +297,7 @@ function MemberTrainingView({ enrollment, program }) {
   if (loading) return <TrainingTrackSkeleton />
   if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>No training track defined yet.</div>
 
-  const totalTasks = phases.reduce((s, p) => s + (p.program_training_tasks?.length || 0), 0)
+  const totalTasks = phases.reduce((s, p) => s + countableTasks(p.program_training_tasks).length, 0)
   const completedTasks = Object.values(progress).filter(p => p.status && p.status !== '').length
 
   return (
@@ -286,7 +307,7 @@ function MemberTrainingView({ enrollment, program }) {
         completed={completedTasks}
         total={totalTasks}
         steps={phases.map(ph => {
-          const ts = ph.program_training_tasks || []
+          const ts = countableTasks(ph.program_training_tasks)
           const done = ts.length > 0 && ts.every(t => progress[t.id]?.status)
           const some = ts.some(t => progress[t.id]?.status)
           return { label: ph.name, state: done ? 'done' : some ? 'active' : 'pending' }
@@ -297,26 +318,35 @@ function MemberTrainingView({ enrollment, program }) {
         return (
         <div key={phase.id} style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '16px', marginTop: isReview ? '-6px' : '0', marginLeft: isReview ? '20px' : '0', borderTopLeftRadius: isReview ? '0' : '12px' }}>
           <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: 'var(--vfo-heading)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}{isReview && <span style={{ fontSize: '10px', color: 'var(--vfo-muted)', marginLeft: '8px', textTransform: 'none', fontWeight: '400', letterSpacing: '0' }}>checkpoint</span>}</div>
-          {(phase.program_training_tasks || []).map(task => {
-            const p = progress[task.id] || {}
-
-            if (task.video_url) return (
-              <VideoTask key={task.id} task={task} progress={p} enrollmentId={enrollment.id} onComplete={handleTaskComplete} />
-            )
-
-            // --- NORMAL TASKS ---
-            return (
-              <div key={task.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--vfo-tint)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: statusColors[p.status] || 'transparent', flexShrink: 0, border: '1px solid var(--vfo-border-mid)' }} />
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{task.name}</span>
+          {(() => {
+            const renderMemberTask = (task, inGroup) => {
+              const p = progress[task.id] || {}
+              if (task.video_url) return (
+                <div key={task.id} style={{ marginBottom: '8px' }}>
+                  <VideoTask task={task} progress={p} enrollmentId={enrollment.id} onComplete={handleTaskComplete} />
                 </div>
-                {p.status && (
-                  <span style={{ padding: '3px 10px', borderRadius: '4px', fontSize: '12px', background: statusBg[p.status] || 'var(--vfo-tint)', color: statusColors[p.status] || 'var(--vfo-ink)' }}>{p.status}</span>
-                )}
+              )
+              return (
+                <div key={task.id} style={{ padding: '10px 0', borderBottom: inGroup ? 'none' : '1px solid var(--vfo-tint)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: statusColors[p.status] || 'transparent', flexShrink: 0, border: '1px solid var(--vfo-border-mid)' }} />
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{task.name}</span>
+                  </div>
+                  {p.status && (
+                    <span style={{ padding: '3px 10px', borderRadius: '4px', fontSize: '12px', background: statusBg[p.status] || 'var(--vfo-tint)', color: statusColors[p.status] || 'var(--vfo-ink)' }}>{p.status}</span>
+                  )}
+                </div>
+              )
+            }
+            return groupTasks(phase.program_training_tasks).map(node => node.kind === 'group' ? (
+              <div key={`sec-${node.section.id}`} style={{ margin: '12px 0', padding: '4px 16px 8px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-soft)', borderRadius: '12px' }}>
+                <div style={{ padding: '8px 0 6px' }}>
+                  <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '11.5px', fontWeight: 800, color: 'var(--vfo-heading)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>{node.section.name}</span>
+                </div>
+                {node.subs.map(t => renderMemberTask(t, true))}
               </div>
-            )
-          })}
+            ) : renderMemberTask(node.task, false))
+          })()}
         </div>
         )
       })}
