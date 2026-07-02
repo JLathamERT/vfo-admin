@@ -88,7 +88,7 @@ export function TrackHero({ eyebrow, title, meta, action, completed, total, unit
           <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
             {hasBar && (
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: '#125ecc', lineHeight: 1 }}>{pct}%</div>
+                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-primary)', lineHeight: 1 }}>{pct}%</div>
                 {title && <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.7px', color: 'var(--vfo-muted)', marginTop: '5px', textTransform: 'uppercase' }}>{completed} / {total} {unitLabel}</div>}
               </div>
             )}

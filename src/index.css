@@ -50,6 +50,10 @@
 }
 
 [data-theme="dark"] {
+  /* brand: primary brightens so blue-on-navy text stays readable (only
+     var(--vfo-primary) consumers change — literal #125ecc stays fixed) */
+  --vfo-primary: #4da3ff;
+
   /* surfaces — the standard VFO navy family */
   --vfo-page: #001b4f;
   --vfo-card: #002973;

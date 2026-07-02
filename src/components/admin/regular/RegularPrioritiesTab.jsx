@@ -314,7 +314,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
         const doneTasks = nonAutoTasks.filter(t => localProgress[t.id]?.status).length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
-        const titleColor = state === 'active' ? '#125ecc' : '#002973'
+        const titleColor = state === 'active' ? 'var(--vfo-primary)' : 'var(--vfo-heading)'
         const showCompleteBtn = false
         const phaseCompleteState = completedPhases[phase.id]
 
