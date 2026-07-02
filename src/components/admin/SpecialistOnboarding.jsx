@@ -329,7 +329,7 @@ function OnboardingDetail({ id, onBack }) {
   function StageHeader({ stage, title }) {
     const state = getStageState(stage)
     const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
-    const titleColor = state === 'active' ? '#125ecc' : '#002973'
+    const titleColor = state === 'active' ? 'var(--vfo-primary)' : 'var(--vfo-heading)'
     const isExpanded = expanded[stage]
     // the numbered badge replaces the "Stage N — " text prefix
     const displayTitle = title.replace(/^Stage \d+ — /, '')

@@ -404,7 +404,7 @@ function OnboardingDetail({ id, onBack }) {
 
 function StageBlock({ stage, title, state, expanded, onToggle, dimmed, children }) {
   const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
-  const titleColor = state === 'active' ? '#125ecc' : '#002973'
+  const titleColor = state === 'active' ? 'var(--vfo-primary)' : 'var(--vfo-heading)'
   return (
     <div style={{ background: 'var(--vfo-card)', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden', opacity: dimmed ? 0.55 : 1 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer' }} onClick={onToggle}>

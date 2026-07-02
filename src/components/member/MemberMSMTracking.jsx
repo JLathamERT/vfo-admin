@@ -547,7 +547,7 @@ function MemberClientTrackView({ client, program }) {
         const doneTasks = nonAutoTasks.filter(t => progress[t.id]?.status && progress[t.id].status !== '').length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
-        const titleColor = state === 'active' ? '#125ecc' : '#002973'
+        const titleColor = state === 'active' ? 'var(--vfo-primary)' : 'var(--vfo-heading)'
         const c10TaskId = phases.find(ph => ph.name === 'MAP 1 - PIP Follow Up')?.program_client_tasks?.find(t => t.task_code === 'C10')?.id
         const c10Status = progress[c10TaskId]?.status || ''
         const c14c15Active = c10Status === 'No' || c10Status === 'Undecided'

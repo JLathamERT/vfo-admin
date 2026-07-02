@@ -312,7 +312,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
         const headerTotal = isPCAdminPhase ? pcCounts.total : nonAutoTasks.length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
-        const titleColor = state === 'active' ? '#125ecc' : '#002973'
+        const titleColor = state === 'active' ? 'var(--vfo-primary)' : 'var(--vfo-heading)'
         const autoCompletableCodesForCheck = {
           'MAP 1 - PIP 1': ['PIP Initial presentation', 'CIQ complete', 'Prioritization complete'],
           'MAP 1 - PIP Follow Up': ['PIP Follow up presentation', 'Client PIP decision'],

@@ -250,8 +250,8 @@ function ScoreRing({ value, label, size = 78, primary }) {
   // Composite = dark blue with white number; sections = much lighter with navy number.
   const grad = primary
     ? 'linear-gradient(135deg, #002060 0%, #0a3f9e 100%)'
-    : 'linear-gradient(135deg, #cfe0f7 0%, var(--vfo-tint) 100%)'
-  const numColor = primary ? '#ffffff' : '#002973'
+    : 'linear-gradient(135deg, var(--vfo-tint-deep) 0%, var(--vfo-tint) 100%)'
+  const numColor = primary ? '#ffffff' : 'var(--vfo-heading)'
   const shadow = primary ? '0 10px 24px rgba(0,32,96,0.38)' : '0 4px 12px rgba(18,94,204,0.16)'
   return (
     <div style={{ textAlign: 'center' }}>

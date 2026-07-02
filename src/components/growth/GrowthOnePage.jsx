@@ -240,7 +240,7 @@ function MatrixDot({ num, color, dark }) {
     <div style={{
       width: '34px', height: '34px', borderRadius: '50%',
       background: color || 'var(--vfo-card)',
-      color: filled ? (dark ? NAVY : '#ffffff') : NAVY,
+      color: filled ? (dark ? NAVY : '#ffffff') : 'var(--vfo-heading)',
       fontWeight: 800, fontSize: '14px', fontFamily: 'Inter, sans-serif',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       border: filled ? '2px solid #ffffff' : '2px solid rgba(0,41,115,0.18)',

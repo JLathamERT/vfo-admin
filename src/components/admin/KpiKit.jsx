@@ -130,7 +130,7 @@ export function BreakdownRows({ rows, denom }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '6px' }}>
               <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</span>
               <span style={{ flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
-                <span style={{ fontSize: '16px', fontWeight: 800, color: '#125ecc' }}>{r.count}</span>
+                <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--vfo-primary)' }}>{r.count}</span>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--vfo-faint)', marginLeft: '7px' }}>{denom > 0 ? Math.round((r.count / denom) * 100) : 0}%</span>
               </span>
             </div>
