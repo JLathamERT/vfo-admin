@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react'
-import { callApi } from '../../lib/api'
+import { callApi, getSession } from '../../lib/api'
+
+// The three superadmin-managed "other" tabs Jake can grant to another admin.
+// Keys must match the tab keys used by AdminPortal + the backend TAB_ACTIONS map.
+const TAB_OPTIONS = [
+  { key: 'member_overview', label: 'Member Overview' },
+  { key: 'accounting', label: 'Accounting' },
+  { key: 'automation', label: 'Automation' },
+]
 
 export default function AdminEditor({ onBack }) {
   const [admins, setAdmins] = useState([])
@@ -9,6 +17,9 @@ export default function AdminEditor({ onBack }) {
   const [status, setStatus] = useState('')
   const [statusType, setStatusType] = useState('success')
   const [loading, setLoading] = useState(true)
+  const [savingTabs, setSavingTabs] = useState({})   // email -> bool
+
+  const myEmail = (getSession()?.email || '').toLowerCase()
 
   useEffect(() => { loadAdmins() }, [])
 
@@ -47,11 +58,28 @@ export default function AdminEditor({ onBack }) {
     } catch (err) { showStatus('error', err.message) }
   }
 
+  async function toggleTab(admin, tabKey) {
+    const current = admin.allowed_tabs || []
+    const next = current.includes(tabKey) ? current.filter(t => t !== tabKey) : [...current, tabKey]
+    // Optimistic update
+    setAdmins(list => list.map(a => a.email === admin.email ? { ...a, allowed_tabs: next } : a))
+    setSavingTabs(s => ({ ...s, [admin.email]: true }))
+    try {
+      await callApi('admin_update_tabs', { email: admin.email, allowed_tabs: next })
+    } catch (err) {
+      // Revert on failure
+      setAdmins(list => list.map(a => a.email === admin.email ? { ...a, allowed_tabs: current } : a))
+      showStatus('error', err.message)
+    } finally {
+      setSavingTabs(s => { const n = { ...s }; delete n[admin.email]; return n })
+    }
+  }
+
   const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
 
   return (
-    <div style={{ maxWidth: '700px', margin: '0 auto', padding: '32px 24px' }}>
+    <div style={{ maxWidth: '760px', margin: '0 auto', padding: '32px 24px' }}>
       <div style={sectionStyle}>
         <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add Admin</div>
         <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
@@ -66,20 +94,43 @@ export default function AdminEditor({ onBack }) {
       </div>
 
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Current Admins</div>
+        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Current Admins</div>
+        <p style={{ fontSize: '12px', color: '#8494b0', margin: '0 0 16px' }}>
+          The four key tabs (Advisors, Accountants, Strategic Members, Specialists) are open to every admin. Tick the boxes below to grant an admin access to any of the three managed tabs.
+        </p>
         {loading && <p style={{ color: '#4e6087', fontSize: '14px' }}>Loading...</p>}
-        {admins.map(admin => (
-          <div key={admin.email} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #eef2f9' }}>
-            <div>
-              <span style={{ fontSize: '14px', color: '#16264a' }}>{admin.name}</span>
-              <span style={{ fontSize: '13px', color: '#4e6087', marginLeft: '12px' }}>{admin.email}</span>
+        {admins.map(admin => {
+          const isSuper = admin.email.toLowerCase() === myEmail
+          const tabs = admin.allowed_tabs || []
+          return (
+            <div key={admin.email} style={{ padding: '14px 0', borderBottom: '1px solid #eef2f9' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isSuper ? 0 : '10px' }}>
+                <div>
+                  <span style={{ fontSize: '14px', color: '#16264a', fontWeight: 600 }}>{admin.name}</span>
+                  <span style={{ fontSize: '13px', color: '#4e6087', marginLeft: '12px' }}>{admin.email}</span>
+                  {isSuper && <span style={{ fontSize: '11px', color: '#0a85e8', fontWeight: 700, marginLeft: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Superadmin · all tabs</span>}
+                </div>
+                {!isSuper && (
+                  <button onClick={() => deleteAdmin(admin.email)}
+                    style={{ padding: '5px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}>
+                    Remove
+                  </button>
+                )}
+              </div>
+              {!isSuper && (
+                <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  {TAB_OPTIONS.map(t => (
+                    <label key={t.key} style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '13px', color: '#16264a', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={tabs.includes(t.key)} disabled={!!savingTabs[admin.email]} onChange={() => toggleTab(admin, t.key)} style={{ accentColor: '#125ecc', cursor: 'pointer' }} />
+                      {t.label}
+                    </label>
+                  ))}
+                  {savingTabs[admin.email] && <span style={{ fontSize: '12px', color: '#8494b0' }}>Saving…</span>}
+                </div>
+              )}
             </div>
-            <button onClick={() => deleteAdmin(admin.email)}
-              style={{ padding: '5px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}>
-              Remove
-            </button>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
