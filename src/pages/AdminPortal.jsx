@@ -577,7 +577,7 @@ export default function AdminPortal() {
                 const cards = [
                   { label: 'Active Advisors', value: allMembers.filter(m => m.member_category !== 'accountant' && m.member_category !== 'strategic_member' && active(m)).length, go: () => selectAdvisorsSection('advisor_search') },
                   { label: 'Active Accountants', value: allMembers.filter(m => m.member_category === 'accountant' && active(m)).length, go: () => selectAccountantsSection('accountant_search') },
-                  { label: 'Strategic Members', value: allMembers.filter(m => m.member_category === 'strategic_member' && active(m)).length, go: () => selectStrategicSection('strategic_member_search') },
+                  { label: 'Active Strategic Members', value: allMembers.filter(m => m.member_category === 'strategic_member' && active(m)).length, go: () => selectStrategicSection('strategic_member_search') },
                   { label: 'Active Specialists', value: allExperts.filter(e => (e.status || 'Active') === 'Active').length, go: () => selectSpecialistsSection('specialist_search') },
                 ]
                 return (

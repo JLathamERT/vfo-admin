@@ -639,41 +639,12 @@ function SpecialistProfileView({ expert, ecos }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        {/* Main column */}
-        <div style={{ flex: '2 1 380px', minWidth: '300px' }}>
-          {expert.long_bio && (
-            <div style={sectionStyle}>
-              <div style={cardTitle}>Biography</div>
-              <div style={{ fontSize: '14px', color: 'var(--vfo-ink)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{expert.long_bio}</div>
-            </div>
-          )}
-
-          <div style={sectionStyle}>
-            <div style={cardTitle}>Details &amp; Benefits</div>
-            {hasDb
-              ? dbFields.map(([label, value]) => <Fragment key={label}>{longField(label, value)}</Fragment>)
-              : <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', fontStyle: 'italic' }}>No details entered yet — use Edit Specialist to add them.</div>}
-          </div>
-
-          {hasAudit && (
-            <div style={sectionStyle}>
-              <div style={cardTitle}>Tax Planning Audit Risk Questionnaire</div>
-              {auditQs.map(([label, value]) => <Fragment key={label}>{longField(label, value)}</Fragment>)}
-            </div>
-          )}
-
-          {expert['D&B_revenue_share'] && (
-            <div style={sectionStyle}>
-              <div style={cardTitle}>Revenue Share</div>
-              <div style={{ fontSize: '13.5px', color: 'var(--vfo-ink)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{expert['D&B_revenue_share']}</div>
-            </div>
-          )}
-        </div>
-
-        {/* Side column */}
-        <div style={{ flex: '1 1 240px', minWidth: '240px' }}>
-          <div style={sectionStyle}>
+      {/* Short facts row — beside each other so long text sections below can
+          run full width (a long bio used to strand a short sidebar and leave
+          half the page empty). */}
+      <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 320px', minWidth: '280px', display: 'flex' }}>
+          <div style={{ ...sectionStyle, flex: 1 }}>
             <div style={cardTitle}>Account &amp; Payout</div>
             {[
               ['Email', expert.email || '—'],
@@ -683,30 +654,62 @@ function SpecialistProfileView({ expert, ecos }) {
               ['Revenue decision', expert.revenue_decision || '—'],
               ['Stripe Connect', expert.stripe_account_id ? 'Connected' : 'Not set up'],
             ].map(([label, value]) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '7px 0', borderBottom: '1px solid #f1f4fa' }}>
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '7px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
                 <span style={fieldLabel}>{label}</span>
                 <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: 600, textAlign: 'right', wordBreak: 'break-word' }}>{value}</span>
               </div>
             ))}
             {expert.stripe_account_id && <div style={{ fontSize: '11px', color: 'var(--vfo-faint)', fontFamily: 'monospace', marginTop: '8px', wordBreak: 'break-all' }}>{expert.stripe_account_id}</div>}
           </div>
-          {ecos.length > 0 && (
-            <div style={sectionStyle}>
-              <div style={cardTitle}>VFO Ecosystem</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {ecos.map(e => <span key={e} style={chip}>{e}</span>)}
-              </div>
-            </div>
-          )}
-
-          {expert['D&B_tax_risk_notes'] && (
-            <div style={sectionStyle}>
-              <div style={cardTitle}>Tax Risk Notes</div>
-              <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{expert['D&B_tax_risk_notes']}</div>
-            </div>
-          )}
         </div>
+        {(ecos.length > 0 || expert['D&B_tax_risk_notes']) && (
+          <div style={{ flex: '1 1 320px', minWidth: '280px' }}>
+            {ecos.length > 0 && (
+              <div style={sectionStyle}>
+                <div style={cardTitle}>VFO Ecosystem</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {ecos.map(e => <span key={e} style={chip}>{e}</span>)}
+                </div>
+              </div>
+            )}
+            {expert['D&B_tax_risk_notes'] && (
+              <div style={sectionStyle}>
+                <div style={cardTitle}>Tax Risk Notes</div>
+                <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{expert['D&B_tax_risk_notes']}</div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Long-form content — full width. */}
+      {expert.long_bio && (
+        <div style={sectionStyle}>
+          <div style={cardTitle}>Biography</div>
+          <div style={{ fontSize: '14px', color: 'var(--vfo-ink)', lineHeight: 1.7, whiteSpace: 'pre-wrap', maxWidth: '900px' }}>{expert.long_bio}</div>
+        </div>
+      )}
+
+      <div style={sectionStyle}>
+        <div style={cardTitle}>Details &amp; Benefits</div>
+        {hasDb
+          ? dbFields.map(([label, value]) => <Fragment key={label}>{longField(label, value)}</Fragment>)
+          : <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', fontStyle: 'italic' }}>No details entered yet — use Edit Specialist to add them.</div>}
+      </div>
+
+      {hasAudit && (
+        <div style={sectionStyle}>
+          <div style={cardTitle}>Tax Planning Audit Risk Questionnaire</div>
+          {auditQs.map(([label, value]) => <Fragment key={label}>{longField(label, value)}</Fragment>)}
+        </div>
+      )}
+
+      {expert['D&B_revenue_share'] && (
+        <div style={sectionStyle}>
+          <div style={cardTitle}>Revenue Share</div>
+          <div style={{ fontSize: '13.5px', color: 'var(--vfo-ink)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{expert['D&B_revenue_share']}</div>
+        </div>
+      )}
     </div>
   )
 }
