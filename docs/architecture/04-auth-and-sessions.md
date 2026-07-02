@@ -26,6 +26,8 @@ After `admin_login` ([AdminLogin.jsx:22](src/pages/AdminLogin.jsx)):
 { token, email, name, role: 'admin', is_superadmin: boolean }
 ```
 
+`member_login` (2026-07-02, v535) **rejects Lost/Removed members**: after passcode verification it reads `members.elite_status` and returns **403** "Your membership is no longer active…" for `Lost`/`Removed` — the `member_logins` row is kept, so flipping the member back to Active restores access with the same credentials. The check runs after verification so a wrong password still reads "Invalid credentials" (no status leak). Client/specialist logins are separate types and unaffected; the legacy `login` action authenticates only `allowed_admins`, so there is no member bypass. Existing sessions survive until their 8h expiry. (Gotcha #171.)
+
 After `member_login` ([MemberLogin.jsx:19](src/pages/MemberLogin.jsx)):
 ```
 { token, email, name, role: 'member', member_number, website_enabled }
