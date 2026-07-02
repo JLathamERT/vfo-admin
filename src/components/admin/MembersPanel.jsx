@@ -351,8 +351,9 @@ function MemberDirectoryView({
                 onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--vfo-border-soft)'}>
                 <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', width: '70px', flexShrink: 0, fontFamily: 'monospace' }}>{m.plugin_member_number}</span>
                 <span style={{ fontSize: '14px', color: 'var(--vfo-ink)', fontWeight: 600, width: '200px', flexShrink: 0 }}>{m.name}</span>
-                <span style={{ width: '80px', flexShrink: 0 }}>
-                  <span style={{ fontSize: '11px', padding: '2px 9px', borderRadius: '999px', fontWeight: 600, background: m.elite_status === 'Active' ? 'rgba(27,146,84,0.13)' : m.elite_status === 'Lost' ? 'rgba(231,76,60,0.13)' : 'var(--vfo-tint)', color: m.elite_status === 'Active' ? '#1b9254' : m.elite_status === 'Lost' ? '#e74c3c' : 'var(--vfo-muted)', border: `1px solid ${m.elite_status === 'Active' ? 'rgba(27,146,84,0.3)' : m.elite_status === 'Lost' ? 'rgba(231,76,60,0.3)' : 'var(--vfo-border-chip)'}` }}>{m.elite_status || '—'}</span>
+                <span style={{ width: '80px', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--vfo-ink)' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, background: m.elite_status === 'Active' ? '#1b9254' : m.elite_status === 'Lost' ? '#e74c3c' : 'var(--vfo-faint)' }} />
+                  {m.elite_status || '—'}
                 </span>
                 <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', width: '160px', flexShrink: 0 }}>{m.member_type || '—'}</span>
                 {showModel && <span style={{ fontSize: '12px', color: m.advisor_model === 'New Model' ? '#0095ff' : 'var(--vfo-muted)' }}>{m.advisor_model || '—'}</span>}

@@ -317,6 +317,17 @@ export default function AdminPortal() {
     setShowSettings(false)
   }
 
+  // Collapse the muted "other" tabs into a single More ▾ menu when the nav
+  // would otherwise overflow off-screen.
+  const [navNarrow, setNavNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1180px)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1180px)')
+    const fn = () => setNavNarrow(mq.matches)
+    mq.addEventListener('change', fn)
+    window.addEventListener('resize', fn)
+    return () => { mq.removeEventListener('change', fn); window.removeEventListener('resize', fn) }
+  }, [])
+
   if (!session) return null
 
   const headerStyle = {
@@ -433,13 +444,33 @@ export default function AdminPortal() {
     },
   ]
 
+  // Narrow-nav variant: the three muted tabs folded into one More ▾ menu.
+  // Keys are prefixed so one onSelect can route back to the right section setter.
+  const moreDropdownItems = [
+    ...(canSeeTab('member_overview') ? [{ key: 'more_mo', options: [{ key: '__member_overview', label: 'Member Overview' }] }] : []),
+    ...(canSeeTab('automation') ? [
+      { key: 'more_auto_h', header: 'Automation' },
+      { key: 'more_auto', options: automationDropdownItems[0].options.map(o => ({ ...o, key: 'auto:' + o.key })) },
+    ] : []),
+    ...(canSeeTab('accounting') ? [
+      { key: 'more_acct_h', header: 'Accounting' },
+      { key: 'more_acct_pay', options: [{ key: 'acct:payments', label: 'Payments' }] },
+      ...accountingDropdownItems.slice(1).map(item => ({ ...item, key: 'more_' + item.key, submenu: item.submenu.map(o => ({ ...o, key: 'acct:' + o.key })) })),
+    ] : []),
+  ]
+  function selectMoreOption(key) {
+    if (key === '__member_overview') return selectMemberOverview()
+    if (key.startsWith('auto:')) return selectAutomationSection(key.slice(5))
+    if (key.startsWith('acct:')) return selectAccountingSection(key.slice(5))
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--vfo-page)', color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif' }}>
       <div style={headerStyle}>
         <VfoWordmark size={17} light onClick={handleTitleClick} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <NotificationBell />
-          <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.88)', fontWeight: 500 }}>{session.name}</span>
+          <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.88)', fontWeight: 500, whiteSpace: 'nowrap', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{session.name}</span>
           {session.is_superadmin && (
             <button onClick={() => { setShowEditor(true); setShowSettings(false); setActiveTab(null) }}
               style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,205,150,0.5)', background: 'transparent', color: '#ffd9a0', fontWeight: 500, fontSize: '13px', cursor: 'pointer' }}>
@@ -490,8 +521,19 @@ export default function AdminPortal() {
             />
 
             {/* Secondary "other" tabs — beside the key tabs, muted, access-gated,
-                separated by a faint divider. */}
-            {(canSeeTab('member_overview') || canSeeTab('automation') || canSeeTab('accounting')) && (
+                separated by a faint divider. On narrow screens they collapse
+                into a single More ▾ menu so nothing falls off-screen. */}
+            {(canSeeTab('member_overview') || canSeeTab('automation') || canSeeTab('accounting')) && navNarrow && (
+              <div style={{ display: 'flex', alignItems: 'center', marginLeft: '10px', paddingLeft: '12px', borderLeft: '1px solid var(--vfo-tint)' }}>
+                <NavDropdown
+                  label="More" muted
+                  items={moreDropdownItems}
+                  onSelect={selectMoreOption}
+                  isActive={['member_overview', 'automation', 'accounting'].includes(activeTab)}
+                />
+              </div>
+            )}
+            {(canSeeTab('member_overview') || canSeeTab('automation') || canSeeTab('accounting')) && !navNarrow && (
               <div style={{ display: 'flex', alignItems: 'center', marginLeft: '10px', paddingLeft: '12px', borderLeft: '1px solid var(--vfo-tint)' }}>
                 {canSeeTab('member_overview') && (
                   <button onClick={selectMemberOverview} style={{
@@ -526,10 +568,29 @@ export default function AdminPortal() {
 
           <div style={{ flex: 1 }}>
           {!activeTab && (
-            <div style={{ textAlign: 'center', padding: '60px 0 0' }}>
+            <div style={{ textAlign: 'center', padding: '60px 24px 0' }}>
               <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2.5px', marginBottom: '10px' }}>Welcome back</p>
               <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.02em', fontSize: '38px', color: 'var(--vfo-heading)', margin: 0 }}>{session.name}</p>
               <div style={{ width: '46px', height: '4px', borderRadius: '99px', background: '#fb895a', margin: '18px auto 0' }} />
+              {!loading && (() => {
+                const active = (m) => m.elite_status === 'Active'
+                const cards = [
+                  { label: 'Active Advisors', value: allMembers.filter(m => m.member_category !== 'accountant' && m.member_category !== 'strategic_member' && active(m)).length, go: () => selectAdvisorsSection('advisor_search') },
+                  { label: 'Active Accountants', value: allMembers.filter(m => m.member_category === 'accountant' && active(m)).length, go: () => selectAccountantsSection('accountant_search') },
+                  { label: 'Strategic Members', value: allMembers.filter(m => m.member_category === 'strategic_member' && active(m)).length, go: () => selectStrategicSection('strategic_member_search') },
+                  { label: 'Active Specialists', value: allExperts.filter(e => (e.status || 'Active') === 'Active').length, go: () => selectSpecialistsSection('specialist_search') },
+                ]
+                return (
+                  <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '40px' }}>
+                    {cards.map(c => (
+                      <button key={c.label} onClick={c.go} style={{ width: '170px', padding: '20px 14px 16px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                        <div style={{ fontSize: '30px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)', lineHeight: 1 }}>{c.value}</div>
+                        <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.9px', color: 'var(--vfo-muted)', textTransform: 'uppercase', marginTop: '9px' }}>{c.label}</div>
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
             </div>
           )}
 

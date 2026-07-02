@@ -75,7 +75,7 @@ export default function NotificationBell() {
         onClick={() => setOpen(!open)}
         title="Notifications"
         style={{
-          position: 'relative', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.28)',
+          position: 'relative', background: 'rgba(255,255,255,0.22)', border: '1px solid rgba(255,255,255,0.55)',
           borderRadius: '50%', width: '34px', height: '34px', cursor: 'pointer', color: '#fff',
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif'
         }}
