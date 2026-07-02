@@ -40,8 +40,8 @@ export default function SpecialistRevShareFinalPage() {
         <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: view.color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
           <span style={{ fontSize: '32px', lineHeight: 1 }}>{view.icon}</span>
         </div>
-        <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }}>{view.title}</h1>
-        <p style={{ fontSize: '15px', color: '#4e6087', lineHeight: 1.6 }}>{view.message}</p>
+        <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--vfo-ink)', marginBottom: '12px' }}>{view.title}</h1>
+        <p style={{ fontSize: '15px', color: 'var(--vfo-muted)', lineHeight: 1.6 }}>{view.message}</p>
       </div>
     </div>
   )
@@ -55,4 +55,4 @@ function getView(status, response) {
   return { icon: '✓', color: '#16a34a', title: 'Thank You', message: "We've noted that you have further questions about the revenue sharing proposal. Tracy Miller will be in touch shortly to discuss before it's finalized." }
 }
 
-const pageStyle = { fontFamily: '"Inter", sans-serif', background: '#ffffff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }
+const pageStyle = { fontFamily: '"Inter", sans-serif', background: 'var(--vfo-card)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }

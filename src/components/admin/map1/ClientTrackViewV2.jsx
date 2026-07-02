@@ -20,11 +20,11 @@ function PipConfirmStep({ clientId, task, p, meeting, readOnly, onDone }) {
   const [tz, setTz] = useState('ET')
   const [pending, setPending] = useState(null)
   const isDone = !!p.status
-  const statusColor = isDone ? '#1b9254' : '#4e6087'
-  const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
+  const statusColor = isDone ? '#1b9254' : 'var(--vfo-muted)'
+  const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
   const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
   const redBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600 }
-  const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid #d6e0ee', background: 'transparent', color: '#4e6087' }
+  const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }
   function fmtDate(d) { if (!d) return ''; const dt = new Date(d + 'T00:00:00'); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }
 
   async function fire(decision, d, t, z) {
@@ -42,18 +42,18 @@ function PipConfirmStep({ clientId, task, p, meeting, readOnly, onDone }) {
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
-      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
-      <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
+      <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
       {isDone
         ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
         : readOnly
-          ? <span style={{ fontSize: '11px', color: '#697a9c' }}>Not started</span>
+          ? <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>Not started</span>
           : showDate
             ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
                 <input type="time" value={time} onChange={e => setTime(e.target.value)} style={inputStyle} />
-                <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
+                <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
                   <option value="ET">Eastern (ET)</option>
                   <option value="CT">Central (CT)</option>
                   <option value="MT">Mountain (MT)</option>
@@ -70,7 +70,7 @@ function PipConfirmStep({ clientId, task, p, meeting, readOnly, onDone }) {
                 <button onClick={() => fire('declined')} disabled={!!pending} style={{ ...redBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'declined' ? 'Sending…' : 'Meeting declined - email client'}</button>
               </div>
       }
-      <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? fmtDate(p.completed_date) : ''}</span>
+      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? fmtDate(p.completed_date) : ''}</span>
     </div>
   )
 }
@@ -267,7 +267,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
     return `${parts[1]}/${parts[2]}`
   }
 
-  const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
+  const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
 
   if (loading) return <Map1TrackSkeleton />
 
@@ -310,7 +310,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
         const pcCounts = isPCAdminPhase ? pcAdminStepCounts() : null
         const doneTasks = isPCAdminPhase ? pcCounts.done : nonAutoTasks.filter(t => progress[t.id]?.status && progress[t.id].status !== '').length
         const headerTotal = isPCAdminPhase ? pcCounts.total : nonAutoTasks.length
-        const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
+        const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
         const titleColor = state === 'active' ? '#125ecc' : '#002973'
         const autoCompletableCodesForCheck = {
@@ -326,7 +326,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
         const phaseCompleteState = completedPhases[phase.id]
 
         return (
-          <div key={phase.id} style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
+          <div key={phase.id} style={{ background: 'var(--vfo-card)', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
             {/* Phase header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
               <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flex: 1 }}>
@@ -337,8 +337,8 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                 {!readOnly && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === phase.name && n.tab_name === 'MAP 1').length} isOpen={expanded[`notes_${phase.id}`]} onClick={() => setExpanded(p => ({ ...p, [`notes_${phase.id}`]: !p[`notes_${phase.id}`] }))} />}
                 {state === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
                 {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{headerTotal}</span>}
-                {state === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
-                <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
+                {state === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>}
+                <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
               </div>
             </div>
 
@@ -354,7 +354,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                   const pipDecision = pipStatus.replace('Completed - ', '')
 
                   if (!pipStatus || !pipStatus.startsWith('Completed')) return (
-                    <div style={{ padding: '12px', color: '#4e6087', fontSize: '13px' }}>Waiting for PIP Follow Up decision</div>
+                    <div style={{ padding: '12px', color: 'var(--vfo-muted)', fontSize: '13px' }}>Waiting for PIP Follow Up decision</div>
                   )
 
                   const finalDec = pipelineData?.c15_final_decision
@@ -362,12 +362,12 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                   const decisionLabel = pipDecision === 'Yes' ? 'Yes — proceeding' : pipDecision === 'No' ? 'No — declined' : finalDec === 'Yes' ? `Yes — ${pipelineData?.c15_service_level || 'proceeding'}${pipelineData?.c15_via_extra_meeting ? ' (via extra meeting)' : ''}` : finalDec === 'No' ? `No — declined${pipelineData?.c15_via_extra_meeting ? ' (via extra meeting)' : ''}` : finalDec === 'ExtraMeeting' ? 'Extra meeting requested' : 'Undecided — awaiting client'
 
                   const autoStep = (label, done = false, tag = null, na = false) => (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
-                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: (done || na) ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${(done || na) ? '#1b9254' : '#c7d4e8'}` }} />
-                      <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: (done || na) ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${(done || na) ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+                      <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
                       <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
                         {done && tag && !na && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{tag}</span>}
-                        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: (done || na) ? 'rgba(27,146,84,0.15)' : '#eef2f9', border: (done || na) ? '1px solid rgba(27,146,84,0.3)' : '1px solid #dde5f2', color: (done || na) ? '#1b9254' : '#4e6087' }}>{na ? 'N/A' : (done ? 'Done' : 'Not completed')}</span>
+                        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: (done || na) ? 'rgba(27,146,84,0.15)' : 'var(--vfo-tint)', border: (done || na) ? '1px solid rgba(27,146,84,0.3)' : '1px solid var(--vfo-border-chip)', color: (done || na) ? '#1b9254' : 'var(--vfo-muted)' }}>{na ? 'N/A' : (done ? 'Done' : 'Not completed')}</span>
                       </span>
                     </div>
                   )
@@ -380,9 +380,9 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                   const yesSteps = null
 
                   return (
-                    <div style={{ padding: '8px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2' }}>
+                    <div style={{ padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                        <span style={{ fontSize: '12px', color: '#4e6087' }}>Decision:</span>
+                        <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Decision:</span>
                         <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${decisionColor}22`, color: decisionColor, border: `1px solid ${decisionColor}44` }}>{decisionLabel}</span>
                       </div>
 
@@ -416,7 +416,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                             {autoStep('Decision email sent', emailSent)}
                             {autoStep('Client response received', !!finalDec)}
                             {finalDec && (
-                              <div style={{ marginLeft: '14px', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px', borderLeft: '1px solid #ebf0f8' }}>
+                              <div style={{ marginLeft: '14px', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px', borderLeft: '1px solid var(--vfo-tint-deep)' }}>
                                 <div style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', display: 'inline-block', marginBottom: '8px',
                                   background: finalDec === 'Yes' ? 'rgba(27,146,84,0.15)' : finalDec === 'No' ? 'rgba(231,76,60,0.15)' : 'rgba(0,149,255,0.15)',
                                   color: finalDec === 'Yes' ? '#1b9254' : finalDec === 'No' ? '#e74c3c' : '#0095ff',
@@ -434,22 +434,22 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                                     ) : pd?.gross_fee ? (
                                       <>
                                         <div style={{ cursor: 'pointer' }} onClick={() => setExpanded(prev => ({ ...prev, pricing_details: !prev.pricing_details }))}>
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
                                             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1b9254', flexShrink: 0, border: '1px solid #1b9254' }} />
-                                            <span style={{ fontSize: '12px', color: '#16264a', fontWeight: 600 }}>PF completed pricing</span>
-                                            <span style={{ fontSize: '10px', color: '#4e6087', marginLeft: '4px', transform: expanded.pricing_details ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                                            <span style={{ fontSize: '12px', color: 'var(--vfo-ink)', fontWeight: 600 }}>PF completed pricing</span>
+                                            <span style={{ fontSize: '10px', color: 'var(--vfo-muted)', marginLeft: '4px', transform: expanded.pricing_details ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
                                             <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>
                                           </div>
                                         </div>
                                         {expanded.pricing_details && (
-                                          <div style={{ marginLeft: '14px', padding: '8px 12px', background: '#eef2f9', borderRadius: '6px', marginBottom: '4px', borderLeft: '1px solid #dde5f2' }}>
-                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#697a9c', width: '140px' }}>Service level</span><span style={{ fontSize: '11px', color: '#243757' }}>{pd?.service_level || pd?.c15_service_level || '—'}</span></div>
-                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#697a9c', width: '140px' }}>Gross fee</span><span style={{ fontSize: '11px', color: '#243757' }}>${pd?.gross_fee || '—'}</span></div>
-                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#697a9c', width: '140px' }}>Member contribution</span><span style={{ fontSize: '11px', color: '#243757' }}>{pd?.member_contribution ? `$${pd.member_contribution}` : '—'}</span></div>
-                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#697a9c', width: '140px' }}>Net invoice</span><span style={{ fontSize: '11px', color: '#243757' }}>{pd?.net_invoice ? `$${pd.net_invoice}` : '—'}</span></div>
-                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#697a9c', width: '140px' }}>Member share</span><span style={{ fontSize: '11px', color: '#243757' }}>{pd?.member_share ? `$${pd.member_share}` : '—'}</span></div>
-                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#697a9c', width: '140px' }}>VFOs share</span><span style={{ fontSize: '11px', color: '#243757' }}>{pd?.vfos_share ? `$${pd.vfos_share}` : '—'}</span></div>
-                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: '#697a9c', width: '140px' }}>Payment plan</span><span style={{ fontSize: '11px', color: '#243757' }}>{pd?.payment_plan || '—'}</span></div>
+                                          <div style={{ marginLeft: '14px', padding: '8px 12px', background: 'var(--vfo-tint)', borderRadius: '6px', marginBottom: '4px', borderLeft: '1px solid var(--vfo-border-chip)' }}>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: 'var(--vfo-muted)', width: '140px' }}>Service level</span><span style={{ fontSize: '11px', color: 'var(--vfo-ink-2)' }}>{pd?.service_level || pd?.c15_service_level || '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: 'var(--vfo-muted)', width: '140px' }}>Gross fee</span><span style={{ fontSize: '11px', color: 'var(--vfo-ink-2)' }}>${pd?.gross_fee || '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: 'var(--vfo-muted)', width: '140px' }}>Member contribution</span><span style={{ fontSize: '11px', color: 'var(--vfo-ink-2)' }}>{pd?.member_contribution ? `$${pd.member_contribution}` : '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: 'var(--vfo-muted)', width: '140px' }}>Net invoice</span><span style={{ fontSize: '11px', color: 'var(--vfo-ink-2)' }}>{pd?.net_invoice ? `$${pd.net_invoice}` : '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: 'var(--vfo-muted)', width: '140px' }}>Member share</span><span style={{ fontSize: '11px', color: 'var(--vfo-ink-2)' }}>{pd?.member_share ? `$${pd.member_share}` : '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: 'var(--vfo-muted)', width: '140px' }}>VFOs share</span><span style={{ fontSize: '11px', color: 'var(--vfo-ink-2)' }}>{pd?.vfos_share ? `$${pd.vfos_share}` : '—'}</span></div>
+                                            <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: 'var(--vfo-muted)', width: '140px' }}>Payment plan</span><span style={{ fontSize: '11px', color: 'var(--vfo-ink-2)' }}>{pd?.payment_plan || '—'}</span></div>
                                           </div>
                                         )}
                                         {autoStep('Agreement sent to client', pd?.c16_sent === 'Yes')}
@@ -474,8 +474,8 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                               </div>
                             )}
                             {!finalDec && (
-                              <div style={{ marginLeft: '14px', borderLeft: '1px solid #ebf0f8', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px' }}>
-                                <div style={{ fontSize: '11px', color: '#697a9c', marginBottom: '6px' }}>If Yes:</div>
+                              <div style={{ marginLeft: '14px', borderLeft: '1px solid var(--vfo-tint-deep)', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px' }}>
+                                <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginBottom: '6px' }}>If Yes:</div>
                                 {autoStep('Agreement sent to client', pd?.c16_sent === 'Yes')}
                                 {autoStep('Client signed', pd?.c17_client_signed === 'Yes')}
                                 {autoStep('CEO signed', pd?.c18_ceo_signed === 'Yes')}
@@ -485,9 +485,9 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                                 {autoStep('Invoice/receipt sent', !!pd?.invoice_number)}
                                 {autoStep('Revenue share paid', ['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd?.rec1_rev_paid), null, isZeroShare(pd?.member_share))}
                                 {autoStep('Member notified of revenue share', pd?.c24_email_sent === true, null, isZeroShare(pd?.member_share))}
-                                <div style={{ fontSize: '11px', color: '#697a9c', marginBottom: '6px', marginTop: '10px' }}>If No:</div>
+                                <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginBottom: '6px', marginTop: '10px' }}>If No:</div>
                                 {autoStep('Decline email sent to client')}
-                                <div style={{ fontSize: '11px', color: '#697a9c', marginBottom: '6px', marginTop: '10px' }}>If extra meeting:</div>
+                                <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginBottom: '6px', marginTop: '10px' }}>If extra meeting:</div>
                                 {autoStep('Extra meeting held')}
                                 {autoStep('PF submits outcome')}
                               </div>
@@ -503,27 +503,27 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                 tasks.map(task => {
                   const p = progress[task.id] || {}
                   const isDone = !!p.status
-                  const statusColor = statusColors[p.status] || '#4e6087'
+                  const statusColor = statusColors[p.status] || 'var(--vfo-muted)'
 
                   if (task.status_options === 'auto') return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1b9254', flexShrink: 0 }} />
-                      <span style={{ fontSize: '13px', color: '#4e6087', flex: 1 }}>{task.name}</span>
+                      <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: 1 }}>{task.name}</span>
                       <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
-                      <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
 
                   if (task.status_options === 'date_entry') {
                     const dateVal = p.completed_date || ''
                     return (
-                      <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dateVal ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${dateVal ? '#1b9254' : '#c7d4e8'}` }} />
-                        <span style={{ fontSize: '13px', color: dateVal ? '#4e6087' : '#16264a', flex: 1, fontWeight: '600' }}>{task.name}</span>
+                      <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dateVal ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${dateVal ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+                        <span style={{ fontSize: '13px', color: dateVal ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
                         {readOnly
                           ? (dateVal
                               ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>{formatDate(dateVal)}</span>
-                              : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not scheduled</span>)
+                              : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not scheduled</span>)
                           : <input type="date" value={dateVal} onChange={e => saveDateEntry(task.id, e.target.value)} disabled={saving[task.id]} style={inputStyle} />
                         }
                       </div>
@@ -537,14 +537,14 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                     const c14c15Active2 = c10Status2 === 'No' || c10Status2 === 'Undecided'
                     const isGreyedOut2 = isPCAdmin && (task.name === 'Email to Client if "Undecided" or "No" in C12' || task.name === 'Final client decision (if previously "Undecided" or "No")') && !c14c15Active2
                     return (
-                      <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', opacity: isGreyedOut2 ? 0.3 : 1 }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
-                        <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
+                      <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', opacity: isGreyedOut2 ? 0.3 : 1 }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
+                        <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
                         {isDone
                           ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
-                          : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
+                          : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>
                         }
-                        <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                        <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                       </div>
                     )
                   }
@@ -563,14 +563,14 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
 
                   if (task.name === 'Call arranged with client') return (
                     <div key={task.id}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
-                        <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
-                        <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#ffffff', minWidth: '150px', borderColor: isDone ? `${statusColor}66` : '#d6e0ee', color: isDone ? statusColor : '#16264a' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
+                        <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+                        <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date)} disabled={saving[task.id]} style={{ ...inputStyle, background: 'var(--vfo-card)', minWidth: '150px', borderColor: isDone ? `${statusColor}66` : 'var(--vfo-border-strong)', color: isDone ? statusColor : 'var(--vfo-ink)' }}>
                           <option value="">-- Select --</option>
                           {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                        <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                       </div>
                     </div>
                   )
@@ -581,13 +581,13 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                   const isGreyedOut = isPCAdmin && (task.name === 'Email to Client if "Undecided" or "No" in C12' || task.name === 'Final client decision (if previously "Undecided" or "No")') && !c14c15Active
 
                   if (isPCAdmin) return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', opacity: isGreyedOut ? 0.3 : 1 }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? '#1b9254' : '#c7d4e8'}` }} />
-                      <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
-                      <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: isDone ? 'rgba(27,146,84,0.15)' : '#eef2f9', color: isDone ? '#1b9254' : '#4e6087', border: `1px solid ${isDone ? 'rgba(27,146,84,0.3)' : '#e3eaf5'}` }}>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', opacity: isGreyedOut ? 0.3 : 1 }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+                      <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+                      <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: isDone ? 'rgba(27,146,84,0.15)' : 'var(--vfo-tint)', color: isDone ? '#1b9254' : 'var(--vfo-muted)', border: `1px solid ${isDone ? 'rgba(27,146,84,0.3)' : 'var(--vfo-border)'}` }}>
                         {isDone ? 'Completed' : 'Not completed'}
                       </span>
-                      <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
 
@@ -596,38 +596,38 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                       const dl = p.status.replace('Completed - ', '')
                       const dc = dl === 'Yes' ? '#1b9254' : dl === 'No' ? '#e74c3c' : '#e06717'
                       return (
-                        <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
+                        <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
                           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dc, flexShrink: 0 }} />
-                          <span style={{ fontSize: '13px', color: '#4e6087', flex: 1 }}>{task.name}</span>
+                          <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: 1 }}>{task.name}</span>
                           <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${dc}22`, color: dc, border: `1px solid ${dc}44` }}>{dl}</span>
-                          <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
                         </div>
                       )
                     }
                     if (readOnly && !isDone) {
                       return (
-                        <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid #c7d4e8' }} />
-                          <span style={{ fontSize: '13px', color: '#16264a', flex: 1 }}>{task.name}</span>
-                          <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
-                          <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}></span>
+                        <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid var(--vfo-border-mid)' }} />
+                          <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+                          <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>
+                          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}></span>
                         </div>
                       )
                     }
                     const dl = isDone ? p.status.replace('Completed - ', '') : ''
-                    const dc = dl === 'Yes' ? '#1b9254' : dl === 'No' ? '#e74c3c' : dl === 'Undecided' ? '#e06717' : '#4e6087'
+                    const dc = dl === 'Yes' ? '#1b9254' : dl === 'No' ? '#e74c3c' : dl === 'Undecided' ? '#e06717' : 'var(--vfo-muted)'
                     let formData = null
                     if (isDone) { try { formData = JSON.parse(p.notes || '{}') } catch(e) { formData = {} } }
                     const formExpandKey = `pipform_${task.id}`
                     const isFormShown = isDone ? expanded[formExpandKey] : true
                     return (
-                      <div key={task.id} style={{ borderBottom: '1px solid #e9eef8', padding: '7px 0' }}>
+                      <div key={task.id} style={{ borderBottom: '1px solid var(--vfo-border-soft)', padding: '7px 0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: isDone ? 'pointer' : 'default' }} onClick={() => isDone && setExpanded(prev => ({ ...prev, [formExpandKey]: !prev[formExpandKey] }))}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? dc : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? dc : '#c7d4e8'}` }} />
-                          <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1, fontWeight: '600' }}>{task.name}</span>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? dc : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? dc : 'var(--vfo-border-mid)'}` }} />
+                          <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
                           {isDone && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${dc}22`, color: dc, border: `1px solid ${dc}44` }}>{dl}</span>}
-                          <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
-                          {isDone && <span style={{ color: '#4e6087', fontSize: '10px', transform: isFormShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>}
+                          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                          {isDone && <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isFormShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>}
                         </div>
                         {isFormShown && (
                           <PIPDecisionForm
@@ -647,14 +647,14 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                   }
 
                   return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
-                      <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>{task.name}</span>
-                      <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date)} disabled={saving[task.id]} style={{ ...inputStyle, background: '#ffffff', minWidth: '150px', borderColor: isDone ? `${statusColor}66` : '#d6e0ee', color: isDone ? statusColor : '#16264a' }}>
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
+                      <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+                      <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date)} disabled={saving[task.id]} style={{ ...inputStyle, background: 'var(--vfo-card)', minWidth: '150px', borderColor: isDone ? `${statusColor}66` : 'var(--vfo-border-strong)', color: isDone ? statusColor : 'var(--vfo-ink)' }}>
                         <option value="">-- Select --</option>
                         {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
-                      <span style={{ fontSize: '11px', color: '#697a9c', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     </div>
                   )
                 })}

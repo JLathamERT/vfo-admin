@@ -23,8 +23,8 @@ export default function ChangePasswordCard({ action }) {
   }
 
   return (
-    <div style={{ maxWidth: '460px', margin: '0 auto', background: '#fff', border: '1px solid #e9eef8', borderRadius: '16px', padding: '24px' }}>
-      <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Change Passcode</div>
+    <div style={{ maxWidth: '460px', margin: '0 auto', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', padding: '24px' }}>
+      <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Change Passcode</div>
       <label style={labelStyle}>New Passcode (min 6 characters)</label>
       <input value={passcode} onChange={e => setPasscode(e.target.value)} type="password" autoComplete="new-password" style={inputStyle} />
       <label style={{ ...labelStyle, marginTop: '14px' }}>Confirm Passcode</label>
@@ -35,5 +35,5 @@ export default function ChangePasswordCard({ action }) {
   )
 }
 
-const labelStyle = { fontSize: '13px', color: '#4e6087', marginBottom: '6px', fontWeight: 500, display: 'block' }
-const inputStyle = { padding: '12px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }
+const labelStyle = { fontSize: '13px', color: 'var(--vfo-muted)', marginBottom: '6px', fontWeight: 500, display: 'block' }
+const inputStyle = { padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }

@@ -2,15 +2,85 @@
   box-sizing: border-box;
 }
 
+/* ---------------------------------------------------------------------
+   Theme palette. Components reference these via var(--vfo-*) in their
+   inline styles; the [data-theme="dark"] block swaps the whole palette.
+   Brand blues (--vfo-navy / --vfo-primary / --vfo-sky / gradients) are
+   the same in both modes — dark mode is the standard navy as surface.
+   --------------------------------------------------------------------- */
 :root {
+  /* brand (fixed across themes) */
   --vfo-primary: #125ecc;
+  --vfo-primary-2: #0a85e8;
   --vfo-navy: #002973;
   --vfo-sky: #0095ff;
   --vfo-orange: #fb895a;
-  --vfo-ink: #16264a;
-  --vfo-muted: #5b6b8c;
+
+  /* surfaces */
   --vfo-page: #f4f7fd;
+  --vfo-card: #ffffff;
+  --vfo-tint: #eef2f9;      /* chip / hover fill */
+  --vfo-input: #f7f9fc;     /* input fill */
+  --vfo-tint-deep: #ebf0f8; /* slightly stronger tint */
+
+  /* lines */
   --vfo-border: #e3eaf5;
+  --vfo-border-soft: #e9eef8;   /* card outline */
+  --vfo-border-strong: #d6e0ee; /* input outline */
+  --vfo-border-chip: #dde5f2;   /* badge outline */
+  --vfo-border-mid: #c7d4e8;    /* secondary-button outline */
+
+  /* text */
+  --vfo-ink: #16264a;
+  --vfo-ink-2: #243757;
+  --vfo-muted: #4e6087;
+  --vfo-faint: #7c8aa6;     /* field eyebrows / placeholders-adjacent */
+  --vfo-heading: #002973;   /* navy titles — flips to white in dark */
+  --vfo-placeholder: #94a3bd;
+
+  /* skeleton shimmer */
+  --vfo-skel-a: #e8eef8;
+  --vfo-skel-b: #f6f9fd;
+
+  /* misc */
+  --vfo-scrollbar: #c3d0e5;
+  --vfo-scrollbar-hover: #a9bcd9;
+  --vfo-halo: rgba(18, 94, 204, 0.05); /* page top glow */
+  --vfo-shadow-card: 0 4px 16px rgba(20, 45, 95, 0.06);
+}
+
+[data-theme="dark"] {
+  /* surfaces — the standard VFO navy family */
+  --vfo-page: #001b4f;
+  --vfo-card: #002973;
+  --vfo-tint: #0d3684;
+  --vfo-input: #0a3179;
+  --vfo-tint-deep: #0d3684;
+
+  /* lines */
+  --vfo-border: #1c4394;
+  --vfo-border-soft: #19408f;
+  --vfo-border-strong: #2a52a5;
+  --vfo-border-chip: #244c9e;
+  --vfo-border-mid: #3560b0;
+
+  /* text — white where light mode was dark */
+  --vfo-ink: #eef3ff;
+  --vfo-ink-2: #dde7fb;
+  --vfo-muted: #a9bcdf;
+  --vfo-faint: #8ba3cf;
+  --vfo-heading: #ffffff;
+  --vfo-placeholder: #7d97c6;
+
+  /* skeleton shimmer */
+  --vfo-skel-a: #0d3684;
+  --vfo-skel-b: #1a4494;
+
+  /* misc */
+  --vfo-scrollbar: #2a52a5;
+  --vfo-scrollbar-hover: #3a63b8;
+  --vfo-halo: rgba(0, 149, 255, 0.06);
+  --vfo-shadow-card: 0 4px 16px rgba(0, 10, 35, 0.35);
 }
 
 /* Always reserve the scrollbar track so the page doesn't shift sideways
@@ -23,13 +93,14 @@ body {
   margin: 0;
   padding: 0;
   background: var(--vfo-page);
-  background-image: radial-gradient(1100px 380px at 50% -120px, rgba(18, 94, 204, 0.05), transparent);
+  background-image: radial-gradient(1100px 380px at 50% -120px, var(--vfo-halo), transparent);
   background-repeat: no-repeat;
   color: var(--vfo-ink);
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 #root {
@@ -39,22 +110,25 @@ body {
 ::selection {
   background: rgba(18, 94, 204, 0.18);
 }
+[data-theme="dark"] ::selection {
+  background: rgba(0, 149, 255, 0.35);
+}
 
 /* --- scrollbars: slim, quiet --------------------------------------- */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #c3d0e5 transparent;
+  scrollbar-color: var(--vfo-scrollbar) transparent;
 }
 *::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #c3d0e5;
+  background: var(--vfo-scrollbar);
   border-radius: 99px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #a9bcd9;
+  background: var(--vfo-scrollbar-hover);
 }
 *::-webkit-scrollbar-track {
   background: transparent;
@@ -71,10 +145,20 @@ button:not(:disabled):hover {
 button:not(:disabled):active {
   filter: brightness(0.9);
 }
+[data-theme="dark"] button:not(:disabled):hover {
+  filter: brightness(1.12);
+}
+[data-theme="dark"] button:not(:disabled):active {
+  filter: brightness(1.2);
+}
 button:focus-visible,
 a:focus-visible {
   outline: 3px solid rgba(18, 94, 204, 0.3);
   outline-offset: 1px;
+}
+[data-theme="dark"] button:focus-visible,
+[data-theme="dark"] a:focus-visible {
+  outline: 3px solid rgba(0, 149, 255, 0.45);
 }
 
 input, select, textarea {
@@ -86,8 +170,11 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px rgba(18, 94, 204, 0.16), 0 0 0 1px var(--vfo-primary);
 }
 input::placeholder, textarea::placeholder {
-  color: #94a3bd;
+  color: var(--vfo-placeholder);
 }
+/* Native pickers/selects render their own chrome — hint the theme to the UA. */
+:root { color-scheme: light; }
+[data-theme="dark"] { color-scheme: dark; }
 
 /* --- loading skeletons: soft shimmer sweep --------------------------- */
 @keyframes vfo-skeleton-shimmer {
@@ -98,9 +185,9 @@ input::placeholder, textarea::placeholder {
 .vfo-skeleton {
   background: linear-gradient(
     100deg,
-    #e8eef8 36%,
-    #f6f9fd 50%,
-    #e8eef8 64%
+    var(--vfo-skel-a) 36%,
+    var(--vfo-skel-b) 50%,
+    var(--vfo-skel-a) 64%
   );
   background-size: 200% 100%;
   border-radius: 6px;

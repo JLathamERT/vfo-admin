@@ -72,7 +72,7 @@ export default function GrowthAddPriority({ memberNumber, bundle, reload, role =
             <div key={cat} style={cardStyle}>
               <div style={accentStrip} />
               <div style={{ padding: '16px 20px' }}>
-                <div style={{ fontSize: '13px', fontWeight: 800, color: NAVY, marginBottom: '4px' }}>{CATEGORY_LABELS_LONG[cat]}</div>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--vfo-heading)', marginBottom: '4px' }}>{CATEGORY_LABELS_LONG[cat]}</div>
                 {rows.map(a => <AddRow key={a.id} a={a} memberNumber={memberNumber} reload={reload} isParking={isParking} />)}
               </div>
             </div>
@@ -102,7 +102,7 @@ function AddRow({ a, memberNumber, reload, isParking }) {
   const drop = () => write('parking_moved', { g2_status: 'drop', g3_status: '' })
 
   return (
-    <div style={{ padding: '12px 0', borderTop: '1px solid #eef2f9' }}>
+    <div style={{ padding: '12px 0', borderTop: '1px solid var(--vfo-tint)' }}>
       <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 300px', fontSize: '13.5px', color: INK, lineHeight: 1.5 }}>{a.action_text}</div>
         {!open && (
@@ -115,7 +115,7 @@ function AddRow({ a, memberNumber, reload, isParking }) {
         )}
       </div>
       {open && (
-        <div style={{ marginTop: '12px', background: '#f7f9fc', border: '1px solid #e9eef8', borderRadius: '10px', padding: '14px 16px' }}>
+        <div style={{ marginTop: '12px', background: 'var(--vfo-input)', border: '1px solid var(--vfo-border-soft)', borderRadius: '10px', padding: '14px 16px' }}>
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '12px' }}>
             <div style={{ flex: '1 1 200px' }}>
               <div style={miniLabel}>Owned By</div>

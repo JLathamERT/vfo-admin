@@ -21,9 +21,9 @@ function PipPurchaseDecisionForm({ task, priorityTrackId, clientId, engagementYe
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
-  const labelStyle = { fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }
-  const sectionStyle = { background: '#eef2f9', borderRadius: '8px', padding: '16px', marginBottom: '12px', border: '1px solid #dde5f2' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const labelStyle = { fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }
+  const sectionStyle = { background: 'var(--vfo-tint)', borderRadius: '8px', padding: '16px', marginBottom: '12px', border: '1px solid var(--vfo-border-chip)' }
   const readOnlyInput = { ...inputStyle, opacity: 0.6, pointerEvents: 'none' }
 
   const showPricing = decision === 'Tax Planning (if not purchased already)' || decision === 'Additional PIP meeting(s)'
@@ -104,12 +104,12 @@ function PipPurchaseDecisionForm({ task, priorityTrackId, clientId, engagementYe
   }
 
   return (
-    <div style={{ marginLeft: '18px', padding: '16px', background: '#eef2f9', borderRadius: '10px', border: '1px solid #ebf0f8', marginTop: '4px', marginBottom: '8px' }}>
+    <div style={{ marginLeft: '18px', padding: '16px', background: 'var(--vfo-tint)', borderRadius: '10px', border: '1px solid var(--vfo-tint-deep)', marginTop: '4px', marginBottom: '8px' }}>
       <div style={{ marginBottom: '16px' }}>
         <label style={labelStyle}>Client decision</label>
         {isViewMode
           ? <div style={{ ...inputStyle, opacity: 0.6 }}>{decision}</div>
-          : <select value={decision} onChange={e => setDecision(e.target.value)} style={{ ...inputStyle, background: '#ffffff' }}>
+          : <select value={decision} onChange={e => setDecision(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
               <option value="">-- Select --</option>
               {DECISION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
@@ -123,7 +123,7 @@ function PipPurchaseDecisionForm({ task, priorityTrackId, clientId, engagementYe
             ? <div style={readOnlyInput}>{additionalCount || '—'}</div>
             : <input type="number" min="1" max="50" value={additionalCount} onChange={e => setAdditionalCount(e.target.value)} placeholder="e.g. 2" style={inputStyle} />
           }
-          <div style={{ fontSize: '11px', color: '#697a9c', marginTop: '6px', fontStyle: 'italic' }}>These meetings will be added to Year {engagementYear ?? '?'} but locked until payment + revenue share are recorded.</div>
+          <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '6px', fontStyle: 'italic' }}>These meetings will be added to Year {engagementYear ?? '?'} but locked until payment + revenue share are recorded.</div>
         </div>
       )}
 
@@ -134,21 +134,21 @@ function PipPurchaseDecisionForm({ task, priorityTrackId, clientId, engagementYe
             <div style={{ marginBottom: '10px' }}>
               <label style={labelStyle}>Gross service value</label>
               <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
                 <input value={grossServiceValue} onChange={e => setGrossServiceValue(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
               </div>
             </div>
             <div style={{ marginBottom: '10px' }}>
               <label style={labelStyle}>Member contribution <span style={{ textTransform: 'none', opacity: 0.6 }}>(if applicable)</span></label>
               <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
                 <input value={memberContribution} onChange={e => setMemberContribution(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
               </div>
             </div>
             <div>
               <label style={labelStyle}>Net invoice value</label>
               <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
                 <input value={isViewMode ? (existing.netInvoiceValue || '0.00') : netInvoiceValue} readOnly style={{ ...readOnlyInput, paddingLeft: '28px', background: 'rgba(27,146,84,0.08)', borderColor: 'rgba(27,146,84,0.2)' }} />
               </div>
             </div>
@@ -160,14 +160,14 @@ function PipPurchaseDecisionForm({ task, priorityTrackId, clientId, engagementYe
               <div style={{ flex: 1, minWidth: '120px' }}>
                 <label style={labelStyle}>Member share</label>
                 <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
                   <input value={memberShare} onChange={e => setMemberShare(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
                 </div>
               </div>
               <div style={{ flex: 1, minWidth: '120px' }}>
                 <label style={labelStyle}>VFOS share</label>
                 <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4e6087', fontSize: '14px' }}>$</span>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
                   <input value={vfosShare} onChange={e => setVfosShare(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
                 </div>
               </div>

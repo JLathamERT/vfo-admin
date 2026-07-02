@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { callApi } from '../../lib/api'
 import SandboxModeToggle from './SandboxModeToggle'
 import { NAVY, BLUE, money, RequestRow } from './specialistRevenueShared'
+import { TableSkeleton } from '../shared/Skeleton'
 
 // Automation → VFO Specialist Revenue. One row per specialist payment request, with
 // where-everything-is-at status and a Retry-payout action. Sandbox toggle shares the
@@ -60,18 +61,18 @@ export default function SpecialistRevenueAutomationPanel() {
   const statBox = (label, value, color) => (
     <div style={{ textAlign: 'center' }}>
       <div style={{ fontSize: '22px', fontWeight: 800, color }}>{value}</div>
-      <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: '#697a9c' }}>{label}</div>
+      <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)' }}>{label}</div>
     </div>
   )
 
   return (
     <div style={wrap}>
-      <div style={{ background: '#fff', border: '1px solid #e9eef8', borderRadius: '16px', padding: '20px 22px', marginBottom: '20px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)' }}>
+      <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', padding: '20px 22px', marginBottom: '20px', boxShadow: 'var(--vfo-shadow-card)' }}>
         <div style={{ height: '4px', borderRadius: '99px', background: `linear-gradient(90deg, ${NAVY} 0%, ${BLUE} 55%, #0a85e8 100%)`, marginBottom: '16px' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
           <div>
             <p style={{ fontSize: '10.5px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 4px' }}>Automation Pipeline</p>
-            <h2 style={{ fontSize: '22px', fontWeight: 800, color: NAVY, margin: 0 }}>VFO Specialist Revenue</h2>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>VFO Specialist Revenue</h2>
           </div>
           {sandboxConfig && (
             <SandboxModeToggle
@@ -84,7 +85,7 @@ export default function SpecialistRevenueAutomationPanel() {
           )}
         </div>
         <div style={{ display: 'flex', gap: '36px', marginTop: '18px' }}>
-          {statBox('Total', stats.total, NAVY)}
+          {statBox('Total', stats.total, 'var(--vfo-heading)')}
           {statBox('Received', stats.received, '#16a34a')}
           {statBox('Awaiting payment', stats.awaiting, '#e06717')}
           {statBox('Payouts pending', stats.pendingLines, '#b45309')}
@@ -95,10 +96,10 @@ export default function SpecialistRevenueAutomationPanel() {
         <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af', borderRadius: '12px', padding: '12px 16px', fontSize: '13px', marginBottom: '14px' }}>{retryMsg}</div>
       )}
 
-      {loading && <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>Loading…</div>}
+      {loading && <TableSkeleton cols={[2, 1, 1, 1]} rows={2} />}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>{error}</div>}
       {!loading && !error && requests.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#9aa7be', fontSize: '14px' }}>No specialist payment requests yet.</div>
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>No specialist payment requests yet.</div>
       )}
       {!loading && !error && requests.map(r => (
         <RequestRow key={r.id} request={r} actions={({ request }) => {
@@ -107,11 +108,11 @@ export default function SpecialistRevenueAutomationPanel() {
           return (
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <button disabled={!received || !hasOpen || retrying === request.id} onClick={() => retry(request.id)}
-                style={{ padding: '8px 16px', borderRadius: '8px', border: `1px solid ${BLUE}`, background: (!received || !hasOpen) ? '#f1f5fb' : '#fff', color: (!received || !hasOpen) ? '#9aa7be' : BLUE, fontWeight: 600, fontSize: '13px', cursor: (!received || !hasOpen) ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                style={{ padding: '8px 16px', borderRadius: '8px', border: `1px solid ${BLUE}`, background: (!received || !hasOpen) ? 'var(--vfo-tint)' : 'var(--vfo-card)', color: (!received || !hasOpen) ? 'var(--vfo-faint)' : BLUE, fontWeight: 600, fontSize: '13px', cursor: (!received || !hasOpen) ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
                 {retrying === request.id ? 'Retrying…' : 'Retry payout'}
               </button>
-              {!received && <span style={{ fontSize: '12px', color: '#9aa7be' }}>Payouts run once the specialist's payment is received.</span>}
-              {received && !hasOpen && <span style={{ fontSize: '12px', color: '#9aa7be' }}>All recipients resolved.</span>}
+              {!received && <span style={{ fontSize: '12px', color: 'var(--vfo-faint)' }}>Payouts run once the specialist's payment is received.</span>}
+              {received && !hasOpen && <span style={{ fontSize: '12px', color: 'var(--vfo-faint)' }}>All recipients resolved.</span>}
             </div>
           )
         }} />

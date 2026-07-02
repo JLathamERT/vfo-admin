@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { callApi } from '../../lib/api'
 import { NAVY, money } from './specialistRevenueShared'
 import { clearedPayments, inPeriod } from './holisticShared'
+import { AccountingTableSkeleton } from '../shared/Skeleton'
 
 // Accounting > VFO Services > Holistic Planning Reconciliation. Pick a year → each
 // member with Holistic activity that year and their revenue split from payments that
@@ -58,15 +59,15 @@ export default function HolisticReconciliationPanel() {
   const tot = members.reduce((s, m) => ({ member: s.member + m.member, mm: s.mm + m.mm, vfos: s.vfos + m.vfos, strategic: s.strategic + m.strategic }), { member: 0, mm: 0, vfos: 0, strategic: 0 })
 
   const wrap = { padding: '24px', maxWidth: '1150px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
-  const sel = { padding: '9px 12px', borderRadius: '8px', border: '1px solid #d6e0f0', background: '#fff', fontSize: '13px', fontFamily: 'Inter, sans-serif', color: '#16264a', cursor: 'pointer' }
+  const sel = { padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', fontSize: '13px', fontFamily: 'Inter, sans-serif', color: 'var(--vfo-ink)', cursor: 'pointer' }
   const grid = '90px 1.4fr 130px 140px 130px 120px'
-  const muted = { color: '#c2cbdb' }
+  const muted = { color: 'var(--vfo-faint)' }
 
   return (
     <div style={wrap}>
       <div style={{ marginBottom: '18px' }}>
         <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 6px' }}>Accounting · VFO Services</p>
-        <h2 style={{ fontSize: '24px', fontWeight: 800, color: NAVY, margin: 0 }}>Holistic Planning Reconciliation</h2>
+        <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>Holistic Planning Reconciliation</h2>
       </div>
 
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap' }}>
@@ -76,35 +77,35 @@ export default function HolisticReconciliationPanel() {
         <button onClick={load} style={{ ...sel, color: '#125ecc', fontWeight: 600 }}>Refresh</button>
       </div>
 
-      {loading && <div style={{ textAlign: 'center', padding: '40px', color: '#4e6087' }}>Loading…</div>}
+      {loading && <AccountingTableSkeleton cols={6} />}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>{error}</div>}
       {!loading && !error && (
-        <div style={{ border: '1px solid #e9eef8', borderRadius: '14px', overflow: 'hidden', background: '#fff', boxShadow: '0 4px 16px rgba(20,45,95,0.06)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', background: '#f7f9fc', borderBottom: '1px solid #e9eef8', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#697a9c' }}>
+        <div style={{ border: '1px solid var(--vfo-border-soft)', borderRadius: '14px', overflow: 'hidden', background: 'var(--vfo-card)', boxShadow: 'var(--vfo-shadow-card)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', background: 'var(--vfo-input)', borderBottom: '1px solid var(--vfo-border-soft)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--vfo-muted)' }}>
             <span>Member #</span><span>Member Name</span><span style={{ textAlign: 'right' }}>Member Share</span><span style={{ textAlign: 'right' }}>Money Mapping</span><span style={{ textAlign: 'right' }}>Elite VFO Income</span><span style={{ textAlign: 'right' }}>Strategic Share</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '11px 18px', borderBottom: '2px solid #e3eaf5', background: '#fbfdff', alignItems: 'center', fontSize: '13px', fontWeight: 800, color: NAVY }}>
+          <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '11px 18px', borderBottom: '2px solid var(--vfo-border)', background: 'var(--vfo-input)', alignItems: 'center', fontSize: '13px', fontWeight: 800, color: 'var(--vfo-heading)' }}>
             <span />
-            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#697a9c' }}>Totals</span>
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--vfo-muted)' }}>Totals</span>
             <span style={{ textAlign: 'right' }}>{money(tot.member)}</span>
             <span style={{ textAlign: 'right' }}>{money(tot.mm)}</span>
             <span style={{ textAlign: 'right' }}>{money(tot.vfos)}</span>
             <span style={{ textAlign: 'right', ...(tot.strategic ? {} : muted) }}>{tot.strategic ? money(tot.strategic) : '—'}</span>
           </div>
           {members.map(m => (
-            <div key={m.memberNumber} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', borderBottom: '1px solid #f0f3f9', alignItems: 'center', fontSize: '13px', color: '#16264a' }}>
-              <span style={{ color: '#4e6087' }}>{m.memberNumber}</span>
+            <div key={m.memberNumber} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)' }}>
+              <span style={{ color: 'var(--vfo-muted)' }}>{m.memberNumber}</span>
               <span style={{ fontWeight: 600 }}>{m.name}</span>
-              <span style={{ textAlign: 'right', fontWeight: m.member ? 700 : 400, color: m.member ? '#16a34a' : '#c2cbdb' }}>{money(m.member)}</span>
-              <span style={{ textAlign: 'right', fontWeight: m.mm ? 700 : 400, color: m.mm ? '#16264a' : '#c2cbdb' }}>{money(m.mm)}</span>
-              <span style={{ textAlign: 'right', fontWeight: m.vfos ? 700 : 400, color: m.vfos ? '#16264a' : '#c2cbdb' }}>{money(m.vfos)}</span>
-              <span style={{ textAlign: 'right', fontWeight: m.strategic ? 700 : 400, color: m.strategic ? '#8b5cf6' : '#c2cbdb' }}>{m.strategic ? money(m.strategic) : '—'}</span>
+              <span style={{ textAlign: 'right', fontWeight: m.member ? 700 : 400, color: m.member ? '#16a34a' : 'var(--vfo-faint)' }}>{money(m.member)}</span>
+              <span style={{ textAlign: 'right', fontWeight: m.mm ? 700 : 400, color: m.mm ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{money(m.mm)}</span>
+              <span style={{ textAlign: 'right', fontWeight: m.vfos ? 700 : 400, color: m.vfos ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{money(m.vfos)}</span>
+              <span style={{ textAlign: 'right', fontWeight: m.strategic ? 700 : 400, color: m.strategic ? '#8b5cf6' : 'var(--vfo-faint)' }}>{m.strategic ? money(m.strategic) : '—'}</span>
             </div>
           ))}
-          {members.length === 0 && <div style={{ textAlign: 'center', padding: '40px', color: '#9aa7be', fontSize: '14px' }}>No Holistic member activity for this year.</div>}
+          {members.length === 0 && <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>No Holistic member activity for this year.</div>}
         </div>
       )}
-      <p style={{ fontSize: '11.5px', color: '#9aa7be', marginTop: '12px' }}>Shares are from Holistic payments that cleared in the selected year. Strategic Share is the partner-company cut on strategic members' deals; blank for non-strategic members.</p>
+      <p style={{ fontSize: '11.5px', color: 'var(--vfo-faint)', marginTop: '12px' }}>Shares are from Holistic payments that cleared in the selected year. Strategic Share is the partner-company cut on strategic members' deals; blank for non-strategic members.</p>
     </div>
   )
 }

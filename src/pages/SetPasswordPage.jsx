@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { TokenFormSkeleton } from '../components/shared/Skeleton'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
@@ -67,7 +68,7 @@ export default function SetPasswordPage() {
   const portal = PORTAL[loginType] || PORTAL.member
 
   if (status === 'loading') return (
-    <div style={containerStyle}><p style={{ color: '#4e6087', fontSize: '15px' }}>Loading…</p></div>
+    <div style={containerStyle}><TokenFormSkeleton /></div>
   )
   if (status === 'error') return (
     <div style={containerStyle}>
@@ -107,13 +108,13 @@ export default function SetPasswordPage() {
   )
 }
 
-const containerStyle = { fontFamily: '"Inter", sans-serif', background: '#ffffff', color: '#243757', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }
+const containerStyle = { fontFamily: '"Inter", sans-serif', background: 'var(--vfo-card)', color: 'var(--vfo-ink-2)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }
 const pageContainerStyle = { maxWidth: '480px', width: '100%' }
 const messageCardStyle = { textAlign: 'center', maxWidth: '480px', padding: '48px 32px' }
-const titleStyle = { fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }
-const subtitleStyle = { fontSize: '14px', color: '#4e6087', lineHeight: 1.6 }
+const titleStyle = { fontSize: '24px', fontWeight: 700, color: 'var(--vfo-ink)', marginBottom: '12px' }
+const subtitleStyle = { fontSize: '14px', color: 'var(--vfo-muted)', lineHeight: 1.6 }
 const formStyle = { display: 'flex', flexDirection: 'column' }
-const labelStyle = { fontSize: '13px', color: '#4e6087', marginBottom: '6px', fontWeight: 500 }
-const inputStyle = { padding: '12px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', fontFamily: 'inherit' }
+const labelStyle = { fontSize: '13px', color: 'var(--vfo-muted)', marginBottom: '6px', fontWeight: 500 }
+const inputStyle = { padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', fontFamily: 'inherit' }
 const primaryButtonStyle = { padding: '12px 24px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: 'pointer', marginTop: '16px' }
-const securityNoteStyle = { textAlign: 'center', color: '#4e6087', fontSize: '12px', marginTop: '24px', lineHeight: 1.6 }
+const securityNoteStyle = { textAlign: 'center', color: 'var(--vfo-muted)', fontSize: '12px', marginTop: '24px', lineHeight: 1.6 }

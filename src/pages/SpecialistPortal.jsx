@@ -4,14 +4,18 @@ import { callApi, getSession, clearSession } from '../lib/api'
 import SpecialistVault from '../components/specialist/SpecialistVault'
 import SpecialistShared from '../components/specialist/SpecialistShared'
 import ChangePasswordCard from '../components/shared/ChangePasswordCard'
+import AppearanceCard from '../components/shared/AppearanceCard'
+import { usePortalTheme } from '../lib/theme'
 import VfoWordmark from '../components/shared/VfoWordmark'
 import MemberShowroom from '../components/member/MemberShowroom'
+import { ShowroomSkeleton } from '../components/shared/Skeleton'
 
 // The specialist portal: two content tabs — their own document vault, and
 // "Shared with Me" (client documents the VFO team shared with them to review).
 export default function SpecialistPortal() {
   const navigate = useNavigate()
   const session = getSession()
+  usePortalTheme()
   const [tab, setTab] = useState('showroom')
   const [unread, setUnread] = useState(0)
   const [showroom, setShowroom] = useState(null)
@@ -43,20 +47,20 @@ export default function SpecialistPortal() {
   const TABS = [['showroom', 'Showroom'], ['vault', 'Vault'], ['shared', 'Shared with Me']]
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f4f7fd', color: '#16264a', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--vfo-page)', color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif' }}>
       <div style={{ background: 'linear-gradient(90deg, #002973 0%, #125ecc 100%)', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '58px', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(0,41,115,0.25)' }}>
         <VfoWordmark size={17} light onClick={() => setTab('showroom')} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.88)', fontWeight: 500 }}>{session.name || session.email}</span>
+          <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.88)', fontWeight: 500, whiteSpace: 'nowrap', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{session.name || session.email}</span>
           <button onClick={() => setTab('settings')} style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,255,255,0.32)', background: tab === 'settings' ? 'rgba(255,255,255,0.18)' : 'transparent', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Settings</button>
           <button onClick={signOut} style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,255,255,0.32)', background: 'transparent', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Sign Out</button>
         </div>
       </div>
 
       {tab !== 'settings' && (
-        <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', padding: '0 24px', background: '#ffffff', position: 'relative', zIndex: 100 }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--vfo-border)', padding: '0 24px', background: 'var(--vfo-card)', position: 'relative', zIndex: 100 }}>
           {TABS.map(([key, label]) => (
-            <button key={key} onClick={() => setTab(key)} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '14px 20px', background: 'transparent', border: 'none', borderBottom: tab === key ? '2px solid #125ecc' : '2px solid transparent', color: tab === key ? '#125ecc' : '#4e6087', fontSize: '14px', fontWeight: tab === key ? '600' : '400', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>
+            <button key={key} onClick={() => setTab(key)} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '14px 20px', background: 'transparent', border: 'none', borderBottom: tab === key ? '2px solid #125ecc' : '2px solid transparent', color: tab === key ? '#125ecc' : 'var(--vfo-muted)', fontSize: '14px', fontWeight: tab === key ? '600' : '400', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>
               {label}
               {key === 'shared' && unread > 0 && (
                 <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '999px', background: '#e74c3c', color: '#fff', fontSize: '11px', fontWeight: 700 }}>{unread}</span>
@@ -69,7 +73,7 @@ export default function SpecialistPortal() {
       {tab === 'showroom' && (
         showroom
           ? <MemberShowroom experts={showroom.experts} exclusions={[]} ecoMap={showroom.ecoMap} />
-          : <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading…</div>
+          : <ShowroomSkeleton />
       )}
       {tab === 'vault' && (
         <div style={{ maxWidth: '880px', margin: '0 auto', padding: '28px 24px' }}>
@@ -84,6 +88,9 @@ export default function SpecialistPortal() {
       {tab === 'settings' && (
         <div style={{ maxWidth: '880px', margin: '0 auto', padding: '28px 24px' }}>
           <ChangePasswordCard action="specialist_update_login" />
+          <div style={{ maxWidth: '460px', margin: '20px auto 0' }}>
+            <AppearanceCard />
+          </div>
         </div>
       )}
     </div>

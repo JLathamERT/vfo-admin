@@ -29,7 +29,7 @@ const EFFORT_COLS = [{ key: 'low', label: 'Low Effort' }, { key: 'medium', label
 // (top-right) → lightest at low-value/low-effort (bottom-left).
 const V_WEIGHT = { high: 2, medium: 1, low: 0 }
 const E_WEIGHT = { high: 2, medium: 1, low: 0 }
-const CELL_BLUES = ['#e3edfc', '#c3d9f7', '#94bbef', '#5b93e4', '#2f6fd6']
+const CELL_BLUES = ['var(--vfo-tint)', '#c3d9f7', '#94bbef', '#5b93e4', '#2f6fd6']
 function cellBg(vKey, eKey) {
   const d = (V_WEIGHT[vKey] ?? 1) + (E_WEIGHT[eKey] ?? 1)
   return CELL_BLUES[d]
@@ -121,7 +121,7 @@ export default function GrowthOnePage({ memberNumber, bundle, reload, onNavigate
 
   return (
     <div>
-      <TrackHero eyebrow="Growth Plan" title="One Page Growth Plan" meta={<>Plan for the road ahead · <strong style={{ color: '#243757' }}>{dateStr}</strong></>} />
+      <TrackHero eyebrow="Growth Plan" title="One Page Growth Plan" meta={<>Plan for the road ahead · <strong style={{ color: 'var(--vfo-ink-2)' }}>{dateStr}</strong></>} />
 
       {/* Accountability Mode toggle (admin only) */}
       {isAdmin && (
@@ -129,7 +129,7 @@ export default function GrowthOnePage({ memberNumber, bundle, reload, onNavigate
           <div style={accentStrip} />
           <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 320px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 800, color: NAVY }}>Accountability Mode</div>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--vfo-heading)' }}>Accountability Mode</div>
               <div style={{ fontSize: '12.5px', color: MUTED, marginTop: '4px', lineHeight: 1.45 }}>
                 Turn on to set an update-by date and track progress on each priority.
               </div>
@@ -149,9 +149,9 @@ export default function GrowthOnePage({ memberNumber, bundle, reload, onNavigate
             </div>
           </div>
           {acctMode && (
-            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #eef2f9' }}>
+            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--vfo-tint)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#fff', border: '2px solid rgba(0,41,115,0.18)' }} />
+                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--vfo-card)', border: '2px solid rgba(0,41,115,0.18)' }} />
                 <span style={{ fontSize: '11.5px', color: MUTED }}>Not set</span>
               </span>
               {STATUS_OPTIONS.filter(o => o.value !== 'completed').map(o => (
@@ -182,7 +182,7 @@ function AdminAddPriorities({ memberNumber, bundle, reload }) {
   const [tab, setTab] = useState('parking')
   return (
     <div style={{ marginTop: '26px', marginBottom: '6px' }}>
-      <div style={{ fontSize: '15px', fontWeight: 800, color: NAVY, marginBottom: '12px' }}>Add Priorities</div>
+      <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--vfo-heading)', marginBottom: '12px' }}>Add Priorities</div>
       <GrowthTabs tabs={ADD_TABS} active={tab} onChange={setTab} />
       <div style={{ marginTop: '14px' }}>
         <GrowthAddPriority role="admin" tab={tab} embedded memberNumber={memberNumber} bundle={bundle} reload={reload} />
@@ -198,7 +198,7 @@ function Toggle({ on, onClick }) {
       background: on ? 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)' : '#cdd8ea',
       padding: '3px', display: 'flex', justifyContent: on ? 'flex-end' : 'flex-start', transition: 'background .15s',
     }}>
-      <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
+      <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--vfo-card)', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
     </button>
   )
 }
@@ -207,20 +207,20 @@ function Matrix({ items, acct, statuses }) {
   const cols = '120px repeat(3, 1fr)'
   const last = VALUE_ROWS.length - 1
   return (
-    <div style={{ border: '1px solid #cdddf5', borderRadius: '12px', overflow: 'hidden' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: cols, background: '#fff' }}>
-        <div style={{ borderBottom: '1px solid #e9eef8' }} />
+    <div style={{ border: '1px solid var(--vfo-border-strong)', borderRadius: '12px', overflow: 'hidden' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: cols, background: 'var(--vfo-card)' }}>
+        <div style={{ borderBottom: '1px solid var(--vfo-border-soft)' }} />
         {EFFORT_COLS.map(c => (
-          <div key={c.key} style={{ ...colHeader, borderBottom: '1px solid #e9eef8' }}>{c.label}</div>
+          <div key={c.key} style={{ ...colHeader, borderBottom: '1px solid var(--vfo-border-soft)' }}>{c.label}</div>
         ))}
       </div>
       {VALUE_ROWS.map((vr, ri) => (
         <div key={vr.key} style={{ display: 'grid', gridTemplateColumns: cols }}>
-          <div style={{ ...rowHeader, background: '#fff', borderBottom: ri < last ? '1px solid #e9eef8' : 'none' }}>{vr.label}</div>
+          <div style={{ ...rowHeader, background: 'var(--vfo-card)', borderBottom: ri < last ? '1px solid var(--vfo-border-soft)' : 'none' }}>{vr.label}</div>
           {EFFORT_COLS.map((ec, ci) => {
             const cellItems = items.filter(a => (a.value_level || 'medium') === vr.key && (a.effort_level || 'medium') === ec.key)
             return (
-              <div key={ec.key} style={{ ...matrixCell, background: cellBg(vr.key, ec.key), borderLeft: ci === 0 ? '1px solid #e9eef8' : '1px solid rgba(255,255,255,0.5)', borderBottom: ri < last ? '1px solid rgba(255,255,255,0.5)' : 'none' }}>
+              <div key={ec.key} style={{ ...matrixCell, background: cellBg(vr.key, ec.key), borderLeft: ci === 0 ? '1px solid var(--vfo-border-soft)' : '1px solid rgba(255,255,255,0.5)', borderBottom: ri < last ? '1px solid rgba(255,255,255,0.5)' : 'none' }}>
                 {cellItems.map(a => <MatrixDot key={a.id} num={a.num} color={acct ? STATUS_COLOR[statuses[a.id]] : undefined} dark={acct ? STATUS_DARK[statuses[a.id]] : false} />)}
               </div>
             )
@@ -239,7 +239,7 @@ function MatrixDot({ num, color, dark }) {
   return (
     <div style={{
       width: '34px', height: '34px', borderRadius: '50%',
-      background: color || '#ffffff',
+      background: color || 'var(--vfo-card)',
       color: filled ? (dark ? NAVY : '#ffffff') : NAVY,
       fontWeight: 800, fontSize: '14px', fontFamily: 'Inter, sans-serif',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -255,7 +255,7 @@ function ActionTable({ title, rows, acct, isAdmin, canEdit, dues, statuses, onDu
     <div style={cardStyle}>
       <div style={accentStrip} />
       <div style={{ padding: '16px 20px' }}>
-        <div style={{ fontSize: '13px', fontWeight: 800, color: NAVY, marginBottom: rows.length ? '10px' : 0 }}>{title}</div>
+        <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--vfo-heading)', marginBottom: rows.length ? '10px' : 0 }}>{title}</div>
         {rows.length === 0
           ? <div style={{ fontSize: '12.5px', color: MUTED }}>None.</div>
           : (
@@ -291,11 +291,11 @@ function ActionRow({ a, acct, isAdmin, canEdit, dues, statuses, onDue, onStatus,
   return (
     <>
       <tr>
-        <td style={{ ...td, fontWeight: 700, color: NAVY }}>{a.num}</td>
+        <td style={{ ...td, fontWeight: 700, color: 'var(--vfo-heading)' }}>{a.num}</td>
         <td style={td}>
-          {a.isSub && <span style={{ color: '#9aa6bf', marginRight: '5px' }}>↳</span>}{a.action_text}
+          {a.isSub && <span style={{ color: 'var(--vfo-faint)', marginRight: '5px' }}>↳</span>}{a.action_text}
           {a.is_custom && canEdit && onDelete && <button onClick={() => onDelete(a.id)} title="Remove custom priority" style={{ marginLeft: '8px', background: 'none', border: 'none', color: '#c2502f', cursor: 'pointer', fontSize: '13px', fontWeight: 700, padding: 0, lineHeight: 1 }}>×</button>}
-          {a.isSub && a.parentText && <div style={{ fontSize: '11px', color: '#9aa6bf', marginTop: '2px' }}>sub-task of: {a.parentText}</div>}
+          {a.isSub && a.parentText && <div style={{ fontSize: '11px', color: 'var(--vfo-faint)', marginTop: '2px' }}>sub-task of: {a.parentText}</div>}
           {!a.isSub && canEdit && onAddSubtask && (
             <div style={{ marginTop: '5px' }}>
               <button onClick={() => setAdding(v => !v)} style={{ background: 'none', border: 'none', color: BLUE, cursor: 'pointer', fontSize: '11.5px', fontWeight: 600, padding: 0 }}>{adding ? '× Cancel sub-task' : '+ Add sub-task'}</button>
@@ -316,7 +316,7 @@ function ActionRow({ a, acct, isAdmin, canEdit, dues, statuses, onDue, onStatus,
           <td style={td}>
             {isAdmin
               ? <input type="date" value={dues[a.id] || ''} onChange={e => onDue(a.id, e.target.value)} style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px' }} />
-              : <span style={{ fontSize: '12.5px', color: dues[a.id] ? INK : '#9aa6bf' }}>{dues[a.id] ? fmtDueDate(dues[a.id]) : '—'}</span>}
+              : <span style={{ fontSize: '12.5px', color: dues[a.id] ? INK : 'var(--vfo-faint)' }}>{dues[a.id] ? fmtDueDate(dues[a.id]) : '—'}</span>}
           </td>
         )}
         {acct && (
@@ -342,8 +342,8 @@ function ActionRow({ a, acct, isAdmin, canEdit, dues, statuses, onDue, onStatus,
   )
 }
 
-const colHeader = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: NAVY, textAlign: 'center', padding: '11px 8px' }
-const rowHeader = { fontSize: '11px', fontWeight: 700, color: NAVY, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', textAlign: 'right', padding: '0 12px' }
+const colHeader = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--vfo-heading)', textAlign: 'center', padding: '11px 8px' }
+const rowHeader = { fontSize: '11px', fontWeight: 700, color: 'var(--vfo-heading)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', textAlign: 'right', padding: '0 12px' }
 const matrixCell = { minHeight: '80px', padding: '10px', display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center', alignItems: 'center', alignContent: 'center' }
-const th = (w) => ({ textAlign: 'left', fontSize: '9.5px', fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: '#7c8aa6', padding: '6px 10px', borderBottom: '2px solid #eef2f9', width: w ? `${w}px` : 'auto' })
-const td = { fontSize: '13px', color: INK, padding: '9px 10px', borderBottom: '1px solid #eef2f9', verticalAlign: 'top', lineHeight: 1.45 }
+const th = (w) => ({ textAlign: 'left', fontSize: '9.5px', fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--vfo-faint)', padding: '6px 10px', borderBottom: '2px solid var(--vfo-tint)', width: w ? `${w}px` : 'auto' })
+const td = { fontSize: '13px', color: INK, padding: '9px 10px', borderBottom: '1px solid var(--vfo-tint)', verticalAlign: 'top', lineHeight: 1.45 }

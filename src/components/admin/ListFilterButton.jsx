@@ -9,25 +9,31 @@ import { useState } from 'react'
 export default function ListFilterButton({ groups, value, onChange }) {
   const [open, setOpen] = useState(false)
   const total = groups.reduce((n, g) => n + (value[g.key]?.length || 0), 0)
+  // Say what's filtering rather than a cryptic count: one selection reads
+  // "Status: Active"; several read "Filters (N)".
+  const selected = groups.flatMap(g => (value[g.key] || []).map(v => ({ group: g.label, opt: v })))
+  const label = selected.length === 0 ? 'Filter'
+    : selected.length === 1 ? `${selected[0].group}: ${selected[0].opt}`
+    : `Filters (${selected.length})`
   function toggle(key, opt) {
     const cur = value[key] || []
     onChange({ ...value, [key]: cur.includes(opt) ? cur.filter(x => x !== opt) : [...cur, opt] })
   }
-  const btnStyle = { padding: '9px 16px', borderRadius: '8px', border: '1px solid #d6e0ee', background: total > 0 ? 'rgba(18,94,204,0.1)' : '#f7f9fc', color: total > 0 ? '#125ecc' : '#4e6087', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }
+  const btnStyle = { padding: '9px 16px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: total > 0 ? 'rgba(18,94,204,0.1)' : 'var(--vfo-input)', color: total > 0 ? '#125ecc' : 'var(--vfo-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }
   return (
     <div style={{ position: 'relative', display: 'inline-block' }}>
       <button onClick={() => setOpen(o => !o)} style={btnStyle}>
-        Filter{total > 0 ? ` (${total})` : ''}<span style={{ fontSize: '9px', opacity: 0.6 }}>▾</span>
+        {label}<span style={{ fontSize: '9px', opacity: 0.6 }}>▾</span>
       </button>
       {open && (
         <>
           <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
-          <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '6px', background: '#fff', border: '1px solid #e3eaf5', borderRadius: '12px', minWidth: '220px', zIndex: 200, padding: '8px 0', boxShadow: '0 14px 36px rgba(20,45,95,0.16)', maxHeight: '380px', overflowY: 'auto' }}>
+          <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '6px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border)', borderRadius: '12px', minWidth: '220px', zIndex: 200, padding: '8px 0', boxShadow: '0 14px 36px rgba(20,45,95,0.16)', maxHeight: '380px', overflowY: 'auto' }}>
             {groups.map(g => (
               <div key={g.key} style={{ padding: '6px 14px 10px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>{g.label}</div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>{g.label}</div>
                 {g.options.map(opt => (
-                  <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0', fontSize: '13px', color: '#16264a', cursor: 'pointer' }}>
+                  <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0', fontSize: '13px', color: 'var(--vfo-ink)', cursor: 'pointer' }}>
                     <input type="checkbox" checked={(value[g.key] || []).includes(opt)} onChange={() => toggle(g.key, opt)} style={{ accentColor: '#125ecc', cursor: 'pointer' }} />
                     {opt}
                   </label>
@@ -114,7 +120,7 @@ const DEFAULT_SORT_OPTIONS = [
 ]
 export function SortSelect({ value, onChange, options = DEFAULT_SORT_OPTIONS }) {
   return (
-    <select value={value} onChange={e => onChange(e.target.value)} style={{ padding: '9px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#4e6087', fontSize: '13px', fontWeight: 600, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>
+    <select value={value} onChange={e => onChange(e.target.value)} style={{ padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-muted)', fontSize: '13px', fontWeight: 600, fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   )

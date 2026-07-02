@@ -7,9 +7,9 @@ import {
   computeScores, blankAnswers,
 } from './constants'
 
-const NAVY = '#002973', BLUE = '#125ecc', INK = '#16264a', MUTED = '#4e6087'
-const inputStyle = { padding: '8px 10px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#fff', color: INK, fontSize: '13px', fontFamily: 'Inter, sans-serif' }
-const cardStyle = { background: '#fff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', marginBottom: '18px', overflow: 'hidden' }
+const NAVY = '#002973', BLUE = '#125ecc', INK = 'var(--vfo-ink)', MUTED = 'var(--vfo-muted)'
+const inputStyle = { padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: INK, fontSize: '13px', fontFamily: 'Inter, sans-serif' }
+const cardStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', marginBottom: '18px', overflow: 'hidden' }
 
 function fmtCompleted(iso) {
   if (!iso) return ''
@@ -139,7 +139,7 @@ export default function GrowthScoring({ memberNumber, bundle, reload, onNavigate
         <TrackHero
           eyebrow="Growth Plan"
           title="Growth Summary Score"
-          meta={<>Score completed on <strong style={{ color: '#243757' }}>{fmtCompleted(score.completed_at || score.created_at)}</strong>{(score.assigned_admin_name || score.assigned_admin_email) && <> · Assigned admin <strong style={{ color: '#243757' }}>{score.assigned_admin_name || score.assigned_admin_email}</strong></>}</>}
+          meta={<>Score completed on <strong style={{ color: 'var(--vfo-ink-2)' }}>{fmtCompleted(score.completed_at || score.created_at)}</strong>{(score.assigned_admin_name || score.assigned_admin_email) && <> · Assigned admin <strong style={{ color: 'var(--vfo-ink-2)' }}>{score.assigned_admin_name || score.assigned_admin_email}</strong></>}</>}
         />
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
           {/* Scoring-on toggles — sized to content so the page background shows below */}
@@ -148,7 +148,7 @@ export default function GrowthScoring({ memberNumber, bundle, reload, onNavigate
               <div style={eyebrowLabel}>Scoring on</div>
               <div style={{ marginTop: '12px' }}>
                 {SECTIONS.map((s, i) => (
-                  <label key={s.key} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 0', borderTop: i > 0 ? '1px solid #eef2f9' : 'none', cursor: 'pointer' }}>
+                  <label key={s.key} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 0', borderTop: i > 0 ? '1px solid var(--vfo-tint)' : 'none', cursor: 'pointer' }}>
                     <input type="checkbox" checked={enabled[s.key]} onChange={() => toggleSection(s.key)} style={{ width: '18px', height: '18px', accentColor: BLUE, flexShrink: 0 }} />
                     <span style={{ fontSize: '13.5px', fontWeight: 600, color: INK, lineHeight: 1.35 }}>{s.label}</span>
                   </label>
@@ -166,9 +166,9 @@ export default function GrowthScoring({ memberNumber, bundle, reload, onNavigate
               {anyOn ? (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '34px auto 26px', maxWidth: '480px' }}>
-                    <div style={{ flex: 1, height: '1px', background: '#eef2f9' }} />
+                    <div style={{ flex: 1, height: '1px', background: 'var(--vfo-tint)' }} />
                     <span style={eyebrowLabel}>By section</span>
-                    <div style={{ flex: 1, height: '1px', background: '#eef2f9' }} />
+                    <div style={{ flex: 1, height: '1px', background: 'var(--vfo-tint)' }} />
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '40px' }}>
                     {SECTIONS.filter(s => enabled[s.key]).map(s => (
@@ -204,7 +204,7 @@ export default function GrowthScoring({ memberNumber, bundle, reload, onNavigate
         <div style={{ height: '3px', background: 'linear-gradient(90deg, #002973 0%, #125ecc 100%)' }} />
         <div style={{ padding: '18px 22px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-            <div style={{ fontSize: '13px', fontWeight: 800, color: NAVY, letterSpacing: '-0.01em' }}>Assigned Admin</div>
+            <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--vfo-heading)', letterSpacing: '-0.01em' }}>Assigned Admin</div>
             <span style={{ color: '#e74c3c', fontWeight: 700 }}>*</span>
           </div>
           <div style={{ fontSize: '12.5px', color: MUTED, margin: '6px 0 12px', lineHeight: 1.45, maxWidth: '560px' }}>
@@ -221,8 +221,8 @@ export default function GrowthScoring({ memberNumber, bundle, reload, onNavigate
           <div style={{ height: '3px', background: 'linear-gradient(90deg, #125ecc 0%, #0a85e8 100%)' }} />
           <div style={{ padding: '18px 22px' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 800, color: NAVY, letterSpacing: '-0.01em' }}>{s.label}</div>
-              <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#9aa6bf', letterSpacing: '0.4px' }}>SECTION {idx + 1}</div>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--vfo-heading)', letterSpacing: '-0.01em' }}>{s.label}</div>
+              <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--vfo-faint)', letterSpacing: '0.4px' }}>SECTION {idx + 1}</div>
             </div>
             {s.questions.map(q => (
               <QuestionRow key={q.id} q={q} ans={answers[q.id]} setAns={setAns}
@@ -250,7 +250,7 @@ function ScoreRing({ value, label, size = 78, primary }) {
   // Composite = dark blue with white number; sections = much lighter with navy number.
   const grad = primary
     ? 'linear-gradient(135deg, #002060 0%, #0a3f9e 100%)'
-    : 'linear-gradient(135deg, #cfe0f7 0%, #e3edfc 100%)'
+    : 'linear-gradient(135deg, #cfe0f7 0%, var(--vfo-tint) 100%)'
   const numColor = primary ? '#ffffff' : '#002973'
   const shadow = primary ? '0 10px 24px rgba(0,32,96,0.38)' : '0 4px 12px rgba(18,94,204,0.16)'
   return (
@@ -269,7 +269,7 @@ function QuestionRow({ q, ans, setAns, partners, setPartners, q10pref, setQ10pre
   const scoreMissing = !a.na && (a.value === '' || a.value === null || a.value === undefined)
   const prefMissing = !!q.preference && !a.na && !q10pref
   return (
-    <div id={'gpq-' + q.id} style={{ padding: '14px 0', borderTop: '1px solid #eef2f9' }}>
+    <div id={'gpq-' + q.id} style={{ padding: '14px 0', borderTop: '1px solid var(--vfo-tint)' }}>
       <div style={{ fontSize: '13.5px', color: INK, marginBottom: '10px', lineHeight: 1.5 }}>{q.text}{required && <span style={{ color: '#e74c3c', marginLeft: '4px' }}>*</span>}</div>
       {q.type === 'partnerships' ? (
         <PartnershipEditor partners={partners} setPartners={setPartners} />
@@ -309,7 +309,7 @@ function PartnershipEditor({ partners, setPartners }) {
   function remove(i) { setPartners(rows => rows.filter((_, j) => j !== i)) }
   return (
     <div>
-      {partners.length === 0 && <div style={{ fontSize: '12px', color: '#8a97b0', marginBottom: '8px' }}>No partnerships added yet.</div>}
+      {partners.length === 0 && <div style={{ fontSize: '12px', color: 'var(--vfo-faint)', marginBottom: '8px' }}>No partnerships added yet.</div>}
       {partners.map((r, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
           <input placeholder="Partner name" value={r.name} onChange={e => update(i, { name: e.target.value })} style={{ ...inputStyle, flex: '1 1 200px', minWidth: '160px' }} />
@@ -323,7 +323,7 @@ function PartnershipEditor({ partners, setPartners }) {
           <button onClick={() => remove(i)} title="Remove" style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '18px', lineHeight: 1, padding: '0 4px' }}>×</button>
         </div>
       ))}
-      <button onClick={add} style={{ marginTop: '4px', padding: '6px 14px', borderRadius: '999px', border: '1px dashed #9bb4e3', background: '#f4f7fd', color: BLUE, fontWeight: 600, fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>+ Create Partnership</button>
+      <button onClick={add} style={{ marginTop: '4px', padding: '6px 14px', borderRadius: '999px', border: '1px dashed #9bb4e3', background: 'var(--vfo-page)', color: BLUE, fontWeight: 600, fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>+ Create Partnership</button>
     </div>
   )
 }

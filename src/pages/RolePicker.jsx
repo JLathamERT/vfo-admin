@@ -36,15 +36,15 @@ export default function RolePicker() {
             onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,15,46,0.25)'; e.currentTarget.style.transform = 'none' }}
             style={{
               padding: '20px 22px', borderRadius: '16px', border: 'none',
-              background: '#ffffff', textAlign: 'left', cursor: role.to ? 'pointer' : 'default',
+              background: 'var(--vfo-card)', textAlign: 'left', cursor: role.to ? 'pointer' : 'default',
               fontFamily: 'Inter, sans-serif', boxShadow: '0 8px 24px rgba(0,15,46,0.25)',
               transition: 'transform 0.15s ease, box-shadow 0.15s ease',
               opacity: role.to ? 1 : 0.75, display: 'flex', alignItems: 'center', gap: '14px',
             }}
           >
             <span style={{ minWidth: 0 }}>
-              <span style={{ display: 'block', fontSize: '16px', fontWeight: 700, color: '#002973', marginBottom: '3px' }}>{role.label}</span>
-              <span style={{ display: 'block', fontSize: '12.5px', color: role.to ? '#4e6087' : '#e06717', fontWeight: role.to ? 400 : 600 }}>{role.sub}</span>
+              <span style={{ display: 'block', fontSize: '16px', fontWeight: 700, color: 'var(--vfo-heading)', marginBottom: '3px' }}>{role.label}</span>
+              <span style={{ display: 'block', fontSize: '12.5px', color: role.to ? 'var(--vfo-muted)' : '#e06717', fontWeight: role.to ? 400 : 600 }}>{role.sub}</span>
             </span>
           </button>
         ))}

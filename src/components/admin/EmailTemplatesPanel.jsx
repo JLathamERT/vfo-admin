@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
+import { EmailTemplatesSkeleton } from '../shared/Skeleton'
 
 // Program sections — same six that have automation tabs. The standalone Tax
 // Planning program shares the TAX templates with Holistic Tax Priorities, so
@@ -201,7 +202,7 @@ function withPending(emails, pending) {
   return emails
 }
 
-const inputStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', width: '100%', boxSizing: 'border-box' }
+const inputStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', width: '100%', boxSizing: 'border-box' }
 
 function RecipientEditor({ title, accent, emails, onChange, input, setInput }) {
   const [warn, setWarn] = useState('')
@@ -216,12 +217,12 @@ function RecipientEditor({ title, accent, emails, onChange, input, setInput }) {
     <div style={{ marginBottom: '12px' }}>
       <label style={{ fontSize: '11px', color: accent, display: 'block', marginBottom: '6px', fontWeight: 600, letterSpacing: '0.4px' }}>{title}</label>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
-        {emails.length === 0 && <span style={{ fontSize: '12px', color: '#697a9c', fontStyle: 'italic' }}>None</span>}
+        {emails.length === 0 && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontStyle: 'italic' }}>None</span>}
         {emails.map(e => (
-          <span key={e} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '3px 8px', borderRadius: '999px', background: `${accent}33`, color: '#fff', border: `1px solid ${accent}88` }}>
+          <span key={e} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, padding: '3px 8px', borderRadius: '999px', background: `${accent}1f`, color: accent, border: `1px solid ${accent}66` }}>
             {e}
             <button onClick={() => onChange(emails.filter(x => x !== e))} title="Remove"
-              style={{ border: 'none', background: 'transparent', color: '#16264a', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: 0, opacity: 0.8 }}>×</button>
+              style={{ border: 'none', background: 'transparent', color: accent, cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: 0, opacity: 0.8 }}>×</button>
           </span>
         ))}
       </div>
@@ -277,26 +278,26 @@ function TemplateCard({ tmpl, label, sectionKey }) {
   }
 
   return (
-    <div style={{ background: '#ffffff', border: '1px solid #ebf0f8', borderRadius: '10px', marginBottom: '8px', overflow: 'hidden' }}>
+    <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '10px', marginBottom: '8px', overflow: 'hidden' }}>
       <div onClick={() => setExpanded(!expanded)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', cursor: 'pointer', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-          <span style={{ fontSize: '10px', color: '#4e6087', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
-          <span style={{ fontSize: '13px', color: '#16264a', fontWeight: 500 }}>{label}</span>
+          <span style={{ fontSize: '10px', color: 'var(--vfo-muted)', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+          <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: 500 }}>{label}</span>
           {isTeam ? (
-            to.length > 0 && <span style={{ fontSize: '10px', color: '#697a9c' }}>{to.length} recipient{to.length === 1 ? '' : 's'}</span>
+            to.length > 0 && <span style={{ fontSize: '10px', color: 'var(--vfo-muted)' }}>{to.length} recipient{to.length === 1 ? '' : 's'}</span>
           ) : (cc.length > 0 || bcc.length > 0) && (
-            <span style={{ fontSize: '10px', color: '#697a9c' }}>
+            <span style={{ fontSize: '10px', color: 'var(--vfo-muted)' }}>
               {cc.length > 0 && `${cc.length} cc`}{cc.length > 0 && bcc.length > 0 && ' · '}{bcc.length > 0 && `${bcc.length} bcc`}
             </span>
           )}
         </div>
-        <div style={{ fontSize: '12px', color: '#697a9c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '40%' }}>
+        <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '40%' }}>
           {tmpl.subject}
         </div>
       </div>
 
       {expanded && (
-        <div style={{ padding: '0 16px 16px', borderTop: '1px solid #e9eef8' }}>
+        <div style={{ padding: '0 16px 16px', borderTop: '1px solid var(--vfo-border-soft)' }}>
           <div style={{ marginTop: '14px' }}>
             {isTeam ? (
               <RecipientEditor title="TEAM — sent directly TO each recipient (no CC/BCC)" accent="#1b9254" emails={to} onChange={setTo} input={toInput} setInput={setToInput} />
@@ -308,19 +309,19 @@ function TemplateCard({ tmpl, label, sectionKey }) {
             )}
           </div>
 
-          <div style={{ height: '1px', background: '#e9eef8', margin: '4px 0 12px' }} />
+          <div style={{ height: '1px', background: 'var(--vfo-border-soft)', margin: '4px 0 12px' }} />
 
           <div style={{ marginBottom: '10px' }}>
-            <label style={{ fontSize: '11px', color: '#697a9c', display: 'block', marginBottom: '4px' }}>Subject</label>
+            <label style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '4px' }}>Subject</label>
             <input value={subject} onChange={e => setSubject(e.target.value)} style={inputStyle} />
           </div>
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '11px', color: '#697a9c', display: 'block', marginBottom: '4px' }}>Body (HTML)</label>
+            <label style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '4px' }}>Body (HTML)</label>
             <textarea value={bodyText} onChange={e => setBodyText(e.target.value)} rows={10} style={{ ...inputStyle, resize: 'vertical' }} />
           </div>
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '11px', color: '#697a9c', display: 'block', marginBottom: '4px' }}>Preview</label>
-            <div style={{ padding: '16px', background: '#fff', borderRadius: '6px', color: '#333', fontSize: '14px', fontFamily: 'Arial, sans-serif', lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: bodyText }} />
+            <label style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '4px' }}>Preview</label>
+            <div style={{ padding: '16px', background: 'var(--vfo-card)', borderRadius: '6px', color: '#333', fontSize: '14px', fontFamily: 'Arial, sans-serif', lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: bodyText }} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button onClick={save} disabled={saving} style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '12px', cursor: saving ? 'default' : 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Save'}</button>
@@ -353,7 +354,7 @@ export default function EmailTemplatesPanel() {
     finally { setLoading(false) }
   }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>
+  if (loading) return <EmailTemplatesSkeleton />
 
   // index templates by pipeline + template_name
   const byPipeline = {}
@@ -364,8 +365,8 @@ export default function EmailTemplatesPanel() {
 
   return (
     <div style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto' }}>
-      <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '24px', color: '#16264a', margin: '0 0 8px 0' }}>Email Templates</h2>
-      <p style={{ fontSize: '13px', color: '#4e6087', margin: '0 0 24px' }}>
+      <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '24px', color: 'var(--vfo-ink)', margin: '0 0 8px 0' }}>Email Templates</h2>
+      <p style={{ fontSize: '13px', color: 'var(--vfo-muted)', margin: '0 0 24px' }}>
         Click a section to expand it. Within a section, emails are listed in the order they fire; expand any email to set its subject, body, and which internal team members receive a CC or BCC.
       </p>
 
@@ -390,23 +391,23 @@ export default function EmailTemplatesPanel() {
         const open = openSections.has(section.key)
 
         return (
-          <div key={section.key} style={{ marginBottom: '10px', border: '1px solid #e9eef8', borderRadius: '12px', overflow: 'hidden', background: '#ffffff', boxShadow: '0 2px 8px rgba(20,45,95,0.04)' }}>
-            <div onClick={() => toggleSection(section.key)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer', background: open ? '#eef4fd' : '#f7f9fc' }}>
+          <div key={section.key} style={{ marginBottom: '10px', border: '1px solid var(--vfo-border-soft)', borderRadius: '12px', overflow: 'hidden', background: 'var(--vfo-card)', boxShadow: '0 2px 8px rgba(20,45,95,0.04)' }}>
+            <div onClick={() => toggleSection(section.key)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer', background: open ? '#eef4fd' : 'var(--vfo-input)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: '10px', color: '#0095ff', transform: open ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
-                <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#16264a', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{section.label}</span>
+                <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--vfo-ink)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{section.label}</span>
               </div>
-              <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>{rows.length}</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{rows.length}</span>
             </div>
             {open && (
               <div style={{ padding: '14px 18px 8px' }}>
                 {section.sharedNote && (
-                  <div style={{ fontSize: '11px', color: '#697a9c', marginBottom: '12px', fontStyle: 'italic' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginBottom: '12px', fontStyle: 'italic' }}>
                     Tax Priorities and Tax Planning share these templates — edits apply to both.
                   </div>
                 )}
                 {rows.length === 0
-                  ? <div style={{ fontSize: '12px', color: '#697a9c', padding: '8px 0' }}>No templates.</div>
+                  ? <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', padding: '8px 0' }}>No templates.</div>
                   : rows.map(([t, label]) => (
                       <TemplateCard key={`${section.key}-${t.template_name}`} tmpl={t} label={label} />
                     ))}

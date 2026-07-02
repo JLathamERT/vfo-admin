@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
 import { fileSizeError } from '../../lib/fileUpload'
+import { VaultRowsSkeleton } from '../shared/Skeleton'
 
 const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/*,application/pdf'
 const fmtSize = (n) => n == null ? '' : n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1048576).toFixed(1)} MB`
@@ -108,29 +109,29 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
     },
   ]
 
-  const chipStyle = { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#243757', background: '#dce7fb', border: '1px solid #c7d4e8', borderRadius: '999px', padding: '3px 6px 3px 11px' }
+  const chipStyle = { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--vfo-ink-2)', background: '#dce7fb', border: '1px solid var(--vfo-border-mid)', borderRadius: '999px', padding: '3px 6px 3px 11px' }
 
   return (
     <>
       {error && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginBottom: '12px' }}>{error}</div>}
       {SECTIONS.map(sec => (
         <div key={sec.key} style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>{sec.title} {sec.sub && <span style={{ textTransform: 'none', fontSize: '12px' }}>{sec.sub}</span>}</div>
-          <p style={{ fontSize: '12px', color: '#697a9c', marginBottom: '16px' }}>{sec.blurb}</p>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>{sec.title} {sec.sub && <span style={{ textTransform: 'none', fontSize: '12px' }}>{sec.sub}</span>}</div>
+          <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '16px' }}>{sec.blurb}</p>
 
-          {loading ? <div style={{ color: '#4e6087', fontSize: '13px' }}>Loading…</div> : (
+          {loading ? <VaultRowsSkeleton rows={2} /> : (
             <>
-              {sec.files.length === 0 && <div style={{ color: '#697a9c', fontSize: '13px', marginBottom: '14px' }}>No documents uploaded yet.</div>}
+              {sec.files.length === 0 && <div style={{ color: 'var(--vfo-muted)', fontSize: '13px', marginBottom: '14px' }}>No documents uploaded yet.</div>}
               {sec.files.map(f => {
                 const key = `${sec.bucket}|${f.path}`
                 const open = shareKey === key
                 const sharedIds = new Set(shares.map(s => String(s.expert_id)))
                 return (
                   <div key={f.path} style={{ marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: open ? '8px 8px 0 0' : '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: open ? '8px 8px 0 0' : '8px' }}>
                       <span style={{ fontSize: '14px' }}>{sec.canManage ? '📄' : '🔒'}</span>
-                      <span style={{ fontSize: '13px', color: '#243757', flex: 1 }}>{f.name}</span>
-                      <span style={{ fontSize: '11px', color: '#697a9c' }}>{fmtSize(f.size)}</span>
+                      <span style={{ fontSize: '13px', color: 'var(--vfo-ink-2)', flex: 1 }}>{f.name}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{fmtSize(f.size)}</span>
                       {sec.canManage ? (
                         <>
                           <button onClick={() => view(sec.actions, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>View</button>
@@ -138,16 +139,16 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
                           <button onClick={() => remove(sec.actions, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer' }}>Delete</button>
                         </>
                       ) : (
-                        <span style={{ fontSize: '11px', color: '#697a9c', fontStyle: 'italic' }}>locked</span>
+                        <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontStyle: 'italic' }}>locked</span>
                       )}
                     </div>
                     {open && (
-                      <div style={{ padding: '12px 14px', background: '#f7faff', border: '1px solid #ebf0f8', borderTop: 'none', borderRadius: '0 0 8px 8px' }}>
-                        <div style={{ fontSize: '12px', color: '#4e6087', fontWeight: 600, marginBottom: '8px' }}>Shared with specialists</div>
-                        {sharesLoading ? <div style={{ fontSize: '12px', color: '#697a9c' }}>Loading…</div> : (
+                      <div style={{ padding: '12px 14px', background: '#f7faff', border: '1px solid var(--vfo-tint-deep)', borderTop: 'none', borderRadius: '0 0 8px 8px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontWeight: 600, marginBottom: '8px' }}>Shared with specialists</div>
+                        {sharesLoading ? <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Loading…</div> : (
                           <>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
-                              {shares.length === 0 && <span style={{ fontSize: '12px', color: '#697a9c', fontStyle: 'italic' }}>Not shared with anyone yet.</span>}
+                              {shares.length === 0 && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontStyle: 'italic' }}>Not shared with anyone yet.</span>}
                               {shares.map(s => (
                                 <span key={s.share_id} style={chipStyle}>
                                   {s.expert_name || `Specialist #${s.expert_id}`}
@@ -156,7 +157,7 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
                                 </span>
                               ))}
                             </div>
-                            <select value="" disabled={shareBusy} onChange={e => grant(sec.bucket, f.path, e.target.value)} style={{ fontSize: '12px', padding: '6px 10px', borderRadius: '6px', border: '1px solid #c7d4e8', background: '#fff', color: '#243757', minWidth: '230px', cursor: 'pointer' }}>
+                            <select value="" disabled={shareBusy} onChange={e => grant(sec.bucket, f.path, e.target.value)} style={{ fontSize: '12px', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'var(--vfo-card)', color: 'var(--vfo-ink-2)', minWidth: '230px', cursor: 'pointer' }}>
                               <option value="">+ Share with a specialist…</option>
                               {specialists.filter(e => !sharedIds.has(String(e.id))).map(e => (
                                 <option key={e.id} value={e.id}>{e.name}</option>
@@ -170,9 +171,9 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
                 )
               })}
               {sec.canManage && (
-                <label style={{ display: 'block', textAlign: 'center', cursor: 'pointer', marginTop: '14px', padding: '18px', borderRadius: '8px', border: '1px dashed #c7d4e8', background: '#eef2f9' }}>
+                <label style={{ display: 'block', textAlign: 'center', cursor: 'pointer', marginTop: '14px', padding: '18px', borderRadius: '8px', border: '1px dashed var(--vfo-border-mid)', background: 'var(--vfo-tint)' }}>
                   <input type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={e => { handleFiles(sec.key, sec.actions, e.target.files); e.target.value = '' }} />
-                  <span style={{ fontSize: '13px', color: '#4e6087' }}>{busy === sec.key ? 'Uploading…' : '+ Add document'}</span>
+                  <span style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>{busy === sec.key ? 'Uploading…' : '+ Add document'}</span>
                 </label>
               )}
             </>

@@ -23,7 +23,7 @@ export default function SendSetupEmailButton({ loginType, subjectId, hint }) {
       <button onClick={send} disabled={busy} style={{ padding: '10px 24px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: busy ? 'default' : 'pointer' }}>
         {busy ? 'Drafting…' : 'Send account-setup email'}
       </button>
-      {hint && <p style={{ fontSize: '12px', color: '#697a9c', marginTop: '10px', marginBottom: 0 }}>{hint}</p>}
+      {hint && <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '10px', marginBottom: 0 }}>{hint}</p>}
       {msg && <p style={{ fontSize: '13px', marginTop: '10px', marginBottom: 0, color: msg.ok ? '#1f9d55' : '#d93025' }}>{msg.text}</p>}
     </div>
   )

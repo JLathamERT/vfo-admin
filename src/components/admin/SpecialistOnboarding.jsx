@@ -72,8 +72,8 @@ export default function SpecialistOnboarding() {
     if (oid) { setSelectedId(Number(oid)); setView('detail') }
   }, [searchParams])
 
-  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
  
   useEffect(() => { loadList() }, [])
  
@@ -115,21 +115,21 @@ export default function SpecialistOnboarding() {
  
       {showNew && (
         <div style={{ ...sectionStyle, marginBottom: '24px' }}>
-          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Start New Onboarding</div>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Start New Onboarding</div>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Specialist Name *</label>
+              <label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Specialist Name *</label>
               <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Full name" style={inputStyle} />
             </div>
             <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Email *</label>
+              <label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Email *</label>
               <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Email address" style={inputStyle} />
             </div>
           </div>
           {newEmail.trim() && !newEmailValid && <div style={{ fontSize: '12px', color: '#e06717', marginBottom: '10px' }}>Please enter a valid email address.</div>}
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={createNew} disabled={creating || !newName.trim() || !newEmailValid} style={{ padding: '8px 20px', borderRadius: '8px', background: (creating || !newName.trim() || !newEmailValid) ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '13px', cursor: (creating || !newName.trim() || !newEmailValid) ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>{creating ? 'Creating...' : 'Create'}</button>
-            <button onClick={() => { setShowNew(false); setNewName(''); setNewEmail('') }} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Cancel</button>
+            <button onClick={() => { setShowNew(false); setNewName(''); setNewEmail('') }} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Cancel</button>
           </div>
         </div>
       )}
@@ -137,18 +137,18 @@ export default function SpecialistOnboarding() {
       {loading ? (
         <SpecialistOnboardingListSkeleton />
       ) : onboardings.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>No onboarding records yet. Click "+ New Onboarding" to start.</div>
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--vfo-muted)' }}>No onboarding records yet. Click "+ New Onboarding" to start.</div>
       ) : (
         <div>
           {onboardings.map(ob => {
             const stageColor = ob.status === 'stopped' ? '#e74c3c' : ob.status === 'completed' ? '#1b9254' : '#0095ff'
             return (
-              <div key={ob.id} onClick={() => { setSelectedId(ob.id); setView('detail') }} style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '18px', marginBottom: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              <div key={ob.id} onClick={() => { setSelectedId(ob.id); setView('detail') }} style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '18px', marginBottom: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                 onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,149,255,0.4)'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = '#e3eaf5'}>
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--vfo-border)'}>
                 <div>
-                  <div style={{ fontSize: '15px', color: '#16264a', fontWeight: '500', marginBottom: '4px' }}>{ob.specialist_name}</div>
-                  <div style={{ fontSize: '12px', color: '#4e6087' }}>{ob.specialist_email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
+                  <div style={{ fontSize: '15px', color: 'var(--vfo-ink)', fontWeight: '500', marginBottom: '4px' }}>{ob.specialist_name}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>{ob.specialist_email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: ob.status === 'stopped' ? 'rgba(231,76,60,0.15)' : ob.status === 'completed' ? 'rgba(27,146,84,0.15)' : 'rgba(0,149,255,0.15)', color: stageColor, border: `1px solid ${ob.status === 'stopped' ? 'rgba(231,76,60,0.3)' : ob.status === 'completed' ? 'rgba(27,146,84,0.3)' : 'rgba(0,149,255,0.3)'}` }}>
@@ -311,10 +311,10 @@ function OnboardingDetail({ id, onBack }) {
     return 'pending'
   }
  
-  const inputStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid #d6e0ee', background: '#ffffff', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
+  const inputStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
  
   if (loading) return <SpecialistOnboardingDetailSkeleton onBack={onBack} />
-  if (!ob) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px', textAlign: 'center', color: '#4e6087' }}>Not found.</div>
+  if (!ob) return <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px', textAlign: 'center', color: 'var(--vfo-muted)' }}>Not found.</div>
  
   const isStopped = ob.status === 'stopped'
   const isCompleted = ob.status === 'completed'
@@ -323,19 +323,19 @@ function OnboardingDetail({ id, onBack }) {
     const state = getStageState(stage)
     if (state === 'done') return <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
     if (state === 'active') return <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress</span>
-    return <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>
+    return <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>
   }
  
   function StageHeader({ stage, title }) {
     const state = getStageState(stage)
-    const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
+    const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
     const titleColor = state === 'active' ? '#125ecc' : '#002973'
     const isExpanded = expanded[stage]
     // the numbered badge replaces the "Stage N — " text prefix
     const displayTitle = title.replace(/^Stage \d+ — /, '')
 
     return (
-      <div style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--vfo-card)', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
           <div onClick={() => setExpanded(p => ({ ...p, [stage]: !p[stage] }))} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flex: 1 }}>
             <PhaseBadge number={stage} state={state} />
@@ -343,7 +343,7 @@ function OnboardingDetail({ id, onBack }) {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <StageBadge stage={stage} />
-            <span onClick={() => setExpanded(p => ({ ...p, [stage]: !p[stage] }))} style={{ color: '#4e6087', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
+            <span onClick={() => setExpanded(p => ({ ...p, [stage]: !p[stage] }))} style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
           </div>
         </div>
         {isExpanded && ob.current_stage >= stage && (
@@ -373,12 +373,12 @@ function OnboardingDetail({ id, onBack }) {
   // chip) so it never reads as a clickable button.
   function AutoStep({ done, label, detail }) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
-        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
-        <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+        <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
         <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px', alignItems: 'center' }}>
           {detail && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{detail}</span>}
-          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: done ? 'rgba(27,146,84,0.15)' : '#eef2f9', border: done ? '1px solid rgba(27,146,84,0.3)' : '1px solid #dde5f2', color: done ? '#1b9254' : '#4e6087' }}>{done ? 'Done' : 'Not completed'}</span>
+          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: done ? 'rgba(27,146,84,0.15)' : 'var(--vfo-tint)', border: done ? '1px solid rgba(27,146,84,0.3)' : '1px solid var(--vfo-border-chip)', color: done ? '#1b9254' : 'var(--vfo-muted)' }}>{done ? 'Done' : 'Not completed'}</span>
         </span>
       </div>
     )
@@ -387,9 +387,9 @@ function OnboardingDetail({ id, onBack }) {
   function CheckItem({ done, label, onClick, toggle }) {
     const clickable = !isStopped && (toggle || !done)
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', borderBottom: '1px solid #e9eef8' }}>
-        <div onClick={() => clickable && onClick?.()} style={{ width: '16px', height: '16px', borderRadius: '4px', border: `1.5px solid ${done ? '#1b9254' : '#aebfdb'}`, background: done ? '#1b9254' : 'transparent', cursor: clickable ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', flexShrink: 0 }}>{done ? '✓' : ''}</div>
-        <span style={{ fontSize: '13px', color: done ? '#4e6087' : '#16264a', textDecoration: done ? 'line-through' : 'none' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+        <div onClick={() => clickable && onClick?.()} style={{ width: '16px', height: '16px', borderRadius: '4px', border: `1.5px solid ${done ? '#1b9254' : 'var(--vfo-border-strong)'}`, background: done ? '#1b9254' : 'transparent', cursor: clickable ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', flexShrink: 0 }}>{done ? '✓' : ''}</div>
+        <span style={{ fontSize: '13px', color: done ? 'var(--vfo-muted)' : 'var(--vfo-ink)', textDecoration: done ? 'line-through' : 'none' }}>{label}</span>
       </div>
     )
   }
@@ -399,9 +399,9 @@ function OnboardingDetail({ id, onBack }) {
   function ShowroomCheck({ taskKey, label }) {
     const done = !!getTaskStatus(5, taskKey)
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', borderBottom: '1px solid #e9eef8' }}>
-        <div onClick={async () => { if (isStopped) return; await saveProgress(5, taskKey, done ? 'unchecked' : 'Completed'); await loadDetail() }} style={{ width: '16px', height: '16px', borderRadius: '4px', border: `1.5px solid ${done ? '#1b9254' : '#aebfdb'}`, background: done ? '#1b9254' : 'transparent', cursor: isStopped ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', flexShrink: 0 }}>{done ? '✓' : ''}</div>
-        <span style={{ fontSize: '13px', color: done ? '#4e6087' : '#16264a', textDecoration: done ? 'line-through' : 'none' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+        <div onClick={async () => { if (isStopped) return; await saveProgress(5, taskKey, done ? 'unchecked' : 'Completed'); await loadDetail() }} style={{ width: '16px', height: '16px', borderRadius: '4px', border: `1.5px solid ${done ? '#1b9254' : 'var(--vfo-border-strong)'}`, background: done ? '#1b9254' : 'transparent', cursor: isStopped ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', flexShrink: 0 }}>{done ? '✓' : ''}</div>
+        <span style={{ fontSize: '13px', color: done ? 'var(--vfo-muted)' : 'var(--vfo-ink)', textDecoration: done ? 'line-through' : 'none' }}>{label}</span>
         {ob.expert_id && <button onClick={() => navigate(`/admin?tab=specialists&section=specialist_search&expert=${ob.expert_id}&_n=${Date.now()}`)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#0095ff', fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', padding: 0, whiteSpace: 'nowrap' }}>Open specialist →</button>}
       </div>
     )
@@ -417,7 +417,7 @@ function OnboardingDetail({ id, onBack }) {
   }
  
   function SectionLabel({ children }) {
-    return <div style={{ fontSize: '11px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', marginTop: '14px' }}>{children}</div>
+    return <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', marginTop: '14px' }}>{children}</div>
   }
  
   function Stage1Content() {
@@ -441,20 +441,20 @@ function OnboardingDetail({ id, onBack }) {
 
     const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
     const redBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600 }
-    const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid #d6e0ee', background: 'transparent', color: '#4e6087' }
+    const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }
 
     return (
       <>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : '#c7d4e8'}` }} />
-          <span style={{ fontSize: '13px', color: isDone ? '#4e6087' : '#16264a', flex: 1 }}>Post-meeting decision</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
+          <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>Post-meeting decision</span>
           {isDone
             ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{statusLabel}</span>
             : showDate
               ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '11px' }} />
-                  <input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '11px' }} />
-                  <select value={meetingTz} onChange={e => setMeetingTz(e.target.value)} style={{ padding: '4px 8px', borderRadius: '5px', border: '1px solid #d6e0ee', background: '#ffffff', color: '#16264a', fontSize: '11px' }}>
+                  <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '11px' }} />
+                  <input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '11px' }} />
+                  <select value={meetingTz} onChange={e => setMeetingTz(e.target.value)} style={{ padding: '4px 8px', borderRadius: '5px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '11px' }}>
                     <option value="ET">Eastern (ET)</option>
                     <option value="CT">Central (CT)</option>
                     <option value="MT">Mountain (MT)</option>
@@ -476,9 +476,9 @@ function OnboardingDetail({ id, onBack }) {
         {decision && decision !== 'stop' && (() => {
           const emailSent = !!getTaskStatus(1, 'email_sent')
           const autoStep = (label, done) => (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
-              <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+              <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
               {done && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>}
             </div>
           )
@@ -488,38 +488,38 @@ function OnboardingDetail({ id, onBack }) {
           return (
             <div style={{ padding: '7px 0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: aipcDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${aipcDone ? '#1b9254' : '#c7d4e8'}` }} />
-                <span style={{ fontSize: '13px', color: '#16264a', flex: 1, fontWeight: '600' }}>AI PC Admin</span>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: aipcDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${aipcDone ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+                <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>AI PC Admin</span>
               </div>
-              <div style={{ marginLeft: '18px', padding: '8px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2' }}>
+              <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
                 {autoStep('Email sent to potential VFO specialist (SIF form, rev share examples, template agreement attached)', emailSent)}
                 <div>
-                  <div onClick={() => sifDone && setSifOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8', cursor: sifDone ? 'pointer' : 'default' }}>
-                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: sifDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${sifDone ? '#1b9254' : '#c7d4e8'}` }} />
-                    <span style={{ fontSize: '12px', color: '#16264a' }}>SIF form completed by potential specialist</span>
+                  <div onClick={() => sifDone && setSifOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)', cursor: sifDone ? 'pointer' : 'default' }}>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: sifDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${sifDone ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+                    <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>SIF form completed by potential specialist</span>
                     {sifDone
                       ? <>
                           <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>
-                          <span style={{ color: '#4e6087', fontSize: '9px', transform: sifOpen ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                          <span style={{ color: 'var(--vfo-muted)', fontSize: '9px', transform: sifOpen ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
                         </>
-                      : <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087', marginLeft: 'auto' }}>Awaiting</span>}
+                      : <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', marginLeft: 'auto' }}>Awaiting</span>}
                   </div>
                   {sifDone && sifOpen && (
                     <div style={{ padding: '10px 12px 4px 16px' }}>
                       {SIF_FIELDS.map(([k, label]) => (
                         <div key={k} style={{ marginBottom: '10px' }}>
                           <div style={{ fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{label}</div>
-                          <div style={{ fontSize: '12px', color: '#16264a', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{sifData[k] ? sifData[k] : '—'}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--vfo-ink)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{sifData[k] ? sifData[k] : '—'}</div>
                         </div>
                       ))}
                       <div style={{ marginBottom: '10px' }}>
                         <div style={{ fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>Tax Specialist?</div>
-                        <div style={{ fontSize: '12px', color: '#16264a', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{sifData.is_tax_specialist || '—'}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--vfo-ink)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{sifData.is_tax_specialist || '—'}</div>
                       </div>
                       {sifData.is_tax_specialist === 'Yes' && SIF_TAX_FIELDS.map(([k, label]) => (
                         <div key={k} style={{ marginBottom: '10px' }}>
                           <div style={{ fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{label}</div>
-                          <div style={{ fontSize: '12px', color: '#16264a', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{sifData[k] ? sifData[k] : '—'}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--vfo-ink)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{sifData[k] ? sifData[k] : '—'}</div>
                         </div>
                       ))}
                     </div>
@@ -540,7 +540,7 @@ function OnboardingDetail({ id, onBack }) {
     const [meetingTz, setMeetingTz] = useState('ET')
     const [sending, setSending] = useState(null) // 'meeting' | 'stop'
 
-    const inStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid #d6e0ee', background: '#ffffff', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
+    const inStyle = { padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
 
     async function doMeeting(date, time, tz) {
       if (sending) return
@@ -572,7 +572,7 @@ function OnboardingDetail({ id, onBack }) {
           </div>
         ) : (
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '13px', color: '#4e6087' }}>Next meeting:</span>
+            <span style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>Next meeting:</span>
             <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={inStyle} />
             <input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} style={inStyle} />
             <select value={meetingTz} onChange={e => setMeetingTz(e.target.value)} style={inStyle}>
@@ -735,16 +735,16 @@ function OnboardingDetail({ id, onBack }) {
           const newInThisMeeting = discussed.filter(idx => !previousItems.has(idx))
           
           return (
-            <div key={meeting.id} style={{ marginBottom: '16px', padding: '12px', borderRadius: '8px', border: '1px solid #ebf0f8', background: '#eef2f9' }}>
+            <div key={meeting.id} style={{ marginBottom: '16px', padding: '12px', borderRadius: '8px', border: '1px solid var(--vfo-tint-deep)', background: 'var(--vfo-tint)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <span style={{ fontSize: '12px', color: '#0095ff', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Meeting {mi + 1}</span>
-                <span style={{ fontSize: '11px', color: '#697a9c' }}>{meeting.meeting_date} · {meeting.created_by}</span>
+                <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{meeting.meeting_date} · {meeting.created_by}</span>
               </div>
-              <div style={{ fontSize: '11px', color: '#4e6087', marginBottom: '4px' }}>Covered in this meeting:</div>
+              <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginBottom: '4px' }}>Covered in this meeting:</div>
               {newInThisMeeting.map(idx => (
                 <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '3px 0' }}>
                   <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: '1.5px solid #1b9254', background: '#1b9254', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', flexShrink: 0 }}>✓</div>
-                  <span style={{ fontSize: '13px', color: '#4e6087', textDecoration: 'line-through' }}>{STAGE2_CHECKLIST[parseInt(idx)]}</span>
+                  <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', textDecoration: 'line-through' }}>{STAGE2_CHECKLIST[parseInt(idx)]}</span>
                 </div>
               ))}
               {meeting.outcome === 'stopped' && (
@@ -752,8 +752,8 @@ function OnboardingDetail({ id, onBack }) {
                   {STAGE2_CHECKLIST.map((item, i) => {
                     if (!(meeting.items_discussed || []).includes(String(i))) {
                       return <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '3px 0' }}>
-                        <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: '1.5px solid #c7d4e8', flexShrink: 0 }} />
-                        <span style={{ fontSize: '13px', color: '#4e6087' }}>{item}</span>
+                        <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: '1.5px solid var(--vfo-border-mid)', flexShrink: 0 }} />
+                        <span style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>{item}</span>
                       </div>
                     }
                     return null
@@ -762,9 +762,9 @@ function OnboardingDetail({ id, onBack }) {
                 </>
               )}
               {meeting.outcome === 'interested' && (
-                <div style={{ fontSize: '12px', color: '#16264a', fontWeight: 600, marginTop: '6px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--vfo-ink)', fontWeight: 600, marginTop: '6px' }}>
                   ✓ Still interested — email sent
-                  {meeting.notes && <span style={{ color: '#4e6087', marginLeft: '8px' }}>({meeting.notes})</span>}
+                  {meeting.notes && <span style={{ color: 'var(--vfo-muted)', marginLeft: '8px' }}>({meeting.notes})</span>}
                 </div>
               )}
             </div>
@@ -788,7 +788,7 @@ function OnboardingDetail({ id, onBack }) {
         {/* All items covered message */}
         {allLocked && !isStopped && (
           <div style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(27,146,84,0.3)', background: 'rgba(27,146,84,0.06)', marginBottom: '14px' }}>
-            <span style={{ fontSize: '12px', color: '#16264a', fontWeight: 600 }}>✓ All Stage 2 items completed across {meetingCount} meeting{meetingCount !== 1 ? 's' : ''}.</span>
+            <span style={{ fontSize: '12px', color: 'var(--vfo-ink)', fontWeight: 600 }}>✓ All Stage 2 items completed across {meetingCount} meeting{meetingCount !== 1 ? 's' : ''}.</span>
           </div>
         )}
 
@@ -796,7 +796,7 @@ function OnboardingDetail({ id, onBack }) {
             (tax specialists only) to add their reviewer notes below. Uses the same
             always-visible box as the reviewer notes: it never collapses after
             submit and stays editable. */}
-        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
         <SectionLabel>Revenue share proposal</SectionLabel>
         <ReviewerNoteInput
           label="Revenue Share Proposal"
@@ -810,19 +810,19 @@ function OnboardingDetail({ id, onBack }) {
           saveLabel="Submit revenue share proposal"
           updateLabel="Update revenue share proposal"
         />
-        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
 
         {/* Reviewer notes — always visible (mirrors Stage 4). Tracy (always) + Tim
             (tax specialists only) are notified to add these once the revenue share
             proposal above is submitted; the prompts clear when the notes save. */}
         <ReviewerNotesSection stage={2} />
-        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
 
         {/* Initial executive approval — account-scoped two-round voting */}
         <>
             <SectionLabel>Initial executive approval</SectionLabel>
             {!votingOpen ? (
-              <div style={{ fontSize: '12px', color: '#4e6087', padding: '10px 12px', borderRadius: '6px', border: '1px solid #dde5f2', background: '#eef2f9', marginBottom: '12px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--vfo-border-chip)', background: 'var(--vfo-tint)', marginBottom: '12px' }}>
                 Voting opens once the revenue share proposal and {ob.sif_data?.is_tax_specialist === 'No' ? "Tracy's notes" : "Tracy's and Tim's notes"} are complete.
               </div>
             ) : (
@@ -845,11 +845,11 @@ function OnboardingDetail({ id, onBack }) {
               const sent = !!getTaskStatus(2, 'denied_email_sent')
               return (
                 <>
-                  <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
+                  <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: sent ? '#e74c3c' : 'transparent', flexShrink: 0, border: `1.5px solid ${sent ? '#e74c3c' : '#c7d4e8'}` }} />
-                    <span style={{ fontSize: '13px', color: sent ? '#e74c3c' : '#4e6087', flex: 1 }}>Decline email drafted to specialist — Tracy Miller will follow up</span>
-                    <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: sent ? 'rgba(231,76,60,0.15)' : '#eef2f9', color: sent ? '#e74c3c' : '#4e6087', border: `1px solid ${sent ? 'rgba(231,76,60,0.3)' : '#e3eaf5'}` }}>{sent ? 'Sent — process stopped' : 'Sending…'}</span>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: sent ? '#e74c3c' : 'transparent', flexShrink: 0, border: `1.5px solid ${sent ? '#e74c3c' : 'var(--vfo-border-mid)'}` }} />
+                    <span style={{ fontSize: '13px', color: sent ? '#e74c3c' : 'var(--vfo-muted)', flex: 1 }}>Decline email drafted to specialist — Tracy Miller will follow up</span>
+                    <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: sent ? 'rgba(231,76,60,0.15)' : 'var(--vfo-tint)', color: sent ? '#e74c3c' : 'var(--vfo-muted)', border: `1px solid ${sent ? 'rgba(231,76,60,0.3)' : 'var(--vfo-border)'}` }}>{sent ? 'Sent — process stopped' : 'Sending…'}</span>
                   </div>
                 </>
               )
@@ -874,14 +874,14 @@ function OnboardingDetail({ id, onBack }) {
     }
 
     return (
-      <div style={{ padding: '12px 14px', borderRadius: '8px', border: `1px solid ${done ? 'rgba(27,146,84,0.3)' : 'rgba(251,137,90,0.3)'}`, background: '#eef2f9', marginBottom: '12px' }}>
+      <div style={{ padding: '12px 14px', borderRadius: '8px', border: `1px solid ${done ? 'rgba(27,146,84,0.3)' : 'rgba(251,137,90,0.3)'}`, background: 'var(--vfo-tint)', marginBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <span style={{ fontSize: '13px', color: '#16264a', fontWeight: '600' }}>{label}{who && <span style={{ color: '#4e6087', fontWeight: 400 }}> ({who}){hint ? ` — ${hint}` : ''}</span>}</span>
+          <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: '600' }}>{label}{who && <span style={{ color: 'var(--vfo-muted)', fontWeight: 400 }}> ({who}){hint ? ` — ${hint}` : ''}</span>}</span>
           {done
             ? <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>{doneBadge}</span>
             : <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '4px', background: 'rgba(251,137,90,0.15)', color: '#e06717', fontWeight: 600, marginLeft: 'auto' }}>{pendingBadge}</span>}
         </div>
-        <textarea value={text} onChange={e => setText(e.target.value)} placeholder={placeholder} rows={rows} disabled={isStopped} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '8px' }} />
+        <textarea value={text} onChange={e => setText(e.target.value)} placeholder={placeholder} rows={rows} disabled={isStopped} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box', marginBottom: '8px' }} />
         <ActionButton label={justSaved ? '✓ Saved' : saving ? 'Saving...' : done ? updateLabel : saveLabel} onClick={handleSave} color={done ? '#1b9254' : '#0095ff'} disabled={!text.trim() || saving} />
       </div>
     )
@@ -901,8 +901,8 @@ function OnboardingDetail({ id, onBack }) {
           const revealed = voted && value != null
           const color = value === 'Approved' ? '#1b9254' : value === 'Denied' ? '#e74c3c' : '#e06717'
           return (
-            <div key={voter} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #ebf0f8', background: '#eef2f9' }}>
-              <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '8px' }}>{voter}{isMe && <span style={{ color: '#0095ff' }}> (you)</span>}</div>
+            <div key={voter} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--vfo-tint-deep)', background: 'var(--vfo-tint)' }}>
+              <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '8px' }}>{voter}{isMe && <span style={{ color: '#0095ff' }}> (you)</span>}</div>
               {revealed ? (
                 <span style={{ fontSize: '12px', color, fontWeight: 600 }}>{value === 'Approved' ? '✓ ' : value === 'Denied' ? '✗ ' : '⚠ '}{value}</span>
               ) : voted ? (
@@ -915,7 +915,7 @@ function OnboardingDetail({ id, onBack }) {
                   })}
                 </div>
               ) : (
-                <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', color: '#4e6087', border: '1px solid #dde5f2' }}>Awaiting response</span>
+                <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', color: 'var(--vfo-muted)', border: '1px solid var(--vfo-border-chip)' }}>Awaiting response</span>
               )}
             </div>
           )
@@ -931,14 +931,14 @@ function OnboardingDetail({ id, onBack }) {
     const sifData = ob.sif_data || {}
     const isTax = sifData.is_tax_specialist === 'Yes'
     const lblStyle = { fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }
-    const valStyle = { fontSize: '12px', color: '#16264a', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: '10px' }
-    const grpStyle = { fontSize: '14px', fontWeight: 700, color: '#16264a', letterSpacing: '0.3px', margin: '20px 0 12px', paddingBottom: '6px', borderBottom: '2px solid rgba(0,149,255,0.55)' }
+    const valStyle = { fontSize: '12px', color: 'var(--vfo-ink)', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: '10px' }
+    const grpStyle = { fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)', letterSpacing: '0.3px', margin: '20px 0 12px', paddingBottom: '6px', borderBottom: '2px solid rgba(0,149,255,0.55)' }
     const item = (label, value, key) => (<div key={key} style={{ marginBottom: '10px' }}><div style={lblStyle}>{label}</div><div style={{ ...valStyle, marginBottom: 0 }}>{value ? value : '—'}</div></div>)
     return (
       <div style={{ marginBottom: '14px' }}>
         <div onClick={() => setOpen(o => !o)} style={{ fontSize: '12px', color: '#0095ff', cursor: 'pointer', fontWeight: 600 }}>{open ? '▼ Hide details' : '▶ View details'}</div>
         {open && (
-          <div style={{ marginTop: '8px', padding: '12px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2' }}>
+          <div style={{ marginTop: '8px', padding: '12px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
             <div style={{ ...grpStyle, marginTop: 0 }}>SIF answers</div>
             {SIF_FIELDS.map(([k, label]) => item(label, sifData[k], k))}
             {item('Tax Specialist?', sifData.is_tax_specialist, 'taxflag')}
@@ -967,8 +967,8 @@ function OnboardingDetail({ id, onBack }) {
     const revText = ob.rev_share_final_text || progress['2-rev_share_prepared']?.notes || '—'
     const tracyNotes = progress['4-tracy_general_notes']?.notes || '—'
     const lblStyle = { fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }
-    const valStyle = { fontSize: '12px', color: '#16264a', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: '10px' }
-    const grpStyle = { fontSize: '14px', fontWeight: 700, color: '#16264a', letterSpacing: '0.3px', margin: '20px 0 12px', paddingBottom: '6px', borderBottom: '2px solid rgba(0,149,255,0.55)' }
+    const valStyle = { fontSize: '12px', color: 'var(--vfo-ink)', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: '10px' }
+    const grpStyle = { fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)', letterSpacing: '0.3px', margin: '20px 0 12px', paddingBottom: '6px', borderBottom: '2px solid rgba(0,149,255,0.55)' }
     async function openFile(path) {
       try { const r = await callApi('automation_SPECIALIST_ddcdownload', { onboarding_id: id, path }); if (r?.url) window.open(r.url, '_blank', 'noopener') } catch (err) { console.error(err) }
     }
@@ -997,7 +997,7 @@ function OnboardingDetail({ id, onBack }) {
       <div style={{ marginBottom: '14px' }}>
         <div onClick={() => setOpen(o => !o)} style={{ fontSize: '12px', color: '#0095ff', cursor: 'pointer', fontWeight: 600 }}>{open ? '▼ Hide details' : '▶ View details'}</div>
         {open && (
-          <div style={{ marginTop: '8px', padding: '12px 14px', background: '#eef2f9', borderRadius: '8px', border: '1px solid #dde5f2' }}>
+          <div style={{ marginTop: '8px', padding: '12px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
             <div style={{ ...grpStyle, marginTop: 0 }}>Background check</div>
             <div style={valStyle}>Passed — {bgType} check</div>
             <div style={grpStyle}>Due Diligence Checklist</div>
@@ -1113,13 +1113,13 @@ function OnboardingDetail({ id, onBack }) {
 
     // Stage 3 rollup bullet: green = complete, red = problem, grey = waiting.
     const progressBullet = (label, state, pill) => {
-      const c = state === 'green' ? '#1b9254' : state === 'red' ? '#e74c3c' : '#697a9c'
+      const c = state === 'green' ? '#1b9254' : state === 'red' ? '#e74c3c' : 'var(--vfo-muted)'
       const grey = state === 'grey'
       return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: grey ? 'transparent' : c, border: `1px solid ${grey ? '#bac9e1' : c}` }} />
-          <span style={{ fontSize: '12px', color: '#16264a' }}>{label}</span>
-          <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: grey ? '#eef2f9' : `${c}26`, border: grey ? '1px solid #dde5f2' : `1px solid ${c}44`, color: grey ? '#4e6087' : c }}>{pill}</span>
+          <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
+          <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: grey ? 'var(--vfo-tint)' : `${c}26`, border: grey ? '1px solid var(--vfo-border-chip)' : `1px solid ${c}44`, color: grey ? 'var(--vfo-muted)' : c }}>{pill}</span>
         </div>
       )
     }
@@ -1165,9 +1165,9 @@ function OnboardingDetail({ id, onBack }) {
         {/* Appears once the specialist asks questions, and STAYS as a paper trail:
             action buttons while unresolved, then the outcome pill once resolved. */}
         {fqRequested && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: fqResolved ? '#1b9254' : '#e06717', border: `1px solid ${fqResolved ? '#1b9254' : '#e06717'}` }} />
-            <span style={{ fontSize: '12px', color: '#16264a' }}>Answer the specialist's background check questions</span>
+            <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>Answer the specialist's background check questions</span>
             <span style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
               {fqResolved ? (
                 ob.further_questions_resolution === 'Stop'
@@ -1184,9 +1184,9 @@ function OnboardingDetail({ id, onBack }) {
         )}
 
         {/* Specialist background check choice (Core/Max) — "Questions asked" pill if they asked first. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
-          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgChosen ? '#1b9254' : 'transparent', border: `1px solid ${bgChosen ? '#1b9254' : '#c7d4e8'}` }} />
-          <span style={{ fontSize: '12px', color: '#16264a' }}>Specialist background check choice</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgChosen ? '#1b9254' : 'transparent', border: `1px solid ${bgChosen ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+          <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>Specialist background check choice</span>
           <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px', alignItems: 'center' }}>
             {bgChosen ? (
               <>
@@ -1194,7 +1194,7 @@ function OnboardingDetail({ id, onBack }) {
                 <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>
               </>
             ) : (
-              <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not completed</span>
+              <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not completed</span>
             )}
           </span>
         </div>
@@ -1203,20 +1203,20 @@ function OnboardingDetail({ id, onBack }) {
         <AutoStep done={bgPaid} label="Payment cleared — receipt, next steps, and DD checklist sent" />
 
         {/* ── Background Check ── */}
-        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
         <SectionLabel>Background Check</SectionLabel>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
-          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgInitiated ? '#1b9254' : 'transparent', border: `1px solid ${bgInitiated ? '#1b9254' : '#c7d4e8'}` }} />
-          <span style={{ fontSize: '12px', color: '#16264a' }}>Background check sent{ob.background_check_type ? ` to ${ob.background_check_type === 'Max' ? 'Scherzer International' : 'Checkr'}` : ''}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgInitiated ? '#1b9254' : 'transparent', border: `1px solid ${bgInitiated ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+          <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>Background check sent{ob.background_check_type ? ` to ${ob.background_check_type === 'Max' ? 'Scherzer International' : 'Checkr'}` : ''}</span>
           <span style={{ marginLeft: 'auto' }}>
             {bgInitiated
               ? <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>
               : <ActionButton label="Mark as sent" onClick={() => saveProgress(3, 'bg_initiated', 'completed')} color="#1b9254" />}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
-          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgResult ? (bgDone ? '#1b9254' : '#e74c3c') : 'transparent', border: `1px solid ${bgResult ? (bgDone ? '#1b9254' : '#e74c3c') : '#c7d4e8'}` }} />
-          <span style={{ fontSize: '12px', color: '#16264a' }}>Background check results</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgResult ? (bgDone ? '#1b9254' : '#e74c3c') : 'transparent', border: `1px solid ${bgResult ? (bgDone ? '#1b9254' : '#e74c3c') : 'var(--vfo-border-mid)'}` }} />
+          <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>Background check results</span>
           <span style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
             {!bgResult ? (
               <>
@@ -1237,16 +1237,16 @@ function OnboardingDetail({ id, onBack }) {
         )}
 
         {/* ── Due Diligence Checklist ── */}
-        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
         <SectionLabel>Due Diligence Checklist</SectionLabel>
 
         <AutoStep done={ddcEmailed} label="Due diligence checklist emailed to client (Along with Final Revenue Share Proposal)" />
 
         {/* Help requested — same paper-trail format as the Core/Max questions step */}
         {helpRequested && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: helpResolved ? '#1b9254' : '#e06717', border: `1px solid ${helpResolved ? '#1b9254' : '#e06717'}` }} />
-            <span style={{ fontSize: '12px', color: '#16264a' }}>Answer the specialist's checklist questions</span>
+            <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>Answer the specialist's checklist questions</span>
             <span style={{ marginLeft: 'auto' }}>
               {helpResolved
                 ? <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Help received</span>
@@ -1258,13 +1258,13 @@ function OnboardingDetail({ id, onBack }) {
         {/* Checklist progress — grouped by the form's sections + question order.
             Collapsed: a section→question checklist. Expanded ("View answers"):
             each filled question's text + file downloads shown inline, in order. */}
-        <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ebf0f8', background: '#eef2f9', margin: '8px 0 12px' }}>
+        <div style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--vfo-tint-deep)', background: 'var(--vfo-tint)', margin: '8px 0 12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-            <span style={{ fontSize: '12px', color: '#16264a', fontWeight: '600' }}>Checklist progress</span>
-            <span style={{ fontSize: '11px', color: '#697a9c' }}>{ddFilled}/{ddTotal} answered</span>
+            <span style={{ fontSize: '12px', color: 'var(--vfo-ink)', fontWeight: '600' }}>Checklist progress</span>
+            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{ddFilled}/{ddTotal} answered</span>
           </div>
           {ddFilled > 0 && (
-            <div style={{ marginBottom: '6px', paddingBottom: '8px', borderBottom: '1px solid #e9eef8' }}>
+            <div style={{ marginBottom: '6px', paddingBottom: '8px', borderBottom: '1px solid var(--vfo-border-soft)' }}>
               <span onClick={() => setShowSubmission(s => !s)} style={{ fontSize: '11px', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>{showSubmission ? '▼ Hide answers' : '▶ View answers'}</span>
             </div>
           )}
@@ -1273,7 +1273,7 @@ function OnboardingDetail({ id, onBack }) {
               <div style={{ fontSize: '11px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: '4px' }}>{section}</div>
               {items.map((it, idx) => {
                 if (it.subheading) return (
-                  <div key={`sh-${idx}`} style={{ fontSize: '11px', color: '#4e6087', fontStyle: 'italic', margin: '5px 0 2px 14px' }}>{it.subheading}</div>
+                  <div key={`sh-${idx}`} style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontStyle: 'italic', margin: '5px 0 2px 14px' }}>{it.subheading}</div>
                 )
                 const filled = ddItemFilled(it)
                 const text = ddItemText(it)
@@ -1282,16 +1282,16 @@ function OnboardingDetail({ id, onBack }) {
                   <div key={it.label} style={{ marginLeft: it.indent ? '14px' : 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0' }}>
                       <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: filled ? '#1b9254' : 'transparent', border: `1px solid ${filled ? '#1b9254' : '#bac9e1'}`, flexShrink: 0 }} />
-                      <span style={{ fontSize: '12px', color: filled ? '#3c4f73' : '#6c7a96' }}>{it.label}</span>
-                      {filled && <span style={{ fontSize: '11px', color: '#16264a', fontWeight: 600, marginLeft: 'auto' }}>Entered</span>}
+                      <span style={{ fontSize: '12px', color: filled ? 'var(--vfo-muted)' : '#6c7a96' }}>{it.label}</span>
+                      {filled && <span style={{ fontSize: '11px', color: 'var(--vfo-ink)', fontWeight: 600, marginLeft: 'auto' }}>Entered</span>}
                     </div>
                     {showSubmission && filled && (
                       <div style={{ margin: '2px 0 8px 14px' }}>
-                        {text && <div style={{ fontSize: '12px', color: '#3c4f73', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: files.length ? '4px' : 0 }}>{text}</div>}
+                        {text && <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: files.length ? '4px' : 0 }}>{text}</div>}
                         {files.map((f, i) => (
                           <div key={i} style={{ fontSize: '12px', padding: '2px 0' }}>
                             <span onClick={() => openFile(f.path)} style={{ color: '#0095ff', cursor: 'pointer', textDecoration: 'underline' }}>📄 {f.name}</span>
-                            {f.size ? <span style={{ color: '#697a9c' }}> · {Math.max(1, Math.round(f.size / 1024))} KB</span> : null}
+                            {f.size ? <span style={{ color: 'var(--vfo-muted)' }}> · {Math.max(1, Math.round(f.size / 1024))} KB</span> : null}
                           </div>
                         ))}
                       </div>
@@ -1308,19 +1308,19 @@ function OnboardingDetail({ id, onBack }) {
         {/* Review paper trail — every approve/deny round, oldest first */}
         {reviewLog.filter(e => e.type === 'denied' || e.type === 'approved').map((e, i) => (
           e.type === 'approved' ? (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#1b9254', border: '1px solid #1b9254' }} />
-              <span style={{ fontSize: '12px', color: '#16264a', fontWeight: 600 }}>Due Diligence Checklist approved</span>
+              <span style={{ fontSize: '12px', color: 'var(--vfo-ink)', fontWeight: 600 }}>Due Diligence Checklist approved</span>
               <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Approved</span>
             </div>
           ) : (
-            <div key={i} style={{ padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
+            <div key={i} style={{ padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: '#e74c3c', border: '1px solid #e74c3c' }} />
                 <span style={{ fontSize: '12px', color: '#e74c3c', fontWeight: 600 }}>Due Diligence Checklist denied</span>
                 <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600 }}>Denied</span>
               </div>
-              {e.reason && <div style={{ fontSize: '11px', color: '#4e6087', whiteSpace: 'pre-wrap', lineHeight: 1.5, margin: '4px 0 0 14px', padding: '6px 10px', background: '#eef2f9', borderRadius: '6px', border: '1px solid #dde5f2' }}>{e.reason}</div>}
+              {e.reason && <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', whiteSpace: 'pre-wrap', lineHeight: 1.5, margin: '4px 0 0 14px', padding: '6px 10px', background: 'var(--vfo-tint)', borderRadius: '6px', border: '1px solid var(--vfo-border-chip)' }}>{e.reason}</div>}
             </div>
           )
         ))}
@@ -1329,14 +1329,14 @@ function OnboardingDetail({ id, onBack }) {
         {ddcReview === 'pending_review' && (
           <div style={{ padding: '6px 0 0' }}>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '12px', color: '#16264a', flex: 1 }}>Due Diligence Checklist approved?</span>
+              <span style={{ fontSize: '12px', color: 'var(--vfo-ink)', flex: 1 }}>Due Diligence Checklist approved?</span>
               <ActionButton label={ddcBusy === 'approve' ? 'Sending…' : 'Approved'} onClick={approveDdc} color="#1b9254" disabled={!!ddcBusy} />
               <ActionButton label="Denied" onClick={() => setShowEdits(s => !s)} color="#e74c3c" disabled={!!ddcBusy} />
             </div>
             {showEdits && (
-              <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.3)', background: '#eef2f9' }}>
-                <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '8px' }}>Reason — included in the email the specialist receives</div>
-                <textarea value={editsReason} onChange={e => setEditsReason(e.target.value)} placeholder="Explain what needs to be changed or added…" rows={4} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
+              <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.3)', background: 'var(--vfo-tint)' }}>
+                <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '8px' }}>Reason — included in the email the specialist receives</div>
+                <textarea value={editsReason} onChange={e => setEditsReason(e.target.value)} placeholder="Explain what needs to be changed or added…" rows={4} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
                 <div style={{ marginTop: '8px' }}>
                   <ActionButton label={ddcBusy === 'edits' ? 'Sending…' : 'Send to specialist'} onClick={sendEdits} color="#e74c3c" disabled={!!ddcBusy || !editsReason.trim()} />
                 </div>
@@ -1346,7 +1346,7 @@ function OnboardingDetail({ id, onBack }) {
         )}
 
         {/* ── Final revenue share proposal ── */}
-        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
         <SectionLabel>Final revenue share proposal</SectionLabel>
 
         <AutoStep done={revEmailed} label="Revenue share proposal emailed to client (Along with DD Checklist)" />
@@ -1360,9 +1360,9 @@ function OnboardingDetail({ id, onBack }) {
               <ActionButton label="Edit revenue share proposal" onClick={() => { setRevEditText(revFinalText); setShowRevEdit(s => !s) }} color="#0095ff" disabled={!!revBusy} />
             </div>
             {showRevEdit && (
-              <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.3)', background: '#eef2f9' }}>
-                <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '8px' }}>Edit the revenue share proposal — submitting locks it in as final.</div>
-                <textarea value={revEditText} onChange={e => setRevEditText(e.target.value)} rows={5} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
+              <div style={{ marginTop: '10px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.3)', background: 'var(--vfo-tint)' }}>
+                <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '8px' }}>Edit the revenue share proposal — submitting locks it in as final.</div>
+                <textarea value={revEditText} onChange={e => setRevEditText(e.target.value)} rows={5} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
                 <div style={{ marginTop: '8px' }}>
                   <ActionButton label={revBusy === 'edit' ? 'Saving…' : 'Submit & make final'} onClick={submitRevEdit} color="#1b9254" disabled={!!revBusy || !revEditText.trim()} />
                 </div>
@@ -1374,12 +1374,12 @@ function OnboardingDetail({ id, onBack }) {
         {revFinalDone && revFinalText && (
           <div style={{ padding: '4px 0 0 14px' }}>
             <span onClick={() => setShowRevProp(s => !s)} style={{ fontSize: '11px', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>{showRevProp ? '▼ Hide final proposal' : '▶ View final proposal'}</span>
-            {showRevProp && <div style={{ fontSize: '12px', color: '#4e6087', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginTop: '6px', padding: '8px 10px', background: '#eef2f9', borderRadius: '6px', border: '1px solid #dde5f2' }}>{revFinalText}</div>}
+            {showRevProp && <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginTop: '6px', padding: '8px 10px', background: 'var(--vfo-tint)', borderRadius: '6px', border: '1px solid var(--vfo-border-chip)' }}>{revFinalText}</div>}
           </div>
         )}
 
         {/* ── Stage 3 progress ── */}
-        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
         <SectionLabel>Stage 3 progress</SectionLabel>
         {progressBullet('Background check', bgDone ? 'green' : bgFailed ? 'red' : 'grey', bgDone ? 'Passed' : bgFailed ? 'Failed' : 'Waiting')}
         {progressBullet('Due Diligence Checklist', ddcApproved ? 'green' : ddcEditsRequested ? 'red' : 'grey', ddcApproved ? 'Approved' : ddcEditsRequested ? 'Denied' : 'Waiting')}
@@ -1407,11 +1407,11 @@ function OnboardingDetail({ id, onBack }) {
     return (
       <>
         <ReviewerNotesSection stage={4} />
-        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
 
         <SectionLabel>Final executive approval</SectionLabel>
         {!votingOpen ? (
-          <div style={{ fontSize: '12px', color: '#4e6087', padding: '10px 12px', borderRadius: '6px', border: '1px solid #dde5f2', background: '#eef2f9', marginBottom: '12px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--vfo-border-chip)', background: 'var(--vfo-tint)', marginBottom: '12px' }}>
             Voting opens once Tracy's notes are complete.
           </div>
         ) : (
@@ -1431,7 +1431,7 @@ function OnboardingDetail({ id, onBack }) {
         )}
         {denied4 && <div style={{ fontSize: '12px', color: '#e74c3c', fontWeight: 600, padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'rgba(231,76,60,0.06)', margin: '12px 0' }}>Both executives denied — decline email drafted, process stopped.</div>}
 
-        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
 
         <SectionLabel>Specialist Onboarding Agreement &amp; Set up Licensing fee subscription</SectionLabel>
         <AutoStep done={!!getTaskStatus(4, 'agreement_sent')} label="Agreement sent" />
@@ -1456,10 +1456,10 @@ function OnboardingDetail({ id, onBack }) {
     }
 
     return (
-      <div style={{ padding: '10px 0 10px 26px', borderBottom: '1px solid #e9eef8' }}>
-        <div style={{ fontSize: '12px', color: '#4e6087', marginBottom: '6px' }}>Team member names</div>
+      <div style={{ padding: '10px 0 10px 26px', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+        <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '6px' }}>Team member names</div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
-          <textarea value={names} onChange={e => { setNames(e.target.value); setSaved(false) }} placeholder="Enter team member names..." rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
+          <textarea value={names} onChange={e => { setNames(e.target.value); setSaved(false) }} placeholder="Enter team member names..." rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <ActionButton label={saved ? '✓ Saved' : 'Save'} onClick={handleSave} color={saved ? '#1b9254' : '#0095ff'} disabled={saved} />
           </div>
@@ -1489,10 +1489,10 @@ function OnboardingDetail({ id, onBack }) {
     }
 
     return (
-      <div style={{ padding: '6px 0', borderBottom: '1px solid #e9eef8' }}>
+      <div style={{ padding: '6px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#16264a' }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: sent ? '#1b9254' : 'transparent', border: `1px solid ${sent ? '#1b9254' : '#c7d4e8'}`, flexShrink: 0 }} />
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--vfo-ink)' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: sent ? '#1b9254' : 'transparent', border: `1px solid ${sent ? '#1b9254' : 'var(--vfo-border-mid)'}`, flexShrink: 0 }} />
             {sent ? 'Invite to VFO Skool sent' : 'Send invite to VFO Skool'}
           </span>
           {!open && (
@@ -1527,19 +1527,19 @@ function OnboardingDetail({ id, onBack }) {
           <TeamMembersInput currentNotes={progress['5-team_members_added']?.notes || ''} onSave={(notes) => saveProgress(5, 'team_members_added', 'Completed', notes)} />
         )}
 
-        <div style={{ borderTop: '1px solid #e3eaf5', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
  
         <SectionLabel>VFO Showroom</SectionLabel>
         {!getTaskStatus(5, 'added_to_showroom') ? (
           <>
             <button onClick={createSpecialistAndShowroom} disabled={isStopped || saving['5-added_to_showroom']} style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: (isStopped || saving['5-added_to_showroom']) ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', width: '100%' }}>{saving['5-added_to_showroom'] ? 'Creating…' : 'Add to Showroom & Send Specialist Login'}</button>
-            <p style={{ fontSize: '11px', color: '#4e6087', textAlign: 'center', marginTop: '8px', marginBottom: 0 }}>Creates their Showroom profile from the SIF, copies their Due Diligence documents into their portal vault, and emails them a login-setup link.</p>
+            <p style={{ fontSize: '11px', color: 'var(--vfo-muted)', textAlign: 'center', marginTop: '8px', marginBottom: 0 }}>Creates their Showroom profile from the SIF, copies their Due Diligence documents into their portal vault, and emails them a login-setup link.</p>
           </>
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0' }}>
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1b9254', border: '1px solid #1b9254', flexShrink: 0 }} />
-              <span style={{ fontSize: '13px', color: '#16264a' }}>Specialist created — Showroom profile added, login email sent</span>
+              <span style={{ fontSize: '13px', color: 'var(--vfo-ink)' }}>Specialist created — Showroom profile added, login email sent</span>
             </div>
             <div style={{ marginTop: '6px' }}>
               <ShowroomCheck taskKey="headshot_added" label="Headshot (white background) added" />

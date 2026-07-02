@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
 import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate, PanelHero, EmptyState } from './automation/StepKit'
 import SandboxModeToggle from './SandboxModeToggle'
+import { AutomationTrackerSkeleton } from '../shared/Skeleton'
 
 const STAGE_LABELS = {
   purchase: 'Purchase',
@@ -55,23 +56,23 @@ function PipPipelineRow({ row, expanded, onToggle }) {
     : (row.pip_rev_share_amount || /revenue share/i.test(row.pip_rev_share_status || '')) ? 'Revenue Share' : null
 
   return (
-    <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
+    <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
       <div onClick={onToggle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '15px', fontWeight: '600', color: '#16264a' }}>{clientName}</span>
-          <span style={{ fontSize: '12px', color: '#697a9c', fontFamily: 'monospace' }}>{client.client_ref}</span>
+          <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--vfo-ink)' }}>{clientName}</span>
+          <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontFamily: 'monospace' }}>{client.client_ref}</span>
           <Badge text={purchaseLabel(row)} color="#0095ff" />
-          {row.pip_purchase_amount && <span style={{ fontSize: '12px', color: '#243757' }}>{fmtMoney(row.pip_purchase_amount)}</span>}
+          {row.pip_purchase_amount && <span style={{ fontSize: '12px', color: 'var(--vfo-ink-2)' }}>{fmtMoney(row.pip_purchase_amount)}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {row.sandbox && <Badge text="SANDBOX" color="#e06717" />}
           <Badge text={stageLabel} color={stageColor} />
-          <span style={{ color: '#4e6087', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+          <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
         </div>
       </div>
 
       {expanded && (
-        <div style={{ padding: '12px 18px 16px', borderTop: '1px solid #e9eef8', background: '#eef2f9' }}>
+        <div style={{ padding: '12px 18px 16px', borderTop: '1px solid var(--vfo-border-soft)', background: 'var(--vfo-tint)' }}>
           <StepCard title="Purchase Details" status="done">
             <Detail l="Kind" v={purchaseLabel(row)} />
             <Detail l="Gross service value" v={fmtMoney(row.pip_purchase_gross)} />
@@ -124,7 +125,7 @@ function PipPipelineRow({ row, expanded, onToggle }) {
             ) : <Pending />}
           </StepCard>
 
-          <div style={{ marginTop: '10px', fontSize: '10px', color: '#7c8aa6' }}>
+          <div style={{ marginTop: '10px', fontSize: '10px', color: 'var(--vfo-faint)' }}>
             Track #{row.id} · Created {fmtDate(row.created_at)}
           </div>
         </div>
@@ -152,10 +153,10 @@ export default function PipAutomationPanel() {
     finally { setLoading(false) }
   }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>
+  if (loading) return <AutomationTrackerSkeleton cols={7} />
 
   const stats = [
-    { label: 'TOTAL', value: rows.length, color: '#16264a' },
+    { label: 'TOTAL', value: rows.length, color: 'var(--vfo-ink)' },
     { label: 'PAID', value: rows.filter(r => r.pip_payment_status === 'succeeded').length, color: '#0d9488' },
     { label: 'PENDING REVSHARE', value: rows.filter(r => r.pip_payment_status === 'succeeded' && !r.pip_rev_share_status?.startsWith('Completed')).length, color: '#db2777' },
     { label: 'COMPLETE', value: rows.filter(r => getCurrentStage(r) === 'complete').length, color: '#16a34a' },

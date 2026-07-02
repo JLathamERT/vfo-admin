@@ -52,5 +52,5 @@ export default function MemberGrowthPlan({ memberNumber }) {
 }
 
 function Msg({ text }) {
-  return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#4e6087', fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>{text}</div>
+  return <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--vfo-muted)', fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>{text}</div>
 }

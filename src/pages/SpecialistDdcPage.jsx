@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { fileSizeError } from '../lib/fileUpload'
+import { TokenFormSkeleton } from '../components/shared/Skeleton'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
@@ -117,7 +118,7 @@ export default function SpecialistDdcPage() {
 
   if (state === 'loading') return (
     <div style={{ ...pageStyle, alignItems: 'center' }}>
-      <div style={{ textAlign: 'center', maxWidth: '480px', padding: '48px 32px', color: '#4e6087', fontSize: '15px' }}>Loading…</div>
+      <div style={{ maxWidth: '480px', width: '100%', padding: '48px 32px' }}><TokenFormSkeleton /></div>
     </div>
   )
 
@@ -127,8 +128,8 @@ export default function SpecialistDdcPage() {
         <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#ef444420', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
           <span style={{ fontSize: '32px', lineHeight: 1 }}>⚠️</span>
         </div>
-        <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }}>Link Not Valid</h1>
-        <p style={{ fontSize: '15px', color: '#4e6087', lineHeight: 1.6 }}>This Due Diligence Checklist link is invalid or has expired. Please contact your VFO representative for a new link.</p>
+        <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--vfo-ink)', marginBottom: '12px' }}>Link Not Valid</h1>
+        <p style={{ fontSize: '15px', color: 'var(--vfo-muted)', lineHeight: 1.6 }}>This Due Diligence Checklist link is invalid or has expired. Please contact your VFO representative for a new link.</p>
       </div>
     </div>
   )
@@ -137,8 +138,8 @@ export default function SpecialistDdcPage() {
     <div style={pageStyle}>
       <div style={cardStyle}>
         <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-          <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '28px', color: '#16264a', marginBottom: '6px' }}>VFO Specialist Due Diligence Checklist</div>
-          <div style={{ color: '#4e6087', fontSize: '14px' }}>Please send over the materials and documentation below.</div>
+          <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '28px', color: 'var(--vfo-ink)', marginBottom: '6px' }}>VFO Specialist Due Diligence Checklist</div>
+          <div style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>Please send over the materials and documentation below.</div>
         </div>
 
         <div style={noteStyle}>
@@ -173,7 +174,7 @@ export default function SpecialistDdcPage() {
 
         {isTax && (
           <>
-            <SectionLabel n="3">Compliance &amp; Risk <span style={{ color: '#4e6087', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(Tax Professionals only)</span></SectionLabel>
+            <SectionLabel n="3">Compliance &amp; Risk <span style={{ color: 'var(--vfo-muted)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(Tax Professionals only)</span></SectionLabel>
             <FileField token={token} slot="eo_insurance" accept={DOC_ACCEPT} multi
               label="Proof of E&amp;O / professional liability insurance"
               value={form.eo_insurance} onChange={v => applyAndPersist(f => ({ ...f, eo_insurance: v }))} />
@@ -213,7 +214,7 @@ export default function SpecialistDdcPage() {
         {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '16px', textAlign: 'center' }}>{error}</div>}
 
         <div style={{ display: 'flex', gap: '12px', marginTop: '28px', flexWrap: 'wrap' }}>
-          <button onClick={() => persist(form)} disabled={saving} style={{ ...btnBase, flex: 1, minWidth: '160px', background: '#eef2f9', border: '1px solid #cdd9ea' }}>
+          <button onClick={() => persist(form)} disabled={saving} style={{ ...btnBase, flex: 1, minWidth: '160px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-strong)' }}>
             {saving ? 'Saving…' : savedTick ? 'Saved ✓' : 'Save progress'}
           </button>
           <button onClick={submit} disabled={submitting} style={{ ...btnBase, flex: 1, minWidth: '160px', background: submitting ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none' }}>
@@ -257,7 +258,7 @@ function FilePicker({ token, slot, accept, multi, value, onChange }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
           {files.map((f, i) => (
             <div key={i} style={fileChip}>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {f.name}{f.size ? <span style={{ color: '#697a9c' }}> · {prettySize(f.size)}</span> : null}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {f.name}{f.size ? <span style={{ color: 'var(--vfo-muted)' }}> · {prettySize(f.size)}</span> : null}</span>
               <button onClick={() => remove(i)} style={removeBtn} title="Remove">✕</button>
             </div>
           ))}
@@ -308,7 +309,7 @@ function prettySize(n) {
 }
 
 function SectionLabel({ n, children }) {
-  return <div style={{ fontSize: '13px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '28px 0 14px', borderTop: '1px solid #ebf0f8', paddingTop: '20px' }}>{n}. {children}</div>
+  return <div style={{ fontSize: '13px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '28px 0 14px', borderTop: '1px solid var(--vfo-tint-deep)', paddingTop: '20px' }}>{n}. {children}</div>
 }
 
 function Area({ value, onChange, onBlur, hint, label }) {
@@ -321,16 +322,16 @@ function Area({ value, onChange, onBlur, hint, label }) {
   )
 }
 
-const pageStyle = { fontFamily: '"Inter", sans-serif', background: '#ffffff', minHeight: '100vh', padding: '40px 20px', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }
-const cardStyle = { width: '100%', maxWidth: '720px', background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '16px', padding: '36px 40px' }
+const pageStyle = { fontFamily: '"Inter", sans-serif', background: 'var(--vfo-card)', minHeight: '100vh', padding: '40px 20px', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }
+const cardStyle = { width: '100%', maxWidth: '720px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '16px', padding: '36px 40px' }
 const noteStyle = { fontSize: '13px', color: '#4d5f80', background: 'rgba(18,94,204,0.10)', border: '1px solid rgba(18,94,204,0.25)', borderRadius: '8px', padding: '12px 16px', lineHeight: 1.6, marginTop: '20px' }
 const submittedBanner = { fontSize: '13px', color: '#15803d', fontWeight: 500, background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', padding: '12px 16px', lineHeight: 1.6, marginTop: '12px' }
 const editsBanner = { fontSize: '13px', color: '#b3500f', fontWeight: 500, background: 'rgba(251,137,90,0.12)', border: '1px solid rgba(251,137,90,0.35)', borderRadius: '8px', padding: '12px 16px', lineHeight: 1.6, marginTop: '12px' }
-const itemStyle = { background: '#eef2f9', border: '1px solid #ebf0f8', borderRadius: '10px', padding: '16px 18px', marginBottom: '12px' }
+const itemStyle = { background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '10px', padding: '16px 18px', marginBottom: '12px' }
 const labelStyle = { display: 'block', fontSize: '14px', fontWeight: 600, color: '#2e4166', marginBottom: '8px', lineHeight: 1.4 }
-const hintStyle = { fontSize: '11px', color: '#697a9c', marginTop: '5px', fontStyle: 'italic', lineHeight: 1.5 }
-const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif' }
-const fileChip = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#3c4f73', background: '#f4f7fb', border: '1px solid #dde5f2', borderRadius: '7px', padding: '8px 12px' }
+const hintStyle = { fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '5px', fontStyle: 'italic', lineHeight: 1.5 }
+const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', fontFamily: 'Inter, sans-serif' }
+const fileChip = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--vfo-muted)', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '7px', padding: '8px 12px' }
 const removeBtn = { background: 'none', border: 'none', color: '#d93025', fontWeight: 500, cursor: 'pointer', fontSize: '13px', flexShrink: 0 }
-const uploadBtn = { display: 'inline-block', fontSize: '13px', color: '#3c4f73', background: '#eef2f9', border: '1px dashed #bac9e1', borderRadius: '8px', padding: '10px 16px', fontWeight: 600 }
-const btnBase = { padding: '14px', borderRadius: '8px', color: '#16264a', fontSize: '15px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }
+const uploadBtn = { display: 'inline-block', fontSize: '13px', color: 'var(--vfo-muted)', background: 'var(--vfo-tint)', border: '1px dashed var(--vfo-border-strong)', borderRadius: '8px', padding: '10px 16px', fontWeight: 600 }
+const btnBase = { padding: '14px', borderRadius: '8px', color: 'var(--vfo-ink)', fontSize: '15px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }

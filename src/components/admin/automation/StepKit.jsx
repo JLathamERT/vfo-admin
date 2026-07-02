@@ -8,13 +8,13 @@
 // ---- status vocabulary --------------------------------------------------
 // Order matters for the rail colors; pick the status per step in the panel.
 export const STATUS = {
-  pending:  { label: 'Pending',         color: '#697a9c' },
+  pending:  { label: 'Pending',         color: 'var(--vfo-muted)' },
   active:   { label: 'In progress',     color: '#e06717' },
   sent:     { label: 'Sent',            color: '#0d9488' },
   awaiting: { label: 'Awaiting client', color: '#0095ff' },
   done:     { label: 'Done',            color: '#1b9254' },
   declined: { label: 'Declined',        color: '#e74c3c' },
-  skipped:  { label: 'Skipped',         color: '#697a9c' },
+  skipped:  { label: 'Skipped',         color: 'var(--vfo-muted)' },
 }
 
 const DECISION_COLORS = {
@@ -59,7 +59,7 @@ export function StatusPill({ status, label }) {
 
 export function Badge({ text, color }) {
   if (text === null || text === undefined || text === '') return null
-  const c = color || DECISION_COLORS[text] || '#4e6087'
+  const c = color || DECISION_COLORS[text] || 'var(--vfo-muted)'
   return (
     <span style={{
       fontSize: '11px', padding: '3px 10px', borderRadius: '999px', fontWeight: 600,
@@ -74,9 +74,9 @@ export function Detail({ l, v, hide, showEmpty, mono }) {
   if ((v === null || v === undefined || v === '') && !showEmpty) return null
   return (
     <div style={{ display: 'flex', padding: '2px 0', alignItems: 'baseline' }}>
-      <span style={{ fontSize: '12px', color: '#697a9c', width: '180px', flexShrink: 0 }}>{l}</span>
+      <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', width: '180px', flexShrink: 0 }}>{l}</span>
       <span style={{
-        fontSize: '12px', color: (v || v === 0) ? '#243757' : '#9aa6bf',
+        fontSize: '12px', color: (v || v === 0) ? 'var(--vfo-ink-2)' : 'var(--vfo-faint)',
         fontFamily: mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit',
         wordBreak: 'break-word',
       }}>{(v || v === 0) ? v : '—'}</span>
@@ -95,7 +95,7 @@ export function SubBlock({ label, children, hide }) {
       {label && (
         <div style={{
           fontSize: '9.5px', fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase',
-          color: '#7c8aa6', marginBottom: '3px',
+          color: 'var(--vfo-faint)', marginBottom: '3px',
         }}>{label}</div>
       )}
       <div style={{ paddingLeft: '2px' }}>{kids}</div>
@@ -105,7 +105,7 @@ export function SubBlock({ label, children, hide }) {
 
 // Muted "nothing yet" line for a step that hasn't been reached.
 export function Pending({ text = 'Not started yet' }) {
-  return <span style={{ fontSize: '12px', color: '#697a9c', fontStyle: 'italic' }}>{text}</span>
+  return <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontStyle: 'italic' }}>{text}</span>
 }
 
 // ---- panel hero -----------------------------------------------------------
@@ -114,22 +114,22 @@ export function Pending({ text = 'Not started yet' }) {
 // and the panel's stat counters as a divided row. Presentation only.
 export function PanelHero({ eyebrow = 'Automation Pipeline', title, action, stats }) {
   return (
-    <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', marginBottom: '20px', overflow: 'hidden' }}>
+    <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', marginBottom: '20px', overflow: 'hidden' }}>
       <div style={{ height: '4px', background: 'linear-gradient(90deg, #002973 0%, #125ecc 55%, #0a85e8 100%)' }} />
       <div style={{ padding: '18px 22px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '1.2px', color: '#0095ff', textTransform: 'uppercase', marginBottom: '5px' }}>{eyebrow}</div>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '22px', fontWeight: 800, letterSpacing: '-0.03em', color: '#002973', lineHeight: 1.15 }}>{title}</div>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '22px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)', lineHeight: 1.15 }}>{title}</div>
           </div>
           {action && <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>{action}</div>}
         </div>
         {stats && stats.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', rowGap: '10px', marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #eef2f9' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', rowGap: '10px', marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--vfo-tint)' }}>
             {stats.map((s, i) => (
-              <div key={s.label} style={{ padding: '2px 22px 2px 0', marginRight: '22px', borderRight: i < stats.length - 1 ? '1px solid #eef2f9' : 'none' }}>
-                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '24px', fontWeight: 800, letterSpacing: '-0.03em', color: s.color || '#002973', lineHeight: 1 }}>{s.value}</div>
-                <div style={{ fontSize: '10px', fontWeight: 600, color: '#4e6087', letterSpacing: '1px', marginTop: '4px', textTransform: 'uppercase' }}>{s.label}</div>
+              <div key={s.label} style={{ padding: '2px 22px 2px 0', marginRight: '22px', borderRight: i < stats.length - 1 ? '1px solid var(--vfo-tint)' : 'none' }}>
+                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '24px', fontWeight: 800, letterSpacing: '-0.03em', color: s.color || 'var(--vfo-heading)', lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--vfo-muted)', letterSpacing: '1px', marginTop: '4px', textTransform: 'uppercase' }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -142,9 +142,9 @@ export function PanelHero({ eyebrow = 'Automation Pipeline', title, action, stat
 // Designed empty state for a panel with no rows yet.
 export function EmptyState({ title, hint }) {
   return (
-    <div style={{ textAlign: 'center', padding: '48px 24px', background: '#eef2f9', borderRadius: '14px', border: '1px solid #dde5f2' }}>
-      <div style={{ color: '#16264a', fontSize: '15px', fontWeight: 600, marginBottom: '6px' }}>{title}</div>
-      {hint && <div style={{ color: '#697a9c', fontSize: '13px' }}>{hint}</div>}
+    <div style={{ textAlign: 'center', padding: '48px 24px', background: 'var(--vfo-tint)', borderRadius: '14px', border: '1px solid var(--vfo-border-chip)' }}>
+      <div style={{ color: 'var(--vfo-ink)', fontSize: '15px', fontWeight: 600, marginBottom: '6px' }}>{title}</div>
+      {hint && <div style={{ color: 'var(--vfo-muted)', fontSize: '13px' }}>{hint}</div>}
     </div>
   )
 }
@@ -152,7 +152,7 @@ export function EmptyState({ title, hint }) {
 // White card wrapper for the pipeline tables (horizontal scroll inside).
 export function TableCard({ children }) {
   return (
-    <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', overflow: 'hidden' }}>
+    <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', overflow: 'hidden' }}>
       <div style={{ overflowX: 'auto' }}>{children}</div>
     </div>
   )
@@ -164,8 +164,8 @@ export function StepCard({ title, status = 'pending', children }) {
   return (
     <div style={{
       position: 'relative',
-      background: '#ffffff',
-      border: '1px solid #eef2f9',
+      background: 'var(--vfo-card)',
+      border: '1px solid var(--vfo-tint)',
       borderLeft: `4px solid ${s.color}`,
       borderRadius: '12px',
       padding: '13px 16px',
@@ -179,7 +179,7 @@ export function StepCard({ title, status = 'pending', children }) {
             background: status === 'pending' ? 'transparent' : s.color,
             border: `2px solid ${s.color}`,
           }} />
-          <span style={{ fontSize: '13px', fontWeight: 700, color: '#16264a', letterSpacing: '0.2px' }}>{title}</span>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--vfo-ink)', letterSpacing: '0.2px' }}>{title}</span>
         </div>
         <StatusPill status={status} />
       </div>

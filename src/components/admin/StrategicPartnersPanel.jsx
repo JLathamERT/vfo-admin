@@ -25,13 +25,13 @@ export default function StrategicPartnersPanel() {
   return (
     <div>
       <div style={{ marginBottom: '18px' }}>
-        <div style={{ fontSize: '18px', fontWeight: 700, color: '#16264a', fontFamily: 'Inter, sans-serif' }}>Strategic Partners</div>
-        <div style={{ fontSize: '13px', color: '#697a9c', marginTop: '4px' }}>
+        <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif' }}>Strategic Partners</div>
+        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '4px' }}>
           Each partner company earns a Strategic Partner Share off every strategic member's deals. Set up the company's payout account here — the share transfers to it automatically.
         </div>
       </div>
       {groups.length === 0 && (
-        <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(0,149,255,0.07)', border: '1px solid rgba(0,149,255,0.22)', color: '#16264a', fontSize: '13px' }}>
+        <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(0,149,255,0.07)', border: '1px solid rgba(0,149,255,0.22)', color: 'var(--vfo-ink)', fontSize: '13px' }}>
           No Strategic Member Groups yet. Add one under Add Strategic Member → Add Strategic Member Group.
         </div>
       )}
@@ -60,17 +60,17 @@ function PartnerCard({ group, onSaved }) {
     finally { setRequesting(false) }
   }
 
-  const cardStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
-  const labelStyle = { fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', maxWidth: '340px', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const cardStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
+  const labelStyle = { fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', maxWidth: '340px', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
   const blurb = (text) => (
-    <div style={{ fontSize: '13px', color: '#334155', lineHeight: 1.6, padding: '10px 14px', background: '#f7f9fc', borderRadius: '10px', border: '1px solid #eef2f9', marginBottom: '8px' }}>{text}</div>
+    <div style={{ fontSize: '13px', color: '#334155', lineHeight: 1.6, padding: '10px 14px', background: 'var(--vfo-input)', borderRadius: '10px', border: '1px solid var(--vfo-tint)', marginBottom: '8px' }}>{text}</div>
   )
 
   return (
     <div style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
-        <div style={{ fontSize: '17px', fontWeight: 700, color: '#16264a' }}>{group.name}</div>
+        <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--vfo-ink)' }}>{group.name}</div>
         {connected
           ? <span style={{ fontSize: '12px', fontWeight: 600, color: '#1b9254', background: 'rgba(27,146,84,0.12)', border: '1px solid rgba(27,146,84,0.3)', borderRadius: '999px', padding: '4px 12px' }}>Payout connected</span>
           : <span style={{ fontSize: '12px', fontWeight: 600, color: '#b26a00', background: 'rgba(224,103,23,0.10)', border: '1px solid rgba(224,103,23,0.3)', borderRadius: '999px', padding: '4px 12px' }}>No payout account</span>}
@@ -86,7 +86,7 @@ function PartnerCard({ group, onSaved }) {
       </div>
 
       <div style={{ fontSize: '11px', color: '#0095ff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Payout account</div>
-      {connected && <div style={{ fontSize: '13px', color: '#4e6087', marginBottom: '10px' }}>Stripe account: <code style={{ color: '#16264a' }}>{connected}</code></div>}
+      {connected && <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginBottom: '10px' }}>Stripe account: <code style={{ color: 'var(--vfo-ink)' }}>{connected}</code></div>}
       <div style={{ marginBottom: '12px' }}>
         <label style={labelStyle}>Company contact email</label>
         <input value={contactEmail} onChange={e => setContactEmail(e.target.value)} type="email" placeholder="payments@company.com" style={inputStyle} />

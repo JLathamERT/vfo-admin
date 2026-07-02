@@ -12,7 +12,7 @@ function formatServiceDetails(description) {
   if (!description) return ''
   const parts = description.split('|')
   const labels = ['Objective', 'Available to', 'Includes', 'Tailoring Options']
-  return parts.map((part, i) => part.trim() ? `<div style="margin-bottom:8px;text-align:left;"><span style="color:#4e6087;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">${labels[i] || ''}</span><div style="color:#44557a;font-size:13px;margin-top:2px;">${escapeHtml(part.trim())}</div></div>` : '').join('')
+  return parts.map((part, i) => part.trim() ? `<div style="margin-bottom:8px;text-align:left;"><span style="color:var(--vfo-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">${labels[i] || ''}</span><div style="color:#44557a;font-size:13px;margin-top:2px;">${escapeHtml(part.trim())}</div></div>` : '').join('')
 }
 
 export default function MemberGCMarketplace({ memberNumber }) {
@@ -71,9 +71,9 @@ export default function MemberGCMarketplace({ memberNumber }) {
   function toggleDetails(id) { setOpenDetails(p => ({ ...p, [id]: !p[id] })) }
 
   const subTabStyle = (active) => ({
-    padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px'
+    padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px'
   })
-  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
+  const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
 
   const categories = []
   const catMap = {}
@@ -86,7 +86,7 @@ export default function MemberGCMarketplace({ memberNumber }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--vfo-border)', marginBottom: '24px' }}>
         {[['dashboard', 'Dashboard'], ['services', 'Services'], ['history', 'History']].map(([key, label]) => (
           <button key={key} style={subTabStyle(gcTab === key)} onClick={() => setGcTab(key)}>{label}</button>
         ))}
@@ -98,28 +98,28 @@ export default function MemberGCMarketplace({ memberNumber }) {
           {banner && <div style={{ background: 'rgba(27,146,84,0.15)', border: '1px solid rgba(27,146,84,0.4)', color: '#1b9254', fontWeight: 500, padding: '14px 20px', borderRadius: '10px', fontSize: '14px', marginBottom: '20px', textAlign: 'left' }}>{banner}</div>}
           <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
             <div style={{ ...sectionStyle, flex: 1, textAlign: 'center' }}>
-              <p style={{ color: '#4e6087', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Credit Balance</p>
-              <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '42px', color: '#16264a', margin: '0 0 36px', lineHeight: '1', minHeight: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <p style={{ color: 'var(--vfo-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Credit Balance</p>
+              <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '42px', color: 'var(--vfo-ink)', margin: '0 0 36px', lineHeight: '1', minHeight: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {balance === null ? <Skeleton width={70} height={36} /> : balance}
               </p>
               <button onClick={() => setShowBuyModal(true)} style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>Buy Credits</button>
             </div>
             <div style={{ ...sectionStyle, flex: 1 }}>
-              <p style={{ color: '#4e6087', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Quick Stats</p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #eef2f9' }}>
-                <span style={{ color: '#4e6087', fontSize: '13px' }}>Total Transactions</span>
-                {transactions === null ? <Skeleton width={30} height={14} /> : <span style={{ color: '#16264a', fontWeight: '600' }}>{transactions.length}</span>}
+              <p style={{ color: 'var(--vfo-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Quick Stats</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
+                <span style={{ color: 'var(--vfo-muted)', fontSize: '13px' }}>Total Transactions</span>
+                {transactions === null ? <Skeleton width={30} height={14} /> : <span style={{ color: 'var(--vfo-ink)', fontWeight: '600' }}>{transactions.length}</span>}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-                <span style={{ color: '#4e6087', fontSize: '13px' }}>Total Redeemed</span>
-                {totalRedeemed === null ? <Skeleton width={30} height={14} /> : <span style={{ color: '#16264a', fontWeight: '600' }}>{totalRedeemed}</span>}
+                <span style={{ color: 'var(--vfo-muted)', fontSize: '13px' }}>Total Redeemed</span>
+                {totalRedeemed === null ? <Skeleton width={30} height={14} /> : <span style={{ color: 'var(--vfo-ink)', fontWeight: '600' }}>{totalRedeemed}</span>}
               </div>
             </div>
           </div>
           {showBuyModal && (
             <div style={sectionStyle}>
-              <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Buy Credits</div>
-              <p style={{ color: '#4e6087', fontSize: '13px', marginBottom: '16px', textAlign: 'left' }}>Select a credit package to purchase.</p>
+              <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Buy Credits</div>
+              <p style={{ color: 'var(--vfo-muted)', fontSize: '13px', marginBottom: '16px', textAlign: 'left' }}>Select a credit package to purchase.</p>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
                 {[
                   { amount: 1, price: 100, label: '1 credit — $100', savings: null },
@@ -127,14 +127,14 @@ export default function MemberGCMarketplace({ memberNumber }) {
                   { amount: 20, price: 1800, label: '20 credits — $1,800', savings: 'Save 10%' },
                 ].map(pkg => (
                   <button key={pkg.amount} onClick={() => buyCredits(pkg.amount, pkg.price)}
-                    style={{ padding: '16px 24px', flex: 1, textAlign: 'center', borderRadius: '8px', border: '1px solid #c7d4e8', background: '#eef2f9', cursor: 'pointer' }}>
-                    <div style={{ fontSize: '18px', fontWeight: '700', color: '#16264a' }}>{pkg.amount}</div>
-                    <div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: '#4e6087', marginTop: '4px' }}>{pkg.label}</div>
+                    style={{ padding: '16px 24px', flex: 1, textAlign: 'center', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'var(--vfo-tint)', cursor: 'pointer' }}>
+                    <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--vfo-ink)' }}>{pkg.amount}</div>
+                    <div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: 'var(--vfo-muted)', marginTop: '4px' }}>{pkg.label}</div>
                     {pkg.savings && <div style={{ fontSize: '10px', color: '#1b9254', fontWeight: 600, marginTop: '2px' }}>{pkg.savings}</div>}
                   </button>
                 ))}
               </div>
-              <button onClick={() => setShowBuyModal(false)} style={{ padding: '8px 20px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => setShowBuyModal(false)} style={{ padding: '8px 20px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
             </div>
           )}
         </>
@@ -146,27 +146,27 @@ export default function MemberGCMarketplace({ memberNumber }) {
           {banner && <div style={{ background: 'rgba(27,146,84,0.15)', border: '1px solid rgba(27,146,84,0.4)', color: '#1b9254', fontWeight: 500, padding: '14px 20px', borderRadius: '10px', fontSize: '14px', marginBottom: '20px', textAlign: 'left' }}>{banner}</div>}
           {categories.map(cat => (
             <div key={cat} style={sectionStyle}>
-              <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>{cat}</div>
+              <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>{cat}</div>
               {catMap[cat].map(svc => (
-                <div key={svc.id} style={{ paddingBottom: '14px', borderBottom: '1px solid #e9eef8', marginBottom: '14px' }}>
+                <div key={svc.id} style={{ paddingBottom: '14px', borderBottom: '1px solid var(--vfo-border-soft)', marginBottom: '14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ color: '#16264a', fontSize: '14px', textAlign: 'left' }}>{svc.name}</span>
+                      <span style={{ color: 'var(--vfo-ink)', fontSize: '14px', textAlign: 'left' }}>{svc.name}</span>
                       {svc.description && (
                         <button onClick={() => toggleDetails(svc.id)}
-                          style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                           {openDetails[svc.id] ? 'Hide' : 'Details'}
                         </button>
                       )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                      <span style={{ color: '#16264a', fontWeight: '700' }}>{svc.credit_cost}</span>
-                      <span style={{ color: '#697a9c', fontSize: '11px' }}>credits</span>
+                      <span style={{ color: 'var(--vfo-ink)', fontWeight: '700' }}>{svc.credit_cost}</span>
+                      <span style={{ color: 'var(--vfo-muted)', fontSize: '11px' }}>credits</span>
                       {confirmService?.id === svc.id ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ color: '#e06717', fontWeight: 500, fontSize: '13px' }}>Confirm?</span>
                           <button onClick={() => redeemService(svc)} style={{ padding: '5px 14px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>Yes</button>
-                          <button onClick={() => setConfirmService(null)} style={{ padding: '5px 14px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
+                          <button onClick={() => setConfirmService(null)} style={{ padding: '5px 14px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
                         </div>
                       ) : (
                         <button onClick={() => setConfirmService(svc)} style={{ padding: '6px 18px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>Redeem</button>
@@ -174,7 +174,7 @@ export default function MemberGCMarketplace({ memberNumber }) {
                     </div>
                   </div>
                   {openDetails[svc.id] && (
-                    <div style={{ marginTop: '12px', padding: '16px', background: '#eef2f9', borderRadius: '8px', textAlign: 'left' }}
+                    <div style={{ marginTop: '12px', padding: '16px', background: 'var(--vfo-tint)', borderRadius: '8px', textAlign: 'left' }}
                       dangerouslySetInnerHTML={{ __html: formatServiceDetails(svc.description) }} />
                   )}
                 </div>
@@ -187,10 +187,10 @@ export default function MemberGCMarketplace({ memberNumber }) {
       {/* History */}
       {gcTab === 'history' && (
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Transaction History</div>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Transaction History</div>
           {transactions === null
             ? Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #eef2f9' }}>
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
                 <div style={{ flex: 1, textAlign: 'left' }}>
                   <Skeleton width={160} height={14} />
                   <Skeleton width={90} height={11} style={{ marginTop: '4px' }} />
@@ -199,12 +199,12 @@ export default function MemberGCMarketplace({ memberNumber }) {
               </div>
             ))
             : transactions.length === 0
-            ? <p style={{ color: '#697a9c', fontSize: '14px' }}>No transactions yet.</p>
+            ? <p style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>No transactions yet.</p>
             : transactions.map(tx => (
-              <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #eef2f9' }}>
+              <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
                 <div style={{ flex: 1, textAlign: 'left' }}>
-                  <div style={{ color: '#16264a', fontSize: '14px' }}>{tx.description || tx.type}</div>
-                  <div style={{ color: '#697a9c', fontSize: '12px', marginTop: '2px' }}>{new Date(tx.created_at).toLocaleDateString()}</div>
+                  <div style={{ color: 'var(--vfo-ink)', fontSize: '14px' }}>{tx.description || tx.type}</div>
+                  <div style={{ color: 'var(--vfo-muted)', fontSize: '12px', marginTop: '2px' }}>{new Date(tx.created_at).toLocaleDateString()}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   {tx.type === 'purchased'
@@ -214,7 +214,7 @@ export default function MemberGCMarketplace({ memberNumber }) {
                     : <span style={{ background: 'rgba(231,76,60,0.2)', color: '#d93025', padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>redeemed</span>
                   }
                   <span style={{ color: tx.amount > 0 ? '#1b9254' : '#d93025', fontWeight: '600', minWidth: '50px', textAlign: 'right' }}>{tx.amount > 0 ? '+' : ''}{tx.amount}</span>
-                  <span style={{ color: '#697a9c', fontSize: '12px', minWidth: '40px', textAlign: 'right' }}>{tx.balance_after}</span>
+                  <span style={{ color: 'var(--vfo-muted)', fontSize: '12px', minWidth: '40px', textAlign: 'right' }}>{tx.balance_after}</span>
                 </div>
               </div>
             ))

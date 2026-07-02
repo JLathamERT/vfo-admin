@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { getSession, callApi, loadCachedData } from '../lib/api'
+import { usePortalTheme } from '../lib/theme'
 import ClientTrackViewV2 from '../components/admin/map1/ClientTrackViewV2'
 import RegularPrioritiesTab from '../components/admin/regular/RegularPrioritiesTab'
 import PipMeetingsTab from '../components/admin/pip/PipMeetingsTab'
@@ -17,7 +18,7 @@ import { TrackHero } from '../components/shared/TrackKit'
 import VfoWordmark from '../components/shared/VfoWordmark'
 
 const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael', 'Bridger Silvester', 'Tracy Miller', 'Evan Anderson']
-const statusColors = { Completed: '#1b9254', Confirmed: '#1b9254', Yes: '#1b9254', 'In Progress': '#e06717', Scheduled: '#0095ff', No: '#e74c3c', 'N/A': '#4e6087', Pending: '#e06717' }
+const statusColors = { Completed: '#1b9254', Confirmed: '#1b9254', Yes: '#1b9254', 'In Progress': '#e06717', Scheduled: '#0095ff', No: '#e74c3c', 'N/A': 'var(--vfo-muted)', Pending: '#e06717' }
 
 function ClientTabDropdown({ label, isActive, options, onSelect }) {
   const [open, setOpen] = useState(false)
@@ -26,15 +27,15 @@ function ClientTabDropdown({ label, isActive, options, onSelect }) {
   function handleMouseLeave() { closeTimer.current = setTimeout(() => setOpen(false), 200) }
   return (
     <div style={{ position: 'relative' }} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-      <button style={{ padding: '7px 16px', background: isActive ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: isActive ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: isActive ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+      <button style={{ padding: '7px 16px', background: isActive ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: isActive ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: isActive ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
         {label}<span style={{ fontSize: '9px', opacity: 0.6 }}>▾</span>
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, background: '#ffffff', border: '1px solid #e3eaf5', borderRadius: '12px', minWidth: '160px', zIndex: 200, padding: '4px 0', boxShadow: '0 14px 36px rgba(20,45,95,0.16)' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--vfo-card)', border: '1px solid var(--vfo-border)', borderRadius: '12px', minWidth: '160px', zIndex: 200, padding: '4px 0', boxShadow: '0 14px 36px rgba(20,45,95,0.16)' }}>
           {options.map(opt => (
             <button key={opt.key} onClick={() => { onSelect(opt.key); setOpen(false) }}
-              style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'transparent', border: 'none', color: '#16264a', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#eef2f9'}
+              style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'transparent', border: 'none', color: 'var(--vfo-ink)', fontSize: '13px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-tint)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               {opt.label}
             </button>
@@ -50,6 +51,7 @@ export default function ClientDetail() {
   const navigate = useNavigate()
   const location = useLocation()
   const session = getSession()
+  usePortalTheme()
   console.log('session on client detail:', session)
   const [activeTab, setActiveTab] = useState(new URLSearchParams(window.location.search).get('tab') || 'home')
   const [client, setClient] = useState(null)
@@ -115,12 +117,12 @@ export default function ClientDetail() {
     } catch (err) { console.error(err) }
   }
 
-  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
-  const tabStyle = (active) => ({ padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : '#4e6087', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' })
+  const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
+  const tabStyle = (active) => ({ padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' })
   const statusColors2 = { active: '#1b9254', pending: '#e06717', lost: '#e74c3c' }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f4f7fd', color: '#16264a', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--vfo-page)', color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif' }}>
       <div style={{ background: 'linear-gradient(90deg, #002973 0%, #125ecc 100%)', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '58px', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(0,41,115,0.25)' }}>
         <VfoWordmark size={17} light onClick={() => navigate(isMember ? '/member' : '/admin')} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -134,7 +136,7 @@ export default function ClientDetail() {
 
         {/* Client header */}
         {loading ? (
-          <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e3eaf5' }}>
+          <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--vfo-border)' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
               <Skeleton width={260} height={32} />
             </div>
@@ -151,17 +153,17 @@ export default function ClientDetail() {
             meta={
               <>
                 <span style={{ fontFamily: 'monospace' }}>{client?.client_ref}</span>
-                {program && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ color: '#0095ff', fontWeight: 500 }}>{program.name}</span></>}
-                {client?.member_name && <><span style={{ color: '#c7d4e8' }}>·</span><span>Member: {client.member_name}</span></>}
-                {contacts?.length > 0 && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ fontStyle: 'italic' }}>with {contacts.map(c => `${c.first_name} ${c.last_name}`).join(', ')}</span></>}
-                {client?.status && <><span style={{ color: '#c7d4e8' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#16264a' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors2[client?.status] || '#9aa6bf', flexShrink: 0 }} />{client.status.charAt(0).toUpperCase() + client.status.slice(1)}</span></>}
+                {program && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ color: '#0095ff', fontWeight: 500 }}>{program.name}</span></>}
+                {client?.member_name && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span>Member: {client.member_name}</span></>}
+                {contacts?.length > 0 && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ fontStyle: 'italic' }}>with {contacts.map(c => `${c.first_name} ${c.last_name}`).join(', ')}</span></>}
+                {client?.status && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors2[client?.status] || 'var(--vfo-faint)', flexShrink: 0 }} />{client.status.charAt(0).toUpperCase() + client.status.slice(1)}</span></>}
               </>
             }
           />
         )}
 
         {/* Tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid #e3eaf5', marginBottom: '24px', gap: '8px', paddingBottom: '10px' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--vfo-border)', marginBottom: '24px', gap: '8px', paddingBottom: '10px' }}>
           {loading ? (
             <>
               <Skeleton width={70} height={20} />
@@ -205,8 +207,8 @@ export default function ClientDetail() {
             {activeTab === 'payments' && !isMember && <ClientPaymentsTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} />}
             {activeTab === 'settings' && !isMember && (
               <div style={sectionStyle}>
-                <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Client Login</div>
-                <p style={{ fontSize: '14px', color: '#697a9c', marginBottom: '16px' }}>Send a setup email so this client can create their own portal passcode.</p>
+                <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Client Login</div>
+                <p style={{ fontSize: '14px', color: 'var(--vfo-muted)', marginBottom: '16px' }}>Send a setup email so this client can create their own portal passcode.</p>
                 <SendSetupEmailButton loginType="client" subjectId={parseInt(clientId)} hint="Drafts a Gmail with a secure link. The client sets their own passcode." />
               </div>
             )}
@@ -267,8 +269,8 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
     finally { setSaving(false) }
   }
 
-  const fieldLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: '#7c8aa6', textTransform: 'uppercase' }
-  const fieldValue = { fontSize: '15px', color: '#16264a', fontWeight: 600, marginTop: '5px', wordBreak: 'break-word' }
+  const fieldLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--vfo-faint)', textTransform: 'uppercase' }
+  const fieldValue = { fontSize: '15px', color: 'var(--vfo-ink)', fontWeight: 600, marginTop: '5px', wordBreak: 'break-word' }
   const initials = (first, last) => `${(first || '')[0] || ''}${(last || '')[0] || ''}`.toUpperCase()
 
   return (
@@ -277,19 +279,19 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
       {/* Main column — contact info + notes */}
       <div style={{ flex: '2 1 400px', minWidth: '300px' }}>
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Contact Info</div>
+        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Contact Info</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '18px 24px' }}>
           <div><div style={fieldLabel}>Email</div><div style={fieldValue}>{client?.email || '—'}</div></div>
           <div><div style={fieldLabel}>Phone</div><div style={fieldValue}>{client?.phone || '—'}</div></div>
         </div>
-        {contacts?.length > 0 && <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid #eef2f9' }}>
+        {contacts?.length > 0 && <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid var(--vfo-tint)' }}>
           <div style={{ ...fieldLabel, marginBottom: '10px' }}>Additional Contacts</div>
           {contacts.map((c, i) => (
-            <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: i < contacts.length - 1 ? '1px solid #eef2f9' : 'none' }}>
-              <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>{initials(c.first_name, c.last_name)}</div>
+            <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: i < contacts.length - 1 ? '1px solid var(--vfo-tint)' : 'none' }}>
+              <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>{initials(c.first_name, c.last_name)}</div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#16264a' }}>{c.first_name} {c.last_name}</div>
-                {c.email && <div style={{ fontSize: '12px', color: '#4e6087', marginTop: '1px' }}>{c.email}</div>}
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--vfo-ink)' }}>{c.first_name} {c.last_name}</div>
+                {c.email && <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '1px' }}>{c.email}</div>}
               </div>
             </div>
           ))}
@@ -299,31 +301,31 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
         <div style={sectionStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px' }}>All Notes</span>
-              <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>{notes.length}</span>
+              <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>All Notes</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{notes.length}</span>
             </div>
             <AddGeneralNote clientId={client.id} notes={notes} onNotesChange={onNotesChange} programName={program?.name || null} />
           </div>
           {notes.map(note => (
-            <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid #e9eef8' }}>
+            <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
               {editingNoteId === note.id ? (
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <textarea value={editNoteText} onChange={e => setEditNoteText(e.target.value)} rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.4)', background: '#f7f9fc', color: '#16264a', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
+                  <textarea value={editNoteText} onChange={e => setEditNoteText(e.target.value)} rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.4)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <button onClick={() => updateNote(note.id)} style={{ padding: '4px 10px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>Save</button>
-                    <button onClick={() => setEditingNoteId(null)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
+                    <button onClick={() => setEditingNoteId(null)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div style={{ fontSize: '13px', color: '#16264a', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
+                  <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '11px', color: '#697a9c' }}>{note.created_by}</span>
-                    <span style={{ fontSize: '11px', color: '#697a9c' }}>·</span>
-                    <span style={{ fontSize: '11px', color: '#697a9c' }}>{note.created_at?.split('T')[0]}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_by}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>·</span>
+                    <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_at?.split('T')[0]}</span>
                     {note.program_name && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.2)' }}>{note.program_name}</span>}
                     <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.2)' }}>{note.tab_name}</span>
-                    {note.phase_name !== 'General' && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>{note.phase_name}</span>}
+                    {note.phase_name !== 'General' && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{note.phase_name}</span>}
                     <button onClick={() => { setEditingNoteId(note.id); setEditNoteText(note.note_text) }} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#0095ff', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Edit</button>
                     <button onClick={() => deleteNote(note.id)} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Delete</button>
                   </div>
@@ -338,13 +340,13 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
       {/* Side column — status + assigned PF */}
       <div style={{ flex: '1 1 250px', minWidth: '250px' }}>
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Client Status</div>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Client Status</div>
           {readOnly
             ? <span style={{ padding: '4px 14px', borderRadius: '6px', fontSize: '14px', fontWeight: '600', background: `${statusColors[status]}22`, color: statusColors[status], border: `1px solid ${statusColors[status]}44` }}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
             : <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {[['active','Active'], ['pending','Pending'], ['lost','Lost']].map(([val, label]) => (
                   <button key={val} onClick={() => updateStatus(val)} disabled={saving}
-                    style={{ padding: '8px 20px', borderRadius: '6px', border: `1px solid ${status === val ? statusColors[val] : '#c7d4e8'}`, background: status === val ? `${statusColors[val]}22` : 'transparent', color: status === val ? statusColors[val] : '#4e6087', fontSize: '13px', cursor: 'pointer', fontWeight: status === val ? '600' : '400' }}>
+                    style={{ padding: '8px 20px', borderRadius: '6px', border: `1px solid ${status === val ? statusColors[val] : 'var(--vfo-border-mid)'}`, background: status === val ? `${statusColors[val]}22` : 'transparent', color: status === val ? statusColors[val] : 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer', fontWeight: status === val ? '600' : '400' }}>
                     {label}
                   </button>
                 ))}
@@ -352,11 +354,11 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
           }
         </div>
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Assigned PF</div>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Assigned PF</div>
           {readOnly
-            ? <div style={{ fontSize: '14px', color: '#16264a' }}>{client?.assigned_pf || '—'}</div>
+            ? <div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{client?.assigned_pf || '—'}</div>
             : <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <select value={assignedPf} onChange={e => setAssignedPf(e.target.value)} style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#ffffff', color: '#16264a', fontSize: '14px', fontFamily: 'Inter, sans-serif', minWidth: '160px', flex: 1 }}>
+                <select value={assignedPf} onChange={e => setAssignedPf(e.target.value)} style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '14px', fontFamily: 'Inter, sans-serif', minWidth: '160px', flex: 1 }}>
                   <option value="">-- Select --</option>
                   <option value="Evan Anderson">Evan Anderson</option>
                   <option value="Bridger Silvester">Bridger Silvester</option>
@@ -385,8 +387,8 @@ function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionSt
   const [contactLast, setContactLast] = useState('')
   const [contactEmail, setContactEmail] = useState('')
 
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
-  const labelStyle = { fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const labelStyle = { fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }
 
   async function save() {
     setSaving(true)
@@ -417,7 +419,7 @@ function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionSt
   return (
     <div>
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Primary Contact</div>
+        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Primary Contact</div>
         <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>First Name</label><input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} /></div>
           <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>Last Name</label><input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} /></div>
@@ -435,12 +437,12 @@ function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionSt
 
       <div style={sectionStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px' }}>Additional Contacts</div>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Additional Contacts</div>
           <button onClick={() => setShowAddContact(!showAddContact)} style={{ padding: '6px 14px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>+ Add</button>
         </div>
 
         {showAddContact && (
-          <div style={{ padding: '16px', background: '#eef2f9', borderRadius: '8px', marginBottom: '16px' }}>
+          <div style={{ padding: '16px', background: 'var(--vfo-tint)', borderRadius: '8px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>First Name *</label><input value={contactFirst} onChange={e => setContactFirst(e.target.value)} style={inputStyle} /></div>
               <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>Last Name *</label><input value={contactLast} onChange={e => setContactLast(e.target.value)} style={inputStyle} /></div>
@@ -448,18 +450,18 @@ function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionSt
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={addContact} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
-              <button onClick={() => setShowAddContact(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => setShowAddContact(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
         )}
 
         {contactStatus === 'saved' && <div style={{ color: '#1b9254', fontSize: '14px', fontWeight: '600', marginBottom: '12px' }}>✓ Contact added</div>}
-        {contacts.length === 0 && !showAddContact && <p style={{ color: '#697a9c', fontSize: '14px' }}>No additional contacts yet.</p>}
+        {contacts.length === 0 && !showAddContact && <p style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>No additional contacts yet.</p>}
         {contacts.map(c => (
-          <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #eef2f9' }}>
+          <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
             <div>
-              <div style={{ fontSize: '14px', color: '#16264a' }}>{c.first_name} {c.last_name}</div>
-              {c.email && <div style={{ fontSize: '12px', color: '#4e6087', marginTop: '2px' }}>{c.email}</div>}
+              <div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{c.first_name} {c.last_name}</div>
+              {c.email && <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{c.email}</div>}
             </div>
             <button onClick={() => deleteContact(c.id)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Remove</button>
           </div>

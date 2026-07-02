@@ -5,6 +5,11 @@ import * as Sentry from '@sentry/react'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import './index.css'
+import { applyThemeForCurrentRoute } from './lib/theme'
+
+// Apply the saved light/dark preference before first paint — portal routes
+// only; login and public token pages always render light.
+applyThemeForCurrentRoute()
 
 // Sentry error tracking (H3). The DSN is a public ingest-only key (safe to ship,
 // like the anon key) — it can only SEND error reports to this project, not read

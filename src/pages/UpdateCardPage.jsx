@@ -64,13 +64,13 @@ export default function UpdateCardPage() {
 
   if (status === 'loading') return (
     <TokenShell>
-      <p style={{ color: '#4e6087', fontSize: '15px', textAlign: 'center', margin: 0 }}>Loading your payment details…</p>
+      <p style={{ color: 'var(--vfo-muted)', fontSize: '15px', textAlign: 'center', margin: 0 }}>Loading your payment details…</p>
     </TokenShell>
   )
 
   if (status === 'redirecting') return (
     <TokenShell>
-      <p style={{ color: '#4e6087', fontSize: '15px', textAlign: 'center', margin: 0 }}>Redirecting to Stripe…</p>
+      <p style={{ color: 'var(--vfo-muted)', fontSize: '15px', textAlign: 'center', margin: 0 }}>Redirecting to Stripe…</p>
     </TokenShell>
   )
 
@@ -109,7 +109,7 @@ export default function UpdateCardPage() {
           </p>
         ) : (
           <>
-            <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '20px', fontSize: '13px', color: '#64748b' }}>
+            <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '20px', fontSize: '13px', color: 'var(--vfo-muted)' }}>
               Choose a payment below and enter your new card or bank details on Stripe's secure page.
             </p>
             {engagements.map((e) => (
@@ -134,14 +134,14 @@ function EngagementCard({ engagement, onChoose }) {
     : 'No method on file'
   return (
     <div style={cardStyle}>
-      <div style={{ marginBottom: '4px', fontSize: '15px', fontWeight: 700, color: '#16264a' }}>{e.label}</div>
+      <div style={{ marginBottom: '4px', fontSize: '15px', fontWeight: 700, color: 'var(--vfo-ink)' }}>{e.label}</div>
       {e.for_client_name && (
-        <div style={{ fontSize: '12.5px', color: '#64748b', marginBottom: '2px' }}>For {e.for_client_name}</div>
+        <div style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', marginBottom: '2px' }}>For {e.for_client_name}</div>
       )}
-      <div style={{ fontSize: '12.5px', color: '#64748b', marginBottom: '14px' }}>{current}</div>
+      <div style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', marginBottom: '14px' }}>{current}</div>
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <button style={choiceBtn} onClick={() => onChoose(e, 'card')}>Use a Card</button>
-        <button style={{ ...choiceBtn, background: '#fff', color: '#125ecc', border: '1.5px solid #125ecc' }} onClick={() => onChoose(e, 'ach')}>Use a Bank Account</button>
+        <button style={{ ...choiceBtn, background: 'var(--vfo-card)', color: '#125ecc', border: '1.5px solid #125ecc' }} onClick={() => onChoose(e, 'ach')}>Use a Bank Account</button>
       </div>
     </div>
   )
@@ -151,15 +151,15 @@ const iconCircle = {
   width: '72px', height: '72px', borderRadius: '50%',
   display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px',
 }
-const titleStyle = { fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }
-const subtitleStyle = { fontSize: '14px', color: '#4e6087', margin: 0 }
+const titleStyle = { fontSize: '24px', fontWeight: 700, color: 'var(--vfo-ink)', marginBottom: '12px' }
+const subtitleStyle = { fontSize: '14px', color: 'var(--vfo-muted)', margin: 0 }
 const cardStyle = {
-  border: '2px solid #e3eaf5', borderRadius: '16px', padding: '20px 22px', marginBottom: '14px',
+  border: '2px solid var(--vfo-border)', borderRadius: '16px', padding: '20px 22px', marginBottom: '14px',
 }
 const choiceBtn = {
   background: '#125ecc', color: '#fff', border: '1.5px solid #125ecc', borderRadius: '10px',
   padding: '10px 18px', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
 }
 const securityNote = {
-  textAlign: 'center', color: '#4e6087', fontSize: '12px', marginTop: '24px', lineHeight: 1.6,
+  textAlign: 'center', color: 'var(--vfo-muted)', fontSize: '12px', marginTop: '24px', lineHeight: 1.6,
 }

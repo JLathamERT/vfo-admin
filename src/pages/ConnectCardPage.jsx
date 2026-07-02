@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import TokenShell from '../components/shared/TokenShell'
+import { TokenFormSkeleton } from '../components/shared/Skeleton'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
@@ -57,7 +58,7 @@ export default function ConnectCardPage() {
   }
 
   if (status === 'loading') return (
-    <TokenShell><p style={centerMuted}>Loading…</p></TokenShell>
+    <TokenShell><TokenFormSkeleton /></TokenShell>
   )
   if (status === 'redirecting') return (
     <TokenShell><p style={centerMuted}>Redirecting to Stripe…</p></TokenShell>
@@ -86,12 +87,12 @@ export default function ConnectCardPage() {
           </div>
         ) : (
           <>
-            <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '20px', fontSize: '13px', color: '#64748b' }}>
+            <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '20px', fontSize: '13px', color: 'var(--vfo-muted)' }}>
               Add the card or bank account for your VFO Services payments. There is no charge for setting this up.
             </p>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
               <button style={choiceBtn} onClick={() => choose('card')}>Use a Card</button>
-              <button style={{ ...choiceBtn, background: '#fff', color: '#125ecc', border: '1.5px solid #125ecc' }} onClick={() => choose('ach')}>Use a Bank Account</button>
+              <button style={{ ...choiceBtn, background: 'var(--vfo-card)', color: '#125ecc', border: '1.5px solid #125ecc' }} onClick={() => choose('ach')}>Use a Bank Account</button>
             </div>
           </>
         )}
@@ -105,13 +106,13 @@ export default function ConnectCardPage() {
   )
 }
 
-const centerMuted = { color: '#4e6087', fontSize: '15px', textAlign: 'center', margin: 0 }
-const titleStyle = { fontSize: '24px', fontWeight: 700, color: '#16264a', marginBottom: '12px' }
-const subtitleStyle = { fontSize: '14px', color: '#4e6087', margin: 0 }
+const centerMuted = { color: 'var(--vfo-muted)', fontSize: '15px', textAlign: 'center', margin: 0 }
+const titleStyle = { fontSize: '24px', fontWeight: 700, color: 'var(--vfo-ink)', marginBottom: '12px' }
+const subtitleStyle = { fontSize: '14px', color: 'var(--vfo-muted)', margin: 0 }
 const choiceBtn = {
   background: '#125ecc', color: '#fff', border: '1.5px solid #125ecc', borderRadius: '10px',
   padding: '10px 18px', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
 }
 const securityNote = {
-  textAlign: 'center', color: '#4e6087', fontSize: '12px', marginTop: '24px', lineHeight: 1.6,
+  textAlign: 'center', color: 'var(--vfo-muted)', fontSize: '12px', marginTop: '24px', lineHeight: 1.6,
 }

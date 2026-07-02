@@ -144,6 +144,12 @@ export default function MemberShowroom({ experts = [], exclusions = [], ecoMap =
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
 
+  // In-portal the showroom follows the portal theme; the CSS template appends
+  // hex-alpha suffixes (e.g. `${color}33`), so dark mode swaps in raw hexes
+  // rather than var(--vfo-*). The website widget is unaffected (separate file).
+  const dark = typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark'
+  const P = dark ? { ...S, bg_color: '#001b4f', text_color: '#eef3ff' } : S
+
   const filterCats = showMemberServices ? [...FILTER_CATS, MEMBER_SERVICES] : FILTER_CATS
 
   // Member's chosen specialists = all experts minus their exclusions, with categories.
@@ -163,9 +169,9 @@ export default function MemberShowroom({ experts = [], exclusions = [], ecoMap =
   })
 
   return (
-    <div className="vfo-sr-root" style={{ background: S.bg_color, color: S.text_color }}>
-      <style>{showroomCss(S, S.widget_font_size / 14)}</style>
-      <link rel="stylesheet" href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(S.font)}:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap`} />
+    <div className="vfo-sr-root" style={{ background: P.bg_color, color: P.text_color }}>
+      <style>{showroomCss(P, P.widget_font_size / 14)}</style>
+      <link rel="stylesheet" href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(P.font)}:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap`} />
 
       <div className="vfo-sr-container">
         <div className="vfo-sr-search-wrap">

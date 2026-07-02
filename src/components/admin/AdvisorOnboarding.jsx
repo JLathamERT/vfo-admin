@@ -22,8 +22,8 @@ export default function AdvisorOnboarding() {
   const [searchParams, setSearchParams] = useSearchParams()
   const session = getSession()
 
-  const sectionStyle = { background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '24px', marginBottom: '20px' }
-  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid #d6e0ee', background: '#f7f9fc', color: '#16264a', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
 
   useEffect(() => { loadList() }, [])
 
@@ -76,24 +76,24 @@ export default function AdvisorOnboarding() {
 
       {showNew && (
         <div style={{ ...sectionStyle, marginBottom: '24px' }}>
-          <div style={{ fontSize: '13px', color: '#4e6087', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Start New Advisor Onboarding</div>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Start New Advisor Onboarding</div>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '160px' }}>
-              <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>First Name *</label>
+              <label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>First Name *</label>
               <input value={newFirst} onChange={e => setNewFirst(e.target.value)} style={inputStyle} />
             </div>
             <div style={{ flex: 1, minWidth: '160px' }}>
-              <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Last Name *</label>
+              <label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Last Name *</label>
               <input value={newLast} onChange={e => setNewLast(e.target.value)} style={inputStyle} />
             </div>
             <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ fontSize: '12px', color: '#4e6087', display: 'block', marginBottom: '6px' }}>Email *</label>
+              <label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Email *</label>
               <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Email address" style={inputStyle} />
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={createNew} disabled={creating || !newFirst.trim() || !newLast.trim() || !newEmail.trim()} style={{ padding: '8px 20px', borderRadius: '8px', background: creating ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '13px', cursor: creating ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>{creating ? 'Creating...' : 'Create'}</button>
-            <button onClick={() => { setShowNew(false); setNewFirst(''); setNewLast(''); setNewEmail('') }} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#4e6087', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Cancel</button>
+            <button onClick={() => { setShowNew(false); setNewFirst(''); setNewLast(''); setNewEmail('') }} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Cancel</button>
           </div>
         </div>
       )}
@@ -101,7 +101,7 @@ export default function AdvisorOnboarding() {
       {loading ? (
         <AdvisorOnboardingListSkeleton />
       ) : onboardings.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>No onboarding records yet. Click "+ New Onboarding" to start.</div>
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--vfo-muted)' }}>No onboarding records yet. Click "+ New Onboarding" to start.</div>
       ) : (() => {
         const classify = ob => {
           if (ob.member_created_at) return 'completed'
@@ -122,12 +122,12 @@ export default function AdvisorOnboarding() {
           const bg = isStopped ? 'rgba(231,76,60,0.15)' : isDone ? 'rgba(27,146,84,0.15)' : 'rgba(0,149,255,0.15)'
           const border = isStopped ? 'rgba(231,76,60,0.3)' : isDone ? 'rgba(27,146,84,0.3)' : 'rgba(0,149,255,0.3)'
           return (
-            <div key={ob.id} onClick={() => { setSelectedId(ob.id); setView('detail') }} style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '16px', boxShadow: '0 4px 16px rgba(20,45,95,0.06)', padding: '18px', marginBottom: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            <div key={ob.id} onClick={() => { setSelectedId(ob.id); setView('detail') }} style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '18px', marginBottom: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,149,255,0.4)'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = '#e3eaf5'}>
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--vfo-border)'}>
               <div>
-                <div style={{ fontSize: '15px', color: '#16264a', fontWeight: '500', marginBottom: '4px' }}>{ob.first_name} {ob.last_name}{ob.member_number ? <span style={{ fontSize: '12px', color: '#4e6087', fontFamily: 'monospace', marginLeft: '8px' }}>#{ob.member_number}</span> : null}</div>
-                <div style={{ fontSize: '12px', color: '#4e6087' }}>{ob.email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
+                <div style={{ fontSize: '15px', color: 'var(--vfo-ink)', fontWeight: '500', marginBottom: '4px' }}>{ob.first_name} {ob.last_name}{ob.member_number ? <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginLeft: '8px' }}>#{ob.member_number}</span> : null}</div>
+                <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>{ob.email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: bg, color: stageColor, border: `1px solid ${border}` }}>
@@ -139,11 +139,11 @@ export default function AdvisorOnboarding() {
         }
 
         const SectionHeader = ({ title, count, open, onToggle, color }) => (
-          <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', marginTop: '20px', marginBottom: '10px', borderRadius: '8px', cursor: 'pointer', background: '#eef2f9', border: '1px solid #ebf0f8' }}>
+          <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', marginTop: '20px', marginBottom: '10px', borderRadius: '8px', cursor: 'pointer', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ color: '#4e6087', fontSize: '10px', transform: open ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+              <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: open ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
               <span style={{ fontSize: '12px', fontWeight: 600, color: color, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{title}</span>
-              <span style={{ fontSize: '11px', color: '#4e6087' }}>({count})</span>
+              <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>({count})</span>
             </div>
           </div>
         )
@@ -151,7 +151,7 @@ export default function AdvisorOnboarding() {
         return (
           <div>
             {inProgress.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '20px', color: '#4e6087', fontSize: '13px' }}>No active onboardings in progress.</div>
+              <div style={{ textAlign: 'center', padding: '20px', color: 'var(--vfo-muted)', fontSize: '13px' }}>No active onboardings in progress.</div>
             )}
             {inProgress.map(ob => renderRow(ob, 'in_progress'))}
 
@@ -241,9 +241,9 @@ function OnboardingDetail({ id, onBack }) {
 
   if (loading) return <AdvisorOnboardingDetailSkeleton onBack={onBack} />
   if (!ob) return (
-    <div style={{ padding: '40px', color: '#4e6087', textAlign: 'center' }}>
+    <div style={{ padding: '40px', color: 'var(--vfo-muted)', textAlign: 'center' }}>
       <p>This onboarding no longer exists.</p>
-      <button onClick={onBack} style={{ marginTop: '8px', padding: '8px 16px', borderRadius: '8px', border: '1px solid #c7d4e8', background: 'transparent', color: '#0095ff', fontSize: '13px', cursor: 'pointer' }}>← Back to list</button>
+      <button onClick={onBack} style={{ marginTop: '8px', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: '#0095ff', fontSize: '13px', cursor: 'pointer' }}>← Back to list</button>
     </div>
   )
 
@@ -289,14 +289,14 @@ function OnboardingDetail({ id, onBack }) {
 
       <StageBlock stage={1} title="Preliminary Meeting" state={stage1State()} expanded={expanded[1]} onToggle={() => setExpanded(p => ({ ...p, 1: !p[1] }))}>
         <Row label="Preliminary Meeting" done={!!ob.prelim_meeting_status} date={ob.prelim_meeting_status_at}>
-          <select value={ob.prelim_meeting_status || ''} onChange={e => savePrelimMeeting(e.target.value)} disabled={saving} style={{ ...selectStyle, color: '#16264a' }}>
+          <select value={ob.prelim_meeting_status || ''} onChange={e => savePrelimMeeting(e.target.value)} disabled={saving} style={{ ...selectStyle, color: 'var(--vfo-ink)' }}>
             <option value="">-- Select --</option>
             <option value="Completed">Completed</option>
             <option value="No Show">No Show</option>
           </select>
         </Row>
         <Row label="Team Member Responsible" done={!!ob.onboarding_team_member} date={ob.onboarding_team_member_at}>
-          <select value={ob.onboarding_team_member || ''} onChange={e => saveTeamMember(e.target.value)} disabled={saving} style={{ ...selectStyle, color: '#16264a' }}>
+          <select value={ob.onboarding_team_member || ''} onChange={e => saveTeamMember(e.target.value)} disabled={saving} style={{ ...selectStyle, color: 'var(--vfo-ink)' }}>
             <option value="">-- Select --</option>
             {SALES_TEAM_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
@@ -311,14 +311,14 @@ function OnboardingDetail({ id, onBack }) {
               <button onClick={() => saveDecision('Undecided')} disabled={!!pendingDecision || !ob.onboarding_team_member} style={{ ...pendingBtn('#e06717', pendingDecision, 'Undecided'), cursor: !ob.onboarding_team_member ? 'not-allowed' : 'pointer' }}>{pendingDecision === 'Undecided' ? 'Sending…' : 'Undecided'}</button>
               <button onClick={() => saveDecision('No')} disabled={!!pendingDecision || !ob.onboarding_team_member} style={{ ...pendingBtn('#e74c3c', pendingDecision, 'No'), cursor: !ob.onboarding_team_member ? 'not-allowed' : 'pointer' }}>{pendingDecision === 'No' ? 'Sending…' : 'No'}</button>
             </div>
-            {!ob.onboarding_team_member && <div style={{ fontSize: '11px', color: '#697a9c', fontStyle: 'italic', marginTop: '4px' }}>Select a team member above to enable the decision.</div>}
+            {!ob.onboarding_team_member && <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontStyle: 'italic', marginTop: '4px' }}>Select a team member above to enable the decision.</div>}
             </>
           )}
         </Row>
       </StageBlock>
 
       <StageBlock stage={2} title="PC Admin" state={stage2State()} expanded={expanded[2]} onToggle={() => setExpanded(p => ({ ...p, 2: !p[2] }))}>
-        {!decision && <div style={{ padding: '12px', color: '#4e6087', fontSize: '13px' }}>Waiting for Stage 1 decision.</div>}
+        {!decision && <div style={{ padding: '12px', color: 'var(--vfo-muted)', fontSize: '13px' }}>Waiting for Stage 1 decision.</div>}
 
         {decision === 'Yes' && (
           <>
@@ -336,9 +336,9 @@ function OnboardingDetail({ id, onBack }) {
           <>
             <AutoRow label="Decision email sent" done={!!ob.decision_email_sent_at} date={ob.decision_email_sent_at} />
             <AutoRow label="Client response received" done={!!ob.final_decision} date={ob.final_decision_at} />
-            {undecidedPending && <div style={{ marginLeft: '14px', paddingLeft: '12px', borderLeft: '1px solid #ebf0f8', fontSize: '12px', color: '#697a9c', marginTop: '4px' }}>Awaiting client click on Yes / No button in their email…</div>}
+            {undecidedPending && <div style={{ marginLeft: '14px', paddingLeft: '12px', borderLeft: '1px solid var(--vfo-tint-deep)', fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '4px' }}>Awaiting client click on Yes / No button in their email…</div>}
             {finalDec && (
-              <div style={{ marginLeft: '14px', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px', borderLeft: '1px solid #ebf0f8' }}>
+              <div style={{ marginLeft: '14px', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px', borderLeft: '1px solid var(--vfo-tint-deep)' }}>
                 <div style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', display: 'inline-block', marginBottom: '8px',
                   background: finalDec === 'Yes' ? 'rgba(27,146,84,0.15)' : 'rgba(231,76,60,0.15)',
                   color: finalDec === 'Yes' ? '#1b9254' : '#e74c3c',
@@ -370,14 +370,14 @@ function OnboardingDetail({ id, onBack }) {
 
       <StageBlock stage={3} title="Add New Advisor" state={stage3State()} expanded={expanded[3]} onToggle={() => setExpanded(p => ({ ...p, 3: !p[3] }))} dimmed={stage3Locked}>
         {stage3Locked ? (
-          <div style={{ padding: '12px', color: '#4e6087', fontSize: '13px' }}>
+          <div style={{ padding: '12px', color: 'var(--vfo-muted)', fontSize: '13px' }}>
             Available once the invoice/receipt has been sent in Stage 2.
           </div>
         ) : ob.member_created_at ? (
           <>
             <AutoRow label="Advisor created" done={true} date={ob.member_created_at} />
-            <div style={{ marginLeft: '14px', paddingLeft: '12px', marginTop: '6px', borderLeft: '1px solid #ebf0f8', fontSize: '12px', color: '#4e6087' }}>
-              Member number: <span style={{ color: '#16264a', fontFamily: 'monospace' }}>{ob.member_number}</span> &middot; Implementation &middot; New Model &middot; Money Mapping
+            <div style={{ marginLeft: '14px', paddingLeft: '12px', marginTop: '6px', borderLeft: '1px solid var(--vfo-tint-deep)', fontSize: '12px', color: 'var(--vfo-muted)' }}>
+              Member number: <span style={{ color: 'var(--vfo-ink)', fontFamily: 'monospace' }}>{ob.member_number}</span> &middot; Implementation &middot; New Model &middot; Money Mapping
             </div>
           </>
         ) : (
@@ -403,10 +403,10 @@ function OnboardingDetail({ id, onBack }) {
 }
 
 function StageBlock({ stage, title, state, expanded, onToggle, dimmed, children }) {
-  const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : '#e3eaf5'
+  const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
   const titleColor = state === 'active' ? '#125ecc' : '#002973'
   return (
-    <div style={{ background: '#ffffff', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden', opacity: dimmed ? 0.55 : 1 }}>
+    <div style={{ background: 'var(--vfo-card)', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden', opacity: dimmed ? 0.55 : 1 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer' }} onClick={onToggle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
           <PhaseBadge number={stage} state={state} />
@@ -415,8 +415,8 @@ function StageBlock({ stage, title, state, expanded, onToggle, dimmed, children 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {state === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
           {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress</span>}
-          {state === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#eef2f9', border: '1px solid #dde5f2', color: '#4e6087' }}>Not started</span>}
-          <span style={{ color: '#4e6087', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+          {state === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>}
+          <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
         </div>
       </div>
       {expanded && <div style={{ borderTop: `1px solid ${borderColor}`, padding: '12px 18px' }}>{children}</div>}
@@ -431,13 +431,13 @@ function formatDate(d) {
   return `${parts[1]}/${parts[2]}`
 }
 
-const dateTextStyle = { fontSize: '11px', color: '#697a9c', flexShrink: 0, display: 'inline-block', width: '32px' }
+const dateTextStyle = { fontSize: '11px', color: 'var(--vfo-muted)', flexShrink: 0, display: 'inline-block', width: '32px' }
 
 function Row({ label, done, date, children }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid #e9eef8', flexWrap: 'wrap' }}>
-      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
-      <span style={{ fontSize: '13px', color: done ? '#4e6087' : '#16264a', flex: 1 }}>{label}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+      <span style={{ fontSize: '13px', color: done ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{label}</span>
       <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
         {children}
         <span style={dateTextStyle}>{done && date ? formatDate(date) : ''}</span>
@@ -449,21 +449,21 @@ function Row({ label, done, date, children }) {
 function AutoRow({ label, done, date, tag }) {
   const tags = tag == null ? [] : Array.isArray(tag) ? tag.filter(Boolean) : [tag]
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid #e9eef8' }}>
-      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : '#c7d4e8'}` }} />
-      <span style={{ fontSize: '12px', color: '#16264a', flex: 1 }}>{label}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+      <span style={{ fontSize: '12px', color: 'var(--vfo-ink)', flex: 1 }}>{label}</span>
       <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
         {done && tags.length > 0 && tags.map((t, i) => (
           <span key={i} style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{t}</span>
         ))}
-        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: done ? 'rgba(27,146,84,0.15)' : '#eef2f9', border: done ? '1px solid rgba(27,146,84,0.3)' : '1px solid #dde5f2', color: done ? '#1b9254' : '#4e6087' }}>{done ? 'Done' : 'Not completed'}</span>
+        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: done ? 'rgba(27,146,84,0.15)' : 'var(--vfo-tint)', border: done ? '1px solid rgba(27,146,84,0.3)' : '1px solid var(--vfo-border-chip)', color: done ? '#1b9254' : 'var(--vfo-muted)' }}>{done ? 'Done' : 'Not completed'}</span>
         <span style={dateTextStyle}>{done && date ? formatDate(date) : ''}</span>
       </span>
     </div>
   )
 }
 
-const selectStyle = { padding: '4px 8px', borderRadius: '6px', border: '1px solid #d6e0ee', background: '#ffffff', color: '#16264a', fontSize: '12px', minWidth: '150px', fontFamily: 'Inter, sans-serif' }
+const selectStyle = { padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '12px', minWidth: '150px', fontFamily: 'Inter, sans-serif' }
 function pillStyle(color) { return { fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${color}22`, color, border: `1px solid ${color}44` } }
 function branchBtn(color) { return { padding: '4px 12px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: `1px solid ${color}66`, background: `${color}22`, color } }
 function pendingBtn(color, pendingValue, myValue) {

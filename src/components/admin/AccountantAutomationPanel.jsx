@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
 import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate, PanelHero, EmptyState } from './automation/StepKit'
 import SandboxModeToggle from './SandboxModeToggle'
+import { AutomationTrackerSkeleton } from '../shared/Skeleton'
 
 const STAGE_LABELS = {
   new: 'New',
@@ -17,7 +18,7 @@ const STAGE_LABELS = {
 }
 
 const STAGE_COLORS = {
-  new: '#4e6087',
+  new: 'var(--vfo-muted)',
   decision_sent: '#0095ff',
   declined: '#ef4444',
   agreement_sent: '#7c3aed',
@@ -72,22 +73,22 @@ function AccountantPipelineRow({ row, expanded, onToggle }) {
     : (row.login_setup_email_sent_at || row.login_setup_token) ? 'awaiting' : 'pending'
 
   return (
-    <div style={{ background: '#ffffff', border: '1px solid #e9eef8', borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
+    <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
       <div onClick={onToggle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '15px', fontWeight: '600', color: '#16264a' }}>{accountantName}</span>
-          {row.member_number && <span style={{ fontSize: '12px', color: '#697a9c', fontFamily: 'monospace' }}>#{row.member_number}</span>}
+          <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--vfo-ink)' }}>{accountantName}</span>
+          {row.member_number && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontFamily: 'monospace' }}>#{row.member_number}</span>}
           {plans && <Badge text={plans} color="#0095ff" />}
-          {plans && row.payment_amount && <span style={{ fontSize: '12px', color: '#243757' }}>{fmtMoney(row.payment_amount)}</span>}
+          {plans && row.payment_amount && <span style={{ fontSize: '12px', color: 'var(--vfo-ink-2)' }}>{fmtMoney(row.payment_amount)}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Badge text={stageLabel} color={stageColor} />
-          <span style={{ color: '#4e6087', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+          <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
         </div>
       </div>
 
       {expanded && (
-        <div style={{ padding: '12px 18px 16px', borderTop: '1px solid #e9eef8', background: '#eef2f9' }}>
+        <div style={{ padding: '12px 18px 16px', borderTop: '1px solid var(--vfo-border-soft)', background: 'var(--vfo-tint)' }}>
           <StepCard title="Decision" status={decisionStatus}>
             <Detail l="Decision" v={<Badge text={row.final_decision || row.prelim_meeting_decision} />} showEmpty />
             <Detail l="Partnership" v={row.accountant_partnership} />
@@ -158,7 +159,7 @@ function AccountantPipelineRow({ row, expanded, onToggle }) {
             ) : <Pending />}
           </StepCard>
 
-          <div style={{ marginTop: '10px', fontSize: '10px', color: '#7c8aa6' }}>
+          <div style={{ marginTop: '10px', fontSize: '10px', color: 'var(--vfo-faint)' }}>
             Onboarding #{row.id} · Started {fmtDate(row.created_at)} · {row.email || 'no email'}
           </div>
         </div>
@@ -186,14 +187,14 @@ export default function AccountantAutomationPanel() {
     finally { setLoading(false) }
   }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: '#4e6087' }}>Loading...</div>
+  if (loading) return <AutomationTrackerSkeleton cols={7} />
 
   const inProgress = rows.filter(r => {
     const s = getCurrentStage(r)
     return s !== 'complete' && s !== 'declined'
   })
   const stats = [
-    { label: 'TOTAL', value: rows.length, color: '#16264a' },
+    { label: 'TOTAL', value: rows.length, color: 'var(--vfo-ink)' },
     { label: 'IN PROGRESS', value: inProgress.length, color: '#0095ff' },
     { label: 'PAID', value: rows.filter(r => r.payment_status === 'succeeded').length, color: '#0d9488' },
     { label: 'ACCOUNTANT CREATED', value: rows.filter(r => r.member_number).length, color: '#16a34a' },

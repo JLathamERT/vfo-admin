@@ -5,7 +5,7 @@ import { TrackHero } from '../shared/TrackKit'
 import { NAVY, INK, BLUE, inputStyle, cardStyle, accentStrip, miniLabel, NumBadge, Radios, GrowthNeed, StepNav } from './ui'
 
 const LEVELS = [{ value: 'high', label: 'High' }, { value: 'medium', label: 'Medium' }, { value: 'low', label: 'Low' }]
-const fieldGroup = { background: '#f7f9fc', border: '1px solid #e9eef8', borderRadius: '10px', padding: '11px 16px' }
+const fieldGroup = { background: 'var(--vfo-input)', border: '1px solid var(--vfo-border-soft)', borderRadius: '10px', padding: '11px 16px' }
 
 export default function GrowthBuildPlan({ memberNumber, bundle, reload, onNavigate }) {
   const onePage = (bundle.actions || [])
@@ -62,7 +62,7 @@ export default function GrowthBuildPlan({ memberNumber, bundle, reload, onNaviga
           <div style={{ padding: '16px 20px' }}>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '14px' }}>
               <NumBadge n={i + 1} />
-              <div style={{ fontSize: '13.5px', fontWeight: 600, color: NAVY, lineHeight: 1.5, paddingTop: '3px' }}>{r.action_text}</div>
+              <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--vfo-heading)', lineHeight: 1.5, paddingTop: '3px' }}>{r.action_text}</div>
             </div>
             <div style={{ paddingLeft: '34px' }}>
               <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '16px' }}>
@@ -138,12 +138,12 @@ function NameCombo({ value, onChange, onCommit, people, placeholder }) {
         style={{ ...inputStyle, width: '100%', boxSizing: 'border-box', paddingRight: '30px' }}
       />
       <span onMouseDown={e => { e.preventDefault(); open ? setOpen(false) : openMenu() }}
-        style={{ position: 'absolute', right: '11px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', color: '#8a97b0', cursor: 'pointer' }}>▼</span>
+        style={{ position: 'absolute', right: '11px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', color: 'var(--vfo-faint)', cursor: 'pointer' }}>▼</span>
       {open && rect && createPortal(
-        <div style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width, maxHeight: '224px', overflowY: 'auto', background: '#fff', border: '1px solid #d6e0ee', borderRadius: '10px', boxShadow: '0 12px 30px rgba(20,45,95,0.18)', zIndex: 1000, fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width, maxHeight: '224px', overflowY: 'auto', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-strong)', borderRadius: '10px', boxShadow: '0 12px 30px rgba(20,45,95,0.18)', zIndex: 1000, fontFamily: 'Inter, sans-serif' }}>
           {filtered.map(n => <ComboOpt key={n} label={n} active={n.toLowerCase() === q} onPick={() => pick(n)} />)}
           {q && !exact && <ComboOpt label={`+ Add "${value.trim()}"`} accent topBorder={filtered.length > 0} onPick={() => pick(value.trim())} />}
-          {!filtered.length && !q && <div style={{ padding: '11px 14px', fontSize: '12px', color: '#8a97b0' }}>No saved names yet — type to add one.</div>}
+          {!filtered.length && !q && <div style={{ padding: '11px 14px', fontSize: '12px', color: 'var(--vfo-faint)' }}>No saved names yet — type to add one.</div>}
         </div>, document.body)}
     </div>
   )
@@ -154,7 +154,7 @@ function ComboOpt({ label, onPick, active, accent, topBorder }) {
   return (
     <div onMouseDown={e => { e.preventDefault(); onPick() }}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      style={{ padding: '10px 14px', fontSize: '13px', cursor: 'pointer', color: accent ? BLUE : INK, fontWeight: (accent || active) ? 700 : 500, background: hover ? '#eef4ff' : (active ? '#f4f7fd' : '#fff'), borderTop: topBorder ? '1px solid #eef2f9' : 'none' }}>
+      style={{ padding: '10px 14px', fontSize: '13px', cursor: 'pointer', color: accent ? BLUE : INK, fontWeight: (accent || active) ? 700 : 500, background: hover ? 'var(--vfo-tint)' : (active ? 'var(--vfo-page)' : 'var(--vfo-card)'), borderTop: topBorder ? '1px solid var(--vfo-tint)' : 'none' }}>
       {label}
     </div>
   )
