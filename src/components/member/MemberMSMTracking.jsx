@@ -649,11 +649,12 @@ function VideoTask({ task, progress, enrollmentId, onComplete }) {
   const playerRef = useRef(null)
   const containerId = `yt-player-${task.id}`
 
-  const videoId = task.video_url?.match(/v=([^&]+)/)?.[1]
+  const isWistia = (task.video_url || '').includes('wistia')
+  const videoId = isWistia ? null : task.video_url?.match(/v=([^&]+)/)?.[1]
   const statusColor = completed ? '#1b9254' : '#0095ff'
 
   useEffect(() => {
-    if (!showVideo || !videoId) return
+    if (!showVideo || isWistia || !videoId) return
     if (!window.YT) {
       const tag = document.createElement('script')
       tag.src = 'https://www.youtube.com/iframe_api'
@@ -697,7 +698,13 @@ function VideoTask({ task, progress, enrollmentId, onComplete }) {
       </div>
       {showVideo && (
         <div style={{ borderRadius: '8px', overflow: 'hidden', marginLeft: '22px' }}>
-          <div id={containerId} />
+          {isWistia ? (
+            <div style={{ position: 'relative', paddingTop: '56.25%' }}>
+              <iframe src={task.video_url} title={task.name} allow="autoplay; fullscreen" allowFullScreen frameBorder="0" scrolling="no" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }} />
+            </div>
+          ) : (
+            <div id={containerId} />
+          )}
         </div>
       )}
     </div>
