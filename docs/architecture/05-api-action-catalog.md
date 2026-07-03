@@ -585,7 +585,12 @@ These run AFTER the auth gate. The three handlers that take `req: Request` as a 
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
 | `load_notifications` (uses auth) | `actions/notifications/load.ts` | `notifications` (filtered by recipient = session.email \| 'admin' \| 'all', read=false) | — | — |
-| `mark_notification_read` | `actions/notifications/mark-read.ts` | — | `notifications.read=true` | — |
+| `mark_notification_read` | `actions/notifications/mark-read.ts` | `notifications` (dismissible check) | `notifications.read=true` | REFUSES `dismissible=false` rows (400) — action-required bells clear only via their completing handler (gotcha #179). |
+| `notification_rules_load` | `actions/notification-rules/load.ts` | `notification_rules` + `allowed_admins` (name/email roster for the recipients picker) | — | Automation-tab gated (`TAB_ACTIONS.automation`). Backs the Notification Editor (2026-07-03). |
+| `notification_rules_save` | `actions/notification-rules/save.ts` | `notification_rules` (key exists?) | `notification_rules` (`recipients` null=reset \| sanitized emails/'admin'/'all'/tokens; `delay_days` only on rules seeded with a default; `enabled`) | Automation-tab gated. |
+| `automation_AGREEMENT_declined` (PUBLIC, service-role gate) | `actions/agreements/declined.ts` | `pipeline_map1`/`client_tax_plans`/`advisor_onboarding`/`accountant_onboarding`/`specialist_onboarding` + `clients` (by `{source, row_id}`) | `notifications` via `notifyByRule` (`<AREA>_agreement_declined`, action-required) | Chained from BOTH BoldSign webhook handlers on `Declined`/`Expired`/`Revoked` (gotcha #180). |
+| `vault_tax_upload_notify` (PUBLIC) | `actions/vault/upload-notify.ts` | `clients` (by `tax_upload_token`) | `notifications` via `notifyByRule` (`UPLOAD_tax_return_uploaded`) | Fired by the `/tax-upload` page after a successful signed-URL PUT (the PUT bypasses the server). |
+| `client_vault_upload_notify` (CLIENT_ALLOWED) | `actions/vault/upload-notify.ts` | `clients` (by `auth.callerClientId`) | `notifications` via `notifyByRule` (same rule; `section='sensitive'` only) | Fired by `VaultSections` (`uploadNotify` hook) in the client portal. |
 
 ### VFO Specialist Revenue (Accounting tab — added 2026-06-29)
 
