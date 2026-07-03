@@ -21,6 +21,12 @@ async function uploadFile(token, file) {
   fd.append('', file)
   const put = await fetch(d1.signed_url, { method: 'PUT', headers: { 'x-upsert': 'true' }, body: fd })
   if (!put.ok) throw new Error('Upload failed — please try again')
+  // Best-effort admin bell — the PUT goes straight to storage, so the server
+  // only learns about the completed upload from this call.
+  fetch(API_URL, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'vault_tax_upload_notify', token, file_name: file.name }),
+  }).catch(() => {})
   return { path: d1.path, name: file.name, size: file.size }
 }
 
