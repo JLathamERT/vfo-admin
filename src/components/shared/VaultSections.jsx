@@ -14,8 +14,11 @@ export const DEFAULT_VAULT_SECTIONS = [
 ]
 
 // Reusable document vault. `actions` supplies the four callApi action names
-// ({ list, uploadUrl, download, delete }); `params` is merged into every request
-// (e.g. { member_number } for the member vault, {} for session-scoped vaults).
+// ({ list, uploadUrl, download, delete }) plus an optional `uploadNotify`
+// action fired best-effort after each successful upload (the signed-URL PUT
+// bypasses the server, so a bell notification needs this explicit call);
+// `params` is merged into every request (e.g. { member_number } for the
+// member vault, {} for session-scoped vaults).
 export default function VaultSections({ actions, params = {}, sections = DEFAULT_VAULT_SECTIONS }) {
   const [data, setData] = useState(() => Object.fromEntries(sections.map(s => [s.key, []])))
   const [loading, setLoading] = useState(true)
@@ -46,6 +49,9 @@ export default function VaultSections({ actions, params = {}, sections = DEFAULT
         const fd = new FormData(); fd.append('cacheControl', '3600'); fd.append('', file)
         const put = await fetch(d.signed_url, { method: 'PUT', headers: { 'x-upsert': 'true' }, body: fd })
         if (!put.ok) throw new Error('Upload failed')
+        if (actions.uploadNotify) {
+          callApi(actions.uploadNotify, { ...params, section, file_name: file.name }).catch(() => {})
+        }
       } catch (e) { setError(e.message || 'Upload failed') }
     }
     setBusy(''); load()

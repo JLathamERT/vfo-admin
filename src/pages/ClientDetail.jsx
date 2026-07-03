@@ -16,6 +16,7 @@ import { PhaseNotesButton, PhaseNotesPanel } from '../components/shared/PhaseNot
 import { Skeleton, ProfileTabSkeleton } from '../components/shared/Skeleton'
 import { TrackHero } from '../components/shared/TrackKit'
 import VfoWordmark from '../components/shared/VfoWordmark'
+import NotificationBell from '../components/NotificationBell'
 
 const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael', 'Bridger Silvester', 'Tracy Miller', 'Evan Anderson']
 const statusColors = { Completed: '#1b9254', Confirmed: '#1b9254', Yes: '#1b9254', 'In Progress': '#e06717', Scheduled: '#0095ff', No: '#e74c3c', 'N/A': 'var(--vfo-muted)', Pending: '#e06717' }
@@ -125,8 +126,25 @@ export default function ClientDetail() {
     <div style={{ minHeight: '100vh', background: 'var(--vfo-page)', color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif' }}>
       <div style={{ background: 'linear-gradient(90deg, #002973 0%, #125ecc 100%)', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '58px', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(0,41,115,0.25)' }}>
         <VfoWordmark size={17} light onClick={() => navigate(isMember ? '/member' : '/admin')} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span style={{ color: 'rgba(255,255,255,0.88)', fontSize: '14px', fontWeight: 500 }}>{session?.name || ''}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Mirror the AdminPortal header for admin sessions so the top bar
+              stays identical on the client-detail route (bell + Settings /
+              Admin Editor deep-link back into the portal). Members keep the
+              slim name + Sign Out variant. */}
+          {!isMember && <NotificationBell />}
+          <span style={{ color: 'rgba(255,255,255,0.88)', fontSize: '14px', fontWeight: 500, whiteSpace: 'nowrap', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{session?.name || ''}</span>
+          {!isMember && session?.is_superadmin && (
+            <button onClick={() => { sessionStorage.setItem('adminOpenView', 'editor'); navigate('/admin') }}
+              style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,205,150,0.5)', background: 'transparent', color: '#ffd9a0', fontWeight: 500, fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              Admin Editor
+            </button>
+          )}
+          {!isMember && (
+            <button onClick={() => { sessionStorage.setItem('adminOpenView', 'settings'); navigate('/admin') }}
+              style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,255,255,0.32)', background: 'transparent', color: '#fff', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              Settings
+            </button>
+          )}
           <button onClick={() => { sessionStorage.clear(); navigate(isMember ? '/member/login' : '/admin/login') }} style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,255,255,0.32)', background: 'transparent', color: '#fff', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Sign Out</button>
         </div>
       </div>

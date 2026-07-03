@@ -5,6 +5,7 @@ const CLIENT_VAULT_ACTIONS = {
   uploadUrl: 'client_vault_upload_url',
   download: 'client_vault_download',
   delete: 'client_vault_delete',
+  uploadNotify: 'client_vault_upload_notify',
 }
 
 export default function ClientVault() {

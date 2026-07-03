@@ -15,6 +15,7 @@ import AccountantAutomationPanel from '../components/admin/AccountantAutomationP
 import SpecialistAutomationPanel from '../components/admin/SpecialistAutomationPanel'
 import NotificationBell from '../components/NotificationBell'
 import EmailTemplatesPanel from '../components/admin/EmailTemplatesPanel'
+import NotificationEditorPanel from '../components/admin/NotificationEditorPanel'
 import VfoWordmark from '../components/shared/VfoWordmark'
 import AllPaymentsTab from '../components/payments/AllPaymentsTab'
 import SpecialistRevenuePanel from '../components/admin/SpecialistRevenuePanel'
@@ -156,6 +157,14 @@ export default function AdminPortal() {
   useEffect(() => {
     if (!session || session.role !== 'admin') { navigate('/admin/login?next=' + encodeURIComponent(location.pathname + location.search)); return }
     loadAllData()
+    // Deep-link from the ClientDetail header's Settings / Admin Editor buttons
+    // (that route can't reach this component's view state directly).
+    const view = sessionStorage.getItem('adminOpenView')
+    if (view) {
+      sessionStorage.removeItem('adminOpenView')
+      if (view === 'settings') { setShowSettings(true); setActiveTab(null) }
+      if (view === 'editor' && session.is_superadmin) { setShowEditor(true); setActiveTab(null) }
+    }
   }, [])
 
   // Deep-link from notifications etc: ?tab=&section= drives the active tab/section.
@@ -399,6 +408,7 @@ export default function AdminPortal() {
         { key: 'specialist_pipeline', label: 'Specialist Onboarding' },
         { key: 'specialist_revenue_pipeline', label: 'VFO Specialist Revenue' },
         { key: 'email_templates', label: 'Email Templates' },
+        { key: 'notification_editor', label: 'Notification Editor' },
       ]
     },
   ]
@@ -657,6 +667,9 @@ export default function AdminPortal() {
           )}
           {activeTab === 'automation' && !loading && automationSection === 'email_templates' && (
             <EmailTemplatesPanel />
+          )}
+          {activeTab === 'automation' && !loading && automationSection === 'notification_editor' && (
+            <NotificationEditorPanel />
           )}
 
           {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'payments' && (

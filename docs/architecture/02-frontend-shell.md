@@ -77,7 +77,7 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 - Search Specialists / Add Specialist / Onboarding
 
 **Automation dropdown items:**
-- Holistic Planning - MAP 1 / Holistic Planning - Tax Planning / Holistic Planning - PIP Meetings / Advisor Onboarding / Accountant Onboarding / Email Templates
+- Holistic Planning - MAP 1 / Holistic Planning - Tax Priorities / Holistic Planning - PIP Meetings / Tax Planning / Advisor Onboarding / Accountant Onboarding / Specialist Onboarding / VFO Specialist Revenue / Email Templates / **Notification Editor** (added 2026-07-03 — [NotificationEditorPanel.jsx](src/components/admin/NotificationEditorPanel.jsx), edits `notification_rules` via `notification_rules_load`/`notification_rules_save`; see [tables/notifications.md](../tables/notifications.md))
 
 (The PIP Meetings option mounts [PipAutomationPanel](src/components/admin/PipAutomationPanel.jsx) — one row per `client_priority_tracks` track where `track_type='pip'` AND a purchase has been made. Each row collapses/expands to show Purchase Details → Payment → Confirmation → Invoice & Receipt → Revenue Share, mirroring MAP 1's `AutomationPanel` layout for the same chain stages.)
 
