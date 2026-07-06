@@ -30,8 +30,9 @@ export default function SpecialistRevenuePayPage() {
       if (d.error) { setError(d.error); setStatus('error'); return }
       setData(d)
       if (d.already_paid) { setStatus('done'); return }
-      // ACH-only: skip the decision page and head straight to Stripe.
-      handleChoice('ach')
+      // ACH-only, but land on a review screen instead of auto-redirecting —
+      // Stripe's back button returns here, and an auto-redirect would loop.
+      setStatus('ready')
     } catch {
       setError('Failed to load payment details.')
       setStatus('error')
@@ -92,10 +93,19 @@ export default function SpecialistRevenuePayPage() {
     </TokenShell>
   )
 
-  // ACH-only: any non-terminal state means we're on our way to Stripe.
+  const amountFmt = `$${(Number(data?.gross_amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   return (
-    <TokenShell>
-      <p style={{ color: 'var(--vfo-muted)', fontSize: '15px', textAlign: 'center', margin: 0 }}>Redirecting to Stripe…</p>
+    <TokenShell maxWidth={520}>
+      <div style={messageCardStyle}>
+        <h1 style={titleStyle}>Specialist Payment</h1>
+        <p style={subtitleStyle}>Payment request from VFO Services (working with ERT){data?.specialist_name ? ` for ${data.specialist_name}` : ''}.</p>
+        <div style={{ fontSize: '34px', fontWeight: 800, color: 'var(--vfo-heading)', margin: '18px 0 6px' }}>{amountFmt}</div>
+        <p style={{ ...subtitleStyle, marginBottom: '24px' }}>Paid by ACH bank transfer — no processing fee. You will be taken to Stripe's secure page to link your bank account and authorize the payment.</p>
+        <button type="button" onClick={() => handleChoice('ach')}
+          style={{ padding: '14px 32px', borderRadius: '10px', border: 'none', background: 'linear-gradient(90deg, #002973 0%, #125ecc 100%)', color: '#fff', fontWeight: 700, fontSize: '15px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          Continue to secure payment
+        </button>
+      </div>
     </TokenShell>
   )
 }

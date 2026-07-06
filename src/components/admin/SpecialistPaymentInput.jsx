@@ -119,7 +119,7 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
   }, [recipientOptions])
 
   function addLine() {
-    setLines(ls => [...ls, { id: lineSeq++, recipientKey: '', vfos_share: '', member_share: '', deals: '' }])
+    setLines(ls => [...ls, { id: lineSeq++, recipientKey: '', vfos_share: '', member_share: '', deals: '', transaction_details: '' }])
   }
   function removeLine(id) { setLines(ls => ls.filter(l => l.id !== id)) }
   function updateLine(id, patch) { setLines(ls => ls.map(l => l.id === id ? { ...l, ...patch } : l)) }
@@ -156,6 +156,7 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
             recipient_name: r.recipient_name, recipient_email: r.recipient_email,
             revenue_decision: r.revenue_decision,
             vfos_share: l.vfos_share, member_share: l.member_share, deals: l.deals,
+            transaction_details: l.transaction_details,
           }
         }),
         payment_method: paymentMethod,
@@ -177,7 +178,7 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
   const numInput = { width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', fontSize: '13px', fontFamily: 'Inter, sans-serif', outline: 'none' }
   const reqBorder = (v) => String(v).trim() === '' ? '1px solid #f3c0c0' : '1px solid var(--vfo-border-strong)'
   const colLabel = { fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)' }
-  const grid = '1fr 150px 150px 110px 36px'
+  const grid = '1.3fr 130px 130px 70px 1fr 36px'
 
   return (
     <div style={wrap}>
@@ -239,6 +240,7 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
           <div style={colLabel}>VFOS Share $</div>
           <div style={colLabel}>Member Share $</div>
           <div style={colLabel}>Deals</div>
+          <div style={colLabel}>Transaction details</div>
           <div />
         </div>
 
@@ -257,6 +259,7 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
               <input style={{ ...numInput, border: reqBorder(l.vfos_share) }} inputMode="decimal" placeholder="0.00" value={l.vfos_share} onChange={e => updateLine(l.id, { vfos_share: e.target.value })} />
               <input style={{ ...numInput, border: reqBorder(l.member_share) }} inputMode="decimal" placeholder="0.00" value={l.member_share} onChange={e => updateLine(l.id, { member_share: e.target.value })} />
               <input style={{ ...numInput, border: reqBorder(l.deals) }} inputMode="numeric" placeholder="0" value={l.deals} onChange={e => updateLine(l.id, { deals: e.target.value })} />
+              <input style={numInput} placeholder="Optional" value={l.transaction_details} onChange={e => updateLine(l.id, { transaction_details: e.target.value })} />
               <button type="button" onClick={() => removeLine(l.id)} title="Remove"
                 style={{ width: '36px', height: '38px', borderRadius: '8px', border: '1px solid #f3d0d0', background: '#fff5f5', color: '#dc2626', cursor: 'pointer', fontSize: '16px', lineHeight: 1 }}>×</button>
             </div>
@@ -270,6 +273,7 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
             <div style={{ fontWeight: 700, color: 'var(--vfo-ink)', fontSize: '13px' }}>{money(totals.vfos)}</div>
             <div style={{ fontWeight: 700, color: 'var(--vfo-ink)', fontSize: '13px' }}>{money(totals.member)}</div>
             <div style={{ fontWeight: 700, color: 'var(--vfo-ink)', fontSize: '13px' }}>{totals.deals}</div>
+            <div />
             <div />
           </div>
         )}
