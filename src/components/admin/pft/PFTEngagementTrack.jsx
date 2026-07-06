@@ -60,6 +60,25 @@ function meetingNumber(name) {
   return null
 }
 
+// Gate answer ("Does the Accountant need a third meeting?"), read across all phases.
+function computeGateStatus(phases, progress) {
+  const gate = phases.flatMap(ph => ph.program_client_tasks || []).find(t => t.name === 'Does the Accountant need a third meeting?')
+  return gate ? progress[gate.id]?.status || null : null
+}
+
+// Non-auto tasks for a phase that are actually rendered, given the gate answer.
+// Mirrors renderTask: Meeting 3's email only shows on the Yes path, and the
+// Meeting-2-phase decision email only shows on the No path. Counting off this
+// keeps the phase badge / done-state in lockstep with what renders.
+function visiblePhaseTasks(phase, gateStatus) {
+  return (phase.program_client_tasks || []).filter(t => {
+    if (t.status_options === 'auto' || t.status_options?.startsWith('auto_')) return false
+    if (t.name === 'Meeting 3 confirmation email') return gateStatus === 'Yes'
+    if (t.name === 'Accountant decision confirmation email' && phase.name === 'Accountant Meeting 2') return gateStatus === 'No'
+    return true
+  })
+}
+
 function Dot({ done, color }) {
   return <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? color : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? color : 'var(--vfo-border-mid)'}` }} />
 }
@@ -293,6 +312,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
 
       const allTasks = loadedPhases.flatMap(ph => ph.program_client_tasks || [])
       const decStatus = allTasks.filter(t => t.name === 'Accountant decision confirmation email').map(t => prog[t.id]?.status).find(s => s) || null
+      const gateStatus = computeGateStatus(loadedPhases, prog)
 
       const expandState = {}
       loadedPhases.forEach(phase => {
@@ -302,7 +322,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
           expandState[phase.id] = (isAssoc && decStatus === 'VFO Associate confirmed') || (isFT && decStatus === 'VFO FT confirmed')
           return
         }
-        const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !t.status_options?.startsWith('auto_'))
+        const tasks = visiblePhaseTasks(phase, gateStatus)
         const allDone = tasks.length === 0 || tasks.every(t => prog[t.id]?.status)
         expandState[phase.id] = !allDone
       })
@@ -369,7 +389,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
   }
 
   function getPhaseState(phase) {
-    const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !t.status_options?.startsWith('auto_'))
+    const tasks = visiblePhaseTasks(phase, computeGateStatus(phases, progress))
     if (tasks.length === 0) return 'done'
     if (tasks.every(t => progress[t.id]?.status)) return 'done'
     if (tasks.some(t => progress[t.id]?.status)) return 'active'
@@ -410,8 +430,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
   phases.forEach(phase => {
     if (phase.name.includes('VFO-Associate') || phase.name.includes('VFO-FT Accountant')) return
     if (phase.name === 'Accountant Meeting 3' && gateStatus !== 'Yes') return
-    let counted = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !t.status_options?.startsWith('auto_'))
-    if (phase.name === 'Accountant Meeting 2' && gateStatus !== 'No') counted = counted.filter(t => t.name !== 'Accountant decision confirmation email')
+    const counted = visiblePhaseTasks(phase, gateStatus)
     heroTotalTasks += counted.length
     heroDoneTasks += counted.filter(t => progress[t.id]?.status).length
   })
@@ -520,8 +539,8 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
 
         const isExpanded = expanded[phase.id]
         const tasks = phase.program_client_tasks || []
-        const nonAutoTasks = tasks.filter(t => t.status_options !== 'auto' && !t.status_options?.startsWith('auto_'))
-        const doneTasks = nonAutoTasks.filter(t => progress[t.id]?.status).length
+        const visibleTasks = visiblePhaseTasks(phase, gateStatus)
+        const doneTasks = visibleTasks.filter(t => progress[t.id]?.status).length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
         const titleColor = 'var(--vfo-heading)'
@@ -541,7 +560,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
                       : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>)
                   : <>
                       {state === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
-                      {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{nonAutoTasks.length}</span>}
+                      {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {doneTasks}/{visibleTasks.length}</span>}
                       {state === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>}
                     </>
                 }

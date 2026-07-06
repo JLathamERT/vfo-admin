@@ -1090,7 +1090,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
 
     if (task.status_options === 'tax_implement_decision') {
       const implDecision = livePlan?.implementation_decision
-      const decisionColor = implDecision === 'Proceed' ? '#1b9254' : implDecision === 'Not Implementing' ? '#e74c3c' : implDecision === 'Undecided' ? '#e06717' : 'var(--vfo-muted)'
+      const decisionColor = implDecision === 'Proceed' ? '#1b9254' : implDecision === 'Not Implementing' ? '#e74c3c' : implDecision === 'Undecided' ? '#1b9254' : 'var(--vfo-muted)'
       const decisionLabel = implDecision === 'Undecided' ? 'Email sent - awaiting client decision' : implDecision === 'Proceed' ? 'Proceed with Implementation' : implDecision || ''
 
       async function handleSend() {

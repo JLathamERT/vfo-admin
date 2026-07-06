@@ -64,7 +64,7 @@ Built and deployed as a static site to GitHub Pages at `https://jlathamert.githu
 | Initial load | `callApi('load_data')` — populates `allExperts`, `allMembers`, `allExclusionMap`, `ecoMap` (the `ciqMap` was removed 2026-07-01 with specialist CIQ topics, gotcha #168) |
 | Header | line 198-220: hover-style title, `NotificationBell`, session name, conditional Admin Editor (superadmin only), Settings, Sign Out |
 | Nav model | Four `NavDropdown` components: **Advisors**, **Accountants**, **Specialists**, **Automation**, plus a plain **Payments** tab button — **Automation** AND **Payments** render ONLY when `session.is_superadmin` (Jake-only lock; non-superadmin admins don't see them, and persisted-tab-restore + deep-link guards block reaching them). The **Payments** tab (added 2026-06-16) mounts `AllPaymentsTab` — the admin GLOBAL Payments page. |
-| Active tab/section state | tracked in both React state AND `sessionStorage` (keys `adminActiveTab`, `adminMembersSection`, etc.) so refresh preserves location |
+| Active tab/section state | tracked in both React state AND `sessionStorage` (keys `adminActiveTab`, `adminMembersSection`, etc.) so refresh preserves location. As of 2026-07-06 the SAME pattern covers the Member (`memberActiveTab`) and Specialist (`specialistActiveTab`) portals (Client portal already had `clientActiveTab`), and `ClientDetail` persists via the URL instead (`?program=&tab=` self-heal — gotcha #182). The title/logo click clears `adminActiveTab` so "home" survives a reload |
 | Body routing | `activeTab === 'specialists'` → SpecialistsPanel; `'advisors'`/`'accountants'` → MembersPanel (which early-returns `MemberKpiPanel` for the `advisor_kpis`/`accountant_kpis` sections); `'automation' && automationSection === 'map1_pipeline'` → AutomationPanel; `'automation' && automationSection === 'email_templates'` → EmailTemplatesPanel; `'payments' && is_superadmin` → AllPaymentsTab (added 2026-06-16) |
 
 **Advisors dropdown items:**
@@ -189,7 +189,9 @@ A **dual-mode** page rendered by both `/admin/client/:clientId` and `/member/cli
 | Aspect | Detail |
 |---|---|
 | Auth check | line 59: `!session` → `/admin/login` (see [04-auth-and-sessions.md](04-auth-and-sessions.md) for inconsistency note — should branch on isMember) |
-| Initial load (lines 63-78) | parallel: `msm_load_client_home({client_id, enrollment_id})`, `load_data`. Then sequential admin-only: `load_client_notes` |
+| Initial load (lines 63-78) | parallel: `msm_load_client_home({client_id, enrollment_id, program_id})` (enrollment_id from `location.state`, program_id from `location.state` or `?program=`), `load_data`. Then sequential admin-only: `load_client_notes` |
+| Reload persistence (2026-07-06) | once `program` resolves, an effect writes `?program=<id>&tab=<activeTab>` via `window.history.replaceState` — deliberately NOT `navigate()`/`setSearchParams()`, so react-router never observes it (no re-loads, no history entries). A stale `?tab=` from another program resets to `home` via `validTabsForProgram()`. Without this, a browser reload lost `location.state` and the backend defaulted to Holistic — gotcha #182 |
+| Top-left wordmark | lands on a CLEAN portal home (2026-07-06): admin clears `adminActiveTab` + `adminOpenView` then `/admin` (dashboard grid, not the remembered member profile); member sets `memberActiveTab='profile'` then `/member` |
 | Tabs | branched on `program?.name`: |
 |  | • Partnership Fast Track → "PFT Engagement Process" only |
 |  | • VFO Tax Planning → "Tax Priorities" only |
