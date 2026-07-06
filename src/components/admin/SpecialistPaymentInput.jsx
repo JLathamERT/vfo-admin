@@ -71,6 +71,7 @@ let lineSeq = 1
 
 export default function SpecialistPaymentInput({ allExperts = [], allMembers = [], onSent }) {
   const [expertKey, setExpertKey] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('link')
   const [lines, setLines] = useState([])
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState(null)
@@ -157,11 +158,12 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
             vfos_share: l.vfos_share, member_share: l.member_share, deals: l.deals,
           }
         }),
+        payment_method: paymentMethod,
       }
       const res = await callApi('specialist_revenue_send_request', payload)
       if (res?.error) { setError(res.error); return }
       setResult(res)
-      setLines([]); setExpertKey('')
+      setLines([]); setExpertKey(''); setPaymentMethod('link')
       onSent?.(res)
     } catch (e) {
       setError(e?.message || 'Failed to send payment request')
@@ -187,7 +189,9 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
       {result && (
         <div style={{ ...card, borderColor: '#bbf7d0', background: '#f0fdf4' }}>
           <div style={{ fontSize: '14px', fontWeight: 700, color: '#166534', marginBottom: '4px' }}>Payment request created{result.sandbox ? ' (sandbox)' : ''}</div>
-          <div style={{ fontSize: '13px', color: '#166534' }}>A {money(result.gross_amount)} payment request was drafted to <strong>{result.to_email}</strong>. Review &amp; send it from the Gmail drafts folder. Track its status in Accounting → VFO Specialist Revenue.</div>
+          <div style={{ fontSize: '13px', color: '#166534' }}>{result.payment_method === 'bank_transfer'
+            ? <>A {money(result.gross_amount)} payment request was drafted to <strong>{result.to_email}</strong> containing the specialist's unique bank details (no link) to push the transfer from their own bank. Review &amp; send it from the Gmail drafts folder. Track its status in Accounting → VFO Specialist Revenue.</>
+            : <>A {money(result.gross_amount)} payment request was drafted to <strong>{result.to_email}</strong>. Review &amp; send it from the Gmail drafts folder. Track its status in Accounting → VFO Specialist Revenue.</>}</div>
         </div>
       )}
       {error && (
@@ -203,6 +207,29 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
         {selectedExpert && !selectedExpert.email && (
           <div style={{ marginTop: '10px', fontSize: '12px', color: '#b45309' }}>This specialist has no email on file — add one in their profile before sending a request.</div>
         )}
+      </div>
+
+      {/* Payment method */}
+      <div style={card}>
+        <div style={{ ...colLabel, marginBottom: '10px' }}>Payment method</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          {[
+            { key: 'link', title: 'ACH debit — send payment link', desc: 'Specialist gets an email with a secure Stripe link and authorizes the debit.' },
+            { key: 'bank_transfer', title: 'Bank transfer — send account details', desc: 'Specialist gets unique account and routing numbers and pushes the funds from their own bank.' },
+          ].map(opt => {
+            const active = paymentMethod === opt.key
+            return (
+              <button key={opt.key} type="button" onClick={() => setPaymentMethod(opt.key)}
+                style={{ textAlign: 'left', padding: '14px 16px', borderRadius: '10px', border: active ? `2px solid ${BLUE}` : '1px solid var(--vfo-border-strong)', background: active ? 'var(--vfo-tint)' : 'var(--vfo-card)', cursor: 'pointer', fontFamily: 'Inter, sans-serif', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                <span style={{ marginTop: '2px', width: '16px', height: '16px', borderRadius: '50%', border: active ? `5px solid ${BLUE}` : '2px solid var(--vfo-border-strong)', boxSizing: 'border-box', flexShrink: 0 }} />
+                <span>
+                  <span style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--vfo-ink)' }}>{opt.title}</span>
+                  <span style={{ display: 'block', fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '3px', lineHeight: 1.4 }}>{opt.desc}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* Recipient lines */}
