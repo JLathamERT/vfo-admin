@@ -38,6 +38,30 @@ export function StatusPill({ label, color }) {
   )
 }
 
+// A labelled value with a small Copy button (bank-transfer details).
+function CopyField({ label, value }) {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    navigator.clipboard.writeText(String(value || ''))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <div>
+      <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)', marginBottom: '4px' }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: 600 }}>{value || '—'}</span>
+        {value && (
+          <button type="button" onClick={copy}
+            style={{ padding: '2px 9px', borderRadius: '6px', border: `1px solid ${BLUE}`, background: 'var(--vfo-card)', color: BLUE, fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // One specialist request row: header (name + totals + status) → expand → recipient table.
 // `actions` is an optional render-prop ({ request }) => node shown in the expanded panel
 // (used by the Automation tracker for the Retry button).
@@ -71,7 +95,12 @@ export function RequestRow({ request, actions }) {
             <div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>gross</div>
           </div>
         </div>
-        <div style={{ width: '160px', textAlign: 'right' }}><StatusPill label={req.label} color={req.color} /></div>
+        <div style={{ width: '160px', textAlign: 'right' }}>
+          <StatusPill label={req.label} color={req.color} />
+          {request.payment_status === 'requested' && Number(request.bank_transfer_amount_received) > 0 && (
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#e06717', marginTop: '4px' }}>{money(request.bank_transfer_amount_received)} received so far</div>
+          )}
+        </div>
       </div>
 
       {open && (
@@ -99,8 +128,24 @@ export function RequestRow({ request, actions }) {
             <div>{money(request.total_vfos_share)}</div>
             <div>{money(request.total_member_share)}</div>
             <div>{request.total_deals || 0}</div>
-            <div style={{ textAlign: 'right', color: 'var(--vfo-muted)', fontWeight: 600 }}>{request.payment_method_type ? `${request.payment_method_type}${request.acct_last4 ? ` ••${request.acct_last4}` : ''}` : ''}</div>
+            <div style={{ textAlign: 'right', color: 'var(--vfo-muted)', fontWeight: 600 }}>{request.payment_method_type ? `${request.payment_method_type === 'bank_transfer' ? 'bank transfer' : request.payment_method_type}${request.acct_last4 ? ` ••${request.acct_last4}` : ''}` : ''}</div>
           </div>
+          {request.payment_method_type === 'bank_transfer' && request.bank_transfer_account_number && (
+            <div style={{ marginTop: '14px', padding: '14px 16px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '10px' }}>
+              <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)', marginBottom: '12px' }}>Bank transfer details</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+                <CopyField label="Bank name" value={request.bank_transfer_bank_name} />
+                <CopyField label="Routing number" value={request.bank_transfer_routing_number} />
+                <CopyField label="Account number" value={request.bank_transfer_account_number} />
+                <CopyField label="Reference" value={request.bank_transfer_reference} />
+              </div>
+              {request.payment_status === 'requested' && Number(request.bank_transfer_amount_received) > 0 && (
+                <div style={{ marginTop: '12px', fontSize: '12px', fontWeight: 600, color: '#e06717' }}>
+                  Partially funded — {money(request.bank_transfer_amount_received)} of {money(request.gross_amount)} received. The request stays open until the remainder arrives.
+                </div>
+              )}
+            </div>
+          )}
           {actions && <div style={{ marginTop: '14px' }}>{actions({ request })}</div>}
         </div>
       )}
