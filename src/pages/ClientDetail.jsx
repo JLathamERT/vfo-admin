@@ -118,6 +118,32 @@ export default function ClientDetail() {
     } catch (err) { console.error(err) }
   }
 
+  // Which tabs are valid for the resolved program (mirror the render conditions).
+  function validTabsForProgram(prog) {
+    const profile = isMember ? ['home'] : ['home', 'details', 'vault', 'payments', 'settings', ...(session?.is_superadmin ? ['continuation'] : [])]
+    if (prog?.name === 'Partnership Fast Track') return [...profile, 'pft']
+    if (prog?.name === 'VFO Tax Planning') return [...profile, 'tax']
+    return [...profile, 'map1', 'regular', 'tax', 'pip']
+  }
+
+  // Keep ?program= and ?tab= in the URL so a browser reload (which loses
+  // location.state) resolves the same program + tab instead of defaulting to
+  // Holistic. Written via history.replaceState so react-router never observes
+  // it — the data-load effect keys off [clientId] only, so this cannot re-fire
+  // it or push history entries. Also self-corrects a stale ?tab= carried over
+  // from a different program.
+  useEffect(() => {
+    if (!program?.id) return
+    if (activeTab !== 'home' && !validTabsForProgram(program).includes(activeTab)) {
+      setActiveTab('home')
+      return
+    }
+    const params = new URLSearchParams(window.location.search)
+    params.set('program', String(program.id))
+    params.set('tab', activeTab)
+    window.history.replaceState(null, '', window.location.pathname + '?' + params.toString())
+  }, [program?.id, activeTab])
+
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
   const tabStyle = (active) => ({ padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' })
   const statusColors2 = { active: '#1b9254', pending: '#e06717', lost: '#e74c3c' }
@@ -125,7 +151,16 @@ export default function ClientDetail() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--vfo-page)', color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif' }}>
       <div style={{ background: 'linear-gradient(90deg, #002973 0%, #125ecc 100%)', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '58px', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(0,41,115,0.25)' }}>
-        <VfoWordmark size={17} light onClick={() => navigate(isMember ? '/member' : '/admin')} />
+        <VfoWordmark size={17} light onClick={() => {
+          if (isMember) {
+            sessionStorage.setItem('memberActiveTab', 'profile')
+            navigate('/member')
+          } else {
+            sessionStorage.removeItem('adminActiveTab')
+            sessionStorage.removeItem('adminOpenView')
+            navigate('/admin')
+          }
+        }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* Mirror the AdminPortal header for admin sessions so the top bar
               stays identical on the client-detail route (bell + Settings /

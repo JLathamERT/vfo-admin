@@ -16,7 +16,7 @@ export default function SpecialistPortal() {
   const navigate = useNavigate()
   const session = getSession()
   usePortalTheme()
-  const [tab, setTab] = useState('showroom')
+  const [tab, setTab] = useState(() => sessionStorage.getItem('specialistActiveTab') || 'showroom')
   const [unread, setUnread] = useState(0)
   const [showroom, setShowroom] = useState(null)
 
@@ -25,6 +25,8 @@ export default function SpecialistPortal() {
     refreshUnread()
     loadShowroom()
   }, [])
+
+  useEffect(() => { sessionStorage.setItem('specialistActiveTab', tab) }, [tab])
 
   async function refreshUnread() {
     try { const d = await callApi('specialist_shared_unread_count', {}); setUnread(d.unread || 0) }

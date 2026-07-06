@@ -218,7 +218,7 @@ export default function AdminPortal() {
   }
 
   function signOut() { clearSession(); navigate('/') }
-  function handleTitleClick() { setShowEditor(false); setShowSettings(false); setActiveTab(null) }
+  function handleTitleClick() { setShowEditor(false); setShowSettings(false); setActiveTab(null); sessionStorage.removeItem('adminActiveTab') }
 
   function selectAdvisorsSection(key) {
     setActiveTab('advisors')

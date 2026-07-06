@@ -21,7 +21,7 @@ export default function MemberPortal() {
   const navigate = useNavigate()
   const session = getSession()
   usePortalTheme()
-  const [activeTab, setActiveTab] = useState('profile')
+  const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem('memberActiveTab') || 'profile')
   const [showSettings, setShowSettings] = useState(false)
   const [memberData, setMemberData] = useState(null)
   const [allExperts, setAllExperts] = useState([])
@@ -35,6 +35,11 @@ export default function MemberPortal() {
     if (!session || session.role !== 'member') { navigate('/member/login'); return }
     loadData()
   }, [])
+
+  useEffect(() => {
+    if (activeTab) sessionStorage.setItem('memberActiveTab', activeTab)
+    else sessionStorage.removeItem('memberActiveTab')
+  }, [activeTab])
 
   async function loadData() {
     try {
