@@ -357,6 +357,12 @@ function MemberDirectoryView({
                 </span>
                 <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', width: '160px', flexShrink: 0 }}>{m.member_type || '—'}</span>
                 {showModel && <span style={{ fontSize: '12px', color: m.advisor_model === 'New Model' ? '#0095ff' : 'var(--vfo-muted)' }}>{m.advisor_model || '—'}</span>}
+                {(m.paused || m.suspended) && (
+                  <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: '12px', flexShrink: 0 }}>
+                    {m.paused && <span style={{ fontSize: '12px', fontWeight: 700, color: '#e06717' }}>Paused</span>}
+                    {m.suspended && <span style={{ fontSize: '12px', fontWeight: 700, color: '#e74c3c' }}>Suspended</span>}
+                  </span>
+                )}
               </div>
             ))}
           </div>
