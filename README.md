@@ -2,13 +2,13 @@
 
 Frontend for VFO Services Portal — admin and member portals + public-token landing pages (`/decide`, `/pay`).
 
-Vite + React 18 + react-router-dom v6, deployed as a static site to GitHub Pages at https://jlathamert.github.io/vfo-portal/.
+Vite + React 18 + react-router-dom v6, deployed as a static site to GitHub Pages at https://vfoportal.com/.
 
 The backend is a separate repo: [`vfo-edge-functions`](https://github.com/JLathamERT/vfo-edge-functions).
 
 ## Quick links
 
-- **Live portal:** https://jlathamert.github.io/vfo-portal/
+- **Live portal:** https://vfoportal.com/
 - **Architecture docs:** [`docs/`](docs/) — system map, frontend shell, edge functions, action catalog, auth, integrations, tables, flows
 - **Backend docs:** [`docs/architecture/03-edge-functions.md`](docs/architecture/03-edge-functions.md)
 
@@ -19,7 +19,7 @@ npm install
 npm run dev
 ```
 
-Opens at http://localhost:5173/vfo-portal/.
+Opens at http://localhost:5173/.
 
 By default, local dev hits the **production** Supabase function. To point at a locally-running edge function:
 

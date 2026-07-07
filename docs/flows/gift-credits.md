@@ -16,8 +16,8 @@ Creates a Stripe Checkout Session:
 
 ```
 mode: payment
-success_url: https://jlathamert.github.io/vfo-portal/?gc_success=1
-cancel_url:  https://jlathamert.github.io/vfo-portal/
+success_url: https://vfoportal.com/?gc_success=1
+cancel_url:  https://vfoportal.com/
 line_items[0]:
   price_data.currency: usd
   price_data.unit_amount: <price * 100>

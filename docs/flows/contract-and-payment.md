@@ -68,7 +68,7 @@ Each arrow is implemented either as:
 1. UPDATEs `pipeline_map1` with priorities, undecided reasons, lite/core/max costs, extra_cc.
 2. Generates a fresh `c15_token` (32-byte hex) and saves to row.
 3. Loads `email_templates` row `'PCADMIN_followup|Undecided'`.
-4. Builds HTML buttons that link to `https://jlathamert.github.io/vfo-portal/decide?token=<c15_token>&clientRef=...&decision=Yes&serviceLevel=<Lite|Core|Max>` (and a No, and an ExtraMeeting button). Max button is suppressed when `form_data.maxNA === true`.
+4. Builds HTML buttons that link to `https://vfoportal.com/decide?token=<c15_token>&clientRef=...&decision=Yes&serviceLevel=<Lite|Core|Max>` (and a No, and an ExtraMeeting button). Max button is suppressed when `form_data.maxNA === true`.
 5. **Fetches three PDFs from the public `map1-agreements` Supabase Storage bucket** — `proactive-lite.pdf`, `proactive-core.pdf`, and (when `maxNA` is falsy) `proactive-max.pdf` — base64-encodes each as a `multipart/mixed` part. The Gmail draft is built as multipart with the email body as the first part and each PDF attached. CC member + PF; BCC `aanderson` + `platham`.
 6. Marks `c14_email_sent='Yes'` AND `c14_email_sent_at=now()`. The `_sent_at` write only happens on the Undecided branch — see [tables/pipeline.md](../tables/pipeline.md) and the reminder-ladder section below.
 
@@ -225,7 +225,7 @@ BoldSign fires `event.eventType='Signed'` with CEO email AND eventually `event.e
 **Then:** `automation_CONTRACT_paymentemail` ([admin-api:939-1050](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)):
 1. Validates `checkout_token`.
 2. Loads template `'CONTRACT_paymentemail|Yes'`.
-3. Substitutes `[PAYMENT_LINK]` with `<a href="https://jlathamert.github.io/vfo-portal/pay?token=<checkout_token>">Complete Payment</a>`.
+3. Substitutes `[PAYMENT_LINK]` with `<a href="https://vfoportal.com/pay?token=<checkout_token>">Complete Payment</a>`.
 4. Creates Gmail draft to client.
 
 **Tables written:** `pipeline_map1.stripe_customer_id`, `.checkout_token`.

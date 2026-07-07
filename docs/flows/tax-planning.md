@@ -101,7 +101,7 @@ A scheduled, cron-drafted step that sits right after "Tax 3 Confirmation Email" 
 1. UPDATEs plan with: `tax_decision='Undecided'`, `potential_tax_savings`, `initial_retainer_quoted`, `tax_token` (32-byte hex generated if not already present), `presentation_link`, `meeting_notes`, `extra_cc`, `sandbox`.
 2. Fetches the static **Tax Planning Engagement Agreement PDF** from Supabase Storage public URL `https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/tax-agreements/tax-planning.pdf` (no auth required). When `member_paying_on_behalf=true` it instead uses the member-paid variant `tax-agreements/tax-planning-member.pdf` (not yet uploaded by the user → code falls back to `tax-planning.pdf` if missing).
 3. Loads `email_templates` row `'TAX_decision_undecided'`.
-4. Builds `[BUTTONS]` HTML — 3 buttons (Yes / No / Extra Meeting) pointing to `https://jlathamert.github.io/vfo-portal/tax-decide?token=<tax_token>&decision=<choice>`. Same green/red/blue styling as MAP1's `[BUTTONS]`.
+4. Builds `[BUTTONS]` HTML — 3 buttons (Yes / No / Extra Meeting) pointing to `https://vfoportal.com/tax-decide?token=<tax_token>&decision=<choice>`. Same green/red/blue styling as MAP1's `[BUTTONS]`.
 5. Substitutes `[Client Name]`, `[Client First]`, `[Meeting Attendees]` (= "[PF Name] and [Member Name]"), `[Member Name]`, `[PF Name]`, `[TAX_SAVINGS]`, `[INITIAL_RETAINER]`, `[BUTTONS]`, `[PRESENTATION_LINK]`.
 6. Builds **multipart MIME** Gmail draft to client with the PDF attached as `Tax-Planning-Engagement-Agreement.pdf`.
    - MIME headers built without empty-string CC/BCC lines (see "MIME-empty-line bug" gotcha).
@@ -270,7 +270,7 @@ BoldSign fires `event.eventType='Signed'` with CEO email AND eventually `event.e
 
 **Then:** [`automation_TAX_paymentemail`](../../supabase/functions/vfo-admin-api/actions/tax/payment-email.ts):
 1. Loads template `'TAX_paymentemail|Yes'`.
-2. Substitutes `[PAYMENT_LINK]` with `<a href="https://jlathamert.github.io/vfo-portal/tax-pay?token=<checkout_token>">Complete Payment</a>`.
+2. Substitutes `[PAYMENT_LINK]` with `<a href="https://vfoportal.com/tax-pay?token=<checkout_token>">Complete Payment</a>`.
 3. Creates Gmail draft to client (To: client only — no CC/BCC, matching MAP1).
 
 **Tables written:** `client_tax_plans.stripe_customer_id`, `.checkout_token`.
@@ -383,7 +383,7 @@ Visible when `payment_method_type='check'` AND `retainer_status='check_pending'`
 7. Loads template `'TAX_invoicereceipt_email|retainer'`.
 8. Re-fetches the PDFs from Drive (`?alt=media`) as base64.
 9. Builds **multipart MIME** Gmail draft with both PDFs attached. CC member + PF + `tracy@vfo-services.com`. **Critical: CC/BCC lines only pushed if non-empty — empty strings in the headers array breaks Gmail parsing (first empty line is the body separator).**
-   - **`[PORTAL_SETUP]` "create your account" button** (added in the presentation-step session, mirroring MAP 1's first-payment email): mints `clients.client_setup_token` if null, then replaces the template's trailing `[PORTAL_SETUP]` with a "Set up your secure portal login" button → `https://jlathamert.github.io/vfo-portal/client-setup?token=<client_setup_token>`. The member-paid variant (id 137, email goes To the member) addresses the button to the client by first name. Same `/client-setup` page + token column as MAP 1 — no new route.
+   - **`[PORTAL_SETUP]` "create your account" button** (added in the presentation-step session, mirroring MAP 1's first-payment email): mints `clients.client_setup_token` if null, then replaces the template's trailing `[PORTAL_SETUP]` with a "Set up your secure portal login" button → `https://vfoportal.com/client-setup?token=<client_setup_token>`. The member-paid variant (id 137, email goes To the member) addresses the button to the client by first name. Same `/client-setup` page + token column as MAP 1 — no new route.
 10. UPDATEs `retainer_invoice_email_sent=true`, `retainer_receipt_status='Sent'`.
 
 **Tables read:** `client_tax_plans`, `clients` (incl. `client_setup_token`), `members`, `pipeline_sandbox_config`, `email_templates`, `document_numbers`.

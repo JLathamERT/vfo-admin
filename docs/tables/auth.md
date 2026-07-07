@@ -112,4 +112,4 @@ Brute-force throttle ledger for all five login handlers (H1, added 2026-06-18). 
 2. Edge function fetches the row by email, verifies the passcode against the salted `passcode_hash` (PBKDF2) via `verifyPasscode()`, inserts a row into `admin_sessions` with a generated token + **8h** expiry, returns the token.
 3. Frontend stashes `{token, email, name, role, ...}` in `sessionStorage` under key `vfo_session` ([api.js:5](src/lib/api.js)).
 4. Every subsequent `callApi(action, payload)` includes `token` in the request body.
-5. Edge function does its own session check on each action. On 401, `callApi` clears the session and hard-redirects to `/vfo-portal/` ([api.js:17-21](src/lib/api.js)).
+5. Edge function does its own session check on each action. On 401, `callApi` clears the session and hard-redirects to `/` ([api.js:17-21](src/lib/api.js)).

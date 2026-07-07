@@ -160,7 +160,7 @@ Additionally, `actions/msm/update-client.ts` now **ignores `status` and `assigne
 | [ClientPortal.jsx](src/pages/ClientPortal.jsx) (new) | `!session \|\| session.role !== 'client'` | `navigate('/client/login')` |
 | [ClientDetail.jsx:59](src/pages/ClientDetail.jsx) | `!session` | `navigate('/admin/login?next=' + encodeURIComponent(location.pathname + location.search))` (always to admin login, even when arriving from /member route — see flag below) |
 
-> **Post-login redirect**: `AdminLogin.jsx` reads `?next=` from `window.location.search` after a successful sign-in and navigates there if it starts with `/admin/`. Routes outside that prefix fall back to `/admin` (open-redirect safety). The `?next=` value uses the basename-relative path from react-router's `useLocation()` — NOT `window.location.pathname` (which includes Vite's `/vfo-portal/` basename and would fail the prefix check). Pattern was added so admins clicking deep-link admin URLs (e.g. notification-bell links, the Tax 4 Tim-nudge `Open client` button) land on the intended page rather than the admin home after login.
+> **Post-login redirect**: `AdminLogin.jsx` reads `?next=` from `window.location.search` after a successful sign-in and navigates there if it starts with `/admin/`. Routes outside that prefix fall back to `/admin` (open-redirect safety). The `?next=` value uses the basename-relative path from react-router's `useLocation()` — NOT `window.location.pathname` (the Vite basename was `/vfo-portal/` before the custom-domain switch and is now `/`; `useLocation()` remains the correct source for the `/admin/` prefix check). Pattern was added so admins clicking deep-link admin URLs (e.g. notification-bell links, the Tax 4 Tim-nudge `Open client` button) land on the intended page rather than the admin home after login.
 
 > **Inconsistency 3:** [ClientDetail.jsx:59](src/pages/ClientDetail.jsx) redirects to `/admin/login` even when the route is `/member/client/:clientId`. A logged-out member hitting a member URL would land on the admin login. The sign-out button at line 106 *does* branch correctly on `isMember`, but the missing-session redirect does not. (The `?next=` preservation works for both flows; only the destination login URL is admin-biased.)
 
@@ -177,12 +177,12 @@ Logout is **client-only** — there is no admin-api action to delete the `admin_
 [src/lib/api.js](src/lib/api.js): on a 401 response — **except for login actions** (the `LOGIN_ACTIONS` allowlist: `admin_login`/`member_login`/`client_login`/`specialist_login`/`login`):
 ```
 clearSession()
-window.location.href = window.location.origin + '/vfo-portal/'
+window.location.href = window.location.origin + '/'
 ```
 
 A **401 on a login action** instead `throw`s the server error (`data.error`, e.g. "Invalid credentials") so the login page shows it inline rather than bouncing the user to portal selection (added 2026-06-18, gotcha #144) — this is also what surfaces the H1 "Too many login attempts" **429** on the login screen. Genuine session-expiry 401s on non-login actions still clear the session + redirect.
 
-The `'/vfo-portal/'` path is the gh-pages base path. On localhost dev (Vite at port 5173), this redirect lands on `http://localhost:5173/vfo-portal/` which doesn't exist — flagged for the dev-environment doc. In production it resolves correctly to `https://jlathamert.github.io/vfo-portal/`.
+The `'/'` path is the site root — since the custom-domain switch the app is served at the domain root (`https://vfoportal.com/`), not a `/vfo-portal/` subpath. On localhost dev (Vite at port 5173) it resolves to `http://localhost:5173/`.
 
 ## Passcode hashing
 

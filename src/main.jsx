@@ -23,12 +23,12 @@ Sentry.init({
 const redirect = sessionStorage.getItem('vfo_redirect')
 if (redirect) {
   sessionStorage.removeItem('vfo_redirect')
-  window.history.replaceState(null, '', '/vfo-portal/' + redirect)
+  window.history.replaceState(null, '', '/' + redirect)
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <ErrorBoundary>
-    <BrowserRouter basename="/vfo-portal">
+    <BrowserRouter basename="/">
       <App />
     </BrowserRouter>
   </ErrorBoundary>

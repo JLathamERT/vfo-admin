@@ -9,7 +9,7 @@ The top-level picture. Two repos, one Supabase project, four external integratio
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │                            BROWSER (gh-pages SPA)                                │
-│                  https://jlathamert.github.io/vfo-portal/                        │
+│                  https://vfoportal.com/                        │
 │                                                                                  │
 │   /          /admin       /admin/login   /admin/client/:id   /decide?token=...   │
 │              /member      /member/login  /member/client/:id  /pay?token=...      │
@@ -94,7 +94,7 @@ The top-level picture. Two repos, one Supabase project, four external integratio
 
 | Component | Runtime | Where it runs |
 |---|---|---|
-| SPA | Browser (Vite-built static bundle) | `https://jlathamert.github.io/vfo-portal/` |
+| SPA | Browser (Vite-built static bundle) | `https://vfoportal.com/` |
 | `vfo-admin-api` | Deno 2 (Supabase Edge Runtime) | Supabase project `ejpsprsmhpufwogbmxjv`, region `us-east-2` |
 | `boldsign-webhook` | same | same |
 | Postgres | Supabase Postgres 17 | same project |
