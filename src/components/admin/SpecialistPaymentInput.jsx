@@ -231,9 +231,7 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
       {result && !result.pending && (
         <div style={{ ...card, borderColor: '#bbf7d0', background: '#f0fdf4' }}>
           <div style={{ fontSize: '14px', fontWeight: 700, color: '#166534', marginBottom: '4px' }}>Payment request created{result.sandbox ? ' (sandbox)' : ''}</div>
-          <div style={{ fontSize: '13px', color: '#166534' }}>{result.payment_method === 'bank_transfer'
-            ? <>A {money(result.gross_amount)} payment request was drafted to <strong>{result.to_email}</strong> containing the specialist's unique bank details (no link) to push the transfer from their own bank. Review &amp; send it from the Gmail drafts folder. Track its status in Accounting → VFO Specialist Revenue.</>
-            : <>A {money(result.gross_amount)} payment request was drafted to <strong>{result.to_email}</strong>. Review &amp; send it from the Gmail drafts folder. Track its status in Accounting → VFO Specialist Revenue.</>}</div>
+          <div style={{ fontSize: '13px', color: '#166534' }}>A {money(result.gross_amount)} payment request was drafted to <strong>{result.to_email}</strong>. Review &amp; send it from the Gmail drafts folder. Track its status in Accounting → VFO Specialist Revenue.</div>
         </div>
       )}
       {error && (

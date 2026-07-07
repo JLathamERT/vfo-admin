@@ -230,9 +230,7 @@ const TEMPLATE_META = {
   ],
   'VFO_SPECIALIST_REVENUE': [
     ['SPECREV_payment_request', 'The revenue bill — asks the specialist to pay their revenue amount', 'To: Specialist'],
-    ['SPECREV_payment_request_banktransfer', 'Asks the specialist to pay by pushing a bank transfer (unique account details, no link)', 'To: Specialist'],
     ['SPECREV_payment_reminder', '48-hour reminder — the revenue bill hasn’t been paid', 'To: Specialist'],
-    ['SPECREV_payment_reminder_banktransfer', 'Nudges the specialist who has not yet sent their bank transfer', 'To: Specialist'],
     ['SPECREV_payment_confirmation', 'The specialist paid — confirmation', 'To: Specialist'],
     ['SPECREV_invoice_receipt_email', 'Funds cleared — invoice and receipt PDFs attached', 'To: Specialist'],
     ['SPECREV_revenue_share_confirmation', 'A recipient’s share was transferred — confirmation', 'To: Recipient (member / specialist)'],
