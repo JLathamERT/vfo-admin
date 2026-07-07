@@ -44,7 +44,7 @@ export async function callApi(action, payload = {}, retries = 3) {
           throw new Error(data.error || 'Invalid credentials')
         }
         clearSession()
-        window.location.href = window.location.origin + '/vfo-portal/'
+        window.location.href = window.location.origin + '/'
         throw new Error('Session expired — please log in again.')
       }
       if (!res.ok) throw new Error(data.error || 'Request failed')
