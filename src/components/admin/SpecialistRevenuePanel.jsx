@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { callApi } from '../../lib/api'
-import { NAVY, money, requestDate, RequestRow } from './specialistRevenueShared'
+import { NAVY, money, requestDate, RequestRow, MarkReceivedButton } from './specialistRevenueShared'
 import SpecialistPaymentInput from './SpecialistPaymentInput'
 import { OnboardingListSkeleton } from '../shared/Skeleton'
 
@@ -50,11 +50,17 @@ export default function SpecialistRevenuePanel({ allExperts = [], allMembers = [
     return true
   }), [requests, year, month])
 
+  // Money totals + the By-member rollup count only requests whose payment has been
+  // received — pending/requested requests are expected money, not real revenue yet.
+  // (The By-specialist list below still shows every request, incl. pending, so you can
+  // mark them received.)
+  const receivedFiltered = useMemo(() => filtered.filter(r => r.payment_status === 'received'), [filtered])
+
   // Member view: every recipient line across ALL specialists in the period, grouped
   // by recipient (so a member's deals are together no matter which specialist billed).
   const memberGroups = useMemo(() => {
     const map = {}
-    for (const r of filtered) {
+    for (const r of receivedFiltered) {
       const d = requestDate(r)
       for (const l of (r.lines || [])) {
         const key = l.member_number || (l.recipient_type === 'specialist' ? `spec:${l.expert_id}` : l.recipient_name) || 'unknown'
@@ -66,11 +72,11 @@ export default function SpecialistRevenuePanel({ allExperts = [], allMembers = [
       }
     }
     return Object.values(map).sort((a, b) => b.member - a.member)
-  }, [filtered])
+  }, [receivedFiltered])
 
-  const periodGross = filtered.reduce((s, r) => s + (Number(r.gross_amount) || 0), 0)
-  const periodMember = filtered.reduce((s, r) => s + (Number(r.total_member_share) || 0), 0)
-  const periodVfos = filtered.reduce((s, r) => s + (Number(r.total_vfos_share) || 0), 0)
+  const periodGross = receivedFiltered.reduce((s, r) => s + (Number(r.gross_amount) || 0), 0)
+  const periodMember = receivedFiltered.reduce((s, r) => s + (Number(r.total_member_share) || 0), 0)
+  const periodVfos = receivedFiltered.reduce((s, r) => s + (Number(r.total_vfos_share) || 0), 0)
   const periodLabel = month >= 0 ? `${MONTHS[month]} ${year}` : `${year}`
 
   const wrap = { padding: '24px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
@@ -134,7 +140,11 @@ export default function SpecialistRevenuePanel({ allExperts = [], allMembers = [
       {!loading && !error && filtered.length === 0 && (
         <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>No specialist payments for this period.</div>
       )}
-      {!loading && !error && filtered.length > 0 && viewMode === 'specialist' && filtered.map(r => <RequestRow key={r.id} request={r} />)}
+      {!loading && !error && filtered.length > 0 && viewMode === 'specialist' && filtered.map(r => (
+        <RequestRow key={r.id} request={r} actions={({ request }) => (
+          request.payment_status === 'pending' ? <MarkReceivedButton request={request} onDone={load} /> : null
+        )} />
+      ))}
       {!loading && !error && filtered.length > 0 && viewMode === 'member' && memberGroups.map(g => <MemberGroupRow key={g.key} group={g} />)}
     </div>
   )
