@@ -136,9 +136,6 @@ export function RequestRow({ request, actions }) {
         </div>
         <div style={{ width: '160px', textAlign: 'right' }}>
           <StatusPill label={req.label} color={req.color} />
-          {request.payment_status === 'requested' && Number(request.bank_transfer_amount_received) > 0 && (
-            <div style={{ fontSize: '11px', fontWeight: 600, color: '#e06717', marginTop: '4px' }}>{money(request.bank_transfer_amount_received)} received so far</div>
-          )}
         </div>
       </div>
 
@@ -169,22 +166,6 @@ export function RequestRow({ request, actions }) {
             <div>{request.total_deals || 0}</div>
             <div style={{ textAlign: 'right', color: 'var(--vfo-muted)', fontWeight: 600 }}>{request.payment_method_type ? `${request.payment_method_type === 'bank_transfer' ? 'bank transfer' : request.payment_method_type}${request.acct_last4 ? ` ••${request.acct_last4}` : ''}` : ''}</div>
           </div>
-          {request.payment_method_type === 'bank_transfer' && request.bank_transfer_account_number && (
-            <div style={{ marginTop: '14px', padding: '14px 16px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '10px' }}>
-              <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)', marginBottom: '12px' }}>Bank transfer details</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
-                <CopyField label="Bank name" value={request.bank_transfer_bank_name} />
-                <CopyField label="Routing number" value={request.bank_transfer_routing_number} />
-                <CopyField label="Account number" value={request.bank_transfer_account_number} />
-                <CopyField label="Reference" value={request.bank_transfer_reference} />
-              </div>
-              {request.payment_status === 'requested' && Number(request.bank_transfer_amount_received) > 0 && (
-                <div style={{ marginTop: '12px', fontSize: '12px', fontWeight: 600, color: '#e06717' }}>
-                  Partially funded — {money(request.bank_transfer_amount_received)} of {money(request.gross_amount)} received. The request stays open until the remainder arrives.
-                </div>
-              )}
-            </div>
-          )}
           {request.payment_status === 'pending' && request.account && (
             <div style={{ marginTop: '14px', padding: '14px 16px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '10px' }}>
               <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)', marginBottom: '12px' }}>House account — give these to the specialist</div>
