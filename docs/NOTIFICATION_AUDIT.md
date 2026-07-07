@@ -20,7 +20,7 @@
   The 24h Tax 4/5 auto-locks and the 14-day advisor/accountant auto-decline are business actions,
   not notifications, and are deliberately NOT editable here.
 
-## Every notification in the system (122 rules, 10 areas)
+## Every notification in the system (121 rules, 10 areas)
 
 ### MAP 1 (14)
 
@@ -165,14 +165,13 @@
 | **Member updated progress** — A member updated the status of a Growth Plan priority (one bell per priority changed). | FYI | Assigned Admin | Member saves accountability progress — instant |
 | **Overdue priority** — A Growth Plan priority passed its due date with no progress. | FYI | Assigned Admin | Daily growth sweep — instant |
 
-### VFO Specialist Revenue (4)
+### VFO Specialist Revenue (3)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
 | **Payment reminder email** — Reminder email to the specialist to pay their VFO Specialist Revenue request. | Reminder email | The specialist (email) | Nightly payout sweep — after **2 day(s)** (editable) |
 | **Specialist still has not paid** — A specialist's revenue payment is still unpaid after the reminder window - asks Tracy to chase. | FYI | Tracy | Nightly payout sweep — after **4 day(s)** (editable) |
 | **Revenue transfer failed (Jake)** — A revenue-share transfer to a member failed; the nightly sweep will retry; auto-clears on success. | **Action required** | Jake | Payout engine transfer failure — instant |
-| **Partial bank-transfer funding received** (`SPECREV_partial_funding_bell`) — A specialist's Bank-transfer revenue request received partial funds; awaiting the remainder before the request flips to received. | FYI | Jake | Stripe `payment_intent.partially_funded` webhook — instant |
 
 ### Payment Failure Alerts (16)
 
