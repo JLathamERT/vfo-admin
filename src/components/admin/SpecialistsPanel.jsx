@@ -584,13 +584,14 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
 // no API calls; Edit Specialist remains the only place changes are made.
 function SpecialistProfileView({ expert, ecos }) {
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '16px' }
-  const cardTitle = { fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '14px' }
+  const cardTitle = { fontSize: '16px', color: 'var(--vfo-heading)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '18px', paddingBottom: '11px', borderBottom: '2px solid var(--vfo-heading)' }
   const fieldLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--vfo-faint)', textTransform: 'uppercase' }
+  const dbHeading = { fontSize: '14px', fontWeight: 800, letterSpacing: '0.4px', color: 'var(--vfo-heading)', textTransform: 'uppercase' }
   const chip = { fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.25)' }
   const longField = (label, value) => value ? (
-    <div style={{ marginBottom: '16px' }}>
-      <div style={fieldLabel}>{label}</div>
-      <div style={{ fontSize: '13.5px', color: 'var(--vfo-ink)', lineHeight: 1.6, marginTop: '6px', whiteSpace: 'pre-wrap' }}>{value}</div>
+    <div style={{ marginBottom: '18px' }}>
+      <div style={dbHeading}>{label}</div>
+      <div style={{ fontSize: '13.5px', color: 'var(--vfo-ink)', lineHeight: 1.6, marginTop: '7px', whiteSpace: 'pre-wrap' }}>{value}</div>
     </div>
   ) : null
 
