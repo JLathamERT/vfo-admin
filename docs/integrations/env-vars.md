@@ -84,9 +84,9 @@ This list is observational, not prescriptive — these values currently live in 
 | `From:` for sendagreement | `actions/pipeline/contract-send-agreement.ts` | `aipc@vfo-services.com` |
 | `MASTER_SHEET_ID` | `actions/pipeline/contract-revshare.ts` | `1PvUEWwTH70OBHabdHPh2SS9U7isITOzHmSd11GoHGJ0` |
 | BoldSign `BrandId` | `actions/pipeline/contract-send-agreement.ts` | `f6b2e092-73a4-438e-b786-ebd20e472732` |
-| Pay-page URL prefix | `actions/pipeline/contract-payment-email.ts`, `contract-stripe-checkout.ts` | `https://jlathamert.github.io/vfo-portal/pay?token=...` |
+| Pay-page URL prefix | `actions/pipeline/contract-payment-email.ts`, `contract-stripe-checkout.ts` | `https://vfoportal.com/pay?token=...` |
 | Stripe success URL | `actions/pipeline/contract-stripe-checkout.ts` | `https://www.vfo-services.com/payment-successful/` |
-| GC success/cancel URLs | `actions/gc/create-checkout.ts` | `https://jlathamert.github.io/vfo-portal/?gc_success=1` and `/` |
+| GC success/cancel URLs | `actions/gc/create-checkout.ts` | `https://vfoportal.com/?gc_success=1` and `/` |
 | Frontend ANON_KEY | [src/lib/api.js:2](src/lib/api.js) | (committed JWT) |
 | Sentry DSN | [src/main.jsx](src/main.jsx) | (committed public ingest-only key — see [sentry.md](sentry.md)) |
 

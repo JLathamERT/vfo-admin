@@ -10,7 +10,7 @@ The frontend is a single Vite + React 18 + react-router-dom v6 SPA. No state lib
 
 **Design system (2026-06-09 light-theme redesign)**: all styling is inline per file (no CSS framework); the only global styles live in [`src/index.css`](src/index.css) (page background, Inter font smoothing, slim scrollbars, button hover/active filters, input focus rings, `.vfo-skeleton` shimmer, and `html{overflow-y:scroll}` to keep the layout from shifting when the scrollbar appears). Two shared chrome components were added: [`src/components/shared/VfoWordmark.jsx`](src/components/shared/VfoWordmark.jsx) (the VFO wordmark, `light` prop for the navy-gradient portal headers) and [`src/components/shared/AuthShell.jsx`](src/components/shared/AuthShell.jsx) (the split-screen layout wrapping all login/setup pages). Conventions: ink `#16264a` body text, navy `#002973` headings, primary `#125ecc`, white radius-16 shadowed cards, tinted `#eef2f9` inset panels, status colors only in bullet dots + pills.
 
-Built and deployed as a static site to GitHub Pages at `https://jlathamert.github.io/vfo-portal/` (per [package.json:9](package.json) — `gh-pages -d dist`).
+Built and deployed as a static site to GitHub Pages at `https://vfoportal.com/` (per [package.json:9](package.json) — `gh-pages -d dist`).
 
 ## Routes ([src/App.jsx](src/App.jsx))
 
@@ -259,7 +259,7 @@ The expanded-row view ([AutomationPanel.jsx:88-260](src/components/admin/Automat
 
 ## Login-error handling in `callApi` (2026-06-18)
 
-[`src/lib/api.js`](src/lib/api.js) treats a `401` differently depending on the action. A `401` on a **login** action — `LOGIN_ACTIONS = ['admin_login','member_login','client_login','specialist_login','login']` — means *bad credentials*, so `callApi` **throws the server error inline** (`data.error || 'Invalid credentials'`) and the login page renders it; it does NOT clear the session or redirect. A `401` on any **non-login** action is still treated as an expired session: `clearSession()` + hard redirect to `/vfo-portal/` (unchanged). Previously every `401` hit the redirect path, which bounced a failed login straight off the login screen; this is also what lets the H1 rate-limit `429`/`401` "Too many login attempts" message surface on the login form. See [04-auth-and-sessions.md](04-auth-and-sessions.md#401-auto-redirect).
+[`src/lib/api.js`](src/lib/api.js) treats a `401` differently depending on the action. A `401` on a **login** action — `LOGIN_ACTIONS = ['admin_login','member_login','client_login','specialist_login','login']` — means *bad credentials*, so `callApi` **throws the server error inline** (`data.error || 'Invalid credentials'`) and the login page renders it; it does NOT clear the session or redirect. A `401` on any **non-login** action is still treated as an expired session: `clearSession()` + hard redirect to `/` (unchanged). Previously every `401` hit the redirect path, which bounced a failed login straight off the login screen; this is also what lets the H1 rate-limit `429`/`401` "Too many login attempts" message surface on the login form. See [04-auth-and-sessions.md](04-auth-and-sessions.md#401-auto-redirect).
 
 ## Cross-references
 

@@ -71,7 +71,7 @@ line_items[0]:
   price_data.product_data.name: "VFO Services Membership — Payment 1"
   quantity: 1
 success_url: https://www.vfo-services.com/payment-successful/   (hardcoded)
-cancel_url:  https://jlathamert.github.io/vfo-portal/pay?token=<token>
+cancel_url:  https://vfoportal.com/pay?token=<token>
 payment_intent_data.setup_future_usage: off_session
 payment_intent_data.metadata.client_id: <int>
 payment_intent_data.metadata.checkout_token: <pipeline_map1.checkout_token>
@@ -92,8 +92,8 @@ For `method === "card"`, `chargeAmount = round((baseAmount + 0.30) / (1 - 0.029)
 
 ```
 mode: payment
-success_url: https://jlathamert.github.io/vfo-portal/?gc_success=1
-cancel_url:  https://jlathamert.github.io/vfo-portal/
+success_url: https://vfoportal.com/?gc_success=1
+cancel_url:  https://vfoportal.com/
 line_items[0]:
   price_data.currency: usd
   price_data.unit_amount: <price * 100>
@@ -233,7 +233,7 @@ The handler **only transfers** if:
 | Value | Where |
 |---|---|
 | `https://www.vfo-services.com/payment-successful/` | MAP1 checkout success URL ([line 1120](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) |
-| `https://jlathamert.github.io/vfo-portal/?gc_success=1` | GC checkout success URL ([line 2815](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) |
+| `https://vfoportal.com/?gc_success=1` | GC checkout success URL ([line 2815](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) |
 | Card processing fee constants | `2.9%` and `$0.30` — embedded in the gross-up math at line 1116 and PayPage:79 |
 | 5-minute timestamp tolerance | Stripe webhook replay guard ([line 243](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) |
 

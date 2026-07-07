@@ -127,7 +127,7 @@ These names/emails appear hardcoded in the codebase:
 | **html2pdf.app** | Third-party HTML→PDF generation service. Called from `automation_CONTRACT_invoicereceipt` and `automation_CONTRACT_sendagreement`. |
 | **Stripe Connect** | Stripe's marketplace feature where the platform makes Transfers to connected merchant accounts. Used for revenue share payouts to members. Each member's account ID is in `members.stripe_account_id`. |
 | **Setup mode** | A Stripe Checkout Session created with `mode:'setup'` — it collects and saves a payment method (card or bank) for future off-session use **without charging anything**. Used by the card-update / payment-method-change flow (`payments_cardupdate_checkout` → `/update-card`) so a client/member/specialist can swap their card or bank on a reusable engagement. Contrast with the `mode:'payment'` (one-time charge) and `mode:'subscription'` (recurring, e.g. the $99/mo specialist license) sessions used elsewhere. |
-| **gh-pages** | GitHub Pages static hosting. The deploy target for `vfo-react`. Path prefix is `/vfo-portal/`. |
+| **gh-pages** | GitHub Pages static hosting. The deploy target for `vfo-react`. Served at the domain root `vfoportal.com` (no path prefix). |
 
 ## Cross-references
 

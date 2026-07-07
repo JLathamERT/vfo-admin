@@ -14,7 +14,7 @@
 | DB this session | **Specialist-Revenue transaction details** (this follow-up, applied live via MCP; advisor GREEN after DDL): 1 new nullable `text` column `specialist_revenue_lines.transaction_details` (migration `20260706000002_specialist_revenue_lines_transaction_details.sql`); 2 `email_templates` rows updated in place (bodies gained a `[TRANSACTION_DETAILS_ROW]` placeholder): `SPECREV_revenue_share_confirmation` + `SPECREV_money_mapping_notice`. ⚠️ Between template-placeholder seeding and the v543 deploy there was a brief window where a live payout email would have rendered the literal `[TRANSACTION_DETAILS_ROW]` (no requests existed → nothing fired) — for template+code changes, deploy code first or do both in one maintenance window. _Prior-session DB (bank-transfer: 6 `specialist_revenue_requests` columns + 2 templates + 1 notification_rule; `email_templates` overhaul → 171 rows / 17 pipelines) → [CHANGELOG.md](CHANGELOG.md)._ |
 | `verify_jwt` | `false` on both functions (config.toml + live registry matched) |
 | Supabase project | `ejpsprsmhpufwogbmxjv` ("VFO Showroom"), us-east-2, Postgres 17 |
-| Frontend live URL | `https://jlathamert.github.io/vfo-portal/` |
+| Frontend live URL | `https://vfoportal.com/` |
 | Frontend deploy state | **Prior-session nav/reload-persistence SHIPPED** (verified 2026-07-06): branch `claude/youthful-goldwasser-050714` merged (react #96) + deployed (bundle `index-DzPYIhXE.js`) + tagged **`live-39-nav-reload-persistence`** (ClientDetail `?program=&tab=` URL self-heal + member/specialist tab sessionStorage + logo-home + tax Implementation-decision chip green + PFT visible-step counts; gotchas #182–#183). Also live: `live-37-email-templates`, `live-38-standing-labels`. **PENDING (dev-only, NOT deployed) — two branches share the same specialist-revenue frontend surface:** (1) `claude/musing-turing-b48e4b` Bank-transfer frontend — `SpecialistPaymentInput.jsx` payment-method radio, `specialistRevenueShared.jsx` bank-details + "received so far" indicators, `EmailTemplatesPanel.jsx` meta; (2) `claude/specrev-transaction-details` this follow-up — `SpecialistPaymentInput.jsx` optional "Transaction details" input column, `SpecialistRevenuePayPage.jsx` click-to-proceed review screen (redirect-loop fix). Backend already live (v543); only `npm run deploy` remains → next `live-N`. **Always verify the latest live tag with `git tag -l 'live-*' \| sort -V \| tail -1`** — git is source of truth. |
 
 ---
@@ -37,7 +37,7 @@ Full audit history + live-verified detail: the 2026-06-18 security-remediation e
 **Frontend** (`vfo-react`)
 - GitHub: `github.com/JLathamERT/vfo-portal`
 - Local: `C:\vfo-react`
-- Live: `https://jlathamert.github.io/vfo-portal/`
+- Live: `https://vfoportal.com/`
 - Stack: Vite + React 18 + react-router-dom v6, gh-pages deploy
 - No backend code; no tests; no CI/CD
 **Edge Functions** (`vfo-edge-functions`)
@@ -226,7 +226,7 @@ Treat docs as source of truth for architecture; verify against actual code befor
 - **Local DB sequence gap** — `experts.id` has no DEFAULT in the pg_dump baseline; inserts via `save_specialist` against the local DB fail with not-null violation. Pre-existing test-data issue. (Frontend works around it by computing id client-side.)
 - **CORS in local-dev** — Kong gateway intercepts OPTIONS preflight and stamps `Access-Control-Allow-Origin: *`. Production hits the function directly. Don't worry if local CORS smoke shows `*`.
 - **`supabase/.temp/cli-latest` shows as modified after any CLI deploy** — Supabase CLI version-tracking artifact, not project code. Exclude from every commit.
-- **GitHub Pages CDN + browser HTML cache** — after `npm run deploy` succeeds (look for `Published`), the live bundle filenames change (e.g. `index-<hash>.js`), but browsers often serve a cached `index.html` that points at the OLD bundle. Confirm the deploy reached the CDN by `curl -s https://jlathamert.github.io/vfo-portal/ | grep -oE 'index-[A-Za-z0-9_-]+\.(js|css)'` and comparing to the new filename in the build output. If the live HTML serves the new bundle but the user's browser still shows old content, it's local cache — DevTools → Network → "Disable cache" → reload, or use incognito.
+- **GitHub Pages CDN + browser HTML cache** — after `npm run deploy` succeeds (look for `Published`), the live bundle filenames change (e.g. `index-<hash>.js`), but browsers often serve a cached `index.html` that points at the OLD bundle. Confirm the deploy reached the CDN by `curl -s https://vfoportal.com/ | grep -oE 'index-[A-Za-z0-9_-]+\.(js|css)'` and comparing to the new filename in the build output. If the live HTML serves the new bundle but the user's browser still shows old content, it's local cache — DevTools → Network → "Disable cache" → reload, or use incognito.
 ---
 
 ## VERIFICATION GATE *(run after non-trivial backend changes)*

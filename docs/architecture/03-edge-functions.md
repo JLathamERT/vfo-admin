@@ -179,7 +179,7 @@ These remain hardcoded in their respective handler files (preserved verbatim —
 | `tnmiller@elitert.com` | `actions/pipeline/contract-revshare.ts` | "Tracy" — recipient of intro email on payment 1 |
 | `tracy@vfo-services.com` | `actions/pipeline/contract-invoice-receipt.ts` | CC on `automation_CONTRACT_invoicereceipt` (separate address from above) |
 | `aipc@vfo-services.com` | `actions/pipeline/contract-send-agreement.ts` | `From:` on `automation_CONTRACT_sendagreement` Gmail draft |
-| `https://jlathamert.github.io/vfo-portal/pay?token=...` | `actions/pipeline/contract-payment-email.ts`, `contract-stripe-checkout.ts` | Pay-page redirect URL |
+| `https://vfoportal.com/pay?token=...` | `actions/pipeline/contract-payment-email.ts`, `contract-stripe-checkout.ts` | Pay-page redirect URL |
 | `https://www.vfo-services.com/payment-successful/` | `actions/pipeline/contract-stripe-checkout.ts` | Stripe Checkout success URL |
 | ~~`MASTER_SHEET_ID`~~ | ~~`actions/pipeline/contract-revshare.ts`~~ | **REMOVED 2026-07-01 (gotcha #164)** — the Revenue-Master read is gone; no code reads a Google Sheet anymore |
 | `BrandId = "f6b2e092-73a4-438e-b786-ebd20e472732"` | `actions/pipeline/contract-send-agreement.ts` | BoldSign brand for `automation_CONTRACT_sendagreement` |
@@ -256,7 +256,7 @@ callApi(action, payload) →
     headers: { Authorization: Bearer <ANON_KEY>, Content-Type: application/json }
     body:    { action, token: sessionStorage.vfo_session.token, ...payload }
   retry ×3 with 2s delay
-  on 401: clearSession() + redirect to /vfo-portal/
+  on 401: clearSession() + redirect to /
 ```
 
 The same `VITE_API_URL` env-var pattern is used by `src/pages/PayPage.jsx` and `src/pages/DecidePage.jsx`. Production behavior is unchanged when `VITE_API_URL` is unset — the fallback is the production Supabase URL. The env var is only set during local-dev (e.g., `$env:VITE_API_URL = "http://127.0.0.1:54321/functions/v1/vfo-admin-api"`) to point at a local function-serve.
