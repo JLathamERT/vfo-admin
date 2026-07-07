@@ -45,9 +45,12 @@ export default function SpecialistReconciliationPanel({ allMembers = [] }) {
   }
 
   // All line items (member recipients only) tagged with their request year.
+  // Only requests whose payment has actually been received count — a pending/requested
+  // request is expected money, not reconciled money.
   const memberLines = useMemo(() => {
     const out = []
     for (const r of requests) {
+      if (r.payment_status !== 'received') continue
       const d = requestDate(r)
       const y = d ? new Date(d).getFullYear() : null
       for (const l of (r.lines || [])) {

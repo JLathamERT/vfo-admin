@@ -1,6 +1,7 @@
 // Shared helpers + row renderer for the VFO Specialist Revenue surfaces
 // (Accounting viewer + Automation tracker).
 import { useState } from 'react'
+import { callApi } from '../../lib/api'
 
 export const NAVY = '#002973'
 export const BLUE = '#125ecc'
@@ -15,6 +16,7 @@ export function requestDate(r) {
 
 const REQ_STATUS = {
   requested: { label: 'Payment requested', color: '#0095ff' },
+  pending: { label: 'Awaiting bank transfer', color: '#e06717' },
   processing: { label: 'Payment processing', color: '#e06717' },
   received: { label: 'Payment received', color: '#16a34a' },
   failed: { label: 'Payment failed', color: '#ef4444' },
@@ -35,6 +37,43 @@ function lineStatusMeta(line, requestReceived) {
 export function StatusPill({ label, color }) {
   return (
     <span style={{ display: 'inline-block', padding: '3px 11px', borderRadius: '99px', fontSize: '11px', fontWeight: 600, background: `${color}18`, color, border: `1px solid ${color}33`, whiteSpace: 'nowrap' }}>{label}</span>
+  )
+}
+
+// "Mark payment received" for a pending house-account request: trusts the click,
+// draws the funds from the shared VFO account, and fires invoice/receipt + payouts.
+// Shown in both the Accounting viewer and the Automation tracker.
+export function MarkReceivedButton({ request, onDone }) {
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+  async function go() {
+    if (!window.confirm('Mark this payment received? This pulls the funds from the VFO account and pays out the member shares.')) return
+    setBusy(true); setMsg(null)
+    try {
+      const res = await callApi('specialist_revenue_confirm_received', { request_id: request.id })
+      if (res?.ok) { setMsg({ tone: 'success', text: 'Payment received — member payouts have been sent.' }); onDone?.() }
+      else if (res?.not_funded) setMsg({ tone: 'amber', text: res.message || 'The funds have not landed in the VFO account yet. Try again once the transfer settles.' })
+      else setMsg({ tone: 'error', text: res?.error || 'Could not confirm the payment.' })
+    } catch (e) {
+      setMsg({ tone: 'error', text: e?.message || 'Could not confirm the payment.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+  const tone = msg && (msg.tone === 'success' ? { c: '#166534', b: '#bbf7d0', bg: '#f0fdf4' }
+    : msg.tone === 'amber' ? { c: '#b45309', b: '#fde68a', bg: '#fffbeb' }
+    : { c: '#b91c1c', b: '#fecaca', bg: '#fef2f2' })
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <button disabled={busy} onClick={go}
+          style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: busy ? '#c7d2e4' : `linear-gradient(90deg, ${NAVY} 0%, ${BLUE} 100%)`, color: '#fff', fontWeight: 700, fontSize: '13px', cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          {busy ? 'Confirming…' : 'Mark payment received'}
+        </button>
+        <span style={{ fontSize: '12px', color: 'var(--vfo-faint)' }}>Pulls the funds from the VFO account and pays out the member shares.</span>
+      </div>
+      {msg && <div style={{ fontSize: '12.5px', padding: '8px 12px', borderRadius: '8px', color: tone.c, border: `1px solid ${tone.b}`, background: tone.bg }}>{msg.text}</div>}
+    </div>
   )
 }
 
@@ -144,6 +183,17 @@ export function RequestRow({ request, actions }) {
                   Partially funded — {money(request.bank_transfer_amount_received)} of {money(request.gross_amount)} received. The request stays open until the remainder arrives.
                 </div>
               )}
+            </div>
+          )}
+          {request.payment_status === 'pending' && request.account && (
+            <div style={{ marginTop: '14px', padding: '14px 16px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '10px' }}>
+              <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)', marginBottom: '12px' }}>House account — give these to the specialist</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+                <CopyField label="Bank name" value={request.account.bank_name} />
+                <CopyField label="Routing number" value={request.account.routing_number} />
+                <CopyField label="Account number" value={request.account.account_number} />
+                <CopyField label="Account holder" value={request.account.holder_name} />
+              </div>
             </div>
           )}
           {actions && <div style={{ marginTop: '14px' }}>{actions({ request })}</div>}

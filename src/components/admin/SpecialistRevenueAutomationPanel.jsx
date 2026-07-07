@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { callApi } from '../../lib/api'
 import SandboxModeToggle from './SandboxModeToggle'
-import { NAVY, BLUE, money, RequestRow } from './specialistRevenueShared'
+import { NAVY, BLUE, money, RequestRow, MarkReceivedButton } from './specialistRevenueShared'
 import { TableSkeleton } from '../shared/Skeleton'
 
 // Automation → VFO Specialist Revenue. One row per specialist payment request, with
@@ -49,7 +49,7 @@ export default function SpecialistRevenueAutomationPanel() {
   const stats = useMemo(() => {
     const total = requests.length
     const received = requests.filter(r => r.payment_status === 'received').length
-    const awaiting = requests.filter(r => ['requested', 'processing'].includes(r.payment_status)).length
+    const awaiting = requests.filter(r => ['requested', 'processing', 'pending'].includes(r.payment_status)).length
     let pendingLines = 0
     requests.forEach(r => (r.lines || []).forEach(l => {
       if (['pending', 'awaiting_connect', 'failed'].includes(l.payout_status) && r.payment_status === 'received') pendingLines++
@@ -103,6 +103,9 @@ export default function SpecialistRevenueAutomationPanel() {
       )}
       {!loading && !error && requests.map(r => (
         <RequestRow key={r.id} request={r} actions={({ request }) => {
+          if (request.payment_status === 'pending') {
+            return <MarkReceivedButton request={request} onDone={load} />
+          }
           const received = request.payment_status === 'received'
           const hasOpen = (request.lines || []).some(l => ['pending', 'awaiting_connect', 'failed'].includes(l.payout_status))
           return (

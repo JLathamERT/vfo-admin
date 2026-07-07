@@ -58,6 +58,30 @@ function SearchSelect({ options, value, onChange, placeholder }) {
   )
 }
 
+// A labelled value with a small Copy button (house account details).
+function AccountField({ label, value }) {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    navigator.clipboard.writeText(String(value || ''))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <div>
+      <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)', marginBottom: '4px' }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: 600 }}>{value || '—'}</span>
+        {value && (
+          <button type="button" onClick={copy}
+            style={{ padding: '2px 9px', borderRadius: '6px', border: `1px solid ${BLUE}`, background: 'var(--vfo-card)', color: BLUE, fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function RevenueBadge({ decision }) {
   const isMM = decision === 'Money Mapping'
   const color = isMM ? '#d97706' : '#16a34a'
@@ -187,7 +211,24 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
         <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>VFO Specialist Payment Input</h2>
       </div>
 
-      {result && (
+      {result && result.pending && (
+        <div style={{ ...card, borderColor: '#bbf7d0', background: '#f0fdf4' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: '#166534', marginBottom: '4px' }}>Expected payment recorded{result.sandbox ? ' (sandbox)' : ''}</div>
+          <div style={{ fontSize: '13px', color: '#166534', marginBottom: '14px' }}>No email was sent. Give the specialist the VFO account details below so they can push the {money(result.gross_amount)} transfer from their own bank. Once the transfer lands, mark it received in Accounting → VFO Specialist Revenue (Automation).</div>
+          {result.account && (
+            <div style={{ padding: '14px 16px', background: 'var(--vfo-card)', border: '1px solid #bbf7d0', borderRadius: '10px' }}>
+              <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)', marginBottom: '12px' }}>VFO house account — give these to the specialist</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+                <AccountField label="Bank name" value={result.account.bank_name} />
+                <AccountField label="Routing number" value={result.account.routing_number} />
+                <AccountField label="Account number" value={result.account.account_number} />
+                <AccountField label="Account holder" value={result.account.holder_name} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {result && !result.pending && (
         <div style={{ ...card, borderColor: '#bbf7d0', background: '#f0fdf4' }}>
           <div style={{ fontSize: '14px', fontWeight: 700, color: '#166534', marginBottom: '4px' }}>Payment request created{result.sandbox ? ' (sandbox)' : ''}</div>
           <div style={{ fontSize: '13px', color: '#166534' }}>{result.payment_method === 'bank_transfer'
@@ -216,7 +257,7 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           {[
             { key: 'link', title: 'ACH debit — send payment link', desc: 'Specialist gets an email with a secure Stripe link and authorizes the debit.' },
-            { key: 'bank_transfer', title: 'Bank transfer — send account details', desc: 'Specialist gets unique account and routing numbers and pushes the funds from their own bank.' },
+            { key: 'pending', title: 'Bank transfer — record expected payment', desc: 'Specialist pushes to our fixed VFO account. No email is sent; you mark it received once the money lands.' },
           ].map(opt => {
             const active = paymentMethod === opt.key
             return (
@@ -293,7 +334,7 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
           <button type="button" disabled={!canSend} onClick={send}
             style={{ padding: '14px 28px', borderRadius: '10px', border: 'none', background: canSend ? `linear-gradient(90deg, ${NAVY} 0%, ${BLUE} 100%)` : '#c7d2e4', color: '#fff', fontWeight: 700, fontSize: '15px', cursor: canSend ? 'pointer' : 'not-allowed', fontFamily: 'Inter, sans-serif' }}>
-            {sending ? 'Sending…' : `Send Payment Request — ${money(totals.gross)}`}
+            {sending ? 'Sending…' : (paymentMethod === 'pending' ? `Record expected payment — ${money(totals.gross)}` : `Send Payment Request — ${money(totals.gross)}`)}
           </button>
           {lines.length > 0 && !allLinesComplete && (
             <div style={{ fontSize: '12px', color: '#b45309' }}>Fill in a recipient, VFOS $, Member $, and Deals for every line before sending.</div>
