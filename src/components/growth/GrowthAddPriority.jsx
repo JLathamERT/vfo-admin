@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { callApi } from '../../lib/api'
 import { TrackHero } from '../shared/TrackKit'
 import { NAVY, INK, MUTED, GREEN, AMBER, cardStyle, accentStrip, inputStyle, pillSolid, pillOutline, miniLabel, Radios } from './ui'
-import { CATEGORY_ORDER, CATEGORY_LABELS_LONG } from './constants'
+import { getGrowthConfig } from './constants'
 import AddActionForm from './AddActionForm'
 
 const LEVELS = [{ value: 'high', label: 'High' }, { value: 'medium', label: 'Medium' }, { value: 'low', label: 'Low' }]
@@ -15,7 +15,8 @@ const DROP = '#c2502f'
 // 'parking' = parked. Each row can be added to the plan (with Owned By / Value /
 // Effort) and moved to the other bucket (Dropped → Park, Parking → Drop). Members
 // may only act while Accountability Mode is on; admins always.
-export default function GrowthAddPriority({ memberNumber, bundle, reload, role = 'member', tab = 'dropped', embedded = false }) {
+export default function GrowthAddPriority({ memberNumber, bundle, reload, role = 'member', tab = 'dropped', embedded = false, variant }) {
+  const { categoryOrder: CATEGORY_ORDER, categoryLabelsLong: CATEGORY_LABELS_LONG } = getGrowthConfig(variant)
   const isAdmin = role === 'admin'
   const isParking = tab === 'parking'
   const acctOn = !!bundle.score?.accountability_mode

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { callApi } from '../../lib/api'
 import { TrackHero } from '../shared/TrackKit'
 import { StepNav } from './ui'
-import { CATEGORY_ORDER, CATEGORY_LABELS_LONG } from './constants'
+import { getGrowthConfig } from './constants'
 
 const NAVY = '#002973', BLUE = '#125ecc', INK = 'var(--vfo-ink)', MUTED = 'var(--vfo-muted)'
 const inputStyle = { padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: INK, fontSize: '13px', fontFamily: 'Inter, sans-serif' }
@@ -17,7 +17,8 @@ const G2_OPTIONS = [
   { value: 'potential', label: 'Potential Action', color: '#1b9254' },
 ]
 
-export default function GrowthActions({ memberNumber, bundle, reload, onNavigate }) {
+export default function GrowthActions({ memberNumber, bundle, reload, onNavigate, variant }) {
+  const { categoryOrder: CATEGORY_ORDER, categoryLabelsLong: CATEGORY_LABELS_LONG } = getGrowthConfig(variant)
   const score = bundle.score
   const [rows, setRows] = useState(() => (bundle.actions || []).map(a => ({
     id: a.id, action_number: a.action_number, category: a.category,

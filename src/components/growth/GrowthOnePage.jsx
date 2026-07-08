@@ -47,7 +47,7 @@ function fmtDueDate(d) {
   return new Date(Date.UTC(y, m - 1, day)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 }
 
-export default function GrowthOnePage({ memberNumber, bundle, reload, onNavigate, role = 'admin' }) {
+export default function GrowthOnePage({ memberNumber, bundle, reload, onNavigate, role = 'admin', variant }) {
   const isAdmin = role === 'admin'
   const score = bundle.score
   const [acctMode, setAcctMode] = useState(!!score?.accountability_mode)
@@ -168,7 +168,7 @@ export default function GrowthOnePage({ memberNumber, bundle, reload, onNavigate
       <ActionTable title="New Action Items" rows={news} acct={acctMode} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={setDue} onStatus={setStatus} onDelete={onDelete} onAddSubtask={addSubtask} onSaveField={saveField} />
       <ActionTable title="Ongoing Action Items" rows={ongoing} acct={acctMode} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={setDue} onStatus={setStatus} onDelete={onDelete} onAddSubtask={addSubtask} onSaveField={saveField} />
       {numberedDone.length > 0 && <ActionTable title="Completed Action Items" rows={numberedDone} acct={acctMode} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={setDue} onStatus={setStatus} onDelete={onDelete} onSaveField={saveField} />}
-      {isAdmin && <AdminAddPriorities memberNumber={memberNumber} bundle={bundle} reload={reload} />}
+      {isAdmin && <AdminAddPriorities memberNumber={memberNumber} bundle={bundle} reload={reload} variant={variant} />}
       {isAdmin && <StepNav onBack={() => onNavigate('gp_build')} />}
     </div>
   )
@@ -178,14 +178,14 @@ const ADD_TABS = [{ key: 'parking', label: 'Parking Garage' }, { key: 'dropped',
 
 // Admin-only section at the bottom of the One Page Plan: add off-plan priorities
 // to the plan, mirroring the member's Dropped Priorities / Parking Garage tabs.
-function AdminAddPriorities({ memberNumber, bundle, reload }) {
+function AdminAddPriorities({ memberNumber, bundle, reload, variant }) {
   const [tab, setTab] = useState('parking')
   return (
     <div style={{ marginTop: '26px', marginBottom: '6px' }}>
       <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--vfo-heading)', marginBottom: '12px' }}>Add Priorities</div>
       <GrowthTabs tabs={ADD_TABS} active={tab} onChange={setTab} />
       <div style={{ marginTop: '14px' }}>
-        <GrowthAddPriority role="admin" tab={tab} embedded memberNumber={memberNumber} bundle={bundle} reload={reload} />
+        <GrowthAddPriority role="admin" tab={tab} embedded memberNumber={memberNumber} bundle={bundle} reload={reload} variant={variant} />
       </div>
     </div>
   )

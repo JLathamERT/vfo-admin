@@ -15,7 +15,7 @@ const TABS = [
   { key: 'dropped', label: 'Dropped Priorities' },
 ]
 
-export default function MemberGrowthPlan({ memberNumber }) {
+export default function MemberGrowthPlan({ memberNumber, variant = 'advisor' }) {
   const [bundle, setBundle] = useState({ score: null, actions: [], partnerships: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -44,9 +44,9 @@ export default function MemberGrowthPlan({ memberNumber }) {
       <div style={{ marginBottom: '18px' }}>
         <GrowthTabs tabs={TABS} active={view} onChange={setView} />
       </div>
-      {view === 'onepage' && <GrowthOnePage role="member" memberNumber={memberNumber} bundle={bundle} reload={reload} onNavigate={() => {}} />}
-      {view === 'dropped' && <GrowthAddPriority role="member" tab="dropped" memberNumber={memberNumber} bundle={bundle} reload={reload} />}
-      {view === 'parking' && <GrowthAddPriority role="member" tab="parking" memberNumber={memberNumber} bundle={bundle} reload={reload} />}
+      {view === 'onepage' && <GrowthOnePage role="member" memberNumber={memberNumber} bundle={bundle} reload={reload} onNavigate={() => {}} variant={variant} />}
+      {view === 'dropped' && <GrowthAddPriority role="member" tab="dropped" memberNumber={memberNumber} bundle={bundle} reload={reload} variant={variant} />}
+      {view === 'parking' && <GrowthAddPriority role="member" tab="parking" memberNumber={memberNumber} bundle={bundle} reload={reload} variant={variant} />}
     </div>
   )
 }

@@ -11,7 +11,6 @@ import AccountantOnboarding from './AccountantOnboarding'
 import MemberKpiPanel from './MemberKpiPanel'
 import StrategicPartnersPanel from './StrategicPartnersPanel'
 import AdminGrowthPlan from '../growth/AdminGrowthPlan'
-import { GP_STEPS } from '../growth/constants'
 import SendSetupEmailButton from './SendSetupEmailButton'
 import ListFilterButton, { matchesFilter, sortMembers, SortSelect, MEMBER_SORT_OPTIONS } from './ListFilterButton'
 import { MemberProfileDetailsSkeleton, Skeleton, SkeletonText } from '../shared/Skeleton'
@@ -120,6 +119,7 @@ function AccountantsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onD
       initialTab={initialTab}
       navClickCount={navClickCount}
       hiddenFields={['revenue_decision']}
+      growthPlan={true}
       listTitle="Accountants"
     />
   )
@@ -390,7 +390,7 @@ function MemberDirectoryView({
           <FeatureTabDropdown label="MSM" isActive={msmOptions.map(o => o.key).includes(memberFeatureTab)} options={msmOptions} onSelect={k => { setMemberFeatureTab(k); sessionStorage.setItem(featureTabKey, k) }} />
             {extraTabs.map(([key, label]) => (
             <Fragment key={key}>
-              {growthPlan && key === 'ciq' && <FeatureTabDropdown label="Growth Plan" isActive={memberFeatureTab.startsWith('gp_')} options={GP_STEPS} onSelect={k => { setMemberFeatureTab(k); sessionStorage.setItem(featureTabKey, k) }} />}
+              {growthPlan && key === 'ciq' && <button style={{ padding: '7px 16px', background: memberFeatureTab.startsWith('gp_') ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: memberFeatureTab.startsWith('gp_') ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: memberFeatureTab.startsWith('gp_') ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' }} onClick={() => { setMemberFeatureTab('gp_hub'); sessionStorage.setItem(featureTabKey, 'gp_hub') }}>Growth Plan</button>}
               <button style={{ padding: '7px 16px', background: memberFeatureTab === key ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: memberFeatureTab === key ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: memberFeatureTab === key ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' }} onClick={() => { setMemberFeatureTab(key); sessionStorage.setItem(featureTabKey, key) }}>{label}</button>
             </Fragment>
           ))}

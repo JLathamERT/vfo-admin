@@ -152,8 +152,8 @@ export default function MemberPortal() {
             </div>
           )}
           {!loading && activeTab === 'growthplan' && (
-            memberData?.member_category === 'advisor'
-              ? <MemberGrowthPlan memberNumber={session.member_number} />
+            (memberData?.member_category === 'advisor' || memberData?.member_category === 'accountant')
+              ? <MemberGrowthPlan memberNumber={session.member_number} variant={memberData?.member_category === 'accountant' ? 'accountant' : 'advisor'} />
               : <ComingSoon title="Growth Plan" />
           )}
           {!loading && activeTab === 'gc' && (

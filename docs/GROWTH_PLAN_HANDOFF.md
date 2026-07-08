@@ -13,6 +13,11 @@ follow-up **Parking/Dropped UI-cleanup** pass (branch
 comes later (same structure, different question/action copy — keep copy isolated
 in `constants.js`). Remaining is a few deferred UX items (see bottom).
 
+> **⚠️ 2026-07-08 UPDATE — much of the above is now superseded (branch `claude/growth-plan-4-ways`, backend live v560, frontend dev-only → next `live-N`):**
+> - **Accountant variant is BUILT.** `constants.js` is now split into `ADVISOR_CONFIG`/`ACCOUNTANT_CONFIG` selected by `getGrowthConfig(variant)`; `variantForMember(member)` is derived from `member_category` and threaded through every sub-view + the member portal. Score math extracted to `scoring.js`. New `'areas'` question type = the accountant "Compliance Factory" section (rendered by `AreasEditor` in `GrowthScoring.jsx`). Enabled via `growthPlan={true}` on `AccountantsPanel` — NO backend/DB change (generic storage). See gotcha #192.
+> - **New pre-scoring flow + hub.** Sub-tabs now: **Get Started** (`GrowthGetStarted.jsx`, assign MSM — gates the rest) → **4 Ways to Grow a Business** (`Growth4Ways.jsx`) → Scoring → … The "Growth Plan" tab is a single button that opens a **Menu/hub** (`GrowthHub.jsx`); dropdown removed. Shared `shared/HubKit.jsx` powers both the hub and the restyled **CIQ chooser** (`MemberCIQ.jsx`).
+> - **MSM + notifications.** MSM lives on member-keyed `growth_plan_four_ways` AND the score row; `save-four-ways.ts` syncs the score row so notifications route right (gotcha #191). Growth notifications deep-link to the member's One Page Plan (`?member=&feature=gp_onepage`). New `GROWTH_plan_completed` FYI fires when a member completes every One Page priority (`save-accountability.ts`). GP_STEPS + the new files are the source of truth — treat the phase/file list below as historical.
+
 ---
 
 ## Where the work lives

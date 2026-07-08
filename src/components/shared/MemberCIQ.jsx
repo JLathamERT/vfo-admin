@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
 import { CiqListSkeleton, SkeletonText } from './Skeleton'
+import { HubGrid, HubCard, HubBanner } from './HubKit'
 
 export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true, ciqVfosManaged = true, isAdmin = false }) {
   const [ciqs, setCiqs] = useState([])
@@ -280,45 +281,16 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
             <button onClick={() => { setActiveCiq(null); setAnswers({}); setActiveSection('intro'); setCiqView(null); loadCiqs() }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>← Back to list</button>
           </div>
 
-          <div style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(27,146,84,0.1)', border: '1px solid rgba(27,146,84,0.3)', color: '#1b9254', fontWeight: 500, fontSize: '13px', marginBottom: '24px' }}>✓ CIQ Diagnostic completed {activeCiq.completed_at?.split('T')[0] || ''}</div>
+          <HubBanner complete title="CIQ Diagnostic completed" meta={activeCiq.completed_at ? activeCiq.completed_at.split('T')[0] : ''} />
 
-          <div style={{ display: 'flex', gap: '16px' }}>
-            <div onClick={() => setCiqView('diagnostic')}
-              style={{ flex: 1, padding: '32px 24px', borderRadius: '12px', border: '1px solid rgba(0,149,255,0.3)', background: 'rgba(0,149,255,0.06)', cursor: 'pointer', textAlign: 'center' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,149,255,0.12)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,149,255,0.06)'}>
-              <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--vfo-ink)', marginBottom: '6px' }}>Diagnostic</div>
-              <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>View or edit the questionnaire answers</div>
-            </div>
-            <div onClick={() => { setCiqView('report'); setShowReport(true) }}
-              style={{ flex: 1, padding: '32px 24px', borderRadius: '12px', border: '1px solid rgba(27,146,84,0.3)', background: 'rgba(27,146,84,0.06)', cursor: 'pointer', textAlign: 'center' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(27,146,84,0.12)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(27,146,84,0.06)'}>
-              <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--vfo-ink)', marginBottom: '6px' }}>Report</div>
-              <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>View the completed CIQ summary</div>
-            </div>
-            <div onClick={() => setCiqView('prioritize')}
-              style={{ flex: 1, padding: '32px 24px', borderRadius: '12px', border: '1px solid rgba(212,175,55,0.3)', background: 'rgba(212,175,55,0.06)', cursor: 'pointer', textAlign: 'center' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.12)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'}>
-              <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--vfo-ink)', marginBottom: '6px' }}>Prioritize</div>
-              <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Prioritize identified opportunities</div>
-            </div>
-            {activeCiq.priorities_completed_at ? (
-              <div onClick={() => setCiqView('onePagePlan')}
-                style={{ flex: 1, padding: '32px 24px', borderRadius: '12px', border: '1px solid rgba(27,146,84,0.3)', background: 'rgba(27,146,84,0.06)', cursor: 'pointer', textAlign: 'center' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(27,146,84,0.12)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(27,146,84,0.06)'}>
-                <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--vfo-ink)', marginBottom: '6px' }}>One Page Plan</div>
-                <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>View your planning summary</div>
-              </div>
-            ) : (
-              <div style={{ flex: 1, padding: '32px 24px', borderRadius: '12px', border: '1px solid var(--vfo-border-chip)', background: 'var(--vfo-tint)', textAlign: 'center', opacity: 0.4 }}>
-                <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--vfo-ink)', marginBottom: '6px' }}>One Page Plan</div>
-                <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Complete Prioritize first</div>
-              </div>
-            )}
-          </div>
+          <HubGrid>
+            <HubCard title="Diagnostic" sub="View or edit the questionnaire answers" accent="#002973" onClick={() => setCiqView('diagnostic')} />
+            <HubCard title="Report" sub="View the completed CIQ summary" accent="#125ecc" onClick={() => { setCiqView('report'); setShowReport(true) }} />
+            <HubCard title="Prioritize" sub="Prioritize identified opportunities" accent="#e06717" onClick={() => setCiqView('prioritize')} />
+            {activeCiq.priorities_completed_at
+              ? <HubCard title="One Page Plan" sub="View your planning summary" accent="#1b9254" onClick={() => setCiqView('onePagePlan')} />
+              : <HubCard title="One Page Plan" sub="Complete Prioritize first" accent="#1b9254" disabled />}
+          </HubGrid>
         </div>
       )
     }
@@ -444,7 +416,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
               <div style={{ fontSize: '20px', fontWeight: '600', color: 'var(--vfo-ink)' }}>Prioritize Opportunities — {client?.first_name} {client?.last_name}</div>
               <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '4px' }}>{client?.client_ref}</div>
             </div>
-            <button onClick={() => setCiqView('chooser')} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>← Back</button>
+            <button onClick={() => setCiqView('chooser')} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '8px 16px', borderRadius: '999px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', boxShadow: 'var(--vfo-shadow-card)' }}>← CIQ Menu</button>
           </div>
 
           {sections.map(sectionName => {
@@ -587,7 +559,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
               <div style={{ fontSize: '20px', fontWeight: '600', color: 'var(--vfo-ink)' }}>One Page Plan for {client?.first_name} {client?.last_name} <span style={{ fontSize: '14px', fontWeight: '400', color: 'var(--vfo-muted)' }}>working with {memberName || memberNumber}</span></div>
               {localCiqVfosManaged && <div style={{ fontSize: '13px', color: '#0095ff', fontWeight: 500, marginTop: '4px' }}>Powered by VFO Services</div>}
             </div>
-            <button onClick={() => { setCiqView('chooser'); setSelectedSnapshot(null); setOppSubTab('latest') }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>← Back</button>
+            <button onClick={() => { setCiqView('chooser'); setSelectedSnapshot(null); setOppSubTab('latest') }} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '8px 16px', borderRadius: '999px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', boxShadow: 'var(--vfo-shadow-card)' }}>← CIQ Menu</button>
           </div>
 
           {/* Sub tabs */}
@@ -721,7 +693,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
               <div style={{ fontSize: '20px', fontWeight: '600', color: 'var(--vfo-ink)' }}>CIQ Report — {client?.first_name} {client?.last_name}</div>
               <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '4px' }}>{client?.client_ref} · Completed {activeCiq.completed_at?.split('T')[0] || 'just now'}</div>
             </div>
-            <button onClick={() => { setShowReport(false); setCiqView('chooser') }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>← Back</button>
+            <button onClick={() => { setShowReport(false); setCiqView('chooser') }} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '8px 16px', borderRadius: '999px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', boxShadow: 'var(--vfo-shadow-card)' }}>← CIQ Menu</button>
           </div>
 
           {/* Client Information */}
@@ -850,7 +822,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
             <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--vfo-ink)' }}>{client?.first_name} {client?.last_name}</div>
             <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '4px' }}>{client?.client_ref} · {client?.email}</div>
           </div>
-          <button onClick={() => { if (activeCiq.status === 'completed') { setCiqView('chooser'); setActiveSection('intro') } else { setActiveCiq(null); setAnswers({}); setActiveSection('intro'); setCiqView(null) } }} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>{activeCiq.status === 'completed' ? '← Back' : '← Back to list'}</button>
+          <button onClick={() => { if (activeCiq.status === 'completed') { setCiqView('chooser'); setActiveSection('intro') } else { setActiveCiq(null); setAnswers({}); setActiveSection('intro'); setCiqView(null) } }} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '8px 16px', borderRadius: '999px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', boxShadow: 'var(--vfo-shadow-card)' }}>{activeCiq.status === 'completed' ? '← CIQ Menu' : '← Back to list'}</button>
         </div>
 
         {/* Section nav */}
