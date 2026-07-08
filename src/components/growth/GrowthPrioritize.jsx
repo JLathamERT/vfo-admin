@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { callApi } from '../../lib/api'
 import { TrackHero } from '../shared/TrackKit'
-import { CATEGORY_ORDER, CATEGORY_LABELS } from './constants'
+import { getGrowthConfig } from './constants'
 import { NAVY, MUTED, GREEN, AMBER, GREY, BLUE, inputStyle, cardStyle, accentStrip, miniLabel, NumBadge, Radios, GrowthNeed, StepNav } from './ui'
 
 // Left column = destination (default One Page Plan); only "one_page_plan" carries to G4.
@@ -16,7 +16,8 @@ const G3_TYPE = [
   { value: 'continuing', label: 'Continuing or Existing Action', color: BLUE },
 ]
 
-export default function GrowthPrioritize({ memberNumber, bundle, reload, onNavigate }) {
+export default function GrowthPrioritize({ memberNumber, bundle, reload, onNavigate, variant }) {
+  const { categoryOrder: CATEGORY_ORDER, categoryLabels: CATEGORY_LABELS } = getGrowthConfig(variant)
   const potential = (bundle.actions || []).filter(a => a.g2_status === 'potential')
   const [rows, setRows] = useState(() => potential.map(a => ({
     id: a.id, action_number: a.action_number, category: a.category, action_text: a.action_text || '',

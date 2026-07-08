@@ -167,9 +167,21 @@ export default function AdminPortal() {
     }
   }, [])
 
-  // Deep-link from notifications etc: ?tab=&section= drives the active tab/section.
+  // Deep-link from notifications etc: ?tab=&section= drives the active tab/section,
+  // and ?member=&feature= opens a specific member's detail view on a feature tab
+  // (e.g. a Growth Plan notification → that member's One Page Plan).
   useEffect(() => {
     const params = new URLSearchParams(location.search)
+    const memberNum = params.get('member')
+    if (memberNum) {
+      if (!allMembers.length) return // members not loaded yet — effect re-runs when they are
+      const m = allMembers.find(x => String(x.plugin_member_number) === String(memberNum))
+      if (m) {
+        openMemberProfile(m, params.get('feature') || 'profile_details')
+        navigate('/admin', { replace: true }) // strip params so manual nav isn't re-hijacked
+      }
+      return
+    }
     const tab = params.get('tab')
     const section = params.get('section')
     if (!tab) return
@@ -191,7 +203,7 @@ export default function AdminPortal() {
       const entry = sectionSetters[tab]
       if (entry) { entry[0](section); sessionStorage.setItem(entry[1], section) }
     }
-  }, [location.search])
+  }, [location.search, allMembers])
 
   async function loadAllData() {
     try {
@@ -302,7 +314,7 @@ export default function AdminPortal() {
   // category tab (Advisors / Accountants / Strategic). Each MemberDirectoryView
   // restores its selection from sessionStorage on mount, so we pre-seed the right
   // selection key + feature tab, then switch tabs.
-  function openMemberProfile(m) {
+  function openMemberProfile(m, feature = 'profile_details') {
     const cat = m.member_category
     let tab, sectionSetter, sectionKey, section, selKey, featKey
     if (cat === 'accountant') {
@@ -316,7 +328,7 @@ export default function AdminPortal() {
       selKey = 'adminSelectedMember'; featKey = 'adminMemberFeatureTab'
     }
     sessionStorage.setItem(selKey, m.plugin_member_number)
-    sessionStorage.setItem(featKey, 'profile_details')
+    sessionStorage.setItem(featKey, feature)
     sectionSetter(section)
     sessionStorage.setItem(sectionKey, section)
     setActiveTab(tab)
