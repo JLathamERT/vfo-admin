@@ -238,12 +238,16 @@ function Matrix({ items, acct, statuses }) {
 // color with a white ring so it still pops on the blue cells.
 function MatrixDot({ num, color, dark }) {
   const filled = !!color
+  // Decimal sub-task labels (e.g. "1.1", "12.3") are longer than a single digit —
+  // shrink the font so they stay inside the 34px dot.
+  const len = String(num).length
+  const dotFont = len >= 4 ? '10px' : len === 3 ? '12px' : '14px'
   return (
     <div style={{
       width: '34px', height: '34px', borderRadius: '50%',
       background: color || '#ffffff',
       color: filled ? (dark ? NAVY : '#ffffff') : NAVY,
-      fontWeight: 800, fontSize: '14px', fontFamily: 'Inter, sans-serif',
+      fontWeight: 800, fontSize: dotFont, fontFamily: 'Inter, sans-serif',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       border: filled ? '2px solid #ffffff' : '2px solid rgba(0,41,115,0.18)',
       boxShadow: '0 2px 8px rgba(0,20,60,0.40)',
