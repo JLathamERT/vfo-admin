@@ -19,6 +19,7 @@ import NotificationEditorPanel from '../components/admin/NotificationEditorPanel
 import VfoWordmark from '../components/shared/VfoWordmark'
 import AllPaymentsTab from '../components/payments/AllPaymentsTab'
 import SpecialistRevenuePanel from '../components/admin/SpecialistRevenuePanel'
+import SpecialistRecurringPanel from '../components/admin/SpecialistRecurringPanel'
 import SpecialistLicensePanel from '../components/admin/SpecialistLicensePanel'
 import SpecialistBgPanel from '../components/admin/SpecialistBgPanel'
 import SpecialistReconciliationPanel from '../components/admin/SpecialistReconciliationPanel'
@@ -437,6 +438,7 @@ export default function AdminPortal() {
       submenuLabel: 'Specialists',
       submenu: [
         { key: 'specialist_revenue', label: 'VFO Specialist Revenue' },
+        { key: 'specialist_recurring', label: 'VFO Specialist Recurring Revenue Payments' },
         { key: 'specialist_reconciliation', label: 'VFO Specialist Reconciliation' },
         { key: 'specialist_license', label: 'VFO Specialist License Fees' },
         { key: 'specialist_bg', label: 'VFO Specialist Background Check Fees' },
@@ -689,6 +691,9 @@ export default function AdminPortal() {
           )}
           {activeTab === 'accounting' && !loading && session.is_superadmin && (accountingSection === 'specialist_revenue' || accountingSection === 'specialist_payment_input') && (
             <SpecialistRevenuePanel allExperts={allExperts} allMembers={allMembers} />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'specialist_recurring' && (
+            <SpecialistRecurringPanel />
           )}
           {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'specialist_license' && (
             <SpecialistLicensePanel />

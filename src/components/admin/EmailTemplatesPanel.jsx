@@ -236,6 +236,8 @@ const TEMPLATE_META = {
     ['SPECREV_revenue_share_confirmation', 'A recipient’s share was transferred — confirmation', 'To: Recipient (member / specialist)'],
     ['SPECREV_money_mapping_notice', 'A recipient’s share was allocated to Money Mapping — notice, no transfer', 'To: Recipient (member / specialist)'],
     ['SPECREV_connect_setup', 'A recipient needs to set up their payment details (Stripe Connect) before they can be paid', 'To: Recipient (member / specialist)'],
+    ['SPECREV_recurring_setup', 'The recurring setup link — asks the specialist to authorize an automatic monthly ACH payment', 'To: Specialist'],
+    ['SPECREV_recurring_setup_confirmation', 'The specialist finished recurring ACH setup — confirms the monthly amount and charge day', 'To: Specialist'],
   ],
   'MEMBER_PAYOUT': [
     ['member_connect_setup', 'Member payout setup — Stripe Connect onboarding link so they can receive revenue share', 'To: Member'],

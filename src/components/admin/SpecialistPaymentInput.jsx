@@ -13,6 +13,13 @@ function money(n) {
   return `$${(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
+function ordinal(n) {
+  const v = Number(n) || 0
+  const s = ['th', 'st', 'nd', 'rd']
+  const m = v % 100
+  return `${v}${s[(m - 20) % 10] || s[m] || s[0]}`
+}
+
 // Self-contained searchable single-select dropdown.
 function SearchSelect({ options, value, onChange, placeholder }) {
   const [open, setOpen] = useState(false)
@@ -96,6 +103,7 @@ let lineSeq = 1
 export default function SpecialistPaymentInput({ allExperts = [], allMembers = [], onSent }) {
   const [expertKey, setExpertKey] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('link')
+  const [chargeDay, setChargeDay] = useState(1)
   const [lines, setLines] = useState([])
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState(null)
@@ -171,24 +179,29 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
     if (!canSend) return
     setSending(true); setError(''); setResult(null)
     try {
-      const payload = {
-        expert_id: selectedExpert.id,
-        lines: lines.map(l => {
-          const r = recipientByKey[l.recipientKey]
-          return {
-            recipient_type: r.recipient_type, member_number: r.member_number, expert_id: r.expert_id,
-            recipient_name: r.recipient_name, recipient_email: r.recipient_email,
-            revenue_decision: r.revenue_decision,
-            vfos_share: l.vfos_share, member_share: l.member_share, deals: l.deals,
-            transaction_details: l.transaction_details,
-          }
-        }),
-        payment_method: paymentMethod,
+      const mappedLines = lines.map(l => {
+        const r = recipientByKey[l.recipientKey]
+        return {
+          recipient_type: r.recipient_type, member_number: r.member_number, expert_id: r.expert_id,
+          recipient_name: r.recipient_name, recipient_email: r.recipient_email,
+          revenue_decision: r.revenue_decision,
+          vfos_share: l.vfos_share, member_share: l.member_share, deals: l.deals,
+          transaction_details: l.transaction_details,
+        }
+      })
+      let res
+      if (paymentMethod === 'recurring') {
+        res = await callApi('specialist_revenue_recurring_create', {
+          expert_id: selectedExpert.id, charge_day: chargeDay, lines: mappedLines,
+        })
+      } else {
+        res = await callApi('specialist_revenue_send_request', {
+          expert_id: selectedExpert.id, lines: mappedLines, payment_method: paymentMethod,
+        })
       }
-      const res = await callApi('specialist_revenue_send_request', payload)
       if (res?.error) { setError(res.error); return }
       setResult(res)
-      setLines([]); setExpertKey(''); setPaymentMethod('link')
+      setLines([]); setExpertKey(''); setPaymentMethod('link'); setChargeDay(1)
       onSent?.(res)
     } catch (e) {
       setError(e?.message || 'Failed to send payment request')
@@ -228,7 +241,16 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
           )}
         </div>
       )}
-      {result && !result.pending && (
+      {result && result.recurring && (
+        <div style={{ ...card, borderColor: '#bbf7d0', background: '#f0fdf4' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: '#166534', marginBottom: '4px' }}>Recurring payment plan created{result.sandbox ? ' (sandbox)' : ''}</div>
+          <div style={{ fontSize: '13px', color: '#166534' }}>A setup email was drafted to <strong>{result.to_email}</strong>. The first charge of {money(result.monthly_amount)} lands on the {ordinal(result.charge_day)} after the specialist completes ACH setup, then monthly on that day. Track it in Accounting → VFO Specialist Recurring Revenue Payments.</div>
+          {result.email_skipped && (
+            <div style={{ fontSize: '12.5px', color: '#b45309', marginTop: '10px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #fde68a', background: '#fffbeb' }}>The recurring setup email template is not seeded yet, so no email was drafted. Seed <strong>SPECREV_recurring_setup</strong> in Email Templates, then re-send the link.</div>
+          )}
+        </div>
+      )}
+      {result && !result.pending && !result.recurring && (
         <div style={{ ...card, borderColor: '#bbf7d0', background: '#f0fdf4' }}>
           <div style={{ fontSize: '14px', fontWeight: 700, color: '#166534', marginBottom: '4px' }}>Payment request created{result.sandbox ? ' (sandbox)' : ''}</div>
           <div style={{ fontSize: '13px', color: '#166534' }}>A {money(result.gross_amount)} payment request was drafted to <strong>{result.to_email}</strong>. Review &amp; send it from the Gmail drafts folder. Track its status in Accounting → VFO Specialist Revenue.</div>
@@ -252,10 +274,11 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
       {/* Payment method */}
       <div style={card}>
         <div style={{ ...colLabel, marginBottom: '10px' }}>Payment method</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
           {[
             { key: 'link', title: 'ACH debit — send payment link', desc: 'Specialist gets an email with a secure Stripe link and authorizes the debit.' },
             { key: 'pending', title: 'Bank transfer — record expected payment', desc: 'Specialist pushes to our fixed VFO account. No email is sent; you mark it received once the money lands.' },
+            { key: 'recurring', title: 'Recurring monthly — send ACH setup link', desc: 'Emails the specialist a setup link to authorize an automatic monthly ACH payment on a day you choose.' },
           ].map(opt => {
             const active = paymentMethod === opt.key
             return (
@@ -270,6 +293,20 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
             )
           })}
         </div>
+        {paymentMethod === 'recurring' && (
+          <div style={{ marginTop: '16px', maxWidth: '260px' }}>
+            <div style={{ ...colLabel, marginBottom: '6px' }}>Charge day of month</div>
+            <select value={chargeDay} onChange={e => setChargeDay(Number(e.target.value))}
+              style={{ ...numInput, cursor: 'pointer', background: 'var(--vfo-card)', color: 'var(--vfo-ink)' }}>
+              {Array.from({ length: 20 }, (_, i) => i + 1).map(d => (
+                <option key={d} value={d}>{ordinal(d)}</option>
+              ))}
+            </select>
+            <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '8px', lineHeight: 1.4 }}>
+              The first charge lands on the next occurrence of this day after the specialist completes setup.
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Recipient lines */}
@@ -332,7 +369,7 @@ export default function SpecialistPaymentInput({ allExperts = [], allMembers = [
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
           <button type="button" disabled={!canSend} onClick={send}
             style={{ padding: '14px 28px', borderRadius: '10px', border: 'none', background: canSend ? `linear-gradient(90deg, ${NAVY} 0%, ${BLUE} 100%)` : '#c7d2e4', color: '#fff', fontWeight: 700, fontSize: '15px', cursor: canSend ? 'pointer' : 'not-allowed', fontFamily: 'Inter, sans-serif' }}>
-            {sending ? 'Sending…' : (paymentMethod === 'pending' ? `Record expected payment — ${money(totals.gross)}` : `Send Payment Request — ${money(totals.gross)}`)}
+            {sending ? 'Sending…' : (paymentMethod === 'pending' ? `Record expected payment — ${money(totals.gross)}` : paymentMethod === 'recurring' ? `Send recurring payment link — ${money(totals.gross)}/mo` : `Send Payment Request — ${money(totals.gross)}`)}
           </button>
           {lines.length > 0 && !allLinesComplete && (
             <div style={{ fontSize: '12px', color: '#b45309' }}>Fill in a recipient, VFOS $, Member $, and Deals for every line before sending.</div>
