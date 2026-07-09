@@ -63,13 +63,25 @@ export function MarkReceivedButton({ request, onDone }) {
   const tone = msg && (msg.tone === 'success' ? { c: '#166534', b: '#bbf7d0', bg: '#f0fdf4' }
     : msg.tone === 'amber' ? { c: '#b45309', b: '#fde68a', bg: '#fffbeb' }
     : { c: '#b91c1c', b: '#fecaca', bg: '#fef2f2' })
+  // Deep link to the VFO house account's page in the correct Stripe account + mode, so
+  // the admin can eyeball the incoming transfers (click into Cash Balance) before
+  // confirming. Needs the stored account id + the request's house customer.
+  const acctId = request.account?.stripe_account_id
+  const custId = request.stripe_customer_id
+  const stripeUrl = acctId && custId ? `https://dashboard.stripe.com/${acctId}/${request.sandbox ? 'test/' : ''}customers/${custId}` : null
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
         <button disabled={busy} onClick={go}
           style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: busy ? '#c7d2e4' : `linear-gradient(90deg, ${NAVY} 0%, ${BLUE} 100%)`, color: '#fff', fontWeight: 700, fontSize: '13px', cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
           {busy ? 'Confirming…' : 'Mark payment received'}
         </button>
+        {stripeUrl && (
+          <a href={stripeUrl} target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: '12px', fontWeight: 600, color: BLUE, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+            View account activity in Stripe ↗
+          </a>
+        )}
         <span style={{ fontSize: '12px', color: 'var(--vfo-faint)' }}>Pulls the funds from the VFO account and pays out the member shares.</span>
       </div>
       {msg && <div style={{ fontSize: '12.5px', padding: '8px 12px', borderRadius: '8px', color: tone.c, border: `1px solid ${tone.b}`, background: tone.bg }}>{msg.text}</div>}
