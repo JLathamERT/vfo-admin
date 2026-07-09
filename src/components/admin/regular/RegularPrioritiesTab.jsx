@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { callApi } from '../../../lib/api'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { TaxPlanListSkeleton } from '../../shared/Skeleton'
@@ -475,7 +475,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
   )
 }
 
-function RegularPrioritiesTab({ clientId, programId, client, specialists, readOnly = false, notes = [], onNotesChange }) {
+function RegularPrioritiesTab({ clientId, programId, client, specialists, readOnly = false, notes = [], onNotesChange, initialTrackId = null }) {
   const [priorityTracks, setPriorityTracks] = useState([])
   const [phases, setPhases] = useState([])
   const [allProgress, setAllProgress] = useState({})
@@ -486,8 +486,17 @@ function RegularPrioritiesTab({ clientId, programId, client, specialists, readOn
   const [newSpecialist, setNewSpecialist] = useState('')
   const [addStatus, setAddStatus] = useState('')
   const [regularEnabled, setRegularEnabled] = useState(false)
+  const autoSelectedRef = useRef(false)
 
   useEffect(() => { loadData() }, [clientId])
+
+  // Deep-link from Client Overview: open the requested track once, after the
+  // list has loaded. The user can still navigate back to the list afterwards.
+  useEffect(() => {
+    if (autoSelectedRef.current || loading || !initialTrackId) return
+    const match = priorityTracks.find(t => t.id === initialTrackId)
+    if (match) { autoSelectedRef.current = true; setSelectedTrack(match) }
+  }, [loading, initialTrackId, priorityTracks])
 
   async function loadData() {
     setLoading(true)

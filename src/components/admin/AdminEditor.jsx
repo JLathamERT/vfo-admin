@@ -5,6 +5,8 @@ import { callApi, getSession } from '../../lib/api'
 // Keys must match the tab keys used by AdminPortal + the backend TAB_ACTIONS map.
 const TAB_OPTIONS = [
   { key: 'member_overview', label: 'Member Overview' },
+  { key: 'client_overview', label: 'Client Overview' },
+  { key: 'client_overview_warnings', label: 'Client Overview Warnings' },
   { key: 'accounting', label: 'Accounting' },
   { key: 'automation', label: 'Automation' },
 ]
