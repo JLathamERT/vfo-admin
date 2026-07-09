@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { callApi, loadCachedAction } from '../../../lib/api'
 import { TaxPlanListSkeleton } from '../../shared/Skeleton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
@@ -1892,15 +1892,24 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   )
 }
 
-function TaxPrioritiesTab({ clientId, programId, programName, client, specialists, readOnly = false, notes = [], onNotesChange }) {
+function TaxPrioritiesTab({ clientId, programId, programName, client, specialists, readOnly = false, notes = [], onNotesChange, initialPlanId = null }) {
   const [taxPlans, setTaxPlans] = useState([])
   const [phases, setPhases] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [taxEnabled, setTaxEnabled] = useState(false)
   const [allProgress, setAllProgress] = useState({})
+  const autoSelectedRef = useRef(false)
 
   useEffect(() => { loadData() }, [clientId])
+
+  // Deep-link from Client Overview: open the requested plan once, after the
+  // list has loaded. The user can still navigate back to the list afterwards.
+  useEffect(() => {
+    if (autoSelectedRef.current || loading || !initialPlanId) return
+    const match = taxPlans.find(p => p.id === initialPlanId)
+    if (match) { autoSelectedRef.current = true; setSelectedPlan(match) }
+  }, [loading, initialPlanId, taxPlans])
 
   async function loadData() {
     setLoading(true)

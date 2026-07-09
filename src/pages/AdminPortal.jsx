@@ -5,6 +5,7 @@ import { usePortalTheme } from '../lib/theme'
 import SpecialistsPanel from '../components/admin/SpecialistsPanel'
 import MembersPanel from '../components/admin/MembersPanel'
 import MemberOverviewPanel from '../components/admin/MemberOverviewPanel'
+import ClientOverviewPanel from '../components/admin/ClientOverviewPanel'
 import AdminEditor from '../components/admin/AdminEditor'
 import AdminSettings from '../components/admin/AdminSettings'
 import AutomationPanel from '../components/admin/AutomationPanel'
@@ -135,6 +136,7 @@ export default function AdminPortal() {
     if (t === 'automation' && !canSeeTab('automation')) return null
     if ((t === 'accounting' || t === 'payments') && !canSeeTab('accounting')) return null
     if (t === 'member_overview' && !canSeeTab('member_overview')) return null
+    if (t === 'client_overview' && !canSeeTab('client_overview')) return null
     if (t === 'members') return 'advisors'
     // Legacy: the standalone Payments tab is now a sub-tab of Accounting.
     if (t === 'payments') return 'accounting'
@@ -190,6 +192,7 @@ export default function AdminPortal() {
     if (tab === 'automation' && !canSeeTab('automation')) return
     if ((tab === 'accounting' || tab === 'payments') && !canSeeTab('accounting')) return
     if (tab === 'member_overview' && !canSeeTab('member_overview')) return
+    if (tab === 'client_overview' && !canSeeTab('client_overview')) return
     setActiveTab(tab)
     sessionStorage.setItem('adminActiveTab', tab)
     if (section) {
@@ -306,6 +309,14 @@ export default function AdminPortal() {
   function selectMemberOverview() {
     setActiveTab('member_overview')
     sessionStorage.setItem('adminActiveTab', 'member_overview')
+    setNavClickCount(c => c + 1)
+    setShowEditor(false)
+    setShowSettings(false)
+  }
+
+  function selectClientOverview() {
+    setActiveTab('client_overview')
+    sessionStorage.setItem('adminActiveTab', 'client_overview')
     setNavClickCount(c => c + 1)
     setShowEditor(false)
     setShowSettings(false)
@@ -472,6 +483,7 @@ export default function AdminPortal() {
   // Keys are prefixed so one onSelect can route back to the right section setter.
   const moreDropdownItems = [
     ...(canSeeTab('member_overview') ? [{ key: 'more_mo', options: [{ key: '__member_overview', label: 'Member Overview' }] }] : []),
+    ...(canSeeTab('client_overview') ? [{ key: 'more_co', options: [{ key: '__client_overview', label: 'Client Overview' }] }] : []),
     ...(canSeeTab('automation') ? [
       { key: 'more_auto_h', header: 'Automation' },
       { key: 'more_auto', options: automationDropdownItems[0].options.map(o => ({ ...o, key: 'auto:' + o.key })) },
@@ -484,6 +496,7 @@ export default function AdminPortal() {
   ]
   function selectMoreOption(key) {
     if (key === '__member_overview') return selectMemberOverview()
+    if (key === '__client_overview') return selectClientOverview()
     if (key.startsWith('auto:')) return selectAutomationSection(key.slice(5))
     if (key.startsWith('acct:')) return selectAccountingSection(key.slice(5))
   }
@@ -547,17 +560,17 @@ export default function AdminPortal() {
             {/* Secondary "other" tabs — beside the key tabs, muted, access-gated,
                 separated by a faint divider. On narrow screens they collapse
                 into a single More ▾ menu so nothing falls off-screen. */}
-            {(canSeeTab('member_overview') || canSeeTab('automation') || canSeeTab('accounting')) && navNarrow && (
+            {(canSeeTab('member_overview') || canSeeTab('client_overview') || canSeeTab('automation') || canSeeTab('accounting')) && navNarrow && (
               <div style={{ display: 'flex', alignItems: 'center', marginLeft: '10px', paddingLeft: '12px', borderLeft: '1px solid var(--vfo-tint)' }}>
                 <NavDropdown
                   label="More" muted
                   items={moreDropdownItems}
                   onSelect={selectMoreOption}
-                  isActive={['member_overview', 'automation', 'accounting'].includes(activeTab)}
+                  isActive={['member_overview', 'client_overview', 'automation', 'accounting'].includes(activeTab)}
                 />
               </div>
             )}
-            {(canSeeTab('member_overview') || canSeeTab('automation') || canSeeTab('accounting')) && !navNarrow && (
+            {(canSeeTab('member_overview') || canSeeTab('client_overview') || canSeeTab('automation') || canSeeTab('accounting')) && !navNarrow && (
               <div style={{ display: 'flex', alignItems: 'center', marginLeft: '10px', paddingLeft: '12px', borderLeft: '1px solid var(--vfo-tint)' }}>
                 {canSeeTab('member_overview') && (
                   <button onClick={selectMemberOverview} style={{
@@ -568,6 +581,17 @@ export default function AdminPortal() {
                     fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap'
                   }}>
                     Member Overview
+                  </button>
+                )}
+                {canSeeTab('client_overview') && (
+                  <button onClick={selectClientOverview} style={{
+                    padding: '14px 14px', background: 'transparent', border: 'none',
+                    borderBottom: activeTab === 'client_overview' ? '2px solid #125ecc' : '2px solid transparent',
+                    color: activeTab === 'client_overview' ? '#125ecc' : '#97a3ba', fontSize: '13px',
+                    fontWeight: activeTab === 'client_overview' ? '600' : '500', cursor: 'pointer',
+                    fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap'
+                  }}>
+                    Client Overview
                   </button>
                 )}
                 {canSeeTab('automation') && (
@@ -629,6 +653,10 @@ export default function AdminPortal() {
 
           {activeTab === 'member_overview' && !loading && (
             <MemberOverviewPanel allMembers={allMembers} onOpenMember={openMemberProfile} />
+          )}
+
+          {activeTab === 'client_overview' && !loading && (
+            <ClientOverviewPanel />
           )}
 
           {activeTab === 'advisors' && !loading && (

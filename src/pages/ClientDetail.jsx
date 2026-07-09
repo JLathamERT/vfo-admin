@@ -55,6 +55,11 @@ export default function ClientDetail() {
   usePortalTheme()
   console.log('session on client detail:', session)
   const [activeTab, setActiveTab] = useState(new URLSearchParams(window.location.search).get('tab') || 'home')
+  // Deep-link from Client Overview: a specific track/plan to auto-open once the
+  // matching tab's list has loaded. Captured at mount so later URL rewrites
+  // (the self-heal below preserves these params) can't retrigger auto-select.
+  const [initialTrackId] = useState(() => { const v = new URLSearchParams(window.location.search).get('track'); return v ? parseInt(v) : null })
+  const [initialPlanId] = useState(() => { const v = new URLSearchParams(window.location.search).get('plan'); return v ? parseInt(v) : null })
   const [client, setClient] = useState(null)
   const [program, setProgram] = useState(null)
   const [contacts, setContacts] = useState([])
@@ -253,8 +258,8 @@ export default function ClientDetail() {
             {activeTab === 'details' && !isMember && <ClientDetails client={client} contacts={contacts} onUpdate={loadData} onReloadContacts={reloadContacts} sectionStyle={sectionStyle} />}
             {activeTab === 'map1' && program && <ClientTrackViewV2 clientId={parseInt(clientId)} programId={program.id} client={client} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
             {activeTab === 'pft' && program && <PFTEngagementTrack clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
-            {activeTab === 'regular' && program && <RegularPrioritiesTab clientId={parseInt(clientId)} programId={program.id} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
-            {activeTab === 'tax' && program && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} programName={program.name} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+            {activeTab === 'regular' && program && <RegularPrioritiesTab clientId={parseInt(clientId)} programId={program.id} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} initialTrackId={initialTrackId} />}
+            {activeTab === 'tax' && program && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} programName={program.name} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} initialPlanId={initialPlanId} />}
             {activeTab === 'pip' && program && <PipMeetingsTab clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
             {activeTab === 'vault' && !isMember && <ClientVaultTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} specialists={specialists} />}
             {activeTab === 'payments' && !isMember && <ClientPaymentsTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} />}
