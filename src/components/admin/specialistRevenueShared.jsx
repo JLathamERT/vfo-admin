@@ -106,7 +106,16 @@ function CopyField({ label, value }) {
 // (used by the Automation tracker for the Retry button).
 export function RequestRow({ request, actions }) {
   const [open, setOpen] = useState(false)
-  const req = REQ_STATUS[request.payment_status] || { label: request.payment_status, color: 'var(--vfo-muted)' }
+  const isRecurring = !!request.recurring_plan_id
+  // Recurring rows relabel the two states they use; everything else (incl. the
+  // house-account 'pending' = Awaiting bank transfer) keeps its non-recurring meta.
+  const RECURRING_STATUS = {
+    processing: { label: 'Pending', color: '#e06717' },
+    received: { label: 'Completed', color: '#16a34a' },
+  }
+  const req = (isRecurring && RECURRING_STATUS[request.payment_status])
+    || REQ_STATUS[request.payment_status]
+    || { label: request.payment_status, color: 'var(--vfo-muted)' }
   const received = request.payment_status === 'received'
   const lines = request.lines || []
   const d = requestDate(request)
@@ -134,7 +143,8 @@ export function RequestRow({ request, actions }) {
             <div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>gross</div>
           </div>
         </div>
-        <div style={{ width: '160px', textAlign: 'right' }}>
+        <div style={{ width: '160px', textAlign: 'right', display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+          {isRecurring && <StatusPill label="Recurring" color="#6b7280" />}
           <StatusPill label={req.label} color={req.color} />
         </div>
       </div>
