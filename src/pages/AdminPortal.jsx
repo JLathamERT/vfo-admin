@@ -658,10 +658,13 @@ export default function AdminPortal() {
               <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.02em', fontSize: '38px', color: 'var(--vfo-heading)', margin: 0 }}>{session.name}</p>
               <div style={{ width: '46px', height: '4px', borderRadius: '99px', background: '#fb895a', margin: '18px auto 0' }} />
               {!loading && (() => {
-                const active = (m) => m.elite_status === 'Active'
+                // Mirrors MemberKpiPanel: null status counts as Active, and the
+                // separate buckets (advisor: VFO Reconciliation (Free); accountant:
+                // Team Member) are excluded so these match the KPI Active counts.
+                const active = (m) => (m.elite_status || 'Active') === 'Active'
                 const cards = [
-                  { label: 'Active Advisors', value: allMembers.filter(m => m.member_category !== 'accountant' && m.member_category !== 'strategic_member' && active(m)).length, go: () => selectAdvisorsSection('advisor_search') },
-                  { label: 'Active Accountants', value: allMembers.filter(m => m.member_category === 'accountant' && active(m)).length, go: () => selectAccountantsSection('accountant_search') },
+                  { label: 'Active Advisors', value: allMembers.filter(m => m.member_category !== 'accountant' && m.member_category !== 'strategic_member' && m.member_type !== 'VFO Reconciliation (Free)' && active(m)).length, go: () => selectAdvisorsSection('advisor_search') },
+                  { label: 'Active Accountants', value: allMembers.filter(m => m.member_category === 'accountant' && m.member_type !== 'Team Member' && active(m)).length, go: () => selectAccountantsSection('accountant_search') },
                   { label: 'Active Strategic Members', value: allMembers.filter(m => m.member_category === 'strategic_member' && active(m)).length, go: () => selectStrategicSection('strategic_member_search') },
                   { label: 'Active Specialists', value: allExperts.filter(e => (e.status || 'Active') === 'Active').length, go: () => selectSpecialistsSection('specialist_search') },
                 ]
