@@ -125,12 +125,19 @@ export default function NotificationBell() {
                 </span>
               )}
             </span>
-            {count > 0 && (
-              <button onClick={markAllRead} disabled={loading}
+            <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                onClick={() => { setOpen(false); navigate(`/admin?tab=notifications&_n=${Date.now()}`) }}
                 style={{ background: 'transparent', border: 'none', color: '#0095ff', fontWeight: 600, fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                Mark all read
+                View all
               </button>
-            )}
+              {count > 0 && (
+                <button onClick={markAllRead} disabled={loading}
+                  style={{ background: 'transparent', border: 'none', color: '#0095ff', fontWeight: 600, fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                  Mark all read
+                </button>
+              )}
+            </span>
           </div>
 
           {count === 0 ? (
@@ -140,6 +147,7 @@ export default function NotificationBell() {
           ) : (
             sorted.map(n => {
               const isDismissible = n.dismissible !== false
+              const isReminder = n.pipeline === 'REMINDER'
               const handleDone = async (e) => {
                 e.stopPropagation()
                 try {
@@ -154,12 +162,12 @@ export default function NotificationBell() {
                   title={n.message ? `${n.title}\n\n${n.message}` : n.title}
                   style={{
                     padding: '8px 12px 8px 9px', borderBottom: '1px solid var(--vfo-tint)',
-                    borderLeft: isDismissible ? '3px solid transparent' : '3px solid #e06717',
-                    background: isDismissible ? 'transparent' : 'rgba(224,103,23,0.06)',
+                    borderLeft: !isDismissible ? '3px solid #e06717' : isReminder ? '3px solid #7c3aed' : '3px solid transparent',
+                    background: !isDismissible ? 'rgba(224,103,23,0.06)' : isReminder ? 'rgba(124,58,237,0.05)' : 'transparent',
                     cursor: 'pointer', display: 'flex', gap: '10px', alignItems: 'center'
                   }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-tint)'}
-                  onMouseLeave={e => e.currentTarget.style.background = isDismissible ? 'transparent' : 'rgba(224,103,23,0.06)'}
+                  onMouseLeave={e => e.currentTarget.style.background = !isDismissible ? 'rgba(224,103,23,0.06)' : isReminder ? 'rgba(124,58,237,0.05)' : 'transparent'}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
@@ -170,7 +178,10 @@ export default function NotificationBell() {
                       {!isDismissible && (
                         <span style={{ fontSize: '9px', color: '#fff', fontWeight: 700, padding: '1px 6px', borderRadius: '3px', background: '#e06717', letterSpacing: '0.4px' }}>ACTION</span>
                       )}
-                      {n.pipeline && <span style={{ fontSize: '10px', color: '#0095ff', fontWeight: 600, padding: '1px 6px', borderRadius: '3px', background: 'rgba(0,149,255,0.15)' }}>{n.pipeline}</span>}
+                      {isReminder && (
+                        <span style={{ fontSize: '9px', color: '#fff', fontWeight: 700, padding: '1px 6px', borderRadius: '3px', background: '#7c3aed', letterSpacing: '0.4px' }}>REMINDER</span>
+                      )}
+                      {n.pipeline && !isReminder && <span style={{ fontSize: '10px', color: '#0095ff', fontWeight: 600, padding: '1px 6px', borderRadius: '3px', background: 'rgba(0,149,255,0.15)' }}>{n.pipeline}</span>}
                       <span style={{ fontSize: '10px', color: 'var(--vfo-faint)' }}>{n.created_at?.split('T')[0]}</span>
                     </div>
                   </div>

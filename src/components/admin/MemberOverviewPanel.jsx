@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { callApi } from '../../lib/api'
-import ListFilterButton, { matchesFilter, sortMembers, SortSelect, MEMBER_SORT_OPTIONS } from './ListFilterButton'
+import ListFilterButton, { matchesFilter, sortMembers, SortSelect, MEMBER_SORT_OPTIONS, useHeaderSort, sortByColumn, SortHeader } from './ListFilterButton'
 
 // Member Overview — one unified list of every member (advisor / accountant /
 // strategic) with at-a-glance columns, an expandable client drill-down, a
@@ -56,6 +56,7 @@ export default function MemberOverviewPanel({ allMembers = [], onOpenMember }) {
   const [search, setSearch] = useState('')
   const [listFilter, setListFilter] = useState({ status: ['Active'] })
   const [listSort, setListSort] = useState('number_asc')
+  const { sort: colSort, onSort, reset: resetColSort } = useHeaderSort()
 
   useEffect(() => {
     let alive = true
@@ -93,7 +94,20 @@ export default function MemberOverviewPanel({ allMembers = [], onOpenMember }) {
   const q = search.trim().toLowerCase()
   const searched = q ? basePool.filter(m => m.name?.toLowerCase().includes(q) || m.plugin_member_number?.toLowerCase().includes(q)) : basePool
   const filtered = searched.filter(m => matchesFilter(m, filterGroups, listFilter))
-  const rows = sortMembers(filtered, listSort)
+  // Baseline = the dropdown ordering; a clicked column header overrides it.
+  const sortColumns = {
+    number: { type: 'number', get: m => { const n = parseInt(String(m.plugin_member_number ?? ''), 10); return Number.isNaN(n) ? null : n } },
+    name: { type: 'text', get: m => m.name },
+    category: { type: 'text', get: m => catLabel(m) },
+    type: { type: 'text', get: m => m.member_type },
+    joined: { type: 'date', get: m => (m.join_date ? String(m.join_date).slice(0, 10) : null) },
+    status: { type: 'text', get: m => m.elite_status || 'Active' },
+    msm: { type: 'text', get: m => m.assigned_msm },
+    clients: { type: 'number', get: m => (clientsByMember[m.plugin_member_number] || []).length },
+    programs: { type: 'text', get: m => (programsByMember[m.plugin_member_number] || []).join(', ') },
+    engagement: { type: 'number', get: m => { const i = ENGAGEMENT.findIndex(e => e.value === engOf(m)); return i < 0 ? null : i } },
+  }
+  const rows = sortByColumn(sortMembers(filtered, listSort), colSort, sortColumns)
 
   async function saveEngagement(m, value) {
     const mn = m.plugin_member_number
@@ -123,7 +137,7 @@ export default function MemberOverviewPanel({ allMembers = [], onOpenMember }) {
       <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
         <input placeholder="Search by name or member number..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...sel, flex: 1, minWidth: '240px', background: 'var(--vfo-input)' }} />
         <ListFilterButton groups={filterGroups} value={listFilter} onChange={setListFilter} />
-        <SortSelect value={listSort} onChange={setListSort} options={MEMBER_SORT_OPTIONS} />
+        <SortSelect value={listSort} onChange={v => { setListSort(v); resetColSort() }} options={MEMBER_SORT_OPTIONS} />
       </div>
 
       {relError && <div style={{ padding: '10px 14px', marginBottom: '12px', background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: '8px', color: '#c0392b', fontSize: '13px' }}>Could not load programs/clients: {relError}</div>}
@@ -133,16 +147,16 @@ export default function MemberOverviewPanel({ allMembers = [], onOpenMember }) {
           {/* Header */}
           <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: '10px', padding: '12px 18px', background: 'var(--vfo-input)', borderBottom: '1px solid var(--vfo-border-soft)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--vfo-muted)' }}>
             <span />
-            <span>Member #</span>
-            <span>Name</span>
-            <span>Category</span>
-            <span>Type</span>
-            <span>Joined</span>
-            <span>Status</span>
-            <span>MSM</span>
-            <span>Clients</span>
-            <span>Programs</span>
-            <span>Engagement</span>
+            <SortHeader label="Member #" sortKey="number" sort={colSort} onSort={onSort} />
+            <SortHeader label="Name" sortKey="name" sort={colSort} onSort={onSort} />
+            <SortHeader label="Category" sortKey="category" sort={colSort} onSort={onSort} />
+            <SortHeader label="Type" sortKey="type" sort={colSort} onSort={onSort} />
+            <SortHeader label="Joined" sortKey="joined" sort={colSort} onSort={onSort} />
+            <SortHeader label="Status" sortKey="status" sort={colSort} onSort={onSort} />
+            <SortHeader label="MSM" sortKey="msm" sort={colSort} onSort={onSort} />
+            <SortHeader label="Clients" sortKey="clients" sort={colSort} onSort={onSort} />
+            <SortHeader label="Programs" sortKey="programs" sort={colSort} onSort={onSort} />
+            <SortHeader label="Engagement" sortKey="engagement" sort={colSort} onSort={onSort} />
           </div>
 
           {/* Rows */}

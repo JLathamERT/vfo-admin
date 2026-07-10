@@ -111,6 +111,71 @@ export function sortMembers(arr, sortBy) {
   }
 }
 
+// --- Click-to-sort column headers --------------------------------------------
+// Header-driven sort for the admin overview tables. A column is described by
+// { get, type }: `get(item)` returns the raw sort value; `type` is 'text'
+// (case-insensitive alphabetical — the default), 'number', or 'date' (ISO /
+// 'YYYY-MM-DD' strings, compared lexically = chronologically). null / empty
+// values ALWAYS sort last, regardless of direction.
+//
+// `useHeaderSort()` holds the { key, dir } state. First click on a column sorts
+// ascending, a second click flips to descending, clicking a different column
+// switches to it ascending. `reset()` clears the sort (falls back to the
+// caller's default ordering); the overview panels call it when the dropdown sort
+// changes so the two controls never fight.
+export function useHeaderSort() {
+  const [sort, setSort] = useState(null)   // { key, dir } | null
+  const onSort = (key) => setSort(s => (
+    s && s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }
+  ))
+  const reset = () => setSort(null)
+  return { sort, onSort, reset }
+}
+
+const isEmptySortValue = (v) => v == null || v === '' || (typeof v === 'number' && Number.isNaN(v))
+
+// Sort a copy of `arr` by the active header `sort` using `columns[key]`. With no
+// active sort (or an unknown key) the input order is returned untouched, so the
+// caller's default ordering is preserved until a header is clicked.
+export function sortByColumn(arr, sort, columns) {
+  if (!sort || !columns[sort.key]) return arr
+  const { get, type = 'text' } = columns[sort.key]
+  const dir = sort.dir === 'desc' ? -1 : 1
+  const cmp = (a, b) => {
+    if (type === 'number') return a - b
+    if (type === 'date') return String(a).localeCompare(String(b))   // ISO strings sort chronologically
+    return String(a).toLowerCase().localeCompare(String(b).toLowerCase())
+  }
+  return [...arr].sort((x, y) => {
+    const av = get(x), bv = get(y)
+    const ae = isEmptySortValue(av), be = isEmptySortValue(bv)
+    if (ae && be) return 0
+    if (ae) return 1        // empties always last
+    if (be) return -1
+    return dir * cmp(av, bv)
+  })
+}
+
+// A clickable, sort-aware column-header cell. Every sortable column advertises
+// itself with a faint updown glyph; hovering highlights the header, and the
+// active column shows its label + direction arrow in blue. Drop-in replacement
+// for a plain header <span>; inherits the header row's font.
+export function SortHeader({ label, sortKey, sort, onSort, style }) {
+  const active = sort?.key === sortKey
+  const BLUE = '#125ecc'
+  return (
+    <span onClick={() => onSort(sortKey)} title={`Sort by ${label}`}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.color = BLUE }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.color = '' }}
+      style={{ cursor: 'pointer', userSelect: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', color: active ? BLUE : undefined, transition: 'color 0.12s', ...style }}>
+      {label}
+      {active
+        ? <span style={{ fontSize: '8px', lineHeight: 1, color: BLUE }}>{sort.dir === 'desc' ? '▼' : '▲'}</span>
+        : <span aria-hidden style={{ fontSize: '9px', lineHeight: 1, opacity: 0.45 }}>↕</span>}
+    </span>
+  )
+}
+
 // Small sort dropdown for the admin lists. Defaults to the join-date options
 // (used by the specialist list); the member directories pass MEMBER_SORT_OPTIONS.
 const DEFAULT_SORT_OPTIONS = [

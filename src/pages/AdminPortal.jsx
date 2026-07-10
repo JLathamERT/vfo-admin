@@ -33,6 +33,10 @@ import PipReconciliationPanel from '../components/admin/PipReconciliationPanel'
 import MemberOnboardingPanel from '../components/admin/MemberOnboardingPanel'
 import MembershipFeesPanel from '../components/admin/MembershipFeesPanel'
 import SpecialistRevenueAutomationPanel from '../components/admin/SpecialistRevenueAutomationPanel'
+import GrowthCreditsPanel from '../components/admin/GrowthCreditsPanel'
+import GrowthCreditsAccountingPanel from '../components/admin/GrowthCreditsAccountingPanel'
+import NotificationsPage from '../components/admin/NotificationsPage'
+import GrowthCreditsRedemptionsPage from '../components/admin/GrowthCreditsRedemptionsPage'
 import { DirectoryListSkeleton } from '../components/shared/Skeleton'
 
 // A dropdown row that, on hover, flies out a submenu of options to the right.
@@ -137,6 +141,7 @@ export default function AdminPortal() {
     if ((t === 'accounting' || t === 'payments') && !canSeeTab('accounting')) return null
     if (t === 'member_overview' && !canSeeTab('member_overview')) return null
     if (t === 'client_overview' && !canSeeTab('client_overview')) return null
+    if (t === 'growth_credits' && !canSeeTab('growth_credits')) return null
     if (t === 'members') return 'advisors'
     // Legacy: the standalone Payments tab is now a sub-tab of Accounting.
     if (t === 'payments') return 'accounting'
@@ -174,7 +179,11 @@ export default function AdminPortal() {
   // and ?member=&feature= opens a specific member's detail view on a feature tab
   // (e.g. a Growth Plan notification → that member's One Page Plan).
   useEffect(() => {
-    const params = new URLSearchParams(location.search)
+    // Read the LIVE URL, not router state: after we strip consumed params with
+    // history.replaceState below, react-router's location.search still holds
+    // the old value, and this effect re-runs when allMembers loads — reading
+    // window.location keeps that re-run from re-applying a consumed deep link.
+    const params = new URLSearchParams(window.location.search)
     const memberNum = params.get('member')
     if (memberNum) {
       if (!allMembers.length) return // members not loaded yet — effect re-runs when they are
@@ -193,6 +202,7 @@ export default function AdminPortal() {
     if ((tab === 'accounting' || tab === 'payments') && !canSeeTab('accounting')) return
     if (tab === 'member_overview' && !canSeeTab('member_overview')) return
     if (tab === 'client_overview' && !canSeeTab('client_overview')) return
+    if (tab === 'growth_credits' && !canSeeTab('growth_credits')) return
     setActiveTab(tab)
     sessionStorage.setItem('adminActiveTab', tab)
     if (section) {
@@ -207,6 +217,10 @@ export default function AdminPortal() {
       const entry = sectionSetters[tab]
       if (entry) { entry[0](section); sessionStorage.setItem(entry[1], section) }
     }
+    // Deep link consumed — strip it so the URL is clean and a reload restores
+    // from sessionStorage instead of re-hijacking to this tab (gotcha #182;
+    // replaceState, never navigate, for self-heals).
+    window.history.replaceState({}, '', '/admin')
   }, [location.search, allMembers])
 
   async function loadAllData() {
@@ -322,6 +336,14 @@ export default function AdminPortal() {
     setShowSettings(false)
   }
 
+  function selectGrowthCredits() {
+    setActiveTab('growth_credits')
+    sessionStorage.setItem('adminActiveTab', 'growth_credits')
+    setNavClickCount(c => c + 1)
+    setShowEditor(false)
+    setShowSettings(false)
+  }
+
   // Member Overview → open a member's full existing detail view in their own
   // category tab (Advisors / Accountants / Strategic). Each MemberDirectoryView
   // restores its selection from sessionStorage on mount, so we pre-seed the right
@@ -431,6 +453,7 @@ export default function AdminPortal() {
         { key: 'accountant_pipeline', label: 'Accountant Onboarding' },
         { key: 'specialist_pipeline', label: 'Specialist Onboarding' },
         { key: 'specialist_revenue_pipeline', label: 'VFO Specialist Revenue' },
+        { key: 'growth_credits', label: 'Growth Credits' },
         { key: 'email_templates', label: 'Email Templates' },
         { key: 'notification_editor', label: 'Notification Editor' },
       ]
@@ -475,6 +498,7 @@ export default function AdminPortal() {
         { key: 'advisor_membership_fees', label: 'Advisor Membership Fees' },
         { key: 'accountant_onboarding_fees', label: 'Accountant Onboarding' },
         { key: 'accountant_membership_fees', label: 'Accountant Membership Fees' },
+        { key: 'gc_accounting', label: 'Growth Credits' },
       ],
     },
   ]
@@ -484,8 +508,9 @@ export default function AdminPortal() {
   const moreDropdownItems = [
     ...(canSeeTab('member_overview') ? [{ key: 'more_mo', options: [{ key: '__member_overview', label: 'Member Overview' }] }] : []),
     ...(canSeeTab('client_overview') ? [{ key: 'more_co', options: [{ key: '__client_overview', label: 'Client Overview' }] }] : []),
+    ...(canSeeTab('growth_credits') ? [{ key: 'more_gc', options: [{ key: '__growth_credits', label: 'Growth Credits' }] }] : []),
     ...(canSeeTab('automation') ? [
-      { key: 'more_auto_h', header: 'Automation' },
+      { key: 'more_auto_h', header: 'Automation & Config' },
       { key: 'more_auto', options: automationDropdownItems[0].options.map(o => ({ ...o, key: 'auto:' + o.key })) },
     ] : []),
     ...(canSeeTab('accounting') ? [
@@ -497,6 +522,7 @@ export default function AdminPortal() {
   function selectMoreOption(key) {
     if (key === '__member_overview') return selectMemberOverview()
     if (key === '__client_overview') return selectClientOverview()
+    if (key === '__growth_credits') return selectGrowthCredits()
     if (key.startsWith('auto:')) return selectAutomationSection(key.slice(5))
     if (key.startsWith('acct:')) return selectAccountingSection(key.slice(5))
   }
@@ -560,17 +586,17 @@ export default function AdminPortal() {
             {/* Secondary "other" tabs — beside the key tabs, muted, access-gated,
                 separated by a faint divider. On narrow screens they collapse
                 into a single More ▾ menu so nothing falls off-screen. */}
-            {(canSeeTab('member_overview') || canSeeTab('client_overview') || canSeeTab('automation') || canSeeTab('accounting')) && navNarrow && (
+            {(canSeeTab('member_overview') || canSeeTab('client_overview') || canSeeTab('growth_credits') || canSeeTab('automation') || canSeeTab('accounting')) && navNarrow && (
               <div style={{ display: 'flex', alignItems: 'center', marginLeft: '10px', paddingLeft: '12px', borderLeft: '1px solid var(--vfo-tint)' }}>
                 <NavDropdown
                   label="More" muted
                   items={moreDropdownItems}
                   onSelect={selectMoreOption}
-                  isActive={['member_overview', 'client_overview', 'automation', 'accounting'].includes(activeTab)}
+                  isActive={['member_overview', 'client_overview', 'growth_credits', 'automation', 'accounting'].includes(activeTab)}
                 />
               </div>
             )}
-            {(canSeeTab('member_overview') || canSeeTab('client_overview') || canSeeTab('automation') || canSeeTab('accounting')) && !navNarrow && (
+            {(canSeeTab('member_overview') || canSeeTab('client_overview') || canSeeTab('growth_credits') || canSeeTab('automation') || canSeeTab('accounting')) && !navNarrow && (
               <div style={{ display: 'flex', alignItems: 'center', marginLeft: '10px', paddingLeft: '12px', borderLeft: '1px solid var(--vfo-tint)' }}>
                 {canSeeTab('member_overview') && (
                   <button onClick={selectMemberOverview} style={{
@@ -594,9 +620,20 @@ export default function AdminPortal() {
                     Client Overview
                   </button>
                 )}
+                {canSeeTab('growth_credits') && (
+                  <button onClick={selectGrowthCredits} style={{
+                    padding: '14px 14px', background: 'transparent', border: 'none',
+                    borderBottom: activeTab === 'growth_credits' ? '2px solid #125ecc' : '2px solid transparent',
+                    color: activeTab === 'growth_credits' ? '#125ecc' : '#97a3ba', fontSize: '13px',
+                    fontWeight: activeTab === 'growth_credits' ? '600' : '500', cursor: 'pointer',
+                    fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap'
+                  }}>
+                    Growth Credits
+                  </button>
+                )}
                 {canSeeTab('automation') && (
                   <NavDropdown
-                    label="Automation" muted
+                    label="Automation & Config" muted
                     items={automationDropdownItems}
                     onSelect={selectAutomationSection}
                     isActive={activeTab === 'automation'}
@@ -707,6 +744,15 @@ export default function AdminPortal() {
           {activeTab === 'automation' && !loading && automationSection === 'specialist_revenue_pipeline' && (
             <SpecialistRevenueAutomationPanel />
           )}
+          {activeTab === 'automation' && !loading && automationSection === 'growth_credits' && (
+            <GrowthCreditsPanel />
+          )}
+          {activeTab === 'notifications' && !loading && (
+            <NotificationsPage />
+          )}
+          {activeTab === 'growth_credits' && !loading && canSeeTab('growth_credits') && (
+            <GrowthCreditsRedemptionsPage />
+          )}
           {activeTab === 'automation' && !loading && automationSection === 'email_templates' && (
             <EmailTemplatesPanel />
           )}
@@ -761,6 +807,9 @@ export default function AdminPortal() {
           )}
           {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'accountant_membership_fees' && (
             <MembershipFeesPanel title="Accountant Membership Fees" />
+          )}
+          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'gc_accounting' && (
+            <GrowthCreditsAccountingPanel />
           )}
 
           {loading && activeTab && <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px' }}><DirectoryListSkeleton /></div>}
