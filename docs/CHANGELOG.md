@@ -8,6 +8,17 @@
 
 ---
 
+## Archived from SESSION_REFERENCE on 2026-07-10 (home-page count alignment session, third that day)
+
+**Deploy-state note recorded during this session's staleness audit:** every frontend item that had been carried as "PENDING / NOT deployed" in SESSION_REFERENCE shipped between 2026-07-09 and 2026-07-10, each under its own tag — `live-48-specrev-recurring` (react #107), `live-49-specrev-stripe-account-link` (react #108), `live-50-client-overview` (react #110), `live-51-ert-vault` (react #111), `live-52-profile-restyle` (react #112), `live-53-kpi-standing` (react #113), `live-54-growth-permanent-numbering` (react #114), `live-55-gc-notifications-notes` (react #115). The entries below/around this file that still read "frontend dev-only, NOT deployed → next `live-N`" are verbatim history from before those deploys.
+
+- **Advisor/Accountant KPIs — separate-count carve-out + Suspended & Paused sub-tab** (2026-07-10, branch `claude/competent-sanderson-36ae8d` **vfo-react ONLY**; frontend SHIPPED as `live-53-kpi-standing` (react #113); NO backend, NO DB; action count + deno baseline unchanged; user click-through PASS). Frontend-only, entirely in `components/admin/MemberKpiPanel.jsx` (+ one opt-in `stack` prop on shared `KpiKit SplitDonut` — Specialist KPI page unaffected).
+  - **A. Separate-count carve-out.** Advisor KPIs now EXCLUDE `VFO Reconciliation (Free)` members from the Active / Total / status counts AND the "Breakdown by member type"; Accountant KPIs do the same for `Team Member`. Each excluded bucket is surfaced as its own dashed standalone card ("N · M active · shown separately — not included in the counts above"). Driven by a `SEPARATE_BUCKETS` map that carves `rawPool` → `pool`; all downstream counts read `pool`. Strategic Member KPIs unaffected (no separate bucket).
+  - **B. Suspended & Paused sub-tab.** New sub-tab nav (`KPIs` · `Suspended & Paused Advisors`/`…Accountants` — advisor + accountant pages only, not strategic) with a two-button Suspended/Paused toggle over a read-only member list (member # / name / type / standing tag), sorted by name. Standing colors match the member-profile toggles: suspended red `#e74c3c`, paused orange `#e06717`. Counts read `pool` so they line up with the hero Suspended/Paused chips.
+  - **C. Layout.** Wide breakdown on the left (`flex 3`); narrower/taller right column (`~230–320px`) = Legacy vs New Model (legend now STACKED below the donut via the new `stack` prop) with the separate-count card beneath it.
+
+---
+
 ## Archived from SESSION_REFERENCE on 2026-07-10 (Growth Credits / Notifications / Notes session)
 
 **Prior LIVE STATE values superseded that day:** `vfo-admin-api` v579 (Growth Plan permanent-numbering session; prior tail already archived below); action count 386 (5 logins + 381 dispatched) → **395** (+9: `gc_load_accounting`, `load_notifications_page`, `mark_notifications_read`, `reminder_create`, `reminder_load`, `reminder_delete`, `automation_REMINDER_sweep`, `automation_NOTIFICATIONS_purge`, `client_notes_load_shared`); DB-this-session cell (growth_plan_actions.plan_number + growth notification rules → superseded by the 4 GC/reminders/notes-visibility migrations + cron jobs 14/15).
