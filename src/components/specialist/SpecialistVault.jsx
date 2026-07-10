@@ -1,8 +1,10 @@
-import VaultSections from '../shared/VaultSections'
+import VaultSections, { DEFAULT_VAULT_SECTIONS } from '../shared/VaultSections'
+import { ertReadOnlySection } from '../shared/ertVaultSection'
 
 // The specialist vault now mirrors the client vault: a General section (which
 // also holds the Due Diligence files copied in on go-live) plus a Tax Documents
-// section the specialist can add to after logging in.
+// section the specialist can add to after logging in, and a read-only ERT/VFOS
+// Documentation section their VFO team manages.
 const SPECIALIST_VAULT_ACTIONS = {
   list: 'specialist_vault_list',
   uploadUrl: 'specialist_vault_upload_url',
@@ -11,5 +13,5 @@ const SPECIALIST_VAULT_ACTIONS = {
 }
 
 export default function SpecialistVault() {
-  return <VaultSections actions={SPECIALIST_VAULT_ACTIONS} />
+  return <VaultSections actions={SPECIALIST_VAULT_ACTIONS} sections={[...DEFAULT_VAULT_SECTIONS, ertReadOnlySection()]} />
 }

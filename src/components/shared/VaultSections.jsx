@@ -19,12 +19,24 @@ export const DEFAULT_VAULT_SECTIONS = [
 // bypasses the server, so a bell notification needs this explicit call);
 // `params` is merged into every request (e.g. { member_number } for the
 // member vault, {} for session-scoped vaults).
+//
+// A section may override the shared behaviour:
+//   • readOnly: true  → renders View only (no Remove button, no upload). Used
+//     for the ERT/VFOS Documentation section on the owner (portal) side.
+//   • actions / params → per-section overrides for that one section's
+//     download/uploadUrl/delete calls (the ERT section on the ADMIN side routes
+//     through the admin_ert_* actions with { entity, key } instead of the shared
+//     member_number/expert_id params). The section's file LIST always comes from
+//     the shared actions.list response keyed by section (which returns `ert`).
 export default function VaultSections({ actions, params = {}, sections = DEFAULT_VAULT_SECTIONS }) {
   const [data, setData] = useState(() => Object.fromEntries(sections.map(s => [s.key, []])))
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const paramsKey = JSON.stringify(params)
+
+  const actionFor = (sec, op) => (sec.actions && sec.actions[op]) || actions[op]
+  const paramsFor = (sec) => sec.params || params
 
   async function load() {
     setLoading(true); setError('')
@@ -36,37 +48,38 @@ export default function VaultSections({ actions, params = {}, sections = DEFAULT
   }
   useEffect(() => { load() }, [actions.list, paramsKey])
 
-  async function handleFiles(section, fileList) {
+  async function handleFiles(sec, fileList) {
     const files = Array.from(fileList || [])
     if (!files.length) return
-    setBusy(section); setError('')
+    setBusy(sec.key); setError('')
     for (const file of files) {
       const tooBig = fileSizeError(file)
       if (tooBig) { setError(tooBig); continue }
       try {
-        const d = await callApi(actions.uploadUrl, { ...params, section, filename: file.name })
+        const d = await callApi(actionFor(sec, 'uploadUrl'), { ...paramsFor(sec), section: sec.key, filename: file.name })
         if (!d.signed_url) throw new Error(d.error || 'Could not start upload')
         const fd = new FormData(); fd.append('cacheControl', '3600'); fd.append('', file)
         const put = await fetch(d.signed_url, { method: 'PUT', headers: { 'x-upsert': 'true' }, body: fd })
         if (!put.ok) throw new Error('Upload failed')
-        if (actions.uploadNotify) {
-          callApi(actions.uploadNotify, { ...params, section, file_name: file.name }).catch(() => {})
+        const notify = actionFor(sec, 'uploadNotify')
+        if (notify) {
+          callApi(notify, { ...paramsFor(sec), section: sec.key, file_name: file.name }).catch(() => {})
         }
       } catch (e) { setError(e.message || 'Upload failed') }
     }
     setBusy(''); load()
   }
 
-  async function view(section, path) {
+  async function view(sec, path) {
     try {
-      const d = await callApi(actions.download, { ...params, section, path })
+      const d = await callApi(actionFor(sec, 'download'), { ...paramsFor(sec), section: sec.key, path })
       if (d.url) window.open(d.url, '_blank', 'noopener')
     } catch (e) { setError(e.message || 'Could not open document') }
   }
 
-  async function remove(section, path) {
+  async function remove(sec, path) {
     if (!window.confirm('Remove this document?')) return
-    try { await callApi(actions.delete, { ...params, section, path }); load() }
+    try { await callApi(actionFor(sec, 'delete'), { ...paramsFor(sec), section: sec.key, path }); load() }
     catch (e) { setError(e.message || 'Could not remove') }
   }
 
@@ -90,14 +103,18 @@ export default function VaultSections({ actions, params = {}, sections = DEFAULT
                   <span>📄</span>
                   <span style={{ fontSize: '13px', color: 'var(--vfo-ink-2)', flex: 1 }}>{f.name}</span>
                   <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{fmtSize(f.size)}</span>
-                  <button onClick={() => view(sec.key, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>View</button>
-                  <button onClick={() => remove(sec.key, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer' }}>Remove</button>
+                  <button onClick={() => view(sec, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>View</button>
+                  {!sec.readOnly && (
+                    <button onClick={() => remove(sec, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer' }}>Remove</button>
+                  )}
                 </div>
               ))}
-              <label style={{ display: 'block', textAlign: 'center', cursor: busy === sec.key ? 'wait' : 'pointer', marginTop: '10px', padding: '16px', borderRadius: '8px', border: '1px dashed var(--vfo-border-mid)', background: 'var(--vfo-tint)' }}>
-                <input type="file" multiple accept={ACCEPT} disabled={busy === sec.key} style={{ display: 'none' }} onChange={e => { handleFiles(sec.key, e.target.files); e.target.value = '' }} />
-                <span style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>{busy === sec.key ? 'Uploading…' : '+ Add document'}</span>
-              </label>
+              {!sec.readOnly && (
+                <label style={{ display: 'block', textAlign: 'center', cursor: busy === sec.key ? 'wait' : 'pointer', marginTop: '10px', padding: '16px', borderRadius: '8px', border: '1px dashed var(--vfo-border-mid)', background: 'var(--vfo-tint)' }}>
+                  <input type="file" multiple accept={ACCEPT} disabled={busy === sec.key} style={{ display: 'none' }} onChange={e => { handleFiles(sec, e.target.files); e.target.value = '' }} />
+                  <span style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>{busy === sec.key ? 'Uploading…' : '+ Add document'}</span>
+                </label>
+              )}
             </>
           )}
         </div>

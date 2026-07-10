@@ -16,6 +16,7 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
   const [sensitive, setSensitive] = useState([])
   const [canView, setCanView] = useState(false)
   const [general, setGeneral] = useState([])
+  const [ert, setErt] = useState([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
@@ -29,35 +30,42 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
   async function load() {
     setLoading(true); setError('')
     try {
-      const [tax, gen] = await Promise.all([
+      const [tax, gen, ertRes] = await Promise.all([
         callApi('vault_tax_list', { client_id: clientId }),
         callApi('vault_gen_list', { client_id: clientId }),
+        callApi('admin_ert_list', { entity: 'client', key: clientId }),
       ])
       setSensitive(tax.files || []); setCanView(!!tax.can_view)
       setGeneral(gen.files || [])
+      setErt(ertRes.ert || [])
     } catch (e) { setError(e.message || 'Could not load vault') }
     setLoading(false)
   }
   useEffect(() => { load() }, [clientId])
 
-  async function view(actions, path) {
-    try { const d = await callApi(actions.download, { client_id: clientId, path }); if (d.url) window.open(d.url, '_blank', 'noopener') }
+  // The ERT/VFOS section is routed through the unified admin_ert_* actions
+  // ({ entity, key }); the sensitive/general sections use their { client_id }
+  // handlers. paramsFor picks the right shape per section.
+  const paramsFor = (sec) => sec.key === 'ert' ? { entity: 'client', key: clientId } : { client_id: clientId }
+
+  async function view(sec, path) {
+    try { const d = await callApi(sec.actions.download, { ...paramsFor(sec), path }); if (d.url) window.open(d.url, '_blank', 'noopener') }
     catch (e) { setError(e.message || 'Could not open document') }
   }
-  async function remove(actions, path) {
+  async function remove(sec, path) {
     if (!window.confirm('Delete this document? This cannot be undone.')) return
-    try { await callApi(actions.delete, { client_id: clientId, path }); load() }
+    try { await callApi(sec.actions.delete, { ...paramsFor(sec), path }); load() }
     catch (e) { setError(e.message || 'Could not delete') }
   }
-  async function handleFiles(sec, actions, fileList) {
+  async function handleFiles(sec, fileList) {
     const list = Array.from(fileList || [])
     if (!list.length) return
-    setBusy(sec); setError('')
+    setBusy(sec.key); setError('')
     for (const file of list) {
       const tooBig = fileSizeError(file)
       if (tooBig) { setError(tooBig); continue }
       try {
-        const d = await callApi(actions.upload, { client_id: clientId, filename: file.name })
+        const d = await callApi(sec.actions.upload, { ...paramsFor(sec), filename: file.name })
         if (!d.signed_url) throw new Error(d.error || 'Could not start upload')
         const fd = new FormData(); fd.append('cacheControl', '3600'); fd.append('', file)
         const put = await fetch(d.signed_url, { method: 'PUT', headers: { 'x-upsert': 'true' }, body: fd })
@@ -107,6 +115,11 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
       blurb: 'Everyday client documents. All admins can view, add, remove and share these.',
       actions: { download: 'vault_gen_download', delete: 'vault_gen_delete', upload: 'vault_gen_upload_url' },
     },
+    {
+      key: 'ert', title: 'ERT/VFOS Documentation', sub: '', files: ert, canManage: true, bucket: 'client-ert-docs', noShare: true,
+      blurb: 'ERT / VFO documents for this client. Only admins can add or remove; the client can only view them in their portal. Signed agreements land here automatically once paid.',
+      actions: { download: 'admin_ert_download', delete: 'admin_ert_delete', upload: 'admin_ert_upload_url' },
+    },
   ]
 
   const chipStyle = { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--vfo-ink-2)', background: '#dce7fb', border: '1px solid var(--vfo-border-mid)', borderRadius: '999px', padding: '3px 6px 3px 11px' }
@@ -134,9 +147,9 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
                       <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{fmtSize(f.size)}</span>
                       {sec.canManage ? (
                         <>
-                          <button onClick={() => view(sec.actions, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>View</button>
-                          <button onClick={() => toggleShare(sec.bucket, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(18,94,204,0.4)', background: open ? 'rgba(18,94,204,0.22)' : 'rgba(18,94,204,0.1)', color: '#125ecc', fontWeight: 600, cursor: 'pointer' }}>Share</button>
-                          <button onClick={() => remove(sec.actions, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer' }}>Delete</button>
+                          <button onClick={() => view(sec, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>View</button>
+                          {!sec.noShare && <button onClick={() => toggleShare(sec.bucket, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(18,94,204,0.4)', background: open ? 'rgba(18,94,204,0.22)' : 'rgba(18,94,204,0.1)', color: '#125ecc', fontWeight: 600, cursor: 'pointer' }}>Share</button>}
+                          <button onClick={() => remove(sec, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer' }}>Delete</button>
                         </>
                       ) : (
                         <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontStyle: 'italic' }}>locked</span>
@@ -172,7 +185,7 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
               })}
               {sec.canManage && (
                 <label style={{ display: 'block', textAlign: 'center', cursor: 'pointer', marginTop: '14px', padding: '18px', borderRadius: '8px', border: '1px dashed var(--vfo-border-mid)', background: 'var(--vfo-tint)' }}>
-                  <input type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={e => { handleFiles(sec.key, sec.actions, e.target.files); e.target.value = '' }} />
+                  <input type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={e => { handleFiles(sec, e.target.files); e.target.value = '' }} />
                   <span style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>{busy === sec.key ? 'Uploading…' : '+ Add document'}</span>
                 </label>
               )}

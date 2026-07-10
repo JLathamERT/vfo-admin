@@ -278,6 +278,19 @@ Admin-facing handlers over the private client buckets. The `vault_tax_*` set gua
 | `vault_gen_download` | `actions/vault/gen-download.ts` | storage `client-documents` | — | Any admin. Signed download URL. |
 | `vault_gen_delete` | `actions/vault/gen-delete.ts` | — | storage `client-documents` (delete) | Any admin. Removes a file. |
 
+#### ERT/VFOS Documentation — admin side (added 2026-07-09; gated by `ADMIN_ONLY_ACTIONS`)
+
+The read-only-for-owner third vault section. ONE unified admin-only set covers all three entity types via `{ entity, key }` (entity ∈ member/client/specialist; key = member_number/client_id/expert_id). Buckets `{member,client,specialist}-ert-docs` + `ERT_BUCKETS`/`listErt()` in `actions/vault/ert-shared.ts`. The owner never writes here (their portal write handlers reject `section='ert'`); they only see an `ert` array from their `*_vault_list` and download `section='ert'`.
+
+| Action | File | Reads | Writes | Notes |
+|---|---|---|---|---|
+| `admin_ert_list` | `actions/vault/admin-ert.ts` | storage `{entity}-ert-docs` (list by `key`) | — | Any admin. Returns `{ ert: [...] }`. |
+| `admin_ert_upload_url` | `actions/vault/admin-ert.ts` | — | storage `{entity}-ert-docs` (upload) | Any admin. Signed upload URL. |
+| `admin_ert_download` | `actions/vault/admin-ert.ts` | storage `{entity}-ert-docs` | — | Any admin. 300s signed download (path prefix-checked). |
+| `admin_ert_delete` | `actions/vault/admin-ert.ts` | — | storage `{entity}-ert-docs` (delete) | Any admin. Removes a file. |
+
+Signed BoldSign agreements are copied into these buckets automatically on sign+pay by `utils/ert-agreement-copy.ts` (hooked into the specialist/advisor/accountant create handlers + the MAP 1 / Tax confirmation-email handlers). See gotchas #204–#205.
+
 #### Client portal — client side (gated by `CLIENT_ALLOWED_ACTIONS`)
 
 A `client` session may call ONLY these (4 vault + `client_showroom_load`). Each is scoped to `auth.callerClientId` — never a body `client_id`.

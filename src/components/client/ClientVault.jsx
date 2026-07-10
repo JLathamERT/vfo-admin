@@ -1,4 +1,5 @@
-import VaultSections from '../shared/VaultSections'
+import VaultSections, { DEFAULT_VAULT_SECTIONS } from '../shared/VaultSections'
+import { ertReadOnlySection } from '../shared/ertVaultSection'
 
 const CLIENT_VAULT_ACTIONS = {
   list: 'client_vault_list',
@@ -9,5 +10,5 @@ const CLIENT_VAULT_ACTIONS = {
 }
 
 export default function ClientVault() {
-  return <VaultSections actions={CLIENT_VAULT_ACTIONS} />
+  return <VaultSections actions={CLIENT_VAULT_ACTIONS} sections={[...DEFAULT_VAULT_SECTIONS, ertReadOnlySection()]} />
 }
