@@ -1,4 +1,5 @@
 import VaultSections from '../shared/VaultSections'
+import { ertAdminSection } from '../shared/ertVaultSection'
 
 // Admin view of a specialist's vault (both sections), shown on the Vault tab of
 // the Search Specialists detail. Same layout as every other vault; admins can
@@ -17,5 +18,6 @@ const SPECIALIST_ADMIN_SECTIONS = [
 
 export default function SpecialistAdminVault({ expertId }) {
   if (!expertId) return null
-  return <VaultSections actions={SPECIALIST_ADMIN_VAULT_ACTIONS} params={{ expert_id: expertId }} sections={SPECIALIST_ADMIN_SECTIONS} />
+  const sections = [...SPECIALIST_ADMIN_SECTIONS, ertAdminSection('specialist', expertId, 'specialist')]
+  return <VaultSections actions={SPECIALIST_ADMIN_VAULT_ACTIONS} params={{ expert_id: expertId }} sections={sections} />
 }

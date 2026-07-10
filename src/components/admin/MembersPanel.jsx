@@ -403,7 +403,7 @@ function MemberDirectoryView({
           {memberFeatureTab === 'ciq' && <MemberCIQ memberNumber={selectedMember.plugin_member_number} memberName={selectedMember.name} ciqEnabled={selectedMember.ciq_enabled} ciqVfosManaged={selectedMember.ciq_vfos_managed} isAdmin={true} />}
           {growthPlan && memberFeatureTab.startsWith('gp_') && <AdminGrowthPlan member={selectedMember} activeStep={memberFeatureTab} onNavigate={k => { setMemberFeatureTab(k); sessionStorage.setItem(featureTabKey, k) }} />}
           {memberFeatureTab === 'gc' && <MemberGC member={selectedMember} />}
-          {memberFeatureTab === 'vault' && <MemberVault memberNumber={selectedMember.plugin_member_number} />}
+          {memberFeatureTab === 'vault' && <MemberVault memberNumber={selectedMember.plugin_member_number} admin={true} />}
           {memberFeatureTab === 'settings' && <MemberSettings member={selectedMember} onDataChange={onDataChange} />}
         </>
       )}
