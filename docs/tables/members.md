@@ -27,6 +27,9 @@ The advisor/accountant roster. PK is `member_number` (text), not an integer — 
 | `trading_name` | text | nullable. Added 2026-06-18. **Accountant firm / trading name.** Editable in the Add-Accountant form + accountant Edit Profile; shown in the accountant profile details. Advisors don't set it. Inserted by `add_member_full`, persisted by `member_profile_save` (passthrough upsert), returned by `load_data`. |
 | `email` | text | |
 | `notes` | text | |
+| `headshot_image` | text | nullable. Added 2026-07-10. **Member profile headshot** — stores just the filename; the image lives in the public `headshots` bucket (shared with `experts.headshot_image`), rendered as `<HEADSHOT_SUPABASE>/<encoded filename>`. Admin-managed only (mirrors specialists): uploaded via `upload_headshot` + cropped by `ImageCropModal`, persisted by `member_profile_save` (passthrough upsert). Surfaced on the admin `TrackHero` avatar + member-portal hero via `load_data` (must be whitelisted there — gotcha #207). |
+| `bio` | text | nullable. Added 2026-07-10. Member biography (long-form), shown full-width on the admin + portal profile. Admin-edited via `member_profile_save`. |
+| `website_url` | text | nullable. Added 2026-07-10. Member website; rendered as a clickable link (bare domains get `https://` prepended). Admin-edited via `member_profile_save`. |
 | `assigned_msm` | text | Member-Servicing-Manager identifier. |
 | `engagement_level` | text | nullable. Admin-set engagement rating shown/editable on the **Member Overview** tab: `highly_engaged` / `reasonably_engaged` / `somewhat_engaged` / `disengaged` (or null = not set). Saved via `member_save_engagement`. Added 2026-07-01. |
 | `vfo_certified_date` / `vfo_accredited_date` | date | |
@@ -37,7 +40,7 @@ The advisor/accountant roster. PK is `member_number` (text), not an integer — 
 **Status fields:** `elite_status`, `suspended`, `paused`, `ciq_enabled`.
 **Automation fields:** `stripe_account_id` (revshare), `ciq_enabled` (CIQ start-new gate) / `ciq_vfos_managed` (CIQ "Powered by VFO Services" label).
 
-**Touched by:** `load_data`, `add_member`, `add_member_full`, `save_member`, `delete_member`, `member_profile_load`, `member_profile_save`, `automation_CONTRACT_revshare`. Frontend: [MembersPanel.jsx](src/components/admin/MembersPanel.jsx).
+**Touched by:** `load_data`, `add_member`, `add_member_full`, `save_member`, `delete_member`, `member_profile_load`, `member_profile_save`, `upload_headshot` (profile headshot → `headshots` bucket), `automation_CONTRACT_revshare`. Frontend: [MembersPanel.jsx](src/components/admin/MembersPanel.jsx), [MemberPortal.jsx](src/pages/MemberPortal.jsx).
 
 **Roster size:** 556 rows as of 2026-06-18 — the 21 originals + **535 active advisors/accountants bulk-imported** from the legacy Google Sheets (gotcha #140; side-effect-free, OLD numbers preserved). **Member-number suffixes seen in live data** (all non-integer PKs, preserved verbatim, skipped by `nextMemberNumber()`): `-J<n>` legacy joint/secondary advisor · `-C<n>` Corporate Member · `-FC<n>` Free Corporate Member · `-FCL<n>` Free Corporate Member (Legacy) · `-TA<n>` accountant Team Member under a parent firm · `-NRA`/`-NRB` VFO Reconciliation (Free) sub-records · `-F<n>`/`-FF<n>` Free Catalyst/Fusion.
 

@@ -59,13 +59,26 @@ function PhaseStepper({ steps }) {
   )
 }
 
+// Circular hero avatar — a headshot image when `src` is given, else a
+// gradient-filled initials circle. Used in profile heroes (members, clients).
+export function HeroAvatar({ src, name, size = 60 }) {
+  const initials = (name || '?').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+  return (
+    <div style={{ width: size, height: size, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: src ? 'var(--vfo-tint)' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: '1px solid var(--vfo-border-chip)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(18,94,204,0.28)' }}>
+      {src
+        ? <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : <span style={{ color: '#fff', fontWeight: 700, fontSize: Math.round(size * 0.36) }}>{initials}</span>}
+    </div>
+  )
+}
+
 // Designed progress hero for track views: gradient accent strip, eyebrow +
 // title, optional meta line, % + progress bar (when completed/total given),
 // optional right-side action node, optional phase stepper.
 // `accent={false}` drops the gradient strip; omitting `title` turns the card
 // into a pure progress card (counter shown in the title slot) — use these for
 // nested cards so stacked heroes don't repeat the same treatment.
-export function TrackHero({ eyebrow, title, meta, action, completed, total, unitLabel = 'tasks completed', steps, accent = true }) {
+export function TrackHero({ eyebrow, title, meta, action, completed, total, unitLabel = 'tasks completed', steps, accent = true, avatar = null }) {
   const hasBar = typeof total === 'number' && total > 0
   const pct = hasBar ? Math.round(completed / total * 100) : 0
   return (
@@ -73,7 +86,9 @@ export function TrackHero({ eyebrow, title, meta, action, completed, total, unit
       {accent && <div style={{ height: '4px', background: 'linear-gradient(90deg, #002973 0%, #125ecc 55%, #0a85e8 100%)' }} />}
       <div style={{ padding: '18px 22px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
-          <div style={{ minWidth: '200px', flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: '200px', flex: 1 }}>
+            {avatar}
+            <div style={{ minWidth: 0, flex: 1 }}>
             {eyebrow && <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '1.2px', color: '#0095ff', textTransform: 'uppercase', marginBottom: '5px' }}>{eyebrow}</div>}
             {title && <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '22px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)', lineHeight: 1.15 }}>{title}</div>}
             {!title && hasBar && (
@@ -84,6 +99,7 @@ export function TrackHero({ eyebrow, title, meta, action, completed, total, unit
               </div>
             )}
             {meta && <div style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>{meta}</div>}
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
             {hasBar && (

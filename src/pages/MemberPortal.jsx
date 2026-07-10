@@ -10,9 +10,12 @@ import MemberShowroom from '../components/member/MemberShowroom'
 import MemberGrowthPlan from '../components/member/MemberGrowthPlan'
 import VfoWordmark from '../components/shared/VfoWordmark'
 import AppearanceCard from '../components/shared/AppearanceCard'
+import { HeroAvatar } from '../components/shared/TrackKit'
 import { usePortalTheme } from '../lib/theme'
 
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
+// Prepend https:// to a bare domain so member website links resolve as absolute.
+const normalizeUrl = (u) => { const s = (u || '').trim(); return s && !/^https?:\/\//i.test(s) ? 'https://' + s : s }
 import vfoCertifiedSeal from '../assets/vfo-certified-emblem.png'
 import vfoAccreditedSeal from '../assets/vfo-accredited-emblem.png'
 import { MemberProfileSkeleton } from '../components/shared/Skeleton'
@@ -310,17 +313,18 @@ function MemberSpecialists({ member, allExperts, exclusions, ecoMap = {}, onData
 
 function MemberProfile({ member }) {
   // Mirrors the admin-side member profile (MembersPanel MemberProfile):
-  // hero header with status meta, then a two-column body — details grid on
-  // the left, certifications in the sidebar.
+  // hero header with headshot + status meta, short facts side by side, then
+  // full-width long-form (bio).
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '16px' }
+  const cardTitle = { fontSize: '16px', color: 'var(--vfo-heading)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '18px', paddingBottom: '11px', borderBottom: '2px solid var(--vfo-heading)' }
   const fieldLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--vfo-faint)', textTransform: 'uppercase' }
   const fieldValue = { fontSize: '15px', color: 'var(--vfo-ink)', fontWeight: 600, marginTop: '5px' }
   // Accountants have no revenue decision — hide the field for them. Advisors
   // and uncategorized members keep it. Mirrors the admin-side hiddenFields.
   const isAccountant = member.member_category === 'accountant'
-  const initials = (member.name || '').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
   const statusColors = { Active: '#1b9254', Lost: '#e74c3c', Removed: '#e74c3c' }
   const hasCerts = member.vfo_certified_date || member.vfo_accredited_date
+  const headshotSrc = member.headshot_image ? HEADSHOT_SUPABASE + encodeURIComponent(member.headshot_image) : null
 
   return (
     <div style={{ maxWidth: '980px', margin: '0 auto', padding: '24px' }}>
@@ -328,7 +332,7 @@ function MemberProfile({ member }) {
       <div style={{ ...sectionStyle, padding: 0, overflow: 'hidden' }}>
         <div style={{ height: '4px', background: 'linear-gradient(90deg, #002973 0%, #125ecc 55%, #0a85e8 100%)' }} />
         <div style={{ padding: '22px 24px', display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
-          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '22px', flexShrink: 0, boxShadow: '0 2px 8px rgba(18,94,204,0.28)' }}>{initials}</div>
+          <HeroAvatar src={headshotSrc} name={member.name} size={64} />
           <div style={{ minWidth: '200px', flex: 1 }}>
             <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '1.2px', color: '#0095ff', textTransform: 'uppercase', marginBottom: '4px' }}>Member Profile</div>
             <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.03em', fontSize: '24px', color: 'var(--vfo-heading)', lineHeight: 1.15 }}>{member.name}</div>
@@ -347,26 +351,26 @@ function MemberProfile({ member }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        {/* Main column — membership details */}
-        <div style={{ flex: '2 1 400px', minWidth: '300px' }}>
-          <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Membership Details</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '18px 24px' }}>
+      {/* Short facts side by side; long-form (bio) runs full width below. */}
+      <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 340px', minWidth: '300px', display: 'flex' }}>
+          <div style={{ ...sectionStyle, flex: 1 }}>
+            <div style={cardTitle}>Membership Details</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '18px 24px' }}>
               <div><div style={fieldLabel}>Member Number</div><div style={{ ...fieldValue, fontFamily: 'monospace' }}>{member.member_number}</div></div>
               <div><div style={fieldLabel}>Join Date</div><div style={fieldValue}>{member.join_date ? member.join_date.split('T')[0] : '—'}</div></div>
               {member.email && <div><div style={fieldLabel}>Email</div><div style={{ ...fieldValue, wordBreak: 'break-word' }}>{member.email}</div></div>}
               {isAccountant && member.trading_name && <div><div style={fieldLabel}>Trading Name</div><div style={fieldValue}>{member.trading_name}</div></div>}
               {!isAccountant && <div><div style={fieldLabel}>Revenue Decision</div><div style={fieldValue}>{member.revenue_decision || '—'}</div></div>}
+              {member.website_url && <div><div style={fieldLabel}>Website</div><div style={fieldValue}><a href={normalizeUrl(member.website_url)} target="_blank" rel="noopener noreferrer" style={{ color: '#0095ff', textDecoration: 'none', wordBreak: 'break-all' }}>{member.website_url}</a></div></div>}
             </div>
           </div>
         </div>
 
-        {/* Side column — certifications */}
         {hasCerts && (
-          <div style={{ flex: '1 1 250px', minWidth: '250px' }}>
+          <div style={{ flex: '1 1 300px', minWidth: '280px' }}>
             <div style={sectionStyle}>
-              <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '14px' }}>Certifications</div>
+              <div style={cardTitle}>Certifications</div>
               {member.vfo_certified_date && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: member.vfo_accredited_date ? '14px' : 0 }}>
                   <img src={vfoCertifiedSeal} style={{ width: '44px', height: '44px' }} />
@@ -389,6 +393,13 @@ function MemberProfile({ member }) {
           </div>
         )}
       </div>
+
+      {member.bio && (
+        <div style={sectionStyle}>
+          <div style={cardTitle}>Bio</div>
+          <div style={{ fontSize: '14px', color: 'var(--vfo-ink)', lineHeight: 1.7, whiteSpace: 'pre-wrap', maxWidth: '900px' }}>{member.bio}</div>
+        </div>
+      )}
     </div>
   )
 }

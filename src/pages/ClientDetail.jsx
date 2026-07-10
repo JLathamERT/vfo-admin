@@ -14,12 +14,14 @@ import PaymentContinuationTab from '../components/admin/migration/PaymentContinu
 import AddGeneralNote from '../components/shared/AddGeneralNote'
 import { PhaseNotesButton, PhaseNotesPanel } from '../components/shared/PhaseNotes'
 import { Skeleton, ProfileTabSkeleton } from '../components/shared/Skeleton'
-import { TrackHero } from '../components/shared/TrackKit'
+import { TrackHero, HeroAvatar } from '../components/shared/TrackKit'
 import VfoWordmark from '../components/shared/VfoWordmark'
 import NotificationBell from '../components/NotificationBell'
 
 const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael', 'Bridger Silvester', 'Tracy Miller', 'Evan Anderson']
 const statusColors = { Completed: '#1b9254', Confirmed: '#1b9254', Yes: '#1b9254', 'In Progress': '#e06717', Scheduled: '#0095ff', No: '#e74c3c', 'N/A': 'var(--vfo-muted)', Pending: '#e06717' }
+// Specialist-style section heading (navy, underlined) — matches SpecialistProfileView.
+const cardTitle = { fontSize: '16px', color: 'var(--vfo-heading)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '18px', paddingBottom: '11px', borderBottom: '2px solid var(--vfo-heading)' }
 
 function ClientTabDropdown({ label, isActive, options, onSelect }) {
   const [open, setOpen] = useState(false)
@@ -208,6 +210,7 @@ export default function ClientDetail() {
           <TrackHero
             eyebrow="Clients"
             title={`${client?.first_name} ${client?.last_name}`}
+            avatar={<HeroAvatar src={null} name={`${client?.first_name || ''} ${client?.last_name || ''}`} />}
             meta={
               <>
                 <span style={{ fontFamily: 'monospace' }}>{client?.client_ref}</span>
@@ -265,7 +268,7 @@ export default function ClientDetail() {
             {activeTab === 'payments' && !isMember && <ClientPaymentsTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} />}
             {activeTab === 'settings' && !isMember && (
               <div style={sectionStyle}>
-                <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Client Login</div>
+                <div style={cardTitle}>Client Login</div>
                 <p style={{ fontSize: '14px', color: 'var(--vfo-muted)', marginBottom: '16px' }}>Send a setup email so this client can create their own portal passcode.</p>
                 <SendSetupEmailButton loginType="client" subjectId={parseInt(clientId)} hint="Drafts a Gmail with a secure link. The client sets their own passcode." />
               </div>
@@ -332,13 +335,11 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
   const initials = (first, last) => `${(first || '')[0] || ''}${(last || '')[0] || ''}`.toUpperCase()
 
   return (
-    <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-
-      {/* Main column — contact info + notes */}
-      <div style={{ flex: '2 1 400px', minWidth: '300px' }}>
+    <div>
+      {/* Contact info — full width across the top. */}
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Contact Info</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '18px 24px' }}>
+        <div style={cardTitle}>Contact Info</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '18px 24px' }}>
           <div><div style={fieldLabel}>Email</div><div style={fieldValue}>{client?.email || '—'}</div></div>
           <div><div style={fieldLabel}>Phone</div><div style={fieldValue}>{client?.phone || '—'}</div></div>
         </div>
@@ -355,11 +356,51 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
           ))}
         </div>}
       </div>
+
+      {/* Status + assigned PF — side by side. */}
+      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 300px', minWidth: '260px' }}>
+          <div style={sectionStyle}>
+            <div style={cardTitle}>Client Status</div>
+            {readOnly
+              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '10px', height: '10px', borderRadius: '50%', background: statusColors[status], flexShrink: 0 }} />{status.charAt(0).toUpperCase() + status.slice(1)}</span>
+              : <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: statusColors[status], flexShrink: 0 }} />
+                  <select value={status} onChange={e => updateStatus(e.target.value)} disabled={saving} style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '14px', fontFamily: 'Inter, sans-serif', minWidth: '160px', flex: 1 }}>
+                    <option value="active">Active</option>
+                    <option value="pending">Pending</option>
+                    <option value="lost">Lost</option>
+                  </select>
+                </div>
+            }
+          </div>
+        </div>
+        <div style={{ flex: '1 1 300px', minWidth: '260px' }}>
+          <div style={sectionStyle}>
+            <div style={cardTitle}>Assigned PF</div>
+            {readOnly
+              ? <div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{client?.assigned_pf || '—'}</div>
+              : <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <select value={assignedPf} onChange={e => setAssignedPf(e.target.value)} style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '14px', fontFamily: 'Inter, sans-serif', minWidth: '160px', flex: 1 }}>
+                    <option value="">-- Select --</option>
+                    <option value="Evan Anderson">Evan Anderson</option>
+                    <option value="Bridger Silvester">Bridger Silvester</option>
+                    <option value="Ian Welham">Ian Welham</option>
+                  </select>
+                  <button onClick={savePf} disabled={savingPf} style={{ padding: '8px 20px', borderRadius: '8px', background: savingPf ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '14px', cursor: savingPf ? 'not-allowed' : 'pointer' }}>{savingPf ? 'Saving...' : 'Save'}</button>
+                  {pfSaved && <span style={{ color: '#1b9254', fontSize: '14px', fontWeight: '600' }}>✓ Saved!</span>}
+                </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      {/* Notes — full width so long threads use the whole row. */}
       {!readOnly && (
         <div style={sectionStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div style={{ ...cardTitle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>All Notes</span>
+              <span>All Notes</span>
               <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{notes.length}</span>
             </div>
             <AddGeneralNote clientId={client.id} notes={notes} onNotesChange={onNotesChange} programName={program?.name || null} />
@@ -393,41 +434,6 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
           ))}
         </div>
       )}
-      </div>
-
-      {/* Side column — status + assigned PF */}
-      <div style={{ flex: '1 1 250px', minWidth: '250px' }}>
-        <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Client Status</div>
-          {readOnly
-            ? <span style={{ padding: '4px 14px', borderRadius: '6px', fontSize: '14px', fontWeight: '600', background: `${statusColors[status]}22`, color: statusColors[status], border: `1px solid ${statusColors[status]}44` }}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>
-            : <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {[['active','Active'], ['pending','Pending'], ['lost','Lost']].map(([val, label]) => (
-                  <button key={val} onClick={() => updateStatus(val)} disabled={saving}
-                    style={{ padding: '8px 20px', borderRadius: '6px', border: `1px solid ${status === val ? statusColors[val] : 'var(--vfo-border-mid)'}`, background: status === val ? `${statusColors[val]}22` : 'transparent', color: status === val ? statusColors[val] : 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer', fontWeight: status === val ? '600' : '400' }}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-          }
-        </div>
-        <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Assigned PF</div>
-          {readOnly
-            ? <div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{client?.assigned_pf || '—'}</div>
-            : <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <select value={assignedPf} onChange={e => setAssignedPf(e.target.value)} style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '14px', fontFamily: 'Inter, sans-serif', minWidth: '160px', flex: 1 }}>
-                  <option value="">-- Select --</option>
-                  <option value="Evan Anderson">Evan Anderson</option>
-                  <option value="Bridger Silvester">Bridger Silvester</option>
-                  <option value="Ian Welham">Ian Welham</option>
-                </select>
-                <button onClick={savePf} disabled={savingPf} style={{ padding: '8px 20px', borderRadius: '8px', background: savingPf ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '14px', cursor: savingPf ? 'not-allowed' : 'pointer' }}>{savingPf ? 'Saving...' : 'Save'}</button>
-                {pfSaved && <span style={{ color: '#1b9254', fontSize: '14px', fontWeight: '600' }}>✓ Saved!</span>}
-              </div>
-          }
-        </div>
-      </div>
     </div>
   )
 }
@@ -477,7 +483,7 @@ function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionSt
   return (
     <div>
       <div style={sectionStyle}>
-        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Primary Contact</div>
+        <div style={cardTitle}>Primary Contact</div>
         <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>First Name</label><input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} /></div>
           <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>Last Name</label><input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} /></div>
@@ -494,8 +500,8 @@ function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionSt
       </div>
 
       <div style={sectionStyle}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Additional Contacts</div>
+        <div style={{ ...cardTitle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>Additional Contacts</span>
           <button onClick={() => setShowAddContact(!showAddContact)} style={{ padding: '6px 14px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>+ Add</button>
         </div>
 
