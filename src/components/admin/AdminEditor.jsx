@@ -8,7 +8,8 @@ const TAB_OPTIONS = [
   { key: 'client_overview', label: 'Client Overview' },
   { key: 'client_overview_warnings', label: 'Client Overview Warnings' },
   { key: 'accounting', label: 'Accounting' },
-  { key: 'automation', label: 'Automation' },
+  { key: 'automation', label: 'Automation & Config' },
+  { key: 'growth_credits', label: 'Growth Credits' },
 ]
 
 export default function AdminEditor({ onBack }) {

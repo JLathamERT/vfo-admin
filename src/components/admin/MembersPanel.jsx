@@ -15,6 +15,7 @@ import SendSetupEmailButton from './SendSetupEmailButton'
 import ListFilterButton, { matchesFilter, sortMembers, SortSelect, MEMBER_SORT_OPTIONS } from './ListFilterButton'
 import { MemberProfileDetailsSkeleton, Skeleton, SkeletonText } from '../shared/Skeleton'
 import { TrackHero, HeroAvatar, ListHeader } from '../shared/TrackKit'
+import { VisibilityBadge, noteTint } from '../shared/NoteVisibility'
 import ImageCropModal from './ImageCropModal'
 
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
@@ -994,13 +995,14 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                   <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{programNotes.length}</span>
                 </div>
                 {programNotes.map(note => (
-                  <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+                  <div key={note.id} style={{ padding: '10px 12px', marginBottom: '4px', borderRadius: '8px', border: '1px solid var(--vfo-border-soft)', background: noteTint(note.visibility) }}>
                     <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_by}</span>
                       <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>·</span>
                       <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_at?.split('T')[0]}</span>
-                      <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.2)' }}>{note.program_name}</span>
+                      <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.2)' }}>{note.program_name}</span>
+                      <VisibilityBadge visibility={note.visibility} />
                     </div>
                   </div>
                 ))}

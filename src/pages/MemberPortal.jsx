@@ -24,7 +24,11 @@ export default function MemberPortal() {
   const navigate = useNavigate()
   const session = getSession()
   usePortalTheme()
-  const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem('memberActiveTab') || 'profile')
+  const [activeTab, setActiveTab] = useState(() => {
+    // Land returning Stripe buyers (/member?gc_success=1) on the GC Marketplace.
+    if (new URLSearchParams(window.location.search).get('gc_success') === '1') return 'gc'
+    return sessionStorage.getItem('memberActiveTab') || 'profile'
+  })
   const [showSettings, setShowSettings] = useState(false)
   const [memberData, setMemberData] = useState(null)
   const [allExperts, setAllExperts] = useState([])

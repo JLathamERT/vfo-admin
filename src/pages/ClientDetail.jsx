@@ -13,6 +13,7 @@ import TaxPrioritiesTab from '../components/admin/tax/TaxPrioritiesTab'
 import PaymentContinuationTab from '../components/admin/migration/PaymentContinuationTab'
 import AddGeneralNote from '../components/shared/AddGeneralNote'
 import { PhaseNotesButton, PhaseNotesPanel } from '../components/shared/PhaseNotes'
+import { VisibilityBadge, noteTint, SaveVisibilityButtons } from '../components/shared/NoteVisibility'
 import { Skeleton, ProfileTabSkeleton } from '../components/shared/Skeleton'
 import { TrackHero, HeroAvatar } from '../components/shared/TrackKit'
 import VfoWordmark from '../components/shared/VfoWordmark'
@@ -113,6 +114,10 @@ export default function ClientDetail() {
       if (!isMember) {
         const notesData = await callApi('load_client_notes', { client_id: parseInt(clientId) })
         setClientNotes(notesData.notes || [])
+      } else {
+        // Members only ever see notes the team explicitly shared.
+        const sharedData = await callApi('client_notes_load_shared', { client_id: parseInt(clientId) })
+        setClientNotes(sharedData.notes || [])
       }
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
@@ -292,10 +297,10 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
   const [savingPf, setSavingPf] = useState(false)
   const [pfSaved, setPfSaved] = useState(false)
 
-  async function updateNote(noteId) {
+  async function updateNote(noteId, visibility) {
     if (!editNoteText.trim()) return
     try {
-      const result = await callApi('update_client_note', { note_id: noteId, note_text: editNoteText.trim() })
+      const result = await callApi('update_client_note', { note_id: noteId, note_text: editNoteText.trim(), visibility })
       onNotesChange(notes.map(n => n.id === noteId ? result.note : n))
       setEditingNoteId(null)
     } catch (err) { console.error(err) }
@@ -406,13 +411,13 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
             <AddGeneralNote clientId={client.id} notes={notes} onNotesChange={onNotesChange} programName={program?.name || null} />
           </div>
           {notes.map(note => (
-            <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+            <div key={note.id} style={{ padding: '10px 12px', marginBottom: '4px', borderRadius: '8px', border: '1px solid var(--vfo-border-soft)', background: noteTint(note.visibility) }}>
               {editingNoteId === note.id ? (
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <textarea value={editNoteText} onChange={e => setEditNoteText(e.target.value)} rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.4)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <button onClick={() => updateNote(note.id)} style={{ padding: '4px 10px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>Save</button>
-                    <button onClick={() => setEditingNoteId(null)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <textarea value={editNoteText} onChange={e => setEditNoteText(e.target.value)} rows={2} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.4)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+                    <SaveVisibilityButtons onSave={(v) => updateNote(note.id, v)} disabled={!editNoteText.trim()} size="sm" hint={false} />
+                    <button onClick={() => setEditingNoteId(null)} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
                   </div>
                 </div>
               ) : (
@@ -422,6 +427,7 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
                     <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_by}</span>
                     <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>·</span>
                     <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_at?.split('T')[0]}</span>
+                    <VisibilityBadge visibility={note.visibility} />
                     {note.program_name && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.2)' }}>{note.program_name}</span>}
                     <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.2)' }}>{note.tab_name}</span>
                     {note.phase_name !== 'General' && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{note.phase_name}</span>}
@@ -430,6 +436,25 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
                   </div>
                 </>
               )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Member view — read-only list of notes the team chose to share. */}
+      {readOnly && notes.length > 0 && (
+        <div style={sectionStyle}>
+          <div style={{ ...cardTitle, marginBottom: '4px' }}>Notes from your team</div>
+          {notes.map(note => (
+            <div key={note.id} style={{ padding: '10px 12px', marginBottom: '4px', borderRadius: '8px', border: '1px solid var(--vfo-border-soft)', background: noteTint(note.visibility) }}>
+              <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_by}</span>
+                <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>·</span>
+                <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_at?.split('T')[0]}</span>
+                {note.program_name && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.2)' }}>{note.program_name}</span>}
+                {note.tab_name && note.phase_name !== 'General' && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.2)' }}>{note.phase_name}</span>}
+              </div>
             </div>
           ))}
         </div>

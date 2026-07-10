@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { callApi, getSession } from '../../lib/api'
-import ListFilterButton, { matchesFilter, SortSelect } from './ListFilterButton'
+import ListFilterButton, { matchesFilter, SortSelect, useHeaderSort, sortByColumn, SortHeader } from './ListFilterButton'
 import { ClientOverviewSkeleton } from '../shared/skeletons/admin'
 
 // Client Overview — a mirror of Member Overview, but oriented around clients and
@@ -84,6 +84,9 @@ export default function ClientOverviewPanel() {
   const [search, setSearch] = useState('')
   const [listFilter, setListFilter] = useState({ status: ['Active', 'Pending'] })
   const [listSort, setListSort] = useState('ref_asc')
+  // One header-sort state for this table instance; kept across sub-tab switches
+  // (the main columns are identical in every section).
+  const { sort: colSort, onSort, reset: resetColSort } = useHeaderSort()
 
   // Lazily load each section on first visit; a cached section never refetches, a
   // failed one retries when the admin returns to it.
@@ -122,7 +125,8 @@ export default function ClientOverviewPanel() {
     ? clients.filter(c => c.name?.toLowerCase().includes(q) || c.client_ref?.toLowerCase().includes(q) || String(c.member_number || '').toLowerCase().includes(q) || c.member_name?.toLowerCase().includes(q))
     : clients
   const filtered = searched.filter(c => matchesFilter(c, filterGroups, listFilter))
-  const rows = useMemo(() => {
+  // Baseline = the dropdown ordering; a clicked column header overrides it.
+  const sorted = useMemo(() => {
     const list = [...filtered]
     const refOf = c => c.client_ref || ''
     const nameOf = c => (c.name || '').toLowerCase()
@@ -134,6 +138,15 @@ export default function ClientOverviewPanel() {
       default: return list.sort((a, b) => refOf(a).localeCompare(refOf(b)))
     }
   }, [filtered, listSort])
+  const sortColumns = {
+    ref: { type: 'text', get: c => c.client_ref },
+    name: { type: 'text', get: c => c.name },
+    member_number: { type: 'number', get: c => { const n = parseInt(String(c.member_number ?? ''), 10); return Number.isNaN(n) ? null : n } },
+    member_name: { type: 'text', get: c => c.member_name },
+    status: { type: 'text', get: c => capitalize(c.status) || 'Active' },
+    pf: { type: 'text', get: c => c.assigned_pf },
+  }
+  const rows = sortByColumn(sorted, colSort, sortColumns)
 
   const extras = SUB_EXTRAS[activeSection] || []
   const subGrid = ['1.2fr', '1.3fr', '1.3fr', '96px', '1.4fr', ...extras.map(() => '1fr'), ...(showWarnings ? ['120px'] : [])].join(' ')
@@ -166,7 +179,7 @@ export default function ClientOverviewPanel() {
       <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
         <input placeholder="Search by client, ref, member #, or member name..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...sel, flex: 1, minWidth: '240px', background: 'var(--vfo-input)' }} />
         <ListFilterButton groups={filterGroups} value={listFilter} onChange={setListFilter} />
-        <SortSelect value={listSort} onChange={setListSort} options={CLIENT_SORT_OPTIONS} />
+        <SortSelect value={listSort} onChange={v => { setListSort(v); resetColSort() }} options={CLIENT_SORT_OPTIONS} />
       </div>
 
       {error && <div style={{ padding: '10px 14px', marginBottom: '12px', background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: '8px', color: '#c0392b', fontSize: '13px' }}>Could not load this section: {error}</div>}
@@ -176,12 +189,12 @@ export default function ClientOverviewPanel() {
           <div style={{ minWidth: '1020px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: '10px', padding: '12px 18px', background: 'var(--vfo-input)', borderBottom: '1px solid var(--vfo-border-soft)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--vfo-muted)' }}>
               <span />
-              <span>Client Ref</span>
-              <span>Name</span>
-              <span>Member #</span>
-              <span>Member Name</span>
-              <span>Status</span>
-              <span>PF</span>
+              <SortHeader label="Client Ref" sortKey="ref" sort={colSort} onSort={onSort} />
+              <SortHeader label="Name" sortKey="name" sort={colSort} onSort={onSort} />
+              <SortHeader label="Member #" sortKey="member_number" sort={colSort} onSort={onSort} />
+              <SortHeader label="Member Name" sortKey="member_name" sort={colSort} onSort={onSort} />
+              <SortHeader label="Status" sortKey="status" sort={colSort} onSort={onSort} />
+              <SortHeader label="PF" sortKey="pf" sort={colSort} onSort={onSort} />
             </div>
 
             {rows.length === 0 && !error && (

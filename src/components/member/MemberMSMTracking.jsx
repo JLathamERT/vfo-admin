@@ -32,6 +32,60 @@ const PROGRAMS = [
   { key: 'coaching', name: 'Advanced Coaching' },
 ]
 
+// Read-only card of the program notes an admin has shared with this member.
+// The backend (load_member_program_notes) returns only visibility='shared' rows
+// for member callers, so no client-side filtering is needed. Optional
+// programName narrows to one program (e.g. the Advanced Coaching home);
+// emptyText renders an empty card instead of hiding the card entirely.
+function MemberProgramNotes({ memberNumber, sectionStyle, programName = null, title = 'Program Notes', emptyText = null }) {
+  const [notes, setNotes] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let live = true
+    setLoading(true)
+    callApi('load_member_program_notes', { member_number: memberNumber, ...(programName ? { program_name: programName } : {}) })
+      .then(d => { if (live) setNotes(d.notes || []) })
+      .catch(err => console.error(err))
+      .finally(() => { if (live) setLoading(false) })
+    return () => { live = false }
+  }, [memberNumber, programName])
+
+  if (loading) return (
+    <div style={sectionStyle}>
+      <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>{title}</div>
+      <Skeleton width="90%" height={14} style={{ marginBottom: '8px' }} />
+      <Skeleton width="70%" height={14} />
+    </div>
+  )
+  if (notes.length === 0) {
+    if (!emptyText) return null
+    return (
+      <div style={sectionStyle}>
+        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>{title}</div>
+        <div style={{ textAlign: 'center', padding: '24px', color: 'var(--vfo-faint)', fontSize: '13px' }}>{emptyText}</div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={sectionStyle}>
+      <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>{title}</div>
+      {notes.map(note => (
+        <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_by}</span>
+            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>·</span>
+            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_at?.split('T')[0]}</span>
+            {note.program_name && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.2)' }}>{note.program_name}</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
   const [programs, setPrograms] = useState([])
   const [enrollments, setEnrollments] = useState([])
@@ -184,6 +238,8 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
             ))
           }
         </div>
+
+        <MemberProgramNotes memberNumber={member.member_number} sectionStyle={sectionStyle} />
       </div>
     )
   }
@@ -222,7 +278,7 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
 
 function MemberEnrolledView({ enrollment, program, member }) {
   const isCoaching = program.name === 'Advanced Coaching'
-  const defaultTab = isCoaching ? 'meetings' : program.name === 'VFO Tax Planning' ? 'clients' : 'training'
+  const defaultTab = isCoaching ? 'home' : program.name === 'VFO Tax Planning' ? 'clients' : 'training'
   const [activeTab, setActiveTab] = useState(defaultTab)
   useEffect(() => { setActiveTab(defaultTab) }, [program.id])
   const tabStyle = (active) => ({ padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' })
@@ -242,6 +298,7 @@ function MemberEnrolledView({ enrollment, program, member }) {
       <div style={{ display: 'flex', borderBottom: '1px solid var(--vfo-border)', marginBottom: '24px' }}>
         {isCoaching ? (
           <>
+            <button style={tabStyle(activeTab === 'home')} onClick={() => setActiveTab('home')}>Home</button>
             <button style={tabStyle(activeTab === 'meetings')} onClick={() => setActiveTab('meetings')}>Meetings</button>
             <button style={tabStyle(activeTab === 'renewal')} onClick={() => setActiveTab('renewal')}>Renewal</button>
           </>
@@ -256,6 +313,15 @@ function MemberEnrolledView({ enrollment, program, member }) {
           </>
         )}
       </div>
+      {activeTab === 'home' && isCoaching && (
+        <MemberProgramNotes
+          memberNumber={member.member_number}
+          sectionStyle={sectionStyle}
+          programName="Advanced Coaching"
+          title="Notes from your team"
+          emptyText="No notes from your coaching team yet."
+        />
+      )}
       {activeTab === 'training' && <MemberTrainingView enrollment={enrollment} program={program} />}
       {activeTab === 'clients' && <MemberClientsView enrollment={enrollment} member={member} program={program} />}
       {activeTab === 'meetings' && <MemberCoachingMeetings enrollment={enrollment} />}

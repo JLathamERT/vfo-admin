@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { callApi, getSession, loadCachedAction } from '../../lib/api'
 import { ClientsListSkeleton, TrainingTrackSkeleton, CoachingMeetingsSkeleton, CoachingRenewalSkeleton, AdminMsmHomeSkeleton, ProgramNotesSkeleton, AdminProgramViewSkeleton, SkeletonText, PhaseListSkeleton } from '../shared/Skeleton'
 import { TrackHero, PhaseBadge } from '../shared/TrackKit'
+import { VisibilityBadge, noteTint, SaveVisibilityButtons } from '../shared/NoteVisibility'
 
 const PROGRAMS = [
   { key: 'holistic', name: 'VFO Holistic Planning' },
@@ -94,7 +95,7 @@ export default function MSMTracking({ member, activeSection, onDataChange, bypas
     finally { setLoading(false) }
   }
 
-  async function logMeeting() {
+  async function logMeeting(visibility) {
     if (!meetingDate) { setMeetingStatus('Date is required.'); return }
     try {
       await callApi('msm_log_meeting', {
@@ -103,6 +104,7 @@ export default function MSMTracking({ member, activeSection, onDataChange, bypas
         meeting_type: 'MSM Meeting',
         conducted_by: meetingConductedBy,
         notes: meetingNotes,
+        visibility,
       })
       setMeetingDate(''); setMeetingConductedBy(''); setMeetingNotes('')
       setShowLogMeeting(false); setMeetingStatus('')
@@ -228,8 +230,8 @@ export default function MSMTracking({ member, activeSection, onDataChange, bypas
                   <label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Notes</label>
                   <textarea value={meetingNotes} onChange={e => setMeetingNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={logMeeting} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <SaveVisibilityButtons onSave={logMeeting} internalLabel="Log (internal note)" sharedLabel="Log & share note with member" hint="The meeting is always visible to the member — only the note text is internal or shared." />
                   <button onClick={() => setShowLogMeeting(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
                 </div>
                 {meetingStatus && <p style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '8px' }}>{meetingStatus}</p>}
@@ -245,7 +247,7 @@ export default function MSMTracking({ member, activeSection, onDataChange, bypas
               : meetings.map(m => (
                 <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
                   <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{m.meeting_type}</div>
+                    <div style={{ fontSize: '14px', color: 'var(--vfo-ink)', display: 'flex', alignItems: 'center', gap: '8px' }}>{m.meeting_type}{m.notes && <VisibilityBadge visibility={m.visibility} />}</div>
                     <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>
                       {new Date(m.meeting_date + 'T12:00:00').toLocaleDateString()}{m.conducted_by ? ` · ${m.conducted_by}` : ''}
                     </div>
@@ -323,11 +325,11 @@ function ProgramNotes({ memberNumber, programName }) {
     finally { setLoading(false) }
   }
 
-  async function addNote() {
+  async function addNote(visibility) {
     if (!newText.trim()) return
     setSaving(true)
     try {
-      const result = await callApi('add_member_program_note', { member_number: memberNumber, program_name: programName, note_text: newText.trim(), created_by: session?.name || 'Admin' })
+      const result = await callApi('add_member_program_note', { member_number: memberNumber, program_name: programName, note_text: newText.trim(), created_by: session?.name || 'Admin', visibility })
       setNotes([result.note, ...notes])
       setNewText('')
       setShowAdd(false)
@@ -335,10 +337,10 @@ function ProgramNotes({ memberNumber, programName }) {
     finally { setSaving(false) }
   }
 
-  async function updateNote(noteId) {
+  async function updateNote(noteId, visibility) {
     if (!editText.trim()) return
     try {
-      const result = await callApi('update_member_program_note', { note_id: noteId, note_text: editText.trim() })
+      const result = await callApi('update_member_program_note', { note_id: noteId, note_text: editText.trim(), visibility })
       setNotes(notes.map(n => n.id === noteId ? result.note : n))
       setEditingId(null)
     } catch (err) { console.error(err) }
@@ -361,23 +363,23 @@ function ProgramNotes({ memberNumber, programName }) {
         {!showAdd && <button onClick={() => setShowAdd(true)} style={{ padding: '4px 12px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>+ Add Note</button>}
       </div>
       {showAdd && (
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          <textarea value={newText} onChange={e => setNewText(e.target.value)} placeholder="Add a note..." rows={2} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addNote() } }} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <button onClick={addNote} disabled={saving || !newText.trim()} style={{ padding: '8px 14px', borderRadius: '8px', background: saving ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '12px', cursor: saving ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>{saving ? '...' : 'Save'}</button>
-            <button onClick={() => { setShowAdd(false); setNewText('') }} style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '12px', cursor: 'pointer' }}>✕</button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+          <textarea value={newText} onChange={e => setNewText(e.target.value)} placeholder="Add a note..." rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+            <SaveVisibilityButtons onSave={addNote} saving={saving} disabled={!newText.trim()} size="sm" />
+            <button onClick={() => { setShowAdd(false); setNewText('') }} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
           </div>
         </div>
       )}
       {notes.length === 0 && <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', padding: '8px 0' }}>No notes yet.</div>}
       {notes.map(note => (
-        <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+        <div key={note.id} style={{ padding: '10px 12px', marginBottom: '4px', borderRadius: '8px', border: '1px solid var(--vfo-border-soft)', background: noteTint(note.visibility) }}>
           {editingId === note.id ? (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <textarea value={editText} onChange={e => setEditText(e.target.value)} rows={2} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.4)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <button onClick={() => updateNote(note.id)} style={{ padding: '4px 10px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '11px', cursor: 'pointer' }}>Save</button>
-                <button onClick={() => setEditingId(null)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <textarea value={editText} onChange={e => setEditText(e.target.value)} rows={2} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(0,149,255,0.4)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', resize: 'vertical' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+                <SaveVisibilityButtons onSave={(v) => updateNote(note.id, v)} disabled={!editText.trim()} size="sm" hint={false} />
+                <button onClick={() => setEditingId(null)} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
               </div>
             </div>
           ) : (
@@ -387,6 +389,7 @@ function ProgramNotes({ memberNumber, programName }) {
                 <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_by}</span>
                 <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>·</span>
                 <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_at?.split('T')[0]}</span>
+                <VisibilityBadge visibility={note.visibility} />
                 <button onClick={() => { setEditingId(note.id); setEditText(note.note_text) }} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#0095ff', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Edit</button>
                 <button onClick={() => deleteNote(note.id)} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Delete</button>
               </div>
@@ -1049,10 +1052,10 @@ function CoachingMeetings({ enrollment, member }) {
     finally { setLoading(false) }
   }
 
-  async function logMeeting() {
+  async function logMeeting(visibility) {
     if (!meetingDate) { setLogStatus('Date is required.'); return }
     try {
-      await callApi('coaching_log_meeting', { enrollment_id: enrollment.id, member_number: member.plugin_member_number, meeting_date: meetingDate, status: meetingStatus, notes: meetingNotes })
+      await callApi('coaching_log_meeting', { enrollment_id: enrollment.id, member_number: member.plugin_member_number, meeting_date: meetingDate, status: meetingStatus, notes: meetingNotes, visibility })
       setMeetingDate(''); setMeetingNotes(''); setMeetingStatus('completed'); setShowLog(false); setLogStatus('')
       loadMeetings()
     } catch (err) { setLogStatus(err.message) }
@@ -1112,8 +1115,8 @@ function CoachingMeetings({ enrollment, member }) {
             <label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Notes</label>
             <textarea value={meetingNotes} onChange={e => setMeetingNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={logMeeting} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <SaveVisibilityButtons onSave={logMeeting} internalLabel="Log (internal note)" sharedLabel="Log & share note with member" hint="The meeting is always visible to the member — only the note text is internal or shared." />
             <button onClick={() => setShowLog(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
           </div>
           {logStatus && <p style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '8px' }}>{logStatus}</p>}
@@ -1164,6 +1167,7 @@ function CoachingMeetings({ enrollment, member }) {
                   <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Completed</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {m.notes && <VisibilityBadge visibility={m.visibility} />}
                   {m.notes && <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>has notes</span>}
                   <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: expandedMeeting === m.id ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
                 </div>
@@ -1237,11 +1241,11 @@ function CoachingRenewal({ enrollment, member }) {
     }
   }
 
-  async function processRenewal() {
+  async function processRenewal(visibility) {
     if (!actionDate) { setProcessStatus('Date is required.'); return }
     const period = actionType === 'renewed' ? getAutoPeriod() : null
     try {
-      await callApi('coaching_process_renewal', { enrollment_id: enrollment.id, member_number: member.plugin_member_number, action_type: actionType, action_date: actionDate, next_renewal_date: actionType === 'renewed' ? nextRenewalDate : null, period_label: period, notes: renewalNotes || null })
+      await callApi('coaching_process_renewal', { enrollment_id: enrollment.id, member_number: member.plugin_member_number, action_type: actionType, action_date: actionDate, next_renewal_date: actionType === 'renewed' ? nextRenewalDate : null, period_label: period, notes: renewalNotes || null, visibility })
       setActionDate(''); setNextRenewalDate(''); setRenewalNotes(''); setShowLog(false); setProcessStatus(''); setActionType('renewed')
       loadRenewals()
     } catch (err) { setProcessStatus(err.message) }
@@ -1314,8 +1318,8 @@ function CoachingRenewal({ enrollment, member }) {
             <label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Notes</label>
             <input value={renewalNotes} onChange={e => setRenewalNotes(e.target.value)} placeholder="Optional notes" style={inputStyle} />
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={processRenewal} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <SaveVisibilityButtons onSave={processRenewal} internalLabel="Log (internal note)" sharedLabel="Log & share note with member" hint="The renewal is always visible to the member — only the note text is internal or shared." />
             <button onClick={() => setShowLog(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
           </div>
           {processStatus && <p style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '8px' }}>{processStatus}</p>}
@@ -1333,8 +1337,9 @@ function CoachingRenewal({ enrollment, member }) {
                   <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${actionColors[r.action] || 'var(--vfo-muted)'}22`, color: actionColors[r.action] || 'var(--vfo-muted)', border: `1px solid ${actionColors[r.action] || 'var(--vfo-muted)'}44`, textTransform: 'capitalize' }}>{r.action}</span>
                   <span style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{r.action_date?.split('T')[0]}</span>
                   {r.period_label && <span style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600 }}>{r.period_label}</span>}
+                  {r.notes && <VisibilityBadge visibility={r.visibility} />}
                 </div>
-                
+
                 {r.notes && <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{r.notes}</div>}
               </div>
               {r.created_by && <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{r.created_by}</span>}
