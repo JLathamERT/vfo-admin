@@ -76,7 +76,9 @@ export function KpiHero({ title, subtitle, lenses, counts, lens, setLens, unitLa
 }
 
 // SVG donut for two/three-way splits (Legacy vs New, Top of the T, …).
-export function SplitDonut({ title, segments, total, inView, note }) {
+// `stack` renders the legend BELOW the donut (narrower + taller card) instead of
+// beside it — the default (false) keeps the side-by-side layout.
+export function SplitDonut({ title, segments, total, inView, note, stack }) {
   const R = 44, C = 2 * Math.PI * R
   let acc = 0
   const arcs = segments.filter((s) => s.n > 0).map((s) => {
@@ -91,7 +93,7 @@ export function SplitDonut({ title, segments, total, inView, note }) {
         <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>{title}</span>
         <span style={{ fontSize: '12px', color: 'var(--vfo-faint)', fontWeight: 600 }}>{inView ?? total} in view</span>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '22px', flexWrap: 'wrap', flex: 1 }}>
+      <div style={{ display: 'flex', flexDirection: stack ? 'column' : 'row', alignItems: 'center', gap: stack ? '16px' : '22px', flexWrap: 'wrap', flex: 1 }}>
         <svg width="118" height="118" viewBox="0 0 120 120" style={{ flexShrink: 0 }}>
           <circle cx="60" cy="60" r={R} fill="none" stroke="var(--vfo-tint)" strokeWidth="14" />
           {arcs.map((s) => (
@@ -101,7 +103,7 @@ export function SplitDonut({ title, segments, total, inView, note }) {
           <text x="60" y="57" textAnchor="middle" style={{ fontFamily: 'Inter, sans-serif', fontSize: '24px', fontWeight: 800, fill: 'var(--vfo-ink)' }}>{total}</text>
           <text x="60" y="74" textAnchor="middle" style={{ fontFamily: 'Inter, sans-serif', fontSize: '9px', fontWeight: 700, letterSpacing: '0.8px', fill: 'var(--vfo-faint)' }}>IN VIEW</text>
         </svg>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '150px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '150px', width: stack ? '100%' : 'auto' }}>
           {segments.map((s) => (
             <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
               <span style={{ width: '11px', height: '11px', borderRadius: '3px', background: s.color, flexShrink: 0 }} />
