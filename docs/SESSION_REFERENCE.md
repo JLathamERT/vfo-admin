@@ -15,7 +15,7 @@
 | `verify_jwt` | `false` on both functions (config.toml + live registry matched) |
 | Supabase project | `ejpsprsmhpufwogbmxjv` ("VFO Showroom"), us-east-2, Postgres 17 |
 | Frontend live URL | `https://vfoportal.com/` |
-| Frontend deploy state | Latest live tag = **`live-48-specrev-recurring`** (react #107) — VERIFY via `git tag -l 'live-*' \| sort -V \| tail -1` (git is source of truth; this can lag a session). **PENDING (merged/dev-only, NOT deployed — the next `npm run deploy` ships them all → next `live-N`):** (1) this session's **ERT/VFOS vault UI** on branch `claude/ert-vfos-vault` (`VaultSections.jsx` readOnly + per-section overrides, `ertVaultSection.js`, the 4 vault wrappers + `ClientVaultTab` ERT section), (2) the **Client Overview tab** (`ClientOverviewPanel.jsx` + wiring, react #110 merged), (3) the house-account Stripe deep-link UI (react #108), (4) the Sentry dev-gating (react #106). |
+| Frontend deploy state | Latest live tag = **`live-51-ert-vault`** (react #111) — VERIFY via `git tag -l 'live-*' \| sort -V \| tail -1` (git is source of truth; this can lag a session). **Nothing pending** — the 2026-07-09 late `npm run deploy` shipped the ERT/VFOS vault UI (`VaultSections.jsx` readOnly + per-section overrides, `ertVaultSection.js`, the 4 vault wrappers + `ClientVaultTab` ERT section) AND drained the earlier queue (Client Overview react #110 → `live-50-client-overview`, house-account deep-link react #108, Sentry dev-gating react #106) — all live. |
 
 ---
 
