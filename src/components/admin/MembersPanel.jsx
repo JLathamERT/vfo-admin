@@ -14,9 +14,12 @@ import AdminGrowthPlan from '../growth/AdminGrowthPlan'
 import SendSetupEmailButton from './SendSetupEmailButton'
 import ListFilterButton, { matchesFilter, sortMembers, SortSelect, MEMBER_SORT_OPTIONS } from './ListFilterButton'
 import { MemberProfileDetailsSkeleton, Skeleton, SkeletonText } from '../shared/Skeleton'
-import { TrackHero, ListHeader } from '../shared/TrackKit'
+import { TrackHero, HeroAvatar, ListHeader } from '../shared/TrackKit'
+import ImageCropModal from './ImageCropModal'
 
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
+// Prepend https:// to a bare domain so member website links resolve as absolute.
+const normalizeUrl = (u) => { const s = (u || '').trim(); return s && !/^https?:\/\//i.test(s) ? 'https://' + s : s }
 import vfoCertifiedSeal from '../../assets/vfo-certified-emblem.png'
 import vfoAccreditedSeal from '../../assets/vfo-accredited-emblem.png'
 
@@ -375,6 +378,7 @@ function MemberDirectoryView({
           <TrackHero
             eyebrow={listTitle}
             title={selectedMember.name}
+            avatar={<HeroAvatar src={selectedMember.headshot_image ? HEADSHOT_SUPABASE + encodeURIComponent(selectedMember.headshot_image) : null} name={selectedMember.name} />}
             meta={
               <>
                 <span style={{ fontFamily: 'monospace' }}>{selectedMember.plugin_member_number}</span>
@@ -767,6 +771,29 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
   const [stripeRequesting, setStripeRequesting] = useState(false)
   const [stripeMsg, setStripeMsg] = useState('')
   const [stripeMsgType, setStripeMsgType] = useState('success')
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(null)
+  const [cropState, setCropState] = useState(null)
+
+  function handlePhotoPick(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => setCropState({ src: ev.target.result })
+    reader.readAsDataURL(file)
+    e.target.value = '' // let the same file be re-picked later
+  }
+  function applyCrop(dataUrl) {
+    // data URL -> File so the existing base64 upload path is reused.
+    const bstr = atob(dataUrl.split(',')[1])
+    let n = bstr.length
+    const u8 = new Uint8Array(n)
+    while (n--) u8[n] = bstr.charCodeAt(n)
+    setPhotoFile(new File([u8], 'headshot.png', { type: 'image/png' }))
+    setPhotoPreview(dataUrl)
+    setCropState(null)
+    setDirty(true)
+  }
 
   async function sendStripeRequest() {
     setStripeRequesting(true); setStripeMsg('')
@@ -804,11 +831,28 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
   async function save() {
     setSaving(true)
     try {
-      await callApi('member_profile_save', { profile })
+      let toSave = profile
+      if (photoFile) {
+        const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
+        const nm = `${profile.first_name || ''} ${profile.last_name || ''}`.replace(/[^a-zA-Z0-9 ]/g, '').trim()
+        const filename = ts + '_' + (nm || 'member') + '.png'
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result.split(',')[1])
+          reader.onerror = reject
+          reader.readAsDataURL(photoFile)
+        })
+        await callApi('upload_headshot', { filename, file_base64: base64, content_type: photoFile.type })
+        toSave = { ...profile, headshot_image: filename }
+        setProfile(toSave)
+      }
+      await callApi('member_profile_save', { profile: toSave })
+      setPhotoFile(null); setPhotoPreview(null)
       setDirty(false)
       setStatusType('success'); setStatus('Saved!')
       setTimeout(() => setStatus(''), 4000)
       await loadProfile()
+      await onDataChange() // refresh the list so the header headshot updates
     } catch (err) { setStatusType('error'); setStatus(err.message) }
     finally { setSaving(false) }
   }
@@ -816,6 +860,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
   const labelStyle = { fontSize: '11px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
+  const cardTitle = { fontSize: '16px', color: 'var(--vfo-heading)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '18px', paddingBottom: '11px', borderBottom: '2px solid var(--vfo-heading)' }
   const rowStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--vfo-tint)' }
   const subTabStyle = (active) => ({ padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' })
   const CONNECTION_TYPES = ['5% - Regular Advisor', '10% - Accredited Introducer', '10% - Accredited Mentor', '20% - Accredited Introducer + Mentor']
@@ -841,122 +886,165 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
         const fieldValue = { fontSize: '15px', color: 'var(--vfo-ink)', fontWeight: 600, marginTop: '5px' }
         const initials = (name) => (name || '').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
         return (
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-
-            {/* Main column — details, notes */}
-            <div style={{ flex: '2 1 400px', minWidth: '300px' }}>
-              <div style={sectionStyle}>
-                <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '18px' }}>Member Details</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '18px 24px' }}>
-                  <div><div style={fieldLabel}>Join Date</div><div style={fieldValue}>{profile.join_date ? profile.join_date.split('T')[0] : '—'}</div></div>
-                  {(profile.elite_status === 'Lost' || profile.elite_status === 'Removed') && <div><div style={fieldLabel}>Leave Date</div><div style={fieldValue}>{profile.leave_date ? profile.leave_date.split('T')[0] : '—'}</div></div>}
-                  <div><div style={fieldLabel}>Email</div><div style={{ ...fieldValue, wordBreak: 'break-word' }}>{profile.email || '—'}</div></div>
-                  {isAccountant && <div><div style={fieldLabel}>Trading Name</div><div style={fieldValue}>{profile.trading_name || '—'}</div></div>}
-                  {!hiddenFields.includes('revenue_decision') && (
-                    <div><div style={fieldLabel}>Revenue Decision</div><div style={fieldValue}>{profile.revenue_decision || '—'}</div></div>
-                  )}
-                  <div><div style={fieldLabel}>Eligible for Credit Note</div><div style={fieldValue}>{profile.credit_note_eligible === false ? 'No' : 'Yes'}</div></div>
-                </div>
-                {profile.stripe_account_id && (
-                  <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid var(--vfo-tint)' }}>
-                    <div style={fieldLabel}>Stripe Account</div>
-                    <div style={{ display: 'inline-block', marginTop: '7px', fontSize: '13px', color: 'var(--vfo-ink-2)', fontFamily: 'monospace', padding: '6px 12px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '8px' }}>{profile.stripe_account_id}</div>
+          <div>
+            {/* Short facts sit side by side; long-form (bio, notes) runs full
+                width below so a long bio never strands an empty sidebar. */}
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 340px', minWidth: '300px', display: 'flex' }}>
+                <div style={{ ...sectionStyle, flex: 1 }}>
+                  <div style={cardTitle}>Member Details</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '18px 24px' }}>
+                    <div><div style={fieldLabel}>Join Date</div><div style={fieldValue}>{profile.join_date ? profile.join_date.split('T')[0] : '—'}</div></div>
+                    {(profile.elite_status === 'Lost' || profile.elite_status === 'Removed') && <div><div style={fieldLabel}>Leave Date</div><div style={fieldValue}>{profile.leave_date ? profile.leave_date.split('T')[0] : '—'}</div></div>}
+                    <div><div style={fieldLabel}>Email</div><div style={{ ...fieldValue, wordBreak: 'break-word' }}>{profile.email || '—'}</div></div>
+                    {isAccountant && <div><div style={fieldLabel}>Trading Name</div><div style={fieldValue}>{profile.trading_name || '—'}</div></div>}
+                    {!hiddenFields.includes('revenue_decision') && (
+                      <div><div style={fieldLabel}>Revenue Decision</div><div style={fieldValue}>{profile.revenue_decision || '—'}</div></div>
+                    )}
+                    <div><div style={fieldLabel}>Eligible for Credit Note</div><div style={fieldValue}>{profile.credit_note_eligible === false ? 'No' : 'Yes'}</div></div>
+                    {profile.website_url && <div><div style={fieldLabel}>Website</div><div style={fieldValue}><a href={normalizeUrl(profile.website_url)} target="_blank" rel="noopener noreferrer" style={{ color: '#0095ff', textDecoration: 'none', wordBreak: 'break-all' }}>{profile.website_url}</a></div></div>}
                   </div>
-                )}
+                  {profile.stripe_account_id && (
+                    <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid var(--vfo-tint)' }}>
+                      <div style={fieldLabel}>Stripe Account</div>
+                      <div style={{ display: 'inline-block', marginTop: '7px', fontSize: '13px', color: 'var(--vfo-ink-2)', fontFamily: 'monospace', padding: '6px 12px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '8px' }}>{profile.stripe_account_id}</div>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {profile.notes && (
-                <div style={sectionStyle}>
-                  <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Notes</div>
-                  <div style={{ fontSize: '14px', color: 'var(--vfo-ink)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{profile.notes}</div>
-                </div>
-              )}
-
-              {programNotes.length > 0 && (
-                <div style={sectionStyle}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                    <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>All Program Notes</span>
-                    <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{programNotes.length}</span>
-                  </div>
-                  {programNotes.map(note => (
-                    <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
-                      <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_by}</span>
-                        <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>·</span>
-                        <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_at?.split('T')[0]}</span>
-                        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.2)' }}>{note.program_name}</span>
+              {((connectedMemberObj && !CORPORATE_TYPES.includes(member.member_type)) || corporateMembers.length > 0 || profile.vfo_certified_date || profile.vfo_accredited_date) && (
+                <div style={{ flex: '1 1 300px', minWidth: '280px' }}>
+                  {connectedMemberObj && !CORPORATE_TYPES.includes(member.member_type) && (
+                    <div style={sectionStyle}>
+                      <div style={cardTitle}>Connected Member</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', flexShrink: 0, boxShadow: '0 2px 8px rgba(18,94,204,0.28)' }}>{initials(connectedMemberObj.name)}</div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--vfo-ink)' }}>{connectedMemberObj.name}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginTop: '2px' }}>{connectedMemberObj.plugin_member_number}</div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Side column — connections + certifications */}
-            <div style={{ flex: '1 1 250px', minWidth: '250px' }}>
-              {connectedMemberObj && !CORPORATE_TYPES.includes(member.member_type) && (
-                <div style={sectionStyle}>
-                  <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '14px' }}>Connected Member</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', flexShrink: 0, boxShadow: '0 2px 8px rgba(18,94,204,0.28)' }}>{initials(connectedMemberObj.name)}</div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--vfo-ink)' }}>{connectedMemberObj.name}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginTop: '2px' }}>{connectedMemberObj.plugin_member_number}</div>
-                    </div>
-                  </div>
-                  {!isAccountant && profile.connection_type && (
-                    <div style={{ marginTop: '12px' }}>
-                      <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.25)' }}>{profile.connection_type}</span>
+                      {!isAccountant && profile.connection_type && (
+                        <div style={{ marginTop: '12px' }}>
+                          <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.25)' }}>{profile.connection_type}</span>
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              )}
 
-              {corporateMembers.length > 0 && (
-                <div style={sectionStyle}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                    <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Corporate Members</span>
-                    <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{corporateMembers.length}</span>
-                  </div>
-                  {corporateMembers.map((cm, i) => (
-                    <div key={cm.plugin_member_number} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: i < corporateMembers.length - 1 ? '1px solid var(--vfo-tint)' : 'none' }}>
-                      <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>{initials(cm.name)}</div>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--vfo-ink)' }}>{cm.name}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginTop: '1px' }}>{cm.plugin_member_number}</div>
+                  {corporateMembers.length > 0 && (
+                    <div style={sectionStyle}>
+                      <div style={{ ...cardTitle, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>Corporate Members</span>
+                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{corporateMembers.length}</span>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {(profile.vfo_certified_date || profile.vfo_accredited_date) && (
-                <div style={sectionStyle}>
-                  <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '14px' }}>Certifications</div>
-                  {profile.vfo_certified_date && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: profile.vfo_accredited_date ? '12px' : 0 }}>
-                      <img src={vfoCertifiedSeal} style={{ width: '36px', height: '36px' }} />
-                      <div><div style={{ fontSize: '14px', color: '#b08d26', fontWeight: '600' }}>VFO Certified</div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{profile.vfo_certified_date.split('T')[0]}</div></div>
+                      {corporateMembers.map((cm, i) => (
+                        <div key={cm.plugin_member_number} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: i < corporateMembers.length - 1 ? '1px solid var(--vfo-tint)' : 'none' }}>
+                          <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>{initials(cm.name)}</div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--vfo-ink)' }}>{cm.name}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginTop: '1px' }}>{cm.plugin_member_number}</div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
-                  {profile.vfo_accredited_date && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <img src={vfoAccreditedSeal} style={{ width: '36px', height: '36px' }} />
-                      <div><div style={{ fontSize: '14px', color: 'var(--vfo-muted)', fontWeight: '600' }}>VFO Accredited</div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{profile.vfo_accredited_date.split('T')[0]}</div></div>
+
+                  {(profile.vfo_certified_date || profile.vfo_accredited_date) && (
+                    <div style={sectionStyle}>
+                      <div style={cardTitle}>Certifications</div>
+                      {profile.vfo_certified_date && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: profile.vfo_accredited_date ? '12px' : 0 }}>
+                          <img src={vfoCertifiedSeal} style={{ width: '36px', height: '36px' }} />
+                          <div><div style={{ fontSize: '14px', color: '#b08d26', fontWeight: '600' }}>VFO Certified</div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{profile.vfo_certified_date.split('T')[0]}</div></div>
+                        </div>
+                      )}
+                      {profile.vfo_accredited_date && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <img src={vfoAccreditedSeal} style={{ width: '36px', height: '36px' }} />
+                          <div><div style={{ fontSize: '14px', color: 'var(--vfo-muted)', fontWeight: '600' }}>VFO Accredited</div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{profile.vfo_accredited_date.split('T')[0]}</div></div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               )}
             </div>
+
+            {/* Long-form — full width so a long bio uses the whole row. */}
+            {profile.bio && (
+              <div style={sectionStyle}>
+                <div style={cardTitle}>Bio</div>
+                <div style={{ fontSize: '14px', color: 'var(--vfo-ink)', lineHeight: 1.7, whiteSpace: 'pre-wrap', maxWidth: '900px' }}>{profile.bio}</div>
+              </div>
+            )}
+
+            {profile.notes && (
+              <div style={sectionStyle}>
+                <div style={cardTitle}>Notes</div>
+                <div style={{ fontSize: '14px', color: 'var(--vfo-ink)', lineHeight: 1.7, whiteSpace: 'pre-wrap', maxWidth: '900px' }}>{profile.notes}</div>
+              </div>
+            )}
+
+            {programNotes.length > 0 && (
+              <div style={sectionStyle}>
+                <div style={{ ...cardTitle, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>All Program Notes</span>
+                  <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{programNotes.length}</span>
+                </div>
+                {programNotes.map(note => (
+                  <div key={note.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_by}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>·</span>
+                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_at?.split('T')[0]}</span>
+                      <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.2)' }}>{note.program_name}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )
       })()}
 
-      {activeTab === 'edit' && (
+      {activeTab === 'edit' && (() => {
+        const editInitials = `${profile.first_name || ''} ${profile.last_name || ''}`.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+        const currentPhoto = photoPreview || (profile.headshot_image ? HEADSHOT_SUPABASE + encodeURIComponent(profile.headshot_image) : null)
+        return (
         <>
           <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Basic Info</div>
+            <div style={cardTitle}>Photo, Bio &amp; Website</div>
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <div style={{ textAlign: 'center', flexShrink: 0 }}>
+                <div onClick={() => { if (currentPhoto) setCropState({ src: currentPhoto }) }}
+                  style={{ width: '110px', height: '110px', borderRadius: '50%', overflow: 'hidden', background: currentPhoto ? 'var(--vfo-tint)' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: '1px solid var(--vfo-border-chip)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: currentPhoto ? 'pointer' : 'default', margin: '0 auto' }}>
+                  {currentPhoto
+                    ? <img src={currentPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span style={{ color: '#fff', fontSize: '30px', fontWeight: 700 }}>{editInitials || '?'}</span>}
+                </div>
+                <label style={{ display: 'inline-block', marginTop: '12px', padding: '7px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'var(--vfo-card)', color: 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                  {currentPhoto ? 'Change photo' : 'Upload photo'}
+                  <input type="file" accept="image/*" onChange={handlePhotoPick} style={{ display: 'none' }} />
+                </label>
+                {currentPhoto && <button type="button" onClick={() => setCropState({ src: currentPhoto })} style={{ display: 'block', margin: '8px auto 0', padding: '6px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Adjust / Zoom</button>}
+              </div>
+              <div style={{ flex: 1, minWidth: '260px' }}>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={labelStyle}>Bio</label>
+                  <textarea value={profile.bio || ''} onChange={e => update('bio', e.target.value)} rows={5} placeholder="A short professional biography for this member." style={{ ...inputStyle, resize: 'vertical' }} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Website URL</label>
+                  <input value={profile.website_url || ''} onChange={e => update('website_url', e.target.value)} placeholder="https://example.com" style={inputStyle} />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style={sectionStyle}>
+            <div style={cardTitle}>Basic Info</div>
             <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>First Name</label><input value={profile.first_name || ''} onChange={e => update('first_name', e.target.value)} style={inputStyle} /></div>
               <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>Last Name</label><input value={profile.last_name || ''} onChange={e => update('last_name', e.target.value)} style={inputStyle} /></div>
@@ -986,7 +1074,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
             </div>
           </div>
           <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Settings</div>
+            <div style={cardTitle}>Settings</div>
             <div style={rowStyle}>
               <div><div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>Suspended</div><div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Stops all active processing</div></div>
               <div onClick={() => update('suspended', !profile.suspended)} style={{ width: '44px', height: '24px', borderRadius: '12px', background: profile.suspended ? '#e74c3c' : 'var(--vfo-border-strong)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
@@ -1001,7 +1089,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
             </div>
           </div>
           <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Revenue & Stripe</div>
+            <div style={cardTitle}>Revenue &amp; Stripe</div>
             {!hiddenFields.includes('revenue_decision') && (
               <div style={{ marginBottom: '16px' }}>
                 <label style={labelStyle}>Revenue Decision</label>
@@ -1044,7 +1132,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
             </div>
           </div>
           <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Connected Member</div>
+            <div style={cardTitle}>Connected Member</div>
             <div style={{ marginBottom: '16px', position: 'relative' }}>
               <label style={labelStyle}>Search Member</label>
               <input
@@ -1081,14 +1169,14 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
             )}
           </div>
           <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>VFO Certification</div>
+            <div style={cardTitle}>VFO Certification</div>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '200px' }}><label style={labelStyle}>VFO Certified Date</label><input type="date" value={profile.vfo_certified_date || ''} onChange={e => update('vfo_certified_date', e.target.value || null)} style={inputStyle} /></div>
               <div style={{ flex: 1, minWidth: '200px' }}><label style={labelStyle}>VFO Accredited Date</label><input type="date" value={profile.vfo_accredited_date || ''} onChange={e => update('vfo_accredited_date', e.target.value || null)} style={inputStyle} /></div>
             </div>
           </div>
           <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Notes</div>
+            <div style={cardTitle}>Notes</div>
             <textarea value={profile.notes || ''} onChange={e => update('notes', e.target.value)} rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
           </div>
           <div style={{ position: 'sticky', bottom: 0, background: 'var(--vfo-page)', borderTop: '1px solid var(--vfo-border)', padding: '16px 0', display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -1097,11 +1185,12 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
             {status && <span style={{ color: statusType === 'success' ? '#1b9254' : '#d93025', fontSize: '13px' }}>{status}</span>}
           </div>
         </>
-      )}
+        )
+      })()}
 
       {activeTab === 'history' && (
         <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Member Type History</div>
+          <div style={cardTitle}>Member Type History</div>
           {typeHistory.length === 0
             ? <p style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>No type changes recorded yet.</p>
             : typeHistory.map(h => (
@@ -1113,6 +1202,8 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
           }
         </div>
       )}
+
+      {cropState && <ImageCropModal src={cropState.src} onApply={applyCrop} onCancel={() => setCropState(null)} />}
     </div>
   )
 }
