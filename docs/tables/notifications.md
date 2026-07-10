@@ -1,6 +1,8 @@
 # Notifications
 
-In-portal notification feed. The bell icon at the top of `AdminPortal` AND the admin variant of `/admin/client/:id` ([NotificationBell.jsx](src/components/NotificationBell.jsx)) reads from `notifications`. **As of 2026-07-03 every insert routes through `utils/notify.ts notifyByRule(supabase, ruleKey, {...})`** — the `notification_rules` row for that key can override recipients, disable the notification, or (sweep tiers) change the delay. Full per-notification audit: [NOTIFICATION_AUDIT.md](../NOTIFICATION_AUDIT.md). Gotchas #176–#180.
+In-portal notification feed. The bell icon at the top of `AdminPortal` AND the admin variant of `/admin/client/:id` ([NotificationBell.jsx](src/components/NotificationBell.jsx)) reads from `notifications`. **As of 2026-07-03 every insert routes through `utils/notify.ts notifyByRule(supabase, ruleKey, {...})`** — the `notification_rules` row for that key can override recipients, disable the notification, or (sweep tiers) change the delay. **One documented exception (2026-07-10): the personal-reminder sweep inserts directly** (user-authored reminders have no rule key — gotcha #213). Full per-notification audit: [NOTIFICATION_AUDIT.md](../NOTIFICATION_AUDIT.md). Gotchas #176–#180, #212–#213.
+
+**Full-page Notifications view (2026-07-10):** the bell's **View all** opens `NotificationsPage.jsx` (admin portal `activeTab='notifications'`, `/admin?tab=notifications` — available to EVERY admin, not tab-granted). Two scopes — **Current** (unread) and **Archive** (read; retained 90 days then hard-deleted by the daily `automation_NOTIFICATIONS_purge` cron, jobid 15) — each filterable by kind (All / Action required / FYI / Reminders), newest/oldest sort, 50-per-page pagination, and checkbox bulk clear (`mark_notifications_read`, dismissible + recipient-scoped rows only). Reminder rows (`pipeline='REMINDER'`) have a reserved violet left bar + REMINDER pill in both the bell and the page. "Clearing" anywhere only flips `read=true` — rows are deleted only by the purge cron.
 
 ## `notifications`
 
@@ -17,7 +19,22 @@ In-portal notification feed. The bell icon at the top of `AdminPortal` AND the a
 | `dismissible` | boolean | default `true`. `true` = FYI (green Done button; row click also dismisses). `false` = action-required: NO Done button, sorted to the top with an orange ACTION pill, excluded from "Mark all read", and **`mark_notification_read` refuses it server-side (gotcha #179)** — it clears only when the completing handler (e.g. `automation_TAX_pricing`, `create-member`, reviewer-notes saves, `clearJakeFailure`) writes `read=true` directly. |
 | `created_at` | timestamptz | default `now()` |
 
-**Touched by:** `load_notifications`, `mark_notification_read` (FYI-only). Inserted ONLY via `notifyByRule` (raw inserts are a regression — gotcha #176).
+**Touched by:** `load_notifications`, `mark_notification_read` (FYI-only), `load_notifications_page` (paginated, incl. read rows), `mark_notifications_read` (bulk FYI clear), `automation_REMINDER_sweep` (direct insert — the documented #176 exception), `automation_NOTIFICATIONS_purge` (deletes read rows >90d). All other inserts ONLY via `notifyByRule` (raw inserts are a regression — gotcha #176).
+
+## `personal_reminders` *(new 2026-07-10; deny-all RLS)*
+
+Self-scheduled admin reminders (Notifications page → Reminders sub-tab). Per-admin: `reminder_create`/`reminder_load`/`reminder_delete` are ADMIN_ONLY and always scoped to `auth.session.email` (never a body email). Delivered by `automation_REMINDER_sweep` (cron `reminder-sweep-5min`, jobid 14) as a dismissible bell row (`pipeline='REMINDER'`, link `/admin?tab=notifications`) within ~5 minutes of `fire_at`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | pk, identity |
+| `recipient_email` | text | not null — the authoring admin's login email (also the bell recipient) |
+| `message` | text | not null, max 500 chars (validated in `reminder_create`) |
+| `fire_date` / `fire_time` | date / text | The chosen wall-clock (`HH:MM` 24h) in the chosen zone — kept for display |
+| `timezone` | text | IANA zone (validated via `Intl.DateTimeFormat`) |
+| `fire_at` | timestamptz | The resolved absolute instant — computed in Deno by `utils/timezone.ts zonedTimeToUtc` (two-pass Intl offset technique, DST-safe); must be in the future at create time |
+| `fired_at` | timestamptz | null = upcoming (cancellable); stamped ONLY after a successful bell insert so transient failures retry |
+| `created_at` | timestamptz | default `now()` |
 
 ## `notification_rules` *(new 2026-07-03; deny-all RLS)*
 
