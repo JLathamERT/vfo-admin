@@ -77,9 +77,9 @@ const ADVISOR_CONFIG = {
   // `lockedForType3` forces the row to N/A for a Type 3 Advisor.
   fourWaysFocuses: [
     { key: 'win_new', row: 'Focus on Winning New Clients', title: 'Win New Clients', sub: 'Focused on Partnership Fast Track to gain access to New Clients' },
-    { key: 'existing_vfo', row: 'Focus on Working with Existing Clients via VFO', title: 'Working with Existing Clients via VFO', sub: 'Focused on VFO Fast Track to do more client transactions (at a higher value)', lockedForType3: true },
+    { key: 'existing_vfo', row: 'Focus on Working with Existing Clients', title: 'Working with Existing Clients', sub: 'Focused on VFO Fast Track to do more client transactions (at a higher value)', lockedForType3: true },
     { key: 'pricing', row: 'Focus on Pricing ($ Value)', title: 'Increasing the $ Value of Transactions', sub: '' },
-    { key: 'efficiency', row: 'Focus on Efficiency of Core Advisor Business', title: 'Increasing Core Business Efficiency', sub: '' },
+    { key: 'efficiency', row: 'Focus on Efficiency of Core Business', title: 'Increasing Core Business Efficiency', sub: '' },
   ],
   fourWaysConditional: {
     triggerKey: 'win_new',
@@ -178,9 +178,9 @@ const ACCOUNTANT_CONFIG = {
   // No locked rows — every focus is rankable 1–4/N/A for accountants.
   fourWaysFocuses: [
     { key: 'win_new', row: 'Focus on Winning New Clients', title: 'Win New Clients', sub: 'Focused on Partnership Fast Track to gain access to New Clients' },
-    { key: 'existing_vfo', row: 'Focus on Working with Existing Clients via VFO', title: 'Working with Existing Clients via VFO', sub: 'Focused on VFO Fast Track to do more client transactions (at a higher value)' },
+    { key: 'existing_vfo', row: 'Focus on Working with Existing Clients', title: 'Working with Existing Clients', sub: 'Focused on VFO Fast Track to do more client transactions (at a higher value)' },
     { key: 'pricing', row: 'Focus on Pricing ($ Value)', title: 'Increasing the $ Value of Transactions', sub: '' },
-    { key: 'efficiency', row: 'Focus on Efficiency of Core Accounting Business', title: 'Increasing Core Accounting Business Efficiency', sub: '' },
+    { key: 'efficiency', row: 'Focus on Efficiency of Core Business', title: 'Increasing Core Business Efficiency', sub: '' },
   ],
   fourWaysConditional: {
     triggerKey: 'existing_vfo',

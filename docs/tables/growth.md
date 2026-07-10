@@ -39,14 +39,15 @@ priorities + sub-tasks added on the One Page Plan (`is_custom=true`, `action_num
 | id | bigint PK | |
 | member_number | text → members (cascade) | denormalized for member-scoping |
 | score_id | bigint → growth_plan_scores (cascade) | |
-| action_number | int | 1–20 (original G2 slot / priority) |
+| action_number | int | 1–20 (original G2 slot / priority) — CATALOG order; NOT the displayed number |
+| plan_number | int | PERMANENT One Page Plan number for a top-level priority (null for sub-tasks, which display as `parent.N`). Assigned server-side the first time a priority enters the plan = (highest plan_number ever used on the plan)+1; never cleared/reused, so completing/parking one never renumbers the rest. Display sorts by this, NOT action_number (gotcha #208) |
 | category | text | `vfo_ft` / `pft` / `marketing_vfo` / `other` |
 | action_text | text | editable; the edited text carries forward |
 | g2_status | text NOT NULL default `drop` | CHECK `drop\|park\|potential` |
 | g3_status | text | CHECK `drop\|park\|one_page_plan` (null pre-G3) |
 | g3_action_type | text | CHECK `new\|continuing` |
 | g3_notes | text | |
-| owned_by / assisted_by | text | free text |
+| owned_by / assisted_by | text | free text; the UI is a shared type-and-add combobox (`ui.jsx NameCombo`) that also lists every system admin (from `growth_plan_load_admins`, admin callers only). Naming a real admin + saving fires the `GROWTH_assignee_added` bell to them (gotcha #209) |
 | value_level / effort_level | text | CHECK `high\|medium\|low` |
 | accountability_status | text | CHECK `not_started\|progressing\|ahead\|behind\|completed` (Phase 7b; completed items leave the matrix for a Completed Action Items table) |
 | accountability_updated_at | timestamptz | |

@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
 import { TrackHero } from '../shared/TrackKit'
-import { NAVY, INK, MUTED, BLUE, inputStyle, cardStyle, accentStrip, GrowthNeed, StepNav, GrowthTabs } from './ui'
-import { orderOnePage } from './grouping'
+import { NAVY, INK, MUTED, BLUE, inputStyle, cardStyle, accentStrip, GrowthNeed, StepNav, GrowthTabs, NameCombo, buildNamePool } from './ui'
+import { orderOnePage, displayNumbers } from './grouping'
 import AddActionForm from './AddActionForm'
 import GrowthAddPriority from './GrowthAddPriority'
 
@@ -53,6 +53,16 @@ export default function GrowthOnePage({ memberNumber, bundle, reload, onNavigate
   const [acctMode, setAcctMode] = useState(!!score?.accountability_mode)
   const [dues, setDues] = useState(() => seedField(bundle, 'due_date'))
   const [statuses, setStatuses] = useState(() => seedField(bundle, 'accountability_status'))
+  // Owned By / Assisted By pool = names already on this plan + (admins only) the
+  // full system admin list. The admin loader is admin-only, so members never
+  // call it and simply get type-and-add over the plan-local names.
+  const [admins, setAdmins] = useState([])
+  useEffect(() => {
+    if (!isAdmin) return
+    let alive = true
+    callApi('growth_plan_load_admins').then(r => { if (alive) setAdmins(r?.admins || []) }).catch(() => {})
+    return () => { alive = false }
+  }, [isAdmin])
 
   async function toggleAcct() {
     const next = !acctMode
@@ -108,13 +118,18 @@ export default function GrowthOnePage({ memberNumber, bundle, reload, onNavigate
   // (matrix + New/Ongoing); completed items are numbered separately. Uses live
   // `statuses` so marking an item Completed moves it instantly.
   const byIdAll = new Map(op.map(a => [a.id, a]))
+  const labels = displayNumbers(op)
   const active = op.filter(a => statuses[a.id] !== 'completed')
   const doneItems = op.filter(a => statuses[a.id] === 'completed')
+    .sort((a, b) => (a.plan_number ?? Infinity) - (b.plan_number ?? Infinity) || a.action_number - b.action_number)
   const ordered = orderOnePage(active, byIdAll)
   const news = ordered.filter(a => a.section === 'new')
   const ongoing = ordered.filter(a => a.section === 'ongoing')
-  const numberedDone = doneItems.map((a, i) => ({ ...a, num: i + 1, isSub: !!a.parent_action_id, parentText: byIdAll.get(a.parent_action_id)?.action_text || '' }))
+  const numberedDone = doneItems.map(a => ({ ...a, num: labels.get(a.id) || '', isSub: !!a.parent_action_id, parentText: byIdAll.get(a.parent_action_id)?.action_text || '' }))
   const canEdit = isAdmin || acctMode
+  const planNames = []
+  for (const a of op) for (const v of [a.owned_by, a.assisted_by]) if (v && v.trim()) planNames.push(v.trim())
+  const { pool: namePool, adminSet } = buildNamePool(planNames, admins.map(a => a.name))
 
   const dateStr = new Date(score.completed_at || score.created_at)
     .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -165,10 +180,10 @@ export default function GrowthOnePage({ memberNumber, bundle, reload, onNavigate
         </div>
       </div>
 
-      <ActionTable title="New Action Items" rows={news} acct={acctMode} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={setDue} onStatus={setStatus} onDelete={onDelete} onAddSubtask={addSubtask} onSaveField={saveField} />
-      <ActionTable title="Ongoing Action Items" rows={ongoing} acct={acctMode} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={setDue} onStatus={setStatus} onDelete={onDelete} onAddSubtask={addSubtask} onSaveField={saveField} />
-      {numberedDone.length > 0 && <ActionTable title="Completed Action Items" rows={numberedDone} acct={acctMode} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={setDue} onStatus={setStatus} onDelete={onDelete} onSaveField={saveField} />}
-      {isAdmin && <AdminAddPriorities memberNumber={memberNumber} bundle={bundle} reload={reload} variant={variant} />}
+      <ActionTable title="New Action Items" rows={news} acct={acctMode} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={setDue} onStatus={setStatus} onDelete={onDelete} onAddSubtask={addSubtask} onSaveField={saveField} namePool={namePool} adminSet={adminSet} />
+      <ActionTable title="Ongoing Action Items" rows={ongoing} acct={acctMode} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={setDue} onStatus={setStatus} onDelete={onDelete} onAddSubtask={addSubtask} onSaveField={saveField} namePool={namePool} adminSet={adminSet} />
+      {numberedDone.length > 0 && <ActionTable title="Completed Action Items" rows={numberedDone} acct={acctMode} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={setDue} onStatus={setStatus} onDelete={onDelete} onSaveField={saveField} namePool={namePool} adminSet={adminSet} />}
+      {isAdmin && <AdminAddPriorities memberNumber={memberNumber} bundle={bundle} reload={reload} variant={variant} namePool={namePool} adminSet={adminSet} />}
       {isAdmin && <StepNav onBack={() => onNavigate('gp_build')} />}
     </div>
   )
@@ -178,14 +193,14 @@ const ADD_TABS = [{ key: 'parking', label: 'Parking Garage' }, { key: 'dropped',
 
 // Admin-only section at the bottom of the One Page Plan: add off-plan priorities
 // to the plan, mirroring the member's Dropped Priorities / Parking Garage tabs.
-function AdminAddPriorities({ memberNumber, bundle, reload, variant }) {
+function AdminAddPriorities({ memberNumber, bundle, reload, variant, namePool, adminSet }) {
   const [tab, setTab] = useState('parking')
   return (
     <div style={{ marginTop: '26px', marginBottom: '6px' }}>
       <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--vfo-heading)', marginBottom: '12px' }}>Add Priorities</div>
       <GrowthTabs tabs={ADD_TABS} active={tab} onChange={setTab} />
       <div style={{ marginTop: '14px' }}>
-        <GrowthAddPriority role="admin" tab={tab} embedded memberNumber={memberNumber} bundle={bundle} reload={reload} variant={variant} />
+        <GrowthAddPriority role="admin" tab={tab} embedded memberNumber={memberNumber} bundle={bundle} reload={reload} variant={variant} namePool={namePool} adminSet={adminSet} />
       </div>
     </div>
   )
@@ -255,7 +270,7 @@ function MatrixDot({ num, color, dark }) {
   )
 }
 
-function ActionTable({ title, rows, acct, isAdmin, canEdit, dues, statuses, onDue, onStatus, onDelete, onAddSubtask, onSaveField }) {
+function ActionTable({ title, rows, acct, isAdmin, canEdit, dues, statuses, onDue, onStatus, onDelete, onAddSubtask, onSaveField, namePool, adminSet }) {
   const colCount = 4 + (acct ? 2 : 0)
   return (
     <div style={cardStyle}>
@@ -279,7 +294,7 @@ function ActionTable({ title, rows, acct, isAdmin, canEdit, dues, statuses, onDu
                 </thead>
                 <tbody>
                   {rows.map(a => (
-                    <ActionRow key={a.id} a={a} acct={acct} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={onDue} onStatus={onStatus} onDelete={onDelete} onAddSubtask={onAddSubtask} onSaveField={onSaveField} colCount={colCount} />
+                    <ActionRow key={a.id} a={a} acct={acct} isAdmin={isAdmin} canEdit={canEdit} dues={dues} statuses={statuses} onDue={onDue} onStatus={onStatus} onDelete={onDelete} onAddSubtask={onAddSubtask} onSaveField={onSaveField} colCount={colCount} namePool={namePool} adminSet={adminSet} />
                   ))}
                 </tbody>
               </table>
@@ -290,7 +305,7 @@ function ActionTable({ title, rows, acct, isAdmin, canEdit, dues, statuses, onDu
   )
 }
 
-function ActionRow({ a, acct, isAdmin, canEdit, dues, statuses, onDue, onStatus, onDelete, onAddSubtask, onSaveField, colCount }) {
+function ActionRow({ a, acct, isAdmin, canEdit, dues, statuses, onDue, onStatus, onDelete, onAddSubtask, onSaveField, colCount, namePool, adminSet }) {
   const [adding, setAdding] = useState(false)
   const [owned, setOwned] = useState(a.owned_by || '')
   const [assisted, setAssisted] = useState(a.assisted_by || '')
@@ -310,12 +325,12 @@ function ActionRow({ a, acct, isAdmin, canEdit, dues, statuses, onDue, onStatus,
         </td>
         <td style={td}>
           {canEdit
-            ? <input value={owned} onChange={e => setOwned(e.target.value)} onBlur={() => { if ((a.owned_by || '') !== owned) onSaveField(a.id, { owned_by: owned }) }} placeholder="Name" style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
+            ? <NameCombo value={owned} onChange={setOwned} onCommit={v => { if ((a.owned_by || '') !== v) onSaveField(a.id, { owned_by: v }) }} people={namePool} adminSet={adminSet} placeholder="Type or pick a name" />
             : (a.owned_by || '—')}
         </td>
         <td style={td}>
           {canEdit
-            ? <input value={assisted} onChange={e => setAssisted(e.target.value)} onBlur={() => { if ((a.assisted_by || '') !== assisted) onSaveField(a.id, { assisted_by: assisted }) }} placeholder="Name" style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
+            ? <NameCombo value={assisted} onChange={setAssisted} onCommit={v => { if ((a.assisted_by || '') !== v) onSaveField(a.id, { assisted_by: v }) }} people={namePool} adminSet={adminSet} placeholder="Type or pick a name" />
             : (a.assisted_by || '—')}
         </td>
         {acct && (

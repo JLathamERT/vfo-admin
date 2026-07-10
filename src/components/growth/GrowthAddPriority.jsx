@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { callApi } from '../../lib/api'
 import { TrackHero } from '../shared/TrackKit'
-import { NAVY, INK, MUTED, GREEN, AMBER, cardStyle, accentStrip, inputStyle, pillSolid, pillOutline, miniLabel, Radios } from './ui'
+import { NAVY, INK, MUTED, GREEN, AMBER, cardStyle, accentStrip, pillSolid, pillOutline, miniLabel, Radios, NameCombo } from './ui'
 import { getGrowthConfig } from './constants'
 import AddActionForm from './AddActionForm'
 
@@ -15,7 +15,7 @@ const DROP = '#c2502f'
 // 'parking' = parked. Each row can be added to the plan (with Owned By / Value /
 // Effort) and moved to the other bucket (Dropped → Park, Parking → Drop). Members
 // may only act while Accountability Mode is on; admins always.
-export default function GrowthAddPriority({ memberNumber, bundle, reload, role = 'member', tab = 'dropped', embedded = false, variant }) {
+export default function GrowthAddPriority({ memberNumber, bundle, reload, role = 'member', tab = 'dropped', embedded = false, variant, namePool = [], adminSet }) {
   const { categoryOrder: CATEGORY_ORDER, categoryLabelsLong: CATEGORY_LABELS_LONG } = getGrowthConfig(variant)
   const isAdmin = role === 'admin'
   const isParking = tab === 'parking'
@@ -74,7 +74,7 @@ export default function GrowthAddPriority({ memberNumber, bundle, reload, role =
               <div style={accentStrip} />
               <div style={{ padding: '16px 20px' }}>
                 <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--vfo-heading)', marginBottom: '4px' }}>{CATEGORY_LABELS_LONG[cat]}</div>
-                {rows.map(a => <AddRow key={a.id} a={a} memberNumber={memberNumber} reload={reload} isParking={isParking} />)}
+                {rows.map(a => <AddRow key={a.id} a={a} memberNumber={memberNumber} reload={reload} isParking={isParking} namePool={namePool} adminSet={adminSet} />)}
               </div>
             </div>
           )
@@ -83,7 +83,7 @@ export default function GrowthAddPriority({ memberNumber, bundle, reload, role =
   )
 }
 
-function AddRow({ a, memberNumber, reload, isParking }) {
+function AddRow({ a, memberNumber, reload, isParking, namePool = [], adminSet }) {
   const [open, setOpen] = useState(false)
   const [owned, setOwned] = useState('')
   const [assisted, setAssisted] = useState('')
@@ -120,11 +120,11 @@ function AddRow({ a, memberNumber, reload, isParking }) {
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '12px' }}>
             <div style={{ flex: '1 1 200px' }}>
               <div style={miniLabel}>Owned By</div>
-              <input value={owned} onChange={e => setOwned(e.target.value)} placeholder="Name" style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' }} />
+              <NameCombo value={owned} onChange={setOwned} people={namePool} adminSet={adminSet} placeholder="Type or pick a name" />
             </div>
             <div style={{ flex: '1 1 200px' }}>
               <div style={miniLabel}>Assisted By</div>
-              <input value={assisted} onChange={e => setAssisted(e.target.value)} placeholder="Name" style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' }} />
+              <NameCombo value={assisted} onChange={setAssisted} people={namePool} adminSet={adminSet} placeholder="Type or pick a name" />
             </div>
           </div>
           <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '14px' }}>
