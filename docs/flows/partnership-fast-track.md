@@ -18,8 +18,10 @@ the "Partnership Fast Track" program (program_id=2) under a Testing/real member,
   `discovery_data` (jsonb), `discovery_submitted_at`, `discovery_email_sent_at`, `discovery_reminder_sent_at`,
   `discovery_pf_notified_at`, `ft_response_token`, `ft_email_sent_at`, `ft_response`
   (`confirm`|`another_meeting`), `ft_response_at`, `ft_reminder_sent_at`, `ft_pf_notified_at`,
-  `accountant_onboarding_id`.
-- **Emails**: `email_templates` pipeline `PARTNERSHIP_FAST_TRACK` (8 rows). **Sandbox**:
+  `accountant_onboarding_id`. **Undecided-decision columns** (2026-07-13): `decision_token`,
+  `decision_email_sent_at`, `decision_task_id`, `decision_response` (`vfo_ft`|`vfo_associate`|`no`),
+  `decision_response_at`, `decision_reminder_sent_at`, `decision_pf_notified_at`.
+- **Emails**: `email_templates` pipeline `PARTNERSHIP_FAST_TRACK` (9 rows — incl. `PFT_decision_undecided`). **Sandbox**:
   `pipeline_sandbox_config` row `PARTNERSHIP_FAST_TRACK` (`sandbox_mode=true`, `sandbox_email=jlatham@elitert.com`) —
   all PFT emails are **Gmail drafts**. Flip to live before real accountants.
 
@@ -55,21 +57,47 @@ One warm template `PFT_meeting_confirm` for all three, parameterised by `automat
 - On submit → notify the **assigned PF**. If not completed after **4 days** (sweep) → notify PF.
 
 ## Decision step + handoff
-`automation_PFT_decisionemail` (`choice` = `vfo_ft` | `vfo_associate` | `no`):
+The tracker's **Accountant decision confirmation email** step shows four buttons: **Email confirming VFO FT**,
+**Email confirming VFO Associate**, **Undecided email**, **Email confirming No**. The first two + "No" call
+`automation_PFT_decisionemail` (`choice` = `vfo_ft` | `vfo_associate` | `no`); **Undecided email** calls
+`automation_PFT_undecided` (see next section — defers the choice to the client).
+
+`automation_PFT_decisionemail`:
 - **vfo_ft** — drafts `PFT_decision_vfo_ft` with **two recipient buttons** ("I Don't Need Another Meeting -
   Confirm Onboarding" / "I'd Like Another Meeting" → `/pft-ft-decide?token=&decision=confirm|another_meeting`).
   **Immediately creates** the `accountant_onboarding` handoff (`selected_vfo_ft`, `accountant_type='VFO FT'`),
-  links it on `pft_engagement.accountant_onboarding_id`, stamps `ft_email_sent_at`.
-- **vfo_associate** — drafts `PFT_decision_vfo_associate`; immediately creates the handoff (`selected_pft`,
-  `accountant_type='VFO Associate'`); notifies **PF + Rachael**.
+  links it on `pft_engagement.accountant_onboarding_id`, stamps `ft_response_token` + `ft_email_sent_at`.
+- **vfo_associate** — (2026-07-13) now **mirrors vfo_ft**: drafts `PFT_decision_vfo_associate` with the SAME
+  two recipient buttons (confirm / another meeting → the shared `/pft-ft-decide` + `ft-response.ts` flow),
+  immediately creates the handoff (`selected_pft`, `accountant_type='VFO Associate'`), links it, stamps
+  `ft_response_token` + `ft_email_sent_at`. The former immediate `PFT_associate_confirmed` bell is dropped —
+  the confirm/another-meeting bell fires on the client's click instead (worded per `accountant_type`).
 - **no** — drafts `PFT_decision_no`; sets client `status='lost'`.
+
+## Undecided decision — client self-selects (2026-07-13)
+Mirrors the MAP 1 `/decide` undecided flow. Admin clicks **Undecided email** →
+`automation_PFT_undecided` (AUTH): drafts `PFT_decision_undecided` to the **client** with three buttons
+(VFO FT / VFO Associate / No → `/pft-decide?token=<decision_token>&choice=vfo_ft|vfo_associate|no`), stamps
+`decision_token` + `decision_email_sent_at` + `decision_task_id`, and marks the step
+**"Undecided - awaiting client"** (an amber pending status that the tracker treats as "no final decision" so
+both Phase-6 sections stay visible-but-pending). Client clicks → `PftDecidePage.jsx` (`/pft-decide`) →
+`automation_PFT_undecided_response` (PUBLIC, idempotent on `decision_response`) records the choice then
+**delegates in-process to `automation_PFT_decisionemail`** with that choice, so the exact same per-choice work
+runs (onboarding + confirmation email + progress + lost-on-no). Rolls `decision_response` back to null if the
+delegate fails so the link can be retried.
+
+An **AI PC Admin** history block (rendered under the decision step, styled like the Tax 5 AI PC Admin cascade)
+derives the full timeline from `pft_engagement`: undecided email sent → client's path choice → onboarding
+created → confirmation email sent → client's another-meeting response (plus reminder / PF-notified rows).
 
 Phase 6 indicators (matching section only): **"Sent to Accountant Onboarding"** (green once
 `accountant_onboarding_id` exists) + **"Accountant onboarding progress"** (live stage from
 `pft_load_engagement` + a **View onboarding →** deep-link to that record).
 
-## VFO Fast Track recipient response
-`automation_PFT_ftresponse` (PUBLIC, token, idempotent on `ft_response`):
+## VFO Fast Track / VFO Associate recipient response
+`automation_PFT_ftresponse` (PUBLIC, token, idempotent on `ft_response`) — shared by BOTH the VFO FT and (as
+of 2026-07-13) the VFO Associate confirmation email; the notification wording is derived from the linked
+`accountant_onboarding.accountant_type`:
 - **confirm** → notify **PF + Rachael**; auto-set the linked Accountant Onboarding **Preliminary Meeting =
   "Request no meeting"** (only if still null).
 - **another_meeting** → notify **PF + Rachael**.
@@ -86,7 +114,9 @@ the PFT track).
 
 ## Cron
 `pft-sweep-daily` 08:00 UTC → `automation_PFT_sweep` (PUBLIC, service-role): discovery 2-day reminder email +
-4-day PF notice; FT 2-day reminder email + 4-day PF notice. No auto-decline.
+4-day PF notice; FT 2-day reminder email + 4-day PF notice; **undecided-decision 2-day reminder email
+(re-sends `PFT_decision_undecided`) + 4-day PF notice** (rules `PFT_undecided_reminder_email` /
+`PFT_undecided_stall_bell`, guards `decision_reminder_sent_at` / `decision_pf_notified_at`). No auto-decline.
 
 ## Accountant Onboarding handoff differences
 - New `accountant_onboarding.accountant_type` (`'VFO FT'` | `'VFO Associate'`). "+ New Onboarding" requires it.
@@ -95,12 +125,14 @@ the PFT track).
 - Stage-1 Preliminary Meeting gained the status **"Request no meeting"** (auto-set by FT confirm).
 
 ## Backend files (`actions/pft/`)
-`_shared.ts` (PF_EMAILS/RACHAEL, notify helpers, ftButtons, template/sandbox/progress helpers),
-`meeting-email.ts`, `decision-email.ts`, `ft-response.ts`, `discovery.ts`, `sweep.ts`, `load-engagement.ts`.
-Dispatched: `automation_PFT_meetingemail`/`_decisionemail` + `pft_load_engagement` (AUTH);
-`automation_PFT_ftresponse`/`_sweep`/`_loaddiscovery`/`_submitdiscovery` (PUBLIC).
+`_shared.ts` (PF_EMAILS/RACHAEL, notify helpers, `ftButtons` + `undecidedButtons`, template/sandbox/progress
+helpers), `meeting-email.ts`, `decision-email.ts`, `ft-response.ts`, `undecided-email.ts`,
+`undecided-response.ts`, `discovery.ts`, `sweep.ts`, `load-engagement.ts`.
+Dispatched: `automation_PFT_meetingemail`/`_decisionemail`/**`_undecided`** + `pft_load_engagement` (AUTH);
+`automation_PFT_ftresponse`/**`_undecided_response`**/`_sweep`/`_loaddiscovery`/`_submitdiscovery` (PUBLIC).
 
 ## Frontend
-`components/admin/pft/PFTEngagementTrack.jsx` (track UI + `PFTTrackSkeleton`), `pages/PftFtDecidePage.jsx`
-(`/pft-ft-decide`), `pages/PftDiscoveryPage.jsx` (`/pft-discovery`). Nav: ClientDetail "Back to Accountants"
-restore + Phase-6 deep-link into Accountant Onboarding.
+`components/admin/pft/PFTEngagementTrack.jsx` (track UI + `PFTTrackSkeleton` + the `DecisionStep` 4-button step
++ `DecisionHistory`/AI PC Admin cascade), `pages/PftFtDecidePage.jsx` (`/pft-ft-decide`),
+`pages/PftDecidePage.jsx` (`/pft-decide` — the undecided 3-button client page), `pages/PftDiscoveryPage.jsx`
+(`/pft-discovery`). Nav: ClientDetail "Back to Accountants" restore + Phase-6 deep-link into Accountant Onboarding.

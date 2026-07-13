@@ -12,6 +12,7 @@ import TaxPostReviewDecidePage from './pages/TaxPostReviewDecidePage'
 import AdvisorDecidePage from './pages/AdvisorDecidePage'
 import AccountantDecidePage from './pages/AccountantDecidePage'
 import PftFtDecidePage from './pages/PftFtDecidePage'
+import PftDecidePage from './pages/PftDecidePage'
 import PftDiscoveryPage from './pages/PftDiscoveryPage'
 import PayPage from './pages/PayPage'
 import TaxPayPage from './pages/TaxPayPage'
@@ -55,6 +56,7 @@ export default function App() {
       <Route path="/advisor-decide" element={<AdvisorDecidePage />} />
       <Route path="/accountant-decide" element={<AccountantDecidePage />} />
       <Route path="/pft-ft-decide" element={<PftFtDecidePage />} />
+      <Route path="/pft-decide" element={<PftDecidePage />} />
       <Route path="/pft-discovery" element={<PftDiscoveryPage />} />
       <Route path="/pay" element={<PayPage />} />
       <Route path="/tax-pay" element={<TaxPayPage />} />

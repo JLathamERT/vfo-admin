@@ -5,12 +5,13 @@ import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { PFTTrackSkeleton } from '../../shared/Skeleton'
 import { TrackHero, PhaseBadge } from '../../shared/TrackKit'
 
-const pftStatusColors = { Complete: '#1b9254', Completed: '#1b9254', 'Complete - Yes': '#1b9254', 'Complete - No': '#e74c3c', Yes: '#1b9254', No: '#e74c3c', Undecided: '#e06717', New: '#1b9254', 'Re-Set': '#1b9254', 'VFO FT': '#1b9254', 'VFO Associate': '#1b9254', Stopped: '#e74c3c', 'No show': '#e74c3c', 'Meeting 1 scheduled': '#1b9254', 'Meeting 2 scheduled': '#1b9254', 'Meeting 3 scheduled': '#1b9254', 'Confirmation email sent': '#1b9254', 'Email sent - date not yet arranged': '#1b9254', 'Meeting declined': '#e74c3c', 'No response': '#e74c3c', 'Call arranged': '#1b9254', 'VFO FT confirmed': '#1b9254', 'VFO Associate confirmed': '#1b9254', 'No confirmed': '#e74c3c' }
+const pftStatusColors = { Complete: '#1b9254', Completed: '#1b9254', 'Complete - Yes': '#1b9254', 'Complete - No': '#e74c3c', Yes: '#1b9254', No: '#e74c3c', Undecided: '#e06717', New: '#1b9254', 'Re-Set': '#1b9254', 'VFO FT': '#1b9254', 'VFO Associate': '#1b9254', Stopped: '#e74c3c', 'No show': '#e74c3c', 'Meeting 1 scheduled': '#1b9254', 'Meeting 2 scheduled': '#1b9254', 'Meeting 3 scheduled': '#1b9254', 'Confirmation email sent': '#1b9254', 'Email sent - date not yet arranged': '#1b9254', 'Meeting declined': '#e74c3c', 'No response': '#e74c3c', 'Call arranged': '#1b9254', 'VFO FT confirmed': '#1b9254', 'VFO Associate confirmed': '#1b9254', 'No confirmed': '#e74c3c', 'Undecided - awaiting client': '#e06717' }
 const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
 const dateSpanStyle = { fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }
 const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
 const blueBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600 }
 const redBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600 }
+const amberBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(224,103,23,0.4)', background: 'rgba(224,103,23,0.12)', color: '#e06717', fontWeight: 600 }
 const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }
 
 function formatDate(d) {
@@ -192,10 +193,79 @@ function DecisionStep({ task, p, readOnly, onChoose }) {
           : <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               <button onClick={() => fire('vfo_ft')} disabled={!!pending} style={greenBtn}>{pending === 'vfo_ft' ? 'Sending…' : 'Email confirming VFO FT'}</button>
               <button onClick={() => fire('vfo_associate')} disabled={!!pending} style={greenBtn}>{pending === 'vfo_associate' ? 'Sending…' : 'Email confirming VFO Associate'}</button>
+              <button onClick={() => fire('undecided')} disabled={!!pending} style={amberBtn}>{pending === 'undecided' ? 'Sending…' : 'Undecided email'}</button>
               <button onClick={() => fire('no')} disabled={!!pending} style={redBtn}>{pending === 'no' ? 'Sending…' : 'Email confirming No'}</button>
             </div>
       }
       <span style={dateSpanStyle}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+    </div>
+  )
+}
+
+// One derived-history row inside the AI PC Admin cascade.
+function autoStep(label, done) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+      <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
+      {done
+        ? <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>
+        : <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', marginLeft: 'auto' }}>Not completed</span>}
+    </div>
+  )
+}
+
+// AI PC Admin — auto-derived history of the Accountant decision flow: the
+// Undecided email (if the admin deferred to the client), what the client picked
+// in that email, the follow-up confirmation email, and what they clicked in its
+// "need another meeting?" choice. Mirrors the Tax 5 AI PC Admin cascade.
+function DecisionHistory({ eng, decStatus, onboarding }) {
+  const decEmailSent = !!eng?.decision_email_sent_at
+  const decResp = eng?.decision_response || null              // vfo_ft | vfo_associate | no (Undecided email click)
+  const ftEmailSent = !!eng?.ft_email_sent_at
+  const ftResp = eng?.ft_response || null                     // confirm | another_meeting (follow-up email click)
+
+  // Nothing has happened on this step yet — no history to show.
+  if (!decEmailSent && !decStatus) return null
+
+  // Effective path: the client's Undecided choice, else the admin's direct pick.
+  const fromStatus = decStatus === 'VFO FT confirmed' ? 'vfo_ft' : decStatus === 'VFO Associate confirmed' ? 'vfo_associate' : decStatus === 'No confirmed' ? 'no' : null
+  const choice = decResp || fromStatus
+
+  const pathLabel = { vfo_ft: 'VFO Fast Track', vfo_associate: 'VFO Associate', no: 'No thank you' }
+  const ftLabel = { confirm: 'Confirm onboarding — no further meeting', another_meeting: "I'd like another meeting" }
+  const complete = choice === 'no' || !!ftResp
+
+  return (
+    <div style={{ padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: complete ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${complete ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+        <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>AI PC Admin</span>
+      </div>
+      <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
+        {decEmailSent && (
+          <>
+            {autoStep('Undecided — decision email sent to client (VFO FT / VFO Associate / No)', true)}
+            {decResp
+              ? autoStep(`Client chose "${pathLabel[decResp]}" in the decision email`, true)
+              : autoStep('Waiting for client to choose a path', false)}
+            {!decResp && !!eng?.decision_reminder_sent_at && autoStep('2-day reminder email sent to client', true)}
+            {!decResp && !!eng?.decision_pf_notified_at && autoStep('4-day passed — assigned PF notified to follow up', true)}
+          </>
+        )}
+        {choice === 'no' && autoStep('Decline email sent to client', true)}
+        {(choice === 'vfo_ft' || choice === 'vfo_associate') && (
+          <>
+            {autoStep(`Accountant Onboarding record created (${pathLabel[choice]})`, !!onboarding)}
+            {autoStep("Confirmation email sent with the “need another meeting?” choice", ftEmailSent)}
+            {ftResp
+              ? autoStep(`Client chose "${ftLabel[ftResp]}" in the follow-up email`, true)
+              : (ftEmailSent && autoStep('Waiting for client to respond to the follow-up email', false))}
+            {!ftResp && ftEmailSent && !!eng?.ft_reminder_sent_at && autoStep('2-day reminder email sent to client', true)}
+            {!ftResp && ftEmailSent && !!eng?.ft_pf_notified_at && autoStep('4-day passed — assigned PF notified to follow up', true)}
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -354,9 +424,17 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
   }
 
   async function handleDecision(task, choice) {
+    const today = new Date().toISOString().split('T')[0]
+    // Undecided: defer the choice to the client — email them the 3 buttons
+    // (VFO FT / VFO Associate / No) and wait for their click. No phase reveal yet.
+    if (choice === 'undecided') {
+      await callApi('automation_PFT_undecided', { client_id: clientId, task_id: task.id })
+      setProgress(prev => ({ ...prev, [task.id]: { ...prev[task.id], task_id: task.id, status: 'Undecided - awaiting client', completed_date: today } }))
+      try { const engData = await callApi('pft_load_engagement', { client_id: clientId }); setEngagement(engData || null) } catch (err) { console.error(err) }
+      return
+    }
     await callApi('automation_PFT_decisionemail', { client_id: clientId, task_id: task.id, choice })
     const status = choice === 'vfo_ft' ? 'VFO FT confirmed' : choice === 'vfo_associate' ? 'VFO Associate confirmed' : 'No confirmed'
-    const today = new Date().toISOString().split('T')[0]
     setProgress(prev => ({ ...prev, [task.id]: { ...prev[task.id], task_id: task.id, status, completed_date: today } }))
     try { const engData = await callApi('pft_load_engagement', { client_id: clientId }); setEngagement(engData || null) } catch (err) { console.error(err) }
     setExpanded(prev => {
@@ -401,7 +479,11 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
   const allTasksFlat = phases.flatMap(p => p.program_client_tasks || [])
   const gateTask = allTasksFlat.find(t => t.name === 'Does the Accountant need a third meeting?')
   const gateStatus = gateTask ? progress[gateTask.id]?.status : null
-  const decisionStatus = allTasksFlat.filter(t => t.name === 'Accountant decision confirmation email').map(t => progress[t.id]?.status).find(s => s) || null
+  const rawDecisionStatus = allTasksFlat.filter(t => t.name === 'Accountant decision confirmation email').map(t => progress[t.id]?.status).find(s => s) || null
+  // "Undecided - awaiting client" is a deferred decision (the client hasn't
+  // clicked yet), so treat it like "no decision made" for phase-6 gating — keep
+  // both VFO-FT / VFO-Associate sections visible-but-pending until the client picks.
+  const decisionStatus = rawDecisionStatus === 'Undecided - awaiting client' ? null : rawDecisionStatus
   const onboarding = engagement?.onboarding || null
   const eng = engagement?.engagement || null
 
@@ -503,7 +585,12 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
     // Meeting-3-phase copy lives in a phase that only renders when gate = Yes.
     if (task.name === 'Accountant decision confirmation email') {
       if (phase.name === 'Accountant Meeting 2' && gateStatus !== 'No') return null
-      return <DecisionStep key={task.id} task={task} p={p} readOnly={readOnly} onChoose={(choice) => handleDecision(task, choice)} />
+      return (
+        <div key={task.id}>
+          <DecisionStep task={task} p={p} readOnly={readOnly} onChoose={(choice) => handleDecision(task, choice)} />
+          <DecisionHistory eng={eng} decStatus={p.status} onboarding={onboarding} />
+        </div>
+      )
     }
 
     return <GenericTask key={task.id} task={task} p={p} readOnly={readOnly} saving={!!saving[task.id]} onSelect={(v) => saveTask(task.id, v, p.completed_date)} />

@@ -228,8 +228,9 @@ const TEMPLATE_META = {
     ['PFT_discovery_reminder', '2-day reminder — the discovery form hasn’t been submitted', 'To: Accountant'],
     ['PFT_decision_vfo_ft', 'Decision: VFO Fast Track — email with the two response buttons', 'To: Accountant'],
     ['PFT_decision_vfo_ft_reminder', '2-day reminder — the Fast Track response is still outstanding', 'To: Accountant'],
-    ['PFT_decision_vfo_associate', 'Decision: VFO Associate — next steps', 'To: Accountant'],
+    ['PFT_decision_vfo_associate', 'Decision: VFO Associate — email with the two response buttons (confirm / request another meeting)', 'To: Accountant'],
     ['PFT_decision_no', 'Decision: No — close-out', 'To: Accountant'],
+    ['PFT_decision_undecided', 'Decision: Undecided — email with the three path buttons (VFO FT / VFO Associate / No) for the client to self-select', 'To: Accountant'],
   ],
   'PAYMENTS': [
     ['card_update', 'Secure link for someone to change their saved card or bank account', 'To: Chosen client / member / specialist'],
