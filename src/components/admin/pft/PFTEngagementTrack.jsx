@@ -5,7 +5,7 @@ import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { PFTTrackSkeleton } from '../../shared/Skeleton'
 import { TrackHero, PhaseBadge } from '../../shared/TrackKit'
 
-const pftStatusColors = { Complete: '#1b9254', Completed: '#1b9254', 'Complete - Yes': '#1b9254', 'Complete - No': '#e74c3c', Yes: '#1b9254', No: '#e74c3c', Undecided: '#e06717', New: '#1b9254', 'Re-Set': '#1b9254', 'VFO FT': '#1b9254', 'VFO Associate': '#1b9254', Stopped: '#e74c3c', 'No show': '#e74c3c', 'Meeting 1 scheduled': '#1b9254', 'Meeting 2 scheduled': '#1b9254', 'Meeting 3 scheduled': '#1b9254', 'Confirmation email sent': '#1b9254', 'Email sent - date not yet arranged': '#1b9254', 'Meeting declined': '#e74c3c', 'No response': '#e74c3c', 'Call arranged': '#1b9254', 'VFO FT confirmed': '#1b9254', 'VFO Associate confirmed': '#1b9254', 'No confirmed': '#e74c3c', 'Undecided - awaiting client': '#e06717' }
+const pftStatusColors = { Complete: '#1b9254', Completed: '#1b9254', 'Complete - Yes': '#1b9254', 'Complete - No': '#e74c3c', Yes: '#1b9254', No: '#e74c3c', Undecided: '#e06717', VFOS: '#0095ff', Member: '#0095ff', New: '#1b9254', 'Re-Set': '#1b9254', 'VFO FT': '#1b9254', 'VFO Associate': '#1b9254', Stopped: '#e74c3c', 'No show': '#e74c3c', 'Meeting 1 scheduled': '#1b9254', 'Meeting 2 scheduled': '#1b9254', 'Meeting 3 scheduled': '#1b9254', 'Confirmation email sent': '#1b9254', 'Email sent - date not yet arranged': '#1b9254', 'Meeting declined': '#e74c3c', 'No response': '#e74c3c', 'Call arranged': '#1b9254', 'VFO FT confirmed': '#1b9254', 'VFO Associate confirmed': '#1b9254', 'No confirmed': '#e74c3c', 'Undecided - awaiting client': '#e06717' }
 const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
 const dateSpanStyle = { fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }
 const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
@@ -54,6 +54,11 @@ const DISCOVERY_FIELDS = [
   ['magic_wand', 'Magic wand - business in 12 months'],
 ]
 
+// Initial Contact "Who is completing the tracking…" gate step. When it is NOT
+// set to "Member" (unset or "VFOS"), the phase's other steps are inert and only
+// this one counts toward the phase.
+const isTrackingOwnerTask = (t) => (t?.name || '').startsWith('Who is completing the tracking')
+
 function meetingNumber(name) {
   if (name === 'Meeting 1 confirmation email') return 1
   if (name.startsWith('Meeting 2 confirmation email')) return 2
@@ -71,13 +76,17 @@ function computeGateStatus(phases, progress) {
 // Mirrors renderTask: Meeting 3's email only shows on the Yes path, and the
 // Meeting-2-phase decision email only shows on the No path. Counting off this
 // keeps the phase badge / done-state in lockstep with what renders.
-function visiblePhaseTasks(phase, gateStatus) {
-  return (phase.program_client_tasks || []).filter(t => {
+function visiblePhaseTasks(phase, gateStatus, progress = {}) {
+  const base = (phase.program_client_tasks || []).filter(t => {
     if (t.status_options === 'auto' || t.status_options?.startsWith('auto_')) return false
     if (t.name === 'Meeting 3 confirmation email') return gateStatus === 'Yes'
     if (t.name === 'Accountant decision confirmation email' && phase.name === 'Accountant Meeting 2') return gateStatus === 'No'
     return true
   })
+  // Initial Contact: only the tracking-owner step counts unless it is "Member".
+  const owner = base.find(isTrackingOwnerTask)
+  if (owner && progress[owner.id]?.status !== 'Member') return [owner]
+  return base
 }
 
 function Dot({ done, color }) {
@@ -392,7 +401,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
           expandState[phase.id] = (isAssoc && decStatus === 'VFO Associate confirmed') || (isFT && decStatus === 'VFO FT confirmed')
           return
         }
-        const tasks = visiblePhaseTasks(phase, gateStatus)
+        const tasks = visiblePhaseTasks(phase, gateStatus, prog)
         const allDone = tasks.length === 0 || tasks.every(t => prog[t.id]?.status)
         expandState[phase.id] = !allDone
       })
@@ -467,7 +476,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
   }
 
   function getPhaseState(phase) {
-    const tasks = visiblePhaseTasks(phase, computeGateStatus(phases, progress))
+    const tasks = visiblePhaseTasks(phase, computeGateStatus(phases, progress), progress)
     if (tasks.length === 0) return 'done'
     if (tasks.every(t => progress[t.id]?.status)) return 'done'
     if (tasks.some(t => progress[t.id]?.status)) return 'active'
@@ -512,13 +521,26 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
   phases.forEach(phase => {
     if (phase.name.includes('VFO-Associate') || phase.name.includes('VFO-FT Accountant')) return
     if (phase.name === 'Accountant Meeting 3' && gateStatus !== 'Yes') return
-    const counted = visiblePhaseTasks(phase, gateStatus)
+    const counted = visiblePhaseTasks(phase, gateStatus, progress)
     heroTotalTasks += counted.length
     heroDoneTasks += counted.filter(t => progress[t.id]?.status).length
   })
 
   function renderTask(task, phase) {
     const p = progress[task.id] || {}
+
+    // Initial Contact: the original steps are inert (greyed, not clickable) until
+    // the tracking-owner step is set to "Member".
+    const ownerTask = (phase.program_client_tasks || []).find(isTrackingOwnerTask)
+    if (ownerTask && !isTrackingOwnerTask(task) && progress[ownerTask.id]?.status !== 'Member') {
+      return (
+        <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', opacity: 0.35, pointerEvents: 'none' }}>
+          <Dot done={false} color="var(--vfo-muted)" />
+          <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: 1 }}>{task.name}</span>
+          <span style={dateSpanStyle}>—</span>
+        </div>
+      )
+    }
 
     // Right accountant questions are rendered inside the grouped a11 section
     if (['Right clients?', 'Right client relationships?', 'Right attitude (to change)?'].includes(task.name)) return null
@@ -626,7 +648,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
 
         const isExpanded = expanded[phase.id]
         const tasks = phase.program_client_tasks || []
-        const visibleTasks = visiblePhaseTasks(phase, gateStatus)
+        const visibleTasks = visiblePhaseTasks(phase, gateStatus, progress)
         const doneTasks = visibleTasks.filter(t => progress[t.id]?.status).length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'

@@ -8,6 +8,11 @@ import MeetingCompleteButton from './MeetingCompleteButton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { TrackHero, PhaseBadge } from '../../shared/TrackKit'
 
+// The Initial Contact "Who is completing the tracking…" gate step. When it is
+// NOT set to "Member" (unset or "VFOS"), the other steps in the phase are inert
+// and only this one counts toward the phase.
+const isTrackingOwnerTask = (t) => (t?.name || '').startsWith('Who is completing the tracking')
+
 // PIP meeting confirmation step (PIP 1 / PIP Follow-up) — 3-button post-meeting
 // decision mirroring Partnership Fast Track Meeting 1: "with date" (date/time/tz),
 // "date not confirmed", and "declined". Drafts the email via the backend, then
@@ -102,7 +107,11 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
       // Auto-expand: first incomplete phase, collapse completed ones
       const expandState = {}
       loadedPhases.forEach(phase => {
-        const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
+        let tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
+        // Initial Contact: when the tracking-owner step isn't "Member", only it
+        // counts — so a "VFOS" pick completes (and collapses) the phase.
+        const owner = tasks.find(isTrackingOwnerTask)
+        if (owner && prog[owner.id]?.status !== 'Member') tasks = [owner]
         const allDone = tasks.length === 0 || tasks.every(t => prog[t.id]?.status)
         expandState[phase.id] = !allDone
       })
@@ -173,7 +182,18 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
     } catch (err) { console.error(err); setCompletedPhases(p => ({ ...p, [phase.id]: null })) }
   }
 
-  const statusColors = { Completed: '#1b9254', Confirmed: '#1b9254', Yes: '#1b9254', 'Call arranged': '#1b9254', 'PIP 1 scheduled': '#1b9254', 'Follow-up scheduled': '#1b9254', 'PIP Follow-up confirmed': '#1b9254', 'Send confirmation email': '#1b9254', 'Sent confirmation email': '#1b9254', 'Regular priorities tab enabled': '#1b9254', 'Tax priorities tab enabled': '#1b9254', 'Completed + N/A': '#1b9254', 'Completed + Risk 1': '#1b9254', 'Completed + Risk 2': '#1b9254', 'Completed + Risk 3': '#1b9254', 'Completed + Risk 4': '#1b9254', 'Completed + Risk 5': '#1b9254', 'Lite': '#1b9254', 'Core': '#1b9254', 'Max': '#1b9254', 'In Progress': '#e06717', Undecided: '#e06717', 'No response': '#e74c3c', No: '#e74c3c', 'PIP Follow-up declined': '#e74c3c', 'Send declined email': '#e74c3c', 'Meeting declined': '#e74c3c', 'No show': '#e74c3c', 'Completed - Yes': '#1b9254', 'Completed - No': '#e74c3c', 'Completed - Undecided': '#e06717' }
+  const statusColors = { Completed: '#1b9254', Confirmed: '#1b9254', Yes: '#1b9254', VFOS: '#0095ff', Member: '#0095ff', 'Call arranged': '#1b9254', 'PIP 1 scheduled': '#1b9254', 'Follow-up scheduled': '#1b9254', 'PIP Follow-up confirmed': '#1b9254', 'Send confirmation email': '#1b9254', 'Sent confirmation email': '#1b9254', 'Regular priorities tab enabled': '#1b9254', 'Tax priorities tab enabled': '#1b9254', 'Completed + N/A': '#1b9254', 'Completed + Risk 1': '#1b9254', 'Completed + Risk 2': '#1b9254', 'Completed + Risk 3': '#1b9254', 'Completed + Risk 4': '#1b9254', 'Completed + Risk 5': '#1b9254', 'Lite': '#1b9254', 'Core': '#1b9254', 'Max': '#1b9254', 'In Progress': '#e06717', Undecided: '#e06717', 'No response': '#e74c3c', No: '#e74c3c', 'PIP Follow-up declined': '#e74c3c', 'Send declined email': '#e74c3c', 'Meeting declined': '#e74c3c', 'No show': '#e74c3c', 'Completed - Yes': '#1b9254', 'Completed - No': '#e74c3c', 'Completed - Undecided': '#e06717' }
+
+  // Non-auto tasks that count toward a phase's completion. For the Initial
+  // Contact phase a new first step ("Who is completing the tracking…") gates the
+  // rest: only when it is "Member" do all four count; otherwise (unset or "VFOS")
+  // just that one step counts and the other three are inert.
+  function countedTasks(phase) {
+    const nonAuto = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
+    const owner = nonAuto.find(isTrackingOwnerTask)
+    if (!owner) return nonAuto
+    return progress[owner.id]?.status === 'Member' ? nonAuto : [owner]
+  }
 
   function getPhaseState(phase) {
     // PC Admin completion lives on pipeline_map1 (the c15 decision + the
@@ -187,7 +207,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
       const allocTasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
       return allocTasks.some(t => progress[t.id]?.status) ? 'done' : 'pending'
     }
-    const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
+    const tasks = countedTasks(phase)
     if (tasks.length === 0) return 'done'
     if (tasks.every(t => progress[t.id]?.status)) return 'done'
     if (tasks.some(t => progress[t.id]?.status)) return 'active'
@@ -280,14 +300,14 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
       const set = nonAuto.filter(t => progress[t.id]?.status).length
       return s + (set > 0 ? set : nonAuto.length)
     }
-    return s + nonAuto.length
+    return s + countedTasks(p).length
   }, 0)
   const completedTasks = phases.reduce((s, phase) => {
     const nonAuto = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
     // PC Admin's non-auto tasks are pipeline-driven (no progress status), so
     // count them complete when the phase resolves done (see pcAdminPhaseState).
     if (phase.name === 'MAP 1 - PC Admin') return s + (getPhaseState(phase) === 'done' ? nonAuto.length : 0)
-    return s + nonAuto.filter(t => progress[t.id]?.status && progress[t.id].status !== '').length
+    return s + countedTasks(phase).filter(t => progress[t.id]?.status && progress[t.id].status !== '').length
   }, 0)
 
   return (
@@ -305,7 +325,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
         const state = getPhaseState(phase)
         const isExpanded = expanded[phase.id]
         const tasks = phase.program_client_tasks || []
-        const nonAutoTasks = tasks.filter(t => t.status_options !== 'auto')
+        const nonAutoTasks = countedTasks(phase)
         const isPCAdminPhase = phase.name === 'MAP 1 - PC Admin'
         const pcCounts = isPCAdminPhase ? pcAdminStepCounts() : null
         const doneTasks = isPCAdminPhase ? pcCounts.done : nonAutoTasks.filter(t => progress[t.id]?.status && progress[t.id].status !== '').length
@@ -504,6 +524,17 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                   const p = progress[task.id] || {}
                   const isDone = !!p.status
                   const statusColor = statusColors[p.status] || 'var(--vfo-muted)'
+
+                  // Initial Contact: the original steps are inert (greyed, not
+                  // clickable) until the tracking-owner step is set to "Member".
+                  const ownerTask = (phase.program_client_tasks || []).find(isTrackingOwnerTask)
+                  if (ownerTask && !isTrackingOwnerTask(task) && progress[ownerTask.id]?.status !== 'Member') return (
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', opacity: 0.35, pointerEvents: 'none' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid var(--vfo-border-mid)' }} />
+                      <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: 1 }}>{task.name}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>—</span>
+                    </div>
+                  )
 
                   if (task.status_options === 'auto') return (
                     <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
