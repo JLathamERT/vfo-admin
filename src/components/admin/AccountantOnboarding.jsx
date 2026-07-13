@@ -199,8 +199,20 @@ function OnboardingDetail({ id, onBack }) {
   const [creatingMember, setCreatingMember] = useState(false)
   const [showSaleModal, setShowSaleModal] = useState(false)
   const [expanded, setExpanded] = useState({ 1: true, 2: true, 3: true })
+  const [advisors, setAdvisors] = useState(null)
+  const [savingCc, setSavingCc] = useState(false)
 
   useEffect(() => { loadDetail() }, [id])
+
+  // Lazily load the advisor list the first time the Advisor path is active
+  // (the CC Connected Advisor picker only shows then).
+  useEffect(() => {
+    if (ob?.accountant_partnership === 'Accountant Partnership' && advisors === null) {
+      callApi('accountant_load_advisors')
+        .then(res => setAdvisors(res?.advisors || []))
+        .catch(err => { console.error(err); setAdvisors([]) })
+    }
+  }, [ob?.accountant_partnership, advisors])
 
   async function loadDetail() {
     setLoading(true)
@@ -233,6 +245,15 @@ function OnboardingDetail({ id, onBack }) {
       if (res?.onboarding) setOb(res.onboarding)
     } catch (err) { console.error(err); alert('Error: ' + err.message) }
     finally { setSaving(false) }
+  }
+
+  async function saveCcAdvisor(member_number) {
+    setSavingCc(true)
+    try {
+      const res = await callApi('save_accountant_cc_advisor', { onboarding_id: id, member_number: member_number || null })
+      if (res?.onboarding) setOb(res.onboarding)
+    } catch (err) { console.error(err); alert('Error: ' + err.message) }
+    finally { setSavingCc(false) }
   }
 
   async function saveTeamMember(name) {
@@ -337,13 +358,26 @@ function OnboardingDetail({ id, onBack }) {
             {SALES_TEAM_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </Row>
-        <Row label="Partnership?" done={!!ob.accountant_partnership} date={ob.accountant_partnership_at}>
+        <Row label="Direct or Advisor Partnership" done={!!ob.accountant_partnership} date={ob.accountant_partnership_at}>
           <select value={ob.accountant_partnership || ''} onChange={e => savePartnership(e.target.value)} disabled={saving} style={{ ...selectStyle, color: 'var(--vfo-ink)' }}>
             <option value="">-- Select --</option>
-            <option value="No accountant partnership">No accountant partnership</option>
-            <option value="Accountant Partnership">Accountant Partnership</option>
+            <option value="No accountant partnership">Direct</option>
+            <option value="Accountant Partnership">Advisor</option>
           </select>
         </Row>
+        {ob.accountant_partnership === 'Accountant Partnership' && (
+          <Row label="CC Connected Advisor" done={!!ob.cc_advisor_email} date={ob.cc_advisor_at}>
+            <AdvisorCombo
+              advisors={advisors}
+              currentNumber={ob.cc_advisor_member_number}
+              currentName={ob.cc_advisor_name}
+              currentEmail={ob.cc_advisor_email}
+              disabled={savingCc}
+              onPick={saveCcAdvisor}
+              onClear={() => saveCcAdvisor(null)}
+            />
+          </Row>
+        )}
         <Row label="Preliminary Meeting Decision" done={!!decision} date={ob.prelim_meeting_decision_at}>
           {decision ? (
             <span style={pillStyle(decision === 'Yes' ? '#1b9254' : decision === 'No' ? '#e74c3c' : '#e06717')}>{decision}</span>
@@ -446,7 +480,7 @@ function StageBlock({ stage, title, state, expanded, onToggle, dimmed, children 
   const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
   const titleColor = state === 'active' ? 'var(--vfo-primary)' : 'var(--vfo-heading)'
   return (
-    <div style={{ background: 'var(--vfo-card)', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden', opacity: dimmed ? 0.55 : 1 }}>
+    <div style={{ background: 'var(--vfo-card)', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'visible', opacity: dimmed ? 0.55 : 1 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer' }} onClick={onToggle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
           <PhaseBadge number={stage} state={state} />
@@ -483,6 +517,60 @@ function Row({ label, done, date, children }) {
         <span style={dateTextStyle}>{done && date ? formatDate(date) : ''}</span>
       </span>
     </div>
+  )
+}
+
+function AdvisorCombo({ advisors, currentNumber, currentName, currentEmail, disabled, onPick, onClear }) {
+  const [search, setSearch] = useState('')
+  const [open, setOpen] = useState(false)
+
+  if (currentNumber) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '320px' }}>
+        <span style={{ fontSize: '12px', textAlign: 'right', lineHeight: 1.3 }}>
+          <span style={{ fontWeight: 600, color: 'var(--vfo-ink)' }}>{currentName || '(advisor)'}</span>
+          {currentEmail && <span style={{ color: 'var(--vfo-muted)' }}> · {currentEmail}</span>}
+        </span>
+        <button onClick={onClear} disabled={disabled} title="Remove connected advisor"
+          style={{ border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-muted)', borderRadius: '6px', width: '22px', height: '22px', fontSize: '13px', lineHeight: 1, cursor: disabled ? 'not-allowed' : 'pointer', flexShrink: 0 }}>×</button>
+      </span>
+    )
+  }
+
+  const loading = advisors === null
+  const q = search.trim().toLowerCase()
+  const matches = loading ? [] : advisors
+    .filter(a => !q || a.name.toLowerCase().includes(q) || (a.email || '').toLowerCase().includes(q))
+    .slice(0, 30)
+
+  return (
+    <span style={{ position: 'relative', display: 'inline-block' }}>
+      <input
+        value={search}
+        onChange={e => { setSearch(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder={loading ? 'Loading advisors…' : 'Search advisors…'}
+        disabled={disabled || loading}
+        style={{ ...selectStyle, minWidth: '220px', color: 'var(--vfo-ink)' }}
+      />
+      {open && !loading && (
+        <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '2px', minWidth: '260px', maxHeight: '240px', overflowY: 'auto', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-strong)', borderRadius: '8px', boxShadow: '0 6px 20px rgba(20,45,95,0.18)', zIndex: 20 }}>
+          {matches.length === 0 ? (
+            <div style={{ padding: '8px 12px', fontSize: '12px', color: 'var(--vfo-muted)' }}>No matching advisors</div>
+          ) : matches.map(a => (
+            <div key={a.member_number} onMouseDown={() => { onPick(a.member_number); setSearch(''); setOpen(false) }}
+              style={{ padding: '7px 12px', fontSize: '12px', cursor: 'pointer', borderBottom: '1px solid var(--vfo-border-soft)' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-tint)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <span style={{ fontWeight: 600, color: 'var(--vfo-ink)' }}>{a.name}</span>
+              {a.elite_status && a.elite_status !== 'Active' && <span style={{ color: '#e06717' }}> ({a.elite_status})</span>}
+              <span style={{ color: 'var(--vfo-muted)', display: 'block' }}>{a.email}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </span>
   )
 }
 
