@@ -17,6 +17,7 @@ const SECTIONS = [
   { key: 'specialist_continuation', label: 'Specialist License Fee Continuation', pipeline: 'SPECIALIST_LICENSE_CONTINUATION' },
   { key: 'specialist_revenue', label: 'VFO Specialist Revenue', pipeline: 'VFO_SPECIALIST_REVENUE' },
   { key: 'client_continuation', label: 'Client Payment Continuation', pipeline: 'CLIENT_PAYMENT_CONTINUATION' },
+  { key: 'member_membership', label: 'Member Membership Fees', pipeline: 'MEMBER_MEMBERSHIP_FEES' },
   { key: 'pft', label: 'Partnership Fast Track', pipeline: 'PARTNERSHIP_FAST_TRACK' },
   // Miscellaneous — standalone, non-pipeline emails grouped together (each row
   // is an explicit [pipeline, template_name] ref rather than a whole pipeline).
@@ -215,6 +216,11 @@ const TEMPLATE_META = {
   ],
   'CLIENT_PAYMENT_CONTINUATION': [
     ['setup_link', 'Migrated client — link to add their card or bank account so payments can continue', 'To: Client'],
+  ],
+  'MEMBER_MEMBERSHIP_FEES': [
+    ['MEMBERSHIP_setup_link', 'Membership fee plan created — link where the member pays their first payment and saves their card or bank account', 'To: Member'],
+    ['MEMBERSHIP_transfer_setup_link', 'Member moving over from the old billing mid-year — same setup link, but explains the transfer and where they are in their year', 'To: Member'],
+    ['MEMBERSHIP_payment_failed', 'A monthly membership charge failed — friendly note that next month doubles to catch up, with an update-payment-method link', 'To: Member'],
   ],
   'PARTNERSHIP_FAST_TRACK': [
     ['PFT_meeting_confirm', 'A PFT meeting is booked — confirmation (used for every meeting in the track)', 'To: Accountant'],
