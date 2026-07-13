@@ -25,16 +25,15 @@ the "Partnership Fast Track" program (program_id=2) under a Testing/real member,
   `pipeline_sandbox_config` row `PARTNERSHIP_FAST_TRACK` (`sandbox_mode=true`, `sandbox_email=jlatham@elitert.com`) —
   all PFT emails are **Gmail drafts**. Flip to live before real accountants.
 
-## Phases (after this session's restructure)
-1. **Preliminary Setup** — Relationship type.
-2. **Initial Contact** — Call arranged · Call outcome · **Meeting 1 confirmation email** (3-button).
-3. **Accountant Meeting 1** — Initial high level discussion · Right accountant? (3 Yes/No + auto conclusion) ·
+## Phases
+1. **Initial Contact** — **Who is completing the tracking for this accountant?** (`VFOS` / `Member`, first step) · Call arranged · Call outcome · **Meeting 1 confirmation email** (3-button). The tracking-owner step gates the other three: they render greyed + non-clickable until it is set, `VFOS` keeps them inert (phase = 1 step) and `Member` re-enables them (phase = 4 steps). Mirrored in the Client Overview engine (`overview-pft.ts`, `applicable:false`) — gotcha #218. _(The old **Preliminary Setup / Relationship type** phase was removed 2026-07-13.)_
+2. **Accountant Meeting 1** — Initial high level discussion · Right accountant? (3 Yes/No + auto conclusion) ·
    **Meeting 2 confirmation email (+ discovery form)** (3-button).
-4. **Accountant Meeting 2** — presentation · **"Does the Accountant need a third meeting?"** (Yes/No gate,
+3. **Accountant Meeting 2** — presentation · **"Does the Accountant need a third meeting?"** (Yes/No gate,
    both green) · then EITHER **Meeting 3 confirmation email** (gate=Yes) OR **Accountant decision confirmation
    email** (gate=No). Nothing past the gate is interactive until it's answered.
-5. **Accountant Meeting 3** (only when gate=Yes) — presentation · **Accountant decision confirmation email**.
-6. **VFO-Associate New Member Setup** / **VFO-FT Accountant New Member Setup** — task-less; rendered as 2
+4. **Accountant Meeting 3** (only when gate=Yes) — presentation · **Accountant decision confirmation email**.
+5. **VFO-Associate New Member Setup** / **VFO-FT Accountant New Member Setup** — task-less; rendered as 2
    dynamic progress indicators. Before the decision: both show greyed. After a decision: only the matching
    section shows.
 
