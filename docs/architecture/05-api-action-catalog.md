@@ -671,3 +671,22 @@ Also (no new action): the license `invoice.paid` webhook block uses an atomic in
    Actions not in either list are accessible to both roles without scoping. Notable examples: `add_client_note`, `update_client_note`, `delete_client_note`, `gc_redeem`, `ciq_*`, `tax_*`, `coaching_*`. Their security relies on every payload requiring an `id` or `client_id` that the caller already owns — application-level rather than role-level.
 5. **`document_numbers` sequence is not strongly serialized** — `automation_CONTRACT_invoicereceipt` does `SELECT count(*) FROM document_numbers WHERE type=...` then increments. Concurrent invocations could collide. Pre-existing; not a refactor regression.
 6. **Three handlers take `req` as a 4th parameter** (`automation_PIPFU_decision`, `automation_PCADMIN_pricing`, `automation_PCADMIN_extrameeting`) so the chain `fetch()` can forward `req.headers.get("Authorization")` to the chained `automation_CONTRACT_sendagreement` action. This preservation is required by the refactor safety rule "never convert server-to-server chain calls from HTTP fetches to direct function calls" — see `.refactor-resume.md` for context.
+
+
+## Member Membership Fees (`actions/membership/`) — added 2026-07-13
+
+Full flow: [../flows/membership-fees.md](../flows/membership-fees.md). All AUTH actions below are superadmin-gated in-handler AND listed in `TAB_ACTIONS.accounting`.
+
+| Action | File | Auth | Purpose |
+|---|---|---|---|
+| `membership_plan_save` | `actions/membership/plan-save.ts` | AUTH (superadmin) | Create/edit (while setup_pending) a plan; computes the whole-dollar per-pull; validates transfer renewal (a 15th). No schedule here — that's generated at first payment. |
+| `membership_plans_load` | `actions/membership/plans-load.ts` | AUTH (superadmin) | Reconciliation feed: plans by category + nested schedule + live member fields + the MEMBER_MEMBERSHIP sandbox config. |
+| `membership_plan_cancel` | `actions/membership/plan-cancel.ts` | AUTH (superadmin) | `cancel_now` (never-paid plans) / `auto_renew_off` / `auto_renew_on`. |
+| `membership_send_setup_link` | `actions/membership/send-setup-link.ts` | AUTH (superadmin) | Stripe customer + setup token + drafts MEMBERSHIP_setup_link or MEMBERSHIP_transfer_setup_link. |
+| `membership_terminate` | `actions/membership/terminate.ts` | AUTH (superadmin) | Charges the termination fee off-session NOW, voids scheduled rows, plan → terminated. |
+| `membership_next_year_save` | `actions/membership/next-year-save.ts` | AUTH (superadmin) | Sets/clears the renewal-time terms (amount + credit) on an active plan. |
+| `membership_setup_load` | `actions/membership/setup-load.ts` | PUBLIC (token) | /membership-pay page data; active plans return update_mode (save-only method change). |
+| `membership_setup_checkout` | `actions/membership/setup-checkout.ts` | PUBLIC (token) | Stripe Checkout: mode=payment charging the first pull + saving the method (mode=setup for annual transfers / $0 plans / method updates). |
+| `automation_MEMBERSHIP_sweep` | `actions/membership/sweep.ts` | PUBLIC (service-role Bearer) | Daily engine (cron jobid 16 @12:00 UTC): renewals → waive $0 → combined due+arrears charges → auto-unsuspend. |
+
+Shared helpers: `actions/membership/shared.ts` (whole-dollar rounding, charge-day/renewal-15th math, schedule builders) and `actions/membership/activate.ts` (webhook-called activation — generates the year ledger at first payment; method-only refresh for active plans). Webhook blocks in `router/webhooks.ts` route by `metadata.pipeline='MEMBER_MEMBERSHIP'` + `payment_kind` (gotcha #216).

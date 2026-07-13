@@ -803,13 +803,13 @@ export default function AdminPortal() {
             <MemberOnboardingPanel kind="advisor" title="Advisor Onboarding" />
           )}
           {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'advisor_membership_fees' && (
-            <MembershipFeesPanel title="Advisor Membership Fees" />
+            <MembershipFeesPanel title="Advisor Membership Fees" category="advisor" allMembers={allMembers} />
           )}
           {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'accountant_onboarding_fees' && (
             <MemberOnboardingPanel kind="accountant" title="Accountant Onboarding" />
           )}
           {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'accountant_membership_fees' && (
-            <MembershipFeesPanel title="Accountant Membership Fees" />
+            <MembershipFeesPanel title="Accountant Membership Fees" category="accountant" allMembers={allMembers} />
           )}
           {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'gc_accounting' && (
             <GrowthCreditsAccountingPanel />
