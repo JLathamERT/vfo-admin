@@ -13,6 +13,14 @@ export const SALES_TEAM_NAMES = [
   'Seth Hartford',
 ]
 
+// MSM (Member Success Manager) names for the "MSM" dropdown. The email renders
+// only the first name of the selection. Edit this array (then redeploy) to change.
+export const MSM_NAMES = [
+  'Sarah Freitas',
+  'Rachael Hopson',
+  'Ian Welham',
+]
+
 function buildPlans(ob, isAcct) {
   const labels = []
   if (isAcct) {
@@ -47,6 +55,7 @@ export default function NewModelSaleModal({ ob, kind, submitting, onClose, onCon
   const isAcct = kind === 'accountant'
   const [companyName, setCompanyName] = useState('')
   const [website, setWebsite] = useState('')
+  const [msm, setMsm] = useState('n/a')
   const [closer, setCloser] = useState('n/a')
   const [setter, setSetter] = useState('n/a')
   const [introducedBy, setIntroducedBy] = useState('n/a')
@@ -63,7 +72,7 @@ export default function NewModelSaleModal({ ob, kind, submitting, onClose, onCon
 
   const memberName = `${ob.first_name || ''} ${ob.last_name || ''}`.trim() || 'n/a'
   const agreementName = isAcct
-    ? (ob.accountant_partnership === 'Accountant Partnership' ? 'Accountant Implementation Agreement (Partner)' : 'Accountant Implementation Agreement (No Partner)')
+    ? (ob.accountant_partnership === 'Accountant Partnership' ? 'Accountant Implementation Agreement (Advisor)' : 'Accountant Implementation Agreement (Direct)')
     : 'Advisor Implementation Agreement'
   const selectedPlans = buildPlans(ob, isAcct)
   const paymentPlan = (ob.payment_amount != null && Number(ob.payment_amount) > 0)
@@ -90,6 +99,7 @@ export default function NewModelSaleModal({ ob, kind, submitting, onClose, onCon
     onConfirm({
       sale_company_name: companyName.trim() || null,
       sale_website: website.trim() || null,
+      sale_msm: msm,
       sale_closer: closer,
       sale_setter: setter,
       sale_introduced_by: introducedBy,
@@ -129,6 +139,13 @@ export default function NewModelSaleModal({ ob, kind, submitting, onClose, onCon
         <div style={{ marginBottom: '14px' }}>
           <label style={labelStyle}>Website <span style={{ color: '#9aa7bd', fontWeight: 400 }}>(optional)</span></label>
           <input value={website} onChange={e => setWebsite(e.target.value)} placeholder="Leave blank to omit" style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: '14px' }}>
+          <label style={labelStyle}>MSM</label>
+          <select value={msm} onChange={e => setMsm(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+            <option value="n/a">n/a</option>
+            {MSM_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
         </div>
         <Dropdown label="Person responsible for closing" value={closer} setValue={setCloser} />
         <Dropdown label="Setter responsible" value={setter} setValue={setSetter} />
