@@ -5,9 +5,17 @@ import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { TrackHero, PhaseBadge, ListHeader } from '../../shared/TrackKit'
 import { hasStrategicSplit, computeStrategicShares } from '../../../lib/strategicSplits'
 
-function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, onSubmitted, memberCategory, memberType, programType }) {
+// Matches the backend invoice money formatting ($X,XXX.XX).
+const fmtMoney = (n) => (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+// Diron Insley — his clients get a display-only invoice discount (mirrors
+// backend constants/tax-discount.ts; delete both to retire the special case).
+const DISCOUNT_MEMBER_NUMBER = '59073'
+
+function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, onSubmitted, memberCategory, memberType, programType, memberNumber }) {
   const existing = existingData || {}
   const isViewMode = !!existingData
+  const isDironInsley = memberNumber === DISCOUNT_MEMBER_NUMBER
   // Strategic members get a fixed three-way split (Strategic Partner Share +
   // member + VFOS), auto-computed off the total fee. programType is 'holistic'
   // (Tax Priorities, program_id 1) or 'tax' (Tax Planning, program_id 4).
@@ -27,6 +35,8 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   const [ccRecipients, setCcRecipients] = useState(existing.ccRecipients || [])
   const [ccInput, setCcInput] = useState('')
   const [presentationLink, setPresentationLink] = useState(existing.presentationLink || '')
+  const [discountToggle, setDiscountToggle] = useState((existing.discountApplied != null && existing.discountApplied !== '') ? 'Yes' : 'No')
+  const [discountApplied, setDiscountApplied] = useState((existing.discountApplied != null && existing.discountApplied !== '') ? String(existing.discountApplied) : '')
   const [submitting, setSubmitting] = useState(false)
 
   const totalFee = (parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0)
@@ -89,6 +99,10 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
 
   async function handleSubmit() {
     if (!decision) return
+    if (decision === 'Yes' && isDironInsley && discountToggle === 'Yes') {
+      const d = parseFloat(discountApplied)
+      if (!(d > 0)) { alert('Please enter a valid discount amount greater than 0.'); return }
+    }
     setSubmitting(true)
     const formData = { decision, presentationLink, ccRecipients, memberPayingOnBehalf }
     if (decision === 'Yes') {
@@ -100,6 +114,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
       formData.memberShare = memberShare
       formData.vfosShare = vfosShare
       if (isStrategic) formData.strategicPartnerShare = strategicPartnerShare
+      if (isDironInsley && discountToggle === 'Yes') formData.discountApplied = parseFloat(discountApplied)
     } else if (decision === 'Undecided') {
       formData.potentialTaxSavings = potentialTaxSavings
       formData.initialRetainer = initialRetainer
@@ -248,6 +263,44 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
               </div>
             )}
           </div>
+
+          {isDironInsley && (
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>Discount applied due to previous Diron Insley planning issue?</label>
+              {isViewMode
+                ? <div style={{ ...inputStyle, opacity: 0.6 }}>{discountToggle}</div>
+                : <select value={discountToggle} onChange={e => setDiscountToggle(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+              }
+              {discountToggle === 'Yes' && (
+                <div style={{ marginTop: '10px' }}>
+                  <label style={labelStyle}>Discount applied ($)</label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+                    <input value={discountApplied} onChange={e => setDiscountApplied(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '4px' }}>Discount applied due to previous planning issue</div>
+                  <div style={{ marginTop: '10px', padding: '10px 12px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Invoice preview</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', marginBottom: '4px' }}>
+                      <span>Tax Planning Fee</span>
+                      <span>${fmtMoney((parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0) + (parseFloat(discountApplied) || 0))}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#dc2626', fontWeight: 600, marginBottom: '4px' }}>
+                      <span>Discount Applied*</span>
+                      <span>-${fmtMoney(parseFloat(discountApplied) || 0)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: 700, borderTop: '1px solid var(--vfo-border-chip)', paddingTop: '6px', marginTop: '6px' }}>
+                      <span>Net Payable</span>
+                      <span>${fmtMoney((parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0))}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -315,8 +368,9 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
 // TaxDecisionForm but with no decision dropdown and a configurable submit
 // handler so the same component can fire either automation_TAX_pricing or
 // automation_TAX_extrameeting.
-function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCategory, memberType, programType }) {
+function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCategory, memberType, programType, memberNumber }) {
   const isStrategic = memberCategory === 'strategic_member' && hasStrategicSplit(memberType)
+  const isDironInsley = memberNumber === DISCOUNT_MEMBER_NUMBER
   const [taxRiskMindset, setTaxRiskMindset] = useState('')
   const [retainerPayment, setRetainerPayment] = useState('')
   const [implementationFee, setImplementationFee] = useState('')
@@ -324,6 +378,8 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
   const [memberShare, setMemberShare] = useState('')
   const [vfosShare, setVfosShare] = useState('')
   const [strategicPartnerShare, setStrategicPartnerShare] = useState('')
+  const [discountToggle, setDiscountToggle] = useState('No')
+  const [discountApplied, setDiscountApplied] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const totalFee = (parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0)
@@ -377,6 +433,10 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
 
   async function handle() {
     if (!taxRiskMindset || !retainerPayment || !implementationFee || !splitType) return
+    if (isDironInsley && discountToggle === 'Yes') {
+      const d = parseFloat(discountApplied)
+      if (!(d > 0)) { alert('Please enter a valid discount amount greater than 0.'); return }
+    }
     setSubmitting(true)
     try {
       await onSubmit({
@@ -388,6 +448,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
         memberShare,
         vfosShare,
         ...(isStrategic ? { strategicPartnerShare } : {}),
+        ...(isDironInsley && discountToggle === 'Yes' ? { discountApplied: parseFloat(discountApplied) } : {}),
       })
     } catch (err) {
       console.error(err)
@@ -474,6 +535,41 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
           </div>
         )}
       </div>
+
+      {isDironInsley && (
+        <div style={{ marginBottom: '10px' }}>
+          <label style={labelStyle}>Discount applied due to previous Diron Insley planning issue?</label>
+          <select value={discountToggle} onChange={e => setDiscountToggle(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
+            <option value="No">No</option>
+            <option value="Yes">Yes</option>
+          </select>
+          {discountToggle === 'Yes' && (
+            <div style={{ marginTop: '10px' }}>
+              <label style={labelStyle}>Discount applied ($)</label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+                <input value={discountApplied} onChange={e => setDiscountApplied(e.target.value)} placeholder="0.00" style={{ ...inputStyle, paddingLeft: '28px' }} />
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '4px' }}>Discount applied due to previous planning issue</div>
+              <div style={{ marginTop: '10px', padding: '10px 12px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
+                <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Invoice preview</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', marginBottom: '4px' }}>
+                  <span>Tax Planning Fee</span>
+                  <span>${fmtMoney((parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0) + (parseFloat(discountApplied) || 0))}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#dc2626', fontWeight: 600, marginBottom: '4px' }}>
+                  <span>Discount Applied*</span>
+                  <span>-${fmtMoney(parseFloat(discountApplied) || 0)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: 700, borderTop: '1px solid var(--vfo-border-chip)', paddingTop: '6px', marginTop: '6px' }}>
+                  <span>Net Payable</span>
+                  <span>${fmtMoney((parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0))}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '14px' }}>
         {onCancel && <button disabled={submitting} onClick={onCancel} style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }}>Cancel</button>}
@@ -809,6 +905,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 memberCategory={client?.member_category}
                 memberType={client?.member_type}
                 programType={plan.program_id === 4 ? 'tax' : 'holistic'}
+                memberNumber={client?.member_number}
                 onSubmitted={(status, data) => {
                   setLocalProgress(prev => ({ ...prev, [key]: { ...prev[key], task_id: task.id, status, completed_date: new Date().toISOString().split('T')[0], notes: JSON.stringify(data) } }))
                   refreshLivePlan()
@@ -930,6 +1027,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                           memberCategory={client?.member_category}
                           memberType={client?.member_type}
                           programType={plan.program_id === 4 ? 'tax' : 'holistic'}
+                          memberNumber={client?.member_number}
                           onSubmit={async (data) => {
                             await callApi('automation_TAX_pricing', { tax_plan_id: plan.id, form_data: data })
                             refreshLivePlan()
@@ -976,6 +1074,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                           memberCategory={client?.member_category}
                           memberType={client?.member_type}
                           programType={plan.program_id === 4 ? 'tax' : 'holistic'}
+                          memberNumber={client?.member_number}
                           onCancel={() => setExtraMeetingPricingOpen(false)}
                           onSubmit={async (data) => {
                             await callApi('automation_TAX_extrameeting', { tax_plan_id: plan.id, outcome: 'Yes', form_data: data })

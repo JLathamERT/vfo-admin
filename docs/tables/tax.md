@@ -34,6 +34,7 @@ State machine for the tax-planning engagement. **84 columns total** (4 original 
 | `retainer_amount` | numeric | First 50% — admin-entered. |
 | `implementation_amount` | numeric | Second 50% — admin-entered. May differ from retainer (not enforced 50/50). |
 | `total_fee` | numeric | Auto-computed retainer + implementation. |
+| `discount_applied` | numeric | **Display-only** (added 2026-07-14). Diron Insley (member 59073) clients only — server-gated in `decision.ts`/`pricing.ts`/`extra-meeting.ts` against `clients.member_number` = `constants/tax-discount.ts DISCOUNT_MEMBER_NUMBER`. When > 0 the invoice PDF shows gross Tax Planning Fee (retainer + implementation + discount), the discount in red, Net Payable, and a small-print footnote; the retainer invoice/receipt + implementation receipt emails get a small-print footnote. Does NOT affect charged amounts, receipts, agreement, or revshare. NULL = no discount. |
 | `split_type` | text | `1/3 Member, 2/3 VFOS` / `50/50` / `Custom`. |
 | `member_share` | numeric | Dollar amount of member's revshare. |
 | `vfos_share` | numeric | Dollar amount of VFOS's cut. |
