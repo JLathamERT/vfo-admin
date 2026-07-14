@@ -93,17 +93,22 @@ Every TAX notification now routes to a specific person via [`utils/tax-notify.ts
 
 ### Advisor / Accountant onboarding — route to the "Team Member Responsible" (2026-06-15)
 
-Each `advisor_onboarding` / `accountant_onboarding` row carries an `onboarding_team_member` name (Stage-1 dropdown). [`constants/onboarding-team.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/constants/onboarding-team.ts) `teamMemberRecipient(name)` maps it to that person's login email, or `'admin'` when unset/unmapped. The five mapped names (Rachael Hopson, Ian Welham, Anton Anderson, Paul Latham, Seth Hartford) mirror the frontend's `SALES_TEAM_NAMES`. Which onboarding notifications use it:
+Each `advisor_onboarding` / `accountant_onboarding` row carries an `onboarding_team_member` name (Stage-1 dropdown). [`constants/onboarding-team.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/constants/onboarding-team.ts) `teamMemberRecipient(name)` maps it to that person's login email, or `'admin'` when unset/unmapped. The seven mapped names (Rachael Hopson, Ian Welham, Anton Anderson, Paul Latham, Seth Hartford, Evan Anderson, Bridger Silvester — the last two added 2026-07-14) mirror the frontend's `SALES_TEAM_NAMES`. Which onboarding notifications use it:
 
 | Insert point | Recipient | Notes |
 |---|---|---|
 | Client clicked **Yes** (`*/client-decision.ts`) | **team member** | "<name> clicked Yes on the advisor/accountant-onboarding email" |
 | Client clicked **No** (`*/client-decision.ts`) | **team member** | "<name> clicked No on the …-onboarding email" — rerouted alongside the Yes click (2026-06-15) |
+| Client clicked **Request Additional Meeting** (`*/client-decision.ts`, `decision='ExtraMeeting'`) | **team member** | **action-required** (`dismissible:false`), rules `ADVISOR_extra_meeting_requested` / `ACCOUNTANT_extra_meeting_requested` (recipient token `TEAM_MEMBER`; added 2026-07-14). Title "Extra meeting requested…"; link deep-links to the onboarding record. **Cleared** by the extra-meeting outcome handler (see the extra-meeting subsection below). |
 | 96h stall escalations (`*/sweep.ts`, `addAdvisorNotif`/`addAccountantNotif`) | **team member** | the three-stall 96h notices (Undecided / agreement / payment) — formerly `admin` |
 | **NEW** "Ready to create" action-required (`*/invoice-receipt.ts`) | **team member** | `dismissible:false`; `title: "Ready to create <name> — onboarding complete"`. Fired when payment + invoice/receipt are done so the Stage-3 "Create Advisor/Accountant" button is available. **Cleared** by `*/create-member.ts` (`.like("title","Ready to create%")`) once the member is created. |
 | CEO-countersign FYI (`*/ceo-countersign.ts`) | `admin` (unchanged) | not rerouted this session |
 
-(The sweep's 14-day implicit-No auto-decline updates the row + chains the decline email but inserts **no** notification.)
+(The sweep's 14-day implicit-No auto-decline updates the row + chains the decline email but inserts **no** notification. A `final_decision='ExtraMeeting'` parked at the decision stage suppresses both that auto-decline and the decision-stall reminders.)
+
+### Advisor / Accountant onboarding — extra-meeting mechanism (2026-07-14)
+
+Mirrors MAP 1's extra-meeting flow, on BOTH onboarding pipelines. The original Undecided decision email and all three sweep reminder emails carry a blue **"Request Additional Meeting"** button (the `/advisor-decide` | `/accountant-decide` token URL with `decision=ExtraMeeting`; the sweeps mint a `decision_token` via `ensureDecisionToken()` for straight-Yes rows that never had one, omitting the button if minting fails). Flow: client clicks the button → `automation_ADVISOR_clientdecision` / `automation_ACCOUNTANT_clientdecision` derives the stage from row state (`payment_link_sent_at`→`'payment'`, else `agreement_sent_at`→`'signing'`, else `'decision'`), stamps `extra_meeting_requested_at` / `extra_meeting_stage` (nulls `extra_meeting_completed_at` on repeat requests), and at the decision stage also parks `final_decision='ExtraMeeting'` → fires the action-required `TEAM_MEMBER` bell (above). The admin books/holds the meeting, then records the outcome via `automation_ADVISOR_extrameeting` / `automation_ACCOUNTANT_extrameeting`; every outcome path clears the bell (by pipeline + `dismissible=false` + `read=false` + `link LIKE '%onboarding=<id>%'` — onboarding notifications have no `client_id`).
 
 ### Cross-pipeline: Tracy "client has paid" FYI (repurposed 2026-06-30; sheet check removed 2026-07-01)
 

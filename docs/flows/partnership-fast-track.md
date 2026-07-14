@@ -97,19 +97,24 @@ Phase 6 indicators (matching section only): **"Sent to Accountant Onboarding"** 
 `automation_PFT_ftresponse` (PUBLIC, token, idempotent on `ft_response`) — shared by BOTH the VFO FT and (as
 of 2026-07-13) the VFO Associate confirmation email; the notification wording is derived from the linked
 `accountant_onboarding.accountant_type`:
-- **confirm** → notify **PF + Rachael**; auto-set the linked Accountant Onboarding **Preliminary Meeting =
-  "Request no meeting"** (only if still null).
-- **another_meeting** → notify **PF + Rachael**.
+- **confirm** → notify **PF only** (`notifyPf`; Rachael dropped 2026-07-14); auto-set the linked Accountant
+  Onboarding **Preliminary Meeting = "Request no meeting"** (only if still null).
+- **another_meeting** → notify **PF only**.
 If unanswered: **2-day** reminder email to the accountant (`PFT_decision_vfo_ft_reminder`), **4-day** PF notice
 (both via the sweep).
 
 ## Notifications (who gets what)
 PF routing via `actions/pft/_shared.ts` `PF_EMAILS` (Evan `eanderson@`, Bridger `bsilvester@`, Ian
 `iwelham@`) → falls back to all-admins if the client has no Assigned PF (set in the Profile tab) or the name
-isn't mapped. Rachael = `rhopson@elitert.com` (hardcoded). FT-response (either button) + VFO-Associate pick →
-**PF + Rachael**; discovery-complete / discovery-4-day / FT-4-day → **PF only**. All notification links
-deep-link to the specific record (`?onboarding=<id>` for the handoff record, `/admin/client/<id>?tab=pft` for
-the PFT track).
+isn't mapped. As of 2026-07-14 `notifyPfAndRachael` was renamed **`notifyPf`** and no longer CCs Rachael (the
+`RACHAEL_EMAIL` export was removed) — so FT-response (either button), VFO-Associate pick, discovery-complete,
+discovery-4-day, and FT-4-day **all notify the assigned PF only**. All notification links deep-link to the
+specific record (`?onboarding=<id>` for the handoff record, `/admin/client/<id>?tab=pft` for the PFT track).
+
+On handoff into Accountant Onboarding (FT confirm / VFO-Associate pick, in both `decision-email.ts` and the
+`ft-response.ts` fallback insert), the client's `assigned_pf` is copied into the new
+`accountant_onboarding.onboarding_team_member` (+ `onboarding_team_member_at`), so the onboarding's downstream
+Team-Member-Responsible notifications route to that PF from the start.
 
 ## Cron
 `pft-sweep-daily` 08:00 UTC → `automation_PFT_sweep` (PUBLIC, service-role): discovery 2-day reminder email +
