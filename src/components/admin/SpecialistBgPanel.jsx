@@ -77,7 +77,7 @@ export default function SpecialistBgPanel() {
     <div style={wrap}>
       <div style={{ marginBottom: '18px' }}>
         <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 6px' }}>Accounting</p>
-        <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>VFO Specialist Background Check Fees</h2>
+        <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>VFO Specialist Background Check & Due Diligence Fees</h2>
       </div>
 
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap' }}>
@@ -106,7 +106,7 @@ export default function SpecialistBgPanel() {
             <span />
           </div>
           {filtered.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>No background check payments for this period.</div>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>No background check & due diligence payments for this period.</div>
           )}
           {filtered.map(p => (
             <div key={p.id} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '13px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)' }}>

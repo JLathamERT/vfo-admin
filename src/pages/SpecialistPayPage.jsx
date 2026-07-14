@@ -81,7 +81,7 @@ export default function SpecialistPayPage() {
   const baseAmount = isLicense ? (Number(data.monthly_amount) || 0) : (Number(data.payment_amount) || 0)
   const cardTotal = Math.round((baseAmount + 0.30) / (1 - 0.029) * 100) / 100
   const cardFee = Math.round((cardTotal - baseAmount) * 100) / 100
-  const lineLabel = isLicense ? 'VFO Monthly License' : `${data.check_type} Background Check`
+  const lineLabel = isLicense ? 'VFO Monthly License' : `${data.check_type} Background Check & Due Diligence`
   const amtSuffix = isLicense ? '/mo' : ''
 
   return (
@@ -90,10 +90,10 @@ export default function SpecialistPayPage() {
         <div style={{ ...iconCircleStyle, width: '64px', height: '64px', background: 'rgba(34,197,94,0.15)' }}>
           <span style={{ fontSize: '28px', lineHeight: 1 }}>🔒</span>
         </div>
-        <h1 style={{ ...titleStyle, fontSize: '22px', textAlign: 'center', marginBottom: '8px' }}>{isLicense ? 'VFO Specialist Monthly License' : 'VFO Specialist Background Check'}</h1>
+        <h1 style={{ ...titleStyle, fontSize: '22px', textAlign: 'center', marginBottom: '8px' }}>{isLicense ? 'VFO Specialist Monthly License' : 'VFO Specialist Background Check & Due Diligence'}</h1>
         <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '12px' }}>Choose your preferred payment method</p>
         <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '32px', fontSize: '13px', color: 'var(--vfo-muted)' }}>
-          {isLicense ? `$99/month recurring · ${data.specialist_name}` : `${data.check_type} background check · ${data.specialist_name}`}
+          {isLicense ? `$99/month recurring · ${data.specialist_name}` : `${data.check_type} background check & due diligence · ${data.specialist_name}`}
         </p>
 
         <OptionCard

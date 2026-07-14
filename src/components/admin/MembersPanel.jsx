@@ -288,6 +288,7 @@ function MemberDirectoryView({
   listTitle = 'Members',
   typeOptions = [],
   showModel = true,
+  showCredential = true,
   msmOptions = DEFAULT_MSM_OPTIONS,
   extraTabs = DEFAULT_EXTRA_TABS,
   msmBypassEnableGate = false,
@@ -324,6 +325,9 @@ function MemberDirectoryView({
     // Suspended / Paused are boolean flags that sit on top of an Active member.
     // `get` returns the set of flags so a member matches when EITHER is selected.
     { key: 'standing', label: 'Standing', options: ['Suspended', 'Paused'], get: m => { const f = []; if (m.suspended) f.push('Suspended'); if (m.paused) f.push('Paused'); return f } },
+    // VFO Certified / Accredited are date columns; presence = the credential is held.
+    // Hidden for strategic members (they don't carry these credentials).
+    ...(showCredential ? [{ key: 'credential', label: 'VFO Credential', options: ['VFO Certified', 'VFO Accredited'], get: m => { const f = []; if (m.vfo_certified_date) f.push('VFO Certified'); if (m.vfo_accredited_date) f.push('VFO Accredited'); return f } }] : []),
   ]
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
@@ -597,6 +601,7 @@ function StrategicMembersPanel({ allMembers, allExperts, allExclusionMap, ecoMap
       hiddenFields={[]}
       listTitle="Strategic Members"
       showModel={false}
+      showCredential={false}
       msmOptions={STRATEGIC_MSM_OPTIONS}
       extraTabs={STRATEGIC_EXTRA_TABS}
       msmBypassEnableGate={true}
