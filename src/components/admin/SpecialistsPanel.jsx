@@ -16,9 +16,63 @@ const ECOSYSTEMS = ['Tax Planning', 'Business Advisory', 'Legal Services', 'Risk
 // "Member Services" is internal-only and mutually exclusive with the five public
 // ecosystems: a specialist is either Member Services OR (some of) the public five.
 const MEMBER_SERVICES = 'Member Services'
+// The Tax section (shared, one set per person) only surfaces under this ecosystem.
+const TAX_ECOSYSTEM = 'Tax Planning'
 const STATUS_COLORS = { Active: '#1b9254', Lost: '#e74c3c', Removed: 'var(--vfo-muted)' }
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
 const HEADSHOT_BASE = 'https://biz-diagnostic.com/Uploads/ExpertPhotos/'
+
+// A specialist can serve more than one VFO ecosystem, and their short_bio +
+// (non-tax) Details & Benefits differ per ecosystem. Those per-ecosystem fields
+// live in a single map on the experts row:
+//   ecosystem_content = { "<ecosystem>": { short_bio, "D&B_...": ... }, ... }
+// The top-level short_bio + D&B_* columns mirror the PRIMARY (first) ecosystem
+// so the public widget/showroom + agreement flows are unchanged. Everything else
+// (identity, long bio, payout, background check) is shared across ecosystems —
+// INCLUDING the Tax section (risk mindset/notes + audit questionnaire), which is
+// one set per person, not per ecosystem.
+//   SHARED_KEYS  — one value per profile (identity + the shared TAX_KEYS).
+//   CONTENT_KEYS — short_bio + the non-tax D&B set, one value per ecosystem.
+const ECO_DB_KEYS = ['D&B_strategy_expertise', 'D&B_cutoff_date', 'D&B_client_requirements', 'D&B_investment_cost', 'D&B_ideal_client', 'D&B_summary_benefits', 'D&B_getting_started', 'D&B_professional_process', 'D&B_competitive_advantage', 'D&B_revenue_share']
+const CONTENT_KEYS = ['short_bio', ...ECO_DB_KEYS]
+const TAX_KEYS = ['D&B_tax_risk_mindset', 'D&B_tax_risk_notes', 'D&B_audit_risk_general', 'D&B_audit_risk_history', 'D&B_audit_risk_worst_case', 'D&B_audit_risk_precautions']
+const SHARED_KEYS = ['name', 'email', 'status', 'leave_date', 'join_date', 'revenue_decision', 'long_bio', 'background_check', 'top_of_t', ...TAX_KEYS]
+const uniqueEcos = arr => [...new Set(arr || [])]
+
+function blankShared() {
+  const s = {}
+  SHARED_KEYS.forEach(k => { s[k] = k === 'top_of_t' ? false : k === 'status' ? 'Active' : '' })
+  return s
+}
+function blankContent() {
+  const c = {}
+  CONTENT_KEYS.forEach(k => { c[k] = '' })
+  return c
+}
+function pickShared(e) {
+  const s = {}
+  SHARED_KEYS.forEach(k => {
+    if (k === 'leave_date' || k === 'join_date') s[k] = e[k] ? String(e[k]).split('T')[0] : ''
+    else if (k === 'top_of_t') s[k] = e[k] || false
+    else s[k] = e[k] || (k === 'status' ? 'Active' : '')
+  })
+  return s
+}
+// Reconstruct the per-ecosystem content map for a profile. Prefer the stored
+// ecosystem_content; fall back (legacy rows) to the top-level columns as the
+// first ecosystem's content.
+function contentMapFor(e, ecos) {
+  const map = {}
+  const stored = e && e.ecosystem_content && typeof e.ecosystem_content === 'object' ? e.ecosystem_content : null
+  const legacy = {}
+  CONTENT_KEYS.forEach(k => { legacy[k] = e[k] || '' })
+  ecos.forEach((eco, i) => {
+    if (stored && stored[eco]) map[eco] = { ...blankContent(), ...stored[eco] }
+    else if (!stored && i === 0) map[eco] = legacy
+    else map[eco] = blankContent()
+  })
+  return map
+}
 
 export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, section }) {
   if (section === 'specialist_onboarding') return <SpecialistOnboarding />
@@ -39,15 +93,17 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
   const [connectBusy, setConnectBusy] = useState(false)
   const [connectMsg, setConnectMsg] = useState('')
 
-  // Add form state
-  const [addForm, setAddForm] = useState({ name: '', short_bio: '', long_bio: '', background_check: '', top_of_t: false, revenue_decision: '', 'D&B_strategy_expertise': '', 'D&B_cutoff_date': '', 'D&B_client_requirements': '', 'D&B_investment_cost': '', 'D&B_ideal_client': '', 'D&B_summary_benefits': '', 'D&B_getting_started': '', 'D&B_professional_process': '', 'D&B_competitive_advantage': '', 'D&B_audit_risk_general': '', 'D&B_audit_risk_history': '', 'D&B_audit_risk_worst_case': '', 'D&B_audit_risk_precautions': '', 'D&B_tax_risk_mindset': '', 'D&B_tax_risk_notes': '', 'D&B_revenue_share': '' })
+  // Add form state — shared identity + selected ecosystems + per-ecosystem content.
+  const [addShared, setAddShared] = useState(blankShared())
   const [addEcos, setAddEcos] = useState([])
+  const [addContent, setAddContent] = useState({}) // { [ecosystem]: { short_bio, D&B_* } }
   const [addFile, setAddFile] = useState(null)
   const [addPreview, setAddPreview] = useState(null)
 
   // Edit form state
-  const [editForm, setEditForm] = useState({ name: '', short_bio: '', long_bio: '', details_and_benefits: '' })
+  const [editShared, setEditShared] = useState(blankShared())
   const [editEcos, setEditEcos] = useState([])
+  const [editContent, setEditContent] = useState({})
   const [editFile, setEditFile] = useState(null)
   const [editPreview, setEditPreview] = useState(null)
   const [editSearch, setEditSearch] = useState('')
@@ -82,20 +138,19 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
   }
 
   function clearAddForm() {
-    setAddForm({ name: '', short_bio: '', long_bio: '', background_check: '', top_of_t: false, revenue_decision: '', 'D&B_strategy_expertise': '', 'D&B_cutoff_date': '', 'D&B_client_requirements': '', 'D&B_investment_cost': '', 'D&B_ideal_client': '', 'D&B_summary_benefits': '', 'D&B_getting_started': '', 'D&B_professional_process': '', 'D&B_competitive_advantage': '', 'D&B_audit_risk_general': '', 'D&B_audit_risk_history': '', 'D&B_audit_risk_worst_case': '', 'D&B_audit_risk_precautions': '', 'D&B_tax_risk_mindset': '', 'D&B_tax_risk_notes': '', 'D&B_revenue_share': '' })
-    setAddEcos([]); setAddFile(null); setAddPreview(null)
+    setAddShared(blankShared())
+    setAddEcos([]); setAddContent({})
+    setAddFile(null); setAddPreview(null)
   }
 
   function handleEditSelect(expert) {
+    const ecos = uniqueEcos(ecoMap[expert.id])
     setEditingId(expert.id)
-    setEditForm({ name: expert.name || '', email: expert.email || '', status: expert.status || 'Active', leave_date: expert.leave_date ? String(expert.leave_date).split('T')[0] : '', join_date: expert.join_date ? String(expert.join_date).split('T')[0] : '', short_bio: expert.short_bio || '', long_bio: expert.long_bio || '', background_check: expert.background_check || '', top_of_t: expert.top_of_t || false, revenue_decision: expert.revenue_decision || '', 'D&B_strategy_expertise': expert['D&B_strategy_expertise'] || '', 'D&B_cutoff_date': expert['D&B_cutoff_date'] || '', 'D&B_client_requirements': expert['D&B_client_requirements'] || '', 'D&B_investment_cost': expert['D&B_investment_cost'] || '', 'D&B_ideal_client': expert['D&B_ideal_client'] || '', 'D&B_summary_benefits': expert['D&B_summary_benefits'] || '', 'D&B_getting_started': expert['D&B_getting_started'] || '', 'D&B_professional_process': expert['D&B_professional_process'] || '', 'D&B_competitive_advantage': expert['D&B_competitive_advantage'] || '', 'D&B_audit_risk_general': expert['D&B_audit_risk_general'] || '', 'D&B_audit_risk_history': expert['D&B_audit_risk_history'] || '', 'D&B_audit_risk_worst_case': expert['D&B_audit_risk_worst_case'] || '', 'D&B_audit_risk_precautions': expert['D&B_audit_risk_precautions'] || '', 'D&B_tax_risk_mindset': expert['D&B_tax_risk_mindset'] || '', 'D&B_tax_risk_notes': expert['D&B_tax_risk_notes'] || '', 'D&B_revenue_share': expert['D&B_revenue_share'] || '' })
-    setEditEcos(ecoMap[expert.id] || [])
+    setEditShared(pickShared(expert))
+    setEditEcos(ecos)
+    setEditContent(contentMapFor(expert, ecos))
     setEditFile(null)
-    if (expert.headshot_image) {
-      setEditPreview(HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image))
-    } else {
-      setEditPreview(null)
-    }
+    setEditPreview(expert.headshot_image ? HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image) : null)
     setSelectedExpert(expert)
   }
 
@@ -125,27 +180,41 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
     setCropState(null)
   }
 
+  const sharedSetter = which => which === 'add' ? setAddShared : setEditShared
+  const contentSetter = which => which === 'add' ? setAddContent : setEditContent
+  const ecosSetter = which => which === 'add' ? setAddEcos : setEditEcos
+
+  function setContentField(which, eco, key, value) {
+    contentSetter(which)(prev => ({ ...prev, [eco]: { ...(prev[eco] || blankContent()), [key]: value } }))
+  }
+
+  // Toggle an ecosystem on the profile. Adding one seeds an empty content block
+  // (and focuses it); removing one keeps its content in memory (re-adding
+  // restores it) but it won't be saved while deselected. Member Services is
+  // mutually exclusive with the public five.
   function toggleEco(which, eco) {
-    const setter = which === 'add' ? setAddEcos : setEditEcos
-    setter(prev => {
-      if (prev.includes(eco)) return prev.filter(e => e !== eco)
-      // Enforce mutual exclusivity: Member Services clears the public five, and
-      // selecting any public ecosystem clears Member Services.
-      if (eco === MEMBER_SERVICES) return [MEMBER_SERVICES]
-      return [...prev.filter(e => e !== MEMBER_SERVICES), eco]
-    })
+    const cur = which === 'add' ? addEcos : editEcos
+    let next
+    if (cur.includes(eco)) next = cur.filter(e => e !== eco)
+    else if (eco === MEMBER_SERVICES) next = [MEMBER_SERVICES]
+    else next = [...cur.filter(e => e !== MEMBER_SERVICES), eco]
+    ecosSetter(which)(next)
+    // Seed an empty content block for a newly-added ecosystem (keep any existing).
+    contentSetter(which)(prev => (next.includes(eco) && !prev[eco]) ? { ...prev, [eco]: blankContent() } : prev)
   }
 
   async function submitSpecialist(which) {
-    const form = which === 'add' ? addForm : editForm
+    const shared = which === 'add' ? addShared : editShared
     const ecos = which === 'add' ? addEcos : editEcos
+    const content = which === 'add' ? addContent : editContent
     const file = which === 'add' ? addFile : editFile
-    if (!form.name) { showStatus(which, 'error', 'Name is required.'); return }
+    if (!shared.name) { showStatus(which, 'error', 'Name is required.'); return }
+    if (ecos.length === 0) { showStatus(which, 'error', 'Select at least one VFO ecosystem.'); return }
     try {
       let headshotFilename = ''
       if (file) {
         const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
-        headshotFilename = ts + '_' + form.name.replace(/[^a-zA-Z0-9 ]/g, '').trim() + '.png'
+        headshotFilename = ts + '_' + shared.name.replace(/[^a-zA-Z0-9 ]/g, '').trim() + '.png'
         const base64 = await new Promise((resolve, reject) => {
           const reader = new FileReader()
           reader.onload = () => resolve(reader.result.split(',')[1])
@@ -154,8 +223,16 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
         })
         await callApi('upload_headshot', { filename: headshotFilename, file_base64: base64, content_type: file.type })
       }
-      const expertData = { ...form }
-      // Dates: empty string -> null (Postgres rejects ""); Active clears the leave date.
+
+      // Per-ecosystem content map (only the currently-selected ecosystems).
+      const ecosystem_content = {}
+      ecos.forEach(eco => { ecosystem_content[eco] = { ...blankContent(), ...(content[eco] || {}) } })
+      const primary = ecosystem_content[ecos[0]]
+
+      // Shared identity + the PRIMARY ecosystem's content mirrored into the
+      // top-level columns (widget/showroom/agreements read those). Dates: '' ->
+      // null; Active clears the leave date.
+      const expertData = { ...shared, ...primary, ecosystem_content }
       expertData.leave_date = (expertData.status === 'Active' || !expertData.leave_date) ? null : expertData.leave_date
       expertData.join_date = expertData.join_date || null
       if (headshotFilename) expertData.headshot_image = headshotFilename
@@ -205,181 +282,67 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
     }
   }
 
-  
-
-  
-
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
   const labelStyle = { fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }
   const fieldStyle = { marginBottom: '16px' }
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
 
-  
-
-  function SpecialistForm({ which, form, setForm, ecos, file, preview, statusMsg, statusType: sType }) {
+  function SpecialistForm({ which, statusMsg, statusType: sType }) {
+    const shared = which === 'add' ? addShared : editShared
+    const setShared = sharedSetter(which)
+    const ecos = which === 'add' ? addEcos : editEcos
+    const content = which === 'add' ? addContent : editContent
+    const preview = which === 'add' ? addPreview : editPreview
+    const multi = ecos.length > 1
     const sectionHeader = { fontSize: '14px', color: 'var(--vfo-ink)', fontWeight: 600, marginBottom: '18px', borderBottom: '1px solid var(--vfo-border)', paddingBottom: '12px' }
+
+    const dbTextField = (eco, c, key, label, rows) => (
+      <div style={fieldStyle}>
+        <label style={labelStyle}>{label}</label>
+        {rows === 1
+          ? <input value={c[key]} onChange={e => setContentField(which, eco, key, e.target.value)} style={inputStyle} />
+          : <textarea value={c[key]} onChange={e => setContentField(which, eco, key, e.target.value)} rows={rows} style={{ ...inputStyle, resize: 'vertical' }} />}
+      </div>
+    )
+
+    // The Short Bio + Details & Benefits write-up for one ecosystem. The Tax
+    // block (shared data) only renders under the Tax Planning ecosystem.
+    const ecoBody = (eco) => {
+      const c = content[eco] || blankContent()
+      return (
+        <>
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Short Bio</label>
+            <input value={c.short_bio} onChange={e => setContentField(which, eco, 'short_bio', e.target.value)} placeholder="One-line specialty description" style={inputStyle} />
+          </div>
+
+          <div style={{ background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border)', borderRadius: '12px', padding: '24px', marginBottom: '16px' }}>
+            <div style={{ fontSize: '14px', color: 'var(--vfo-ink)', fontWeight: '600', marginBottom: '20px', borderBottom: '1px solid var(--vfo-border)', paddingBottom: '12px' }}>Details & Benefits</div>
+            {dbTextField(eco, c, 'D&B_strategy_expertise', 'Strategy / Expertise', 3)}
+            {dbTextField(eco, c, 'D&B_cutoff_date', 'Cut-off Date for Strategy', 1)}
+            {dbTextField(eco, c, 'D&B_client_requirements', 'Client Requirements', 3)}
+            {dbTextField(eco, c, 'D&B_investment_cost', 'Amount of Investment or Cost', 3)}
+            {dbTextField(eco, c, 'D&B_ideal_client', 'Ideal Client Description', 3)}
+            {dbTextField(eco, c, 'D&B_summary_benefits', 'Summary of Benefits', 3)}
+            {dbTextField(eco, c, 'D&B_getting_started', 'Getting Started with a Client', 3)}
+            {dbTextField(eco, c, 'D&B_professional_process', 'Steps of Professional Process', 3)}
+            {dbTextField(eco, c, 'D&B_competitive_advantage', 'What Makes You Better Than the Competition', 3)}
+            {dbTextField(eco, c, 'D&B_revenue_share', 'Revenue Share', 4)}
+            <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', padding: '16px' }}>
+              <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', fontWeight: '600', marginBottom: '12px' }}>Acknowledgement, Agreement and Release</div>
+              <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', lineHeight: '1.6', margin: 0 }}>Member acknowledges that ERT, and their related companies and legal partnerships maintain a relationship with Specialist in various fields of service and specialities, including, without limitation, in the financial, tax, accounting, and legal service industries. Member further acknowledges that (i) each of the Specialist is separate and independent from, and unrelated to, ERT, and their related companies and legal partnerships, and separate and independent from, and unrelated to, the associates, shareholders, managers, members, officers, directors, employees, contractors, agents, controlling persons, related parties, assigns and partners of ERT and/or of their related companies and legal partnerships; and (ii) that the services provided by the Specialists are not provided by ERT, and/or by their related companies or legal partnerships, and/or by the ERT Related Parties. Member acknowledges and agrees that it is their sole and absolute responsibility to seek his, her and/or their own independent legal, tax, compliance, accounting and financial advice, as applicable to such parties, from competent service providers and advisors of their own independent choosing, including, without limitation, to determine whether an Specialist is someone who is or will provide adequate and appropriate advice for and to the Advisor, Accountant and/or Client given the unique facts and circumstances and the particular risk profile of the service recipients.</p>
+            </div>
+          </div>
+        </>
+      )
+    }
+
     return (
       <div>
+        {/* ---- Shared identity (same across every ecosystem) ---- */}
         <div style={sectionStyle}>
-        <div style={sectionHeader}>Profile &amp; Payout</div>
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Name *</label>
-          <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Full name" style={inputStyle} />
-        </div>
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Email</label>
-          <input value={form.email || ''} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="specialist@example.com" style={inputStyle} />
-        </div>
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-          <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Status</label>
-            <select value={form.status || 'Active'} onChange={e => setForm(p => ({ ...p, status: e.target.value }))} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
-              {['Active', 'Lost', 'Removed'].map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          {(form.status === 'Lost' || form.status === 'Removed') && (
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Leave Date</label>
-              <input type="date" value={form.leave_date || ''} onChange={e => setForm(p => ({ ...p, leave_date: e.target.value }))} style={inputStyle} />
-            </div>
-          )}
-        </div>
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Join Date</label>
-          <input type="date" value={form.join_date || ''} onChange={e => setForm(p => ({ ...p, join_date: e.target.value }))} style={{ ...inputStyle, width: '200px' }} />
-        </div>
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Revenue Decision</label>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {['Revenue Share', 'Money Mapping'].map(v => (
-              <button key={v} type="button" onClick={() => setForm(p => ({ ...p, revenue_decision: v }))}
-                style={{ padding: '8px 16px', borderRadius: '8px', border: `1px solid ${form.revenue_decision === v ? '#125ecc' : 'var(--vfo-border-mid)'}`, background: form.revenue_decision === v ? 'rgba(18,94,204,0.12)' : '#fff', color: form.revenue_decision === v ? '#125ecc' : 'var(--vfo-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                {v}
-              </button>
-            ))}
-          </div>
-        </div>
-        {which === 'edit' && (
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Stripe Connect (payouts)</label>
-            {selectedExpert?.stripe_account_id
-              ? <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', marginBottom: '8px' }}>Connected · <span style={{ fontFamily: 'monospace', color: 'var(--vfo-muted)' }}>{selectedExpert.stripe_account_id}</span></div>
-              : <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginBottom: '8px' }}>No payout account yet.</div>}
-            <button type="button" onClick={handleSpecialistConnect} disabled={connectBusy}
-              style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #125ecc', background: 'var(--vfo-card)', color: '#125ecc', fontSize: '13px', fontWeight: 600, cursor: connectBusy ? 'wait' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
-              {connectBusy ? 'Working…' : (selectedExpert?.stripe_account_id ? 'Resend Setup Link' : 'Set Up Payment Details')}
-            </button>
-            {connectMsg && <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '8px' }}>{connectMsg}</p>}
-          </div>
-        )}
-        </div>{/* end Profile & Payout card */}
-        <div style={sectionStyle}>
-        <div style={sectionHeader}>Bio &amp; Marketing</div>
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Short Bio</label>
-          <input value={form.short_bio} onChange={e => setForm(p => ({ ...p, short_bio: e.target.value }))} placeholder="One-line specialty description" style={inputStyle} />
-        </div>
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Long Bio</label>
-          <textarea value={form.long_bio} onChange={e => setForm(p => ({ ...p, long_bio: e.target.value }))} placeholder="Detailed biography..." rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
-        </div>
-        <div style={{ background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border)', borderRadius: '12px', padding: '24px', marginBottom: '16px' }}>
-          <div style={{ fontSize: '14px', color: 'var(--vfo-ink)', fontWeight: '600', marginBottom: '20px', borderBottom: '1px solid var(--vfo-border)', paddingBottom: '12px' }}>Details & Benefits</div>
+        <div style={sectionHeader}>Profile &amp; Identity</div>
 
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Strategy / Expertise</label>
-            <textarea value={form['D&B_strategy_expertise']} onChange={e => setForm(p => ({ ...p, 'D&B_strategy_expertise': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-          </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Cut-off Date for Strategy</label>
-            <input value={form['D&B_cutoff_date']} onChange={e => setForm(p => ({ ...p, 'D&B_cutoff_date': e.target.value }))} style={inputStyle} />
-          </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Client Requirements</label>
-            <textarea value={form['D&B_client_requirements']} onChange={e => setForm(p => ({ ...p, 'D&B_client_requirements': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-          </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Amount of Investment or Cost</label>
-            <textarea value={form['D&B_investment_cost']} onChange={e => setForm(p => ({ ...p, 'D&B_investment_cost': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-          </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Ideal Client Description</label>
-            <textarea value={form['D&B_ideal_client']} onChange={e => setForm(p => ({ ...p, 'D&B_ideal_client': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-          </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Summary of Benefits</label>
-            <textarea value={form['D&B_summary_benefits']} onChange={e => setForm(p => ({ ...p, 'D&B_summary_benefits': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-          </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Getting Started with a Client</label>
-            <textarea value={form['D&B_getting_started']} onChange={e => setForm(p => ({ ...p, 'D&B_getting_started': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-          </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Steps of Professional Process</label>
-            <textarea value={form['D&B_professional_process']} onChange={e => setForm(p => ({ ...p, 'D&B_professional_process': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-          </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>What Makes You Better Than the Competition</label>
-            <textarea value={form['D&B_competitive_advantage']} onChange={e => setForm(p => ({ ...p, 'D&B_competitive_advantage': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-          </div>
-
-          <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', fontWeight: '600', marginBottom: '16px' }}>Tax Planning Audit Risk Questionnaire</div>
-            <div style={fieldStyle}>
-              <label style={labelStyle}>1. What are the general risks of this strategy?</label>
-              <textarea value={form['D&B_audit_risk_general']} onChange={e => setForm(p => ({ ...p, 'D&B_audit_risk_general': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-            </div>
-            <div style={fieldStyle}>
-              <label style={labelStyle}>2. What has been the history of these risks coming to fruition?</label>
-              <textarea value={form['D&B_audit_risk_history']} onChange={e => setForm(p => ({ ...p, 'D&B_audit_risk_history': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-            </div>
-            <div style={fieldStyle}>
-              <label style={labelStyle}>3. What are potential worst-case scenarios?</label>
-              <textarea value={form['D&B_audit_risk_worst_case']} onChange={e => setForm(p => ({ ...p, 'D&B_audit_risk_worst_case': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-            </div>
-            <div style={{ marginBottom: '0' }}>
-              <label style={labelStyle}>4. What precautions are in place to prevent or minimize the risks?</label>
-              <textarea value={form['D&B_audit_risk_precautions']} onChange={e => setForm(p => ({ ...p, 'D&B_audit_risk_precautions': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-            </div>
-          </div>
-
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Revenue Share</label>
-            <textarea value={form['D&B_revenue_share']} onChange={e => setForm(p => ({ ...p, 'D&B_revenue_share': e.target.value }))} rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
-          </div>
-
-          <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', padding: '16px' }}>
-            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', fontWeight: '600', marginBottom: '12px' }}>Acknowledgement, Agreement and Release</div>
-            <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', lineHeight: '1.6', margin: 0 }}>Member acknowledges that ERT, and their related companies and legal partnerships maintain a relationship with Specialist in various fields of service and specialities, including, without limitation, in the financial, tax, accounting, and legal service industries. Member further acknowledges that (i) each of the Specialist is separate and independent from, and unrelated to, ERT, and their related companies and legal partnerships, and separate and independent from, and unrelated to, the associates, shareholders, managers, members, officers, directors, employees, contractors, agents, controlling persons, related parties, assigns and partners of ERT and/or of their related companies and legal partnerships; and (ii) that the services provided by the Specialists are not provided by ERT, and/or by their related companies or legal partnerships, and/or by the ERT Related Parties. Member acknowledges and agrees that it is their sole and absolute responsibility to seek his, her and/or their own independent legal, tax, compliance, accounting and financial advice, as applicable to such parties, from competent service providers and advisors of their own independent choosing, including, without limitation, to determine whether an Specialist is someone who is or will provide adequate and appropriate advice for and to the Advisor, Accountant and/or Client given the unique facts and circumstances and the particular risk profile of the service recipients.</p>
-          </div>
-        </div>
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Background Check</label>
-          <select value={form.background_check} onChange={e => setForm(p => ({ ...p, background_check: e.target.value }))} style={{ ...inputStyle, background: 'var(--vfo-card)', width: '200px' }}>
-            <option value="">-- None --</option>
-            <option value="Lite">Lite</option>
-            <option value="Core">Core</option>
-            <option value="Max">Max</option>
-          </select>
-        </div>
-        <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', fontWeight: '600', marginBottom: '16px' }}>Tax Risk Mindset</div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Risk Level</label>
-            <select value={form['D&B_tax_risk_mindset']} onChange={e => setForm(p => ({ ...p, 'D&B_tax_risk_mindset': e.target.value }))} style={{ ...inputStyle, background: 'var(--vfo-card)', width: '320px' }}>
-              <option value="">-- Select --</option>
-              <option value="Risk 1 – Very Conservative Mindset">Risk 1 – Very Conservative Mindset</option>
-              <option value="Risk 2 - Moderately Conservative Mindset">Risk 2 - Moderately Conservative Mindset</option>
-              <option value="Risk 3 – Average Risk Mindset">Risk 3 – Average Risk Mindset</option>
-              <option value="Risk 4 – Moderately Aggressive Mindset">Risk 4 – Moderately Aggressive Mindset</option>
-              <option value="Risk 5 – Very Aggressive Mindset">Risk 5 – Very Aggressive Mindset</option>
-            </select>
-          </div>
-          <div style={{ marginBottom: '0' }}>
-            <label style={labelStyle}>Tax Risk Notes</label>
-            <textarea value={form['D&B_tax_risk_notes']} onChange={e => setForm(p => ({ ...p, 'D&B_tax_risk_notes': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-          </div>
-        </div>
         <div style={fieldStyle}>
           <label style={labelStyle}>Headshot</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -404,8 +367,19 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
             </div>
           </div>
         </div>
+
         <div style={fieldStyle}>
-          <label style={labelStyle}>VFO Ecosystem</label>
+          <label style={labelStyle}>Background Check</label>
+          <select value={shared.background_check} onChange={e => setShared(p => ({ ...p, background_check: e.target.value }))} style={{ ...inputStyle, background: 'var(--vfo-card)', width: '200px' }}>
+            <option value="">-- None --</option>
+            <option value="Lite">Lite</option>
+            <option value="Core">Core</option>
+            <option value="Max">Max</option>
+          </select>
+        </div>
+
+        <div style={fieldStyle}>
+          <label style={labelStyle}>VFO Ecosystem <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vfo-faint)' }}>— select one, or more than one if this person offers different strategies</span></label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             {ECOSYSTEMS.map(eco => {
               const selected = ecos.includes(eco)
@@ -421,18 +395,131 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
             })}
           </div>
         </div>
+
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Name *</label>
+          <input value={shared.name} onChange={e => setShared(p => ({ ...p, name: e.target.value }))} placeholder="Full name" style={inputStyle} />
+        </div>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Email</label>
+          <input value={shared.email || ''} onChange={e => setShared(p => ({ ...p, email: e.target.value }))} placeholder="specialist@example.com" style={inputStyle} />
+        </div>
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Status</label>
+            <select value={shared.status || 'Active'} onChange={e => setShared(p => ({ ...p, status: e.target.value }))} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
+              {['Active', 'Lost', 'Removed'].map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          {(shared.status === 'Lost' || shared.status === 'Removed') && (
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Leave Date</label>
+              <input type="date" value={shared.leave_date || ''} onChange={e => setShared(p => ({ ...p, leave_date: e.target.value }))} style={inputStyle} />
+            </div>
+          )}
+        </div>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Join Date</label>
+          <input type="date" value={shared.join_date || ''} onChange={e => setShared(p => ({ ...p, join_date: e.target.value }))} style={{ ...inputStyle, width: '200px' }} />
+        </div>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Revenue Decision</label>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {['Revenue Share', 'Money Mapping'].map(v => (
+              <button key={v} type="button" onClick={() => setShared(p => ({ ...p, revenue_decision: v }))}
+                style={{ padding: '8px 16px', borderRadius: '8px', border: `1px solid ${shared.revenue_decision === v ? '#125ecc' : 'var(--vfo-border-mid)'}`, background: shared.revenue_decision === v ? 'rgba(18,94,204,0.12)' : '#fff', color: shared.revenue_decision === v ? '#125ecc' : 'var(--vfo-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
         <div style={fieldStyle}>
           <label style={labelStyle}>Top of the T</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div onClick={() => setForm(p => ({ ...p, top_of_t: !p.top_of_t }))}
-              style={{ width: '44px', height: '24px', borderRadius: '12px', background: form.top_of_t ? '#125ecc' : 'var(--vfo-border-strong)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
-              <div style={{ position: 'absolute', top: '2px', left: form.top_of_t ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'var(--vfo-card)', transition: 'left 0.2s' }} />
+            <div onClick={() => setShared(p => ({ ...p, top_of_t: !p.top_of_t }))}
+              style={{ width: '44px', height: '24px', borderRadius: '12px', background: shared.top_of_t ? '#125ecc' : 'var(--vfo-border-strong)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
+              <div style={{ position: 'absolute', top: '2px', left: shared.top_of_t ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'var(--vfo-card)', transition: 'left 0.2s' }} />
             </div>
-            <span style={{ fontSize: '14px', color: form.top_of_t ? 'var(--vfo-ink)' : 'var(--vfo-muted)' }}>{form.top_of_t ? 'Yes' : 'No'}</span>
+            <span style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>{shared.top_of_t ? 'Yes' : 'No'}</span>
           </div>
         </div>
-        {statusMsg && <p style={{ color: sType === 'success' ? '#1b9254' : '#d93025', fontSize: '13px', margin: '8px 0' }}>{statusMsg}</p>}
-        </div>{/* end Bio & Marketing card */}
+        {which === 'edit' && (
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Stripe Connect (payouts)</label>
+            {selectedExpert?.stripe_account_id
+              ? <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', marginBottom: '8px' }}>Connected · <span style={{ fontFamily: 'monospace', color: 'var(--vfo-muted)' }}>{selectedExpert.stripe_account_id}</span></div>
+              : <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginBottom: '8px' }}>No payout account yet.</div>}
+            <button type="button" onClick={handleSpecialistConnect} disabled={connectBusy}
+              style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #125ecc', background: 'var(--vfo-card)', color: '#125ecc', fontSize: '13px', fontWeight: 600, cursor: connectBusy ? 'wait' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              {connectBusy ? 'Working…' : (selectedExpert?.stripe_account_id ? 'Resend Setup Link' : 'Set Up Payment Details')}
+            </button>
+            {connectMsg && <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '8px' }}>{connectMsg}</p>}
+          </div>
+        )}
+        <div style={{ ...fieldStyle, marginBottom: 0 }}>
+          <label style={labelStyle}>Long Bio</label>
+          <textarea value={shared.long_bio} onChange={e => setShared(p => ({ ...p, long_bio: e.target.value }))} placeholder="Detailed biography..." rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
+        </div>
+        </div>{/* end Profile & Identity card */}
+
+        {/* ---- Per-ecosystem content (short bio, D&B, tax) — one write-up per ecosystem ---- */}
+        <div style={sectionStyle}>
+        <div style={{ ...sectionHeader, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+          <span>Bio &amp; Details</span>
+          {multi && <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--vfo-muted)', textTransform: 'none', letterSpacing: 0 }}>One write-up per ecosystem — fill each below</span>}
+        </div>
+
+        {ecos.length === 0 && (
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', fontStyle: 'italic' }}>Select a VFO ecosystem above to add this person's bio &amp; details.</div>
+        )}
+
+        {ecos.map(eco => multi ? (
+          <div key={eco} style={{ border: '1px solid var(--vfo-border-strong)', borderRadius: '14px', padding: '20px', marginBottom: '18px', background: 'var(--vfo-card)' }}>
+            <div style={{ display: 'inline-block', fontSize: '13px', fontWeight: 700, color: '#0095ff', background: 'rgba(0,149,255,0.12)', border: '1px solid rgba(0,149,255,0.25)', borderRadius: '999px', padding: '4px 14px', marginBottom: '18px' }}>{eco}</div>
+            {ecoBody(eco)}
+          </div>
+        ) : (
+          <div key={eco}>{ecoBody(eco)}</div>
+        ))}
+
+        {statusMsg && <p style={{ color: sType === 'success' ? '#1b9254' : '#d93025', fontSize: '13px', margin: '12px 0 0' }}>{statusMsg}</p>}
+        </div>{/* end Bio & Details card */}
+
+        {/* ---- Tax (shared, one set) — its own section, only when Tax Planning is selected ---- */}
+        {ecos.includes(TAX_ECOSYSTEM) && (
+          <div style={sectionStyle}>
+          <div style={sectionHeader}>Tax</div>
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Tax Risk Mindset</label>
+            <select value={shared['D&B_tax_risk_mindset']} onChange={e => setShared(p => ({ ...p, 'D&B_tax_risk_mindset': e.target.value }))} style={{ ...inputStyle, background: 'var(--vfo-card)', width: '320px', maxWidth: '100%' }}>
+              <option value="">-- Select --</option>
+              <option value="Risk 1 – Very Conservative Mindset">Risk 1 – Very Conservative Mindset</option>
+              <option value="Risk 2 - Moderately Conservative Mindset">Risk 2 - Moderately Conservative Mindset</option>
+              <option value="Risk 3 – Average Risk Mindset">Risk 3 – Average Risk Mindset</option>
+              <option value="Risk 4 – Moderately Aggressive Mindset">Risk 4 – Moderately Aggressive Mindset</option>
+              <option value="Risk 5 – Very Aggressive Mindset">Risk 5 – Very Aggressive Mindset</option>
+            </select>
+          </div>
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Tax Risk Notes</label>
+            <textarea value={shared['D&B_tax_risk_notes']} onChange={e => setShared(p => ({ ...p, 'D&B_tax_risk_notes': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
+          <div style={{ background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border)', borderRadius: '12px', padding: '20px', marginBottom: 0 }}>
+            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', fontWeight: '600', marginBottom: '16px' }}>Tax Planning Audit Risk Questionnaire</div>
+            {[
+              ['D&B_audit_risk_general', '1. What are the general risks of this strategy?'],
+              ['D&B_audit_risk_history', '2. What has been the history of these risks coming to fruition?'],
+              ['D&B_audit_risk_worst_case', '3. What are potential worst-case scenarios?'],
+              ['D&B_audit_risk_precautions', '4. What precautions are in place to prevent or minimize the risks?'],
+            ].map(([key, label], i, arr) => (
+              <div key={key} style={i === arr.length - 1 ? { marginBottom: 0 } : fieldStyle}>
+                <label style={labelStyle}>{label}</label>
+                <textarea value={shared[key]} onChange={e => setShared(p => ({ ...p, [key]: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+              </div>
+            ))}
+          </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -448,11 +535,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
       {/* Add tab */}
       {activeTab === 'add' && (
         <div>
-          {SpecialistForm({
-            which: 'add', form: addForm, setForm: setAddForm,
-            ecos: addEcos, file: addFile, preview: addPreview,
-            statusMsg: addStatus, statusType: addStatusType,
-          })}
+          {SpecialistForm({ which: 'add', statusMsg: addStatus, statusType: addStatusType })}
           <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
             <button onClick={() => submitSpecialist('add')}
               style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
@@ -481,17 +564,15 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
             {sortByJoin((editSearch ? allExperts.filter(e => e.name.toLowerCase().includes(editSearch)) : allExperts).filter(e => matchesFilter(e, specFilterGroups, specFilter)), specSort).map(expert => (
               <div key={expert.id}
                 onClick={() => handleEditSelect(expert)}
-                style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', marginBottom: '4px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', cursor: 'pointer' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-tint)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'var(--vfo-tint)'}>
+                style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', marginBottom: '4px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', cursor: 'pointer' }}>
                 <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: 'var(--vfo-border)', flexShrink: 0 }}>
                   {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{expert.name}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>{expert.short_bio || '—'}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(ecoMap[expert.id] || []).length > 1 ? (ecoMap[expert.id] || []).join(' · ') : (expert.short_bio || '—')}</div>
                 </div>
-                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--vfo-ink)' }}>
+                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--vfo-ink)', flexShrink: 0 }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: STATUS_COLORS[expert.status] || '#1b9254', flexShrink: 0 }} />{expert.status || 'Active'}
                 </span>
               </div>
@@ -529,11 +610,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
 
           {specialistTab === 'edit' && (
             <div>
-              {SpecialistForm({
-                which: 'edit', form: editForm, setForm: setEditForm,
-                ecos: editEcos, file: editFile, preview: editPreview,
-                statusMsg: editStatus, statusType: editStatusType,
-              })}
+              {SpecialistForm({ which: 'edit', statusMsg: editStatus, statusType: editStatusType })}
               <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
                 <button onClick={() => submitSpecialist('edit')}
                   style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
@@ -574,20 +651,28 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
         </div>
       )}
 
-      
+
     </div>
   )
 }
 
-// Read-only presentation of a specialist — same data the Edit form loads,
-// arranged as a profile (header card + main column + side column). No state,
-// no API calls; Edit Specialist remains the only place changes are made.
-function SpecialistProfileView({ expert, ecos }) {
+// Read-only presentation of a specialist profile. Shared identity (header,
+// account & payout, biography, tax) shows once; when the person serves more than
+// one ecosystem, a toggle switches the short bio + Details & Benefits between
+// each ecosystem's write-up.
+function SpecialistProfileView({ expert, ecos: ecosProp }) {
+  const ecos = uniqueEcos(ecosProp)
+  const [active, setActive] = useState(0)
+  const activeEco = ecos[Math.min(active, Math.max(0, ecos.length - 1))] || ''
+  const contentMap = contentMapFor(expert, ecos)
+  const c = contentMap[activeEco] || blankContent()
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '16px' }
   const cardTitle = { fontSize: '16px', color: 'var(--vfo-heading)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '18px', paddingBottom: '11px', borderBottom: '2px solid var(--vfo-heading)' }
   const fieldLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--vfo-faint)', textTransform: 'uppercase' }
   const dbHeading = { fontSize: '14px', fontWeight: 800, letterSpacing: '0.4px', color: 'var(--vfo-heading)', textTransform: 'uppercase' }
   const chip = { fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.25)' }
+  const activeChip = { ...chip, background: 'rgba(18,94,204,0.12)', color: '#125ecc', border: '1px solid rgba(18,94,204,0.25)', cursor: 'pointer' }
+  const idleChip = { ...chip, background: 'transparent', color: 'var(--vfo-muted)', border: '1px solid var(--vfo-border-mid)', cursor: 'pointer' }
   const longField = (label, value) => value ? (
     <div style={{ marginBottom: '18px' }}>
       <div style={dbHeading}>{label}</div>
@@ -596,24 +681,34 @@ function SpecialistProfileView({ expert, ecos }) {
   ) : null
 
   const dbFields = [
-    ['Strategy / Expertise', expert['D&B_strategy_expertise']],
-    ['Cut-off Date for Strategy', expert['D&B_cutoff_date']],
-    ['Client Requirements', expert['D&B_client_requirements']],
-    ['Amount of Investment or Cost', expert['D&B_investment_cost']],
-    ['Ideal Client Description', expert['D&B_ideal_client']],
-    ['Summary of Benefits', expert['D&B_summary_benefits']],
-    ['Getting Started with a Client', expert['D&B_getting_started']],
-    ['Steps of Professional Process', expert['D&B_professional_process']],
-    ['What Makes Them Better Than the Competition', expert['D&B_competitive_advantage']],
-  ]
-  const auditQs = [
-    ['1. General risks of this strategy', expert['D&B_audit_risk_general']],
-    ['2. History of these risks coming to fruition', expert['D&B_audit_risk_history']],
-    ['3. Potential worst-case scenarios', expert['D&B_audit_risk_worst_case']],
-    ['4. Precautions to prevent or minimize the risks', expert['D&B_audit_risk_precautions']],
+    ['Strategy / Expertise', c['D&B_strategy_expertise']],
+    ['Cut-off Date for Strategy', c['D&B_cutoff_date']],
+    ['Client Requirements', c['D&B_client_requirements']],
+    ['Amount of Investment or Cost', c['D&B_investment_cost']],
+    ['Ideal Client Description', c['D&B_ideal_client']],
+    ['Summary of Benefits', c['D&B_summary_benefits']],
+    ['Getting Started with a Client', c['D&B_getting_started']],
+    ['Steps of Professional Process', c['D&B_professional_process']],
+    ['What Makes Them Better Than the Competition', c['D&B_competitive_advantage']],
   ]
   const hasDb = dbFields.some(([, v]) => v)
-  const hasAudit = auditQs.some(([, v]) => v)
+  // Tax is shared (one set per person). Show the whole section — every field,
+  // even blank ones — as long as SOMETHING in it is filled; otherwise hide it.
+  const hasTax = TAX_KEYS.some(k => (expert[k] || '').toString().trim() !== '')
+  const multi = ecos.length > 1
+  const suffix = multi ? ` — ${activeEco}` : ''
+  const alwaysField = (label, value) => (
+    <div style={{ marginBottom: '18px' }}>
+      <div style={dbHeading}>{label}</div>
+      <div style={{ fontSize: '13.5px', color: value ? 'var(--vfo-ink)' : 'var(--vfo-faint)', lineHeight: 1.6, marginTop: '7px', whiteSpace: 'pre-wrap' }}>{value || '—'}</div>
+    </div>
+  )
+  const alwaysFieldSmall = (label, value) => (
+    <div style={{ marginBottom: '16px' }}>
+      <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.4px', color: 'var(--vfo-muted)', textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ fontSize: '13.5px', color: value ? 'var(--vfo-ink)' : 'var(--vfo-faint)', lineHeight: 1.6, marginTop: '6px', whiteSpace: 'pre-wrap' }}>{value || '—'}</div>
+    </div>
+  )
 
   return (
     <div>
@@ -628,7 +723,7 @@ function SpecialistProfileView({ expert, ecos }) {
           </div>
           <div style={{ minWidth: '200px', flex: 1 }}>
             <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '22px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)', lineHeight: 1.15 }}>{expert.name}</div>
-            {expert.short_bio && <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '4px' }}>{expert.short_bio}</div>}
+            {c.short_bio && <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '4px' }}>{c.short_bio}</div>}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap', fontSize: '12.5px', color: 'var(--vfo-muted)' }}>
               {expert.top_of_t && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e06717', flexShrink: 0 }} />Top of the T</span>}
               {expert.top_of_t && expert.background_check && <span style={{ color: 'var(--vfo-border-mid)' }}>·</span>}
@@ -663,22 +758,17 @@ function SpecialistProfileView({ expert, ecos }) {
             {expert.stripe_account_id && <div style={{ fontSize: '11px', color: 'var(--vfo-faint)', fontFamily: 'monospace', marginTop: '8px', wordBreak: 'break-all' }}>{expert.stripe_account_id}</div>}
           </div>
         </div>
-        {(ecos.length > 0 || expert['D&B_tax_risk_notes']) && (
+        {ecos.length > 0 && (
           <div style={{ flex: '1 1 320px', minWidth: '280px' }}>
-            {ecos.length > 0 && (
-              <div style={sectionStyle}>
-                <div style={cardTitle}>VFO Ecosystem</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {ecos.map(e => <span key={e} style={chip}>{e}</span>)}
-                </div>
+            <div style={sectionStyle}>
+              <div style={cardTitle}>VFO Ecosystem</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {ecos.map((e, i) => multi
+                  ? <span key={e} onClick={() => setActive(i)} style={i === active ? activeChip : idleChip}>{e}</span>
+                  : <span key={e} style={chip}>{e}</span>)}
               </div>
-            )}
-            {expert['D&B_tax_risk_notes'] && (
-              <div style={sectionStyle}>
-                <div style={cardTitle}>Tax Risk Notes</div>
-                <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{expert['D&B_tax_risk_notes']}</div>
-              </div>
-            )}
+              {multi && <div style={{ fontSize: '11px', color: 'var(--vfo-faint)', marginTop: '10px' }}>Click an ecosystem to see its bio &amp; details.</div>}
+            </div>
           </div>
         )}
       </div>
@@ -692,23 +782,30 @@ function SpecialistProfileView({ expert, ecos }) {
       )}
 
       <div style={sectionStyle}>
-        <div style={cardTitle}>Details &amp; Benefits</div>
+        <div style={cardTitle}>Details &amp; Benefits{suffix}</div>
         {hasDb
           ? dbFields.map(([label, value]) => <Fragment key={label}>{longField(label, value)}</Fragment>)
           : <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', fontStyle: 'italic' }}>No details entered yet — use Edit Specialist to add them.</div>}
       </div>
 
-      {hasAudit && (
+      {/* Tax (shared) — its own section, only under the Tax Planning ecosystem, and only if filled */}
+      {activeEco === TAX_ECOSYSTEM && hasTax && (
         <div style={sectionStyle}>
-          <div style={cardTitle}>Tax Planning Audit Risk Questionnaire</div>
-          {auditQs.map(([label, value]) => <Fragment key={label}>{longField(label, value)}</Fragment>)}
+          <div style={cardTitle}>Tax</div>
+          {alwaysField('Tax Risk Mindset', expert['D&B_tax_risk_mindset'])}
+          {alwaysField('Tax Risk Notes', expert['D&B_tax_risk_notes'])}
+          <div style={{ ...dbHeading, margin: '4px 0 14px' }}>Tax Planning Audit Risk Questionnaire</div>
+          {alwaysFieldSmall('1. General risks of this strategy', expert['D&B_audit_risk_general'])}
+          {alwaysFieldSmall('2. History of these risks coming to fruition', expert['D&B_audit_risk_history'])}
+          {alwaysFieldSmall('3. Potential worst-case scenarios', expert['D&B_audit_risk_worst_case'])}
+          {alwaysFieldSmall('4. Precautions to prevent or minimize the risks', expert['D&B_audit_risk_precautions'])}
         </div>
       )}
 
-      {expert['D&B_revenue_share'] && (
+      {c['D&B_revenue_share'] && (
         <div style={sectionStyle}>
-          <div style={cardTitle}>Revenue Share</div>
-          <div style={{ fontSize: '13.5px', color: 'var(--vfo-ink)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{expert['D&B_revenue_share']}</div>
+          <div style={cardTitle}>Revenue Share{suffix}</div>
+          <div style={{ fontSize: '13.5px', color: 'var(--vfo-ink)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{c['D&B_revenue_share']}</div>
         </div>
       )}
     </div>
