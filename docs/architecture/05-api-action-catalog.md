@@ -293,7 +293,7 @@ The read-only-for-owner third vault section. ONE unified admin-only set covers a
 | `admin_ert_download` | `actions/vault/admin-ert.ts` | storage `{entity}-ert-docs` | — | Any admin. 300s signed download (path prefix-checked). |
 | `admin_ert_delete` | `actions/vault/admin-ert.ts` | — | storage `{entity}-ert-docs` (delete) | Any admin. Removes a file. |
 
-Signed BoldSign agreements are copied into these buckets automatically on sign+pay by `utils/ert-agreement-copy.ts` (hooked into the specialist/advisor/accountant create handlers + the MAP 1 / Tax confirmation-email handlers). See gotchas #204–#205.
+Signed BoldSign agreements are copied into these buckets automatically on sign+pay by `utils/ert-agreement-copy.ts` (hooked into the specialist/advisor/accountant create handlers + the MAP 1 / Tax confirmation-email handlers), named `<VFO-…-Agreement>-First-Last.pdf` via the helper's `name` param. See gotchas #204–#205, #221.
 
 #### Client portal — client side (gated by `CLIENT_ALLOWED_ACTIONS`)
 
