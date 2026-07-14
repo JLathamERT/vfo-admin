@@ -91,7 +91,8 @@ function AccountantPipelineRow({ row, expanded, onToggle }) {
         <div style={{ padding: '12px 18px 16px', borderTop: '1px solid var(--vfo-border-soft)', background: 'var(--vfo-tint)' }}>
           <StepCard title="Decision" status={decisionStatus}>
             <Detail l="Decision" v={<Badge text={row.final_decision || row.prelim_meeting_decision} />} showEmpty />
-            <Detail l="Partnership" v={row.accountant_partnership} />
+            <Detail l="Direct/Advisor" v={row.accountant_partnership === 'Accountant Partnership' ? 'Advisor' : row.accountant_partnership === 'No accountant partnership' ? 'Direct' : row.accountant_partnership} />
+            {row.accountant_partnership === 'Accountant Partnership' && <Detail l="CC Connected Advisor" v={row.cc_advisor_name ? `${row.cc_advisor_name} · ${row.cc_advisor_email}` : null} />}
             <Detail l="Undecided email sent" v={fmtDate(row.decision_email_sent_at)} />
             <Detail l="48h reminder sent" v={fmtDate(row.decision_reminder_sent_at)} />
             <Detail l="96h PF notified" v={fmtDate(row.decision_pf_notified_at)} />
