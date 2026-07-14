@@ -326,6 +326,7 @@ function MemberProfile({ member }) {
   // Accountants have no revenue decision — hide the field for them. Advisors
   // and uncategorized members keep it. Mirrors the admin-side hiddenFields.
   const isAccountant = member.member_category === 'accountant'
+  const isAdvisor = member.member_category === 'advisor'
   const statusColors = { Active: '#1b9254', Lost: '#e74c3c', Removed: '#e74c3c' }
   const hasCerts = member.vfo_certified_date || member.vfo_accredited_date
   const headshotSrc = member.headshot_image ? HEADSHOT_SUPABASE + encodeURIComponent(member.headshot_image) : null
@@ -364,7 +365,7 @@ function MemberProfile({ member }) {
               <div><div style={fieldLabel}>Member Number</div><div style={{ ...fieldValue, fontFamily: 'monospace' }}>{member.member_number}</div></div>
               <div><div style={fieldLabel}>Join Date</div><div style={fieldValue}>{member.join_date ? member.join_date.split('T')[0] : '—'}</div></div>
               {member.email && <div><div style={fieldLabel}>Email</div><div style={{ ...fieldValue, wordBreak: 'break-word' }}>{member.email}</div></div>}
-              {isAccountant && member.trading_name && <div><div style={fieldLabel}>Trading Name</div><div style={fieldValue}>{member.trading_name}</div></div>}
+              {(isAccountant || isAdvisor) && member.trading_name && <div><div style={fieldLabel}>Company Name</div><div style={fieldValue}>{member.trading_name}</div></div>}
               {!isAccountant && <div><div style={fieldLabel}>Revenue Decision</div><div style={fieldValue}>{member.revenue_decision || '—'}</div></div>}
               {member.website_url && <div><div style={fieldLabel}>Website</div><div style={fieldValue}><a href={normalizeUrl(member.website_url)} target="_blank" rel="noopener noreferrer" style={{ color: '#0095ff', textDecoration: 'none', wordBreak: 'break-all' }}>{member.website_url}</a></div></div>}
             </div>

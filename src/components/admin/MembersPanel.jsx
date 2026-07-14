@@ -194,8 +194,8 @@ function AddAccountantForm({ allMembers, onDataChange }) {
         </div>
       </div>
       <div style={{ marginBottom: '16px' }}>
-        <label style={labelStyle}>Trading Name</label>
-        <input value={tradingName} onChange={e => setTradingName(e.target.value)} placeholder="Firm / trading name (optional)" style={inputStyle} />
+        <label style={labelStyle}>Company Name</label>
+        <input value={tradingName} onChange={e => setTradingName(e.target.value)} placeholder="Company name (optional)" style={inputStyle} />
       </div>
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
@@ -868,6 +868,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
   // Accountants pick from their own product-tier list, and they connect to an
   // advisor with no connection-type tier (the % tiers are advisor-only).
   const isAccountant = member.member_category === 'accountant'
+  const isAdvisor = member.member_category === 'advisor'
   // Strategic members pick their "type" from the DB-driven group list (passed in
   // as typeOptionsOverride); advisors/accountants use their hardcoded tier lists.
   const typeOptions = (typeOptionsOverride && typeOptionsOverride.length) ? typeOptionsOverride : (isAccountant ? ACCOUNTANT_TYPES : MEMBER_TYPES)
@@ -898,7 +899,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                     <div><div style={fieldLabel}>Join Date</div><div style={fieldValue}>{profile.join_date ? profile.join_date.split('T')[0] : '—'}</div></div>
                     {(profile.elite_status === 'Lost' || profile.elite_status === 'Removed') && <div><div style={fieldLabel}>Leave Date</div><div style={fieldValue}>{profile.leave_date ? profile.leave_date.split('T')[0] : '—'}</div></div>}
                     <div><div style={fieldLabel}>Email</div><div style={{ ...fieldValue, wordBreak: 'break-word' }}>{profile.email || '—'}</div></div>
-                    {isAccountant && <div><div style={fieldLabel}>Trading Name</div><div style={fieldValue}>{profile.trading_name || '—'}</div></div>}
+                    {(isAccountant || isAdvisor) && <div><div style={fieldLabel}>Company Name</div><div style={fieldValue}>{profile.trading_name || '—'}</div></div>}
                     {!hiddenFields.includes('revenue_decision') && (
                       <div><div style={fieldLabel}>Revenue Decision</div><div style={fieldValue}>{profile.revenue_decision || '—'}</div></div>
                     )}
@@ -1052,9 +1053,9 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
               <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>Last Name</label><input value={profile.last_name || ''} onChange={e => update('last_name', e.target.value)} style={inputStyle} /></div>
               <div style={{ flex: 2, minWidth: '200px' }}><label style={labelStyle}>Email</label><input value={profile.email || ''} onChange={e => update('email', e.target.value)} type="email" style={inputStyle} /></div>
             </div>
-            {isAccountant && (
+            {(isAccountant || isAdvisor) && (
               <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: '200px' }}><label style={labelStyle}>Trading Name</label><input value={profile.trading_name || ''} onChange={e => update('trading_name', e.target.value)} style={inputStyle} /></div>
+                <div style={{ flex: 1, minWidth: '200px' }}><label style={labelStyle}>Company Name</label><input value={profile.trading_name || ''} onChange={e => update('trading_name', e.target.value)} style={inputStyle} /></div>
               </div>
             )}
             <div style={{ display: 'flex', gap: '12px', marginBottom: '0', flexWrap: 'wrap' }}>
