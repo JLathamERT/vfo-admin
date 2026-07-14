@@ -11,6 +11,8 @@ export const SALES_TEAM_NAMES = [
   'Anton Anderson',
   'Paul Latham',
   'Seth Hartford',
+  'Evan Anderson',
+  'Bridger Silvester',
 ]
 
 // MSM (Member Success Manager) names for the "MSM" dropdown. The email renders

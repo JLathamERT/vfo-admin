@@ -77,6 +77,9 @@ function getView(status, decision, error) {
   if (status === 'error') {
     return { icon: '⚠️', color: '#ef4444', title: 'Something Went Wrong', message: error || 'An unexpected error occurred.' }
   }
+  if (decision === 'ExtraMeeting') {
+    return { icon: '✓', color: '#125ecc', title: 'Meeting Requested', message: 'Thank you — our team will be in touch to arrange an additional meeting.' }
+  }
   if (decision === 'Yes') {
     return { icon: '✓', color: '#16a34a', title: 'Thank You!', message: "We're excited to move forward. We'll be in touch shortly with the next steps." }
   }

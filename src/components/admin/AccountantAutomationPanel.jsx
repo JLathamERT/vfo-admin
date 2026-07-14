@@ -3,11 +3,13 @@ import { callApi } from '../../lib/api'
 import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate, PanelHero, EmptyState } from './automation/StepKit'
 import SandboxModeToggle from './SandboxModeToggle'
 import { AutomationTrackerSkeleton } from '../shared/Skeleton'
+import OnboardingExtraMeetingCard from './OnboardingExtraMeetingCard'
 
 const STAGE_LABELS = {
   new: 'New',
   decision_sent: 'Decision Sent',
   declined: 'Declined',
+  extra_meeting: 'Extra Meeting Requested',
   agreement_sent: 'Agreement Sent',
   agreement_signing: 'Awaiting Countersign',
   payment_pending: 'Payment Pending',
@@ -21,6 +23,7 @@ const STAGE_COLORS = {
   new: 'var(--vfo-muted)',
   decision_sent: '#0095ff',
   declined: '#ef4444',
+  extra_meeting: '#e06717',
   agreement_sent: '#7c3aed',
   agreement_signing: '#9333ea',
   payment_pending: '#db2777',
@@ -35,6 +38,10 @@ function getCurrentStage(row) {
   if (row.member_number) return 'accountant_created'
   if (row.invoice_sent_at) return 'invoice'
   if (row.payment_status === 'succeeded') return 'paid'
+  // A pending extra meeting interrupts the decision/signing/payment stages, so
+  // it wins over those below but stays under the terminal states above (paid,
+  // invoice, created, complete — which a pending request can't have reached).
+  if (row.extra_meeting_requested_at && !row.extra_meeting_completed_at) return 'extra_meeting'
   if (row.payment_link_sent_at && row.payment_status !== 'succeeded') return 'payment_pending'
   if (row.agreement_signed_by_accountant_at && !row.agreement_signed_by_ceo_at) return 'agreement_signing'
   if (row.agreement_sent_at) return 'agreement_sent'
@@ -54,12 +61,20 @@ function selectedPlansLabel(row) {
   return `${parts[0]}, ${parts[1]} and ${parts[2]}`
 }
 
-function AccountantPipelineRow({ row, expanded, onToggle }) {
+function AccountantPipelineRow({ row, expanded, onToggle, onReload }) {
   const accountantName = `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'Unknown'
   const stage = getCurrentStage(row)
   const stageLabel = STAGE_LABELS[stage]
   const stageColor = STAGE_COLORS[stage]
   const plans = selectedPlansLabel(row)
+
+  // Extra-meeting StepCard, slotted after the card for the stage it interrupted.
+  const emStage = row.extra_meeting_stage
+  const extraCard = row.extra_meeting_requested_at ? (
+    <StepCard title="Extra Meeting" status={row.extra_meeting_completed_at ? 'done' : 'awaiting'}>
+      <OnboardingExtraMeetingCard ob={row} pipeline="accountant" onComplete={onReload} compact />
+    </StepCard>
+  ) : null
 
   const decisionStatus = (row.final_decision === 'No' || row.final_decision === 'Auto-Declined') ? 'declined'
     : (row.final_decision || row.prelim_meeting_decision) ? 'done' : 'pending'
@@ -91,12 +106,15 @@ function AccountantPipelineRow({ row, expanded, onToggle }) {
         <div style={{ padding: '12px 18px 16px', borderTop: '1px solid var(--vfo-border-soft)', background: 'var(--vfo-tint)' }}>
           <StepCard title="Decision" status={decisionStatus}>
             <Detail l="Decision" v={<Badge text={row.final_decision || row.prelim_meeting_decision} />} showEmpty />
+            <Detail l="Via extra meeting" v={row.via_extra_meeting ? 'Yes' : null} />
             <Detail l="Direct/Advisor" v={row.accountant_partnership === 'Accountant Partnership' ? 'Advisor' : row.accountant_partnership === 'No accountant partnership' ? 'Direct' : row.accountant_partnership} />
             {row.accountant_partnership === 'Accountant Partnership' && <Detail l="CC Connected Advisor" v={row.cc_advisor_name ? `${row.cc_advisor_name} · ${row.cc_advisor_email}` : null} />}
             <Detail l="Undecided email sent" v={fmtDate(row.decision_email_sent_at)} />
             <Detail l="48h reminder sent" v={fmtDate(row.decision_reminder_sent_at)} />
             <Detail l="96h PF notified" v={fmtDate(row.decision_pf_notified_at)} />
           </StepCard>
+
+          {emStage === 'decision' && extraCard}
 
           <StepCard title="Agreement" status={agreementStatus}>
             {row.boldsign_document_id ? (
@@ -113,6 +131,8 @@ function AccountantPipelineRow({ row, expanded, onToggle }) {
             ) : <Pending />}
           </StepCard>
 
+          {emStage === 'signing' && extraCard}
+
           <StepCard title="Payment" status={payStatus}>
             {row.stripe_customer_id || row.payment_link_sent_at ? (
               <>
@@ -128,6 +148,8 @@ function AccountantPipelineRow({ row, expanded, onToggle }) {
               </>
             ) : <Pending />}
           </StepCard>
+
+          {emStage === 'payment' && extraCard}
 
           <StepCard title="Confirmation, Invoice & Receipt" status={invStatus}>
             {row.confirmation_email_sent_at || row.invoice_number ? (
@@ -229,6 +251,7 @@ export default function AccountantAutomationPanel() {
             row={r}
             expanded={expandedRow === r.id}
             onToggle={() => setExpandedRow(expandedRow === r.id ? null : r.id)}
+            onReload={loadData}
           />
         ))
       )}

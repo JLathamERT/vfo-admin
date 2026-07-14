@@ -20,7 +20,7 @@
   The 24h Tax 4/5 auto-locks and the 14-day advisor/accountant auto-decline are business actions,
   not notifications, and are deliberately NOT editable here.
 
-## Every notification in the system (121 rules, 10 areas)
+## Every notification in the system (123 rules, 10 areas)
 
 ### MAP 1 (14)
 
@@ -76,13 +76,14 @@
 | **MAP 4 reminder email** — Reminder email to the client to complete the MAP 4 form. | Reminder email | The client (email) | Daily MAP 4 sweep (after follow-up) — after **2 day(s)** (editable) |
 | **MAP 4 form stalled** — The client still has not submitted the MAP 4 form after the follow-up and reminder emails. | FYI | Tracy + Assigned PF | Daily MAP 4 sweep (after reminder) — after **2 day(s)** (editable) |
 
-### Advisor Onboarding (10)
+### Advisor Onboarding (11)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
 | **Plan-checkbox read failed** — The advisor signed but the plan-checkbox read from BoldSign failed, so the payment amount could not be computed; the chain stalls until fixed. | **Action required** | All Admins (shared bell) | BoldSign CEO-countersign handler — instant |
 | **Advisor clicked Yes** — The advisor clicked Yes on the onboarding decision email; the agreement send chain ran. | FYI | Onboarding Team Member | Advisor click on decision email — instant |
 | **Advisor clicked No** — The advisor clicked No on the onboarding decision email; the decline email chain ran. | FYI | Onboarding Team Member | Advisor click on decision email — instant |
+| **Extra meeting requested** (`ADVISOR_extra_meeting_requested`) — The advisor clicked Request Additional Meeting; the admin must book/hold the meeting and record its outcome. | **Action required** | Onboarding Team Member | Advisor click on decision/reminder email — instant |
 | **Ready to create advisor** — Payment succeeded and invoice/receipt drafted - the Create Advisor and Send Setup Link step is now available. | **Action required** | Onboarding Team Member | Invoice/receipt chain after payment — instant |
 | **Decision reminder email** — Reminder email (Yes/No buttons) to the advisor who has not clicked a decision. | Reminder email | The advisor (email) | Daily advisor sweep — after **2 day(s)** (editable) |
 | **Decision stalled (bell)** — The advisor still has not responded to the decision email. | FYI | Onboarding Team Member | Daily advisor sweep — after **4 day(s)** (editable) |
@@ -91,13 +92,14 @@
 | **Payment reminder email** — Reminder email (checkout button) to the advisor who has not paid the onboarding fee. | Reminder email | The advisor (email) | Daily advisor sweep — after **2 day(s)** (editable) |
 | **Payment stalled (bell)** — The advisor still has not paid the onboarding fee. | FYI | Onboarding Team Member | Daily advisor sweep — after **4 day(s)** (editable) |
 
-### Accountant Onboarding (10)
+### Accountant Onboarding (11)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
 | **Plan-checkbox read failed** — The accountant signed but the plan-checkbox read from BoldSign failed, so the payment amount could not be computed; the chain stalls until fixed. | **Action required** | All Admins (shared bell) | BoldSign CEO-countersign handler — instant |
 | **Accountant clicked Yes** — The accountant clicked Yes on the onboarding decision email; the agreement send chain ran. | FYI | Onboarding Team Member | Accountant click on decision email — instant |
 | **Accountant clicked No** — The accountant clicked No on the onboarding decision email; the decline email chain ran. | FYI | Onboarding Team Member | Accountant click on decision email — instant |
+| **Extra meeting requested** (`ACCOUNTANT_extra_meeting_requested`) — The accountant clicked Request Additional Meeting; the admin must book/hold the meeting and record its outcome. | **Action required** | Onboarding Team Member | Accountant click on decision/reminder email — instant |
 | **Ready to create accountant** — Payment succeeded and invoice/receipt drafted - the Create Accountant and Send Setup Link step is now available. | **Action required** | Onboarding Team Member | Invoice/receipt chain after payment — instant |
 | **Decision reminder email** — Reminder email (Yes/No buttons) to the accountant who has not clicked a decision. | Reminder email | The accountant (email) | Daily accountant sweep — after **2 day(s)** (editable) |
 | **Decision stalled (bell)** — The accountant still has not responded to the decision email. | FYI | Onboarding Team Member | Daily accountant sweep — after **4 day(s)** (editable) |
@@ -154,9 +156,9 @@
 | **Discovery form stalled** — The discovery form is still incomplete after the reminder window - asks the PF to follow up. | FYI | Assigned PF | Daily PFT sweep — after **4 day(s)** (editable) |
 | **Fast Track decision reminder email** — Reminder email re-sending the two VFO Fast Track decision buttons to the accountant prospect. | Reminder email | The accountant (email) | Daily PFT sweep — after **2 day(s)** (editable) |
 | **Fast Track decision stalled** — The accountant has not clicked a VFO Fast Track decision button - asks the PF to follow up. | FYI | Assigned PF | Daily PFT sweep — after **4 day(s)** (editable) |
-| **VFO Associate confirmed** — An admin confirmed the prospect as a VFO Associate and handed off to Accountant Onboarding. | FYI | Assigned PF + Rachael | Admin PFT decision step — instant |
-| **Fast Track onboarding confirmed** — The accountant clicked Confirm Onboarding in the Fast Track email. | FYI | Assigned PF + Rachael | Client click on Fast Track email — instant |
-| **Fast Track: another meeting requested** — The accountant clicked I'd Like Another Meeting in the Fast Track email. | FYI | Assigned PF + Rachael | Client click on Fast Track email — instant |
+| **VFO Associate confirmed** — An admin confirmed the prospect as a VFO Associate and handed off to Accountant Onboarding. | FYI | Assigned PF | Admin PFT decision step — instant |
+| **Fast Track onboarding confirmed** — The accountant clicked Confirm Onboarding in the Fast Track email. | FYI | Assigned PF | Client click on Fast Track email — instant |
+| **Fast Track: another meeting requested** — The accountant clicked I'd Like Another Meeting in the Fast Track email. | FYI | Assigned PF | Client click on Fast Track email — instant |
 
 ### Growth Plan (2)
 
