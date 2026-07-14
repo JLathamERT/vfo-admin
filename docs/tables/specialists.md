@@ -33,8 +33,11 @@ The specialist roster. Most columns are display/marketing text (the "D&B" prefix
 | `D&B_tax_risk_mindset` | text | |
 | `D&B_tax_risk_notes` | text | |
 | `top_of_t` | boolean | not null, default `false`. Promotion flag for "top of the table" placement. |
+| `ecosystem_content` | jsonb | **(2026-07-13)** Per-ecosystem write-ups: `{ "<ecosystem>": { short_bio, "D&B_..." (non-tax only) }, … }`. Lets one specialist serve multiple ecosystems with a different short bio + Details & Benefits per ecosystem. The flat top-level `short_bio`/`D&B_*` columns MIRROR the primary (first) ecosystem so the widget/showroom/agreements are unchanged. Null = legacy single-ecosystem row (content = the flat columns). Admin-only (not in the anon grant). See gotcha #220. |
 
 **Note:** Column names containing `&` (`D&B_*`) require quoting in SQL.
+
+**Note (per-ecosystem model, 2026-07-13):** `short_bio` + the non-tax `D&B_*` fields are edited **per ecosystem** (stored in `ecosystem_content`, flat columns = primary). The **Tax** fields (`D&B_tax_risk_mindset`/`D&B_tax_risk_notes` + the 4 `D&B_audit_risk_*`) are **shared** (one set per person, flat columns only) and only surface in the UI under the `Tax Planning` ecosystem. This was a pure frontend + additive-column change — `save_specialist`/`load_data` pass the whole `expert` object through, so no handler code changed. See gotcha #220.
 
 **Note (2026-06-10):** `experts` is the specialist **directory**. On go-live the `D&B_*` columns are populated **from the SIF** by `automation_SPECIALIST_createspecialist` (question-to-question mapping; the 4 `D&B_audit_risk_*` only when `sif_data.is_tax_specialist='Yes'` — see [../flows/specialist-onboarding.md](../flows/specialist-onboarding.md)). **Also auto-filled on go-live (2026-06-10):** `short_bio` ← `sif_data.strategy_expertise`, `long_bio` ← the DD-checklist Professional Bio (`specialist_onboarding.ddc_data.bio`), `D&B_revenue_share` ← the finalized rev-share (`rev_share_final_text` || the Stage-2 `rev_share_prepared` progress notes). All three remain editable in the Edit-Specialist form. `experts.id` has **no sequence default** — the create-specialist handler assigns `max(id)+1` (and a deleted id is recycled by the next go-live — gotcha #109). `background_check` ← `specialist_onboarding.background_check_type` (Core/Max). Specialist logins live in the new `specialist_logins` table below (specialists are **not** `members`).
 
@@ -53,7 +56,7 @@ Many-to-many tag table — which `experts` belong to which "ecosystem" (a free-f
 | `ecosystem_id` | bigint | (No FK — just a numeric tag id, source is application-level) |
 | `name` | text | not null. Display name of ecosystem. |
 
-**Touched by:** `load_data` (returned as `data.ecosystems`). Joined into `ecoMap` in [AdminPortal.jsx:94](src/pages/AdminPortal.jsx).
+**Touched by:** `load_data` (returned as `data.ecosystems`). Joined into `ecoMap` in [AdminPortal.jsx:94](src/pages/AdminPortal.jsx). **No unique constraint on `(expert_id, name)`** — duplicate rows can exist and once made a specialist's strategy render twice; `SpecialistsPanel.jsx` dedupes every ecosystem list read from `ecoMap` with `[...new Set(...)]` (gotcha #220).
 
 ---
 
