@@ -101,16 +101,6 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
     finally { setReconfirmSending(false) }
   }
 
-  async function saveTaskDate(taskId, date) {
-    const p = localProgress[taskId] || {}
-    setSaving(prev => ({ ...prev, [taskId]: true }))
-    try {
-      await callApi('msm_save_priority_task', { priority_track_id: track.id, task_id: taskId, status: p.status, completed_date: date || null })
-      setLocalProgress(prev => ({ ...prev, [taskId]: { ...prev[taskId], completed_date: date } }))
-    } catch (err) { console.error(err) }
-    finally { setSaving(prev => ({ ...prev, [taskId]: false })) }
-  }
-
   const statusColors = { Completed: '#1b9254', Yes: '#1b9254', No: '#e74c3c' }
   const inputStyle = { padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
 
@@ -345,7 +335,7 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                         <option value="">-- Select --</option>
                         {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
-                      <input type="date" value={p.completed_date || ''} onChange={e => saveTaskDate(task.id, e.target.value)} style={{ ...inputStyle, width: '130px' }} />
+                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '90px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? fmtDate(p.completed_date) : ''}</span>
                     </div>
                   )
                 })}

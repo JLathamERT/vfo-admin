@@ -60,7 +60,7 @@ automation_PIP_revshare
 
 Admin opens a meeting → 3 phases:
 - **Arrange PIP Meeting**: "Date Scheduled for PIP Meeting" task (status_options='pip_meeting_date') writes `pip_scheduled_date` via `msm_update_pip_meeting`. List label flips to "PIP meeting scheduled for MM/DD/YYYY". Plus "PIP Meeting confirmation email" task — admin click drafts a Gmail via `msm_pip_meeting_confirmation_email` (template `PIP_meeting_confirmation`, pre-fills date from `pip_scheduled_date`).
-- **PIP Meeting with client**: "PIP Meeting presentation" dropdown (Completed / No show) + 5 discussion checkboxes (status_options='pip_checklist'). All save via standard `msm_save_priority_task`.
+- **PIP Meeting with client**: "PIP Meeting presentation" dropdown (Completed / No show — selecting an option auto-stamps today's completed date, shown as read-only text, not an editable date field) + 5 discussion checkboxes (status_options='pip_checklist'). All save via standard `msm_save_priority_task`.
 - **Post PIP Meeting admin**: "Purchase Additional Services (optional)" enter-details form → see Step 3.
 
 ### Step 3 — Purchase Additional Services form ([PipPurchaseDecisionForm.jsx](src/components/admin/pip/PipPurchaseDecisionForm.jsx))
