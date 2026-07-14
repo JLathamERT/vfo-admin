@@ -127,6 +127,7 @@ function ExpandedRow({ row, onRefresh }) {
       <Detail l="Split type" v={row.split_type} />
       <Detail l="Member share" v={money(row.member_share)} />
       <Detail l="VFOS share" v={money(row.vfos_share)} />
+      {Number(row.discount_applied) > 0 && <Detail l="Discount applied" v={money(row.discount_applied)} />}
     </>
   )
 
