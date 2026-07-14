@@ -4,6 +4,7 @@ import { callApi, getSession } from '../../lib/api'
 import { AdvisorOnboardingListSkeleton, AdvisorOnboardingDetailSkeleton } from '../shared/Skeleton'
 import { TrackHero, PhaseBadge, ListHeader } from '../shared/TrackKit'
 import NewModelSaleModal, { SALES_TEAM_NAMES } from './NewModelSaleModal'
+import OnboardingExtraMeetingCard from './OnboardingExtraMeetingCard'
 
 const STAGE_NAMES = ['', 'Preliminary Meeting', 'PC Admin', 'Add New Advisor']
 
@@ -273,6 +274,25 @@ function OnboardingDetail({ id, onBack }) {
 
   const stage3Locked = !(yesPath && ob.invoice_sent_at)
 
+  // Extra-meeting card, injected into the Yes step list at the point it
+  // interrupted (extra_meeting_stage) so the meeting squeezes between rows.
+  const emStage = ob.extra_meeting_stage
+  const emRequested = !!ob.extra_meeting_requested_at
+  const emCard = <OnboardingExtraMeetingCard ob={ob} pipeline="advisor" onComplete={loadDetail} compact />
+  const yesRows = (withTags) => (
+    <>
+      <AutoRow label="Agreement sent" done={!!ob.agreement_sent_at} date={ob.agreement_sent_at} />
+      {emRequested && emStage === 'signing' && emCard}
+      <AutoRow label="Agreement signed by advisor" done={!!ob.agreement_signed_by_advisor_at} date={ob.agreement_signed_by_advisor_at} tag={withTags ? [ob.selected_vfo_ft && 'VFO FT', ob.selected_pft && 'PFT', ob.selected_corporate && 'CM'] : undefined} />
+      <AutoRow label="Agreement signed by CEO" done={!!ob.agreement_signed_by_ceo_at} date={ob.agreement_signed_by_ceo_at} />
+      <AutoRow label="Payment link sent" done={!!ob.payment_link_sent_at} date={ob.payment_link_sent_at} />
+      {emRequested && emStage === 'payment' && emCard}
+      <AutoRow label="Payment made" done={ob.payment_status === 'succeeded'} date={ob.payment_completed_at} tag={withTags ? (ob.payment_method_type ? ob.payment_method_type.toUpperCase() : null) : undefined} />
+      <AutoRow label="Confirmation email sent" done={!!ob.confirmation_email_sent_at} date={ob.confirmation_email_sent_at} />
+      <AutoRow label="Invoice/receipt sent" done={!!ob.invoice_sent_at} date={ob.invoice_sent_at} />
+    </>
+  )
+
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
       <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
@@ -320,17 +340,7 @@ function OnboardingDetail({ id, onBack }) {
       <StageBlock stage={2} title="PC Admin" state={stage2State()} expanded={expanded[2]} onToggle={() => setExpanded(p => ({ ...p, 2: !p[2] }))}>
         {!decision && <div style={{ padding: '12px', color: 'var(--vfo-muted)', fontSize: '13px' }}>Waiting for Stage 1 decision.</div>}
 
-        {decision === 'Yes' && (
-          <>
-            <AutoRow label="Agreement sent" done={!!ob.agreement_sent_at} date={ob.agreement_sent_at} />
-            <AutoRow label="Agreement signed by advisor" done={!!ob.agreement_signed_by_advisor_at} date={ob.agreement_signed_by_advisor_at} tag={[ob.selected_vfo_ft && 'VFO FT', ob.selected_pft && 'PFT', ob.selected_corporate && 'CM']} />
-            <AutoRow label="Agreement signed by CEO" done={!!ob.agreement_signed_by_ceo_at} date={ob.agreement_signed_by_ceo_at} />
-            <AutoRow label="Payment link sent" done={!!ob.payment_link_sent_at} date={ob.payment_link_sent_at} />
-            <AutoRow label="Payment made" done={ob.payment_status === 'succeeded'} date={ob.payment_completed_at} tag={ob.payment_method_type ? ob.payment_method_type.toUpperCase() : null} />
-            <AutoRow label="Confirmation email sent" done={!!ob.confirmation_email_sent_at} date={ob.confirmation_email_sent_at} />
-            <AutoRow label="Invoice/receipt sent" done={!!ob.invoice_sent_at} date={ob.invoice_sent_at} />
-          </>
-        )}
+        {decision === 'Yes' && yesRows(true)}
 
         {decision === 'Undecided' && (
           <>
@@ -340,22 +350,18 @@ function OnboardingDetail({ id, onBack }) {
             {finalDec && (
               <div style={{ marginLeft: '14px', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px', borderLeft: '1px solid var(--vfo-tint-deep)' }}>
                 <div style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', display: 'inline-block', marginBottom: '8px',
-                  background: finalDec === 'Yes' ? 'rgba(27,146,84,0.15)' : 'rgba(231,76,60,0.15)',
-                  color: finalDec === 'Yes' ? '#1b9254' : '#e74c3c',
-                  border: `1px solid ${finalDec === 'Yes' ? 'rgba(27,146,84,0.3)' : 'rgba(231,76,60,0.3)'}`
+                  background: finalDec === 'Yes' ? 'rgba(27,146,84,0.15)' : finalDec === 'ExtraMeeting' ? 'rgba(224,103,23,0.15)' : 'rgba(231,76,60,0.15)',
+                  color: finalDec === 'Yes' ? '#1b9254' : finalDec === 'ExtraMeeting' ? '#e06717' : '#e74c3c',
+                  border: `1px solid ${finalDec === 'Yes' ? 'rgba(27,146,84,0.3)' : finalDec === 'ExtraMeeting' ? 'rgba(224,103,23,0.3)' : 'rgba(231,76,60,0.3)'}`
                 }}>
-                  {finalDec === 'Yes' ? 'Yes — proceeding' : 'No — declined'}
+                  {finalDec === 'Yes' ? 'Yes — proceeding' : finalDec === 'ExtraMeeting' ? 'Extra meeting requested' : 'No — declined'}
                 </div>
+                {finalDec === 'ExtraMeeting' && emCard}
                 {finalDec === 'No' && <AutoRow label="Decline email sent" done={!!ob.decline_email_sent_at} date={ob.decline_email_sent_at} />}
                 {finalDec === 'Yes' && (
                   <>
-                    <AutoRow label="Agreement sent" done={!!ob.agreement_sent_at} date={ob.agreement_sent_at} />
-                    <AutoRow label="Agreement signed by advisor" done={!!ob.agreement_signed_by_advisor_at} date={ob.agreement_signed_by_advisor_at} />
-                    <AutoRow label="Agreement signed by CEO" done={!!ob.agreement_signed_by_ceo_at} date={ob.agreement_signed_by_ceo_at} />
-                    <AutoRow label="Payment link sent" done={!!ob.payment_link_sent_at} date={ob.payment_link_sent_at} />
-                    <AutoRow label="Payment made" done={ob.payment_status === 'succeeded'} date={ob.payment_completed_at} />
-                    <AutoRow label="Confirmation email sent" done={!!ob.confirmation_email_sent_at} date={ob.confirmation_email_sent_at} />
-                    <AutoRow label="Invoice/receipt sent" done={!!ob.invoice_sent_at} date={ob.invoice_sent_at} />
+                    {emRequested && emStage === 'decision' && emCard}
+                    {yesRows(false)}
                   </>
                 )}
               </div>
