@@ -475,7 +475,7 @@ export default function AdminPortal() {
         { key: 'specialist_recurring', label: 'VFO Specialist Recurring Revenue Payments' },
         { key: 'specialist_reconciliation', label: 'VFO Specialist Reconciliation' },
         { key: 'specialist_license', label: 'VFO Specialist License Fees' },
-        { key: 'specialist_bg', label: 'VFO Specialist Background Check Fees' },
+        { key: 'specialist_bg', label: 'VFO Specialist Background Check & Due Diligence Fees' },
       ],
     },
     {
