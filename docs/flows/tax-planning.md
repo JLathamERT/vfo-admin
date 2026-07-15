@@ -528,7 +528,7 @@ Current flow — admin clicks the one button → client picks Yes/No on `/tax-im
 **Charge handler:** `automation_TAX_charge_implementation` — off-session charge against saved payment method.
 - Charge amount: `implementation_amount` (may differ from retainer per design — separate columns).
 - Stripe PaymentIntent with `confirm=true off_session=true`, `metadata.payment_kind='implementation'`, `metadata.tax_plan_id`, `Idempotency-Key: tax-impl-{tax_plan_id}-{retainer_pi_last8}-{YYYY-MM-DD}` (PI suffix included so DB-reset retries don't collide with Stripe's idempotency cache).
-- Card amount uses same gross-up as retainer for card; ACH at base.
+- Card amount uses same gross-up as retainer for card; ACH at base. **Exception (2026-07-15):** plans with `card_fee_waived=true` (payment-continuation setup-link clients — only `migration_backfill_tax` sets it) charge base even on card.
 - Idempotent on `implementation_charge_status` — if already set, skip.
 - Failure → `implementation_charge_status='declined'` or `'auth_required'` + admin notification + Gmail asking client to use a fresh `/tax-pay` link (see Failure mode #9 below for the ACH-retainer special case).
 
