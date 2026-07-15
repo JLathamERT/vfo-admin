@@ -1296,7 +1296,6 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const emailSentFor = livePlan?.implementation_decision_email_sent
       const emailSentAt = livePlan?.implementation_decision_email_sent_at
       const chargeStatus = livePlan?.implementation_charge_status
-      const confStatus = livePlan?.implementation_confirmation_status
       const recStatus = livePlan?.implementation_receipt_status
       const revEmailSent = livePlan?.implementation_rev_email_sent
 
@@ -1329,7 +1328,6 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const chargeCascade = (
         <>
           {autoStep('Implementation fee auto-charged using saved payment method', chargeStatus === 'succeeded')}
-          {autoStep('Implementation fee confirmation email sent', confStatus === 'Sent')}
           {autoStep('Implementation fee receipt created and emailed to client', recStatus === 'Sent')}
           {autoStep('Implementation fee revenue share verified, member paid, member emailed', revEmailSent === true)}
         </>
