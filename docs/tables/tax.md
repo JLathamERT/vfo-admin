@@ -165,7 +165,7 @@ Tax 5b "Implementation decision" mirrors Tax 4's 3-option pattern: Proceed picks
 | `implementation_payment_intent_id` | text | Off-session PaymentIntent created by `automation_TAX_charge_implementation`. |
 | `default_payment_method_id` | text | **Phase D (admin card-update).** Stripe PM id the implementation off-session charge prefers when set by the admin-initiated payment-method change (`/update-card` page, see `card_update_tokens` in [pipeline.md](pipeline.md)). |
 | `implementation_charge_date` | date | |
-| `implementation_confirmation_status` | text | Mirror retainer pattern — `Confirmation Needed` then `Sent`. Set by Stripe webhook → confirmation-email handler. |
+| `implementation_confirmation_status` | text | Webhook writes `Confirmation Needed` purely as the **idempotency marker** for the implementation-succeeded block. Since 2026-07-15 no confirmation email is sent for implementation charges, so it never advances to `Sent` (pre-change rows may hold `Sent`); the admin UI no longer displays it. |
 | `implementation_receipt_number` | text | REC-`<ref>`-`<seq>`. Receipt-only — no invoice for implementation (single retainer invoice covers the engagement). |
 | `implementation_receipt_drive_id` | text | Drive file id of the receipt PDF. |
 | `implementation_receipt_status` | text | `Sent`. |
