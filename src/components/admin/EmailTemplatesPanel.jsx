@@ -83,6 +83,7 @@ const TEMPLATE_META = {
     mv('CONTRACT_payment_reminder', '48-hour reminder — the payment link hasn’t been used yet', 'To: Member · Auto-Cc: Client'),
   ],
   'TAX': [
+    ['TAX_request_returns', 'Request Tax Returns step (Tax Planning) — asks the client to upload their tax returns via a secure link', 'To: Client'],
     ['TAX_highlevelmeeting_confirm|Yes', 'High Level Tax Planning meeting is booked — confirmation', 'To: Client · Auto-Cc: Member + PF'],
     ['TAX_presentation_link', 'Sends the member the tax presentation link ahead of the ROI meeting', 'To: Member · Auto-Cc: PF'],
     ['TAX_readyfortax3|Yes', 'Tax assessment result — ready to move ahead with tax planning', 'To: Client · Auto-Cc: Member + PF'],
