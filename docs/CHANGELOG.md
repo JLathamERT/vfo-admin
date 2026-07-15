@@ -8,6 +8,19 @@
 
 ---
 
+## Archived from SESSION_REFERENCE on 2026-07-15 (agreement-PDF-draft tool session)
+
+**LIVE STATE prior values superseded 2026-07-15 (agreement-PDF-draft tool session):** `vfo-admin-api` prior **v605** (the membership Phase 4 session; `backend-good-2026-07-15-v605` stamp still owed); action count prior **412** (5 + 407, +1 that session for `membership_send_reminder`).
+
+**CURRENT STATE entry evicted (kept newest ~3 in the hub):**
+
+- **Tax-returns / ROI-custom / profile-save / PIP-time session — four independent changes** (2026-07-15, branch `claude/tax-returns-roi-profilesave` BOTH repos; **DEPLOYED** — backend **v603** + frontend (`npm run deploy`, CDN bundle `index-Cxbg8mnJ.js`); DB = 4 additive migrations applied via MCP + committed, advisor GREEN; deno 0; **+1 action → 411**; gotchas **#225–#226**; pipeline smoke 5/5 PASS).
+  - **1. ROI Presentation "Custom (See Note)" option** (both programs). Appended `|Custom (See Note)` to the ROI Presentation dropdown (`program_client_tasks` 91 holistic + 125 tax planning) + a green `statusColors` entry in `TaxPrioritiesTab.jsx`. Options are DB-driven (split from `status_options`), so this is data + one FE color line.
+  - **2. "Request Tax Returns" step — VFO Tax Planning (program 4) ONLY.** New `program_client_tasks` row (`status_options='tax_returns_request'`) in "Tax 1 - Diagnostic" between "Allocate to Advanced Tax Planner" (order 2) and "Additional information required" (order 3). Special-cased in `TaxPrioritiesTab.jsx`: one **"Send email to request tax returns"** button → new AUTH action **`automation_TAX_request_returns`** (`actions/tax/request-returns.ts`, ADMIN_ONLY — mints/reuses `clients.tax_upload_token`, drafts the `TAX_request_returns` email in **Draft** mode, stamps `client_tax_plans.tax_returns_requested_at`) + a labeled **"AI PC Admin"** cascade (appears once sent) with "Request email sent to client" / "Tax returns received" sub-steps. On client upload, `actions/vault/upload-notify.ts` branches: a program-4 client stamps `tax_returns_received_at` + fires `TAX_returns_received` (Tim/Tracy/Tray); the holistic/other path keeps the original `UPLOAD_tax_return_uploaded` FYI unchanged. The shared `/tax-upload` page rebranded with `TokenShell` (gotcha #226). **Holistic + the MAP 1 invoice email left untouched.**
+  - **3. Client-profile save skeleton fix.** `ClientDetail.jsx` gained a `loadData(silent)` variant (skips `setLoading`); `ClientHome`'s Assigned-PF `savePf` + status `updateStatus` now do a silent background refresh + inline "✓ Saved!" (mirrors the MSM `MsmAssignment` save) instead of flashing `ProfileTabSkeleton`.
+  - **4. PIP Meeting confirmation email — time + timezone.** `PipMeetingsTab.jsx` `pip_reconfirm_email` step gains a time input + tz dropdown (ET/CT/MT/PT/AKT/HT) like the tax HLM step; `actions/msm/pip-meeting-confirmation-email.ts` accepts `meeting_time`/`meeting_tz` (+ `formatTime12`), folds "at <time> <tz>" into the `[Scheduled Meeting Date]` email line, and persists `client_priority_tracks.pip_scheduled_time`/`pip_scheduled_timezone`.
+  - **Owed:** stamp `live-67-tax-returns-roi` (verify N = current max +1) + `backend-good-2026-07-15-v603` post-merge; flip the `TAX_request_returns` template **Draft→Send** before real clients; delete the orphan edge worktree dir `infallible-darwin-811991` (this session ran from it).
+
 ## Archived from SESSION_REFERENCE on 2026-07-15 (membership Phase 4 session)
 
 **LIVE STATE prior values superseded 2026-07-15 (membership Phase 4 session):** `vfo-admin-api` prior **v604** (the no-autocharge-confirmations session; `backend-good-2026-07-15-v604` stamp still owed); action count prior **411** (5 + 406, +0 that session); DB prior cell (v604 session): none — code-only chain removals; frontend prior deploy state: the 2026-07-15-late confirmation-email-removal `npm run deploy` (its `live-<N>-no-autocharge-confirmations` stamp still owed).
