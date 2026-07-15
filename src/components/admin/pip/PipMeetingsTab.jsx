@@ -31,6 +31,8 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
   const [expanded, setExpanded] = useState({})
   const [reconfirmShowDate, setReconfirmShowDate] = useState(false)
   const [reconfirmDate, setReconfirmDate] = useState('')
+  const [reconfirmTime, setReconfirmTime] = useState('')
+  const [reconfirmTz, setReconfirmTz] = useState('ET')
   const [reconfirmSending, setReconfirmSending] = useState(false)
 
   useEffect(() => {
@@ -87,6 +89,8 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
         priority_track_id: track.id,
         task_id: taskId,
         meeting_date: reconfirmDate,
+        meeting_time: reconfirmTime || null,
+        meeting_tz: reconfirmTz || null,
       })
       const updated = { task_id: taskId, status: 'Sent confirmation email', completed_date: reconfirmDate }
       setLocalProgress(p => ({ ...p, [taskId]: updated }))
@@ -290,10 +294,19 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                             : reconfirmShowDate
                               ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                                   <input type="date" value={reconfirmDate} onChange={e => setReconfirmDate(e.target.value)} style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '11px' }} />
+                                  <input type="time" value={reconfirmTime} onChange={e => setReconfirmTime(e.target.value)} style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '11px' }} />
+                                  <select value={reconfirmTz} onChange={e => setReconfirmTz(e.target.value)} style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '11px' }}>
+                                    <option value="ET">Eastern (ET)</option>
+                                    <option value="CT">Central (CT)</option>
+                                    <option value="MT">Mountain (MT)</option>
+                                    <option value="PT">Pacific (PT)</option>
+                                    <option value="AKT">Alaska (AKT)</option>
+                                    <option value="HT">Hawaii (HT)</option>
+                                  </select>
                                   <button onClick={() => sendReconfirm(task.id)} disabled={reconfirmSending || !reconfirmDate} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }}>{reconfirmSending ? '...' : 'Send'}</button>
                                   <button onClick={() => setReconfirmShowDate(false)} style={{ padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }}>Cancel</button>
                                 </div>
-                              : <button onClick={() => { setReconfirmDate(scheduledDate || ''); setReconfirmShowDate(true) }} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }}>Send confirmation email to client</button>
+                              : <button onClick={() => { setReconfirmDate(scheduledDate || ''); setReconfirmTime(track.pip_scheduled_time || ''); setReconfirmTz(track.pip_scheduled_timezone || 'ET'); setReconfirmShowDate(true) }} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }}>Send confirmation email to client</button>
                         }
                         <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? fmtDate(p.completed_date) : ''}</span>
                       </div>

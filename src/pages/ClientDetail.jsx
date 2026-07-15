@@ -97,8 +97,8 @@ export default function ClientDetail() {
     loadData()
   }, [clientId])
 
-  async function loadData() {
-    setLoading(true)
+  async function loadData(silent = false) {
+    if (!silent) setLoading(true)
     try {
       const qp = new URLSearchParams(window.location.search)
       const passedEnrollmentId = location.state?.enrollment_id || null
@@ -262,7 +262,7 @@ export default function ClientDetail() {
           <ProfileTabSkeleton sections={isMember ? 3 : 4} />
         ) : (
           <>
-            {activeTab === 'home' && <ClientHome client={client} contacts={contacts} onUpdate={loadData} sectionStyle={sectionStyle} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} program={program} />}
+            {activeTab === 'home' && <ClientHome client={client} contacts={contacts} onUpdate={() => loadData(true)} sectionStyle={sectionStyle} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} program={program} />}
             {activeTab === 'details' && !isMember && <ClientDetails client={client} contacts={contacts} onUpdate={loadData} onReloadContacts={reloadContacts} sectionStyle={sectionStyle} />}
             {activeTab === 'map1' && program && <ClientTrackViewV2 clientId={parseInt(clientId)} programId={program.id} client={client} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
             {activeTab === 'pft' && program && <PFTEngagementTrack clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
@@ -296,6 +296,7 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
   const [assignedPf, setAssignedPf] = useState(client?.assigned_pf || '')
   const [savingPf, setSavingPf] = useState(false)
   const [pfSaved, setPfSaved] = useState(false)
+  const [statusSaved, setStatusSaved] = useState(false)
 
   async function updateNote(noteId, visibility) {
     if (!editNoteText.trim()) return
@@ -330,6 +331,8 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
     setSaving(true)
     try {
       await callApi('msm_update_client', { client_id: client.id, status: newStatus, first_name: client.first_name, last_name: client.last_name, email: client.email, phone: client.phone })
+      setStatusSaved(true)
+      setTimeout(() => setStatusSaved(false), 3000)
       onUpdate()
     } catch (err) { console.error(err) }
     finally { setSaving(false) }
@@ -376,6 +379,7 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
                     <option value="pending">Pending</option>
                     <option value="lost">Lost</option>
                   </select>
+                  {statusSaved && <span style={{ color: '#1b9254', fontSize: '14px', fontWeight: '600' }}>✓ Saved!</span>}
                 </div>
             }
           </div>

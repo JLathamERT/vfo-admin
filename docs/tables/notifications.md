@@ -38,7 +38,7 @@ Self-scheduled admin reminders (Notifications page → Reminders sub-tab). Per-a
 
 ## `notification_rules` *(new 2026-07-03; deny-all RLS)*
 
-One row per notification (and per sweep reminder-email tier), edited in **Admin Portal → Automation → Notification Editor** (`NotificationEditorPanel.jsx`; actions `notification_rules_load` / `notification_rules_save`, ADMIN_ONLY + `TAB_ACTIONS.automation`). 132 rows across 10 areas (the 2 newest: `ADVISOR_extra_meeting_requested` / `ACCOUNTANT_extra_meeting_requested`, added 2026-07-14).
+One row per notification (and per sweep reminder-email tier), edited in **Admin Portal → Automation → Notification Editor** (`NotificationEditorPanel.jsx`; actions `notification_rules_load` / `notification_rules_save`, ADMIN_ONLY + `TAB_ACTIONS.automation`). 133 rows across 10 areas (newest: `TAX_returns_received` (area Uploads, FYI bell → Tim/Tracy/Tray — fires when a VFO Tax Planning client uploads their returns for the "Request Tax Returns" step, added 2026-07-15); prior: `ADVISOR_extra_meeting_requested` / `ACCOUNTANT_extra_meeting_requested`, 2026-07-14).
 
 | Column | Type | Notes |
 |---|---|---|

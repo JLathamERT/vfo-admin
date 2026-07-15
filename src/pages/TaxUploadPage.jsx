@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { fileSizeError } from '../lib/fileUpload'
+import TokenShell from '../components/shared/TokenShell'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/*,application/pdf'
@@ -55,53 +56,50 @@ export default function TaxUploadPage() {
   const card = { background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '12px', padding: '28px' }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--vfo-page)', color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif', padding: '40px 20px' }}>
-      <div style={{ maxWidth: '620px', margin: '0 auto' }}>
-        <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '-0.02em', fontSize: '26px', marginBottom: '4px' }}>VFO Portal</div>
-        <h1 style={{ fontSize: '22px', fontWeight: 600, margin: '18px 0 6px' }}>Upload Your Tax Documents</h1>
-        <p style={{ color: 'var(--vfo-muted)', fontSize: '14px', lineHeight: 1.5, marginBottom: '22px' }}>
-          Your documents are stored securely in a private, encrypted vault — only authorized VFO tax staff can open them.
-        </p>
+    <TokenShell maxWidth={600}>
+      <h1 style={{ fontSize: '22px', fontWeight: 700, margin: '0 0 6px', color: 'var(--vfo-heading)' }}>Upload Your Tax Documents</h1>
+      <p style={{ color: 'var(--vfo-muted)', fontSize: '14px', lineHeight: 1.5, marginBottom: '22px' }}>
+        Your documents are stored securely in a private, encrypted vault — only authorized VFO tax staff can open them.
+      </p>
 
-        {!token ? (
-          <div style={{ ...card, color: '#e74c3c' }}>This upload link is invalid or missing its token. Please use the link from your email.</div>
-        ) : (
-          <>
-            <label
-              onDragOver={e => { e.preventDefault(); setDrag(true) }}
-              onDragLeave={() => setDrag(false)}
-              onDrop={e => { e.preventDefault(); setDrag(false); handleFiles(e.dataTransfer.files) }}
-              style={{
-                ...card, display: 'block', textAlign: 'center', cursor: 'pointer',
-                borderStyle: 'dashed', borderColor: drag ? '#0095ff' : 'var(--vfo-border-mid)',
-                background: drag ? 'rgba(0,149,255,0.08)' : 'var(--vfo-tint)',
-              }}
-            >
-              <input type="file" multiple accept={ACCEPT} style={{ display: 'none' }}
-                onChange={e => { handleFiles(e.target.files); e.target.value = '' }} />
-              <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '6px' }}>{busy ? 'Uploading…' : 'Drop files here or click to choose'}</div>
-              <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>PDF, Word, Excel or images</div>
-            </label>
+      {!token ? (
+        <div style={{ ...card, color: '#e74c3c' }}>This upload link is invalid or missing its token. Please use the link from your email.</div>
+      ) : (
+        <>
+          <label
+            onDragOver={e => { e.preventDefault(); setDrag(true) }}
+            onDragLeave={() => setDrag(false)}
+            onDrop={e => { e.preventDefault(); setDrag(false); handleFiles(e.dataTransfer.files) }}
+            style={{
+              ...card, display: 'block', textAlign: 'center', cursor: 'pointer',
+              borderStyle: 'dashed', borderColor: drag ? '#0095ff' : 'var(--vfo-border-mid)',
+              background: drag ? 'rgba(0,149,255,0.08)' : 'var(--vfo-tint)',
+            }}
+          >
+            <input type="file" multiple accept={ACCEPT} style={{ display: 'none' }}
+              onChange={e => { handleFiles(e.target.files); e.target.value = '' }} />
+            <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '6px' }}>{busy ? 'Uploading…' : 'Drop files here or click to choose'}</div>
+            <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>PDF, Word, Excel or images</div>
+          </label>
 
-            {error && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginTop: '12px' }}>{error}</div>}
+          {error && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginTop: '12px' }}>{error}</div>}
 
-            {uploaded.length > 0 && (
-              <div style={{ marginTop: '22px' }}>
-                <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Uploaded ({uploaded.length})</div>
-                {uploaded.map((f, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'rgba(27,146,84,0.1)', border: '1px solid rgba(27,146,84,0.25)', borderRadius: '8px', marginBottom: '8px' }}>
-                    <span style={{ color: '#1b9254' }}>✓</span>
-                    <span style={{ fontSize: '13px' }}>{f.name}</span>
-                  </div>
-                ))}
-                <p style={{ color: 'var(--vfo-muted)', fontSize: '13px', marginTop: '12px' }}>
-                  Thank you — your tax documents have been received. You can close this page or add more files at any time using the same link.
-                </p>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
+          {uploaded.length > 0 && (
+            <div style={{ marginTop: '22px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Uploaded ({uploaded.length})</div>
+              {uploaded.map((f, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'rgba(27,146,84,0.1)', border: '1px solid rgba(27,146,84,0.25)', borderRadius: '8px', marginBottom: '8px' }}>
+                  <span style={{ color: '#1b9254' }}>✓</span>
+                  <span style={{ fontSize: '13px' }}>{f.name}</span>
+                </div>
+              ))}
+              <p style={{ color: 'var(--vfo-muted)', fontSize: '13px', marginTop: '12px' }}>
+                Thank you — your tax documents have been received. You can close this page or add more files at any time using the same link.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </TokenShell>
   )
 }

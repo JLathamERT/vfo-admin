@@ -743,7 +743,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
 
   const statusColors = {
     Completed: '#1b9254', Yes: '#1b9254', 'No additional info required': '#1b9254',
-    'Introductions Completed': '#1b9254', 'Combo Tax Plan': '#1b9254', 'ROI Plan': '#1b9254',
+    'Introductions Completed': '#1b9254', 'Combo Tax Plan': '#1b9254', 'ROI Plan': '#1b9254', 'Custom (See Note)': '#1b9254',
     'Continue Process': '#1b9254', 'Move to Implementation': '#1b9254', 'Refund Completed': '#1b9254',
     'Schedule Tax 3': '#1b9254', 'Paid': '#1b9254',
     'Yes - Confirmation email to client': '#1b9254', 'Yes - Confirmation email (date TBC)': '#1b9254', 'No - Declined email to client': '#e74c3c',
@@ -764,6 +764,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (!d) return ''
     const parts = d.split('-')
     return `${parts[1]}/${parts[2]}`
+  }
+  // Same MM/DD format as formatDate, but for full timestamptz values (rendered
+  // in the viewer's local time, so a late-UTC stamp shows the correct local day).
+  function formatStamp(ts) {
+    if (!ts) return ''
+    const dt = new Date(ts)
+    if (isNaN(dt.getTime())) return ''
+    return `${String(dt.getMonth() + 1).padStart(2, '0')}/${String(dt.getDate()).padStart(2, '0')}`
   }
 
   const allTasks = phases.flatMap(p => p.program_client_tasks || [])
@@ -790,6 +798,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   function isTaskStatused(t) {
     if (t.status_options === 'tax_hlm_confirm') return !!livePlan?.tax4_meeting_date
     if (t.status_options === 'tax_presentation_link') return !!livePlan?.presentation_send_date
+    if (t.status_options === 'tax_returns_request') return !!livePlan?.tax_returns_received_at
     return !!localProgress[t.id]?.status
   }
 
@@ -1142,6 +1151,64 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             <button disabled={sending} onClick={() => setDraft({ pOpen: true, link: '', date: '' })} style={tdGreen} title="Paste the presentation link and choose the date to send it. A cron job drafts the email to the member (Cc the assigned PF) early that morning.">Schedule email</button>
           )}
           <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{sendDate ? formatDate(sendDate) : ''}</span>
+        </div>
+      )
+    }
+
+    if (task.status_options === 'tax_returns_request') {
+      const requestedAt = livePlan?.tax_returns_requested_at
+      const receivedAt = livePlan?.tax_returns_received_at
+      const draft = declineDrafts[task.id] || {}
+      const sending = !!draft.sending
+      const done = !!receivedAt
+      const dotColor = done ? '#1b9254' : requestedAt ? '#0095ff' : 'transparent'
+      const dotBorder = done ? '#1b9254' : requestedAt ? '#0095ff' : 'var(--vfo-border-mid)'
+      const tdGreen = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600 }
+      async function sendRequest() {
+        setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), sending: true } }))
+        try {
+          const res = await callApi('automation_TAX_request_returns', { tax_plan_id: plan.id })
+          if (res?.error) { alert('Error: ' + res.error); setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), sending: false } })); return }
+          await refreshLivePlan()
+          setDeclineDrafts(d => { const n = { ...d }; delete n[task.id]; return n })
+        } catch (err) {
+          alert('Failed to send email: ' + (err?.message || 'unknown error'))
+          setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), sending: false } }))
+        }
+      }
+      const aiStep = (label, isGreen) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: isGreen ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${isGreen ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+          <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
+          {isGreen && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>}
+        </div>
+      )
+      return (
+        <div key={key}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, flexShrink: 0, border: `1.5px solid ${dotBorder}` }} />
+            <span style={{ fontSize: '13px', color: (done || requestedAt) ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
+            {done ? (
+              <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>Returns received — {formatStamp(receivedAt)}</span>
+            ) : readOnly ? (
+              requestedAt ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#0095ff22', color: '#0095ff', fontWeight: 600, border: '1px solid #0095ff44' }}>Email sent — {formatStamp(requestedAt)}</span> : null
+            ) : (
+              <button disabled={sending} onClick={sendRequest} style={tdGreen} title="Drafts a Gmail to the client with a secure link to upload their tax returns.">{sending ? 'Sending…' : (requestedAt ? 'Resend request email' : 'Send email to request tax returns')}</button>
+            )}
+            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{requestedAt ? formatStamp(requestedAt) : ''}</span>
+          </div>
+          {requestedAt && (
+            <div style={{ padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+                <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>AI PC Admin</span>
+              </div>
+              <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
+                {aiStep('Request email sent to client', !!requestedAt)}
+                {aiStep('Tax returns received', !!receivedAt)}
+              </div>
+            </div>
+          )}
         </div>
       )
     }
@@ -1818,6 +1885,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           if (t.status_options === 'tax_hlm_confirm') return !!livePlan?.tax4_meeting_date
           // tax_presentation_link writes to client_tax_plans (scheduled or sent), not client_tax_progress
           if (t.status_options === 'tax_presentation_link') return !!livePlan?.presentation_send_date
+          // tax_returns_request writes to client_tax_plans (received), not client_tax_progress
+          if (t.status_options === 'tax_returns_request') return !!livePlan?.tax_returns_received_at
           return !!localProgress[t.id]?.status
         }).length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
@@ -1958,6 +2027,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           if (t.status_options === 'tax_hlm_confirm') return !!livePlan?.tax4_meeting_date
           // tax_presentation_link writes to client_tax_plans (scheduled or sent), not client_tax_progress
           if (t.status_options === 'tax_presentation_link') return !!livePlan?.presentation_send_date
+          // tax_returns_request writes to client_tax_plans (received), not client_tax_progress
+          if (t.status_options === 'tax_returns_request') return !!livePlan?.tax_returns_received_at
           return !!localProgress[t.id]?.status
         }).length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
