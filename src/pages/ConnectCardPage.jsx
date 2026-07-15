@@ -16,6 +16,7 @@ export default function ConnectCardPage() {
   const [status, setStatus] = useState('loading') // loading | ready | error | redirecting
   const [error, setError] = useState('')
   const [data, setData] = useState(null)
+  const [hoveredOption, setHoveredOption] = useState(null)
 
   useEffect(() => {
     if (!token) { setError('This setup link is invalid.'); setStatus('error'); return }
@@ -73,6 +74,13 @@ export default function ConnectCardPage() {
   )
 
   const done = justDone || data?.done
+  const amountRow = data?.amount != null
+    ? [
+        { label: `VFO Services payment${data?.amount_label ? ` (${data.amount_label})` : ''}`, value: `$${formatMoney(data.amount)}`, valueColor: 'var(--vfo-ink-2)' },
+        { label: 'Processing Fee', value: '$0.00', valueColor: '#16a34a' },
+      ]
+    : []
+
   return (
     <TokenShell maxWidth={540}>
       <div style={{ width: '100%' }}>
@@ -87,13 +95,38 @@ export default function ConnectCardPage() {
           </div>
         ) : (
           <>
+            <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '12px' }}>Choose your preferred payment method</p>
             <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '20px', fontSize: '13px', color: 'var(--vfo-muted)' }}>
               Add the card or bank account for your VFO Services payments. There is no charge for setting this up.
             </p>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
-              <button style={choiceBtn} onClick={() => choose('card')}>Use a Card</button>
-              <button style={{ ...choiceBtn, background: 'var(--vfo-card)', color: '#125ecc', border: '1.5px solid #125ecc' }} onClick={() => choose('ach')}>Use a Bank Account</button>
-            </div>
+
+            <OptionCard
+              isHovered={hoveredOption === 'ach'}
+              onHover={() => setHoveredOption('ach')}
+              onLeave={() => setHoveredOption(null)}
+              onClick={() => choose('ach')}
+              title="ACH Bank Transfer"
+              badgeText="No Fee"
+              badgeClass="green"
+              amount={data?.amount}
+              breakdown={amountRow}
+              footer="Funds transfer directly from your bank account. Takes 2-4 business days to process."
+            />
+
+            <div style={dividerStyle}>— or —</div>
+
+            <OptionCard
+              isHovered={hoveredOption === 'card'}
+              onHover={() => setHoveredOption('card')}
+              onLeave={() => setHoveredOption(null)}
+              onClick={() => choose('card')}
+              title="Credit / Debit Card"
+              badgeText="No Fee"
+              badgeClass="green"
+              amount={data?.amount}
+              breakdown={amountRow}
+              footer="Processes immediately. No card processing fee applies."
+            />
           </>
         )}
 
@@ -106,13 +139,116 @@ export default function ConnectCardPage() {
   )
 }
 
+function OptionCard({ isHovered, onHover, onLeave, onClick, title, badgeText, badgeClass, amount, breakdown, footer }) {
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={onHover}
+      onMouseLeave={onLeave}
+      style={{
+        ...optionCardStyle,
+        borderColor: isHovered ? '#0095ff' : 'var(--vfo-border)',
+        background: isHovered ? 'rgba(0,149,255,0.05)' : 'transparent',
+      }}
+    >
+      <div style={optionHeaderStyle}>
+        <span style={optionTitleStyle}>{title}</span>
+        <span style={{ ...optionBadgeBaseStyle, ...badgeStyles[badgeClass] }}>{badgeText}</span>
+      </div>
+      {amount != null && (
+        <div style={optionAmountStyle}>${formatMoney(amount)}</div>
+      )}
+      {breakdown.length > 0 && (
+        <div style={{ marginBottom: '16px' }}>
+          {breakdown.map((row, i) => (
+            <div key={i} style={optionDetailRowStyle}>
+              <span style={{ color: 'var(--vfo-muted)' }}>{row.label}</span>
+              <span style={{ color: row.valueColor, fontWeight: 600 }}>{row.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={optionFooterStyle}>{footer}</div>
+    </div>
+  )
+}
+
+function formatMoney(n) {
+  return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 const centerMuted = { color: 'var(--vfo-muted)', fontSize: '15px', textAlign: 'center', margin: 0 }
 const titleStyle = { fontSize: '24px', fontWeight: 700, color: 'var(--vfo-ink)', marginBottom: '12px' }
 const subtitleStyle = { fontSize: '14px', color: 'var(--vfo-muted)', margin: 0 }
-const choiceBtn = {
-  background: '#125ecc', color: '#fff', border: '1.5px solid #125ecc', borderRadius: '10px',
-  padding: '10px 18px', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+
+const optionCardStyle = {
+  border: '2px solid var(--vfo-border)',
+  borderRadius: '16px',
+  padding: '28px',
+  marginBottom: '16px',
+  cursor: 'pointer',
+  transition: 'all 0.2s',
 }
+
+const optionHeaderStyle = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: '16px',
+}
+
+const optionTitleStyle = {
+  fontSize: '16px',
+  fontWeight: 700,
+  color: 'var(--vfo-ink)',
+}
+
+const optionBadgeBaseStyle = {
+  fontSize: '11px',
+  fontWeight: 600,
+  padding: '4px 10px',
+  borderRadius: '20px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+}
+
+const badgeStyles = {
+  green: { background: 'rgba(34,197,94,0.15)', color: '#16a34a' },
+  blue: { background: 'rgba(0,149,255,0.15)', color: '#0095ff' },
+}
+
+const optionAmountStyle = {
+  fontSize: '28px',
+  fontWeight: 700,
+  color: 'var(--vfo-ink)',
+  marginBottom: '16px',
+}
+
+const optionDetailRowStyle = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  padding: '4px 0',
+  fontSize: '13px',
+}
+
+const optionFooterStyle = {
+  fontSize: '12px',
+  color: 'var(--vfo-muted)',
+  marginTop: '12px',
+  paddingTop: '12px',
+  borderTop: '1px solid var(--vfo-border-soft)',
+}
+
+const dividerStyle = {
+  textAlign: 'center',
+  color: 'var(--vfo-muted)',
+  fontSize: '12px',
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '1px',
+  margin: '8px 0',
+}
+
 const securityNote = {
   textAlign: 'center', color: 'var(--vfo-muted)', fontSize: '12px', marginTop: '24px', lineHeight: 1.6,
 }

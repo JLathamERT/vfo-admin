@@ -93,7 +93,8 @@ Set by `automation_PCADMIN_pricing` ([PFPricingForm.jsx:19](src/components/admin
 | `stripe_customer_id` | text | **Stripe integration field.** Created by `automation_CONTRACT_stripecustomer`. |
 | `checkout_token` | text | One-time token used in `/pay?token=...` link. |
 | `payment_method_type` | text | `"card"` / `"ach"` / `"check"`. `check` set by `automation_CONTRACT_paidbycheck`; card/ach set by the Stripe webhook handler. |
-| `card_processing_fee` | text | Computed when `payment_method_type='card'`. NULL for check/ach. |
+| `card_processing_fee` | text | Computed when `payment_method_type='card'`. NULL for check/ach. 0 for card when `card_fee_waived=true`. |
+| `card_fee_waived` | boolean | **2026-07-15.** Payment-continuation setup-link clients pay no card fee — suppresses the 2.9%+$0.30 gross-up in the chargescheduled sweep, the card_update webhook fee recompute, and the Payments-tab display. ONLY writer: `migration_backfill_map1` (`stripe_mode='setup_link'`). |
 | `pay1_email_sent_at` | timestamptz | **Reminder-ladder timer base.** Written `now()` by `automation_CONTRACT_paymentemail` after the Gmail draft of the `/pay?token=...` link is queued. Drives the 48h payment reminder + 96h PF notification fired by `automation_CONTRACT_revshare_sweep`. |
 | `pay1_reminder_sent_at` | timestamptz | Idempotency guard for the 48h "payment link still not paid" client reminder. |
 | `pay1_pf_notified_at` | timestamptz | Idempotency guard for the 96h PF "client hasn't paid the first payment" admin notification. |

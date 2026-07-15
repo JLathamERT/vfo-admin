@@ -150,7 +150,7 @@ export default function PaymentContinuationTab({ clientId, client }) {
           </Field>
         </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <ModeChip active={stripeMode === 'existing'} onClick={() => { setStripeMode('existing'); resetOutputs() }} title="Client is on Stripe" sub="Enter their cus_ id — we reference the saved card." />
+          <ModeChip active={stripeMode === 'existing'} onClick={() => { setStripeMode('existing'); resetOutputs() }} title="Client is on Stripe" sub="Enter their cus_ id — we reference the saved payment method." />
           <ModeChip active={stripeMode === 'setup_link'} onClick={() => { setStripeMode('setup_link'); resetOutputs() }} title="Not on Stripe — send setup link" sub="QBO etc. Save + email a link to add a card." />
         </div>
       </div>
@@ -247,7 +247,7 @@ export default function PaymentContinuationTab({ clientId, client }) {
           <>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <Field label="Stripe customer ID (cus_…)"><input value={custId} onChange={e => { setCustId(e.target.value); setLookup(null); setChosenPm(null) }} style={inputStyle} placeholder="cus_…" /></Field>
-              <button onClick={doLookup} disabled={lookingUp || !custId.trim().startsWith('cus_')} style={primaryBtn(lookingUp || !custId.trim().startsWith('cus_'))}>{lookingUp ? 'Looking up…' : 'Look up card'}</button>
+              <button onClick={doLookup} disabled={lookingUp || !custId.trim().startsWith('cus_')} style={primaryBtn(lookingUp || !custId.trim().startsWith('cus_'))}>{lookingUp ? 'Looking up…' : 'Look up payment method'}</button>
             </div>
             {lookupErr && <p style={{ color: '#e74c3c', fontSize: '13px', marginTop: '10px' }}>{lookupErr}</p>}
             {lookup && (
@@ -269,7 +269,7 @@ export default function PaymentContinuationTab({ clientId, client }) {
           </>
         ) : (
           <p style={{ fontSize: '14px', color: 'var(--vfo-muted)', margin: 0 }}>
-            On save, a Stripe customer is created and a secure setup link is emailed to <strong>{client?.email || 'the client'}</strong>. Once they add a card or bank, the engine starts charging automatically (card → fee added; bank → fee-free).
+            On save, a Stripe customer is created and a secure setup link is emailed to <strong>{client?.email || 'the client'}</strong>. Once they add a card or bank, the engine starts charging automatically. Setup-link clients pay NO card processing fee — card and bank cost the same (VFO absorbs the fee).
           </p>
         )}
       </div>
@@ -279,7 +279,7 @@ export default function PaymentContinuationTab({ clientId, client }) {
         <button onClick={() => run(true)} disabled={busy || !sumOk} style={ghostBtn}>{busy ? 'Working…' : 'Preview'}</button>
         <button onClick={() => run(false)} disabled={saveDisabled} style={primaryBtn(saveDisabled)}>{busy ? 'Working…' : (stripeMode === 'setup_link' ? 'Save & send setup link' : 'Save')}</button>
         {!sumOk && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Enter member + VFO share (dollars) that sum to the total.</span>}
-        {sumOk && stripeMode === 'existing' && !chosenPm && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Look up + pick a card to enable Save.</span>}
+        {sumOk && stripeMode === 'existing' && !chosenPm && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Look up + pick a payment method to enable Save.</span>}
       </div>
 
       {err && <div style={{ ...sectionStyle, border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.05)', color: '#c0392b', fontSize: '14px' }}>{err}</div>}
@@ -302,7 +302,7 @@ export default function PaymentContinuationTab({ clientId, client }) {
           {result.linkResult?.sent && <p style={{ fontSize: '14px', color: 'var(--vfo-ink)', margin: '4px 0' }}>Setup link drafted to <strong>{result.linkResult.to_email}</strong>{result.linkResult.sandbox ? ' (sandbox)' : ''}. Send it from Gmail Drafts.</p>}
           {result.linkResult && !result.linkResult.sent && <p style={{ fontSize: '14px', color: '#e74c3c', margin: '4px 0' }}>Row saved, but setup link failed: {result.linkResult.error || 'unknown'}</p>}
           {(result.warnings || []).map((w, i) => <p key={i} style={{ fontSize: '13px', color: '#e06717', margin: '4px 0' }}>• {w}</p>)}
-          {stripeMode === 'existing' && <p style={{ fontSize: '13px', color: 'var(--vfo-muted)', margin: '6px 0 0' }}>The engine will charge the remaining {isMap1 ? 'installments on their dates' : 'implementation via the Tax 5 step'} against the saved card.</p>}
+          {stripeMode === 'existing' && <p style={{ fontSize: '13px', color: 'var(--vfo-muted)', margin: '6px 0 0' }}>The engine will charge the remaining {isMap1 ? 'installments on their dates' : 'implementation via the Tax 5 step'} against the saved payment method.</p>}
         </div>
       )}
     </div>
