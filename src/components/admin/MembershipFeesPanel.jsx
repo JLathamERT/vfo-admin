@@ -179,6 +179,7 @@ export default function MembershipFeesPanel({ title, category, allMembers = [] }
   const [error, setError] = useState('')
   const [editPlan, setEditPlan] = useState(null)
   const [sandboxConfig, setSandboxConfig] = useState(null)
+  const [notice, setNotice] = useState(null)
 
   useEffect(() => { load() }, [category])
 
@@ -220,12 +221,23 @@ export default function MembershipFeesPanel({ title, category, allMembers = [] }
 
       <div style={{ display: 'flex', gap: '8px', marginBottom: '18px', flexWrap: 'wrap' }}>
         {pills.map(p => (
-          <button key={p.key} type="button" onClick={() => { setSection(p.key); if (p.key !== 'setup') setEditPlan(null) }}
+          <button key={p.key} type="button" onClick={() => { setSection(p.key); setNotice(null); if (p.key !== 'setup') setEditPlan(null) }}
             style={{ padding: '8px 16px', borderRadius: '99px', border: '1px solid ' + (section === p.key ? 'transparent' : 'var(--vfo-border-strong)'), background: section === p.key ? `linear-gradient(90deg, ${NAVY} 0%, ${BLUE} 100%)` : 'var(--vfo-card)', color: section === p.key ? '#fff' : 'var(--vfo-ink-2)', fontWeight: 700, fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
             {p.label}
           </button>
         ))}
       </div>
+
+      {notice && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '12.5px', padding: '8px 12px', borderRadius: '8px', marginBottom: '14px', wordBreak: 'break-all',
+          color: notice.tone === 'success' ? '#166534' : notice.tone === 'amber' ? '#b45309' : '#b91c1c',
+          border: `1px solid ${notice.tone === 'success' ? '#bbf7d0' : notice.tone === 'amber' ? '#fde68a' : '#fecaca'}`,
+          background: notice.tone === 'success' ? '#f0fdf4' : notice.tone === 'amber' ? '#fffbeb' : '#fef2f2' }}>
+          <span style={{ flex: 1, minWidth: 0 }}>{notice.text}</span>
+          <button type="button" onClick={() => setNotice(null)}
+            style={{ flexShrink: 0, background: 'none', border: 'none', padding: 0, fontSize: '12.5px', fontWeight: 700, color: 'inherit', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Dismiss</button>
+        </div>
+      )}
 
       {loading && <OnboardingListSkeleton rows={3} />}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>{error}</div>}
@@ -235,7 +247,7 @@ export default function MembershipFeesPanel({ title, category, allMembers = [] }
       )}
       {!loading && !error && section === 'setup' && (
         <SetupSection key={editPlan?.id || 'new'} category={category} allMembers={allMembers} plans={plans} editPlan={editPlan}
-          onSaved={() => { setEditPlan(null); setSection('members'); load() }} />
+          onSaved={(n) => { setEditPlan(null); setSection('members'); load(); setNotice(n || null) }} />
       )}
       {!loading && !error && section === 'outstanding' && (
         <OutstandingSection plans={plans} />
@@ -622,8 +634,18 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
         credit_note_memo: creditMemo || undefined,
         renewal_date: isTransfer ? transferRenewal : undefined,
       })
-      if (res?.ok) onSaved?.()
-      else setMsg({ tone: 'error', text: res?.error || 'Could not save the plan.' })
+      if (!res?.ok) { setMsg({ tone: 'error', text: res?.error || 'Could not save the plan.' }); return }
+      if (editPlan) { onSaved?.({ tone: 'success', text: 'Plan updated.' }); return }
+      // Create: the plan now exists, so email failure is reported but never
+      // reverts the save.
+      try {
+        const link = await callApi('membership_send_setup_link', { plan_id: res.plan_id })
+        if (link?.email_skipped) onSaved?.({ tone: 'amber', text: `Plan created — link ready, but the email template isn't seeded yet — send it manually: ${link.setup_link}` })
+        else if (link?.ok) onSaved?.({ tone: 'success', text: `Plan created — setup email drafted for ${link.to_email}.` })
+        else onSaved?.({ tone: 'amber', text: `Plan created, but the setup email failed: ${link?.error || 'unknown error'}. Use "Send setup link" on their plan card to retry.` })
+      } catch (e) {
+        onSaved?.({ tone: 'amber', text: `Plan created, but the setup email failed: ${e?.message || 'unknown error'}. Use "Send setup link" on their plan card to retry.` })
+      }
     } catch (e) {
       setMsg({ tone: 'error', text: e?.message || 'Could not save the plan.' })
     } finally {
@@ -730,7 +752,7 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
         <button type="button" disabled={busy} onClick={save} style={{ ...primaryBtn(busy), padding: '10px 22px' }}>
           {busy ? 'Saving…' : (editPlan ? 'Save changes' : 'Create membership plan')}
         </button>
-        <span style={{ fontSize: '12px', color: 'var(--vfo-faint)' }}>Then send the payment setup link from the Members list — Legacy members pay no card fee; New Model card payments add the standard processing fee.</span>
+        <span style={{ fontSize: '12px', color: 'var(--vfo-faint)' }}>Creating the plan also emails the member their payment setup link (resend anytime from the Members list). Legacy members pay no card fee; New Model card payments add the standard processing fee.</span>
       </div>
       {msg && <div style={{ marginTop: '10px', fontSize: '12.5px', padding: '8px 12px', borderRadius: '8px', color: msg.tone === 'error' ? '#b91c1c' : '#166534', border: `1px solid ${msg.tone === 'error' ? '#fecaca' : '#bbf7d0'}`, background: msg.tone === 'error' ? '#fef2f2' : '#f0fdf4' }}>{msg.text}</div>}
     </div>
