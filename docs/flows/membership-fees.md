@@ -49,6 +49,10 @@
 2. **Setup link** — `membership_send_setup_link`: find-or-create Stripe customer (mode-matched via
    `plan.sandbox`), mints `setup_token`, drafts `MEMBERSHIP_setup_link` or
    `MEMBERSHIP_transfer_setup_link` (pipeline `MEMBER_MEMBERSHIP_FEES`, Draft/Send toggle).
+   Since 2026-07-15 the Set Up Payments form auto-chains this client-side right after a
+   successful CREATE (`plan_save` returns `plan_id`; an email failure never rolls back the
+   plan — it surfaces as an amber notice pointing at the card's "Send setup link" resend
+   button, which remains the retry path; edits don't auto-send).
 3. **/membership-pay** (`src/pages/MembershipPayPage.jsx`, PUBLIC token) — `membership_setup_load`
    + `membership_setup_checkout`: mode=payment Checkout charging the first pull with
    `setup_future_usage=off_session` (save-only variants use mode=setup). Metadata on session AND
@@ -67,7 +71,9 @@
    routed by membership metadata) covering ACH pulls + termination fees.
 6. **Reconciliation UI** — the Members section renders the ledger per member (green paid rows with
    payment id + method, red missed with the Stripe decline reason, waived, per-membership-year
-   selector once renewals accumulate, totals row). Outstanding lists overdue/missed by member.
+   selector once renewals accumulate, totals row). Outstanding lists overdue/missed by member,
+   with a per-row "Send reminder email" button (`membership_send_reminder`, added Phase 4
+   2026-07-15) that re-sends the failed-payment email on demand for the member's full arrears.
 
 ## Data
 
@@ -85,8 +91,6 @@
 
 ## NOT built yet (next work)
 
-- **Phase 4**: the Outstanding section's "Send reminder email" button (currently disabled) —
-  planned `membership_send_reminder` re-sending the failed-payment email for current arrears.
 - Membership invoice/receipt PDFs (never requested); per-row itemization of the card gross-up
   (the charge is grossed up; the ledger shows face value).
 - Go-live steps: frontend deploy (ships `/membership-pay` — REQUIRED before real setup links go
