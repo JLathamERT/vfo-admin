@@ -666,7 +666,7 @@ All SUPERADMIN, read-only except the two continuation actions. The reporting loa
 | `member_onboarding_payments_load` | `actions/holistic/member-onboarding-load.ts` | SUPERADMIN | Onboarding fee (`payment_amount`) from `advisor_onboarding` / `accountant_onboarding` (body.kind). |
 | `pip_additional_load` | `actions/holistic/pip-load.ts` | SUPERADMIN | Additional-PIP purchases from `client_priority_tracks` (splits stored on the row) for Additional PIP Revenue + Reconciliation. |
 
-Also (no new action): the license `invoice.paid` webhook block uses an atomic invoice-id claim (gotcha #161); `automation_SPECIALIST_licinvoicereceipt` appends to `specialist_license_payments`; `migration_send_setup_link` reads the client setup-link copy from the `CLIENT_PAYMENT_CONTINUATION`/`setup_link` template; `loadOnboardings` / `automation_load_specialist_pipelines` / the specialist sweep exclude `license_continuation=true` rows.
+Also (no new action): the license `invoice.paid` webhook block uses an atomic invoice-id claim (gotcha #161); `automation_SPECIALIST_licinvoicereceipt` appends to `specialist_license_payments`; `migration_send_setup_link` reads the client setup-link copy from the `CLIENT_PAYMENT_CONTINUATION`/`setup_link` template (2026-07-15 late: body gained a `[PAYMENT_SCHEDULE]` token — handler-built block: MAP 1 = table of unpaid installments (long date + flat per-quarter amount), TAX = single implementation-fee line, omitted when nothing upcoming; the security sentence is now 12px fine print); `loadOnboardings` / `automation_load_specialist_pipelines` / the specialist sweep exclude `license_continuation=true` rows.
 
 ---
 
