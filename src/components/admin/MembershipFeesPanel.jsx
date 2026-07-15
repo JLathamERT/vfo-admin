@@ -764,25 +764,56 @@ function OutstandingSection({ plans }) {
   return (
     <div>
       {groups.map(({ plan, overdue, total }) => (
-        <div key={plan.id} style={{ ...card, marginBottom: '10px', padding: '14px 18px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)' }}>{plan.member_name || plan.member_number}</div>
-              <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>
-                {plan.member_number} · {overdue.length} overdue payment{overdue.length === 1 ? '' : 's'}: {overdue.map(r => r.period_label).join(', ')}
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#ef4444' }}>{money(total)}</div>
-              <div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>owed</div>
-            </div>
-            <button type="button" disabled title="Missed-payment emails are wired up in a later phase of this build"
-              style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-faint)', fontWeight: 700, fontSize: '13px', cursor: 'not-allowed', fontFamily: 'Inter, sans-serif' }}>
-              Send reminder email
-            </button>
+        <OutstandingRow key={plan.id} plan={plan} overdue={overdue} total={total} />
+      ))}
+    </div>
+  )
+}
+
+// One outstanding plan. Its own state so the reminder button can show progress
+// per row (hooks can't live inside the .map above). Rows whose overdue payments
+// are all still 'scheduled' (not yet swept) are rejected by the backend — we
+// don't gate client-side, just surface that message.
+function OutstandingRow({ plan, overdue, total }) {
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+
+  async function sendReminder() {
+    setBusy(true); setMsg(null)
+    try {
+      const res = await callApi('membership_send_reminder', { plan_id: plan.id })
+      if (res?.ok) setMsg({ tone: 'success', text: `Reminder email created for ${res.to_email}.` })
+      else setMsg({ tone: 'error', text: res?.error || 'Could not send the reminder.' })
+    } catch (e) {
+      setMsg({ tone: 'error', text: e?.message || 'Could not send the reminder.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div style={{ ...card, marginBottom: '10px', padding: '14px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)' }}>{plan.member_name || plan.member_number}</div>
+          <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>
+            {plan.member_number} · {overdue.length} overdue payment{overdue.length === 1 ? '' : 's'}: {overdue.map(r => r.period_label).join(', ')}
           </div>
         </div>
-      ))}
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: '#ef4444' }}>{money(total)}</div>
+          <div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>owed</div>
+        </div>
+        <button type="button" disabled={busy} onClick={sendReminder} style={primaryBtn(busy)}>
+          {busy ? 'Sending…' : 'Send reminder email'}
+        </button>
+      </div>
+      {msg && (
+        <div style={{ marginTop: '10px', fontSize: '12.5px', padding: '8px 12px', borderRadius: '8px', wordBreak: 'break-all',
+          color: msg.tone === 'success' ? '#166534' : msg.tone === 'amber' ? '#b45309' : '#b91c1c',
+          border: `1px solid ${msg.tone === 'success' ? '#bbf7d0' : msg.tone === 'amber' ? '#fde68a' : '#fecaca'}`,
+          background: msg.tone === 'success' ? '#f0fdf4' : msg.tone === 'amber' ? '#fffbeb' : '#fef2f2' }}>{msg.text}</div>
+      )}
     </div>
   )
 }
