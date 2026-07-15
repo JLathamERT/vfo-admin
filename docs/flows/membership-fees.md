@@ -67,7 +67,9 @@
    routed by membership metadata) covering ACH pulls + termination fees.
 6. **Reconciliation UI** — the Members section renders the ledger per member (green paid rows with
    payment id + method, red missed with the Stripe decline reason, waived, per-membership-year
-   selector once renewals accumulate, totals row). Outstanding lists overdue/missed by member.
+   selector once renewals accumulate, totals row). Outstanding lists overdue/missed by member,
+   with a per-row "Send reminder email" button (`membership_send_reminder`, added Phase 4
+   2026-07-15) that re-sends the failed-payment email on demand for the member's full arrears.
 
 ## Data
 
@@ -85,8 +87,6 @@
 
 ## NOT built yet (next work)
 
-- **Phase 4**: the Outstanding section's "Send reminder email" button (currently disabled) —
-  planned `membership_send_reminder` re-sending the failed-payment email for current arrears.
 - Membership invoice/receipt PDFs (never requested); per-row itemization of the card gross-up
   (the charge is grossed up; the ledger shows face value).
 - Go-live steps: frontend deploy (ships `/membership-pay` — REQUIRED before real setup links go
