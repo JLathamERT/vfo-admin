@@ -263,7 +263,6 @@ function ExpandedRow({ row, onRefresh }) {
           <>
             <Detail l="Charge status" v={row.implementation_charge_status} />
             <Detail l="Charged" v={fmtDate(row.implementation_charge_date)} />
-            <Detail l="Confirmation status" v={row.implementation_confirmation_status} />
             <Detail l="Receipt #" v={row.implementation_receipt_number} mono />
             <Detail l="Receipt status" v={row.implementation_receipt_status} />
           </>
