@@ -30,7 +30,7 @@ Triggered by presence of the `stripe-signature` header. Always returns before re
 
 ### Step 1 — Dispatch by event type
 
-The handler `if`-checks `event.type === "checkout.session.completed"` and `event.type === "payment_intent.succeeded"`. Other event types are ignored (200 OK with `{received: true}`).
+The handler `if`-checks `event.type === "checkout.session.completed"` and `event.type === "payment_intent.succeeded"` (Branches A/B below). It ALSO handles a set of failure/lifecycle events (`payment_intent.payment_failed`, `checkout.session.async_payment_failed`, subscription/dispute/refund/transfer events — see [SESSION_REFERENCE.md](../SESSION_REFERENCE.md) "Failure-event handling"), including the v612 late-ACH off-session branches described in **Branch C** below. All other event types are ignored (200 OK with `{received: true}`).
 
 ---
 
@@ -101,7 +101,7 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
 3. **Chains** `automation_CONTRACT_invoicereceipt` for that payment number.
 4. **Chains** `automation_CONTRACT_revshare` for that payment number.
 
-> **How payments 2-4 are created:** `automation_CONTRACT_chargescheduled_sweep` (PUBLIC, service-role gated) is invoked by a daily `pg_cron` job at 03:00 UTC. It scans `pipeline_map1` for due-but-unpaid quarterly payments, lists saved payment methods on the Stripe customer, and POSTs to `/v1/payment_intents` with `confirm=true off_session=true metadata.payment_number=N` and an `Idempotency-Key` derived from `client_id + N + UTC date`. The resulting `payment_intent.succeeded` is what this webhook branch handles. See [contract-and-payment.md](contract-and-payment.md) Step 10½ and [05-api-action-catalog.md](../architecture/05-api-action-catalog.md#public-token-automation-public_handlers-in-routerdispatchts).
+> **How payments 2-4 are created:** `automation_CONTRACT_chargescheduled_sweep` (PUBLIC, service-role gated) is invoked by a daily `pg_cron` job at 03:00 UTC. It scans `pipeline_map1` for due-but-unpaid quarterly payments, lists saved payment methods on the Stripe customer, and POSTs to `/v1/payment_intents` with `confirm=true off_session=true metadata.payment_number=N` and a **LOGICAL, date-less** `Idempotency-Key: chargescheduled-{client_id}-P{N}` (v612 — the old date suffix let a lost post-charge status write double-charge; gotcha #228). The resulting `payment_intent.succeeded` is what this webhook branch handles. See [contract-and-payment.md](contract-and-payment.md) Step 10½ and [05-api-action-catalog.md](../architecture/05-api-action-catalog.md#public-token-automation-public_handlers-in-routerdispatchts).
 
 ### Sub-branch B2 — ACH first-payment cleared
 
@@ -111,6 +111,17 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
 1. UPDATEs `pay1_status='succeeded'`.
 2. **Chains** `automation_CONTRACT_invoicereceipt` for payment 1.
 3. **Chains** `automation_CONTRACT_revshare` for payment 1.
+
+---
+
+## Branch C — `payment_intent.payment_failed` (late-ACH off-session, v612)
+
+An off-session charge (a swept quarterly installment or a Tax implementation charge) paid by **ACH** returns `processing` at creation and can **bounce days later**. The old blanket rationale ("payment_intent.payment_failed skips off-session installments because the sweeps alert synchronously") is CARD-ONLY; the late ACH failure was being dropped, stranding the row in `processing` forever. v612 adds two additive branches, each keyed on a `'processing'` status guard so a card sync-decline the sweep already handled is not double-alerted (gotcha #229):
+
+- **MAP1 installment** — `metadata.payment_number` ∈ {2,3,4}, row by `stripe_customer_id`, acts ONLY when `pay{N}_status === 'processing'`: flips it to `declined` + `notifyByRule MAP1_installment_charge_failed` + `notifyJakeFailure FAILURE_map1_installment_charge` + drafts the client `/pay` email via the shared `utils/map1-installment-failure.ts` (bell text conditional on `checkout_token`).
+- **TAX implementation** — `metadata.payment_kind === 'implementation'`, acts ONLY when `implementation_charge_status === 'processing'`: flips it to `declined` + `notifyByRule TAX_impl_charge_failed` + `notifyJakeFailure FAILURE_tax_implementation_charge` (status + alerts only, no email — admin re-sends via Tax 5).
+
+The rule keys deliberately reuse the synchronous sweep paths'. See [SESSION_REFERENCE.md](../SESSION_REFERENCE.md) "Failure-event handling" for the full failure-event roster.
 
 ---
 
