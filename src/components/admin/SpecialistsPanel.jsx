@@ -60,20 +60,42 @@ function pickShared(e) {
   })
   return s
 }
-// Reconstruct the per-ecosystem content map for a profile. Prefer the stored
-// ecosystem_content; fall back (legacy rows) to the top-level columns as the
-// first ecosystem's content.
-function contentMapFor(e, ecos) {
-  const map = {}
-  const stored = e && e.ecosystem_content && typeof e.ecosystem_content === 'object' ? e.ecosystem_content : null
+function pickContent(item) {
+  const c = {}
+  CONTENT_KEYS.forEach(k => { if (item[k] != null) c[k] = item[k] })
+  return c
+}
+// Reconstruct the ORDERED list of ecosystem entries for a profile. A specialist
+// can have MULTIPLE entries in the SAME ecosystem (e.g. three Tax Planning
+// write-ups), so content is an ordered array — each entry carries its own
+// ecosystem + short_bio + non-tax D&B_* block:
+//   ecosystem_content = [ { ecosystem, short_bio, "D&B_..." }, ... ]
+// Back-compat: a legacy OBJECT ({ "<eco>": {content} }) becomes one entry per
+// assigned ecosystem; a NULL (oldest rows) becomes the flat columns as the first
+// ecosystem's content.
+function entriesFor(e, ecosNames) {
+  const stored = e && e.ecosystem_content
+  if (Array.isArray(stored)) {
+    return stored
+      .filter(item => item && item.ecosystem)
+      .map(item => ({ eco: item.ecosystem, content: { ...blankContent(), ...pickContent(item) } }))
+  }
+  const names = uniqueEcos(ecosNames)
+  if (stored && typeof stored === 'object') {
+    return names.map(eco => ({ eco, content: { ...blankContent(), ...(stored[eco] || {}) } }))
+  }
   const legacy = {}
   CONTENT_KEYS.forEach(k => { legacy[k] = e[k] || '' })
-  ecos.forEach((eco, i) => {
-    if (stored && stored[eco]) map[eco] = { ...blankContent(), ...stored[eco] }
-    else if (!stored && i === 0) map[eco] = legacy
-    else map[eco] = blankContent()
-  })
-  return map
+  return names.map((eco, i) => ({ eco, content: i === 0 ? { ...blankContent(), ...legacy } : blankContent() }))
+}
+// Chip/section label for an entry: bare ecosystem name, or "<eco> #n" when the
+// profile has more than one entry in that same ecosystem.
+function entryLabel(entries, idx) {
+  const eco = entries[idx].eco
+  const same = entries.filter(en => en.eco === eco)
+  if (same.length <= 1) return eco
+  const n = entries.slice(0, idx + 1).filter(en => en.eco === eco).length
+  return `${eco} #${n}`
 }
 
 export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, section }) {
@@ -97,15 +119,13 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
 
   // Add form state — shared identity + selected ecosystems + per-ecosystem content.
   const [addShared, setAddShared] = useState(blankShared())
-  const [addEcos, setAddEcos] = useState([])
-  const [addContent, setAddContent] = useState({}) // { [ecosystem]: { short_bio, D&B_* } }
+  const [addEntries, setAddEntries] = useState([]) // [ { eco, content:{ short_bio, D&B_* } }, ... ] — repeats of an ecosystem allowed
   const [addFile, setAddFile] = useState(null)
   const [addPreview, setAddPreview] = useState(null)
 
   // Edit form state
   const [editShared, setEditShared] = useState(blankShared())
-  const [editEcos, setEditEcos] = useState([])
-  const [editContent, setEditContent] = useState({})
+  const [editEntries, setEditEntries] = useState([])
   const [editFile, setEditFile] = useState(null)
   const [editPreview, setEditPreview] = useState(null)
   const [editSearch, setEditSearch] = useState('')
@@ -141,7 +161,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
 
   function clearAddForm() {
     setAddShared(blankShared())
-    setAddEcos([]); setAddContent({})
+    setAddEntries([])
     setAddFile(null); setAddPreview(null)
   }
 
@@ -149,8 +169,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
     const ecos = uniqueEcos(ecoMap[expert.id])
     setEditingId(expert.id)
     setEditShared(pickShared(expert))
-    setEditEcos(ecos)
-    setEditContent(contentMapFor(expert, ecos))
+    setEditEntries(entriesFor(expert, ecos))
     setEditFile(null)
     setEditPreview(expert.headshot_image ? HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image) : null)
     setSelectedExpert(expert)
@@ -183,35 +202,40 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
   }
 
   const sharedSetter = which => which === 'add' ? setAddShared : setEditShared
-  const contentSetter = which => which === 'add' ? setAddContent : setEditContent
-  const ecosSetter = which => which === 'add' ? setAddEcos : setEditEcos
+  const entriesSetter = which => which === 'add' ? setAddEntries : setEditEntries
 
-  function setContentField(which, eco, key, value) {
-    contentSetter(which)(prev => ({ ...prev, [eco]: { ...(prev[eco] || blankContent()), [key]: value } }))
+  function setEntryField(which, idx, key, value) {
+    entriesSetter(which)(prev => prev.map((en, i) => i === idx ? { ...en, content: { ...en.content, [key]: value } } : en))
   }
-
-  // Toggle an ecosystem on the profile. Adding one seeds an empty content block
-  // (and focuses it); removing one keeps its content in memory (re-adding
-  // restores it) but it won't be saved while deselected. Member Services is
-  // mutually exclusive with the public five.
-  function toggleEco(which, eco) {
-    const cur = which === 'add' ? addEcos : editEcos
-    let next
-    if (cur.includes(eco)) next = cur.filter(e => e !== eco)
-    else if (eco === MEMBER_SERVICES) next = [MEMBER_SERVICES]
-    else next = [...cur.filter(e => e !== MEMBER_SERVICES), eco]
-    ecosSetter(which)(next)
-    // Seed an empty content block for a newly-added ecosystem (keep any existing).
-    contentSetter(which)(prev => (next.includes(eco) && !prev[eco]) ? { ...prev, [eco]: blankContent() } : prev)
+  // Add an ecosystem entry. Member Services stays mutually exclusive with the
+  // five public ecosystems (either a SINGLE Member Services entry, OR any number
+  // of public entries — public ecosystems may repeat, e.g. three Tax Planning).
+  function addEntry(which, eco) {
+    entriesSetter(which)(prev => {
+      if (eco === MEMBER_SERVICES && prev.length > 0) return prev
+      if (eco !== MEMBER_SERVICES && prev.some(en => en.eco === MEMBER_SERVICES)) return prev
+      return [...prev, { eco, content: blankContent() }]
+    })
+  }
+  function removeEntry(which, idx) {
+    entriesSetter(which)(prev => prev.filter((_, i) => i !== idx))
+  }
+  function moveEntry(which, idx, dir) {
+    entriesSetter(which)(prev => {
+      const j = idx + dir
+      if (j < 0 || j >= prev.length) return prev
+      const next = [...prev]
+      const tmp = next[idx]; next[idx] = next[j]; next[j] = tmp
+      return next
+    })
   }
 
   async function submitSpecialist(which) {
     const shared = which === 'add' ? addShared : editShared
-    const ecos = which === 'add' ? addEcos : editEcos
-    const content = which === 'add' ? addContent : editContent
+    const entries = which === 'add' ? addEntries : editEntries
     const file = which === 'add' ? addFile : editFile
     if (!shared.name) { showStatus(which, 'error', 'Name is required.'); return }
-    if (ecos.length === 0) { showStatus(which, 'error', 'Select at least one VFO ecosystem.'); return }
+    if (entries.length === 0) { showStatus(which, 'error', 'Add at least one VFO ecosystem.'); return }
     try {
       let headshotFilename = ''
       if (file) {
@@ -226,15 +250,22 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
         await callApi('upload_headshot', { filename: headshotFilename, file_base64: base64, content_type: file.type })
       }
 
-      // Per-ecosystem content map (only the currently-selected ecosystems).
-      const ecosystem_content = {}
-      ecos.forEach(eco => { ecosystem_content[eco] = { ...blankContent(), ...(content[eco] || {}) } })
-      const primary = ecosystem_content[ecos[0]]
+      // Ordered per-entry content array (entry 0 is primary). Each entry carries
+      // its own ecosystem so the same ecosystem can appear more than once.
+      const ecosystem_content = entries.map(en => ({ ecosystem: en.eco, ...blankContent(), ...en.content }))
+      const primary = { ...blankContent(), ...entries[0].content }
+      // Assignments (showroom categories + filtering) get the DISTINCT ecosystems.
+      const ecosystems = uniqueEcos(entries.map(en => en.eco))
+      // The flat short_bio is read by the showroom card/modal + widget + admin
+      // list; hold ALL entries' distinct short bios so a multi-ecosystem
+      // specialist shows every specialty, not just the primary one.
+      const combinedShortBio = uniqueEcos(entries.map(en => (en.content.short_bio || '').trim()).filter(Boolean)).join(' | ')
 
-      // Shared identity + the PRIMARY ecosystem's content mirrored into the
-      // top-level columns (widget/showroom/agreements read those). Dates: '' ->
-      // null; Active clears the leave date.
+      // Shared identity + the PRIMARY entry's content mirrored into the top-level
+      // columns (agreements/BoldSign read the flat D&B_*); flat short_bio holds
+      // the combined bios. Dates: '' -> null; Active clears the leave date.
       const expertData = { ...shared, ...primary, ecosystem_content }
+      expertData.short_bio = combinedShortBio
       expertData.leave_date = (expertData.status === 'Active' || !expertData.leave_date) ? null : expertData.leave_date
       expertData.join_date = expertData.join_date || null
       if (headshotFilename) expertData.headshot_image = headshotFilename
@@ -242,7 +273,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
         const maxId = allExperts.reduce((m, e) => e.id > m ? e.id : m, 0)
         expertData.id = maxId + 1
       }
-      await callApi('save_specialist', { expert: expertData, ecosystems: ecos, editing_id: which === 'edit' ? editingId : null })
+      await callApi('save_specialist', { expert: expertData, ecosystems, editing_id: which === 'edit' ? editingId : null })
       await onDataChange()
       showStatus(which, 'success', which === 'add' ? 'Specialist added!' : 'Changes saved!')
       if (which === 'add') clearAddForm()
@@ -292,44 +323,46 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
   function SpecialistForm({ which, statusMsg, statusType: sType }) {
     const shared = which === 'add' ? addShared : editShared
     const setShared = sharedSetter(which)
-    const ecos = which === 'add' ? addEcos : editEcos
-    const content = which === 'add' ? addContent : editContent
+    const entries = which === 'add' ? addEntries : editEntries
     const preview = which === 'add' ? addPreview : editPreview
-    const multi = ecos.length > 1
+    const multi = entries.length > 1
+    const hasMS = entries.some(en => en.eco === MEMBER_SERVICES)
+    // Member Services is a single exclusive entry; the public five may repeat.
+    const availableEcos = ECOSYSTEMS.filter(eco => eco === MEMBER_SERVICES ? entries.length === 0 : !hasMS)
     const sectionHeader = { fontSize: '14px', color: 'var(--vfo-ink)', fontWeight: 600, marginBottom: '18px', borderBottom: '1px solid var(--vfo-border)', paddingBottom: '12px' }
 
-    const dbTextField = (eco, c, key, label, rows) => (
+    const dbTextField = (idx, c, key, label, rows) => (
       <div style={fieldStyle}>
         <label style={labelStyle}>{label}</label>
         {rows === 1
-          ? <input value={c[key]} onChange={e => setContentField(which, eco, key, e.target.value)} style={inputStyle} />
-          : <textarea value={c[key]} onChange={e => setContentField(which, eco, key, e.target.value)} rows={rows} style={{ ...inputStyle, resize: 'vertical' }} />}
+          ? <input value={c[key]} onChange={e => setEntryField(which, idx, key, e.target.value)} style={inputStyle} />
+          : <textarea value={c[key]} onChange={e => setEntryField(which, idx, key, e.target.value)} rows={rows} style={{ ...inputStyle, resize: 'vertical' }} />}
       </div>
     )
 
-    // The Short Bio + Details & Benefits write-up for one ecosystem. The Tax
-    // block (shared data) only renders under the Tax Planning ecosystem.
-    const ecoBody = (eco) => {
-      const c = content[eco] || blankContent()
+    // The Short Bio + Details & Benefits write-up for ONE entry. The Tax block
+    // (shared data) only renders under the Tax Planning ecosystem.
+    const entryBody = (idx, en) => {
+      const c = en.content || blankContent()
       return (
         <>
           <div style={fieldStyle}>
             <label style={labelStyle}>Short Bio</label>
-            <input value={c.short_bio} onChange={e => setContentField(which, eco, 'short_bio', e.target.value)} placeholder="One-line specialty description" style={inputStyle} />
+            <input value={c.short_bio} onChange={e => setEntryField(which, idx, 'short_bio', e.target.value)} placeholder="One-line specialty description" style={inputStyle} />
           </div>
 
           <div style={{ background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border)', borderRadius: '12px', padding: '24px', marginBottom: '16px' }}>
             <div style={{ fontSize: '14px', color: 'var(--vfo-ink)', fontWeight: '600', marginBottom: '20px', borderBottom: '1px solid var(--vfo-border)', paddingBottom: '12px' }}>Details & Benefits</div>
-            {dbTextField(eco, c, 'D&B_strategy_expertise', 'Strategy / Expertise', 3)}
-            {dbTextField(eco, c, 'D&B_cutoff_date', 'Cut-off Date for Strategy', 1)}
-            {dbTextField(eco, c, 'D&B_client_requirements', 'Client Requirements', 3)}
-            {dbTextField(eco, c, 'D&B_investment_cost', 'Amount of Investment or Cost', 3)}
-            {dbTextField(eco, c, 'D&B_ideal_client', 'Ideal Client Description', 3)}
-            {dbTextField(eco, c, 'D&B_summary_benefits', 'Summary of Benefits', 3)}
-            {dbTextField(eco, c, 'D&B_getting_started', 'Getting Started with a Client', 3)}
-            {dbTextField(eco, c, 'D&B_professional_process', 'Steps of Professional Process', 3)}
-            {dbTextField(eco, c, 'D&B_competitive_advantage', 'What Makes You Better Than the Competition', 3)}
-            {dbTextField(eco, c, 'D&B_revenue_share', 'Revenue Share', 4)}
+            {dbTextField(idx, c, 'D&B_strategy_expertise', 'Strategy / Expertise', 3)}
+            {dbTextField(idx, c, 'D&B_cutoff_date', 'Cut-off Date for Strategy', 1)}
+            {dbTextField(idx, c, 'D&B_client_requirements', 'Client Requirements', 3)}
+            {dbTextField(idx, c, 'D&B_investment_cost', 'Amount of Investment or Cost', 3)}
+            {dbTextField(idx, c, 'D&B_ideal_client', 'Ideal Client Description', 3)}
+            {dbTextField(idx, c, 'D&B_summary_benefits', 'Summary of Benefits', 3)}
+            {dbTextField(idx, c, 'D&B_getting_started', 'Getting Started with a Client', 3)}
+            {dbTextField(idx, c, 'D&B_professional_process', 'Steps of Professional Process', 3)}
+            {dbTextField(idx, c, 'D&B_competitive_advantage', 'What Makes You Better Than the Competition', 3)}
+            {dbTextField(idx, c, 'D&B_revenue_share', 'Revenue Share', 4)}
             <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', padding: '16px' }}>
               <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', fontWeight: '600', marginBottom: '12px' }}>Acknowledgement, Agreement and Release</div>
               <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', lineHeight: '1.6', margin: 0 }}>Member acknowledges that ERT, and their related companies and legal partnerships maintain a relationship with Specialist in various fields of service and specialities, including, without limitation, in the financial, tax, accounting, and legal service industries. Member further acknowledges that (i) each of the Specialist is separate and independent from, and unrelated to, ERT, and their related companies and legal partnerships, and separate and independent from, and unrelated to, the associates, shareholders, managers, members, officers, directors, employees, contractors, agents, controlling persons, related parties, assigns and partners of ERT and/or of their related companies and legal partnerships; and (ii) that the services provided by the Specialists are not provided by ERT, and/or by their related companies or legal partnerships, and/or by the ERT Related Parties. Member acknowledges and agrees that it is their sole and absolute responsibility to seek his, her and/or their own independent legal, tax, compliance, accounting and financial advice, as applicable to such parties, from competent service providers and advisors of their own independent choosing, including, without limitation, to determine whether an Specialist is someone who is or will provide adequate and appropriate advice for and to the Advisor, Accountant and/or Client given the unique facts and circumstances and the particular risk profile of the service recipients.</p>
@@ -381,21 +414,22 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
         </div>
 
         <div style={fieldStyle}>
-          <label style={labelStyle}>VFO Ecosystem <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vfo-faint)' }}>— select one, or more than one if this person offers different strategies</span></label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {ECOSYSTEMS.map(eco => {
-              const selected = ecos.includes(eco)
-              const msSelected = ecos.includes(MEMBER_SERVICES)
-              const otherSelected = ecos.some(e => e !== MEMBER_SERVICES)
-              const disabled = !selected && (eco === MEMBER_SERVICES ? otherSelected : msSelected)
-              return (
-                <button key={eco} type="button" disabled={disabled} onClick={() => toggleEco(which, eco)}
-                  style={{ padding: '6px 14px', borderRadius: '20px', border: `1px solid ${selected ? '#0095ff' : 'var(--vfo-border-mid)'}`, background: selected ? 'rgba(0,149,255,0.15)' : 'transparent', color: selected ? '#0095ff' : 'var(--vfo-muted)', fontSize: '13px', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1 }}>
-                  {eco}
-                </button>
-              )
-            })}
-          </div>
+          <label style={labelStyle}>VFO Ecosystems <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vfo-faint)' }}>— add one per strategy; you can add the same ecosystem more than once</span></label>
+          <select value="" onChange={e => { if (e.target.value) addEntry(which, e.target.value) }} disabled={availableEcos.length === 0}
+            style={{ ...inputStyle, background: 'var(--vfo-card)', width: '320px', maxWidth: '100%', opacity: availableEcos.length === 0 ? 0.5 : 1 }}>
+            <option value="">{availableEcos.length === 0 ? '-- No more ecosystems to add --' : '-- Select ecosystem to add --'}</option>
+            {availableEcos.map(eco => <option key={eco} value={eco}>{eco}</option>)}
+          </select>
+          {entries.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
+              {entries.map((en, i) => (
+                <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '999px', border: '1px solid rgba(0,149,255,0.25)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontSize: '12px', fontWeight: 600 }}>
+                  {entryLabel(entries, i)}
+                  <span onClick={() => removeEntry(which, i)} title="Remove" style={{ cursor: 'pointer', fontWeight: 700, opacity: 0.7 }}>×</span>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div style={fieldStyle}>
@@ -480,26 +514,34 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
         <div style={sectionStyle}>
         <div style={{ ...sectionHeader, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
           <span>Bio &amp; Details</span>
-          {multi && <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--vfo-muted)', textTransform: 'none', letterSpacing: 0 }}>One write-up per ecosystem — fill each below</span>}
+          {multi && <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--vfo-muted)', textTransform: 'none', letterSpacing: 0 }}>One write-up per entry — fill each below</span>}
         </div>
 
-        {ecos.length === 0 && (
-          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', fontStyle: 'italic' }}>Select a VFO ecosystem above to add this person's bio &amp; details.</div>
+        {entries.length === 0 && (
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', fontStyle: 'italic' }}>Add a VFO ecosystem above to enter this person's bio &amp; details.</div>
         )}
 
-        {ecos.map(eco => multi ? (
-          <div key={eco} style={{ border: '1px solid var(--vfo-border-strong)', borderRadius: '14px', padding: '20px', marginBottom: '18px', background: 'var(--vfo-card)' }}>
-            <div style={{ display: 'inline-block', fontSize: '13px', fontWeight: 700, color: '#0095ff', background: 'rgba(0,149,255,0.12)', border: '1px solid rgba(0,149,255,0.25)', borderRadius: '999px', padding: '4px 14px', marginBottom: '18px' }}>{eco}</div>
-            {ecoBody(eco)}
+        {entries.map((en, idx) => (
+          <div key={idx} style={{ border: '1px solid var(--vfo-border-strong)', borderRadius: '14px', padding: '20px', marginBottom: '18px', background: 'var(--vfo-card)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '18px', flexWrap: 'wrap' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '8px' }}>
+                <span style={{ display: 'inline-block', fontSize: '13px', fontWeight: 700, color: '#0095ff', background: 'rgba(0,149,255,0.12)', border: '1px solid rgba(0,149,255,0.25)', borderRadius: '999px', padding: '4px 14px' }}>{entryLabel(entries, idx)}</span>
+                {idx === 0 && <span style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>primary — mirrored to the showroom card</span>}
+              </span>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button type="button" onClick={() => moveEntry(which, idx, -1)} disabled={idx === 0} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'var(--vfo-card)', color: 'var(--vfo-muted)', fontSize: '13px', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.4 : 1 }}>↑</button>
+                <button type="button" onClick={() => moveEntry(which, idx, 1)} disabled={idx === entries.length - 1} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'var(--vfo-card)', color: 'var(--vfo-muted)', fontSize: '13px', cursor: idx === entries.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === entries.length - 1 ? 0.4 : 1 }}>↓</button>
+                <button type="button" onClick={() => removeEntry(which, idx)} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'transparent', color: '#e74c3c', fontSize: '13px', cursor: 'pointer' }}>Remove</button>
+              </div>
+            </div>
+            {entryBody(idx, en)}
           </div>
-        ) : (
-          <div key={eco}>{ecoBody(eco)}</div>
         ))}
 
         </div>{/* end Bio & Details card */}
 
-        {/* ---- Tax (shared, one set) — its own section, only when Tax Planning is selected ---- */}
-        {ecos.includes(TAX_ECOSYSTEM) && (
+        {/* ---- Tax (shared, one set) — its own section, only when a Tax Planning entry exists ---- */}
+        {entries.some(en => en.eco === TAX_ECOSYSTEM) && (
           <div style={sectionStyle}>
           <div style={sectionHeader}>Tax</div>
           <div style={fieldStyle}>
@@ -681,11 +723,12 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
 // one ecosystem, a toggle switches the short bio + Details & Benefits between
 // each ecosystem's write-up.
 function SpecialistProfileView({ expert, ecos: ecosProp }) {
-  const ecos = uniqueEcos(ecosProp)
+  const entries = entriesFor(expert, uniqueEcos(ecosProp))
   const [active, setActive] = useState(0)
-  const activeEco = ecos[Math.min(active, Math.max(0, ecos.length - 1))] || ''
-  const contentMap = contentMapFor(expert, ecos)
-  const c = contentMap[activeEco] || blankContent()
+  const activeIdx = Math.min(active, Math.max(0, entries.length - 1))
+  const en = entries[activeIdx] || { eco: '', content: blankContent() }
+  const activeEco = en.eco || ''
+  const c = en.content || blankContent()
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '16px' }
   const cardTitle = { fontSize: '16px', color: 'var(--vfo-heading)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '18px', paddingBottom: '11px', borderBottom: '2px solid var(--vfo-heading)' }
   const fieldLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--vfo-faint)', textTransform: 'uppercase' }
@@ -718,8 +761,8 @@ function SpecialistProfileView({ expert, ecos: ecosProp }) {
   // Tax is shared (one set per person). Show the whole section — every field,
   // even blank ones — as long as SOMETHING in it is filled; otherwise hide it.
   const hasTax = TAX_KEYS.some(k => (expert[k] || '').toString().trim() !== '')
-  const multi = ecos.length > 1
-  const suffix = multi ? ` — ${activeEco}` : ''
+  const multi = entries.length > 1
+  const suffix = multi ? ` — ${entryLabel(entries, activeIdx)}` : ''
   const alwaysField = (label, value) => (
     <div style={{ marginBottom: '18px' }}>
       <div style={dbHeading}>{label}</div>
@@ -786,16 +829,16 @@ function SpecialistProfileView({ expert, ecos: ecosProp }) {
             {expert.stripe_account_id && <div style={{ fontSize: '11px', color: 'var(--vfo-faint)', fontFamily: 'monospace', marginTop: '8px', wordBreak: 'break-all' }}>{expert.stripe_account_id}</div>}
           </div>
         </div>
-        {ecos.length > 0 && (
+        {entries.length > 0 && (
           <div style={{ flex: '1 1 320px', minWidth: '280px' }}>
             <div style={sectionStyle}>
               <div style={cardTitle}>VFO Ecosystem</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {ecos.map((e, i) => multi
-                  ? <span key={e} onClick={() => setActive(i)} style={i === active ? activeChip : idleChip}>{e}</span>
-                  : <span key={e} style={chip}>{e}</span>)}
+                {entries.map((e, i) => multi
+                  ? <span key={i} onClick={() => setActive(i)} style={i === activeIdx ? activeChip : idleChip}>{entryLabel(entries, i)}</span>
+                  : <span key={i} style={chip}>{entryLabel(entries, i)}</span>)}
               </div>
-              {multi && <div style={{ fontSize: '11px', color: 'var(--vfo-faint)', marginTop: '10px' }}>Click an ecosystem to see its bio &amp; details.</div>}
+              {multi && <div style={{ fontSize: '11px', color: 'var(--vfo-faint)', marginTop: '10px' }}>Click an entry to see its bio &amp; details.</div>}
             </div>
           </div>
         )}
