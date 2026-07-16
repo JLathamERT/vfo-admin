@@ -1,4 +1,4 @@
-# VFO Session-Learned Gotchas — full registry (#1–#220)
+# VFO Session-Learned Gotchas — full registry (#1–#227)
 
 > Split out of `SESSION_REFERENCE.md` on 2026-06-19 to keep the live hub lean. This is the **complete** numbered list; the hub keeps only a curated ALWAYS-APPLIES subset.
 >

@@ -399,7 +399,7 @@ For each payment cycle (P1 for one-time, P1+P2+P3+P4 for quarterly), the row sho
 7. Calculates share amount: if `members.member_share > 100`, treats as flat dollar (divided by 4 for Quarterly); else as percentage of payment.
 8. On payment 1, deducts `member_contribution` from share if `member_contrib_status === 'Pending'`. Sets `member_contrib_status='Applied'`.
 9. **Stripe Transfer** (if `members.revenue_decision !== 'Money Mapping'` and `shareAmount > 0` and `members.stripe_account_id`):
-   - POSTs to `https://api.stripe.com/v1/transfers` with `amount`, `currency=usd`, `destination=stripe_account_id`, `description="VFO Revenue Share — <client_ref> Payment <N>"`.
+   - POSTs to `https://api.stripe.com/v1/transfers` with `amount`, `currency=usd`, `destination=stripe_account_id`, `description="MAP 1 Revenue Share - Client: (<client_ref>) <Client Name> - Member: (<member_number>) <Member Name> - <N>/4"` (one-time plans end `- One-Time Payment`).
    - On success: `rec{N}_rev_paid='Yes'`. On failure: `'Failed'`.
    - Money Mapping → `'Money Mapping'`. Zero share → `'N/A — No Share Due'`.
 10. UPDATEs `pipeline_map1.rec{N}_rev_share='Completed - <type>'` and `.rec{N}_rev_paid`.

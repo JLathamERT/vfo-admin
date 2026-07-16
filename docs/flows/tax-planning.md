@@ -451,7 +451,7 @@ Revshare + refund handler details follow below. The `tax-revshare-sweep-daily` c
 6. On no batch sheet / no tab / no matching row → returns `{ pending: true, reason: "..." }`. Daily sweep retries (Phase 6c).
 7. On verified: computes `shareAmount` from `member_share` (>100 = flat dollar split in half across retainer/implementation; ≤100 = % of current payment). Applies member contribution on retainer only (`member_contrib_status='Applied'`).
 8. If `member.revenue_decision==='Money Mapping'` → no transfer, `rev_paid='Money Mapping'`.
-9. Else if `shareAmount > 0` AND `member.stripe_account_id` set → Stripe POST `/v1/transfers` with `amount`, `currency=usd`, `destination=stripe_account_id`, `description='VFO Revenue Share — <ref> Tax <Retainer|Implementation>'`.
+9. Else if `shareAmount > 0` AND `member.stripe_account_id` set → Stripe POST `/v1/transfers` with `amount`, `currency=usd`, `destination=stripe_account_id`, `description='Tax Planning Revenue Share - Client: (<ref>) <Client Name> - Member: (<member_number>) <Member Name> - <Retainer|Implementation>'`.
 10. On Stripe success → `rev_paid='Yes'`; on Stripe error → `rev_paid='Failed'`, no email, sweep retries.
 11. On `Yes` or `Money Mapping`: drafts Gmail to member (CC: PF email; BCC: aanderson + platham; sandbox redirects To: jlatham@elitert.com). Subject `VFO Services - Revenue Share Confirmation - <member>: <client> (<ref>) - Tax <Retainer Fee | Implementation Fee>`. Body shows payment details, green "received" badge, remaining implementation line (retainer only) or "final payment" line (implementation), blue rev-share box. Sets `[revEmailKey]=true`.
 
