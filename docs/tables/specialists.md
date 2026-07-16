@@ -33,6 +33,7 @@ The specialist roster. Most columns are display/marketing text (the "D&B" prefix
 | `D&B_tax_risk_mindset` | text | |
 | `D&B_tax_risk_notes` | text | |
 | `top_of_t` | boolean | not null, default `false`. Promotion flag for "top of the table" placement. |
+| `vfo_accredited` | boolean | **(2026-07-16)** not null, default `false`. "VFO Accredited Professional Specialist" flag. When true the specialist is HIDDEN from every Showroom surface (member/client/specialist portals, admin Showroom tab, admin per-member preview) AND the public widget, but STILL appears in admin Specialist Search (with a blue tag) and stays selectable in the Holistic-Regular / Holistic-Tax / standalone-Tax specialist pickers. Hide is enforced in `MemberShowroom.jsx` + `widget/vfo-widget.js` (NOT in `load_data`, which feeds the pickers). **Anon-readable** — the only new column added to the anon grant so the widget can filter it (migration `20260716000000_experts_vfo_accredited`). See gotcha #231. |
 | `ecosystem_content` | jsonb | **(2026-07-13)** Per-ecosystem write-ups: `{ "<ecosystem>": { short_bio, "D&B_..." (non-tax only) }, … }`. Lets one specialist serve multiple ecosystems with a different short bio + Details & Benefits per ecosystem. The flat top-level `short_bio`/`D&B_*` columns MIRROR the primary (first) ecosystem so the widget/showroom/agreements are unchanged. Null = legacy single-ecosystem row (content = the flat columns). Admin-only (not in the anon grant). See gotcha #220. |
 
 **Note:** Column names containing `&` (`D&B_*`) require quoting in SQL.

@@ -157,6 +157,7 @@ export default function MemberShowroom({ experts = [], exclusions = [], ecoMap =
   const shown = experts
     .filter(ex => !excluded.has(ex.id))
     .filter(ex => (ex.status || 'Active') === 'Active') // Feature C: only Active specialists appear in any showroom
+    .filter(ex => !ex.vfo_accredited) // VFO Accredited Professional Specialists are hidden from EVERY showroom surface (they surface only in Specialist Search + the Holistic/Tax specialist pickers)
     .map(ex => ({ ...ex, categories: ecoMap[ex.id] || [] }))
     // Internal-only: hide Member-Services specialists where the category isn't shown.
     .filter(ex => showMemberServices || !ex.categories.includes(MEMBER_SERVICES))

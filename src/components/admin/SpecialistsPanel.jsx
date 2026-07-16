@@ -36,12 +36,14 @@ const HEADSHOT_BASE = 'https://biz-diagnostic.com/Uploads/ExpertPhotos/'
 const ECO_DB_KEYS = ['D&B_strategy_expertise', 'D&B_cutoff_date', 'D&B_client_requirements', 'D&B_investment_cost', 'D&B_ideal_client', 'D&B_summary_benefits', 'D&B_getting_started', 'D&B_professional_process', 'D&B_competitive_advantage', 'D&B_revenue_share']
 const CONTENT_KEYS = ['short_bio', ...ECO_DB_KEYS]
 const TAX_KEYS = ['D&B_tax_risk_mindset', 'D&B_tax_risk_notes', 'D&B_audit_risk_general', 'D&B_audit_risk_history', 'D&B_audit_risk_worst_case', 'D&B_audit_risk_precautions']
-const SHARED_KEYS = ['name', 'email', 'status', 'leave_date', 'join_date', 'revenue_decision', 'long_bio', 'background_check', 'top_of_t', ...TAX_KEYS]
+const SHARED_KEYS = ['name', 'email', 'status', 'leave_date', 'join_date', 'revenue_decision', 'long_bio', 'background_check', 'top_of_t', 'vfo_accredited', ...TAX_KEYS]
+// Boolean shared flags (default false, coerced on load/blank).
+const BOOL_KEYS = ['top_of_t', 'vfo_accredited']
 const uniqueEcos = arr => [...new Set(arr || [])]
 
 function blankShared() {
   const s = {}
-  SHARED_KEYS.forEach(k => { s[k] = k === 'top_of_t' ? false : k === 'status' ? 'Active' : '' })
+  SHARED_KEYS.forEach(k => { s[k] = BOOL_KEYS.includes(k) ? false : k === 'status' ? 'Active' : '' })
   return s
 }
 function blankContent() {
@@ -53,7 +55,7 @@ function pickShared(e) {
   const s = {}
   SHARED_KEYS.forEach(k => {
     if (k === 'leave_date' || k === 'join_date') s[k] = e[k] ? String(e[k]).split('T')[0] : ''
-    else if (k === 'top_of_t') s[k] = e[k] || false
+    else if (BOOL_KEYS.includes(k)) s[k] = e[k] || false
     else s[k] = e[k] || (k === 'status' ? 'Active' : '')
   })
   return s
@@ -397,6 +399,18 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
         </div>
 
         <div style={fieldStyle}>
+          <label style={labelStyle}>VFO Accredited Professional Specialist</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div onClick={() => setShared(p => ({ ...p, vfo_accredited: !p.vfo_accredited }))}
+              style={{ width: '44px', height: '24px', borderRadius: '12px', background: shared.vfo_accredited ? '#002973' : 'var(--vfo-border-strong)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
+              <div style={{ position: 'absolute', top: '2px', left: shared.vfo_accredited ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'var(--vfo-card)', transition: 'left 0.2s' }} />
+            </div>
+            <span style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>{shared.vfo_accredited ? 'Yes' : 'No'}</span>
+          </div>
+          <div style={{ fontSize: '11.5px', color: 'var(--vfo-faint)', marginTop: '6px', lineHeight: 1.5 }}>Hidden from every Showroom — member, client, specialist, admin preview, and the public website widget. Still appears in Specialist Search and stays selectable in Holistic (Regular &amp; Tax) and Tax Planning specialist pickers.</div>
+        </div>
+
+        <div style={fieldStyle}>
           <label style={labelStyle}>Name *</label>
           <input value={shared.name} onChange={e => setShared(p => ({ ...p, name: e.target.value }))} placeholder="Full name" style={inputStyle} />
         </div>
@@ -482,7 +496,6 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
           <div key={eco}>{ecoBody(eco)}</div>
         ))}
 
-        {statusMsg && <p style={{ color: sType === 'success' ? '#1b9254' : '#d93025', fontSize: '13px', margin: '12px 0 0' }}>{statusMsg}</p>}
         </div>{/* end Bio & Details card */}
 
         {/* ---- Tax (shared, one set) — its own section, only when Tax Planning is selected ---- */}
@@ -545,6 +558,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
               style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '14px', cursor: 'pointer' }}>
               Clear Form
             </button>
+            {addStatus && <span style={{ alignSelf: 'center', color: addStatusType === 'success' ? '#1b9254' : '#d93025', fontSize: '13px', fontWeight: 600 }}>{addStatus}</span>}
           </div>
         </div>
       )}
@@ -570,7 +584,12 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{expert.name}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(ecoMap[expert.id] || []).length > 1 ? (ecoMap[expert.id] || []).join(' · ') : (expert.short_bio || '—')}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(ecoMap[expert.id] || []).length > 1 ? (ecoMap[expert.id] || []).join(' · ') : (expert.short_bio || '—')}</span>
+                    {expert.vfo_accredited && (
+                      <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,41,115,0.10)', color: '#002973', border: '1px solid rgba(0,41,115,0.28)', whiteSpace: 'nowrap', flexShrink: 0 }}>VFO Accredited Professional Specialist</span>
+                    )}
+                  </div>
                 </div>
                 <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--vfo-ink)', flexShrink: 0 }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: STATUS_COLORS[expert.status] || '#1b9254', flexShrink: 0 }} />{expert.status || 'Active'}
@@ -620,6 +639,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
                   style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '14px', cursor: 'pointer' }}>
                   Cancel
                 </button>
+                {editStatus && <span style={{ alignSelf: 'center', color: editStatusType === 'success' ? '#1b9254' : '#d93025', fontSize: '13px', fontWeight: 600 }}>{editStatus}</span>}
               </div>
             </div>
           )}
@@ -673,6 +693,9 @@ function SpecialistProfileView({ expert, ecos: ecosProp }) {
   const chip = { fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.25)' }
   const activeChip = { ...chip, background: 'rgba(18,94,204,0.12)', color: '#125ecc', border: '1px solid rgba(18,94,204,0.25)', cursor: 'pointer' }
   const idleChip = { ...chip, background: 'transparent', color: 'var(--vfo-muted)', border: '1px solid var(--vfo-border-mid)', cursor: 'pointer' }
+  // Accredited specialists carry a badge in the profile header only.
+  const accredited = !!expert.vfo_accredited
+  const accBadge = { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: 700, padding: '4px 12px', borderRadius: '999px', background: 'rgba(0,41,115,0.10)', color: '#002973', border: '1px solid rgba(0,41,115,0.30)' }
   const longField = (label, value) => value ? (
     <div style={{ marginBottom: '18px' }}>
       <div style={dbHeading}>{label}</div>
@@ -723,7 +746,12 @@ function SpecialistProfileView({ expert, ecos: ecosProp }) {
           </div>
           <div style={{ minWidth: '200px', flex: 1 }}>
             <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '22px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)', lineHeight: 1.15 }}>{expert.name}</div>
-            {c.short_bio && <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '4px' }}>{c.short_bio}</div>}
+            {(accredited || c.short_bio) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                {c.short_bio && <span style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>{c.short_bio}</span>}
+                {accredited && <span style={accBadge}>VFO Accredited Professional Specialist</span>}
+              </div>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap', fontSize: '12.5px', color: 'var(--vfo-muted)' }}>
               {expert.top_of_t && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e06717', flexShrink: 0 }} />Top of the T</span>}
               {expert.top_of_t && expert.background_check && <span style={{ color: 'var(--vfo-border-mid)' }}>·</span>}
