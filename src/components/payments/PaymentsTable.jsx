@@ -1,4 +1,5 @@
 import { useState, Fragment } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 // Shared read-only renderer for the per-person Payments tabs (client / member /
 // specialist). Takes a list of normalized rows from the *_payments_load actions,
@@ -118,6 +119,7 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
   const [ptype, setPtype] = useState('All')      // person-type filter (global admin page only)
   const [bucketKey, setBucketKey] = useState(buckets ? buckets[0].key : null)  // 2-way money-in/out filter (global page)
   const [expanded, setExpanded] = useState({})   // group key -> true once its installments are shown
+  const navigate = useNavigate()                 // global-page person links (client detail / member deep link)
 
   if (!rows.length) {
     return (
@@ -180,6 +182,40 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
   const th = { textAlign: 'left', padding: '8px 12px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#7a89a8', borderBottom: '1px solid var(--vfo-border)', whiteSpace: 'nowrap' }
   const td = { padding: '12px', fontSize: '13px', color: 'var(--vfo-ink)', borderBottom: '1px solid var(--vfo-border-soft)', verticalAlign: 'top' }
 
+  // Person-cell links (global admin page only — per-person tabs carry no clientId/
+  // memberNumber, so these render plain text there). Underline on hover; stopPropagation
+  // so clicking a link inside a group parent row doesn't also toggle its expansion.
+  const linkStyle = { color: 'var(--vfo-primary, #125ecc)', cursor: 'pointer', textDecoration: 'none' }
+  const linkHover = {
+    onMouseEnter: e => { e.currentTarget.style.textDecoration = 'underline' },
+    onMouseLeave: e => { e.currentTarget.style.textDecoration = 'none' },
+  }
+  // Person name: Client with clientId -> client detail; Member with memberNumber ->
+  // AdminPortal member deep link; everything else (specialist, or missing ids) plain text.
+  function personName(p) {
+    if (p.personType === 'Client' && p.clientId) {
+      return (
+        <div onClick={e => { e.stopPropagation(); navigate(`/admin/client/${p.clientId}`) }} style={{ fontWeight: 600, ...linkStyle }} {...linkHover}>{p.person}</div>
+      )
+    }
+    if (p.personType === 'Member' && p.memberNumber) {
+      return (
+        <div onClick={e => { e.stopPropagation(); navigate(`/admin?member=${p.memberNumber}`) }} style={{ fontWeight: 600, ...linkStyle }} {...linkHover}>{p.person}</div>
+      )
+    }
+    return <div style={{ fontWeight: 600 }}>{p.person}</div>
+  }
+  // "Member: <name>" sub-line under a Client row's person tag — links to the connected
+  // member's AdminPortal deep link.
+  function memberSubLine(p) {
+    if (p.personType !== 'Client' || !p.memberNumber) return null
+    return (
+      <div style={{ fontSize: '11px', color: 'var(--vfo-faint)', marginTop: '3px' }}>
+        Member: <span onClick={e => { e.stopPropagation(); navigate(`/admin?member=${p.memberNumber}`) }} style={linkStyle} {...linkHover}>{p.memberName || p.memberNumber}</span>
+      </div>
+    )
+  }
+
   // One data row. Used for standalone rows AND, with child=true, the installment rows
   // tucked under an expanded group parent (indented + lighter, no repeated person/tag).
   function renderRow(r, child) {
@@ -191,10 +227,11 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
         <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--vfo-muted)', ...(child ? { paddingLeft: '14px' } : null) }}>{fmtDate(r.date)}</td>
         {hasPerson && (
           <td style={{ ...td, whiteSpace: 'nowrap' }}>
-            {!child && <div style={{ fontWeight: 600 }}>{r.person}</div>}
+            {!child && personName(r)}
             {!child && r.personType && PTYPE_TAG[r.personType] && (
               <div style={{ marginTop: '3px' }}><Tag fg={PTYPE_TAG[r.personType].fg} bg={PTYPE_TAG[r.personType].bg}>{r.personType}</Tag></div>
             )}
+            {!child && memberSubLine(r)}
           </td>
         )}
         <td style={td}>
@@ -208,6 +245,15 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
           {(r.invoiceNumber || r.receiptNumber) && (
             <div style={{ fontSize: '11px', color: 'var(--vfo-placeholder)', marginTop: '5px', fontFamily: 'ui-monospace, monospace' }}>
               {[r.invoiceNumber, r.receiptNumber].filter(Boolean).join('  ·  ')}
+            </div>
+          )}
+          {r.revShare && (r.revShare.member != null || r.revShare.vfo != null) && (
+            <div style={{ fontSize: '11px', color: 'var(--vfo-faint)', marginTop: '4px' }}>
+              {`Revenue share${r.revShare.splitType ? ` (${r.revShare.splitType})` : ''}: Member `}
+              {r.revShare.member == null ? '—' : (r.revShare.memberIsPercent ? `${r.revShare.member}%` : fmtMoney(r.revShare.member))}
+              {' · VFO '}
+              {r.revShare.vfo == null ? '—' : fmtMoney(r.revShare.vfo)}
+              {r.revShare.status ? <> — <strong>{r.revShare.status}</strong></> : ''}
             </div>
           )}
         </td>
@@ -254,10 +300,11 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
           <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--vfo-muted)' }}>{fmtDate(startDate)}</td>
           {hasPerson && (
             <td style={{ ...td, whiteSpace: 'nowrap' }}>
-              <div style={{ fontWeight: 600 }}>{first.person}</div>
+              {personName(first)}
               {first.personType && PTYPE_TAG[first.personType] && (
                 <div style={{ marginTop: '3px' }}><Tag fg={PTYPE_TAG[first.personType].fg} bg={PTYPE_TAG[first.personType].bg}>{first.personType}</Tag></div>
               )}
+              {memberSubLine(first)}
             </td>
           )}
           <td style={td}>

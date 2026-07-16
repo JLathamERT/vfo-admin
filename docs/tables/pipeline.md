@@ -91,7 +91,9 @@ Set by `automation_PCADMIN_pricing` ([PFPricingForm.jsx:19](src/components/admin
 | Column | Type | Status / Automation |
 |---|---|---|
 | `stripe_customer_id` | text | **Stripe integration field.** Created by `automation_CONTRACT_stripecustomer`. |
-| `checkout_token` | text | One-time token used in `/pay?token=...` link. |
+| `checkout_token` | text | One-time token used in `/pay?token=...` link. **As of v612 `migration_backfill_map1` MINTS this** (via `token32()`) on insert OR when an existing migrated row has none — never overwriting — because a NULL `checkout_token` silently disabled the charge-failure client email on hand-migrated rows. |
+| `legacy_source` | text | **Migration marker.** `'old-system'` on rows written by the Payment Continuation tool (`migration_backfill_map1`). This is the signature the v612 collision guard trusts: a backfill update against a row NOT signed `'old-system'` returns HTTP 409 unless `force:true` (gotcha #230). |
+| `legacy_migrated_at` | timestamptz | **Migration marker.** Set when the row was hand-migrated; the Payments tab prefers the admin-entered `pay{N}_date` over charge timestamps for these rows (stale `pay{N}_paid_at` otherwise show every installment as the migration date). |
 | `payment_method_type` | text | `"card"` / `"ach"` / `"check"`. `check` set by `automation_CONTRACT_paidbycheck`; card/ach set by the Stripe webhook handler. |
 | `card_processing_fee` | text | Computed when `payment_method_type='card'`. NULL for check/ach. 0 for card when `card_fee_waived=true`. |
 | `card_fee_waived` | boolean | **2026-07-15.** Payment-continuation setup-link clients pay no card fee — suppresses the 2.9%+$0.30 gross-up in the chargescheduled sweep, the card_update webhook fee recompute, and the Payments-tab display. ONLY writer: `migration_backfill_map1` (`stripe_mode='setup_link'`). |

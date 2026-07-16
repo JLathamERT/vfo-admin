@@ -66,6 +66,8 @@ State machine for the tax-planning engagement. **84 columns total** (4 original 
 | `acct_last4` | text | Display only. |
 | `card_processing_fee` | numeric | Card gross-up actually charged, computed from Stripe's `amount_received - retainer_amount`. |
 | `card_fee_waived` | boolean | **2026-07-15.** Payment-continuation setup-link clients pay no card fee — `automation_TAX_charge-implementation` charges base even on card. ONLY writer: `migration_backfill_tax` (`stripe_mode='setup_link'`). |
+| `legacy_source` | text | **Migration marker.** `'old-system'` on rows written by the Payment Continuation tool (`migration_backfill_tax`). This is the signature the v612 collision guard trusts: a backfill update against a row NOT signed `'old-system'` returns HTTP 409 unless `force:true` (gotcha #230). Dedupe is by `client_id`+`program_id`. |
+| `legacy_migrated_at` | timestamptz | **Migration marker.** Set when the row was hand-migrated by the tool. |
 | `retainer_payment_intent_id` | text | For Phase 6 refund operation. |
 | `retainer_status` | text | `succeeded` / `processing` (ACH) / `check_pending`. NULL = not yet paid. |
 | `retainer_date` | date | Date paid (or date check path was started). |

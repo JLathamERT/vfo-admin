@@ -8,6 +8,12 @@
 
 ---
 
+## Archived from SESSION_REFERENCE on 2026-07-16 (payment-continuation hardening session)
+
+- **Setup-link email — upcoming payment schedule + fine-print security note** (2026-07-15 late follow-on, branch `claude/setup-link-email-schedule` edge code + react docs; backend **v609 DEPLOYED** — confirmed live via `list_edge_functions` + `backend-good-2026-07-15-v609` tag exists; NO new DB schema; **+0 actions (413)**; deno 0). `migration_send_setup_link` now builds a `[PAYMENT_SCHEDULE]` block (MAP 1 = table of unpaid installments, long date + flat per-quarter amount; TAX = single implementation-fee line; omitted when nothing upcoming); the `CLIENT_PAYMENT_CONTINUATION`/`setup_link` template body gained the token + the security sentence restyled to 12px `#6b7280` fine print (data-only edit via MCP, user-approved mock). **Ordering gotcha resolved by prompt deploy: the template held the raw token until the handler deploy — do not send setup links between a template-token edit and its handler deploy.**
+
+---
+
 ## Archived from SESSION_REFERENCE on 2026-07-16 (tax-impl PM auto-grab session)
 
 - **Payment-continuation fee waiver + migrated-row dates + fee-free `/connect-card` chooser** (2026-07-15 late, branch `claude/migration-feefree-dates` BOTH repos; backend **v608 DEPLOYED**, frontend pending `npm run deploy` approval; migration `20260715200000_card_fee_waived` applied+committed, advisor GREEN; **+0 actions (413)**; deno 0; gotcha **#227**. Planned/verified by Fable, executed by Opus subagents, diff-reviewed line-by-line; connect-load smoke-tested live via a ZZTest fixture (deleted); user click-tested the page + admin wording on the dev server).

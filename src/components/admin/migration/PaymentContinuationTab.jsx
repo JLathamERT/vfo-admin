@@ -20,9 +20,43 @@ const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px sol
 const readonlyInput = { ...inputStyle, background: 'var(--vfo-tint)', opacity: 0.85, cursor: 'not-allowed' }
 const primaryBtn = (disabled) => ({ padding: '10px 24px', borderRadius: '8px', background: disabled ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '14px', cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 600 })
 const ghostBtn = { padding: '10px 22px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '14px', cursor: 'pointer', fontWeight: 600 }
+const warnBox = { border: '1.5px solid rgba(224,103,23,0.55)', background: 'rgba(224,103,23,0.08)', borderRadius: '12px', padding: '16px', marginBottom: '14px' }
 
 function Field({ label, children }) {
   return <div style={{ flex: 1, minWidth: '150px' }}><label style={labelStyle}>{label}</label>{children}</div>
+}
+
+// Overwrite hazard readout for an existing row that a save would replace. Rendered
+// both for a fresh preview whose action is 'update' and for a conflict surfaced at
+// save time. The force checkbox appears only when requiresForce is true.
+function HazardPanel({ existingRow, requiresForce, forceAck, onToggle, note }) {
+  const known = new Set(['id', 'legacy_source', 'legacy_migrated_at', 'stripe_customer_id', 'payment_method_type'])
+  const statusEntries = existingRow
+    ? Object.entries(existingRow).filter(([k, v]) => !known.has(k) && v !== null && v !== undefined && v !== '')
+    : []
+  return (
+    <div style={warnBox}>
+      <div style={{ fontSize: '14px', fontWeight: 700, color: '#b9451d', marginBottom: existingRow ? '10px' : 0 }}>
+        This will OVERWRITE existing row{existingRow && existingRow.id != null ? ` #${existingRow.id}` : ''}.
+      </div>
+      {existingRow && (
+        <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', lineHeight: 1.75 }}>
+          <div>Source: <strong>{existingRow.legacy_source || 'organic row (no migration signature)'}</strong></div>
+          {existingRow.legacy_migrated_at && <div>Migrated: <strong>{String(existingRow.legacy_migrated_at).slice(0, 10)}</strong></div>}
+          <div>Stripe customer: <strong>{existingRow.stripe_customer_id ? 'yes' : 'no'}</strong></div>
+          {existingRow.payment_method_type && <div>Payment method: <strong>{existingRow.payment_method_type}</strong></div>}
+          {statusEntries.map(([k, v]) => <div key={k}>{k}: <strong>{String(v)}</strong></div>)}
+        </div>
+      )}
+      {note && <div style={{ fontSize: '13px', color: '#b9451d', marginTop: '8px', fontWeight: 600 }}>{note}</div>}
+      {requiresForce && (
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '12px', cursor: 'pointer', fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: 600 }}>
+          <input type="checkbox" checked={forceAck} onChange={e => onToggle(e.target.checked)} style={{ marginTop: '2px' }} />
+          <span>I understand this replaces a row this tool did not write - overwrite it.</span>
+        </label>
+      )}
+    </div>
+  )
 }
 
 function ModeChip({ active, onClick, title, sub }) {
@@ -70,9 +104,19 @@ export default function PaymentContinuationTab({ clientId, client }) {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
   const [err, setErr] = useState('')
+  // Save is gated on a fresh, reviewed preview. previewSig holds the serialized
+  // (preview-flag-independent) payload captured when the preview succeeded; any
+  // later input change makes it differ from the live payload and re-locks Save.
+  const [previewSig, setPreviewSig] = useState(null)
+  // Overwrite acknowledgement — required only when the existing row was NOT
+  // written by this tool (preview.requires_force / a surfaced 409).
+  const [forceAck, setForceAck] = useState(false)
+  // Populated when a save surfaces an overwrite conflict (row changed since
+  // preview). Holds the server's existing_row when available.
+  const [conflict, setConflict] = useState(null)
 
   function setRow(i, patch) { setRows(rs => rs.map((r, idx) => idx === i ? { ...r, ...patch } : r)) }
-  function resetOutputs() { setPreview(null); setResult(null); setErr('') }
+  function resetOutputs() { setPreview(null); setResult(null); setErr(''); setPreviewSig(null); setForceAck(false); setConflict(null) }
 
   async function doLookup() {
     setLookingUp(true); setLookupErr(''); setLookup(null); setChosenPm(null)
@@ -108,17 +152,44 @@ export default function PaymentContinuationTab({ clientId, client }) {
 
   async function run(isPreview) {
     setBusy(true); setErr(''); setResult(null); setPreview(null)
+    // A fresh preview starts from a clean slate: no stale signature, no lingering
+    // conflict, unchecked overwrite box.
+    if (isPreview) { setPreviewSig(null); setForceAck(false); setConflict(null) }
     try {
-      const d = await callApi(plan.action, buildPayload(isPreview))
+      const payload = buildPayload(isPreview)
+      if (!isPreview && forceAck) payload.force = true
+      const d = await callApi(plan.action, payload)
+      // Defensive: the backend may surface an overwrite conflict as a resolved
+      // object (in addition to the HTTP 409 handled in catch). Populate the
+      // hazard panel from existing_row and force a re-preview before retry.
+      if (d && d.conflict) {
+        setConflict({ existing_row: d.existing_row || null }); setPreviewSig(null); setForceAck(false)
+        setErr('This client’s row changed since your preview. Review the existing row below and Preview again before overwriting.')
+        return
+      }
       if (d.error) { setErr(d.error + (d.errors ? ' — ' + d.errors.join(' ') : '')); return }
-      if (isPreview) { setPreview(d); return }
+      if (isPreview) { setPreview(d); setPreviewSig(JSON.stringify(buildPayload(false))); return }
       let linkResult = null
       if (stripeMode === 'setup_link') {
         const rowId = d.pipeline_id || d.tax_plan_id
         linkResult = await callApi('migration_send_setup_link', { pipeline: plan.pipeline, row_id: rowId })
       }
       setResult({ ...d, linkResult })
-    } catch { setErr(isPreview ? 'Preview failed.' : 'Save failed.') }
+    } catch (e) {
+      if (isPreview) { setErr(e?.message ? `Preview failed: ${e.message}` : 'Preview failed.'); return }
+      // callApi throws on any non-2xx, incl. the HTTP 409 overwrite-conflict
+      // (its body, and thus existing_row, is not recoverable here). Invalidate
+      // the preview so the operator must Preview again — the re-preview repopulates
+      // the hazard panel from the server's existing_row and re-arms the checkbox.
+      setPreviewSig(null); setForceAck(false)
+      const conflictish = /conflict|409|overwrite|not written|already exists/i.test(e?.message || '')
+      if (conflictish) {
+        setConflict({ existing_row: null })
+        setErr('Save blocked — this client’s row changed since your preview. Preview again to review the existing row, then confirm the overwrite.')
+      } else {
+        setErr(e?.message ? `Save failed: ${e.message}` : 'Save failed.')
+      }
+    }
     finally { setBusy(false) }
   }
 
@@ -128,7 +199,17 @@ export default function PaymentContinuationTab({ clientId, client }) {
   const sharesFilled = String(memberShare).trim() !== '' && String(vfosShare).trim() !== ''
   const sharesSum = money(memberShare) + money(vfosShare)
   const sumOk = sharesFilled && totalAmount > 0 && Math.abs(sharesSum - totalAmount) < 0.01
-  const saveDisabled = busy || !sumOk || (stripeMode === 'existing' && !chosenPm)
+  // Live serialization of the exact save payload (preview flag pinned to false so
+  // it is stable across Preview/Save). Compared against previewSig to detect
+  // whether the on-screen preview still describes what Save would write.
+  const currentSig = JSON.stringify(buildPayload(false))
+  const previewFresh = preview !== null && previewSig !== null && previewSig === currentSig
+  // Overwriting a row this tool did not write requires an explicit acknowledgement.
+  const needsForce = !!(preview && preview.action === 'update' && preview.requires_force)
+  const saveDisabled = busy || !sumOk || (stripeMode === 'existing' && !chosenPm) || !previewFresh || (needsForce && !forceAck)
+  // Any input change (currentSig moves) drops a stale overwrite acknowledgement and
+  // clears a surfaced conflict; the operator must Preview again to re-arm Save.
+  useEffect(() => { setForceAck(false); setConflict(null) }, [currentSig])
   function onMemberShare(val) { setMemberShare(val); if (!isMap1 && splitType === 'Custom') setVfosShare(Math.max(0, taxTotal - (parseFloat(val) || 0)).toFixed(2)) }
   function onVfosShare(val) { setVfosShare(val); if (!isMap1 && splitType === 'Custom') setMemberShare(Math.max(0, taxTotal - (parseFloat(val) || 0)).toFixed(2)) }
   useEffect(() => {
@@ -280,13 +361,25 @@ export default function PaymentContinuationTab({ clientId, client }) {
         <button onClick={() => run(false)} disabled={saveDisabled} style={primaryBtn(saveDisabled)}>{busy ? 'Working…' : (stripeMode === 'setup_link' ? 'Save & send setup link' : 'Save')}</button>
         {!sumOk && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Enter member + VFO share (dollars) that sum to the total.</span>}
         {sumOk && stripeMode === 'existing' && !chosenPm && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Look up + pick a payment method to enable Save.</span>}
+        {sumOk && (stripeMode !== 'existing' || chosenPm) && !previewFresh && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Preview first — Save unlocks after you review the exact row.</span>}
+        {previewFresh && needsForce && !forceAck && <span style={{ fontSize: '12px', color: '#b9451d', fontWeight: 600 }}>Confirm the overwrite box below to enable Save.</span>}
       </div>
 
       {err && <div style={{ ...sectionStyle, border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.05)', color: '#c0392b', fontSize: '14px' }}>{err}</div>}
 
+      {conflict && (
+        <div style={sectionStyle}>
+          <div style={sectionTitle}>Overwrite conflict</div>
+          <HazardPanel existingRow={conflict.existing_row} requiresForce={false} forceAck={forceAck} onToggle={setForceAck} note="This client’s row changed since your preview. Preview again to review the current row, then confirm the overwrite before saving." />
+        </div>
+      )}
+
       {preview && (
         <div style={sectionStyle}>
           <div style={sectionTitle}>Preview — {preview.action} ({preview.mode}{preview.stripe_mode === 'setup_link' ? ', dormant until card connected' : ''})</div>
+          {preview.action === 'update'
+            ? <HazardPanel existingRow={preview.existing_row} requiresForce={preview.requires_force} forceAck={forceAck} onToggle={setForceAck} />
+            : <p style={{ fontSize: '13px', color: 'var(--vfo-muted)', margin: '0 0 10px' }}>New row — no existing data for this client.</p>}
           {preview.per_installment_amount && <p style={{ fontSize: '14px', color: 'var(--vfo-ink)', margin: '0 0 10px' }}>Per-quarter charge: <strong>${preview.per_installment_amount}</strong></p>}
           {(preview.warnings || []).map((w, i) => <p key={i} style={{ fontSize: '13px', color: '#e06717', margin: '4px 0' }}>• {w}</p>)}
           <details style={{ marginTop: '10px' }}>
