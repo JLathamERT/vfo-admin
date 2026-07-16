@@ -31,12 +31,17 @@ const HEADSHOT_BASE = 'https://biz-diagnostic.com/Uploads/ExpertPhotos/'
 // (identity, long bio, payout, background check) is shared across ecosystems —
 // INCLUDING the Tax section (risk mindset/notes + audit questionnaire), which is
 // one set per person, not per ecosystem.
-//   SHARED_KEYS  — one value per profile (identity + the shared TAX_KEYS).
-//   CONTENT_KEYS — short_bio + the non-tax D&B set, one value per ecosystem.
+//   SHARED_KEYS  — one value per profile (identity only).
+//   CONTENT_KEYS — short_bio + non-tax D&B + the TAX_KEYS, one value per ENTRY
+//                  (the tax questionnaire is now per Tax Planning entry).
 const ECO_DB_KEYS = ['D&B_strategy_expertise', 'D&B_cutoff_date', 'D&B_client_requirements', 'D&B_investment_cost', 'D&B_ideal_client', 'D&B_summary_benefits', 'D&B_getting_started', 'D&B_professional_process', 'D&B_competitive_advantage', 'D&B_revenue_share']
-const CONTENT_KEYS = ['short_bio', ...ECO_DB_KEYS]
-const TAX_KEYS = ['D&B_tax_risk_mindset', 'D&B_tax_risk_notes', 'D&B_audit_risk_general', 'D&B_audit_risk_history', 'D&B_audit_risk_worst_case', 'D&B_audit_risk_precautions']
-const SHARED_KEYS = ['name', 'email', 'status', 'leave_date', 'join_date', 'revenue_decision', 'long_bio', 'background_check', 'top_of_t', 'vfo_accredited', ...TAX_KEYS]
+// Tax Risk Mindset was removed from the portal entirely (2026-07-16); its flat
+// column is left untouched. TAX_KEYS = the per-entry tax fields still in use:
+// notes (edit-form only) + the 4 Audit Risk Questionnaire answers.
+const TAX_KEYS = ['D&B_tax_risk_notes', 'D&B_audit_risk_general', 'D&B_audit_risk_history', 'D&B_audit_risk_worst_case', 'D&B_audit_risk_precautions']
+const NONTAX_CONTENT_KEYS = ['short_bio', ...ECO_DB_KEYS]
+const CONTENT_KEYS = [...NONTAX_CONTENT_KEYS, ...TAX_KEYS]
+const SHARED_KEYS = ['name', 'email', 'status', 'leave_date', 'join_date', 'revenue_decision', 'long_bio', 'background_check', 'top_of_t', 'vfo_accredited']
 // Boolean shared flags (default false, coerced on load/blank).
 const BOOL_KEYS = ['top_of_t', 'vfo_accredited']
 const uniqueEcos = arr => [...new Set(arr || [])]
@@ -72,21 +77,36 @@ function pickContent(item) {
 //   ecosystem_content = [ { ecosystem, short_bio, "D&B_..." }, ... ]
 // Back-compat: a legacy OBJECT ({ "<eco>": {content} }) becomes one entry per
 // assigned ecosystem; a NULL (oldest rows) becomes the flat columns as the first
-// ecosystem's content.
+// ecosystem's content. The tax questionnaire used to be a single shared set in
+// the flat columns — `seedTaxFromFlat` migrates it into the FIRST Tax Planning
+// entry that has no tax data yet, so it now displays per-entry.
+function seedTaxFromFlat(entries, e) {
+  const flatHasTax = TAX_KEYS.some(k => (e[k] || '').toString().trim() !== '')
+  if (!flatHasTax) return entries
+  const idx = entries.findIndex(en => en.eco === TAX_ECOSYSTEM && TAX_KEYS.every(k => !(en.content[k] || '').toString().trim()))
+  if (idx === -1) return entries
+  const seeded = { ...entries[idx].content }
+  TAX_KEYS.forEach(k => { seeded[k] = e[k] || '' })
+  return entries.map((en, i) => i === idx ? { ...en, content: seeded } : en)
+}
 function entriesFor(e, ecosNames) {
   const stored = e && e.ecosystem_content
+  let entries
   if (Array.isArray(stored)) {
-    return stored
+    entries = stored
       .filter(item => item && item.ecosystem)
       .map(item => ({ eco: item.ecosystem, content: { ...blankContent(), ...pickContent(item) } }))
+  } else {
+    const names = uniqueEcos(ecosNames)
+    if (stored && typeof stored === 'object') {
+      entries = names.map(eco => ({ eco, content: { ...blankContent(), ...(stored[eco] || {}) } }))
+    } else {
+      const legacy = {}
+      NONTAX_CONTENT_KEYS.forEach(k => { legacy[k] = e[k] || '' })
+      entries = names.map((eco, i) => ({ eco, content: i === 0 ? { ...blankContent(), ...legacy } : blankContent() }))
+    }
   }
-  const names = uniqueEcos(ecosNames)
-  if (stored && typeof stored === 'object') {
-    return names.map(eco => ({ eco, content: { ...blankContent(), ...(stored[eco] || {}) } }))
-  }
-  const legacy = {}
-  CONTENT_KEYS.forEach(k => { legacy[k] = e[k] || '' })
-  return names.map((eco, i) => ({ eco, content: i === 0 ? { ...blankContent(), ...legacy } : blankContent() }))
+  return seedTaxFromFlat(entries, e)
 }
 // Chip/section label for an entry: bare ecosystem name, or "<eco> #n" when the
 // profile has more than one entry in that same ecosystem.
@@ -266,6 +286,10 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
       // the combined bios. Dates: '' -> null; Active clears the leave date.
       const expertData = { ...shared, ...primary, ecosystem_content }
       expertData.short_bio = combinedShortBio
+      // Tax is now per-entry; mirror the FIRST Tax Planning entry's questionnaire
+      // into the flat columns (the SIF go-live path + any legacy reader use them).
+      const firstTax = entries.find(en => en.eco === TAX_ECOSYSTEM)
+      TAX_KEYS.forEach(k => { expertData[k] = firstTax ? (firstTax.content[k] || '') : '' })
       expertData.leave_date = (expertData.status === 'Active' || !expertData.leave_date) ? null : expertData.leave_date
       expertData.join_date = expertData.join_date || null
       if (headshotFilename) expertData.headshot_image = headshotFilename
@@ -368,6 +392,27 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
               <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', lineHeight: '1.6', margin: 0 }}>Member acknowledges that ERT, and their related companies and legal partnerships maintain a relationship with Specialist in various fields of service and specialities, including, without limitation, in the financial, tax, accounting, and legal service industries. Member further acknowledges that (i) each of the Specialist is separate and independent from, and unrelated to, ERT, and their related companies and legal partnerships, and separate and independent from, and unrelated to, the associates, shareholders, managers, members, officers, directors, employees, contractors, agents, controlling persons, related parties, assigns and partners of ERT and/or of their related companies and legal partnerships; and (ii) that the services provided by the Specialists are not provided by ERT, and/or by their related companies or legal partnerships, and/or by the ERT Related Parties. Member acknowledges and agrees that it is their sole and absolute responsibility to seek his, her and/or their own independent legal, tax, compliance, accounting and financial advice, as applicable to such parties, from competent service providers and advisors of their own independent choosing, including, without limitation, to determine whether an Specialist is someone who is or will provide adequate and appropriate advice for and to the Advisor, Accountant and/or Client given the unique facts and circumstances and the particular risk profile of the service recipients.</p>
             </div>
           </div>
+
+          {en.eco === TAX_ECOSYSTEM && (
+            <div style={{ background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border)', borderRadius: '12px', padding: '24px', marginBottom: '16px' }}>
+              <div style={{ fontSize: '14px', color: 'var(--vfo-ink)', fontWeight: '600', marginBottom: '20px', borderBottom: '1px solid var(--vfo-border)', paddingBottom: '12px' }}>Tax Planning Audit Risk Questionnaire</div>
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Tax Risk Notes</label>
+                <textarea value={c['D&B_tax_risk_notes']} onChange={e => setEntryField(which, idx, 'D&B_tax_risk_notes', e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+              </div>
+              {[
+                ['D&B_audit_risk_general', '1. What are the general risks of this strategy?'],
+                ['D&B_audit_risk_history', '2. What has been the history of these risks coming to fruition?'],
+                ['D&B_audit_risk_worst_case', '3. What are potential worst-case scenarios?'],
+                ['D&B_audit_risk_precautions', '4. What precautions are in place to prevent or minimize the risks?'],
+              ].map(([key, label], i, arr) => (
+                <div key={key} style={i === arr.length - 1 ? { marginBottom: 0 } : fieldStyle}>
+                  <label style={labelStyle}>{label}</label>
+                  <textarea value={c[key]} onChange={e => setEntryField(which, idx, key, e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )
     }
@@ -539,42 +584,6 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
         ))}
 
         </div>{/* end Bio & Details card */}
-
-        {/* ---- Tax (shared, one set) — its own section, only when a Tax Planning entry exists ---- */}
-        {entries.some(en => en.eco === TAX_ECOSYSTEM) && (
-          <div style={sectionStyle}>
-          <div style={sectionHeader}>Tax</div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Tax Risk Mindset</label>
-            <select value={shared['D&B_tax_risk_mindset']} onChange={e => setShared(p => ({ ...p, 'D&B_tax_risk_mindset': e.target.value }))} style={{ ...inputStyle, background: 'var(--vfo-card)', width: '320px', maxWidth: '100%' }}>
-              <option value="">-- Select --</option>
-              <option value="Risk 1 – Very Conservative Mindset">Risk 1 – Very Conservative Mindset</option>
-              <option value="Risk 2 - Moderately Conservative Mindset">Risk 2 - Moderately Conservative Mindset</option>
-              <option value="Risk 3 – Average Risk Mindset">Risk 3 – Average Risk Mindset</option>
-              <option value="Risk 4 – Moderately Aggressive Mindset">Risk 4 – Moderately Aggressive Mindset</option>
-              <option value="Risk 5 – Very Aggressive Mindset">Risk 5 – Very Aggressive Mindset</option>
-            </select>
-          </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Tax Risk Notes</label>
-            <textarea value={shared['D&B_tax_risk_notes']} onChange={e => setShared(p => ({ ...p, 'D&B_tax_risk_notes': e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-          </div>
-          <div style={{ background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border)', borderRadius: '12px', padding: '20px', marginBottom: 0 }}>
-            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', fontWeight: '600', marginBottom: '16px' }}>Tax Planning Audit Risk Questionnaire</div>
-            {[
-              ['D&B_audit_risk_general', '1. What are the general risks of this strategy?'],
-              ['D&B_audit_risk_history', '2. What has been the history of these risks coming to fruition?'],
-              ['D&B_audit_risk_worst_case', '3. What are potential worst-case scenarios?'],
-              ['D&B_audit_risk_precautions', '4. What precautions are in place to prevent or minimize the risks?'],
-            ].map(([key, label], i, arr) => (
-              <div key={key} style={i === arr.length - 1 ? { marginBottom: 0 } : fieldStyle}>
-                <label style={labelStyle}>{label}</label>
-                <textarea value={shared[key]} onChange={e => setShared(p => ({ ...p, [key]: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-              </div>
-            ))}
-          </div>
-          </div>
-        )}
       </div>
     )
   }
@@ -625,13 +634,13 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
                   {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                 </div>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{expert.name}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                    <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(ecoMap[expert.id] || []).length > 1 ? (ecoMap[expert.id] || []).join(' · ') : (expert.short_bio || '—')}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{expert.name}</span>
                     {expert.vfo_accredited && (
                       <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,41,115,0.10)', color: '#002973', border: '1px solid rgba(0,41,115,0.28)', whiteSpace: 'nowrap', flexShrink: 0 }}>VFO Accredited Professional Specialist</span>
                     )}
                   </div>
+                  <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(ecoMap[expert.id] || []).length > 1 ? (ecoMap[expert.id] || []).join(' · ') : (expert.short_bio || '—')}</div>
                 </div>
                 <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--vfo-ink)', flexShrink: 0 }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: STATUS_COLORS[expert.status] || '#1b9254', flexShrink: 0 }} />{expert.status || 'Active'}
@@ -758,9 +767,9 @@ function SpecialistProfileView({ expert, ecos: ecosProp }) {
     ['What Makes Them Better Than the Competition', c['D&B_competitive_advantage']],
   ]
   const hasDb = dbFields.some(([, v]) => v)
-  // Tax is shared (one set per person). Show the whole section — every field,
-  // even blank ones — as long as SOMETHING in it is filled; otherwise hide it.
-  const hasTax = TAX_KEYS.some(k => (expert[k] || '').toString().trim() !== '')
+  // The profile shows only the Audit Risk Questionnaire (mindset removed; notes
+  // are edit-only), so gate the section on the 4 audit answers of the active entry.
+  const hasAudit = ['D&B_audit_risk_general', 'D&B_audit_risk_history', 'D&B_audit_risk_worst_case', 'D&B_audit_risk_precautions'].some(k => (c[k] || '').toString().trim() !== '')
   const multi = entries.length > 1
   const suffix = multi ? ` — ${entryLabel(entries, activeIdx)}` : ''
   const alwaysField = (label, value) => (
@@ -788,19 +797,15 @@ function SpecialistProfileView({ expert, ecos: ecosProp }) {
               : <span style={{ color: 'var(--vfo-faint)', fontSize: '24px', fontWeight: 700 }}>{(expert.name || '?').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()}</span>}
           </div>
           <div style={{ minWidth: '200px', flex: 1 }}>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '22px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)', lineHeight: 1.15 }}>{expert.name}</div>
-            {(accredited || c.short_bio) && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
-                {c.short_bio && <span style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>{c.short_bio}</span>}
-                {accredited && <span style={accBadge}>VFO Accredited Professional Specialist</span>}
-              </div>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '22px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)', lineHeight: 1.15 }}>{expert.name}</span>
+              {accredited && <span style={accBadge}>VFO Accredited Professional Specialist</span>}
+            </div>
+            {c.short_bio && <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '6px' }}>{c.short_bio}</div>}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap', fontSize: '12.5px', color: 'var(--vfo-muted)' }}>
               {expert.top_of_t && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e06717', flexShrink: 0 }} />Top of the T</span>}
               {expert.top_of_t && expert.background_check && <span style={{ color: 'var(--vfo-border-mid)' }}>·</span>}
               {expert.background_check && <span>Background check: {expert.background_check}</span>}
-              {(expert.top_of_t || expert.background_check) && expert['D&B_tax_risk_mindset'] && <span style={{ color: 'var(--vfo-border-mid)' }}>·</span>}
-              {expert['D&B_tax_risk_mindset'] && <span>{expert['D&B_tax_risk_mindset']}</span>}
             </div>
           </div>
         </div>
@@ -859,17 +864,15 @@ function SpecialistProfileView({ expert, ecos: ecosProp }) {
           : <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', fontStyle: 'italic' }}>No details entered yet — use Edit Specialist to add them.</div>}
       </div>
 
-      {/* Tax (shared) — its own section, only under the Tax Planning ecosystem, and only if filled */}
-      {activeEco === TAX_ECOSYSTEM && hasTax && (
+      {/* Tax Planning Audit Risk Questionnaire — per-entry; only under a Tax
+          Planning entry, and only when at least one answer is filled. */}
+      {activeEco === TAX_ECOSYSTEM && hasAudit && (
         <div style={sectionStyle}>
-          <div style={cardTitle}>Tax</div>
-          {alwaysField('Tax Risk Mindset', expert['D&B_tax_risk_mindset'])}
-          {alwaysField('Tax Risk Notes', expert['D&B_tax_risk_notes'])}
-          <div style={{ ...dbHeading, margin: '4px 0 14px' }}>Tax Planning Audit Risk Questionnaire</div>
-          {alwaysFieldSmall('1. General risks of this strategy', expert['D&B_audit_risk_general'])}
-          {alwaysFieldSmall('2. History of these risks coming to fruition', expert['D&B_audit_risk_history'])}
-          {alwaysFieldSmall('3. Potential worst-case scenarios', expert['D&B_audit_risk_worst_case'])}
-          {alwaysFieldSmall('4. Precautions to prevent or minimize the risks', expert['D&B_audit_risk_precautions'])}
+          <div style={cardTitle}>Tax Planning Audit Risk Questionnaire{suffix}</div>
+          {alwaysField('1. General risks of this strategy', c['D&B_audit_risk_general'])}
+          {alwaysField('2. History of these risks coming to fruition', c['D&B_audit_risk_history'])}
+          {alwaysField('3. Potential worst-case scenarios', c['D&B_audit_risk_worst_case'])}
+          {alwaysField('4. Precautions to prevent or minimize the risks', c['D&B_audit_risk_precautions'])}
         </div>
       )}
 
