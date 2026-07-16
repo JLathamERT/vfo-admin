@@ -68,10 +68,11 @@ payment_method_types: ["card"] OR ["us_bank_account"]
 line_items[0]:
   price_data.currency: usd
   price_data.unit_amount: <chargeAmount cents>
-  price_data.product_data.name: "VFO Services Membership — Payment 1"
+  price_data.product_data.name: "MAP 1 - (<client_ref>) <Client Name> - Payment 1"   (one-time plans: "- One-Time Payment")
   quantity: 1
 success_url: https://www.vfo-services.com/payment-successful/   (hardcoded)
 cancel_url:  https://vfoportal.com/pay?token=<token>
+payment_intent_data.description: <same memo as the product name>
 payment_intent_data.setup_future_usage: off_session
 payment_intent_data.metadata.client_id: <int>
 payment_intent_data.metadata.checkout_token: <pipeline_map1.checkout_token>
@@ -97,8 +98,9 @@ cancel_url:  https://vfoportal.com/
 line_items[0]:
   price_data.currency: usd
   price_data.unit_amount: <price * 100>
-  price_data.product_data.name: "<amount> Growth Credits"
+  price_data.product_data.name: "<amount> Growth Credits - (<member_number>) <Member Name>"
   quantity: 1
+payment_intent_data.description: <same memo as the product name>
 metadata.member_number: <member_number>
 metadata.credits: <amount>
 ```
@@ -199,8 +201,10 @@ POST /v1/transfers
 amount: <round(shareAmount * 100)>
 currency: usd
 destination: <members.stripe_account_id>
-description: "VFO Revenue Share — <client_ref> Payment <N>"
+description: "MAP 1 Revenue Share - Client: (<client_ref>) <Client Name> - Member: (<member_number>) <Member Name> - <N>/4"   (one-time plans: "- One-Time Payment")
 ```
+
+> **Memo convention (2026-07-15):** every Stripe money movement carries a human-readable memo — Checkout sessions put it in BOTH the line-item product name (client-visible) and `payment_intent_data.description` (dashboard); off-session PaymentIntents and Connect transfers use `description`. Formats per pipeline are itemized in the payment-memo session entry in [SESSION_REFERENCE.md](../SESSION_REFERENCE.md).
 
 This requires:
 - A Stripe Connect account configured for each member (`members.stripe_account_id` populated).

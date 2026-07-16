@@ -21,8 +21,9 @@ cancel_url:  https://vfoportal.com/
 line_items[0]:
   price_data.currency: usd
   price_data.unit_amount: <price * 100>
-  price_data.product_data.name: "<amount> Growth Credits"
+  price_data.product_data.name: "<amount> Growth Credits - (<member_number>) <Member Name>"
   quantity: 1
+payment_intent_data.description: <same memo as the product name>
 metadata.member_number: <member_number>
 metadata.credits: <amount>
 ```
