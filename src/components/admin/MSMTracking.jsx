@@ -493,6 +493,71 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
   )
 }
 
+// Admin training-track row for tasks that carry a video. Mirrors the member VideoTask:
+// a folding "Watch Video" button (to the left of the status dropdown) that reveals the
+// same Wistia/Loom iframe or YouTube player below the row.
+function AdminVideoRow({ task, inGroup, isDone, statusColor, statusSelect, dateSpan }) {
+  const [showVideo, setShowVideo] = useState(false)
+  const playerRef = useRef(null)
+  const containerId = `yt-player-admin-${task.id}`
+
+  const url = task.video_url || ''
+  // Wistia and Loom are plain iframe embeds; anything else is treated as a YouTube watch URL.
+  const isEmbed = url.includes('wistia') || url.includes('loom')
+  const videoId = isEmbed ? null : url.match(/v=([^&]+)/)?.[1]
+
+  useEffect(() => {
+    if (!showVideo || isEmbed || !videoId) return
+    if (!window.YT) {
+      const tag = document.createElement('script')
+      tag.src = 'https://www.youtube.com/iframe_api'
+      document.head.appendChild(tag)
+      window.onYouTubeIframeAPIReady = () => initPlayer()
+    } else {
+      initPlayer()
+    }
+    return () => { if (playerRef.current) { playerRef.current.destroy(); playerRef.current = null } }
+  }, [showVideo])
+
+  function initPlayer() {
+    if (playerRef.current) return
+    playerRef.current = new window.YT.Player(containerId, {
+      videoId,
+      width: '100%',
+      height: '360',
+      playerVars: { rel: 0, modestbranding: 1 },
+      events: { onStateChange: () => {} },
+    })
+  }
+
+  return (
+    <div style={{ padding: '8px 0', borderBottom: inGroup ? 'none' : '1px solid var(--vfo-tint)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
+        <div style={{ flex: 1, minWidth: '150px' }}>
+          <span style={{ fontSize: '14px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)' }}>{task.name}</span>
+        </div>
+        <button onClick={() => setShowVideo(!showVideo)} style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: `1px solid rgba(0,149,255,0.4)`, background: showVideo ? 'rgba(231,76,60,0.15)' : 'rgba(0,149,255,0.15)', color: showVideo ? '#e74c3c' : '#0095ff' }}>
+          {showVideo ? 'Hide Video' : '▶ Watch Video'}
+        </button>
+        {statusSelect}
+        {dateSpan}
+      </div>
+      {showVideo && (
+        <div style={{ borderRadius: '8px', overflow: 'hidden', marginLeft: '20px', marginTop: '12px' }}>
+          {isEmbed ? (
+            <div style={{ position: 'relative', paddingTop: '56.25%' }}>
+              <iframe src={url} title={task.name} allow="autoplay; fullscreen" allowFullScreen frameBorder="0" scrolling="no" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }} />
+            </div>
+          ) : (
+            <div id={containerId} />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function TrainingTrack({ enrollment, program }) {
   const [phases, setPhases] = useState([])
   const [progress, setProgress] = useState({})
@@ -616,17 +681,26 @@ function TrainingTrack({ enrollment, program }) {
                     const p = progress[task.id] || {}
                     const isDone = !!p.status
                     const statusColor = statusColors[p.status] || 'var(--vfo-muted)'
+                    const statusSelect = (
+                      <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, phase.id)} disabled={saving[task.id]} style={{ ...inputStyle, background: 'var(--vfo-card)', minWidth: '130px', borderColor: isDone ? `${statusColor}66` : 'var(--vfo-border-strong)', color: isDone ? statusColor : 'var(--vfo-ink)' }}>
+                        <option value="">-- Status --</option>
+                        {(task.status_options || 'Completed|Outstanding|Stopped').split('|').map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    )
+                    const dateSpan = (
+                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                    )
+                    if (task.video_url) {
+                      return <AdminVideoRow key={task.id} task={task} inGroup={inGroup} isDone={isDone} statusColor={statusColor} statusSelect={statusSelect} dateSpan={dateSpan} />
+                    }
                     return (
                       <div key={task.id} style={{ padding: '8px 0', borderBottom: inGroup ? 'none' : '1px solid var(--vfo-tint)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
                         <div style={{ flex: 1, minWidth: '150px' }}>
                           <span style={{ fontSize: '14px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)' }}>{task.name}</span>
                         </div>
-                        <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, phase.id)} disabled={saving[task.id]} style={{ ...inputStyle, background: 'var(--vfo-card)', minWidth: '130px', borderColor: isDone ? `${statusColor}66` : 'var(--vfo-border-strong)', color: isDone ? statusColor : 'var(--vfo-ink)' }}>
-                          <option value="">-- Status --</option>
-                          {(task.status_options || 'Completed|Outstanding|Stopped').split('|').map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                        <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                        {statusSelect}
+                        {dateSpan}
                       </div>
                     )
                   }
