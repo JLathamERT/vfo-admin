@@ -8,6 +8,17 @@
 
 ---
 
+## Archived from SESSION_REFERENCE on 2026-07-16 (tax-impl PM auto-grab session)
+
+- **Payment-continuation fee waiver + migrated-row dates + fee-free `/connect-card` chooser** (2026-07-15 late, branch `claude/migration-feefree-dates` BOTH repos; backend **v608 DEPLOYED**, frontend pending `npm run deploy` approval; migration `20260715200000_card_fee_waived` applied+committed, advisor GREEN; **+0 actions (413)**; deno 0; gotcha **#227**. Planned/verified by Fable, executed by Opus subagents, diff-reviewed line-by-line; connect-load smoke-tested live via a ZZTest fixture (deleted); user click-tested the page + admin wording on the dev server).
+  - **1. `card_fee_waived` — setup-link migrated clients pay NO card fee (user decision: VFO absorbs it; they were promised old-system pricing).** New nullable boolean on `pipeline_map1`+`client_tax_plans`, stamped ONLY by `migration_backfill_map1`/`migration_backfill_tax` in `stripe_mode='setup_link'` (existing-mode + all organic rows stay null = fee as normal). Readers: chargescheduled sweep charge amount, `automation_TAX_charge-implementation`, the card_update webhook `card_processing_fee` recompute, `normalize.ts` display. NOWHERE else — do not repurpose (gotcha #227).
+  - **2. Migrated-row Payments dates.** `buildMap1Rows` prefers admin-entered `pay{N}_date` over charge timestamps when `legacy_migrated_at` is set (hand-migrated rows carry stale `pay{N}_paid_at`/`invoice_email_sent_at` that showed every installment as the migration date).
+  - **3. `/connect-card` restyled to the canonical PayPage OptionCard chooser** (ACH Bank Transfer card, "— or —", Credit/Debit card; BOTH badges "No Fee"; breakdown shows the per-quarter/implementation amount from new `migration_connect_load` fields `amount`+`amount_label`). Admin tab: "Look up payment method" wording + setup-link no-fee note.
+  - **4. Data ops (user-directed):** Steve Manseau (client 81) payment-continuation experiment wiped to blank slate (agreement greens kept; his Stripe `cus_UtK4OEJMjjTzDU` + Gmail draft = user-owed deletions); he'll be re-entered through the live tool as the real-world test.
+  - **Owed:** pipeline smoke run (still outstanding — needs Jake's token; fold into the post-v610 run); ~~frontend deploy + stamps~~ DONE between sessions (`live-71-migration-feefree-dates` + `backend-good-2026-07-15-v608` verified to exist); real-world observe: Steve re-entry (dates + fee-free connect page).
+
+---
+
 ## Archived from SESSION_REFERENCE on 2026-07-15 (Stripe payment-memo session)
 
 **LIVE STATE prior values superseded 2026-07-15 (Stripe payment-memo session):** `vfo-admin-api` prior **v608** (the payment-continuation fee-waiver/dates session — `card_fee_waived` on setup-link migrated rows + migrated-row Payments dates + `/connect-card` amounts; its `backend-good-2026-07-15-v608` stamp verified to exist); DB prior cell (fee-waiver session): 1 additive migration `20260715200000_card_fee_waived` (nullable `card_fee_waived boolean` on `pipeline_map1` + `client_tax_plans`; MCP-applied + committed, advisor GREEN) + user-directed data ops (Steve Manseau client-81 payment-continuation experiment wiped — his live Stripe customer `cus_UtK4OEJMjjTzDU` + Gmail draft remain user-owed deletions; ZZTest `/connect-card` fixture created + fully deleted); frontend prior deploy state: fee-waiver `/connect-card` chooser shipped between sessions as `live-71-migration-feefree-dates`.
