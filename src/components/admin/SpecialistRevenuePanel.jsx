@@ -11,7 +11,7 @@ import { OnboardingListSkeleton } from '../shared/Skeleton'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
-export default function SpecialistRevenuePanel({ allExperts = [], allMembers = [] }) {
+export default function SpecialistRevenuePanel({ allExperts = [], allMembers = [], embedded = false }) {
   const [showInput, setShowInput] = useState(false)
   const [viewMode, setViewMode] = useState('specialist') // 'specialist' | 'member'
   const [requests, setRequests] = useState([])
@@ -79,16 +79,18 @@ export default function SpecialistRevenuePanel({ allExperts = [], allMembers = [
   const periodVfos = receivedFiltered.reduce((s, r) => s + (Number(r.total_vfos_share) || 0), 0)
   const periodLabel = month >= 0 ? `${MONTHS[month]} ${year}` : `${year}`
 
-  const wrap = { padding: '24px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
+  const wrap = embedded ? { fontFamily: 'Inter, sans-serif' } : { padding: '24px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
   const sel = { padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', fontSize: '13px', fontFamily: 'Inter, sans-serif', color: 'var(--vfo-ink)', cursor: 'pointer' }
 
   return (
     <div style={wrap}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '18px', flexWrap: 'wrap' }}>
-        <div>
-          <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 6px' }}>Accounting</p>
-          <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>VFO Specialist Revenue</h2>
-        </div>
+        {embedded ? <div /> : (
+          <div>
+            <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 6px' }}>Accounting</p>
+            <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>VFO Specialist Revenue</h2>
+          </div>
+        )}
         <button onClick={() => setShowInput(s => !s)}
           style={{ padding: '10px 18px', borderRadius: '8px', border: showInput ? '1px solid var(--vfo-border-strong)' : 'none', background: showInput ? 'var(--vfo-card)' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: showInput ? 'var(--vfo-muted)' : '#fff', fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: showInput ? 'none' : '0 2px 8px rgba(18,94,204,0.28)' }}>
           {showInput ? 'Close form' : '+ New Payment'}

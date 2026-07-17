@@ -16,7 +16,7 @@ function fmtDate(s) {
   try { return new Date(s).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) } catch { return String(s) }
 }
 
-export default function PipRevenuePanel() {
+export default function PipRevenuePanel({ embedded = false }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -57,16 +57,18 @@ export default function PipRevenuePanel() {
   const totVfos = filtered.reduce((s, p) => s + p.vfos, 0)
   const periodLabel = month >= 0 ? `${MONTHS[month]} ${year}` : `${year}`
 
-  const wrap = { padding: '24px', maxWidth: '1100px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
+  const wrap = embedded ? { fontFamily: 'Inter, sans-serif' } : { padding: '24px', maxWidth: '1100px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
   const sel = { padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', fontSize: '13px', fontFamily: 'Inter, sans-serif', color: 'var(--vfo-ink)', cursor: 'pointer' }
   const grid = '120px 1.2fr 1.1fr 1.1fr 110px 110px 110px'
 
   return (
     <div style={wrap}>
-      <div style={{ marginBottom: '18px' }}>
-        <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 6px' }}>Accounting · VFO Services</p>
-        <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>Additional PIP Revenue</h2>
-      </div>
+      {!embedded && (
+        <div style={{ marginBottom: '18px' }}>
+          <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 6px' }}>Accounting · VFO Services</p>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>Additional PIP Revenue</h2>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap' }}>
         <select style={sel} value={year} onChange={e => setYear(Number(e.target.value))}>
