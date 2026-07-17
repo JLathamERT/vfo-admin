@@ -4,6 +4,7 @@ import { TaxPlanListSkeleton } from '../../shared/Skeleton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { TrackHero, PhaseBadge, ListHeader } from '../../shared/TrackKit'
 import { hasStrategicSplit, computeStrategicShares } from '../../../lib/strategicSplits'
+import StepDate from '../../shared/StepDate'
 
 // Matches the backend invoice money formatting ($X,XXX.XX).
 const fmtMoney = (n) => (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -1752,7 +1753,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               <option value="">-- Select --</option>
               {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
+            <StepDate value={p.completed_date || ''} onChange={d => saveTask(task.id, p.status, d, taxSpecialistId)} disabled={saving[key]} />
           </div>
           <div style={{ marginLeft: '18px', borderLeft: '1px solid var(--vfo-tint-deep)', paddingLeft: '12px', paddingBottom: '4px', opacity: greyed ? 0.3 : 1, pointerEvents: greyed ? 'none' : 'auto' }}>
             {childTasks.map(ct => {
@@ -1768,7 +1769,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                     <option value="">-- Select --</option>
                     {(ct.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
-                  <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{cp.completed_date ? formatDate(cp.completed_date) : ''}</span>
+                  <StepDate value={cp.completed_date || ''} onChange={d => saveTask(ct.id, cp.status, d, taxSpecialistId)} disabled={saving[ck]} />
                 </div>
               )
             })}
@@ -1794,7 +1795,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           <option value="">-- Select --</option>
           {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
+        <StepDate value={p.completed_date || ''} onChange={d => saveTask(task.id, p.status, d, taxSpecialistId)} disabled={saving[key]} />
       </div>
     )
   }

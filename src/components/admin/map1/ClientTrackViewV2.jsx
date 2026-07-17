@@ -7,6 +7,7 @@ import PIPDecisionForm from './PIPDecisionForm'
 import MeetingCompleteButton from './MeetingCompleteButton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { TrackHero, PhaseBadge } from '../../shared/TrackKit'
+import StepDate from '../../shared/StepDate'
 
 // The Initial Contact "Who is completing the tracking…" gate step. When it is
 // NOT set to "Member" (unset or "VFOS"), the other steps in the phase are inert
@@ -601,7 +602,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                           <option value="">-- Select --</option>
                           {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                        <StepDate value={isDone ? (p.completed_date || '') : ''} onChange={d => saveTask(task.id, p.status, d)} disabled={saving[task.id]} />
                       </div>
                     </div>
                   )
@@ -685,7 +686,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                         <option value="">-- Select --</option>
                         {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
-                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                      <StepDate value={isDone ? (p.completed_date || '') : ''} onChange={d => saveTask(task.id, p.status, d)} disabled={saving[task.id]} />
                     </div>
                   )
                 })}
