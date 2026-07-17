@@ -67,7 +67,7 @@ Set by `automation_PCADMIN_pricing` ([PFPricingForm.jsx:19](src/components/admin
 | Column | Type | Notes |
 |---|---|---|
 | `lite_membership` / `core_membership` / `max_membership` | text | Pricing snapshot for each tier. |
-| `extra_cc` | text | Extra contribution / commission row. |
+| `extra_cc` | text | Comma-separated extra CC emails from the PIP decision form (normalized from the form's array by `pipfu-decision.ts`; read via `utils/extra-cc.ts extraCcList()` — gotcha #244). |
 | `service_level` | text | Final service tier locked in. |
 | `pip_meeting_count` | text | Number of PIP meetings included. |
 | `gross_fee` | text | |
