@@ -34,7 +34,10 @@ when checking, so terminate → create-new works).
 ## member_payment_schedule
 
 The expected-payment ledger — one row per pull, generated at first payment (year 1) and by the
-renewal pass (later years). Unique `(plan_id, due_date)`; sweep index `(status, due_date)`.
+renewal pass (later years). Unique `(plan_id, due_date)` **WHERE kind='membership'** (partial
+index `member_payment_schedule_plan_due_membership_key`, migration `20260717190000` — a
+termination fee legitimately shares its date with a same-day membership row; gotcha #239);
+sweep index `(status, due_date)`.
 
 | Column | Notes |
 |---|---|

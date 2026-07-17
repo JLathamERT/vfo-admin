@@ -90,9 +90,11 @@
 
 ## Failure modes
 
-- ACH first payment bounces → `checkout.session.async_payment_failed` → row 1 `declined`; the plan
-  stays active and the next sweep's combined charge picks the amount up (same catch-up path).
-  Deliberately flip-only today — no bell/email on the FIRST-payment bounce (audit finding M1).
+- ACH first payment bounces → row 1 `declined` + Jake bell + member email, **NO suspend** (the
+  member only just set up; the next sweep's combined charge picks the amount up). The side
+  effects live in BOTH `checkout.session.async_payment_failed` AND the
+  `payment_intent.payment_failed` block, each gated on rows-actually-flipped — Stripe doesn't
+  order the two events and in live testing the PI event won the race (gotcha #238, v620).
 - Off-session pull fails **synchronously (card)** → sweep marks the newly-due row `missed`,
   drafts the friendly email once per row (`reminder_sent_at` guard), suspends, bells.
 - Off-session pull bounces **late (ACH)** → `payment_intent.payment_failed` flips the charge's
@@ -106,21 +108,32 @@
 - Any activation DB failure after the member completed checkout (guard count / ledger insert /
   plan update / method refresh), or a payment method that couldn't be read back from Stripe →
   Jake bell (`activate.ts` + the webhook block; Stripe returned 200 and will not retry).
-- Termination fee declines → plan still terminates; the `termination_fee` row sits `declined`
-  (no bell — audit finding M4, visible only in the grid/Outstanding + the admin's response toast).
+- Termination fee declines (sync) or bounces late (ACH) → plan still terminates; the
+  `termination_fee` row sits `declined` AND Jake gets a "termination fee declined/failed" bell
+  (both paths, v619/620). No member email, no suspend. The fee row shares its `due_date` with a
+  same-day membership row legitimately — schedule uniqueness is per `kind='membership'` only
+  (partial unique index, migration `20260717190000`; gotcha #239).
 - The sweep skips plans without a saved method (nothing to charge yet); an ACTIVE plan missing
   its method is alerted at activation time (see above) rather than nightly.
+- **Mode guards (v619)** — every membership surface refuses/flags a sandbox↔live mismatch:
+  the three webhook blocks assert `event.livemode` vs `plan.sandbox` (skip + mismatch bell);
+  the sweep's charge pass skips + bells mismatched plans (deduped, nightly-safe); `terminate`
+  returns a clear 400 for a fee charge; the public `/membership-pay` handlers 400 a stale-mode
+  link ("out of date — ask VFO Services for a new one"). All verified live in testing.
+- Membership charges appear on the **global Payments page** (Membership chip; face-value
+  amounts; paid/processing/missed/declined + termination fees; `all-payments-load.ts`).
 
 ## NOT built yet (next work)
 
 - Membership invoice/receipt PDFs (never requested); per-row itemization of the card gross-up
   (the charge is grossed up; the ledger shows face value).
-- From the 2026-07-17 audit, known-and-accepted for now: membership charges are absent from the
-  global Payments page (H4); first-payment ACH bounce is flip-only (M1); no `event.livemode` vs
-  `plan.sandbox` guard in the webhook blocks (M2); `members.suspended` is shared with the admin's
-  manual toggle so the sweep's auto-(un)suspend can collide with it (M3); termination-fee bounce
-  has no bell (M4); combined-pull charges aren't grouped/gross-up-explained in the ledger UI;
-  Outstanding lists overdue-but-`scheduled` members whose "Send reminder" then errors.
+- From the 2026-07-17 audit, known-and-accepted for now (H4/M1/M2/M4 + the Outstanding
+  dead-end button + timestamptz dates were FIXED in the quick-wins batch, v619/620):
+  `members.suspended` is shared with the admin's manual toggle so the sweep's auto-(un)suspend
+  can collide with it (M3 — needs a schema decision); the permanent no-login update-method link
+  (M8 — product decision); combined-pull charges aren't grouped/gross-up-explained in the
+  ledger UI; a `terminated` plan blocks creating a new plan for the same member (flip it to
+  `canceled` to free the slot); transfer credit spread is estimated at plan-save, not pay time.
 - **Go-live steps** (order matters — the flip trap is #1: every charge site reads the plan's
   snapshotted `sandbox`, so an ACTIVE plan set up under sandbox keeps charging the SANDBOX
   account forever after the flip, green-but-fake):

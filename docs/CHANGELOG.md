@@ -8,6 +8,10 @@
 
 ---
 
+## Archived from SESSION_REFERENCE on 2026-07-17 (membership quick-wins session)
+
+**Version tail moved from LIVE STATE:** v617 = membership C1/C2/H1/H3 hardening (branch `claude/membership-fee-hardening`, merged as main `1386c0c`, tagged `backend-good-2026-07-17-v618`; also delivered the PFT accountant connected-member auto-link riding main tip `bd2728b`); v618 = `[Failed Amount]` email-token substitution (+ `email_templates` id=192 body edit via MCP: first `[Amount]` → `[Failed Amount]`).
+
 ## Archived from SESSION_REFERENCE on 2026-07-17 (membership-fees audit + hardening session)
 
 **Version tail moved from LIVE STATE:** v615 (minor, uninspected — registry increment between the PFT session's v614 read and the membership session's v617 deploy), v614 per-payment revshare display, v613 revshare + accounting nav, v612 payment-continuation hardening, v611 tax-impl PM auto-grab, v610 memo overhaul.
