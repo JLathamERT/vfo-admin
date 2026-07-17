@@ -34,7 +34,7 @@
   also save-only ($0 rows show "Covered by credit" and are waived when due).
 - **Missed payment**: row → `missed` (red), member gets the friendly `MEMBERSHIP_payment_failed`
   email (no suspension mention — fix your method at the link; next month doubles to catch up),
-  `members.suspended` flips on automatically (auto-clears when caught up; login NOT blocked),
+  `members.membership_suspended` flips on automatically (auto-clears when caught up; login NOT blocked; SEPARATE from the admin's manual `suspended` toggle — displays OR the two, gotcha #240),
   admin gets the `MEMBERSHIP_charge_failed` bell. The catch-up is automatic: the next due month
   and ALL arrears go out as ONE combined off-session charge.
 - **Termination**: "Terminate member" (replaces cancel on active plans) → admin enters a fee →
@@ -42,7 +42,12 @@
   scheduled rows voided, plan `terminated`. $0 fee just terminates. A failed fee charge still
   terminates and leaves a `declined` termination row visible for follow-up.
 - **Update payment method**: an active plan's same `/membership-pay` link becomes a save-only
-  "Update Your Payment Method" page (the failed-email button target).
+  "Update Your Payment Method" page (the failed-email button target). **Links on ACTIVE plans
+  expire 30 days after last being emailed** (`setup_link_expires_at`, re-stamped by every
+  emailer of the link + by activation; expired/NULL → "ask VFO Services for a fresh one"); the
+  admin's "Send payment update link" button on active plan cards re-sends via the same
+  `membership_send_setup_link` action using the `MEMBERSHIP_update_link` template (id 195,
+  Draft mode; gotcha #241). Setup links for unpaid plans do not expire.
 
 ## Flow
 
@@ -127,11 +132,9 @@
 
 - Membership invoice/receipt PDFs (never requested); per-row itemization of the card gross-up
   (the charge is grossed up; the ledger shows face value).
-- From the 2026-07-17 audit, known-and-accepted for now (H4/M1/M2/M4 + the Outstanding
-  dead-end button + timestamptz dates were FIXED in the quick-wins batch, v619/620):
-  `members.suspended` is shared with the admin's manual toggle so the sweep's auto-(un)suspend
-  can collide with it (M3 — needs a schema decision); the permanent no-login update-method link
-  (M8 — product decision); combined-pull charges aren't grouped/gross-up-explained in the
+- From the 2026-07-17 audit, still open (everything else — H4/M1/M2/M4, Outstanding dead-end
+  button, timestamptz dates, M3 suspended-flag separation, M8 link expiry+resend — was FIXED
+  across v619/620/621): combined-pull charges aren't grouped/gross-up-explained in the
   ledger UI; a `terminated` plan blocks creating a new plan for the same member (flip it to
   `canceled` to free the slot); transfer credit spread is estimated at plan-save, not pay time.
 - **Go-live steps** (order matters — the flip trap is #1: every charge site reads the plan's
@@ -146,7 +149,7 @@
   4. Subscribe the EXACT event names on the LIVE endpoint: `checkout.session.completed`,
      `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`,
      `payment_intent.succeeded`, `payment_intent.payment_failed` (NOT "payment_intent.failed").
-  5. Flip the three `MEMBER_MEMBERSHIP_FEES` templates Draft→Send (standing directive 2026-07-17:
+  5. Flip the FOUR `MEMBER_MEMBERSHIP_FEES` templates Draft→Send (incl. `MEMBERSHIP_update_link`) (standing directive 2026-07-17:
      nothing flips in the short term).
   6. Verify `advisor_model` tags on fee-paying members (card gross-up depends on the snapshot).
   7. Smoke one real setup link end-to-end and confirm the customer/charge lands in the LIVE
