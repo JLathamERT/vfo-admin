@@ -39,6 +39,16 @@ function fmtDate(d) {
   return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+// For timestamptz values (e.g. paid_at, setup_email_sent_at): parse the full
+// timestamp and render the LOCAL calendar date, so an evening-ET payment shows
+// on the day it happened rather than the UTC date. Same visual format as fmtDate.
+function fmtStamp(d) {
+  if (!d) return '—'
+  const dt = new Date(d)
+  if (isNaN(dt.getTime())) return '—'
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 function todayIso() {
   const n = new Date()
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
@@ -445,7 +455,7 @@ function PlanCard({ plan, onChanged, onEdit }) {
                     <div style={{ textAlign: 'right', fontSize: '11.5px', color: 'var(--vfo-muted)', wordBreak: 'break-all' }}>
                       {row.status === 'paid' || row.status === 'processing' ? (
                         <>
-                          {row.paid_at ? `${fmtDate(row.paid_at)} · ` : ''}
+                          {row.paid_at ? `${fmtStamp(row.paid_at)} · ` : ''}
                           {row.payment_method_type ? `${row.payment_method_type}${row.acct_last4 ? ` ••${row.acct_last4}` : ''} · ` : ''}
                           {row.stripe_payment_intent_id || ''}
                         </>
@@ -473,7 +483,7 @@ function PlanCard({ plan, onChanged, onEdit }) {
                     {busy ? 'Working…' : (plan.setup_email_sent_at ? 'Resend payment setup link' : 'Send payment setup link')}
                   </button>
                   {plan.setup_email_sent_at && (
-                    <span style={{ fontSize: '12px', color: 'var(--vfo-faint)' }}>Link sent {fmtDate(plan.setup_email_sent_at)}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--vfo-faint)' }}>Link sent {fmtStamp(plan.setup_email_sent_at)}</span>
                   )}
                   <button type="button" disabled={busy} onClick={e => { e.stopPropagation(); onEdit?.(plan) }}
                     style={{ ...ghostBtn, border: `1px solid ${BLUE}`, color: BLUE }}>
@@ -794,11 +804,15 @@ function OutstandingSection({ plans }) {
 
 // One outstanding plan. Its own state so the reminder button can show progress
 // per row (hooks can't live inside the .map above). Rows whose overdue payments
-// are all still 'scheduled' (not yet swept) are rejected by the backend — we
-// don't gate client-side, just surface that message.
+// are all still 'scheduled' (not yet swept) are rejected by the backend, so the
+// reminder button is hidden for them in favour of an explanatory note.
 function OutstandingRow({ plan, overdue, total }) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState(null)
+  // The backend only emails rows already marked missed/declined. When every
+  // overdue row is still 'scheduled' (awaiting tonight's automatic charge run),
+  // the reminder call is guaranteed to 400 — so gate the button instead.
+  const canRemind = overdue.some(r => r.status === 'missed' || r.status === 'declined')
 
   async function sendReminder() {
     setBusy(true); setMsg(null)
@@ -826,9 +840,15 @@ function OutstandingRow({ plan, overdue, total }) {
           <div style={{ fontSize: '14px', fontWeight: 700, color: '#ef4444' }}>{money(total)}</div>
           <div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>owed</div>
         </div>
-        <button type="button" disabled={busy} onClick={sendReminder} style={primaryBtn(busy)}>
-          {busy ? 'Sending…' : 'Send reminder email'}
-        </button>
+        {canRemind ? (
+          <button type="button" disabled={busy} onClick={sendReminder} style={primaryBtn(busy)}>
+            {busy ? 'Sending…' : 'Send reminder email'}
+          </button>
+        ) : (
+          <span style={{ fontSize: '12px', color: 'var(--vfo-faint)', maxWidth: '220px', textAlign: 'right' }}>
+            Overdue — will be charged by tonight's automatic run
+          </span>
+        )}
       </div>
       {msg && (
         <div style={{ marginTop: '10px', fontSize: '12.5px', padding: '8px 12px', borderRadius: '8px', wordBreak: 'break-all',

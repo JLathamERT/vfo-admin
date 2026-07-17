@@ -62,7 +62,8 @@ export default function AllPaymentsTab() {
           rows={rows}
           emptyText="No payments recorded yet."
           buckets={[
-            { key: 'received', label: 'Payments received', match: r => r.category !== 'Rev-share payouts' },
+            { key: 'received', label: 'Payments received', match: r => r.category !== 'Rev-share payouts' && r.category !== 'Membership fee' },
+            { key: 'membership', label: 'Membership', match: r => r.category === 'Membership fee' },
             { key: 'payouts', label: 'Revenue share payouts', match: r => r.category === 'Rev-share payouts' },
           ]}
         />
