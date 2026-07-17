@@ -21,7 +21,7 @@ when checking, so terminate → create-new works).
 | `per_pull_amount` | whole-dollar charge per pull (round half up), computed at plan-save |
 | `charge_day` | 1–15, locked at first payment (annual plans store 15) |
 | `start_date` | date of first payment (provisional = creation date until they pay) |
-| `renewal_date` | always a 15th; derived at first payment (last 15th before pay+12mo) or admin-entered for transfers; advanced +12mo at each renewal |
+| `renewal_date` | always a 15th; derived at first payment (pay days 1–14: last 15th strictly before pay+12mo; day 15 & after-the-15th: the 15th exactly 12mo out — gotcha #235) or admin-entered for transfers; advanced +12mo at each renewal |
 | `auto_renew` | default true |
 | `transfer` | mid-year move from the old billing (bills only until the entered renewal) |
 | `status` | `setup_pending` → `active` → `canceled` \| `terminated` |
