@@ -17,7 +17,8 @@ The advisor/accountant roster. PK is `member_number` (text), not an integer — 
 | `onboarding_id` | bigint | nullable FK → `advisor_onboarding(id)` `ON DELETE SET NULL`, partial index on non-null. Added 2026-05-26 (Phase 5). Set by `automation_ADVISOR_createmember`; remains NULL for legacy/manual advisors. Lets you trace a `members` row back to its onboarding record. |
 | `accountant_onboarding_id` | bigint | nullable FK → `accountant_onboarding(id)` `ON DELETE SET NULL`. Added 2026-05-28 (Accountant Onboarding pipeline). Set by `automation_ACCOUNTANT_createmember`; remains NULL for advisors and manually-added accountants. Lets you trace a `members` row back to its accountant onboarding record. |
 | `join_date` / `renewal_date` / `leave_date` | date | |
-| `suspended` | boolean | default `false`. Status field. |
+| `suspended` | boolean | default `false`. Status field — the admin's MANUAL toggle only. |
+| `membership_suspended` | boolean | default `false`. Set/cleared ONLY by membership-billing automation (sweep + webhook); displays show "Suspended" when EITHER flag is true (gotcha #240). |
 | `paused` | boolean | default `false`. Status field. |
 | `revenue_decision` | text | Whether they share revenue (`'Revenue Share'` / `'Money Mapping'`). Accountants have NONE — `add_member_full` and `automation_ACCOUNTANT_createmember` leave it NULL when `member_category='accountant'` (gotcha #48). |
 | `stripe_account_id` | text | **Stripe Connect ID** — used by `automation_CONTRACT_revshare` for Transfers. |
@@ -37,7 +38,7 @@ The advisor/accountant roster. PK is `member_number` (text), not an integer — 
 | `ciq_vfos_managed` | boolean | not null, default `true`. CIQ behavior toggle — when on, the One Page Plan shows "Powered by VFO Services". |
 | `created_at` | timestamptz | default `now()` |
 
-**Status fields:** `elite_status`, `suspended`, `paused`, `ciq_enabled`.
+**Status fields:** `elite_status`, `suspended` (manual), `membership_suspended` (automation), `paused`, `ciq_enabled`.
 **Automation fields:** `stripe_account_id` (revshare), `ciq_enabled` (CIQ start-new gate) / `ciq_vfos_managed` (CIQ "Powered by VFO Services" label).
 
 **Touched by:** `load_data`, `add_member`, `add_member_full`, `save_member`, `delete_member`, `member_profile_load`, `member_profile_save`, `upload_headshot` (profile headshot → `headshots` bucket), `automation_CONTRACT_revshare`. Frontend: [MembersPanel.jsx](src/components/admin/MembersPanel.jsx), [MemberPortal.jsx](src/pages/MemberPortal.jsx).

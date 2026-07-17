@@ -324,7 +324,7 @@ function MemberDirectoryView({
     ...(typeOptions.length ? [{ key: 'type', label: 'Member Type', options: typeOptions, get: m => m.member_type || '' }] : []),
     // Suspended / Paused are boolean flags that sit on top of an Active member.
     // `get` returns the set of flags so a member matches when EITHER is selected.
-    { key: 'standing', label: 'Standing', options: ['Suspended', 'Paused'], get: m => { const f = []; if (m.suspended) f.push('Suspended'); if (m.paused) f.push('Paused'); return f } },
+    { key: 'standing', label: 'Standing', options: ['Suspended', 'Paused'], get: m => { const f = []; if (m.suspended || m.membership_suspended) f.push('Suspended'); if (m.paused) f.push('Paused'); return f } },
     // VFO Certified / Accredited are date columns; presence = the credential is held.
     // Hidden for strategic members (they don't carry these credentials).
     ...(showCredential ? [{ key: 'credential', label: 'VFO Credential', options: ['VFO Certified', 'VFO Accredited'], get: m => { const f = []; if (m.vfo_certified_date) f.push('VFO Certified'); if (m.vfo_accredited_date) f.push('VFO Accredited'); return f } }] : []),
@@ -365,10 +365,10 @@ function MemberDirectoryView({
                 </span>
                 <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', width: '160px', flexShrink: 0 }}>{m.member_type || '—'}</span>
                 {showModel && <span style={{ fontSize: '12px', color: m.advisor_model === 'New Model' ? '#0095ff' : 'var(--vfo-muted)' }}>{m.advisor_model || '—'}</span>}
-                {(m.paused || m.suspended) && (
+                {(m.paused || m.suspended || m.membership_suspended) && (
                   <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: '12px', flexShrink: 0 }}>
                     {m.paused && <span style={{ fontSize: '12px', fontWeight: 700, color: '#e06717' }}>Paused</span>}
-                    {m.suspended && <span style={{ fontSize: '12px', fontWeight: 700, color: '#e74c3c' }}>Suspended</span>}
+                    {(m.suspended || m.membership_suspended) && <span style={{ fontSize: '12px', fontWeight: 700, color: '#e74c3c' }}>Suspended</span>}
                   </span>
                 )}
               </div>
@@ -390,7 +390,7 @@ function MemberDirectoryView({
                 {selectedMember.member_type && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span>{selectedMember.member_type}</span></>}
                 {selectedMember.elite_status && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: selectedMember.elite_status === 'Active' ? '#1b9254' : selectedMember.elite_status === 'Lost' ? '#e74c3c' : 'var(--vfo-faint)', flexShrink: 0 }} />{selectedMember.elite_status}</span></>}
                 {selectedMember.paused && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e06717', flexShrink: 0 }} />Paused</span></>}
-                {selectedMember.suspended && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e74c3c', flexShrink: 0 }} />Suspended</span></>}
+                {(selectedMember.suspended || selectedMember.membership_suspended) && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e74c3c', flexShrink: 0 }} />Suspended</span></>}
               </>
             }
           />
@@ -1089,6 +1089,11 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                 <div style={{ position: 'absolute', top: '2px', left: profile.suspended ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'var(--vfo-card)', transition: 'left 0.2s' }} />
               </div>
             </div>
+            {profile.membership_suspended && (
+              <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', padding: '0 0 8px', lineHeight: 1.45 }}>
+                Suspended for membership dues — clears automatically when payments catch up.
+              </div>
+            )}
             <div style={{ ...rowStyle, borderBottom: 'none' }}>
               <div><div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>Paused</div><div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Temporarily pauses activity</div></div>
               <div onClick={() => update('paused', !profile.paused)} style={{ width: '44px', height: '24px', borderRadius: '12px', background: profile.paused ? '#e06717' : 'var(--vfo-border-strong)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>

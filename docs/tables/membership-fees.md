@@ -27,6 +27,7 @@ when checking, so terminate → create-new works).
 | `status` | `setup_pending` → `active` → `canceled` \| `terminated` |
 | `stripe_customer_id` / `default_payment_method_id` / `payment_method_type` / `acct_last4` | charge rails (`ach`/`card`) |
 | `setup_token` / `setup_email_sent_at` | the /membership-pay link (doubles as the update-method link once active) |
+| `setup_link_expires_at` | update-method links (ACTIVE plans only) expire 30 days after last emailed; re-stamped by every link emailer + activation; NULL/past = expired (gotcha #241) |
 | `next_year_amount` / `next_year_credit_note` | admin-editable renewal terms, consumed + cleared by the renewal pass |
 | `termination_fee` / `terminated_at` | set by `membership_terminate` |
 | `sandbox` | Stripe mode the customer was created in (key selection follows this, not the live toggle) |
