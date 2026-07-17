@@ -4,11 +4,16 @@ import { callApi, loadCachedAction } from '../../../lib/api'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { PFTTrackSkeleton } from '../../shared/Skeleton'
 import { TrackHero, PhaseBadge } from '../../shared/TrackKit'
+import StepDate from '../../shared/StepDate'
 
 const pftStatusColors = { Complete: '#1b9254', Completed: '#1b9254', 'Complete - Yes': '#1b9254', 'Complete - No': '#e74c3c', Yes: '#1b9254', No: '#e74c3c', Undecided: '#e06717', VFOS: '#0095ff', Member: '#0095ff', New: '#1b9254', 'Re-Set': '#1b9254', 'VFO FT': '#1b9254', 'VFO Associate': '#1b9254', Stopped: '#e74c3c', 'No show': '#e74c3c', 'Meeting 1 scheduled': '#1b9254', 'Meeting 2 scheduled': '#1b9254', 'Meeting 3 scheduled': '#1b9254', 'Confirmation email sent': '#1b9254', 'Email sent - date not yet arranged': '#1b9254', 'Meeting declined': '#e74c3c', 'No response': '#e74c3c', 'Call arranged': '#1b9254', 'VFO FT confirmed': '#1b9254', 'VFO Associate confirmed': '#1b9254', 'No confirmed': '#e74c3c', 'Undecided - awaiting client': '#e06717' }
 const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
 const dateSpanStyle = { fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }
 const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
+// Solid green — the "mark complete without sending an email" backfill buttons.
+// Filled (vs the tinted send buttons above) so the no-email path is visually
+// distinct and hard to misclick. PFT-only.
+const greenSolidBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid #1b9254', background: '#1b9254', color: '#fff', fontWeight: 600 }
 const blueBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600 }
 const redBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600 }
 const amberBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(224,103,23,0.4)', background: 'rgba(224,103,23,0.12)', color: '#e06717', fontWeight: 600 }
@@ -102,7 +107,7 @@ function NotStarted() {
 }
 
 // Shared 3-button meeting confirmation step (Meeting 1 / 2 / 3).
-function MeetingStep({ task, meeting, p, readOnly, onSend }) {
+function MeetingStep({ task, meeting, p, readOnly, onSend, onCompleteNoEmail, onDate }) {
   const [showDate, setShowDate] = useState(false)
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
@@ -117,6 +122,12 @@ function MeetingStep({ task, meeting, p, readOnly, onSend }) {
     try { await onSend(decision, d, t, z); setShowDate(false) }
     catch (err) { console.error(err) }
     finally { setPending(null) }
+  }
+
+  async function fireNoEmail() {
+    if (pending) return
+    setPending('no_email')
+    try { await onCompleteNoEmail() } catch (err) { console.error(err) } finally { setPending(null) }
   }
 
   return (
@@ -146,9 +157,13 @@ function MeetingStep({ task, meeting, p, readOnly, onSend }) {
                 <button onClick={() => setShowDate(true)} disabled={!!pending} style={greenBtn}>Send email (with date)</button>
                 <button onClick={() => fire('confirm_no_date')} disabled={!!pending} style={{ ...greenBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'confirm_no_date' ? 'Sending…' : 'Send email - date not confirmed'}</button>
                 <button onClick={() => fire('declined')} disabled={!!pending} style={{ ...redBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'declined' ? 'Sending…' : 'Meeting declined - email client'}</button>
+                <button onClick={fireNoEmail} disabled={!!pending} style={{ ...greenSolidBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'no_email' ? 'Saving…' : 'Complete - NO EMAIL'}</button>
               </div>
       }
-      <span style={dateSpanStyle}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+      {readOnly
+        ? <span style={dateSpanStyle}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+        : <StepDate value={isDone ? (p.completed_date || '') : ''} onChange={onDate} disabled={!!pending} />
+      }
     </div>
   )
 }
@@ -182,7 +197,7 @@ function GateStep({ task, p, readOnly, onChoose }) {
 }
 
 // Final 3-button decision step (VFO FT / VFO Associate / No).
-function DecisionStep({ task, p, readOnly, onChoose }) {
+function DecisionStep({ task, p, readOnly, onChoose, onCompleteNoEmail, onDate }) {
   const [pending, setPending] = useState(null)
   const isDone = !!p.status
   const statusColor = pftStatusColors[p.status] || 'var(--vfo-muted)'
@@ -190,6 +205,11 @@ function DecisionStep({ task, p, readOnly, onChoose }) {
     if (pending) return
     setPending(choice)
     try { await onChoose(choice) } catch (err) { console.error(err) } finally { setPending(null) }
+  }
+  async function fireNoEmail(choice) {
+    if (pending) return
+    setPending('ne_' + choice)
+    try { await onCompleteNoEmail(choice) } catch (err) { console.error(err) } finally { setPending(null) }
   }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
@@ -199,14 +219,25 @@ function DecisionStep({ task, p, readOnly, onChoose }) {
         ? <StatusPill status={p.status} color={statusColor} />
         : readOnly
           ? <NotStarted />
-          : <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-              <button onClick={() => fire('vfo_ft')} disabled={!!pending} style={greenBtn}>{pending === 'vfo_ft' ? 'Sending…' : 'Email confirming VFO FT'}</button>
-              <button onClick={() => fire('vfo_associate')} disabled={!!pending} style={greenBtn}>{pending === 'vfo_associate' ? 'Sending…' : 'Email confirming VFO Associate'}</button>
-              <button onClick={() => fire('undecided')} disabled={!!pending} style={amberBtn}>{pending === 'undecided' ? 'Sending…' : 'Undecided email'}</button>
-              <button onClick={() => fire('no')} disabled={!!pending} style={redBtn}>{pending === 'no' ? 'Sending…' : 'Email confirming No'}</button>
+          : <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <button onClick={() => fire('vfo_ft')} disabled={!!pending} style={greenBtn}>{pending === 'vfo_ft' ? 'Sending…' : 'Email confirming VFO FT'}</button>
+                <button onClick={() => fire('vfo_associate')} disabled={!!pending} style={greenBtn}>{pending === 'vfo_associate' ? 'Sending…' : 'Email confirming VFO Associate'}</button>
+                <button onClick={() => fire('undecided')} disabled={!!pending} style={amberBtn}>{pending === 'undecided' ? 'Sending…' : 'Undecided email'}</button>
+                <button onClick={() => fire('no')} disabled={!!pending} style={redBtn}>{pending === 'no' ? 'Sending…' : 'Email confirming No'}</button>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}>
+                <span style={{ fontSize: '10px', color: 'var(--vfo-muted)', fontWeight: 600 }}>Complete - NO EMAIL:</span>
+                <button onClick={() => fireNoEmail('vfo_ft')} disabled={!!pending} style={{ ...greenSolidBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'ne_vfo_ft' ? 'Saving…' : 'VFO FT'}</button>
+                <button onClick={() => fireNoEmail('vfo_associate')} disabled={!!pending} style={{ ...greenSolidBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'ne_vfo_associate' ? 'Saving…' : 'VFO Associate'}</button>
+                <button onClick={() => fireNoEmail('no')} disabled={!!pending} style={{ ...greenSolidBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'ne_no' ? 'Saving…' : 'No'}</button>
+              </div>
             </div>
       }
-      <span style={dateSpanStyle}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+      {readOnly
+        ? <span style={dateSpanStyle}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+        : <StepDate value={isDone ? (p.completed_date || '') : ''} onChange={onDate} disabled={!!pending} />
+      }
     </div>
   )
 }
@@ -280,7 +311,7 @@ function DecisionHistory({ eng, decStatus, onboarding }) {
 }
 
 // Generic dropdown step (Relationship type, Call arranged, Call outcome, presentations, etc.)
-function GenericTask({ task, p, readOnly, saving, onSelect }) {
+function GenericTask({ task, p, readOnly, saving, onSelect, onDate }) {
   const isDone = !!p.status
   const statusColor = pftStatusColors[p.status] || 'var(--vfo-muted)'
   return (
@@ -294,7 +325,10 @@ function GenericTask({ task, p, readOnly, saving, onSelect }) {
             {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
           </select>
       }
-      <span style={dateSpanStyle}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+      {readOnly
+        ? <span style={dateSpanStyle}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+        : <StepDate value={isDone ? (p.completed_date || '') : ''} onChange={onDate} disabled={saving} />
+      }
     </div>
   )
 }
@@ -455,6 +489,21 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
     })
   }
 
+  // Backfill helper: mark the decision step complete with its real outcome
+  // status (so the matching Phase-6 track reveals) WITHOUT sending an email or
+  // creating an Accountant Onboarding record. For migrating existing accountants.
+  async function handleDecisionNoEmail(task, choice) {
+    const status = choice === 'vfo_ft' ? 'VFO FT confirmed' : choice === 'vfo_associate' ? 'VFO Associate confirmed' : 'No confirmed'
+    await saveTask(task.id, status, null)
+    setExpanded(prev => {
+      const next = { ...prev }
+      phases.forEach(ph => {
+        if ((choice === 'vfo_associate' && ph.name.includes('VFO-Associate')) || (choice === 'vfo_ft' && ph.name.includes('VFO-FT Accountant'))) next[ph.id] = true
+      })
+      return next
+    })
+  }
+
   function openOnboarding(id) {
     sessionStorage.setItem('accountantOnboardingOpenId', String(id))
     navigate('/admin?tab=accountants&section=accountant_onboarding')
@@ -573,7 +622,10 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
                         {(q.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                   }
-                  <span style={dateSpanStyle}>{qDone && qp.completed_date ? formatDate(qp.completed_date) : ''}</span>
+                  {readOnly
+                    ? <span style={dateSpanStyle}>{qDone && qp.completed_date ? formatDate(qp.completed_date) : ''}</span>
+                    : <StepDate value={qDone ? (qp.completed_date || '') : ''} onChange={d => saveTask(q.id, qp.status, d)} disabled={saving[q.id]} />
+                  }
                 </div>
               )
             })}
@@ -591,7 +643,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
     const mNum = meetingNumber(task.name)
     if (mNum) {
       if (mNum === 3 && gateStatus !== 'Yes') return null
-      const step = <MeetingStep task={task} meeting={mNum} p={p} readOnly={readOnly} onSend={(decision, d, t, z) => handleMeetingSend(task, mNum, decision, d, t, z)} />
+      const step = <MeetingStep task={task} meeting={mNum} p={p} readOnly={readOnly} onSend={(decision, d, t, z) => handleMeetingSend(task, mNum, decision, d, t, z)} onCompleteNoEmail={() => saveTask(task.id, 'Complete', p.completed_date)} onDate={(d) => saveTask(task.id, p.status, d)} />
       if (mNum === 2) {
         return <div key={task.id}>{step}<DiscoveryViewer eng={eng} /></div>
       }
@@ -609,13 +661,13 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
       if (phase.name === 'Accountant Meeting 2' && gateStatus !== 'No') return null
       return (
         <div key={task.id}>
-          <DecisionStep task={task} p={p} readOnly={readOnly} onChoose={(choice) => handleDecision(task, choice)} />
+          <DecisionStep task={task} p={p} readOnly={readOnly} onChoose={(choice) => handleDecision(task, choice)} onCompleteNoEmail={(choice) => handleDecisionNoEmail(task, choice)} onDate={(d) => saveTask(task.id, p.status, d)} />
           <DecisionHistory eng={eng} decStatus={p.status} onboarding={onboarding} />
         </div>
       )
     }
 
-    return <GenericTask key={task.id} task={task} p={p} readOnly={readOnly} saving={!!saving[task.id]} onSelect={(v) => saveTask(task.id, v, p.completed_date)} />
+    return <GenericTask key={task.id} task={task} p={p} readOnly={readOnly} saving={!!saving[task.id]} onSelect={(v) => saveTask(task.id, v, p.completed_date)} onDate={(d) => saveTask(task.id, p.status, d)} />
   }
 
   return (

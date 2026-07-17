@@ -4,6 +4,7 @@ import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { PipMeetingsListSkeleton, PipMeetingDetailSkeleton } from '../../shared/Skeleton'
 import { TrackHero, PhaseBadge, ListHeader } from '../../shared/TrackKit'
 import PipPurchaseDecisionForm from './PipPurchaseDecisionForm'
+import StepDate from '../../shared/StepDate'
 
 function fmtDate(d) {
   if (!d) return ''
@@ -348,7 +349,7 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                         <option value="">-- Select --</option>
                         {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
-                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '90px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? fmtDate(p.completed_date) : ''}</span>
+                      <StepDate value={isDone ? (p.completed_date || '') : ''} onChange={d => saveTask(task.id, p.status, d)} disabled={saving[task.id]} />
                     </div>
                   )
                 })}

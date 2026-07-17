@@ -5,6 +5,7 @@ import { ClientsListSkeleton, TrainingTrackSkeleton, CoachingMeetingsSkeleton, C
 import { TrackHero, PhaseBadge } from '../shared/TrackKit'
 import { countedTasks, countedDone, phaseState, isPositiveStatus, planStatusLabel } from '../shared/trainingStatus'
 import { VisibilityBadge, noteTint, SaveVisibilityButtons } from '../shared/NoteVisibility'
+import StepDate from '../shared/StepDate'
 
 const PROGRAMS = [
   { key: 'holistic', name: 'VFO Holistic Planning' },
@@ -690,7 +691,7 @@ function TrainingTrack({ enrollment, program, onPlanStatusChange }) {
                       </select>
                     )
                     const dateSpan = (
-                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                      <StepDate value={p.completed_date || ''} onChange={d => saveTask(task.id, p.status, d, phase.id)} disabled={saving[task.id]} />
                     )
                     if (task.video_url) {
                       return <AdminVideoRow key={task.id} task={task} inGroup={inGroup} isTouched={isTouched} isPositive={isPositive} statusColor={statusColor} statusSelect={statusSelect} dateSpan={dateSpan} />

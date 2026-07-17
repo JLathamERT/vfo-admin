@@ -3,6 +3,7 @@ import { callApi } from '../../../lib/api'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { TaxPlanListSkeleton } from '../../shared/Skeleton'
 import { TrackHero, PhaseBadge, ListHeader } from '../../shared/TrackKit'
+import StepDate from '../../shared/StepDate'
 
 const REGULAR_PRIORITIES = [
   "Business Growth", "Business Exit", "Business Advisory",
@@ -378,7 +379,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                         ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Completed</span>
                         : <button onClick={() => saveTask(task.id, 'Completed', p.completed_date)} style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600 }}>Enter details</button>
                       }
-                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                      <StepDate value={isDone ? (p.completed_date || '') : ''} onChange={d => saveTask(task.id, p.status, d)} disabled={saving[task.id]} />
                     </div>
                   )
 
@@ -429,7 +430,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                             <option value="">-- Select --</option>
                             {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
-                          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                          <StepDate value={isDone ? (p.completed_date || '') : ''} onChange={d => saveTask(task.id, p.status, d)} disabled={saving[task.id]} />
                         </div>
                         <div style={{ marginLeft: '18px', borderLeft: '1px solid var(--vfo-tint-deep)', paddingLeft: '12px', paddingBottom: '4px', opacity: greyed ? 0.3 : 1, pointerEvents: greyed ? 'none' : 'auto' }}>
                           {childTasks.map(ct => {
@@ -444,7 +445,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                                   <option value="">-- Select --</option>
                                   {(ct.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
-                                <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{cDone && cp.completed_date ? formatDate(cp.completed_date) : ''}</span>
+                                <StepDate value={cDone ? (cp.completed_date || '') : ''} onChange={d => saveTask(ct.id, cp.status, d)} disabled={saving[ct.id]} />
                               </div>
                             )
                           })}
@@ -462,7 +463,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                         <option value="">-- Select --</option>
                         {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
-                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+                      <StepDate value={isDone ? (p.completed_date || '') : ''} onChange={d => saveTask(task.id, p.status, d)} disabled={saving[task.id]} />
                     </div>
                   )
                 })}

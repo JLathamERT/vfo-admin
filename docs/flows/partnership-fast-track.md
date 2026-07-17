@@ -46,6 +46,9 @@ One warm template `PFT_meeting_confirm` for all three, parameterised by `automat
 - 3 buttons → `automation_PFT_meetingemail` with `decision` = `confirm_date` / `confirm_no_date` / `declined`.
   Statuses written to `client_progress`: "Confirmation email sent" / "Email sent - date not yet arranged" /
   "Meeting declined". Declined uses `PFT_meeting_declined`.
+- **Admin backfill — "Complete - NO EMAIL"** (2026-07-17, gotcha #243): a 4th solid-green button marks the
+  meeting step complete (status `Complete`) via `msm_save_client_task` with NO email — for bringing
+  old-system accountants up to date. Frontend-only; PFT-only (lives in `PFTEngagementTrack.jsx`'s `MeetingStep`).
 
 ## Discovery form (Meeting 2)
 - Meeting 2's confirm email contains a **Complete the discovery form** button →
@@ -60,6 +63,13 @@ The tracker's **Accountant decision confirmation email** step shows four buttons
 **Email confirming VFO Associate**, **Undecided email**, **Email confirming No**. The first two + "No" call
 `automation_PFT_decisionemail` (`choice` = `vfo_ft` | `vfo_associate` | `no`); **Undecided email** calls
 `automation_PFT_undecided` (see next section — defers the choice to the client).
+
+**Admin backfill — "Complete - NO EMAIL:"** (2026-07-17, gotcha #243): a second row (VFO FT / VFO Associate /
+No, solid-green) writes the REAL outcome status (`VFO FT confirmed` / `VFO Associate confirmed` / `No confirmed`)
+via `msm_save_client_task` so the matching Phase-6 track reveals, but sends NO email AND does **not** create the
+`accountant_onboarding` handoff record (that only happens in `automation_PFT_decisionemail` above) — so the AI
+PC Admin history line "Accountant Onboarding record created" stays correctly un-done. For migrating existing
+accountants without spamming them. Frontend-only; PFT-only (`PFTEngagementTrack.jsx`'s `DecisionStep`).
 
 `automation_PFT_decisionemail`:
 - **vfo_ft** — drafts `PFT_decision_vfo_ft` with **two recipient buttons** ("I Don't Need Another Meeting -
