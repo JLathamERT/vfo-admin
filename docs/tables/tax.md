@@ -18,7 +18,7 @@ State machine for the tax-planning engagement. **84 columns total** (4 original 
 | `program_id` | integer | fk → `programs.id`. Distinguishes Holistic Planning (1) vs standalone Tax Planning (4). NULL on rows pre-dating migration. |
 | `atp_name` | text | Advanced Tax Planner allocated (Tim Gacsy / Steven Cox per task option). |
 | `sandbox` | boolean | default false. Snapshot of sandbox_mode at row creation. |
-| `extra_cc` | text | Comma-separated extra CC emails captured from `TaxDecisionForm`. |
+| `extra_cc` | text | Comma-separated extra CC emails captured from `TaxDecisionForm` (read via `utils/extra-cc.ts extraCcList()`, which also tolerates legacy JSON-array strings — gotcha #244). |
 
 ### Tax 2 — Ready for Tax 3 email
 | Column | Type | Notes |
