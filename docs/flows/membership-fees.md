@@ -18,8 +18,12 @@
   snapshot; untagged members = Legacy). Corporate/untagged members are always advisors.
 - **Charge day** = the day of the first payment when it's the 1st–15th (pay the 8th → the 8th
   forever). Paying after the 15th skips the next month, then bills the 1st (pay Jul 19 → Sep 1…).
-- **Renewal is always a 15th**: the last 15th strictly before first-payment + 12 months
-  (pay Jul 8 → renews Jun 15 next year; Jul 19 → Jul 15). 12 pulls per membership year.
+- **Renewal is always a 15th**: pay days 1–14 → the last 15th strictly before
+  first-payment + 12 months (pay Jul 8 → renews Jun 15 next year); pay day 15 **or**
+  after the 15th → the 15th exactly 12 months out (pay Jul 15 → Jul 15; Jul 19 → Jul 15).
+  12 pulls per membership year. (Day-15 rule changed 2026-07-17 — the old "strictly before"
+  formula made a day-15 payer's 12th pull EQUAL the renewal date, permanently blocking the
+  renewal guard; gotcha #235.)
   Auto-renews at the full annual value — or at admin-set **next-year terms**
   (`next_year_amount` − `next_year_credit_note`, editable on any active plan, consumed at renewal) —
   unless auto-renew is toggled off.
@@ -65,10 +69,15 @@
 5. **Daily sweep** — `automation_MEMBERSHIP_sweep` (PUBLIC service-role, cron jobid 16 @12:00 UTC,
    `supabase/cron/membership-sweep.sql`), four passes in order: **renewals** (generate the next
    year at next-year terms, advance `renewal_date` +12 months, guard = any row on/after renewal),
-   **waive** due $0 rows, **charges** (one off-session PI per plan = due + missed rows; row-set
-   idempotency keys; failure → missed/email/suspend/bell), **auto-unsuspend** caught-up members.
-   Off-session PI settlement also has a generic webhook block (`payment_intent.succeeded/_failed`
-   routed by membership metadata) covering ACH pulls + termination fees.
+   **waive** due $0 rows, **charges** (one off-session PI per plan = due + missed rows;
+   LOGICAL/date-less sorted row-set idempotency keys `membership-pull-<plan>-<rowids>`, gotcha
+   #228 class; a charge that succeeds but whose ledger write fails alerts Jake loudly; sync
+   card decline → missed/email/suspend/bell), **auto-unsuspend** caught-up members.
+   Off-session PI settlement has a webhook block (`payment_intent.succeeded/_failed` routed by
+   membership metadata) covering ACH pulls + termination fees — and since v617 the
+   `payment_intent.payment_failed` branch mirrors the sweep's failure arm for late ACH bounces
+   of monthly pulls (suspend + bell + email via the shared
+   `utils/membership-payment-failure.ts` helper; gotcha #236).
 6. **Reconciliation UI** — the Members section renders the ledger per member (green paid rows with
    payment id + method, red missed with the Stripe decline reason, waived, per-membership-year
    selector once renewals accumulate, totals row). Outstanding lists overdue/missed by member,
@@ -83,17 +92,49 @@
 
 - ACH first payment bounces → `checkout.session.async_payment_failed` → row 1 `declined`; the plan
   stays active and the next sweep's combined charge picks the amount up (same catch-up path).
-- Off-session pull fails → sweep marks the newly-due row `missed`, drafts the friendly email once
-  per row (`reminder_sent_at` guard), suspends, bells. No auto-retry of the failing method — the
-  catch-up rides next month's charge; the member fixes the method via their link.
-- Termination fee declines → plan still terminates; the `termination_fee` row sits `declined`.
-- The sweep skips plans without a saved method (nothing to charge yet).
+  Deliberately flip-only today — no bell/email on the FIRST-payment bounce (audit finding M1).
+- Off-session pull fails **synchronously (card)** → sweep marks the newly-due row `missed`,
+  drafts the friendly email once per row (`reminder_sent_at` guard), suspends, bells.
+- Off-session pull bounces **late (ACH)** → `payment_intent.payment_failed` flips the charge's
+  rows `declined` AND (v617) suspends + bells + drafts the same email via the shared helper —
+  previously this path was totally silent (gotcha #236). No auto-retry of the failing method
+  either way — the catch-up rides next month's charge; the member fixes the method via their link.
+- The failed-payment email's `[Failed Amount]` token = the failed charge's total (may span
+  months); `[Amount]` = the regular per-pull ("your usual"). Different tokens — keep both.
+- Charge succeeds but the ledger write fails → Jake gets a "charge SUCCEEDED / write FAILED"
+  bell (the date-less idempotency key protects the next-night re-select within Stripe's window).
+- Any activation DB failure after the member completed checkout (guard count / ledger insert /
+  plan update / method refresh), or a payment method that couldn't be read back from Stripe →
+  Jake bell (`activate.ts` + the webhook block; Stripe returned 200 and will not retry).
+- Termination fee declines → plan still terminates; the `termination_fee` row sits `declined`
+  (no bell — audit finding M4, visible only in the grid/Outstanding + the admin's response toast).
+- The sweep skips plans without a saved method (nothing to charge yet); an ACTIVE plan missing
+  its method is alerted at activation time (see above) rather than nightly.
 
 ## NOT built yet (next work)
 
 - Membership invoice/receipt PDFs (never requested); per-row itemization of the card gross-up
   (the charge is grossed up; the ledger shows face value).
-- Go-live steps: frontend deploy (ships `/membership-pay` — REQUIRED before real setup links go
-  out), flip `MEMBER_MEMBERSHIP` sandbox→live, confirm the LIVE Stripe endpoint subscribes
-  `checkout.session.completed` + `async_payment_succeeded/_failed` + `payment_intent.succeeded/_failed`,
-  flip the three templates Draft→Send, verify `advisor_model` tags on fee-paying members.
+- From the 2026-07-17 audit, known-and-accepted for now: membership charges are absent from the
+  global Payments page (H4); first-payment ACH bounce is flip-only (M1); no `event.livemode` vs
+  `plan.sandbox` guard in the webhook blocks (M2); `members.suspended` is shared with the admin's
+  manual toggle so the sweep's auto-(un)suspend can collide with it (M3); termination-fee bounce
+  has no bell (M4); combined-pull charges aren't grouped/gross-up-explained in the ledger UI;
+  Outstanding lists overdue-but-`scheduled` members whose "Send reminder" then errors.
+- **Go-live steps** (order matters — the flip trap is #1: every charge site reads the plan's
+  snapshotted `sandbox`, so an ACTIVE plan set up under sandbox keeps charging the SANDBOX
+  account forever after the flip, green-but-fake):
+  1. Frontend deploy (ships `/membership-pay` — REQUIRED before real setup links go out).
+  2. BEFORE flipping, inventory `member_payment_plans` where `sandbox=true`: `active` ones must
+     be terminated/canceled and recreated live (no re-stamp path exists); `setup_pending` ones
+     self-heal only when "Send setup link" is re-clicked AFTER the flip (old emailed links stay
+     sandbox-stamped — resend them).
+  3. Flip `MEMBER_MEMBERSHIP` sandbox→live.
+  4. Subscribe the EXACT event names on the LIVE endpoint: `checkout.session.completed`,
+     `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`,
+     `payment_intent.succeeded`, `payment_intent.payment_failed` (NOT "payment_intent.failed").
+  5. Flip the three `MEMBER_MEMBERSHIP_FEES` templates Draft→Send (standing directive 2026-07-17:
+     nothing flips in the short term).
+  6. Verify `advisor_model` tags on fee-paying members (card gross-up depends on the snapshot).
+  7. Smoke one real setup link end-to-end and confirm the customer/charge lands in the LIVE
+     Stripe dashboard.
