@@ -22,7 +22,7 @@ function creditNote(vfos) {
   return null
 }
 
-export default function SpecialistReconciliationPanel({ allMembers = [] }) {
+export default function SpecialistReconciliationPanel({ allMembers = [], embedded = false }) {
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -101,17 +101,19 @@ export default function SpecialistReconciliationPanel({ allMembers = [] }) {
 
   const tot = rows.reduce((s, r) => ({ member: s.member + r.t.member, vfos: s.vfos + r.t.vfos, mm: s.mm + r.t.mm, cn: s.cn + (r.cn || 0) }), { member: 0, vfos: 0, mm: 0, cn: 0 })
 
-  const wrap = { padding: '24px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
+  const wrap = embedded ? { fontFamily: 'Inter, sans-serif' } : { padding: '24px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
   const sel = { padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', fontSize: '13px', fontFamily: 'Inter, sans-serif', color: 'var(--vfo-ink)', cursor: 'pointer' }
   const grid = '90px 1.4fr 120px 120px 130px 130px 150px'
   const muted = { color: 'var(--vfo-faint)' }
 
   return (
     <div style={wrap}>
-      <div style={{ marginBottom: '18px' }}>
-        <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 6px' }}>Accounting</p>
-        <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>VFO Specialist Reconciliation</h2>
-      </div>
+      {!embedded && (
+        <div style={{ marginBottom: '18px' }}>
+          <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 6px' }}>Accounting</p>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>VFO Specialist Reconciliation</h2>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap' }}>
         <select style={sel} value={year} onChange={e => setYear(Number(e.target.value))}>

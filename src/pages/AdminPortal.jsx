@@ -32,6 +32,7 @@ import PipRevenuePanel from '../components/admin/PipRevenuePanel'
 import PipReconciliationPanel from '../components/admin/PipReconciliationPanel'
 import MemberOnboardingPanel from '../components/admin/MemberOnboardingPanel'
 import MembershipFeesPanel from '../components/admin/MembershipFeesPanel'
+import AccountingCombinedPanel from '../components/admin/AccountingCombinedPanel'
 import SpecialistRevenueAutomationPanel from '../components/admin/SpecialistRevenueAutomationPanel'
 import GrowthCreditsPanel from '../components/admin/GrowthCreditsPanel'
 import GrowthCreditsAccountingPanel from '../components/admin/GrowthCreditsAccountingPanel'
@@ -468,29 +469,6 @@ export default function AdminPortal() {
       ]
     },
     {
-      key: 'accounting_specialists',
-      submenuLabel: 'Specialists',
-      submenu: [
-        { key: 'specialist_revenue', label: 'VFO Specialist Revenue' },
-        { key: 'specialist_recurring', label: 'VFO Specialist Recurring Revenue Payments' },
-        { key: 'specialist_reconciliation', label: 'VFO Specialist Reconciliation' },
-        { key: 'specialist_license', label: 'VFO Specialist License Fees' },
-        { key: 'specialist_bg', label: 'VFO Specialist Background Check & Due Diligence Fees' },
-      ],
-    },
-    {
-      key: 'accounting_vfo_services',
-      submenuLabel: 'VFO Services',
-      submenu: [
-        { key: 'holistic_revenue', label: 'Holistic Planning Revenue' },
-        { key: 'holistic_reconciliation', label: 'Holistic Planning Reconciliation' },
-        { key: 'tax_revenue', label: 'Tax Planning Revenue' },
-        { key: 'tax_reconciliation', label: 'Tax Planning Reconciliation' },
-        { key: 'pip_revenue', label: 'Additional PIP Revenue' },
-        { key: 'pip_reconciliation', label: 'Additional PIP Reconciliation' },
-      ],
-    },
-    {
       key: 'accounting_members',
       submenuLabel: 'Members',
       submenu: [
@@ -499,6 +477,24 @@ export default function AdminPortal() {
         { key: 'accountant_onboarding_fees', label: 'Accountant Onboarding' },
         { key: 'accountant_membership_fees', label: 'Accountant Membership Fees' },
         { key: 'gc_accounting', label: 'Growth Credits' },
+      ],
+    },
+    {
+      key: 'accounting_vfo_services',
+      submenuLabel: 'VFO Services',
+      submenu: [
+        { key: 'holistic_revenue', label: 'Holistic Planning' },
+        { key: 'tax_revenue', label: 'Tax Planning' },
+        { key: 'pip_revenue', label: 'Additional PIP' },
+      ],
+    },
+    {
+      key: 'accounting_specialists',
+      submenuLabel: 'Specialists',
+      submenu: [
+        { key: 'specialist_revenue', label: 'VFO Specialist Revenue' },
+        { key: 'specialist_license', label: 'VFO Specialist License Fees' },
+        { key: 'specialist_bg', label: 'VFO Specialist Background Check & Due Diligence Fees' },
       ],
     },
   ]
@@ -766,11 +762,16 @@ export default function AdminPortal() {
           {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'payments' && (
             <AllPaymentsTab />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && (accountingSection === 'specialist_revenue' || accountingSection === 'specialist_payment_input') && (
-            <SpecialistRevenuePanel allExperts={allExperts} allMembers={allMembers} />
-          )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'specialist_recurring' && (
-            <SpecialistRecurringPanel />
+          {activeTab === 'accounting' && !loading && session.is_superadmin && (accountingSection === 'specialist_revenue' || accountingSection === 'specialist_payment_input' || accountingSection === 'specialist_recurring' || accountingSection === 'specialist_reconciliation') && (
+            <AccountingCombinedPanel
+              breadcrumb="Accounting · Specialists" title="VFO Specialist Revenue"
+              maxWidth="1200px" initialKey={accountingSection === 'specialist_payment_input' ? 'specialist_revenue' : accountingSection}
+              tabs={[
+                { key: 'specialist_revenue', label: 'VFO Specialist Revenue', render: () => <SpecialistRevenuePanel allExperts={allExperts} allMembers={allMembers} embedded /> },
+                { key: 'specialist_reconciliation', label: 'VFO Specialist Reconciliation', render: () => <SpecialistReconciliationPanel allMembers={allMembers} embedded /> },
+                { key: 'specialist_recurring', label: 'VFO Specialist Recurring Revenue Payments', render: () => <SpecialistRecurringPanel embedded /> },
+              ]}
+            />
           )}
           {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'specialist_license' && (
             <SpecialistLicensePanel />
@@ -778,26 +779,35 @@ export default function AdminPortal() {
           {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'specialist_bg' && (
             <SpecialistBgPanel />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'specialist_reconciliation' && (
-            <SpecialistReconciliationPanel allMembers={allMembers} />
+          {activeTab === 'accounting' && !loading && session.is_superadmin && (accountingSection === 'holistic_revenue' || accountingSection === 'holistic_reconciliation') && (
+            <AccountingCombinedPanel
+              breadcrumb="Accounting · VFO Services" title="Holistic Planning"
+              maxWidth="1150px" initialKey={accountingSection}
+              tabs={[
+                { key: 'holistic_revenue', label: 'Holistic Planning Revenue', render: () => <HolisticRevenuePanel embedded /> },
+                { key: 'holistic_reconciliation', label: 'Holistic Planning Reconciliation', render: () => <HolisticReconciliationPanel embedded /> },
+              ]}
+            />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'holistic_revenue' && (
-            <HolisticRevenuePanel />
+          {activeTab === 'accounting' && !loading && session.is_superadmin && (accountingSection === 'tax_revenue' || accountingSection === 'tax_reconciliation') && (
+            <AccountingCombinedPanel
+              breadcrumb="Accounting · VFO Services" title="Tax Planning"
+              maxWidth="1150px" initialKey={accountingSection}
+              tabs={[
+                { key: 'tax_revenue', label: 'Tax Planning Revenue', render: () => <TaxRevenuePanel embedded /> },
+                { key: 'tax_reconciliation', label: 'Tax Planning Reconciliation', render: () => <TaxReconciliationPanel embedded /> },
+              ]}
+            />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'holistic_reconciliation' && (
-            <HolisticReconciliationPanel />
-          )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'tax_revenue' && (
-            <TaxRevenuePanel />
-          )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'tax_reconciliation' && (
-            <TaxReconciliationPanel />
-          )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'pip_revenue' && (
-            <PipRevenuePanel />
-          )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'pip_reconciliation' && (
-            <PipReconciliationPanel />
+          {activeTab === 'accounting' && !loading && session.is_superadmin && (accountingSection === 'pip_revenue' || accountingSection === 'pip_reconciliation') && (
+            <AccountingCombinedPanel
+              breadcrumb="Accounting · VFO Services" title="Additional PIP"
+              maxWidth="1150px" initialKey={accountingSection}
+              tabs={[
+                { key: 'pip_revenue', label: 'Additional PIP Revenue', render: () => <PipRevenuePanel embedded /> },
+                { key: 'pip_reconciliation', label: 'Additional PIP Reconciliation', render: () => <PipReconciliationPanel embedded /> },
+              ]}
+            />
           )}
           {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'advisor_onboarding_fees' && (
             <MemberOnboardingPanel kind="advisor" title="Advisor Onboarding" />

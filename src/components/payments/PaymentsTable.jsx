@@ -16,32 +16,6 @@ const STATUS = {
   unpaid:     { label: 'Not paid',          fg: 'var(--vfo-faint)', bg: '#f2f4f7' },
 }
 
-// Other-context tags (member / specialist rows). Client rows (MAP 1 / Tax / PIP)
-// instead get a business-line tag from rowTag() below.
-const PIPELINE_TAG = {
-  'Advisor Onboarding': 'ADVISOR',
-  'Accountant Onboarding': 'ACCOUNTANT',
-  'Background Check': 'BG CHECK',
-  'Monthly License': 'LICENSE',
-  'Rev-Share Payout': 'PAYOUT',
-}
-
-// The row badge shows the BUSINESS LINE for client payments — Holistic (MAP 1 +
-// Tax Priorities + PIP, all program 1) vs standalone Tax Planning (program 4).
-// The Holistic vs Tax Planning split for a Tax row is read off its label
-// ("Tax Planning — …" = program 4, else Holistic). Non-client rows keep their
-// context tag (ADVISOR / PAYOUT / BG CHECK / LICENSE).
-const HOLISTIC_TAG = { text: 'HOLISTIC', fg: '#1d4ed8', bg: 'var(--vfo-tint)' }
-const TAXPLANNING_TAG = { text: 'TAX PLANNING', fg: '#0e7490', bg: '#cffafe' }
-const TAX_TAG = { text: 'TAX', fg: '#854d0e', bg: '#fdf0d9' }   // tax payout, program not on the transfer
-function rowTag(r) {
-  if (r.pipeline === 'MAP 1' || r.pipeline === 'PIP') return HOLISTIC_TAG
-  if (r.pipeline === 'Tax') return /^Tax Planning/.test(r.label || '') ? TAXPLANNING_TAG : HOLISTIC_TAG
-  if (r.pipeline === 'Tax-Payout') return TAX_TAG
-  const t = PIPELINE_TAG[r.pipeline]
-  return t ? { text: t, fg: 'var(--vfo-muted)', bg: 'var(--vfo-tint)' } : null
-}
-
 // Person-type tag colours for the global (admin) Payments page — shown in the Person
 // column + the "Who" filter chips. Absent on the per-person tabs (rows carry no person).
 const PTYPE_TAG = {
@@ -220,7 +194,6 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
   // tucked under an expanded group parent (indented + lighter, no repeated person/tag).
   function renderRow(r, child) {
     const onBehalf = !!r.onBehalfByMember
-    const tg = rowTag(r)
     return (
       <tr key={r.key} style={{ ...(onBehalf ? { background: '#fffaf2' } : null), ...(child ? { background: '#fbfcfe' } : null) }}>
         <td style={td} />
@@ -236,7 +209,6 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
         )}
         <td style={td}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {!child && tg && <Tag fg={tg.fg} bg={tg.bg}>{tg.text}</Tag>}
             <span style={{ fontWeight: child ? 500 : 600, color: child ? '#475467' : 'var(--vfo-ink)' }}>{r.label}</span>
           </div>
           {r.detail && <div style={{ fontSize: '12px', color: 'var(--vfo-faint)', marginTop: '3px' }}>{r.detail}</div>}
@@ -280,7 +252,6 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
     // installment's, not the oldest's — installment 1 keeps its frozen original
     // method, so kids[0] would mislead after a payment-method change.
     const latest = kids[kids.length - 1]
-    const tg = rowTag(first)
     const total = kids.reduce((s, k) => s + (k.amount || 0), 0)
     const feeTotal = kids.reduce((s, k) => s + (k.fee || 0), 0)
     const labels = kids.map(k => k.label)
@@ -309,7 +280,6 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
           )}
           <td style={td}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              {tg && <Tag fg={tg.fg} bg={tg.bg}>{tg.text}</Tag>}
               <span style={{ fontWeight: 700 }}>{groupLabel}</span>
             </div>
             <div style={{ fontSize: '12px', color: 'var(--vfo-faint)', marginTop: '3px' }}>

@@ -9,7 +9,7 @@ import { AccountingTableSkeleton } from '../shared/Skeleton'
 // CLEARED in the year: member share (revenue-share members), money-mapping share, VFOS
 // share. ERT + strategic shares aren't tracked in Holistic yet → blank.
 
-export default function HolisticReconciliationPanel() {
+export default function HolisticReconciliationPanel({ embedded = false }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -58,17 +58,19 @@ export default function HolisticReconciliationPanel() {
 
   const tot = members.reduce((s, m) => ({ member: s.member + m.member, mm: s.mm + m.mm, vfos: s.vfos + m.vfos, strategic: s.strategic + m.strategic }), { member: 0, mm: 0, vfos: 0, strategic: 0 })
 
-  const wrap = { padding: '24px', maxWidth: '1150px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
+  const wrap = embedded ? { fontFamily: 'Inter, sans-serif' } : { padding: '24px', maxWidth: '1150px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
   const sel = { padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', fontSize: '13px', fontFamily: 'Inter, sans-serif', color: 'var(--vfo-ink)', cursor: 'pointer' }
   const grid = '90px 1.4fr 130px 140px 130px 120px'
   const muted = { color: 'var(--vfo-faint)' }
 
   return (
     <div style={wrap}>
-      <div style={{ marginBottom: '18px' }}>
-        <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 6px' }}>Accounting · VFO Services</p>
-        <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>Holistic Planning Reconciliation</h2>
-      </div>
+      {!embedded && (
+        <div style={{ marginBottom: '18px' }}>
+          <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 6px' }}>Accounting · VFO Services</p>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>Holistic Planning Reconciliation</h2>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap' }}>
         <select style={sel} value={year} onChange={e => setYear(Number(e.target.value))}>
