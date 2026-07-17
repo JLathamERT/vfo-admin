@@ -351,6 +351,17 @@ function PlanCard({ plan, onChanged, onEdit }) {
     onChanged?.()
   }
 
+  // Active plans: same action, but the backend sends an update-payment-method
+  // email and returns { update_link: true }. Amber (template not seeded) shape
+  // is handled the same way as the setup path.
+  async function sendUpdateLink() {
+    const res = await run('membership_send_setup_link', { plan_id: plan.id })
+    if (!res) return
+    if (res.email_skipped) setMsg({ tone: 'amber', text: `Link ready, but the email template isn't seeded yet — send it manually: ${res.setup_link}` })
+    else setMsg({ tone: 'success', text: `Update-method email created for ${res.to_email}.` })
+    onChanged?.()
+  }
+
   async function terminate() {
     const fee = parseMoney(terminateFee)
     const res = await run('membership_terminate', { plan_id: plan.id, termination_fee: fee },
@@ -382,7 +393,7 @@ function PlanCard({ plan, onChanged, onEdit }) {
           <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             {plan.member_name || plan.member_number}
             {plan.transfer && <StatusPill label="Transferred" color="#6b7280" />}
-            {m.suspended && <StatusPill label="Suspended" color="#ef4444" />}
+            {(m.suspended || m.membership_suspended) && <StatusPill label="Suspended" color="#ef4444" />}
             {m.paused && <StatusPill label="Paused" color="#e06717" />}
           </div>
           <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>
@@ -497,6 +508,9 @@ function PlanCard({ plan, onChanged, onEdit }) {
               )}
               {plan.status === 'active' && (
                 <>
+                  <button type="button" disabled={busy} onClick={sendUpdateLink} style={ghostBtn}>
+                    {busy ? 'Working…' : 'Send payment update link'}
+                  </button>
                   <button type="button" disabled={busy} style={ghostBtn}
                     onClick={() => run('membership_plan_cancel', { plan_id: plan.id, mode: plan.auto_renew ? 'auto_renew_off' : 'auto_renew_on' }).then(r => r && onChanged?.())}>
                     {plan.auto_renew ? 'Turn auto-renew off' : 'Turn auto-renew on'}

@@ -59,7 +59,7 @@ const isActive = (m) => statusOf(m) === 'Active'
 const LENS_PREDICATE = {
   all: () => true,
   active: isActive,
-  suspended: (m) => isActive(m) && !!m.suspended,
+  suspended: (m) => isActive(m) && (!!m.suspended || !!m.membership_suspended),
   paused: (m) => isActive(m) && !!m.paused,
   lost: (m) => statusOf(m) === 'Lost',
   removed: (m) => statusOf(m) === 'Removed',
@@ -342,7 +342,7 @@ function StandingView({ nounTitle, standing, setStanding, lists }) {
                 <span style={{ fontSize: '14px', color: 'var(--vfo-ink)', fontWeight: 600, flex: 1, minWidth: '160px' }}>{m.name}</span>
                 <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', width: '200px', flexShrink: 0 }}>{m.member_type || '—'}</span>
                 <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: '12px', flexShrink: 0 }}>
-                  {m.suspended && <span style={{ fontSize: '12px', fontWeight: 700, color: STANDING.suspended.color }}>Suspended</span>}
+                  {(m.suspended || m.membership_suspended) && <span style={{ fontSize: '12px', fontWeight: 700, color: STANDING.suspended.color }}>Suspended</span>}
                   {m.paused && <span style={{ fontSize: '12px', fontWeight: 700, color: STANDING.paused.color }}>Paused</span>}
                 </span>
               </div>

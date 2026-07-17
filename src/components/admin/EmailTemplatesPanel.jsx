@@ -222,6 +222,7 @@ const TEMPLATE_META = {
     ['MEMBERSHIP_setup_link', 'Membership fee plan created — link where the member pays their first payment and saves their card or bank account', 'To: Member'],
     ['MEMBERSHIP_transfer_setup_link', 'Member moving over from the old billing mid-year — same setup link, but explains the transfer and where they are in their year', 'To: Member'],
     ['MEMBERSHIP_payment_failed', 'A monthly membership charge failed — friendly note that next month doubles to catch up, with an update-payment-method link', 'To: Member'],
+    ['MEMBERSHIP_update_link', 'Admin-sent fresh update-payment-method link for an active plan (links expire after 30 days)', 'To: Member'],
   ],
   'PARTNERSHIP_FAST_TRACK': [
     ['PFT_meeting_confirm', 'A PFT meeting is booked — confirmation (used for every meeting in the track)', 'To: Accountant'],
