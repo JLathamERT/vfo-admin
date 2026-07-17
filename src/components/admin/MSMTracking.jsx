@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { callApi, getSession, loadCachedAction } from '../../lib/api'
 import { ClientsListSkeleton, TrainingTrackSkeleton, CoachingMeetingsSkeleton, CoachingRenewalSkeleton, AdminMsmHomeSkeleton, ProgramNotesSkeleton, AdminProgramViewSkeleton, SkeletonText, PhaseListSkeleton } from '../shared/Skeleton'
 import { TrackHero, PhaseBadge } from '../shared/TrackKit'
+import { countedTasks, countedDone, phaseState, isPositiveStatus, planStatusLabel } from '../shared/trainingStatus'
 import { VisibilityBadge, noteTint, SaveVisibilityButtons } from '../shared/NoteVisibility'
 
 const PROGRAMS = [
@@ -13,9 +14,6 @@ const PROGRAMS = [
 ]
 
 const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael Hopson', 'Ian Welham', 'Paul Latham']
-
-// Training-track section headers (task_type='section') are labels only — never counted toward completion.
-const countableTasks = (list) => (list || []).filter(t => t.task_type !== 'section')
 
 // Group a phase's tasks so each section header owns the contiguous sub-steps beneath it,
 // letting the UI enclose the group and keep following standalone tasks visually separate.
@@ -86,8 +84,7 @@ export default function MSMTracking({ member, activeSection, onDataChange, bypas
         ;(progressData.progress || []).forEach(p => { prog[p.task_id] = p })
         const completedPhases = phases.filter(phase => {
           if (phase.name.includes('Review')) return false
-          const tasks = countableTasks(phase.program_training_tasks)
-          return tasks.length > 0 && tasks.every(t => prog[t.id]?.status)
+          return phaseState(phase.program_training_tasks, prog) === 'done'
         }).length
         setVfo90Count(completedPhases)
       }
@@ -410,7 +407,8 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
     return 'home'
   })
   const didMountRef = useRef(false)
-  useEffect(() => { if (didMountRef.current) setActiveTab('home'); else didMountRef.current = true }, [program.id])
+  const [livePlanStatus, setLivePlanStatus] = useState(null)
+  useEffect(() => { if (didMountRef.current) { setActiveTab('home'); setLivePlanStatus(null) } else didMountRef.current = true }, [program.id])
   const [editingEnrollment, setEditingEnrollment] = useState(false)
   const [programStatus, setProgramStatus] = useState(enrollment.program_status || 'On Fast Track')
   const [saveStatus, setSaveStatus] = useState('')
@@ -438,7 +436,7 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
           <div style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <span>Joined {enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</span>
             {!isCoaching && enrollment.program_status && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[enrollment.program_status] || 'var(--vfo-faint)', flexShrink: 0 }} />{enrollment.program_status}</span></>}
-            {!isCoaching && !isTaxPlanning && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><PlanStatusBadge enrollmentId={enrollment.id} programId={program.id} /></>}
+            {!isCoaching && !isTaxPlanning && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><PlanStatusBadge enrollmentId={enrollment.id} programId={program.id} liveStatus={livePlanStatus} /></>}
           </div>
         </div>
         {!isCoaching && (
@@ -485,7 +483,7 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
 
       {activeTab === 'home' && <ProgramNotes memberNumber={member.plugin_member_number} programName={program.name} />}
 
-      {activeTab === 'training' && <TrainingTrack enrollment={enrollment} program={program} />}
+      {activeTab === 'training' && <TrainingTrack enrollment={enrollment} program={program} onPlanStatusChange={setLivePlanStatus} />}
       {activeTab === 'clients' && <ClientsPanel enrollment={enrollment} member={member} program={program} />}
       {activeTab === 'meetings' && <CoachingMeetings enrollment={enrollment} member={member} />}
       {activeTab === 'renewal' && <CoachingRenewal enrollment={enrollment} member={member} />}
@@ -496,7 +494,7 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
 // Admin training-track row for tasks that carry a video. Mirrors the member VideoTask:
 // a folding "Watch Video" button (to the left of the status dropdown) that reveals the
 // same Wistia/Loom iframe or YouTube player below the row.
-function AdminVideoRow({ task, inGroup, isDone, statusColor, statusSelect, dateSpan }) {
+function AdminVideoRow({ task, inGroup, isTouched, isPositive, statusColor, statusSelect, dateSpan }) {
   const [showVideo, setShowVideo] = useState(false)
   const playerRef = useRef(null)
   const containerId = `yt-player-admin-${task.id}`
@@ -533,9 +531,9 @@ function AdminVideoRow({ task, inGroup, isDone, statusColor, statusSelect, dateS
   return (
     <div style={{ padding: '8px 0', borderBottom: inGroup ? 'none' : '1px solid var(--vfo-tint)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
+        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isTouched ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isTouched ? statusColor : 'var(--vfo-border-mid)'}` }} />
         <div style={{ flex: 1, minWidth: '150px' }}>
-          <span style={{ fontSize: '14px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)' }}>{task.name}</span>
+          <span style={{ fontSize: '14px', color: isPositive ? 'var(--vfo-muted)' : 'var(--vfo-ink)' }}>{task.name}</span>
         </div>
         <button onClick={() => setShowVideo(!showVideo)} style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: `1px solid rgba(0,149,255,0.4)`, background: showVideo ? 'rgba(231,76,60,0.15)' : 'rgba(0,149,255,0.15)', color: showVideo ? '#e74c3c' : '#0095ff' }}>
           {showVideo ? 'Hide Video' : '▶ Watch Video'}
@@ -558,7 +556,7 @@ function AdminVideoRow({ task, inGroup, isDone, statusColor, statusSelect, dateS
   )
 }
 
-function TrainingTrack({ enrollment, program }) {
+function TrainingTrack({ enrollment, program, onPlanStatusChange }) {
   const [phases, setPhases] = useState([])
   const [progress, setProgress] = useState({})
   const [loading, setLoading] = useState(true)
@@ -567,6 +565,13 @@ function TrainingTrack({ enrollment, program }) {
   const [phaseCompletedBy, setPhaseCompletedBy] = useState({})
 
   useEffect(() => { loadTrack() }, [enrollment.id])
+
+  // Feed the header's "90 Day Plan:" badge live as statuses change — computed from the same
+  // phases+progress the track renders, so the heading tracks each click without a reload.
+  useEffect(() => {
+    if (loading || !onPlanStatusChange || !phases.length) return
+    onPlanStatusChange(planStatusLabel(phases, progress))
+  }, [phases, progress, loading])
 
   async function loadTrack() {
     setLoading(true)
@@ -590,9 +595,7 @@ function TrainingTrack({ enrollment, program }) {
 
       const expandState = {}
       loadedPhases.forEach(phase => {
-        const tasks = countableTasks(phase.program_training_tasks)
-        const allDone = tasks.length > 0 && tasks.every(t => prog[t.id]?.status)
-        expandState[phase.id] = !allDone
+        expandState[phase.id] = phaseState(phase.program_training_tasks, prog) !== 'done'
       })
       setExpanded(expandState)
     } catch (err) { console.error(err) }
@@ -612,11 +615,7 @@ function TrainingTrack({ enrollment, program }) {
   }
 
   function getPhaseState(phase) {
-    const tasks = countableTasks(phase.program_training_tasks)
-    if (tasks.length === 0) return 'pending'
-    if (tasks.every(t => progress[t.id]?.status)) return 'done'
-    if (tasks.some(t => progress[t.id]?.status)) return 'active'
-    return 'pending'
+    return phaseState(phase.program_training_tasks, progress)
   }
 
   function formatDate(d) {
@@ -633,8 +632,8 @@ function TrainingTrack({ enrollment, program }) {
 
   if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>No training track defined for this program yet.</div>
 
-  const totalTasks = phases.reduce((s, p) => s + countableTasks(p.program_training_tasks).length, 0)
-  const completedTasks = Object.values(progress).filter(p => p.status && p.status !== '').length
+  const totalTasks = phases.reduce((s, p) => s + countedTasks(p.program_training_tasks, progress).length, 0)
+  const completedTasks = phases.reduce((s, p) => s + countedDone(p.program_training_tasks, progress), 0)
 
   return (
     <div>
@@ -649,8 +648,8 @@ function TrainingTrack({ enrollment, program }) {
         const state = getPhaseState(phase)
         const isExpanded = expanded[phase.id]
         const tasks = phase.program_training_tasks || []
-        const countable = countableTasks(tasks)
-        const doneTasks = countable.filter(t => progress[t.id]?.status).length
+        const countable = countedTasks(tasks, progress)
+        const doneTasks = countedDone(tasks, progress)
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
         const titleColor = state === 'active' ? 'var(--vfo-primary)' : 'var(--vfo-heading)'
@@ -679,10 +678,13 @@ function TrainingTrack({ enrollment, program }) {
                 {(() => {
                   const renderRow = (task, inGroup) => {
                     const p = progress[task.id] || {}
-                    const isDone = !!p.status
+                    // isTouched drives the status-coloured dot/select (orange Outstanding, red
+                    // Stopped); only a positive selection greys the task name out as done.
+                    const isTouched = !!p.status
+                    const isPositive = isPositiveStatus(p.status)
                     const statusColor = statusColors[p.status] || 'var(--vfo-muted)'
                     const statusSelect = (
-                      <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, phase.id)} disabled={saving[task.id]} style={{ ...inputStyle, background: 'var(--vfo-card)', minWidth: '130px', borderColor: isDone ? `${statusColor}66` : 'var(--vfo-border-strong)', color: isDone ? statusColor : 'var(--vfo-ink)' }}>
+                      <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, phase.id)} disabled={saving[task.id]} style={{ ...inputStyle, background: 'var(--vfo-card)', minWidth: '130px', borderColor: isTouched ? `${statusColor}66` : 'var(--vfo-border-strong)', color: isTouched ? statusColor : 'var(--vfo-ink)' }}>
                         <option value="">-- Status --</option>
                         {(task.status_options || 'Completed|Outstanding|Stopped').split('|').map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
@@ -691,13 +693,13 @@ function TrainingTrack({ enrollment, program }) {
                       <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
                     )
                     if (task.video_url) {
-                      return <AdminVideoRow key={task.id} task={task} inGroup={inGroup} isDone={isDone} statusColor={statusColor} statusSelect={statusSelect} dateSpan={dateSpan} />
+                      return <AdminVideoRow key={task.id} task={task} inGroup={inGroup} isTouched={isTouched} isPositive={isPositive} statusColor={statusColor} statusSelect={statusSelect} dateSpan={dateSpan} />
                     }
                     return (
                       <div key={task.id} style={{ padding: '8px 0', borderBottom: inGroup ? 'none' : '1px solid var(--vfo-tint)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isTouched ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isTouched ? statusColor : 'var(--vfo-border-mid)'}` }} />
                         <div style={{ flex: 1, minWidth: '150px' }}>
-                          <span style={{ fontSize: '14px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)' }}>{task.name}</span>
+                          <span style={{ fontSize: '14px', color: isPositive ? 'var(--vfo-muted)' : 'var(--vfo-ink)' }}>{task.name}</span>
                         </div>
                         {statusSelect}
                         {dateSpan}
@@ -870,7 +872,7 @@ function ClientsPanel({ enrollment, member, program }) {
 
       {showAdd && addMode === 'new' && (
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>
-          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add New Client</div>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add New {isPFT ? 'Accountant' : 'Client'}</div>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>First Name *</label><input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} /></div>
             <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Last Name *</label><input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} /></div>
@@ -902,7 +904,7 @@ function ClientsPanel({ enrollment, member, program }) {
       )}
 
       {clients.length === 0 && !showAdd
-        ? <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>No clients added yet.</div>
+        ? <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>No {isPFT ? 'accountants' : 'clients'} added yet.</div>
         : clients.map(client => (
           <div key={client.id} style={{ ...sectionStyle, cursor: 'pointer' }}
             onClick={() => navigate(`/admin/client/${client.id}`, { state: { enrollment_id: enrollment.id, from: '/admin', backTo: program.name === 'Partnership Fast Track' ? 'pft_accountants' : undefined, memberNumber: member.plugin_member_number } })}
@@ -1030,8 +1032,11 @@ function MsmAssignment({ member, onSaved }) {
   )
 }
 
-function PlanStatusBadge({ enrollmentId, programId }) {
-  const [planStatus, setPlanStatus] = useState('...')
+// `liveStatus` (when non-null) is the value computed by the mounted TrainingTrack as the
+// admin clicks — it makes the header update without a reload. Until the training tab has
+// been opened this session it's null, so the badge self-fetches its initial value.
+function PlanStatusBadge({ enrollmentId, programId, liveStatus }) {
+  const [fetchedStatus, setFetchedStatus] = useState('...')
 
   useEffect(() => { loadStatus() }, [enrollmentId])
 
@@ -1041,24 +1046,18 @@ function PlanStatusBadge({ enrollmentId, programId }) {
         loadCachedAction('msm_load_training_track', { program_id: programId }),
         callApi('msm_load_training_progress', { enrollment_id: enrollmentId }),
       ])
-      const phases = trackData.phases || []
       const prog = {}
       ;(progressData.progress || []).forEach(p => { prog[p.task_id] = p })
-      const allTasks = phases.flatMap(p => countableTasks(p.program_training_tasks))
-      if (!allTasks.length) { setPlanStatus('Not Started'); return }
-      if (allTasks.every(t => prog[t.id]?.status && prog[t.id].status !== '')) { setPlanStatus('Completed'); return }
-      for (let i = phases.length - 1; i >= 0; i--) {
-        const tasks = countableTasks(phases[i].program_training_tasks)
-        if (tasks.some(t => prog[t.id]?.status)) { setPlanStatus(phases[i].name); return }
-      }
-      setPlanStatus('Not Started')
-    } catch (err) { setPlanStatus('—') }
+      setFetchedStatus(planStatusLabel(trackData.phases || [], prog))
+    } catch (err) { setFetchedStatus('—') }
   }
+
+  const planStatus = liveStatus ?? fetchedStatus
 
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
       <span>90 Day Plan:</span>
-      <span style={{ fontWeight: 600, color: 'var(--vfo-ink)' }}>{planStatus}</span>
+      <span style={{ fontWeight: 600, color: planStatus === 'Stopped' ? '#e74c3c' : 'var(--vfo-ink)' }}>{planStatus}</span>
     </span>
   )
 }
