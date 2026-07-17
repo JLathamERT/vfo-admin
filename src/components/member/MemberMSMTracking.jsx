@@ -3,9 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { callApi, loadCachedAction } from '../../lib/api'
 import { Skeleton, ClientsListSkeleton, TrainingTrackSkeleton, CoachingMeetingsSkeleton, CoachingRenewalSkeleton, MsmHomeSkeleton } from '../shared/Skeleton'
 import { TrackHero, PhaseBadge } from '../shared/TrackKit'
-
-// Training-track section headers (task_type='section') are labels only — never counted toward completion.
-const countableTasks = (list) => (list || []).filter(t => t.task_type !== 'section')
+import { countedTasks, countedDone, phaseState, isPositiveStatus } from '../shared/trainingStatus'
 
 // Group a phase's tasks so each section header owns the contiguous sub-steps beneath it,
 // letting the UI enclose the group and keep following standalone tasks visually separate.
@@ -124,8 +122,7 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
         ;(progressData.progress || []).forEach(p => { prog[p.task_id] = p })
         const completedPhases = phases.filter(phase => {
           if (phase.name.includes('Review')) return false
-          const tasks = countableTasks(phase.program_training_tasks)
-          return tasks.length > 0 && tasks.every(t => prog[t.id]?.status)
+          return phaseState(phase.program_training_tasks, prog) === 'done'
         }).length
         setVfo90Count(completedPhases)
       }
@@ -278,6 +275,7 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
 
 function MemberEnrolledView({ enrollment, program, member }) {
   const isCoaching = program.name === 'Advanced Coaching'
+  const isPFT = program.name === 'Partnership Fast Track'
   const defaultTab = isCoaching ? 'home' : program.name === 'VFO Tax Planning' ? 'clients' : 'training'
   const [activeTab, setActiveTab] = useState(defaultTab)
   useEffect(() => { setActiveTab(defaultTab) }, [program.id])
@@ -309,7 +307,7 @@ function MemberEnrolledView({ enrollment, program, member }) {
         ) : (
           <>
             <button style={tabStyle(activeTab === 'training')} onClick={() => setActiveTab('training')}>90 Day Plan</button>
-            <button style={tabStyle(activeTab === 'clients')} onClick={() => setActiveTab('clients')}>Clients</button>
+            <button style={tabStyle(activeTab === 'clients')} onClick={() => setActiveTab('clients')}>{isPFT ? 'Accountants' : 'Clients'}</button>
           </>
         )}
       </div>
@@ -363,8 +361,8 @@ function MemberTrainingView({ enrollment, program }) {
   if (loading) return <TrainingTrackSkeleton />
   if (phases.length === 0) return <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>No training track defined yet.</div>
 
-  const totalTasks = phases.reduce((s, p) => s + countableTasks(p.program_training_tasks).length, 0)
-  const completedTasks = Object.values(progress).filter(p => p.status && p.status !== '').length
+  const totalTasks = phases.reduce((s, p) => s + countedTasks(p.program_training_tasks, progress).length, 0)
+  const completedTasks = phases.reduce((s, p) => s + countedDone(p.program_training_tasks, progress), 0)
 
   return (
     <div>
@@ -372,12 +370,7 @@ function MemberTrainingView({ enrollment, program }) {
         accent={false}
         completed={completedTasks}
         total={totalTasks}
-        steps={phases.map(ph => {
-          const ts = countableTasks(ph.program_training_tasks)
-          const done = ts.length > 0 && ts.every(t => progress[t.id]?.status)
-          const some = ts.some(t => progress[t.id]?.status)
-          return { label: ph.name, state: done ? 'done' : some ? 'active' : 'pending' }
-        })}
+        steps={phases.map(ph => ({ label: ph.name, state: phaseState(ph.program_training_tasks, progress) }))}
       />
       {phases.map(phase => {
         const isReview = phase.name.includes('Review')
@@ -422,6 +415,7 @@ function MemberTrainingView({ enrollment, program }) {
 
 function MemberClientsView({ enrollment, member, program }) {
   const navigate = useNavigate()
+  const isPFT = program?.name === 'Partnership Fast Track'
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -476,12 +470,12 @@ function MemberClientsView({ enrollment, member, program }) {
           <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)', lineHeight: 1 }}>{clients.length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: 'var(--vfo-muted)', marginTop: '4px' }}>TOTAL</div></div>
           <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)', lineHeight: 1 }}>{clients.filter(c => c.status === 'active').length}</div><div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: 'var(--vfo-muted)', marginTop: '4px' }}>ACTIVE</div></div>
         </div>
-        <button onClick={() => setShowAdd(!showAdd)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add Client</button>
+        <button onClick={() => setShowAdd(!showAdd)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Add {isPFT ? 'Accountant' : 'Client'}</button>
       </div>
 
       {showAdd && (
         <div style={{ ...sectionStyle, marginBottom: '20px' }}>
-          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add New Client</div>
+          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Add New {isPFT ? 'Accountant' : 'Client'}</div>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>First Name *</label><input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} /></div>
             <div style={{ flex: 1, minWidth: '140px' }}><label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Last Name *</label><input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} /></div>
@@ -513,7 +507,7 @@ function MemberClientsView({ enrollment, member, program }) {
       )}
 
       {clients.length === 0
-        ? <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>No clients added yet.</div>
+        ? <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-muted)' }}>No {isPFT ? 'accountants' : 'clients'} added yet.</div>
         : clients.map(client => (
           <div key={client.id} style={{ ...sectionStyle, cursor: 'pointer' }}
             onClick={() => navigate(`/member/client/${client.id}`, { state: { enrollment_id: enrollment.id } })}
@@ -711,7 +705,7 @@ function MemberClientTrackView({ client, program }) {
 
 function VideoTask({ task, progress, enrollmentId, onComplete }) {
   const [showVideo, setShowVideo] = useState(false)
-  const [completed, setCompleted] = useState(!!progress?.status)
+  const [completed, setCompleted] = useState(isPositiveStatus(progress?.status))
   const playerRef = useRef(null)
   const containerId = `yt-player-${task.id}`
 
