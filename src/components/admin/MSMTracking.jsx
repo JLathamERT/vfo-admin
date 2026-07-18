@@ -47,6 +47,13 @@ export default function MSMTracking({ member, activeSection, onDataChange, bypas
   const [enabledPrograms, setEnabledPrograms] = useState([])
   const [activeProgram, setActiveProgram] = useState(activeProgramKey || 'holistic')
   const [loading, setLoading] = useState(true)
+  // Assigned MSM is owned here so saving it updates the program-enable gate
+  // instantly WITHOUT a global reload (which would flash the skeleton). `savedMsm`
+  // is the last persisted value that drives the gate; `assignedMsm` is the live
+  // dropdown value. Both reset when a different member is selected.
+  const [assignedMsm, setAssignedMsm] = useState(member.assigned_msm || '')
+  const [savedMsm, setSavedMsm] = useState(member.assigned_msm || '')
+  useEffect(() => { setAssignedMsm(member.assigned_msm || ''); setSavedMsm(member.assigned_msm || '') }, [member.plugin_member_number])
 
   // Meeting log state
   const [vfo90Count, setVfo90Count] = useState(0)
@@ -177,8 +184,8 @@ export default function MSMTracking({ member, activeSection, onDataChange, bypas
 
           {/* Side column — assignment + program toggles */}
           <div style={{ flex: '1 1 250px', minWidth: '250px', order: 2 }}>
-            <MsmAssignment member={member} onSaved={onDataChange} />
-            <ProgramToggles member={member} programs={programs} enabledPrograms={enabledPrograms} onToggle={loadData} allowedProgramKeys={allowedProgramKeys} />
+            <MsmAssignment member={member} value={assignedMsm} onChange={setAssignedMsm} onSaved={setSavedMsm} />
+            <ProgramToggles member={member} programs={programs} enabledPrograms={enabledPrograms} onToggle={loadData} allowedProgramKeys={allowedProgramKeys} hasMsm={!!(savedMsm && savedMsm.trim())} />
           </div>
 
           {/* Main column — meetings */}
@@ -997,8 +1004,7 @@ function ClientTrack({ client, program }) {
   )
 }
 
-function MsmAssignment({ member, onSaved }) {
-  const [assignedMsm, setAssignedMsm] = useState(member.assigned_msm || '')
+function MsmAssignment({ member, value, onChange, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState('')
 
@@ -1008,10 +1014,10 @@ function MsmAssignment({ member, onSaved }) {
   async function save() {
     setSaving(true)
     try {
-      await callApi('msm_update_assigned_msm', { member_number: member.plugin_member_number, assigned_msm: assignedMsm })
+      await callApi('msm_update_assigned_msm', { member_number: member.plugin_member_number, assigned_msm: value })
       setStatus('Saved!')
       setTimeout(() => setStatus(''), 3000)
-      onSaved()
+      onSaved(value)
     } catch (err) { setStatus(err.message) }
     finally { setSaving(false) }
   }
@@ -1020,7 +1026,7 @@ function MsmAssignment({ member, onSaved }) {
     <div style={sectionStyle}>
       <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Assigned MSM</div>
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <select value={assignedMsm} onChange={e => setAssignedMsm(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)', flex: 1, minWidth: '150px' }}>
+        <select value={value} onChange={e => onChange(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)', flex: 1, minWidth: '150px' }}>
           <option value="">-- Select MSM --</option>
           {TEAM_MEMBERS.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
@@ -1063,12 +1069,18 @@ function PlanStatusBadge({ enrollmentId, programId, liveStatus }) {
   )
 }
 
-function ProgramToggles({ member, programs, enabledPrograms, onToggle, allowedProgramKeys = null }) {
+function ProgramToggles({ member, programs, enabledPrograms, onToggle, allowedProgramKeys = null, hasMsm = false }) {
   const visiblePrograms = allowedProgramKeys ? PROGRAMS.filter(p => allowedProgramKeys.includes(p.key)) : PROGRAMS
   const [toggling, setToggling] = useState({})
+  // A program can only be ENABLED once an MSM has been assigned to this member
+  // (the Assigned MSM save above). Disabling is always allowed. `hasMsm` reflects
+  // the last SAVED assignment, so enabling unlocks the instant the save lands.
+  const [msmWarning, setMsmWarning] = useState(false)
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
 
   async function toggle(programId, currentlyEnabled) {
+    if (!currentlyEnabled && !hasMsm) { setMsmWarning(true); return }
+    setMsmWarning(false)
     setToggling(t => ({ ...t, [programId]: true }))
     try {
       await callApi('msm_toggle_program', { member_number: member.plugin_member_number, program_id: programId, enabled: !currentlyEnabled })
@@ -1080,6 +1092,11 @@ function ProgramToggles({ member, programs, enabledPrograms, onToggle, allowedPr
   return (
     <div style={sectionStyle}>
       <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Programs</div>
+      {msmWarning && !hasMsm && (
+        <div style={{ marginBottom: '14px', padding: '10px 14px', borderRadius: '10px', background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.35)', color: '#e74c3c', fontSize: '13px', fontWeight: 600 }}>
+          Please Select an MSM
+        </div>
+      )}
       {visiblePrograms.map(p => {
         const dbProgram = programs.find(prog => prog.name === p.name)
         if (!dbProgram) return null
