@@ -74,6 +74,12 @@ export default function ClientDetail() {
   const isMember = location.pathname.startsWith('/member')
   const backUrl = location.state?.from || (isMember ? '/member' : '/admin')
 
+  // Program sub-tabs (PFT / MAP 1 / Regular / Tax / PIP) are locked on the admin
+  // side until a PF is assigned to this client (set on the Profile tab). Members
+  // never assign PFs, so the gate never applies to the member view.
+  const PROGRAM_TABS = ['pft', 'map1', 'regular', 'tax', 'pip']
+  const pfLocked = !isMember && !(client?.assigned_pf && String(client.assigned_pf).trim())
+
   // PFT accountants are reached from MSMTracking's internal drill-down (not a
   // route), so navigate(-1) loses that state. Restore the member's Accountants
   // list by re-seeding the AdminPortal/MemberDirectoryView sessionStorage keys.
@@ -264,11 +270,17 @@ export default function ClientDetail() {
           <>
             {activeTab === 'home' && <ClientHome client={client} contacts={contacts} onUpdate={() => loadData(true)} sectionStyle={sectionStyle} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} program={program} />}
             {activeTab === 'details' && !isMember && <ClientDetails client={client} contacts={contacts} onUpdate={loadData} onReloadContacts={reloadContacts} sectionStyle={sectionStyle} />}
-            {activeTab === 'map1' && program && <ClientTrackViewV2 clientId={parseInt(clientId)} programId={program.id} client={client} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
-            {activeTab === 'pft' && program && <PFTEngagementTrack clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
-            {activeTab === 'regular' && program && <RegularPrioritiesTab clientId={parseInt(clientId)} programId={program.id} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} initialTrackId={initialTrackId} />}
-            {activeTab === 'tax' && program && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} programName={program.name} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} initialPlanId={initialPlanId} />}
-            {activeTab === 'pip' && program && <PipMeetingsTab clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+            {pfLocked && PROGRAM_TABS.includes(activeTab) && (
+              <div style={{ ...sectionStyle, borderColor: 'rgba(231,76,60,0.3)', textAlign: 'center', padding: '40px' }}>
+                <div style={{ fontSize: '15px', color: 'var(--vfo-muted)' }}>Please Select a PF</div>
+                <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '8px' }}>Assign a PF on the Profile tab before working this client's tracks.</div>
+              </div>
+            )}
+            {activeTab === 'map1' && program && !pfLocked && <ClientTrackViewV2 clientId={parseInt(clientId)} programId={program.id} client={client} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+            {activeTab === 'pft' && program && !pfLocked && <PFTEngagementTrack clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+            {activeTab === 'regular' && program && !pfLocked && <RegularPrioritiesTab clientId={parseInt(clientId)} programId={program.id} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} initialTrackId={initialTrackId} />}
+            {activeTab === 'tax' && program && !pfLocked && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} programName={program.name} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} initialPlanId={initialPlanId} />}
+            {activeTab === 'pip' && program && !pfLocked && <PipMeetingsTab clientId={parseInt(clientId)} programId={program.id} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
             {activeTab === 'vault' && !isMember && <ClientVaultTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} specialists={specialists} />}
             {activeTab === 'payments' && !isMember && <ClientPaymentsTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} />}
             {activeTab === 'settings' && !isMember && (
@@ -379,7 +391,7 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
                     <option value="pending">Pending</option>
                     <option value="lost">Lost</option>
                   </select>
-                  {statusSaved && <span style={{ color: '#1b9254', fontSize: '14px', fontWeight: '600' }}>✓ Saved!</span>}
+                  {statusSaved && <span style={{ color: '#1b9254', fontSize: '14px', fontWeight: '600' }}>Saved!</span>}
                 </div>
             }
           </div>
@@ -397,7 +409,7 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
                     <option value="Ian Welham">Ian Welham</option>
                   </select>
                   <button onClick={savePf} disabled={savingPf} style={{ padding: '8px 20px', borderRadius: '8px', background: savingPf ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '14px', cursor: savingPf ? 'not-allowed' : 'pointer' }}>{savingPf ? 'Saving...' : 'Save'}</button>
-                  {pfSaved && <span style={{ color: '#1b9254', fontSize: '14px', fontWeight: '600' }}>✓ Saved!</span>}
+                  {pfSaved && <span style={{ color: '#1b9254', fontSize: '14px', fontWeight: '600' }}>Saved!</span>}
                 </div>
             }
           </div>

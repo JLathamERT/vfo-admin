@@ -147,6 +147,7 @@ function AddAccountantForm({ allMembers, onDataChange }) {
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
 
   async function submit() {
+    if (!getSession()?.is_superadmin) { setStatusType('error'); setStatus('Access Denied'); return }
     if (!firstName || !lastName || !memberType) { setStatusType('error'); setStatus('First name, last name, and member type are required.'); return }
     if (!email.trim()) { setStatusType('error'); setStatus('Email is required.'); return }
     if (!eliteStatus) { setStatusType('error'); setStatus('Please pick a status.'); return }
@@ -296,6 +297,18 @@ function MemberDirectoryView({
 }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'search')
   useEffect(() => { setActiveTab(initialTab || 'search') }, [initialTab])
+  // Only the SuperAdmin (Jake) may open a "VFO Reconciliation (Free)" advisor.
+  // A non-super click flashes a small "Access Denied" marker at the cursor
+  // (click-only, never on hover) and the row does not open.
+  const isSuper = !!getSession()?.is_superadmin
+  const [deny, setDeny] = useState(null) // { x, y } screen coords of the last blocked click
+  const denyTimer = useRef(null)
+  useEffect(() => () => clearTimeout(denyTimer.current), [])
+  function flashDeny(e) {
+    setDeny({ x: e.clientX, y: e.clientY })
+    clearTimeout(denyTimer.current)
+    denyTimer.current = setTimeout(() => setDeny(null), 1400)
+  }
   const [selectedMember, setSelectedMember] = useState(() => {
     const saved = sessionStorage.getItem(selectedKey)
     if (saved && allMembers.length) return allMembers.find(m => m.plugin_member_number === saved) || null
@@ -340,6 +353,13 @@ function MemberDirectoryView({
   return (
     <div>
 
+      {deny && (
+        <div style={{ position: 'fixed', left: deny.x, top: deny.y, transform: 'translate(-50%, calc(-100% - 12px))', zIndex: 9999, pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 12px', borderRadius: '10px', background: 'rgba(24,24,28,0.93)', color: '#fff', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', boxShadow: '0 10px 28px rgba(0,0,0,0.3)' }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ff5a52" strokeWidth="2.4" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><line x1="5.6" y1="5.6" x2="18.4" y2="18.4" /></svg>
+          Access Denied for this member type
+        </div>
+      )}
+
       {activeTab === 'add' && addForm}
 
       {activeTab === 'search' && !selectedMember && (
@@ -353,7 +373,7 @@ function MemberDirectoryView({
           <div>
             {sortMembers(filteredMembers, listSort).map(m => (
               <div key={m.plugin_member_number}
-                onClick={() => { setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem(selectedKey, m.plugin_member_number); sessionStorage.setItem(featureTabKey, 'profile_details') }}
+                onClick={(e) => { if (m.member_type === 'VFO Reconciliation (Free)' && !isSuper) { flashDeny(e); return } setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem(selectedKey, m.plugin_member_number); sessionStorage.setItem(featureTabKey, 'profile_details') }}
                 style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 16px', marginBottom: '6px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '12px', boxShadow: '0 2px 8px rgba(20,45,95,0.04)', cursor: 'pointer' }}
                 onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,149,255,0.4)'}
                 onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--vfo-border-soft)'}>
@@ -471,6 +491,7 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
   }
 
   async function submit() {
+    if (!getSession()?.is_superadmin) { setStatusType('error'); setStatus('Access Denied'); return }
     if (!firstName || !lastName || !memberType) { setStatusType('error'); setStatus('First name, last name, and member type are required.'); return }
     if (!email.trim()) { setStatusType('error'); setStatus('Email is required.'); return }
     if (!eliteStatus) { setStatusType('error'); setStatus('Please pick a status.'); return }
@@ -644,6 +665,7 @@ function AddStrategicMemberForm({ groupNames, allMembers, onDataChange }) {
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
 
   async function submit() {
+    if (!getSession()?.is_superadmin) { setStatusType('error'); setStatus('Access Denied'); return }
     if (!firstName || !lastName || !memberType) { setStatusType('error'); setStatus('First name, last name, and member type are required.'); return }
     if (!email.trim()) { setStatusType('error'); setStatus('Email is required.'); return }
     if (!eliteStatus) { setStatusType('error'); setStatus('Please pick a status.'); return }
