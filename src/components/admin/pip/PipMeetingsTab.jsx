@@ -5,11 +5,33 @@ import { PipMeetingsListSkeleton, PipMeetingDetailSkeleton } from '../../shared/
 import { TrackHero, PhaseBadge, ListHeader } from '../../shared/TrackKit'
 import PipPurchaseDecisionForm from './PipPurchaseDecisionForm'
 import StepDate from '../../shared/StepDate'
+import StepEmailsChip from '../../shared/StepEmailsChip'
 
 function fmtDate(d) {
   if (!d) return ''
   const [y, m, day] = d.split('-')
   return `${m}/${day}/${y}`
+}
+
+// Replicates the backend [Scheduled Meeting Date] substitution (see
+// actions/msm/pip-meeting-confirmation-email.ts): formatLongDate ("August 18,
+// 2026", UTC) plus " at <12h time> <tz>" when a time is on the track.
+function fmtLongDateUTC(d) {
+  if (!d || !/^\d{4}-\d{2}-\d{2}/.test(String(d))) return ''
+  const dt = new Date(String(d).slice(0, 10) + 'T00:00:00Z')
+  if (isNaN(dt.getTime())) return ''
+  return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })
+}
+function fmtTime12(t) {
+  if (!t) return ''
+  const parts = String(t).split(':')
+  let h = parseInt(parts[0], 10)
+  const m = parts[1] || '00'
+  if (isNaN(h)) return ''
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  h = h % 12
+  if (h === 0) h = 12
+  return `${h}:${m} ${ampm}`
 }
 
 function meetingLabel(track) {
@@ -24,7 +46,7 @@ function meetingLabelColor(track) {
   return 'var(--vfo-muted)'
 }
 
-function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChange, onTrackUpdate, readOnly, notes, onNotesChange, clientId }) {
+function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChange, onTrackUpdate, readOnly, notes, onNotesChange, clientId, client }) {
   const [localProgress, setLocalProgress] = useState(progress)
   const [scheduledDate, setScheduledDate] = useState(track.pip_scheduled_date || '')
   const [savingDate, setSavingDate] = useState(false)
@@ -108,6 +130,24 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
 
   const statusColors = { Completed: '#1b9254', Yes: '#1b9254', No: '#e74c3c' }
   const inputStyle = { padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif' }
+
+  // Known-value substitution for the email previews (see StepEmailsChip).
+  const emailCtx = (() => {
+    const ctx = {}
+    const full = client ? `${client.first_name || ''} ${client.last_name || ''}`.trim() : ''
+    if (full) { ctx['Client Name'] = full; ctx['Client First'] = full.split(/\s+/)[0] }
+    const pf = client?.assigned_pf ? String(client.assigned_pf).trim() : ''
+    if (pf) ctx['PF Name'] = pf
+    const member = client?.member_name ? String(client.member_name).trim() : ''
+    if (member) { ctx['Member Name'] = member; ctx['Member First'] = member.split(/\s+/)[0] }
+    const dateStr = fmtLongDateUTC(scheduledDate || track.pip_scheduled_date || '')
+    if (dateStr) {
+      const timeStr = fmtTime12(track.pip_scheduled_time || '')
+      const tz = track.pip_scheduled_timezone || ''
+      ctx['Scheduled Meeting Date'] = timeStr ? `${dateStr} at ${timeStr}${tz ? ` ${tz}` : ''}` : dateStr
+    }
+    return ctx
+  })()
 
   const purchaseTaskRef = phases.flatMap(ph => ph.program_client_tasks || []).find(t => t.name === 'Purchase Additional Services (optional)')
   const purchaseStatus = purchaseTaskRef ? (localProgress[purchaseTaskRef.id]?.status || '') : ''
@@ -196,10 +236,10 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                     const decision = purchaseStatus.startsWith('Completed - ') ? purchaseStatus.replace('Completed - ', '') : ''
                     const isShown = decision === 'Tax Planning (if not purchased already)' || decision === 'Additional PIP meeting(s)'
                     if (!isShown) return null
-                    const autoStep = (label, stepDone, tag = null) => (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+                    const autoStep = (label, stepDone, tag = null, emailTpls = null) => (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
                         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: stepDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${stepDone ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
-                        <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
+                        <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}{!readOnly && emailTpls && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="PIP" title={label} templates={emailTpls} context={emailCtx} /></span>}</span>
                         <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
                           {stepDone && tag && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{tag}</span>}
                           {stepDone && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>}
@@ -217,10 +257,10 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                           <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
                         </div>
                         <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
-                          {autoStep('Payment link sent to client (ACH or Card choice)', !!track.pip_payment_email_sent_at)}
-                          {autoStep('Take the payment due (and send confirmation email)', !!track.pip_payment_completed_at && !!track.pip_confirmation_email_sent_at, methodTag)}
-                          {autoStep('Invoice and receipt created and emailed to client', !!track.pip_invoice_receipt_email_sent_at)}
-                          {autoStep('Revenue shares paid · Email member to confirm revenue share details', !!track.pip_rev_share_completed_at && !!track.pip_rev_member_email_sent_at)}
+                          {autoStep('Payment link sent to client (ACH or Card choice)', !!track.pip_payment_email_sent_at, null, [{ name: 'PIP_payment', when: 'Automatic — payment link' }])}
+                          {autoStep('Take the payment due (and send confirmation email)', !!track.pip_payment_completed_at && !!track.pip_confirmation_email_sent_at, methodTag, [{ name: 'PIP_confirmation', when: 'Automatic — payment confirmation' }])}
+                          {autoStep('Invoice and receipt created and emailed to client', !!track.pip_invoice_receipt_email_sent_at, null, [{ name: 'PIP_invoicereceipt_email', when: 'Automatic — invoice + receipt' }])}
+                          {autoStep('Revenue shares paid · Email member to confirm revenue share details', !!track.pip_rev_share_completed_at && !!track.pip_rev_member_email_sent_at, null, [{ name: 'PIP_member_revshare', when: 'Automatic — member revenue-share notice' }])}
                         </div>
                       </div>
                     )
@@ -287,7 +327,7 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                     return (
                       <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? doneColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? doneColor : 'var(--vfo-border-mid)'}` }} />
-                        <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+                        <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="PIP" title={task.name} templates={[{ name: 'PIP_meeting_confirmation', when: 'Meeting confirmation to the client' }]} context={emailCtx} /></span>}</span>
                         {isDone
                           ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${doneColor}22`, color: doneColor, border: `1px solid ${doneColor}44` }}>{p.status}</span>
                           : readOnly
@@ -362,7 +402,7 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
   )
 }
 
-function PipMeetingsTab({ clientId, programId, readOnly = false, notes = [], onNotesChange }) {
+function PipMeetingsTab({ clientId, programId, client = null, readOnly = false, notes = [], onNotesChange }) {
   const [tracks, setTracks] = useState([])
   const [phases, setPhases] = useState([])
   const [allProgress, setAllProgress] = useState({})
@@ -441,6 +481,7 @@ function PipMeetingsTab({ clientId, programId, readOnly = false, notes = [], onN
         notes={notes}
         onNotesChange={onNotesChange}
         clientId={clientId}
+        client={client}
       />
     )
   }

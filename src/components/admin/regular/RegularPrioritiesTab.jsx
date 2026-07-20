@@ -4,6 +4,7 @@ import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { TaxPlanListSkeleton } from '../../shared/Skeleton'
 import { TrackHero, PhaseBadge, ListHeader } from '../../shared/TrackKit'
 import StepDate from '../../shared/StepDate'
+import StepEmailsChip from '../../shared/StepEmailsChip'
 
 const REGULAR_PRIORITIES = [
   "Business Growth", "Business Exit", "Business Advisory",
@@ -24,7 +25,7 @@ const REGULAR_PRIORITIES = [
 // PIP 1 Confirmation Email (PipConfirmStep): "with date" (date/time/tz), "date not
 // confirmed", and "declined". Drafts the email via the backend, then records the
 // task status. Self-contained so its date/time inputs survive parent re-renders.
-function Map4ConfirmStep({ trackId, task, p, onDone }) {
+function Map4ConfirmStep({ trackId, task, p, onDone, emailCtx }) {
   const [showDate, setShowDate] = useState(false)
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
@@ -54,7 +55,7 @@ function Map4ConfirmStep({ trackId, task, p, onDone }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
-      <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+      <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="REGULAR" title={task.name} templates={[{ name: 'REGULAR_map4confirm', when: 'If date confirmed / not confirmed' }, { name: 'REGULAR_map4declined', when: 'If the client declined' }]} context={emailCtx} /></span></span>
       {isDone
         ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
         : showDate
@@ -88,7 +89,7 @@ function Map4ConfirmStep({ trackId, task, p, onDone }) {
 // Below, an "AI PC Admin"-style auto group shows the email-sent + form-completed
 // sub-steps (the client's answers reveal under a chevron), mirroring the Specialist
 // Preliminary-Meeting pattern. Completion flags are read off the track.
-function Map4FollowupStep({ trackId, task, p, track, onDone }) {
+function Map4FollowupStep({ trackId, task, p, track, onDone, emailCtx }) {
   const [showDate, setShowDate] = useState(false)
   const [date, setDate] = useState('')
   const [enteredDate, setEnteredDate] = useState(track.map4_meeting_date || '')
@@ -114,6 +115,19 @@ function Map4FollowupStep({ trackId, task, p, track, onDone }) {
     finally { setPending(false) }
   }
 
+  // Backend replaces [Meeting Date] with formatLongDate(map4_meeting_date) —
+  // "August 18, 2026" (long month, UTC). Match it exactly for the preview.
+  function fmtMeetingLongUTC(d) {
+    if (!d || !/^\d{4}-\d{2}-\d{2}/.test(String(d))) return ''
+    const dt = new Date(String(d).slice(0, 10) + 'T00:00:00Z')
+    if (isNaN(dt.getTime())) return ''
+    return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })
+  }
+  const followupCtx = (() => {
+    const md = fmtMeetingLongUTC(enteredDate)
+    return md ? { ...(emailCtx || {}), 'Meeting Date': md } : emailCtx
+  })()
+
   const emailSent = !!track.map4_followup_sent_at
   const formDone = !!track.map4_form_submitted_at
   const formData = track.map4_form_data || {}
@@ -138,7 +152,7 @@ function Map4FollowupStep({ trackId, task, p, track, onDone }) {
     <div style={{ padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: enteredDate ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${enteredDate ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
-        <span style={{ fontSize: '13px', color: enteredDate ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+        <span style={{ fontSize: '13px', color: enteredDate ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="REGULAR" title={task.name} templates={[{ name: 'REGULAR_map4followup', when: 'Automatic — follow-up with the form link, 2 days after the meeting' }, { name: 'REGULAR_map4reminder', when: 'Automatic reminder if the form is not completed' }]} context={followupCtx} /></span></span>
         {enteredDate
           ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', border: '1px solid rgba(27,146,84,0.3)' }}>MAP 4 meeting: {fmtLong(enteredDate)}</span>
           : showDate
@@ -188,7 +202,7 @@ function Map4FollowupStep({ trackId, task, p, track, onDone }) {
   )
 }
 
-function PriorityTrackView({ track, phases, progress, specialists, onBack, onProgressChange, readOnly = false, onTrackUpdate, notes = [], onNotesChange, clientId }) {
+function PriorityTrackView({ track, phases, progress, specialists, onBack, onProgressChange, readOnly = false, onTrackUpdate, notes = [], onNotesChange, clientId, emailCtx }) {
   const [localProgress, setLocalProgress] = useState(progress)
   const [saving, setSaving] = useState({})
   const [expanded, setExpanded] = useState({})
@@ -389,6 +403,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                       trackId={track.id}
                       task={task}
                       p={p}
+                      emailCtx={emailCtx}
                       onDone={(taskId, status, date) => {
                         const updated = { task_id: taskId, status, completed_date: date }
                         setLocalProgress(pr => ({ ...pr, [taskId]: { ...pr[taskId], ...updated } }))
@@ -404,6 +419,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                       task={task}
                       p={p}
                       track={track}
+                      emailCtx={emailCtx}
                       onDone={(taskId, status, date) => {
                         const updated = { task_id: taskId, status, completed_date: date }
                         setLocalProgress(pr => ({ ...pr, [taskId]: { ...pr[taskId], ...updated } }))
@@ -549,6 +565,18 @@ function RegularPrioritiesTab({ clientId, programId, client, specialists, readOn
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
   const stateColors = { 'not started': 'var(--vfo-muted)', 'in progress': '#0095ff', 'completed': '#1b9254' }
 
+  // Known-value substitutions for the email previews (see StepEmailsChip).
+  // Reactive to the selected client; empty values are omitted so those tokens
+  // keep rendering as bracketed chips.
+  const emailCtx = (() => {
+    const ctx = {}
+    const full = client ? `${client.first_name || ''} ${client.last_name || ''}`.trim() : ''
+    if (full) { ctx['Client Name'] = full; ctx['Client First'] = full.split(/\s+/)[0] }
+    const pf = client?.assigned_pf ? String(client.assigned_pf).trim() : ''
+    if (pf) ctx['PF Name'] = pf
+    return ctx
+  })()
+
   if (loading) return <TaxPlanListSkeleton />
 
 
@@ -566,6 +594,7 @@ function RegularPrioritiesTab({ clientId, programId, client, specialists, readOn
         notes={notes}
         onNotesChange={onNotesChange}
         clientId={clientId}
+        emailCtx={emailCtx}
       />
     )
   }

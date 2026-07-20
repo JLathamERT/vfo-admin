@@ -5,8 +5,38 @@ import { AccountantOnboardingListSkeleton, AccountantOnboardingDetailSkeleton } 
 import { TrackHero, PhaseBadge, ListHeader } from '../shared/TrackKit'
 import NewModelSaleModal, { SALES_TEAM_NAMES } from './NewModelSaleModal'
 import OnboardingExtraMeetingCard from './OnboardingExtraMeetingCard'
+import StepEmailsChip from '../shared/StepEmailsChip'
 
 const STAGE_NAMES = ['', 'Preliminary Meeting', 'PC Admin', 'Add New Accountant']
+
+// Read-only per-step email previews (see StepEmailsChip).
+const ACCOUNTANT_PIPELINE = 'ACCOUNTANT_ONBOARDING'
+const ACCOUNTANT_DECISION_EMAILS = [
+  { name: 'ACCOUNTANT_undecided', when: 'If Undecided — decision email with buttons' },
+  { name: 'ACCOUNTANT_undecided_reminder', when: 'Automatic reminder if no response (48h); auto-declines after 14 days' },
+  { name: 'ACCOUNTANT_decline', when: 'If No — decline email (also sent on 14-day auto-decline)' },
+]
+const ACCOUNTANT_AGREEMENT_EMAILS = [
+  { name: 'ACCOUNTANT_agreement_sent', when: 'Automatic — agreement signing link (sent on Yes)' },
+  { name: 'ACCOUNTANT_signing_reminder', when: 'Automatic reminder if unsigned (48h)' },
+]
+const ACCOUNTANT_CEO_EMAILS = [
+  { name: 'ACCOUNTANT_ceo_countersign', when: 'Automatic — asks the CEO to countersign' },
+]
+const ACCOUNTANT_PAYMENT_LINK_EMAILS = [
+  { name: 'ACCOUNTANT_payment_link', when: 'Automatic — onboarding payment link' },
+  { name: 'ACCOUNTANT_payment_reminder', when: 'Automatic reminder if unpaid (48h)' },
+]
+const ACCOUNTANT_CONFIRMATION_EMAILS = [
+  { name: 'ACCOUNTANT_payment_confirmation|card', when: 'If paid by card' },
+  { name: 'ACCOUNTANT_payment_confirmation|ach', when: 'If paid by bank transfer (ACH)' },
+]
+const ACCOUNTANT_INVOICE_EMAILS = [
+  { name: 'ACCOUNTANT_invoice_receipt', when: 'Automatic — invoice + receipt' },
+]
+const ACCOUNTANT_LOGIN_EMAILS = [
+  { name: 'ACCOUNTANT_login_setup', when: 'Portal login setup email' },
+]
 
 export default function AccountantOnboarding() {
   const [view, setView] = useState('list')
@@ -294,6 +324,17 @@ function OnboardingDetail({ id, onBack }) {
     </div>
   )
 
+  // Known-value substitutions for the email previews (see StepEmailsChip).
+  // Backend tokens: [Accountant Name] = full name, [Accountant First] = first.
+  const emailCtx = (() => {
+    const ctx = {}
+    const full = `${ob.first_name || ''} ${ob.last_name || ''}`.trim()
+    if (full) ctx['Accountant Name'] = full
+    const first = (ob.first_name || '').trim() || full.split(/\s+/)[0]
+    if (first) ctx['Accountant First'] = first
+    return ctx
+  })()
+
   const decision = ob.prelim_meeting_decision
   // VFO Associate accountants pay nothing and sign nothing — skip Stage 1 & 2.
   const isAssociate = ob.accountant_type === 'VFO Associate'
@@ -330,15 +371,15 @@ function OnboardingDetail({ id, onBack }) {
   const emCard = <OnboardingExtraMeetingCard ob={ob} pipeline="accountant" onComplete={loadDetail} compact />
   const yesRows = (withTags) => (
     <>
-      <AutoRow label="Agreement sent" done={!!ob.agreement_sent_at} date={ob.agreement_sent_at} />
+      <AutoRow label="Agreement sent" done={!!ob.agreement_sent_at} date={ob.agreement_sent_at} emails={ACCOUNTANT_AGREEMENT_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
       {emRequested && emStage === 'signing' && emCard}
       <AutoRow label="Agreement signed by accountant" done={!!ob.agreement_signed_by_accountant_at} date={ob.agreement_signed_by_accountant_at} tag={withTags ? [ob.selected_vfo_ft && 'VFO FT', ob.selected_pft && 'PFT', ob.selected_corporate && 'CM'] : undefined} />
-      <AutoRow label="Agreement signed by CEO" done={!!ob.agreement_signed_by_ceo_at} date={ob.agreement_signed_by_ceo_at} />
-      <AutoRow label="Payment link sent" done={!!ob.payment_link_sent_at} date={ob.payment_link_sent_at} />
+      <AutoRow label="Agreement signed by CEO" done={!!ob.agreement_signed_by_ceo_at} date={ob.agreement_signed_by_ceo_at} emails={ACCOUNTANT_CEO_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
+      <AutoRow label="Payment link sent" done={!!ob.payment_link_sent_at} date={ob.payment_link_sent_at} emails={ACCOUNTANT_PAYMENT_LINK_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
       {emRequested && emStage === 'payment' && emCard}
       <AutoRow label="Payment made" done={ob.payment_status === 'succeeded'} date={ob.payment_completed_at} tag={withTags ? (ob.payment_method_type ? ob.payment_method_type.toUpperCase() : null) : undefined} />
-      <AutoRow label="Confirmation email sent" done={!!ob.confirmation_email_sent_at} date={ob.confirmation_email_sent_at} />
-      <AutoRow label="Invoice/receipt sent" done={!!ob.invoice_sent_at} date={ob.invoice_sent_at} />
+      <AutoRow label="Confirmation email sent" done={!!ob.confirmation_email_sent_at} date={ob.confirmation_email_sent_at} emails={ACCOUNTANT_CONFIRMATION_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
+      <AutoRow label="Invoice/receipt sent" done={!!ob.invoice_sent_at} date={ob.invoice_sent_at} emails={ACCOUNTANT_INVOICE_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
     </>
   )
 
@@ -398,7 +439,7 @@ function OnboardingDetail({ id, onBack }) {
             />
           </Row>
         )}
-        <Row label="Preliminary Meeting Decision" done={!!decision} date={ob.prelim_meeting_decision_at}>
+        <Row label="Preliminary Meeting Decision" done={!!decision} date={ob.prelim_meeting_decision_at} emails={ACCOUNTANT_DECISION_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx}>
           {decision ? (
             <span style={pillStyle(decision === 'Yes' ? '#1b9254' : decision === 'No' ? '#e74c3c' : '#e06717')}>{decision}</span>
           ) : (
@@ -455,7 +496,7 @@ function OnboardingDetail({ id, onBack }) {
           </div>
         ) : ob.member_created_at ? (
           <>
-            <AutoRow label="Accountant created" done={true} date={ob.member_created_at} />
+            <AutoRow label="Accountant created" done={true} date={ob.member_created_at} emails={ACCOUNTANT_LOGIN_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
             <div style={{ marginLeft: '14px', paddingLeft: '12px', marginTop: '6px', borderLeft: '1px solid var(--vfo-tint-deep)', fontSize: '12px', color: 'var(--vfo-muted)' }}>
               Member number: <span style={{ color: 'var(--vfo-ink)', fontFamily: 'monospace' }}>{ob.member_number}</span> &middot; Implementation &middot; New Model
             </div>
@@ -513,11 +554,11 @@ function formatDate(d) {
 
 const dateTextStyle = { fontSize: '11px', color: 'var(--vfo-muted)', flexShrink: 0, display: 'inline-block', width: '32px' }
 
-function Row({ label, done, date, children }) {
+function Row({ label, done, date, children, emails, pipeline, emailCtx }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
-      <span style={{ fontSize: '13px', color: done ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{label}</span>
+      <span style={{ fontSize: '13px', color: done ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{label}{emails && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline={pipeline} title={label} templates={emails} context={emailCtx} /></span>}</span>
       <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
         {children}
         <span style={dateTextStyle}>{done && date ? formatDate(date) : ''}</span>
@@ -580,12 +621,12 @@ function AdvisorCombo({ advisors, currentNumber, currentName, currentEmail, disa
   )
 }
 
-function AutoRow({ label, done, date, tag }) {
+function AutoRow({ label, done, date, tag, emails, pipeline, emailCtx }) {
   const tags = tag == null ? [] : Array.isArray(tag) ? tag.filter(Boolean) : [tag]
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
       <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
-      <span style={{ fontSize: '12px', color: 'var(--vfo-ink)', flex: 1 }}>{label}</span>
+      <span style={{ fontSize: '12px', color: 'var(--vfo-ink)', flex: 1 }}>{label}{emails && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline={pipeline} title={label} templates={emails} context={emailCtx} /></span>}</span>
       <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
         {done && tags.length > 0 && tags.map((t, i) => (
           <span key={i} style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{t}</span>

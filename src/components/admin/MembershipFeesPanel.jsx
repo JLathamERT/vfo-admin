@@ -3,6 +3,7 @@ import { callApi } from '../../lib/api'
 import { NAVY, BLUE, money, StatusPill } from './specialistRevenueShared'
 import { OnboardingListSkeleton } from '../shared/Skeleton'
 import SandboxModeToggle from './SandboxModeToggle'
+import StepEmailsChip from '../shared/StepEmailsChip'
 
 // Accounting > Members > Advisor/Accountant Membership Fees.
 //
@@ -327,6 +328,25 @@ function PlanCard({ plan, onChanged, onEdit }) {
   const m = plan.member || {}
   const closed = plan.status === 'canceled' || plan.status === 'terminated'
 
+  // Known-value substitutions for the email previews (see StepEmailsChip).
+  // Mirrors the setup-link handler exactly: [Amount] uses the annual value for
+  // annual transfers (else per-pull), [Cadence] = per month/year, [Renewal Date]
+  // = long-month UTC. Empty/unverifiable values are omitted (tokens stay chips).
+  const emailCtx = (() => {
+    const ctx = {}
+    const first = ((m.first_name || '') || String(plan.member_name || '').split(' ')[0] || '').trim()
+    if (first) ctx['First Name'] = first
+    const saveOnly = Number(plan.per_pull_amount) <= 0 || (plan.transfer && plan.frequency === 'annual')
+    const amt = saveOnly && plan.frequency === 'annual' ? Number(plan.annual_amount) : Number(plan.per_pull_amount || 0)
+    if (Number.isFinite(amt) && amt > 0) ctx['Amount'] = `$${amt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    if (plan.frequency === 'monthly' || plan.frequency === 'annual') ctx['Cadence'] = plan.frequency === 'monthly' ? 'per month' : 'per year'
+    if (plan.renewal_date) {
+      const [ry, rm, rd] = String(plan.renewal_date).slice(0, 10).split('-').map(Number)
+      if (ry && rm && rd) ctx['Renewal Date'] = new Date(Date.UTC(ry, rm - 1, rd)).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+    }
+    return ctx
+  })()
+
   async function run(action, payload, confirmText) {
     if (confirmText && !window.confirm(confirmText)) return null
     setBusy(true); setMsg(null)
@@ -523,6 +543,11 @@ function PlanCard({ plan, onChanged, onEdit }) {
                   </button>
                 </>
               )}
+              <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="MEMBER_MEMBERSHIP_FEES" title="Payment link emails" context={emailCtx} templates={[
+                { name: 'MEMBERSHIP_setup_link', when: 'New plan — payment setup link' },
+                { name: 'MEMBERSHIP_transfer_setup_link', when: 'Transfer plan — setup link' },
+                { name: 'MEMBERSHIP_update_link', when: 'Active plan — update payment method link' },
+              ]} /></span>
             </div>
           )}
 
@@ -823,6 +848,17 @@ function OutstandingSection({ plans }) {
 function OutstandingRow({ plan, overdue, total }) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState(null)
+
+  // Known-value substitution for the failure email (see StepEmailsChip). Only
+  // the member first name is cleanly in scope here (the email's [Amount] uses a
+  // per-arrears figure not available on this row), so everything else stays a
+  // bracketed chip.
+  const emailCtx = (() => {
+    const ctx = {}
+    const first = String(plan.member_name || '').trim().split(/\s+/)[0]
+    if (first) ctx['First Name'] = first
+    return ctx
+  })()
   // The backend only emails rows already marked missed/declined. When every
   // overdue row is still 'scheduled' (awaiting tonight's automatic charge run),
   // the reminder call is guaranteed to 400 — so gate the button instead.
@@ -863,6 +899,9 @@ function OutstandingRow({ plan, overdue, total }) {
             Overdue — will be charged by tonight's automatic run
           </span>
         )}
+        <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="MEMBER_MEMBERSHIP_FEES" title="Payment reminder email" context={emailCtx} templates={[
+          { name: 'MEMBERSHIP_payment_failed', when: 'Payment failed / reminder to the member' },
+        ]} /></span>
       </div>
       {msg && (
         <div style={{ marginTop: '10px', fontSize: '12.5px', padding: '8px 12px', borderRadius: '8px', wordBreak: 'break-all',

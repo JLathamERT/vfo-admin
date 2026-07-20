@@ -5,6 +5,54 @@ import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { PFTTrackSkeleton } from '../../shared/Skeleton'
 import { TrackHero, PhaseBadge } from '../../shared/TrackKit'
 import StepDate from '../../shared/StepDate'
+import StepEmailsChip from '../../shared/StepEmailsChip'
+
+// Read-only per-step email previews (see StepEmailsChip). Meeting 1 uses the
+// member-declined variant; Meetings 2/3 use the ERT/VFOS-declined variant.
+const PFT_PIPELINE = 'PARTNERSHIP_FAST_TRACK'
+const PFT_MEETING1_EMAILS = [
+  { name: 'PFT_meeting_confirm', when: 'If date confirmed / not confirmed' },
+  { name: 'PFT_meeting_declined', when: 'If the accountant declined' },
+  { name: 'PFT_meeting1_member_declined', when: 'If we declined — Meeting 1 (member) variant' },
+]
+const PFT_MEETING23_EMAILS = [
+  { name: 'PFT_meeting_confirm', when: 'If date confirmed / not confirmed' },
+  { name: 'PFT_meeting_declined', when: 'If the accountant declined' },
+  { name: 'PFT_meeting_ert_declined', when: 'If we declined (ERT/VFOS)' },
+]
+const PFT_DISCOVERY_EMAILS = [
+  { name: 'PFT_discovery_reminder', when: 'Automatic reminder if the discovery form is not submitted (48h)' },
+]
+const PFT_DECISION_EMAILS = [
+  { name: 'PFT_decision_vfo_ft', when: 'If VFO Fast Track' },
+  { name: 'PFT_decision_vfo_ft_reminder', when: 'Automatic reminder on the Fast Track follow-up (48h)' },
+  { name: 'PFT_decision_vfo_associate', when: 'If VFO Associate' },
+  { name: 'PFT_decision_no', when: 'If No' },
+  { name: 'PFT_decision_undecided', when: 'If Undecided — three path buttons (re-sent automatically as the reminder)' },
+]
+
+// Backend-exact meeting-dependent substitution strings (see
+// supabase/functions/vfo-admin-api/actions/pft/meeting-email.ts): PRIOR maps to
+// [PRIOR_MEETING], the "our Nth Partnership Fast Track meeting" phrase to
+// [NEXT_MEETING], and "Meeting N" to [NEXT_MEETING_TITLE], per meeting number.
+const PFT_PRIOR_MEETING = { 1: 'your recent call', 2: 'our first meeting', 3: 'our second meeting' }
+const PFT_NEXT_MEETING = { 1: 'our first Partnership Fast Track meeting', 2: 'our second Partnership Fast Track meeting', 3: 'our third Partnership Fast Track meeting' }
+
+function pftNameCtx(client) {
+  const full = client ? `${client.first_name || ''} ${client.last_name || ''}`.trim() : ''
+  const ctx = {}
+  if (full) { ctx.FULL_NAME = full; ctx.FIRST_NAME = full.split(/\s+/)[0] }
+  return ctx
+}
+
+function pftMeetingCtx(client, meeting) {
+  return {
+    ...pftNameCtx(client),
+    PRIOR_MEETING: PFT_PRIOR_MEETING[meeting],
+    NEXT_MEETING: PFT_NEXT_MEETING[meeting],
+    NEXT_MEETING_TITLE: `Meeting ${meeting}`,
+  }
+}
 
 const pftStatusColors = { Complete: '#1b9254', Completed: '#1b9254', 'Complete - Yes': '#1b9254', 'Complete - No': '#e74c3c', Yes: '#1b9254', No: '#e74c3c', Undecided: '#e06717', VFOS: '#0095ff', Member: '#0095ff', New: '#1b9254', 'Re-Set': '#1b9254', 'VFO FT': '#1b9254', 'VFO Associate': '#1b9254', Stopped: '#e74c3c', 'No show': '#e74c3c', 'Meeting 1 scheduled': '#1b9254', 'Meeting 2 scheduled': '#1b9254', 'Meeting 3 scheduled': '#1b9254', 'Confirmation email sent': '#1b9254', 'Email sent - date not yet arranged': '#1b9254', 'Meeting declined': '#e74c3c', 'No response': '#e74c3c', 'Call arranged': '#1b9254', 'VFO FT confirmed': '#1b9254', 'VFO Associate confirmed': '#1b9254', 'No confirmed': '#e74c3c', 'Undecided - awaiting client': '#e06717', 'Declined by Member': '#e74c3c', 'Declined by ERT/VFOS': '#e74c3c' }
 const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
@@ -153,7 +201,7 @@ function MeetingStep({ task, meeting, p, readOnly, client, onSend, onCompleteNoE
     <div style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
         <Dot done={isDone} color={statusColor} />
-        <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+        <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline={PFT_PIPELINE} title={task.name} templates={meeting === 1 ? PFT_MEETING1_EMAILS : PFT_MEETING23_EMAILS} context={pftMeetingCtx(client, meeting)} /></span>}</span>
         {isDone
           ? <StatusPill status={p.status} color={statusColor} />
           : readOnly
@@ -251,7 +299,7 @@ function GateStep({ task, p, readOnly, onChoose }) {
 }
 
 // Final 3-button decision step (VFO FT / VFO Associate / No).
-function DecisionStep({ task, p, readOnly, onChoose, onCompleteNoEmail, onDate }) {
+function DecisionStep({ task, p, readOnly, client, onChoose, onCompleteNoEmail, onDate }) {
   const [pending, setPending] = useState(null)
   const isDone = !!p.status
   const statusColor = pftStatusColors[p.status] || 'var(--vfo-muted)'
@@ -268,7 +316,7 @@ function DecisionStep({ task, p, readOnly, onChoose, onCompleteNoEmail, onDate }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
       <Dot done={isDone} color={statusColor} />
-      <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+      <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline={PFT_PIPELINE} title={task.name} templates={PFT_DECISION_EMAILS} context={pftNameCtx(client)} /></span>}</span>
       {isDone
         ? <StatusPill status={p.status} color={statusColor} />
         : readOnly
@@ -416,16 +464,16 @@ function Phase6Indicators({ onboarding, onOpen, readOnly }) {
 }
 
 // Collapsible viewer of the submitted discovery form, shown below the Meeting 2 step.
-function DiscoveryViewer({ eng }) {
+function DiscoveryViewer({ eng, readOnly, client }) {
   const [open, setOpen] = useState(false)
   const submitted = !!eng?.discovery_submitted_at
   const data = eng?.discovery_data || {}
   if (!submitted) {
     if (!eng?.discovery_email_sent_at) return null
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0 5px 18px', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0 5px 18px', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'transparent', border: '1px solid var(--vfo-border-mid)', flexShrink: 0 }} />
-        <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Discovery form — awaiting completion</span>
+        <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flex: 1 }}>Discovery form — awaiting completion{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline={PFT_PIPELINE} title="Discovery form" templates={PFT_DISCOVERY_EMAILS} context={pftNameCtx(client)} /></span>}</span>
       </div>
     )
   }
@@ -702,7 +750,7 @@ function PFTEngagementTrack({ clientId, programId, client, readOnly = false, not
       if (mNum === 3 && gateStatus !== 'Yes') return null
       const step = <MeetingStep task={task} meeting={mNum} p={p} readOnly={readOnly} client={client} onSend={(decision, d, t, z, r) => handleMeetingSend(task, mNum, decision, d, t, z, r)} onCompleteNoEmail={() => saveTask(task.id, 'Complete', p.completed_date)} onDate={(d) => saveTask(task.id, p.status, d)} />
       if (mNum === 2) {
-        return <div key={task.id}>{step}<DiscoveryViewer eng={eng} /></div>
+        return <div key={task.id}>{step}<DiscoveryViewer eng={eng} readOnly={readOnly} client={client} /></div>
       }
       return <div key={task.id}>{step}</div>
     }
@@ -718,7 +766,7 @@ function PFTEngagementTrack({ clientId, programId, client, readOnly = false, not
       if (phase.name === 'Accountant Meeting 2' && gateStatus !== 'No') return null
       return (
         <div key={task.id}>
-          <DecisionStep task={task} p={p} readOnly={readOnly} onChoose={(choice) => handleDecision(task, choice)} onCompleteNoEmail={(choice) => handleDecisionNoEmail(task, choice)} onDate={(d) => saveTask(task.id, p.status, d)} />
+          <DecisionStep task={task} p={p} readOnly={readOnly} client={client} onChoose={(choice) => handleDecision(task, choice)} onCompleteNoEmail={(choice) => handleDecisionNoEmail(task, choice)} onDate={(d) => saveTask(task.id, p.status, d)} />
           <DecisionHistory eng={eng} decStatus={p.status} onboarding={onboarding} />
         </div>
       )
