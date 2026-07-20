@@ -6,6 +6,7 @@ import { TrackHero, PhaseBadge, ListHeader } from '../shared/TrackKit'
 import NewModelSaleModal, { SALES_TEAM_NAMES } from './NewModelSaleModal'
 import OnboardingExtraMeetingCard from './OnboardingExtraMeetingCard'
 import StepEmailsChip from '../shared/StepEmailsChip'
+import StepDate from '../shared/StepDate'
 
 const STAGE_NAMES = ['', 'Preliminary Meeting', 'PC Admin', 'Add New Advisor']
 
@@ -259,6 +260,16 @@ function OnboardingDetail({ id, onBack }) {
     finally { setPendingDecision(null) }
   }
 
+  // Inline edit of a manual step's completion date (matches the tracking tracks).
+  async function saveStepDate(field, date) {
+    setSaving(true)
+    try {
+      const res = await callApi('save_onboarding_step_date', { pipeline: 'ADVISOR', onboarding_id: id, field, date })
+      if (res?.onboarding) setOb(res.onboarding)
+    } catch (err) { console.error(err); alert('Error: ' + err.message) }
+    finally { setSaving(false) }
+  }
+
   async function createAdvisor(saleFields) {
     setCreatingMember(true)
     try {
@@ -349,20 +360,20 @@ function OnboardingDetail({ id, onBack }) {
       />
 
       <StageBlock stage={1} title="Preliminary Meeting" state={stage1State()} expanded={expanded[1]} onToggle={() => setExpanded(p => ({ ...p, 1: !p[1] }))}>
-        <Row label="Preliminary Meeting" done={!!ob.prelim_meeting_status} date={ob.prelim_meeting_status_at}>
+        <Row label="Preliminary Meeting" done={!!ob.prelim_meeting_status} date={ob.prelim_meeting_status_at} onDateChange={d => saveStepDate('prelim_meeting_status_at', d)} saving={saving}>
           <select value={ob.prelim_meeting_status || ''} onChange={e => savePrelimMeeting(e.target.value)} disabled={saving} style={{ ...selectStyle, color: 'var(--vfo-ink)' }}>
             <option value="">-- Select --</option>
             <option value="Completed">Completed</option>
             <option value="No Show">No Show</option>
           </select>
         </Row>
-        <Row label="Team Member Responsible" done={!!ob.onboarding_team_member} date={ob.onboarding_team_member_at}>
+        <Row label="Team Member Responsible" done={!!ob.onboarding_team_member} date={ob.onboarding_team_member_at} onDateChange={d => saveStepDate('onboarding_team_member_at', d)} saving={saving}>
           <select value={ob.onboarding_team_member || ''} onChange={e => saveTeamMember(e.target.value)} disabled={saving} style={{ ...selectStyle, color: 'var(--vfo-ink)' }}>
             <option value="">-- Select --</option>
             {SALES_TEAM_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </Row>
-        <Row label="Preliminary Meeting Decision" done={!!decision} date={ob.prelim_meeting_decision_at} emails={ADVISOR_DECISION_EMAILS} pipeline={ADVISOR_PIPELINE} emailCtx={emailCtx}>
+        <Row label="Preliminary Meeting Decision" done={!!decision} date={ob.prelim_meeting_decision_at} emails={ADVISOR_DECISION_EMAILS} pipeline={ADVISOR_PIPELINE} emailCtx={emailCtx} onDateChange={d => saveStepDate('prelim_meeting_decision_at', d)} saving={saving}>
           {decision ? (
             <span style={pillStyle(decision === 'Yes' ? '#1b9254' : decision === 'No' ? '#e74c3c' : '#e06717')}>{decision}</span>
           ) : (
@@ -480,14 +491,16 @@ function formatDate(d) {
 
 const dateTextStyle = { fontSize: '11px', color: 'var(--vfo-muted)', flexShrink: 0, display: 'inline-block', width: '32px' }
 
-function Row({ label, done, date, children, emails, pipeline, emailCtx }) {
+function Row({ label, done, date, children, emails, pipeline, emailCtx, onDateChange, saving }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
       <span style={{ fontSize: '13px', color: done ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{label}{emails && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline={pipeline} title={label} templates={emails} context={emailCtx} /></span>}</span>
       <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
         {children}
-        <span style={dateTextStyle}>{done && date ? formatDate(date) : ''}</span>
+        {onDateChange && done && date
+          ? <StepDate value={(date || '').split('T')[0]} onChange={onDateChange} disabled={saving} />
+          : <span style={dateTextStyle}>{done && date ? formatDate(date) : ''}</span>}
       </span>
     </div>
   )
