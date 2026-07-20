@@ -12,6 +12,7 @@ const PROGRAMS = [
   { key: 'partnership', name: 'Partnership Fast Track' },
   { key: 'tax', name: 'VFO Tax Planning' },
   { key: 'coaching', name: 'Advanced Coaching' },
+  { key: 'standard', name: 'Standard Coaching' },
 ]
 
 const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael Hopson', 'Ian Welham', 'Paul Latham']
@@ -40,6 +41,7 @@ export default function MSMTracking({ member, activeSection, onDataChange, bypas
     : activeSection === 'msm_program_partnership' ? 'partnership'
     : activeSection === 'msm_program_tax' ? 'tax'
     : activeSection === 'msm_program_coaching' ? 'coaching'
+    : activeSection === 'msm_program_standard' ? 'standard'
     : null
   const [programs, setPrograms] = useState([])
   const [enrollments, setEnrollments] = useState([])
@@ -57,6 +59,10 @@ export default function MSMTracking({ member, activeSection, onDataChange, bypas
 
   // Meeting log state
   const [vfo90Count, setVfo90Count] = useState(0)
+  // Coaching-meeting counts keyed by program name. The coaching Meetings tab writes
+  // to coaching_meetings (keyed on enrollment_id), NOT member_meetings, so the Home
+  // summary tiles derive these counts from coaching_load_meetings per enrollment.
+  const [coachingCounts, setCoachingCounts] = useState({})
   const [showLogMeeting, setShowLogMeeting] = useState(false)
   const [meetingDate, setMeetingDate] = useState('')
   const [meetingConductedBy, setMeetingConductedBy] = useState('')
@@ -64,6 +70,35 @@ export default function MSMTracking({ member, activeSection, onDataChange, bypas
   const [meetingStatus, setMeetingStatus] = useState('')
 
   useEffect(() => { loadData() }, [member.plugin_member_number])
+
+  // Coaching meetings are logged in the program's Meetings tab (a sibling subtree),
+  // so refresh the Home summary counts whenever the admin lands on the Home tab —
+  // no full reload (no skeleton flicker), just the two coaching_load_meetings reads.
+  useEffect(() => {
+    if (activeTab === 'home' && enrollments.length) loadCoachingCounts(enrollments)
+  }, [activeSection])
+
+  async function loadCoachingCounts(enrollList) {
+    const counts = {}
+    await Promise.all(['Advanced Coaching', 'Standard Coaching'].map(async name => {
+      const enr = (enrollList || []).find(e => e.programs?.name === name)
+      if (!enr) { counts[name] = 0; return }
+      try {
+        const md = await callApi('coaching_load_meetings', { enrollment_id: enr.id })
+        counts[name] = (md.meetings || []).filter(m => m.status === 'completed').length
+      } catch { counts[name] = 0 }
+    }))
+    setCoachingCounts(counts)
+  }
+
+  // Program-enable toggling updates local state only (no global reload → no skeleton
+  // flash), mirroring the Assigned-MSM save. The backend add/remove is a single
+  // member_program_enabled row, so the optimistic update is authoritative.
+  function handleProgramToggled(programId, enabled) {
+    setEnabledPrograms(prev => enabled
+      ? [...prev.filter(e => e.program_id !== programId), { program_id: programId }]
+      : prev.filter(e => e.program_id !== programId))
+  }
 
   async function loadData() {
     setLoading(true)
@@ -78,6 +113,10 @@ export default function MSMTracking({ member, activeSection, onDataChange, bypas
       setEnrollments(enrollData.enrollments || [])
       setMeetings(meetData.meetings || [])
       setEnabledPrograms(enabledData.enabled || [])
+
+      // Count completed coaching meetings for the two coaching programs (Advanced +
+      // Standard). Their meetings live in coaching_meetings keyed on enrollment_id.
+      await loadCoachingCounts(enrollData.enrollments || [])
 
       // Calculate VFO 90 Day Plan count from completed phases
       const holisticProg = (progData.programs || []).find(p => p.name === 'VFO Holistic Planning')
@@ -138,7 +177,8 @@ export default function MSMTracking({ member, activeSection, onDataChange, bypas
   }
 
   const msmCount = meetings.filter(m => m.meeting_type === 'MSM Meeting').length
-  const advancedCount = meetings.filter(m => m.meeting_type === 'Advanced Meeting').length
+  const advancedCount = coachingCounts['Advanced Coaching'] || 0
+  const standardCount = coachingCounts['Standard Coaching'] || 0
   const pft90Count = meetings.filter(m => m.meeting_type === 'PFT 90 Day Plan Meeting').length
 
   return (
@@ -185,7 +225,7 @@ export default function MSMTracking({ member, activeSection, onDataChange, bypas
           {/* Side column — assignment + program toggles */}
           <div style={{ flex: '1 1 250px', minWidth: '250px', order: 2 }}>
             <MsmAssignment member={member} value={assignedMsm} onChange={setAssignedMsm} onSaved={setSavedMsm} />
-            <ProgramToggles member={member} programs={programs} enabledPrograms={enabledPrograms} onToggle={loadData} allowedProgramKeys={allowedProgramKeys} hasMsm={!!(savedMsm && savedMsm.trim())} />
+            <ProgramToggles member={member} programs={programs} enabledPrograms={enabledPrograms} onToggle={handleProgramToggled} allowedProgramKeys={allowedProgramKeys} hasMsm={!!(savedMsm && savedMsm.trim())} />
           </div>
 
           {/* Main column — meetings */}
@@ -201,6 +241,7 @@ export default function MSMTracking({ member, activeSection, onDataChange, bypas
                 // that program is in scope — strategic members run Holistic + Tax
                 // only, so both are hidden for them.
                 ...((!allowedProgramKeys || allowedProgramKeys.includes('coaching')) ? [['Advanced Meetings', advancedCount]] : []),
+                ...((!allowedProgramKeys || allowedProgramKeys.includes('standard')) ? [['Standard Meetings', standardCount]] : []),
                 ['VFO 90 Day Plan', vfo90Count],
                 ...((!allowedProgramKeys || allowedProgramKeys.includes('partnership')) ? [['PFT 90 Day Plan', pft90Count]] : []),
               ].map(([label, count]) => (
@@ -408,6 +449,10 @@ function ProgramNotes({ memberNumber, programName }) {
 
 function EnrolledPanel({ member, enrollment, program, onDataChange }) {
   const isCoaching = program.name === 'Advanced Coaching'
+  const isStandard = program.name === 'Standard Coaching'
+  // Standard Coaching is Advanced Coaching without the Renewal tab; every place
+  // Advanced hides the training/status chrome, Standard hides it too.
+  const isCoachingLike = isCoaching || isStandard
   const isTaxPlanning = program.name === 'VFO Tax Planning'
   const [activeTab, setActiveTab] = useState(() => {
     const ret = sessionStorage.getItem('pftReturnEnrolledTab')
@@ -443,11 +488,11 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
           <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.03em', fontSize: '22px', color: 'var(--vfo-heading)' }}>{program.name}</div>
           <div style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <span>Joined {enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</span>
-            {!isCoaching && enrollment.program_status && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[enrollment.program_status] || 'var(--vfo-faint)', flexShrink: 0 }} />{enrollment.program_status}</span></>}
-            {!isCoaching && !isTaxPlanning && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><PlanStatusBadge enrollmentId={enrollment.id} programId={program.id} liveStatus={livePlanStatus} /></>}
+            {!isCoachingLike && enrollment.program_status && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[enrollment.program_status] || 'var(--vfo-faint)', flexShrink: 0 }} />{enrollment.program_status}</span></>}
+            {!isCoachingLike && !isTaxPlanning && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><PlanStatusBadge enrollmentId={enrollment.id} programId={program.id} liveStatus={livePlanStatus} /></>}
           </div>
         </div>
-        {!isCoaching && (
+        {!isCoachingLike && (
           <button onClick={() => setEditingEnrollment(!editingEnrollment)} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '12px', cursor: 'pointer' }}>
             {editingEnrollment ? 'Cancel' : 'Edit'}
           </button>
@@ -472,7 +517,9 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
 
       <div style={{ display: 'flex', borderBottom: '1px solid var(--vfo-border)', marginBottom: '24px' }}>
         <button style={tabStyle(activeTab === 'home')} onClick={() => setActiveTab('home')}>Home</button>
-        {isCoaching ? (
+        {isStandard ? (
+          <button style={tabStyle(activeTab === 'meetings')} onClick={() => setActiveTab('meetings')}>Meetings</button>
+        ) : isCoaching ? (
           <>
             <button style={tabStyle(activeTab === 'meetings')} onClick={() => setActiveTab('meetings')}>Meetings</button>
             <button style={tabStyle(activeTab === 'renewal')} onClick={() => setActiveTab('renewal')}>Renewal</button>
@@ -493,7 +540,7 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
 
       {activeTab === 'training' && <TrainingTrack enrollment={enrollment} program={program} onPlanStatusChange={setLivePlanStatus} />}
       {activeTab === 'clients' && <ClientsPanel enrollment={enrollment} member={member} program={program} />}
-      {activeTab === 'meetings' && <CoachingMeetings enrollment={enrollment} member={member} />}
+      {activeTab === 'meetings' && <CoachingMeetings enrollment={enrollment} member={member} eyebrow={program.name} />}
       {activeTab === 'renewal' && <CoachingRenewal enrollment={enrollment} member={member} />}
     </div>
   )
@@ -1084,7 +1131,7 @@ function ProgramToggles({ member, programs, enabledPrograms, onToggle, allowedPr
     setToggling(t => ({ ...t, [programId]: true }))
     try {
       await callApi('msm_toggle_program', { member_number: member.plugin_member_number, program_id: programId, enabled: !currentlyEnabled })
-      onToggle()
+      onToggle(programId, !currentlyEnabled)
     } catch (err) { console.error(err) }
     finally { setToggling(t => ({ ...t, [programId]: false })) }
   }
@@ -1118,7 +1165,7 @@ function ProgramToggles({ member, programs, enabledPrograms, onToggle, allowedPr
   )
 }
 
-function CoachingMeetings({ enrollment, member }) {
+function CoachingMeetings({ enrollment, member, eyebrow = 'Advanced Coaching' }) {
   const [meetings, setMeetings] = useState([])
   const [loading, setLoading] = useState(true)
   const [showLog, setShowLog] = useState(false)
@@ -1176,7 +1223,7 @@ function CoachingMeetings({ enrollment, member }) {
   return (
     <div>
       <TrackHero
-        eyebrow="Advanced Coaching"
+        eyebrow={eyebrow}
         title="Coaching Meetings"
         meta={<>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1b9254', flexShrink: 0 }} />{completedCount} completed</span>

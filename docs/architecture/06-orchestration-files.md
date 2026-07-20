@@ -104,12 +104,13 @@ See [flows/contract-and-payment.md](../flows/contract-and-payment.md#step-13--re
 
 ## Hardcoded program-name dependencies (frontend)
 
-The frontend hardcodes the program names from the `programs` table in three places. Adding a new row to `programs` will not surface a new tab without editing these:
+The frontend hardcodes the program names from the `programs` table in several places. Adding a new row to `programs` will not surface a new tab without editing these (full list for the MSM program set in gotcha #246):
 
 | File:line | Hardcoded names |
 |---|---|
-| [MemberPortal.jsx:59](src/pages/MemberPortal.jsx) | `'VFO Holistic Planning'`, `'Partnership Fast Track'`, `'VFO Tax Planning'`, `'Advanced Coaching'` |
-| [MemberPortal.jsx:100](src/pages/MemberPortal.jsx) | (same) |
+| [MemberPortal.jsx](src/pages/MemberPortal.jsx) `PROGRAM_KEYS` + inline NavDropdown map + `PROGRAM_ORDER` | `'VFO Holistic Planning'`, `'Partnership Fast Track'`, `'VFO Tax Planning'`, `'Advanced Coaching'`, `'Standard Coaching'` |
+| [MSMTracking.jsx](src/components/admin/MSMTracking.jsx) `PROGRAMS` + [MembersPanel.jsx](src/components/admin/MembersPanel.jsx) `DEFAULT_MSM_OPTIONS` | (same 5) |
+| [MemberMSMTracking.jsx](src/components/member/MemberMSMTracking.jsx) `PROGRAMS` | (same 5) |
 | [ClientDetail.jsx:133-143](src/pages/ClientDetail.jsx) | `'Partnership Fast Track'`, `'VFO Tax Planning'` (rest fall through to the MAP1+Regular+Tax bucket) |
 
 Hardcoded PF (Planning Facilitator) names also appear in:

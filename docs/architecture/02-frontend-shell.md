@@ -117,7 +117,7 @@ The portal itself only fires `load_data` (line 85). All deeper actions are fired
 | Initial load | lines 33-37: parallel fetch of `load_data`, `msm_load_programs`, `msm_load_enabled_programs` |
 | Tabs | Static: Profile, MSM Tracking (dropdown), Specialists, Showroom, Website, Growth Plan, CIQ, GC, Vault (Growth Plan precedes CIQ as of 2026-06-18). **Dynamic** subset of MSM Tracking dropdown: only programs the member has enabled (`member_program_enabled.enabled = true`) |
 | Tab → component map | lines 115-145 |
-| Hardcoded program-name → tab-key mapping | line 59: `PROGRAM_KEYS = {'VFO Holistic Planning': 'msm_holistic', 'Partnership Fast Track': 'msm_partnership', 'VFO Tax Planning': 'msm_tax', 'Advanced Coaching': 'msm_coaching'}`. Adding a new program in `programs` table would require a code change to surface as a tab. |
+| Hardcoded program-name → tab-key mapping | `PROGRAM_KEYS = {'VFO Holistic Planning': 'msm_holistic', 'Partnership Fast Track': 'msm_partnership', 'VFO Tax Planning': 'msm_tax', 'Advanced Coaching': 'msm_coaching', 'Standard Coaching': 'msm_standard'}` (defined twice — the `PROGRAM_KEYS` const + the inline NavDropdown map), plus `PROGRAM_ORDER` which fixes the enabled-program display order to match the admin toggle list. Adding a new program in the `programs` table requires FE wiring in ~5 spots (see gotcha #246) — no backend code change. |
 
 #### Member tabs and their components
 

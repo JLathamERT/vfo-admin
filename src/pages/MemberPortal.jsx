@@ -82,18 +82,23 @@ export default function MemberPortal() {
 
   if (!session) return null
 
-  const PROGRAM_KEYS = { 'VFO Holistic Planning': 'msm_holistic', 'Partnership Fast Track': 'msm_partnership', 'VFO Tax Planning': 'msm_tax', 'Advanced Coaching': 'msm_coaching' }
-
-  const enabledProgramTabs = allPrograms
+  const PROGRAM_KEYS = { 'VFO Holistic Planning': 'msm_holistic', 'Partnership Fast Track': 'msm_partnership', 'VFO Tax Planning': 'msm_tax', 'Advanced Coaching': 'msm_coaching', 'Standard Coaching': 'msm_standard' }
+  // Canonical program order — matches the admin MSM Home program-toggle list.
+  const PROGRAM_ORDER = ['VFO Holistic Planning', 'Partnership Fast Track', 'VFO Tax Planning', 'Advanced Coaching', 'Standard Coaching']
+  const orderedEnabledPrograms = allPrograms
     .filter(p => enabledPrograms.some(e => e.program_id === p.id))
-    .map(p => PROGRAM_KEYS[p.name])
-    .filter(Boolean)
+    .sort((a, b) => {
+      const ia = PROGRAM_ORDER.indexOf(a.name), ib = PROGRAM_ORDER.indexOf(b.name)
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib)
+    })
+
+  const enabledProgramTabs = orderedEnabledPrograms.map(p => PROGRAM_KEYS[p.name]).filter(Boolean)
 
   const tabs = ['profile', 'msm_home', ...enabledProgramTabs, 'specialists', 'showroom', 'website', 'growthplan', 'ciq', 'gc', 'vault']
   const tabLabels = {
     profile: 'Profile', msm_home: 'MSM Home',
     msm_holistic: 'Holistic Planning', msm_partnership: 'Partnership Fast Track',
-    msm_tax: 'Tax Planning', msm_coaching: 'Advanced Coaching',
+    msm_tax: 'Tax Planning', msm_coaching: 'Advanced Coaching', msm_standard: 'Standard Coaching',
     specialists: 'Specialists', showroom: 'Showroom', website: 'Website Plugin',
     ciq: 'CIQ', growthplan: 'Growth Plan', gc: 'GC Marketplace', vault: 'Vault'
   }
@@ -116,14 +121,13 @@ export default function MemberPortal() {
           <div style={{ display: 'flex', borderBottom: '1px solid var(--vfo-border)', padding: '0 24px', background: 'var(--vfo-card)', position: 'relative', zIndex: 100 }}>
             <button onClick={() => setActiveTab('profile')} style={{ padding: '14px 20px', background: 'transparent', border: 'none', borderBottom: activeTab === 'profile' ? '2px solid #125ecc' : '2px solid transparent', color: activeTab === 'profile' ? '#125ecc' : 'var(--vfo-muted)', fontSize: '14px', fontWeight: activeTab === 'profile' ? '600' : '400', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>Profile</button>
             <NavDropdown
-              label="MSM Tracking"
+              label="MSM"
               isActive={activeTab === 'msm_home' || activeTab?.startsWith('msm_')}
               activeTab={activeTab}
               options={[
                 { key: 'msm_home', label: 'MSM Home' },
-                ...allPrograms
-                  .filter(p => enabledPrograms.some(e => e.program_id === p.id))
-                  .map(p => ({ key: { 'VFO Holistic Planning': 'msm_holistic', 'Partnership Fast Track': 'msm_partnership', 'VFO Tax Planning': 'msm_tax', 'Advanced Coaching': 'msm_coaching' }[p.name], label: p.name }))
+                ...orderedEnabledPrograms
+                  .map(p => ({ key: PROGRAM_KEYS[p.name], label: p.name }))
                   .filter(o => o.key)
               ]}
               onSelect={setActiveTab}
