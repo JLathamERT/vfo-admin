@@ -2,6 +2,8 @@
 
 Two parallel logs attached to a coaching enrollment: meeting events and renewal/cancellation actions. Self-contained — no integrations, no chains.
 
+**Standard Coaching (program id=5, added 2026-07-20)** reuses this exact flow but with **no renewals** — its enrolled view shows Home + Meetings only (no Renewal tab), so only the meeting handlers (`coaching_load_meetings` / `_log_meeting` / `_update_meeting` / `_delete_meeting`) apply; `coaching_load_renewals` / `_process_renewal` are Advanced-Coaching-only. Both programs share the same `coaching_meetings` table keyed on `enrollment_id`. See gotcha #246.
+
 ## Trigger
 
 Member or admin opens a member's "Advanced Coaching" tab. The tab is part of MemberPortal's dynamic tab list (gated by `member_program_enabled` for the Advanced Coaching program) and accessible via [MemberMSMTracking.jsx](src/components/member/MemberMSMTracking.jsx).
