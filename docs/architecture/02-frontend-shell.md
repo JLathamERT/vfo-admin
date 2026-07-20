@@ -87,6 +87,8 @@ Built and deployed as a static site to GitHub Pages at `https://vfoportal.com/` 
 
 (The Accountant Onboarding option — labeled "Accountant Onboarding" — mounts [AccountantAutomationPanel](src/components/admin/AccountantAutomationPanel.jsx). Same shape as advisor's panel against `accountant_onboarding` rows. Loads via `automation_load_accountant_pipelines`. Added 2026-05-28.)
 
+(The Partnership Fast Track option — `automationSection === 'pft_pipeline'` — mounts [PFTAutomationPanel](src/components/admin/PFTAutomationPanel.jsx). Added 2026-07-20 (gotcha #247). One row per client with PFT email activity; StepCards for Meeting 1/2/3 (+ Discovery form), Decision email (admin pick + Undecided client button-click), FT follow-up, and Accountant Onboarding handoff, plus a working `SandboxModeToggle pipeline="PARTNERSHIP_FAST_TRACK"` — the only UI for that sandbox row. Meeting 1 card gated on tracking-owner=Member. Loads via `automation_load_pft_pipelines`.)
+
 (The Specialist Onboarding option — labeled "Specialist Onboarding" — mounts [SpecialistAutomationPanel](src/components/admin/SpecialistAutomationPanel.jsx). One row per `specialist_onboarding` record; StepCards for SIF → Stage 2 Detail Meetings (per-meeting rev-share tracking) → Executive Approval (per-exec, per-round votes) → Stage 3 Email → Further Questions → Payment → Invoice & Receipt, plus a working `SandboxModeToggle`. Loads via `automation_load_specialist_pipelines`. Added 2026-06-03.)
 
 **Modal-style overlays:**
