@@ -28,6 +28,7 @@ const PROGRAMS = [
   { key: 'partnership', name: 'Partnership Fast Track' },
   { key: 'tax', name: 'VFO Tax Planning' },
   { key: 'coaching', name: 'Advanced Coaching' },
+  { key: 'standard', name: 'Standard Coaching' },
 ]
 
 // Read-only card of the program notes an admin has shared with this member.
@@ -91,9 +92,29 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
   const [meetings, setMeetings] = useState([])
   const [loading, setLoading] = useState(true)
   const [vfo90Count, setVfo90Count] = useState(0)
-  
+  // Coaching-meeting counts keyed by program name — coaching meetings live in
+  // coaching_meetings (per enrollment), not member_meetings.
+  const [coachingCounts, setCoachingCounts] = useState({})
 
   useEffect(() => { loadData() }, [member.member_number])
+
+  // Refresh the coaching counts whenever the member returns to MSM Home (no reload).
+  useEffect(() => {
+    if (activeTab === 'msm_home' && enrollments.length) loadCoachingCounts(enrollments)
+  }, [activeTab])
+
+  async function loadCoachingCounts(enrollList) {
+    const counts = {}
+    await Promise.all(['Advanced Coaching', 'Standard Coaching'].map(async name => {
+      const enr = (enrollList || []).find(e => e.programs?.name === name)
+      if (!enr) { counts[name] = 0; return }
+      try {
+        const md = await callApi('coaching_load_meetings', { enrollment_id: enr.id })
+        counts[name] = (md.meetings || []).filter(m => m.status === 'completed').length
+      } catch { counts[name] = 0 }
+    }))
+    setCoachingCounts(counts)
+  }
 
   async function loadData() {
     setLoading(true)
@@ -108,6 +129,9 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
       setEnrollments(enrollData.enrollments || [])
       setEnabledPrograms(enabledData.enabled || [])
       setMeetings(meetData.meetings || [])
+
+      // Count completed coaching meetings for the two coaching programs.
+      await loadCoachingCounts(enrollData.enrollments || [])
 
       // Calculate VFO 90 Day Plan count from completed phases
       const holisticProg = (progData.programs || []).find(p => p.name === 'VFO Holistic Planning')
@@ -137,12 +161,13 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
 
   const msmCount = meetings.filter(m => m.meeting_type === 'MSM Meeting').length
-  const advancedCount = meetings.filter(m => m.meeting_type === 'Advanced Meeting').length
+  const advancedCount = coachingCounts['Advanced Coaching'] || 0
+  const standardCount = coachingCounts['Standard Coaching'] || 0
   const pft90Count = meetings.filter(m => m.meeting_type === 'PFT 90 Day Plan Meeting').length
 
   if (loading) {
     if (activeTab === 'msm_home') return <MsmHomeSkeleton />
-    const isCoach = activeTab === 'msm_coaching'
+    const isCoach = activeTab === 'msm_coaching' || activeTab === 'msm_standard'
     const inner =
       isCoach ? <CoachingMeetingsSkeleton /> :
       activeTab === 'msm_tax' ? <ClientsListSkeleton /> :
@@ -179,6 +204,7 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
     : activeTab === 'msm_partnership' ? 'partnership'
     : activeTab === 'msm_tax' ? 'tax'
     : activeTab === 'msm_coaching' ? 'coaching'
+    : activeTab === 'msm_standard' ? 'standard'
     : null
 
   if (activeTab === 'msm_home') {
@@ -196,7 +222,7 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
             if (!dbProgram) return null
             const isEnabled = enabledPrograms.some(e => e.program_id === dbProgram.id)
             if (!isEnabled) return null
-            const tabKey = { holistic: 'msm_holistic', partnership: 'msm_partnership', tax: 'msm_tax', coaching: 'msm_coaching' }[p.key]
+            const tabKey = { holistic: 'msm_holistic', partnership: 'msm_partnership', tax: 'msm_tax', coaching: 'msm_coaching', standard: 'msm_standard' }[p.key]
             return (
               <div key={p.key} onClick={() => onNavigate(tabKey)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--vfo-tint)', cursor: 'pointer' }}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-tint)'}
@@ -211,7 +237,7 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
         <div style={sectionStyle}>
           <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Meeting Summary</div>
           <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
-            {[['MSM Meetings', msmCount], ['Advanced Meetings', advancedCount], ['VFO 90 Day Plan', vfo90Count], ['PFT 90 Day Plan', pft90Count]].map(([label, count]) => (
+            {[['MSM Meetings', msmCount], ['Advanced Meetings', advancedCount], ['Standard Meetings', standardCount], ['VFO 90 Day Plan', vfo90Count], ['PFT 90 Day Plan', pft90Count]].map(([label, count]) => (
               <div key={label} style={{ textAlign: 'center' }}>
                 <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--vfo-heading)' }}>{count}</div>
                 <div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: 'var(--vfo-muted)', marginTop: '3px', textTransform: 'uppercase' }}>{label}</div>
@@ -275,8 +301,11 @@ export default function MemberMSMTracking({ member, activeTab, onNavigate }) {
 
 function MemberEnrolledView({ enrollment, program, member }) {
   const isCoaching = program.name === 'Advanced Coaching'
+  const isStandard = program.name === 'Standard Coaching'
+  // Standard Coaching mirrors Advanced Coaching minus the Renewal tab.
+  const isCoachingLike = isCoaching || isStandard
   const isPFT = program.name === 'Partnership Fast Track'
-  const defaultTab = isCoaching ? 'home' : program.name === 'VFO Tax Planning' ? 'clients' : 'training'
+  const defaultTab = isCoachingLike ? 'home' : program.name === 'VFO Tax Planning' ? 'clients' : 'training'
   const [activeTab, setActiveTab] = useState(defaultTab)
   useEffect(() => { setActiveTab(defaultTab) }, [program.id])
   const tabStyle = (active) => ({ padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' })
@@ -290,11 +319,16 @@ function MemberEnrolledView({ enrollment, program, member }) {
         <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.03em', fontSize: '22px', color: 'var(--vfo-heading)' }}>{program.name}</div>
         <div style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <span>Joined {enrollment.date_enrolled ? enrollment.date_enrolled.split('T')[0] : '—'}</span>
-          {!isCoaching && enrollment.program_status && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[enrollment.program_status] || 'var(--vfo-faint)', flexShrink: 0 }} />{enrollment.program_status}</span></>}
+          {!isCoachingLike && enrollment.program_status && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: statusColors[enrollment.program_status] || 'var(--vfo-faint)', flexShrink: 0 }} />{enrollment.program_status}</span></>}
         </div>
       </div>
       <div style={{ display: 'flex', borderBottom: '1px solid var(--vfo-border)', marginBottom: '24px' }}>
-        {isCoaching ? (
+        {isStandard ? (
+          <>
+            <button style={tabStyle(activeTab === 'home')} onClick={() => setActiveTab('home')}>Home</button>
+            <button style={tabStyle(activeTab === 'meetings')} onClick={() => setActiveTab('meetings')}>Meetings</button>
+          </>
+        ) : isCoaching ? (
           <>
             <button style={tabStyle(activeTab === 'home')} onClick={() => setActiveTab('home')}>Home</button>
             <button style={tabStyle(activeTab === 'meetings')} onClick={() => setActiveTab('meetings')}>Meetings</button>
@@ -311,18 +345,18 @@ function MemberEnrolledView({ enrollment, program, member }) {
           </>
         )}
       </div>
-      {activeTab === 'home' && isCoaching && (
+      {activeTab === 'home' && isCoachingLike && (
         <MemberProgramNotes
           memberNumber={member.member_number}
           sectionStyle={sectionStyle}
-          programName="Advanced Coaching"
+          programName={program.name}
           title="Notes from your team"
           emptyText="No notes from your coaching team yet."
         />
       )}
       {activeTab === 'training' && <MemberTrainingView enrollment={enrollment} program={program} />}
       {activeTab === 'clients' && <MemberClientsView enrollment={enrollment} member={member} program={program} />}
-      {activeTab === 'meetings' && <MemberCoachingMeetings enrollment={enrollment} />}
+      {activeTab === 'meetings' && <MemberCoachingMeetings enrollment={enrollment} eyebrow={program.name} />}
       {activeTab === 'renewal' && <MemberCoachingRenewal enrollment={enrollment} />}
     </div>
   )
@@ -773,7 +807,7 @@ function VideoTask({ task, progress, enrollmentId, onComplete }) {
   )
 }
 
-function MemberCoachingMeetings({ enrollment }) {
+function MemberCoachingMeetings({ enrollment, eyebrow = 'Advanced Coaching' }) {
   const [meetings, setMeetings] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedMeeting, setExpandedMeeting] = useState(null)
@@ -800,7 +834,7 @@ function MemberCoachingMeetings({ enrollment }) {
   return (
     <div>
       <TrackHero
-        eyebrow="Advanced Coaching"
+        eyebrow={eyebrow}
         title="Coaching Meetings"
         meta={<>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1b9254', flexShrink: 0 }} />{completedMeetings.length} completed</span>
