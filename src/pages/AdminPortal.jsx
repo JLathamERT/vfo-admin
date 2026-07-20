@@ -13,6 +13,7 @@ import TaxAutomationPanel from '../components/admin/TaxAutomationPanel'
 import PipAutomationPanel from '../components/admin/PipAutomationPanel'
 import AdvisorAutomationPanel from '../components/admin/AdvisorAutomationPanel'
 import AccountantAutomationPanel from '../components/admin/AccountantAutomationPanel'
+import PFTAutomationPanel from '../components/admin/PFTAutomationPanel'
 import SpecialistAutomationPanel from '../components/admin/SpecialistAutomationPanel'
 import NotificationBell from '../components/NotificationBell'
 import EmailTemplatesPanel from '../components/admin/EmailTemplatesPanel'
@@ -452,6 +453,7 @@ export default function AdminPortal() {
         { key: 'standalone_tax_pipeline', label: 'Tax Planning' },
         { key: 'advisor_pipeline', label: 'Advisor Onboarding' },
         { key: 'accountant_pipeline', label: 'Accountant Onboarding' },
+        { key: 'pft_pipeline', label: 'Partnership Fast Track' },
         { key: 'specialist_pipeline', label: 'Specialist Onboarding' },
         { key: 'specialist_revenue_pipeline', label: 'VFO Specialist Revenue' },
         { key: 'growth_credits', label: 'Growth Credits' },
@@ -736,6 +738,9 @@ export default function AdminPortal() {
           )}
           {activeTab === 'automation' && !loading && automationSection === 'accountant_pipeline' && (
             <AccountantAutomationPanel />
+          )}
+          {activeTab === 'automation' && !loading && automationSection === 'pft_pipeline' && (
+            <PFTAutomationPanel />
           )}
           {activeTab === 'automation' && !loading && automationSection === 'specialist_pipeline' && (
             <SpecialistAutomationPanel />

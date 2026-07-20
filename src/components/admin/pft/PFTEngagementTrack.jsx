@@ -6,7 +6,7 @@ import { PFTTrackSkeleton } from '../../shared/Skeleton'
 import { TrackHero, PhaseBadge } from '../../shared/TrackKit'
 import StepDate from '../../shared/StepDate'
 
-const pftStatusColors = { Complete: '#1b9254', Completed: '#1b9254', 'Complete - Yes': '#1b9254', 'Complete - No': '#e74c3c', Yes: '#1b9254', No: '#e74c3c', Undecided: '#e06717', VFOS: '#0095ff', Member: '#0095ff', New: '#1b9254', 'Re-Set': '#1b9254', 'VFO FT': '#1b9254', 'VFO Associate': '#1b9254', Stopped: '#e74c3c', 'No show': '#e74c3c', 'Meeting 1 scheduled': '#1b9254', 'Meeting 2 scheduled': '#1b9254', 'Meeting 3 scheduled': '#1b9254', 'Confirmation email sent': '#1b9254', 'Email sent - date not yet arranged': '#1b9254', 'Meeting declined': '#e74c3c', 'No response': '#e74c3c', 'Call arranged': '#1b9254', 'VFO FT confirmed': '#1b9254', 'VFO Associate confirmed': '#1b9254', 'No confirmed': '#e74c3c', 'Undecided - awaiting client': '#e06717' }
+const pftStatusColors = { Complete: '#1b9254', Completed: '#1b9254', 'Complete - Yes': '#1b9254', 'Complete - No': '#e74c3c', Yes: '#1b9254', No: '#e74c3c', Undecided: '#e06717', VFOS: '#0095ff', Member: '#0095ff', New: '#1b9254', 'Re-Set': '#1b9254', 'VFO FT': '#1b9254', 'VFO Associate': '#1b9254', Stopped: '#e74c3c', 'No show': '#e74c3c', 'Meeting 1 scheduled': '#1b9254', 'Meeting 2 scheduled': '#1b9254', 'Meeting 3 scheduled': '#1b9254', 'Confirmation email sent': '#1b9254', 'Email sent - date not yet arranged': '#1b9254', 'Meeting declined': '#e74c3c', 'No response': '#e74c3c', 'Call arranged': '#1b9254', 'VFO FT confirmed': '#1b9254', 'VFO Associate confirmed': '#1b9254', 'No confirmed': '#e74c3c', 'Undecided - awaiting client': '#e06717', 'Declined by Member': '#e74c3c', 'Declined by ERT/VFOS': '#e74c3c' }
 const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
 const dateSpanStyle = { fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }
 const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
@@ -106,20 +106,39 @@ function NotStarted() {
   return <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>
 }
 
-// Shared 3-button meeting confirmation step (Meeting 1 / 2 / 3).
-function MeetingStep({ task, meeting, p, readOnly, onSend, onCompleteNoEmail, onDate }) {
+// Per-meeting copy for the "we are declining them" email. Meeting 1 → a
+// "Member Declined" button + a lighter "chat with us" intro; Meetings 2/3 →
+// "ERT/VFOS Declined" + "meet with us". The inline reason + preview card mirrors
+// the Tax 3 "No - Declined email to client" card exactly.
+const US_DECLINE = {
+  1: { label: 'Send Email - Member Declined', intro: 'Thank you for taking the time to chat with us regarding VFO Partnership Fast Track. After careful consideration, we are not going to be able to move forward at this time.' },
+  2: { label: 'Send Email - ERT/VFOS Declined', intro: 'Thank you for taking the time to meet with us regarding the VFO Partnership Fast Track. After careful consideration, we are not going to be able to move forward at this time.' },
+  3: { label: 'Send Email - ERT/VFOS Declined', intro: 'Thank you for taking the time to meet with us regarding the VFO Partnership Fast Track. After careful consideration, we are not going to be able to move forward at this time.' },
+}
+const US_DECLINE_CLOSING = 'We appreciate the opportunity to have connected with you and wish you continued success.'
+
+// Shared meeting confirmation step (Meeting 1 / 2 / 3), laid out in three button
+// rows: confirm (green), decline (red — client-declined + we-declined), and the
+// no-email backfill. The "we declined" button opens an inline reason + email
+// preview card modelled on the Tax 3 decline card.
+function MeetingStep({ task, meeting, p, readOnly, client, onSend, onCompleteNoEmail, onDate }) {
   const [showDate, setShowDate] = useState(false)
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const [tz, setTz] = useState('ET')
   const [pending, setPending] = useState(null)
+  const [declineOpen, setDeclineOpen] = useState(false)
+  const [reason, setReason] = useState('')
   const isDone = !!p.status
   const statusColor = pftStatusColors[p.status] || 'var(--vfo-muted)'
+  const usDecline = US_DECLINE[meeting] || US_DECLINE[2]
+  const clientFirst = client?.first_name || '[Client First]'
+  const clientFull = client ? `${client.first_name || ''} ${client.last_name || ''}`.trim() : ''
 
-  async function fire(decision, d, t, z) {
+  async function fire(decision, d, t, z, r) {
     if (pending) return
     setPending(decision)
-    try { await onSend(decision, d, t, z); setShowDate(false) }
+    try { await onSend(decision, d, t, z, r); setShowDate(false); setDeclineOpen(false); setReason('') }
     catch (err) { console.error(err) }
     finally { setPending(null) }
   }
@@ -131,39 +150,74 @@ function MeetingStep({ task, meeting, p, readOnly, onSend, onCompleteNoEmail, on
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
-      <Dot done={isDone} color={statusColor} />
-      <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
-      {isDone
-        ? <StatusPill status={p.status} color={statusColor} />
-        : readOnly
-          ? <NotStarted />
-          : showDate
-            ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle }} />
-                <input type="time" value={time} onChange={e => setTime(e.target.value)} style={{ ...inputStyle }} />
-                <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
-                  <option value="ET">Eastern (ET)</option>
-                  <option value="CT">Central (CT)</option>
-                  <option value="MT">Mountain (MT)</option>
-                  <option value="PT">Pacific (PT)</option>
-                  <option value="AKT">Alaska (AKT)</option>
-                  <option value="HT">Hawaii (HT)</option>
-                </select>
-                <button onClick={() => date && fire('confirm_date', date, time, tz)} disabled={!date || !!pending} style={{ ...greenBtn, opacity: (!date || pending) ? 0.6 : 1, cursor: (!date || pending) ? 'not-allowed' : 'pointer' }}>{pending === 'confirm_date' ? 'Sending…' : 'Send'}</button>
-                <button onClick={() => !pending && setShowDate(false)} disabled={!!pending} style={cancelBtn}>Cancel</button>
-              </div>
-            : <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                <button onClick={() => setShowDate(true)} disabled={!!pending} style={greenBtn}>Send email (with date)</button>
-                <button onClick={() => fire('confirm_no_date')} disabled={!!pending} style={{ ...greenBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'confirm_no_date' ? 'Sending…' : 'Send email - date not confirmed'}</button>
-                <button onClick={() => fire('declined')} disabled={!!pending} style={{ ...redBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'declined' ? 'Sending…' : 'Meeting declined - email client'}</button>
-                <button onClick={fireNoEmail} disabled={!!pending} style={{ ...greenSolidBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'no_email' ? 'Saving…' : 'Complete - NO EMAIL'}</button>
-              </div>
-      }
-      {readOnly
-        ? <span style={dateSpanStyle}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
-        : <StepDate value={isDone ? (p.completed_date || '') : ''} onChange={onDate} disabled={!!pending} />
-      }
+    <div style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
+        <Dot done={isDone} color={statusColor} />
+        <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+        {isDone
+          ? <StatusPill status={p.status} color={statusColor} />
+          : readOnly
+            ? <NotStarted />
+            : showDate
+              ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle }} />
+                  <input type="time" value={time} onChange={e => setTime(e.target.value)} style={{ ...inputStyle }} />
+                  <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
+                    <option value="ET">Eastern (ET)</option>
+                    <option value="CT">Central (CT)</option>
+                    <option value="MT">Mountain (MT)</option>
+                    <option value="PT">Pacific (PT)</option>
+                    <option value="AKT">Alaska (AKT)</option>
+                    <option value="HT">Hawaii (HT)</option>
+                  </select>
+                  <button onClick={() => date && fire('confirm_date', date, time, tz)} disabled={!date || !!pending} style={{ ...greenBtn, opacity: (!date || pending) ? 0.6 : 1, cursor: (!date || pending) ? 'not-allowed' : 'pointer' }}>{pending === 'confirm_date' ? 'Sending…' : 'Send'}</button>
+                  <button onClick={() => !pending && setShowDate(false)} disabled={!!pending} style={cancelBtn}>Cancel</button>
+                </div>
+              : declineOpen
+                ? null
+                : <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'flex-end' }}>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <button onClick={() => setShowDate(true)} disabled={!!pending} style={greenBtn}>Send Email - Date Confirmed</button>
+                      <button onClick={() => fire('confirm_no_date')} disabled={!!pending} style={{ ...greenBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'confirm_no_date' ? 'Sending…' : 'Send Email - Date Not Confirmed'}</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <button onClick={() => fire('declined')} disabled={!!pending} style={{ ...redBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'declined' ? 'Sending…' : 'Send Email - Client Declined'}</button>
+                      <button onClick={() => { setReason(''); setDeclineOpen(true) }} disabled={!!pending} style={redBtn}>{usDecline.label}</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <button onClick={fireNoEmail} disabled={!!pending} style={{ ...greenSolidBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'no_email' ? 'Saving…' : 'Complete - NO EMAIL'}</button>
+                    </div>
+                  </div>
+        }
+        {readOnly
+          ? <span style={dateSpanStyle}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
+          : <StepDate value={isDone ? (p.completed_date || '') : ''} onChange={onDate} disabled={!!pending} />
+        }
+      </div>
+      {declineOpen && !isDone && !readOnly && (
+        <div style={{ marginLeft: '18px', marginBottom: '8px', padding: '14px 16px', background: 'var(--vfo-tint)', borderRadius: '10px', border: '1px solid var(--vfo-tint-deep)', fontFamily: 'Inter, sans-serif' }}>
+          <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+            Subject: Partnership Fast Track - {clientFull || '[Client Name]'}
+          </div>
+          <div style={{ fontSize: '13px', color: '#44557a', lineHeight: '1.6' }}>
+            <p style={{ margin: '0 0 12px' }}>Dear {clientFirst},</p>
+            <p style={{ margin: '0 0 12px' }}>{usDecline.intro}</p>
+            <textarea
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              placeholder="Type the decline reason here — written as if speaking directly to the client."
+              disabled={!!pending}
+              style={{ width: '100%', minHeight: '90px', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.06)', color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif', fontSize: '13px', lineHeight: '1.55', boxSizing: 'border-box', resize: 'vertical', marginBottom: '12px' }}
+            />
+            <p style={{ margin: '0 0 12px' }}>{US_DECLINE_CLOSING}</p>
+            <p style={{ margin: 0 }}>Regards,</p>
+          </div>
+          <div style={{ marginTop: '14px', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+            <button disabled={!!pending} onClick={() => { setDeclineOpen(false); setReason('') }} style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', cursor: pending ? 'not-allowed' : 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }}>Cancel</button>
+            <button disabled={!!pending || !reason.trim()} onClick={() => fire('us_declined', null, null, null, reason)} style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', cursor: (pending || !reason.trim()) ? 'not-allowed' : 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: (pending || !reason.trim()) ? 'rgba(231,76,60,0.06)' : 'rgba(231,76,60,0.18)', color: '#e74c3c', fontWeight: '600' }}>{pending === 'us_declined' ? 'Sending…' : 'Send Decline Email'}</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -397,7 +451,7 @@ function DiscoveryViewer({ eng }) {
   )
 }
 
-function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [], onNotesChange }) {
+function PFTEngagementTrack({ clientId, programId, client, readOnly = false, notes = [], onNotesChange }) {
   const navigate = useNavigate()
   const [phases, setPhases] = useState([])
   const [progress, setProgress] = useState({})
@@ -455,12 +509,15 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
     finally { setSaving(p => ({ ...p, [taskId]: false })) }
   }
 
-  async function handleMeetingSend(task, meeting, decision, date, time, tz) {
+  async function handleMeetingSend(task, meeting, decision, date, time, tz, reason) {
     await callApi('automation_PFT_meetingemail', {
       client_id: clientId, task_id: task.id, meeting,
-      decision, meeting_date: date || null, meeting_time: time || null, meeting_tz: tz || null,
+      decision, decline_reason: reason || null, meeting_date: date || null, meeting_time: time || null, meeting_tz: tz || null,
     })
-    const status = decision === 'declined' ? 'Meeting declined' : decision === 'confirm_no_date' ? 'Email sent - date not yet arranged' : 'Confirmation email sent'
+    const status = decision === 'declined' ? 'Meeting declined'
+      : decision === 'us_declined' ? (meeting === 1 ? 'Declined by Member' : 'Declined by ERT/VFOS')
+      : decision === 'confirm_no_date' ? 'Email sent - date not yet arranged'
+      : 'Confirmation email sent'
     const notes = decision === 'confirm_date' ? [date, time, tz].filter(Boolean).join(' ') : null
     const today = new Date().toISOString().split('T')[0]
     setProgress(prev => ({ ...prev, [task.id]: { ...prev[task.id], task_id: task.id, status, completed_date: today, notes } }))
@@ -643,7 +700,7 @@ function PFTEngagementTrack({ clientId, programId, readOnly = false, notes = [],
     const mNum = meetingNumber(task.name)
     if (mNum) {
       if (mNum === 3 && gateStatus !== 'Yes') return null
-      const step = <MeetingStep task={task} meeting={mNum} p={p} readOnly={readOnly} onSend={(decision, d, t, z) => handleMeetingSend(task, mNum, decision, d, t, z)} onCompleteNoEmail={() => saveTask(task.id, 'Complete', p.completed_date)} onDate={(d) => saveTask(task.id, p.status, d)} />
+      const step = <MeetingStep task={task} meeting={mNum} p={p} readOnly={readOnly} client={client} onSend={(decision, d, t, z, r) => handleMeetingSend(task, mNum, decision, d, t, z, r)} onCompleteNoEmail={() => saveTask(task.id, 'Complete', p.completed_date)} onDate={(d) => saveTask(task.id, p.status, d)} />
       if (mNum === 2) {
         return <div key={task.id}>{step}<DiscoveryViewer eng={eng} /></div>
       }

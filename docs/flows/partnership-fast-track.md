@@ -43,9 +43,21 @@ One warm template `PFT_meeting_confirm` for all three, parameterised by `automat
   (our first/second/third Partnership Fast Track meeting), `[NEXT_MEETING_TITLE]` (Meeting 1/2/3, subject),
   `[FORM_SECTION]` (discovery-form button — Meeting 2 only), `[CLOSING]` ("on \<date> at \<time> \<tz>" for
   the with-date button, else "in due course").
-- 3 buttons → `automation_PFT_meetingemail` with `decision` = `confirm_date` / `confirm_no_date` / `declined`.
+- Buttons → `automation_PFT_meetingemail` with `decision` = `confirm_date` / `confirm_no_date` / `declined` / `us_declined`.
   Statuses written to `client_progress`: "Confirmation email sent" / "Email sent - date not yet arranged" /
-  "Meeting declined". Declined uses `PFT_meeting_declined`.
+  "Meeting declined" / "Declined by Member" (Meeting 1) / "Declined by ERT/VFOS" (Meeting 2/3). `declined` =
+  the client declines us (`PFT_meeting_declined`). **`us_declined` = WE decline them** (2026-07-20, gotcha #247):
+  requires a typed `decline_reason` (injected as `[DECLINE_REASON]`), opens an inline reason+preview card cloned
+  from the Tax 3 decline card; Meeting 1 uses `PFT_meeting1_member_declined` (button "Send Email - Member
+  Declined", "chat with us…"), Meetings 2/3 use `PFT_meeting_ert_declined` (button "Send Email - ERT/VFOS
+  Declined", "meet with us…"). The buttons render in 3 rows (green confirm · red client/we-decline · Complete-NO-EMAIL);
+  the confirm buttons were renamed "Send Email - Date Confirmed / Date Not Confirmed". `[FORM_SECTION]` (discovery)
+  attaches only on confirm decisions.
+- **Automation & Config → Partnership Fast Track** (2026-07-20, gotcha #247): `PFTAutomationPanel` (loader
+  `automation_load_pft_pipelines`) is the read-only pipeline view of every client with PFT email activity — meeting
+  sends, discovery/decision/FT button-clicks, and the onboarding handoff — and holds the ONLY UI for the
+  `PARTNERSHIP_FAST_TRACK` sandbox toggle. Its Meeting 1 card shows only when the Initial-Contact tracking-owner
+  step = `Member`.
 - **Admin backfill — "Complete - NO EMAIL"** (2026-07-17, gotcha #243): a 4th solid-green button marks the
   meeting step complete (status `Complete`) via `msm_save_client_task` with NO email — for bringing
   old-system accountants up to date. Frontend-only; PFT-only (lives in `PFTEngagementTrack.jsx`'s `MeetingStep`).
