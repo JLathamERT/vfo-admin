@@ -8,6 +8,7 @@ import MeetingCompleteButton from './MeetingCompleteButton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { TrackHero, PhaseBadge } from '../../shared/TrackKit'
 import StepDate from '../../shared/StepDate'
+import StepEmailsChip from '../../shared/StepEmailsChip'
 
 // The Initial Contact "Who is completing the tracking…" gate step. When it is
 // NOT set to "Member" (unset or "VFOS"), the other steps in the phase are inert
@@ -19,7 +20,7 @@ const isTrackingOwnerTask = (t) => (t?.name || '').startsWith('Who is completing
 // "date not confirmed", and "declined". Drafts the email via the backend, then
 // records the task status. `meeting` is 'pip1' or 'followup'. Self-contained so
 // its date/time inputs keep state across parent re-renders.
-function PipConfirmStep({ clientId, task, p, meeting, readOnly, onDone }) {
+function PipConfirmStep({ clientId, task, p, meeting, readOnly, onDone, emailCtx }) {
   const [showDate, setShowDate] = useState(false)
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
@@ -50,7 +51,7 @@ function PipConfirmStep({ clientId, task, p, meeting, readOnly, onDone }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
-      <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+      <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="MAP 1" display="modal" title={task.name} templates={[{ name: 'PIP_meeting_confirm', when: 'If date confirmed / not confirmed' }, { name: 'PIP_meeting_declined', when: 'If the client declined the meeting' }]} context={emailCtx} /></span>}</span>
       {isDone
         ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
         : readOnly
@@ -290,6 +291,22 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
 
   const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
 
+  // Known-value substitutions for the email previews (see StepEmailsChip).
+  // Reactive to the selected client + loaded pipeline row; empty values are
+  // omitted so those tokens keep rendering as bracketed chips.
+  const emailCtx = (() => {
+    const ctx = {}
+    const full = client ? `${client.first_name || ''} ${client.last_name || ''}`.trim() : ''
+    if (full) { ctx['Client Name'] = full; ctx['Client First'] = full.split(/\s+/)[0] }
+    const pf = client?.assigned_pf ? String(client.assigned_pf).trim() : ''
+    if (pf) ctx['PF Name'] = pf
+    const member = client?.member_name ? String(client.member_name).trim() : ''
+    if (member) { ctx['Member Name'] = member; ctx['Member First'] = member.split(/\s+/)[0] }
+    const sl = pipelineData?.c15_service_level
+    if (sl) ctx['Service Level'] = sl
+    return ctx
+  })()
+
   if (loading) return <Map1TrackSkeleton />
 
 
@@ -382,16 +399,61 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                   const decisionColor = pipDecision === 'Yes' ? '#1b9254' : pipDecision === 'No' ? '#e74c3c' : finalDec === 'Yes' ? '#1b9254' : finalDec === 'No' ? '#e74c3c' : '#e06717'
                   const decisionLabel = pipDecision === 'Yes' ? 'Yes — proceeding' : pipDecision === 'No' ? 'No — declined' : finalDec === 'Yes' ? `Yes — ${pipelineData?.c15_service_level || 'proceeding'}${pipelineData?.c15_via_extra_meeting ? ' (via extra meeting)' : ''}` : finalDec === 'No' ? `No — declined${pipelineData?.c15_via_extra_meeting ? ' (via extra meeting)' : ''}` : finalDec === 'ExtraMeeting' ? 'Extra meeting requested' : 'Undecided — awaiting client'
 
-                  const autoStep = (label, done = false, tag = null, na = false) => (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+                  // Read-only email previews keyed by auto-step label. Each auto row that
+                  // sends a templated email exposes a "View emails" chip listing every
+                  // variant that step can send. Purely additive display (no send behavior).
+                  const STEP_EMAIL_TPLS = {
+                    'Agreement sent to client': [
+                      { name: 'CONTRACT_agreementsent|Yes', when: 'Sent automatically when the decision is Yes' },
+                      { name: 'CONTRACT_signing_reminder', when: 'Automatic reminder if unsigned (48h)' },
+                    ],
+                    'CEO signed': [
+                      { name: 'CONTRACT_ceocountersign|Yes', when: 'Automatic — asks the CEO to countersign' },
+                    ],
+                    'Payment link sent': [
+                      { name: 'CONTRACT_paymentemail|Yes', when: 'Automatic — first payment link' },
+                      { name: 'CONTRACT_payment_reminder', when: 'Automatic reminder if unpaid (48h)' },
+                    ],
+                    'Payment received': [
+                      { name: 'CONTRACT_confirmationemail|card', when: 'If paid by card' },
+                      { name: 'CONTRACT_confirmationemail|ach', when: 'If paid by bank transfer (ACH)' },
+                      { name: 'CONTRACT_confirmationemail|check', when: 'If paid by check' },
+                      { name: 'CONTRACT_paidbycheck|check', when: 'When admin records a check is on the way' },
+                      { name: 'CONTRACT_checkreminder|check', when: 'Automatic reminder 7 days before a check payment is due' },
+                      { name: 'CONTRACT_installment_charge_failed', when: 'Automatic — if a quarterly auto-charge (payments 2-4) fails' },
+                      { name: 'CONTRACT_tracy_newcase', when: 'Internal — new-case notice to Tracy (first payment only)' },
+                    ],
+                    'Invoice/receipt sent': [
+                      { name: 'CONTRACT_invoicereceipt_email|first', when: 'First payment' },
+                      { name: 'CONTRACT_invoicereceipt_email|subsequent', when: 'Later payments' },
+                      { name: 'CONTRACT_invoicereceipt_email|failed', when: 'If a payment failed' },
+                    ],
+                    'Revenue share paid': [
+                      { name: 'CONTRACT_member_revshare|first', when: 'First revenue share' },
+                      { name: 'CONTRACT_member_revshare|subsequent', when: 'Later revenue shares' },
+                    ],
+                    'Member notified of revenue share': [
+                      { name: 'CONTRACT_member_revshare|first', when: 'First revenue share' },
+                      { name: 'CONTRACT_member_revshare|subsequent', when: 'Later revenue shares' },
+                    ],
+                    'Decline email sent to client': [
+                      { name: 'PCADMIN_followup|No', when: 'Decline email' },
+                    ],
+                  }
+                  const autoStep = (label, done = false, tag = null, na = false) => {
+                    const emailTpls = STEP_EMAIL_TPLS[label]
+                    return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
                       <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: (done || na) ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${(done || na) ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
                       <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
+                      {!readOnly && emailTpls && <StepEmailsChip pipeline="MAP 1" display="modal" title={label} templates={emailTpls} context={emailCtx} />}
                       <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
                         {done && tag && !na && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{tag}</span>}
                         <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: (done || na) ? 'rgba(27,146,84,0.15)' : 'var(--vfo-tint)', border: (done || na) ? '1px solid rgba(27,146,84,0.3)' : '1px solid var(--vfo-border-chip)', color: (done || na) ? '#1b9254' : 'var(--vfo-muted)' }}>{na ? 'N/A' : (done ? 'Done' : 'Not completed')}</span>
                       </span>
                     </div>
-                  )
+                    )
+                  }
 
                   // Revenue share is N/A when member share is set to $0 (member gets
                   // no share). Applies to both regular + member-paid pipelines.
@@ -589,6 +651,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                       p={p}
                       meeting={task.name === 'PIP Follow-up Confirmation Email' ? 'followup' : 'pip1'}
                       readOnly={readOnly}
+                      emailCtx={emailCtx}
                       onDone={(taskId, status, date) => setProgress(pr => ({ ...pr, [taskId]: { ...pr[taskId], task_id: taskId, status, completed_date: date } }))}
                     />
                   )
@@ -654,9 +717,15 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                     const isFormShown = isDone ? expanded[formExpandKey] : true
                     return (
                       <div key={task.id} style={{ borderBottom: '1px solid var(--vfo-border-soft)', padding: '7px 0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: isDone ? 'pointer' : 'default' }} onClick={() => isDone && setExpanded(prev => ({ ...prev, [formExpandKey]: !prev[formExpandKey] }))}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: isDone ? 'pointer' : 'default', flexWrap: 'wrap' }} onClick={() => isDone && setExpanded(prev => ({ ...prev, [formExpandKey]: !prev[formExpandKey] }))}>
                           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? dc : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? dc : 'var(--vfo-border-mid)'}` }} />
-                          <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
+                          <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px', fontWeight: 400 }}><StepEmailsChip pipeline="MAP 1" display="modal" title={task.name} templates={[
+                            { name: 'CONTRACT_agreementsent|Yes', when: 'If Yes — congratulations + agreement signing link' },
+                            { name: 'PCADMIN_followup|Undecided', when: 'If Undecided — options email to the client' },
+                            { name: 'PCADMIN_followup|No', when: 'If No — decline email' },
+                            { name: 'PIP1_reconfirmation|No', when: 'If the client later clicks No on the email (automatic)' },
+                            { name: 'CONTRACT_pcadmin_undecided_reminder', when: 'Automatic reminder if the Undecided email gets no response (48h)' },
+                          ]} context={emailCtx} /></span>}</span>
                           {isDone && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${dc}22`, color: dc, border: `1px solid ${dc}44` }}>{dl}</span>}
                           <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
                           {isDone && <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isFormShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>}

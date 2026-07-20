@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { callApi, getSession } from '../../lib/api'
 import { SpecialistOnboardingListSkeleton, SpecialistOnboardingDetailSkeleton } from '../shared/Skeleton'
 import { TrackHero, PhaseBadge, ListHeader } from '../shared/TrackKit'
+import StepEmailsChip from '../shared/StepEmailsChip'
  
 const STAGE_NAMES = ['', 'Preliminary Meeting', 'Detail Meetings', 'Due Diligence', 'Contract & Details', 'Going Live']
 
@@ -318,6 +319,22 @@ function OnboardingDetail({ id, onBack }) {
  
   const isStopped = ob.status === 'stopped'
   const isCompleted = ob.status === 'completed'
+
+  // Known-value substitutions for the email previews (see StepEmailsChip).
+  // Backend tokens: [SPECIALIST_NAME] = full name, [FIRST_NAME] = first name.
+  // Reused by every chip; empty = tokens stay bracketed.
+  const emailCtx = (() => {
+    const ctx = {}
+    const name = (ob.specialist_name || '').trim()
+    if (name) {
+      ctx['SPECIALIST_NAME'] = name
+      ctx['Specialist Name'] = name
+      const first = name.split(/\s+/)[0]
+      ctx['Specialist First'] = first
+      ctx['FIRST_NAME'] = first
+    }
+    return ctx
+  })()
  
   function StageBadge({ stage }) {
     const state = getStageState(stage)
@@ -447,7 +464,11 @@ function OnboardingDetail({ id, onBack }) {
       <>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
-          <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>Post-meeting decision</span>
+          <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>Post-meeting decision<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Post-meeting decision" context={emailCtx} templates={[
+            { name: 'SPECIALIST_yes', when: 'If Yes — continue email with agreement + presentation attachments' },
+            { name: 'SPECIALIST_no', when: 'If No' },
+            { name: 'SPECIALIST_sif_reminder', when: 'Automatic reminder if the intake form is not submitted (48h)' },
+          ]} /></span></span>
           {isDone
             ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{statusLabel}</span>
             : showDate
@@ -776,7 +797,10 @@ function OnboardingDetail({ id, onBack }) {
             meeting history above still shows what was/wasn't covered). */}
         {!allLocked && !stoppedHere && (
           <>
-            <SectionLabel>{meetingCount === 0 ? 'Stage 2 Checklist' : `Meeting ${meetingCount + 1} — Remaining Items`}</SectionLabel>
+            <SectionLabel>{meetingCount === 0 ? 'Stage 2 Checklist' : `Meeting ${meetingCount + 1} — Remaining Items`}<span style={{ marginLeft: '8px', textTransform: 'none' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Stage 2 progress" context={emailCtx} templates={[
+                { name: 'SPECIALIST_step2_progress', when: 'Stage 2 progress update' },
+                { name: 'SPECIALIST_choice_reminder', when: 'Automatic reminder if Core/Max/Questions not chosen (48h)' },
+              ]} /></span></SectionLabel>
             {remainingItems.map(({ item, index }) => (
               <CheckItem key={index} done={!!getTaskStatus(2, `checklist_${index}`)} label={item} toggle onClick={() => toggleChecklist(index)} />
             ))}
@@ -820,7 +844,10 @@ function OnboardingDetail({ id, onBack }) {
 
         {/* Initial executive approval — account-scoped two-round voting */}
         <>
-            <SectionLabel>Initial executive approval</SectionLabel>
+            <SectionLabel>Initial executive approval<span style={{ marginLeft: '8px', textTransform: 'none' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Initial executive approval" context={emailCtx} templates={[
+                { name: 'SPECIALIST_denied', when: 'If the executive vote denies' },
+                { name: 'SPECIALIST_vote_reminder', when: 'Automatic reminder to executives who have not voted (48h)' },
+              ]} /></span></SectionLabel>
             {!votingOpen ? (
               <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--vfo-border-chip)', background: 'var(--vfo-tint)', marginBottom: '12px' }}>
                 Voting opens once the revenue share proposal and {ob.sif_data?.is_tax_specialist === 'No' ? "Tracy's notes" : "Tracy's and Tim's notes"} are complete.
@@ -858,7 +885,7 @@ function OnboardingDetail({ id, onBack }) {
       </>
     )
   }
- 
+
 
   function ReviewerNoteInput({ label, who, placeholder, done, currentNotes, onSave, hint, rows = 4, pendingBadge = 'Awaiting notes', doneBadge = 'Completed', saveLabel = 'Save notes', updateLabel = 'Update notes' }) {
     const [text, setText] = useState(currentNotes)
@@ -1160,7 +1187,10 @@ function OnboardingDetail({ id, onBack }) {
     return (
       <>
         {/* Background-check payment flow (begins when both execs approve) */}
-        <AutoStep done={step3Sent} label="Stage 3 email sent to specialist (choose Core $350 / Max $950)" />
+        <AutoStep done={step3Sent} label={<>Stage 3 email sent to specialist (choose Core $350 / Max $950)<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Stage 3 email" context={emailCtx} templates={[
+            { name: 'SPECIALIST_step3', when: 'Step 3 email' },
+            { name: 'SPECIALIST_step3_proceed', when: 'Step 3 proceed / receipt email' },
+          ]} /></span></>} />
 
         {/* Appears once the specialist asks questions, and STAYS as a paper trail:
             action buttons while unresolved, then the outcome pill once resolved. */}
@@ -1204,7 +1234,12 @@ function OnboardingDetail({ id, onBack }) {
 
         {/* ── Background Check ── */}
         <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
-        <SectionLabel>Background Check</SectionLabel>
+        <SectionLabel>Background Check<span style={{ marginLeft: '8px', textTransform: 'none' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Background Check" context={emailCtx} templates={[
+            { name: 'SPECIALIST_bg_confirmation|card', when: 'If paid by card' },
+            { name: 'SPECIALIST_bg_confirmation|ach', when: 'If paid by bank transfer (ACH)' },
+            { name: 'SPECIALIST_bg_receipt', when: 'Automatic — background-check receipt' },
+            { name: 'SPECIALIST_bg_passed', when: 'When the background check passes' },
+          ]} /></span></SectionLabel>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: bgInitiated ? '#1b9254' : 'transparent', border: `1px solid ${bgInitiated ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
           <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>Background check sent{ob.background_check_type ? ` to ${ob.background_check_type === 'Max' ? 'Scherzer International' : 'Checkr'}` : ''}</span>
@@ -1238,7 +1273,11 @@ function OnboardingDetail({ id, onBack }) {
 
         {/* ── Due Diligence Checklist ── */}
         <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
-        <SectionLabel>Due Diligence Checklist</SectionLabel>
+        <SectionLabel>Due Diligence Checklist<span style={{ marginLeft: '8px', textTransform: 'none' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Due Diligence Checklist" context={emailCtx} templates={[
+            { name: 'SPECIALIST_ddc_approved', when: 'If approved' },
+            { name: 'SPECIALIST_ddc_edits', when: 'If edits are requested' },
+            { name: 'SPECIALIST_ddc_reminder', when: 'Automatic reminder if the checklist is not submitted (48h)' },
+          ]} /></span></SectionLabel>
 
         <AutoStep done={ddcEmailed} label="Due diligence checklist emailed to client (Along with Final Revenue Share Proposal)" />
 
@@ -1347,7 +1386,10 @@ function OnboardingDetail({ id, onBack }) {
 
         {/* ── Final revenue share proposal ── */}
         <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
-        <SectionLabel>Final revenue share proposal</SectionLabel>
+        <SectionLabel>Final revenue share proposal<span style={{ marginLeft: '8px', textTransform: 'none' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Final revenue share proposal" context={emailCtx} templates={[
+            { name: 'SPECIALIST_revshare_complete', when: 'Revenue-share proposal complete' },
+            { name: 'SPECIALIST_revfinal_reminder', when: 'Automatic reminder if the final proposal is unanswered (48h)' },
+          ]} /></span></SectionLabel>
 
         <AutoStep done={revEmailed} label="Revenue share proposal emailed to client (Along with DD Checklist)" />
         <AutoStep done={!!revResponse} label="Specialist response to revenue share proposal" detail={revResponse === 'Approved' ? 'Happy' : revResponse === 'Further Questions' ? 'Further questions' : ''} />
@@ -1434,10 +1476,20 @@ function OnboardingDetail({ id, onBack }) {
         <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
 
         <SectionLabel>Specialist Onboarding Agreement &amp; Set up Licensing fee subscription</SectionLabel>
-        <AutoStep done={!!getTaskStatus(4, 'agreement_sent')} label="Agreement sent" />
+        <AutoStep done={!!getTaskStatus(4, 'agreement_sent')} label={<>Agreement sent<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Onboarding agreement" context={emailCtx} templates={[
+            { name: 'SPECIALIST_agreement_sent', when: 'Agreement signing link' },
+            { name: 'SPECIALIST_ceo_countersign', when: 'Automatic — asks the CEO to countersign' },
+            { name: 'SPECIALIST_signature_reminder', when: 'Automatic reminder if unsigned (48h)' },
+          ]} /></span></>} />
         <AutoStep done={!!getTaskStatus(4, 'agreement_signed_specialist')} label="Agreement signed by specialist" />
         <AutoStep done={!!getTaskStatus(4, 'agreement_signed_ceo')} label="Agreement signed by CEO" />
-        <AutoStep done={!!getTaskStatus(4, 'payment_link_sent')} label="Payment link sent" />
+        <AutoStep done={!!getTaskStatus(4, 'payment_link_sent')} label={<>Payment link sent<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Licensing fee" context={emailCtx} templates={[
+            { name: 'SPECIALIST_lic_payment', when: 'Automatic — monthly license payment link' },
+            { name: 'SPECIALIST_lic_confirmation|card', when: 'If paid by card' },
+            { name: 'SPECIALIST_lic_confirmation|ach', when: 'If paid by bank transfer (ACH)' },
+            { name: 'SPECIALIST_lic_invoicereceipt', when: 'Automatic — license invoice + receipt (monthly)' },
+            { name: 'SPECIALIST_licpayment_reminder', when: 'Automatic reminder if the license payment is not made (48h)' },
+          ]} /></span></>} />
         <AutoStep done={!!getTaskStatus(4, 'payment_made')} label="Payment made" />
         <AutoStep done={!!getTaskStatus(4, 'confirmation_email_sent')} label="Confirmation email sent" />
         <AutoStep done={!!getTaskStatus(4, 'invoice_receipt_sent')} label="Invoice/receipt sent" />
@@ -1529,7 +1581,10 @@ function OnboardingDetail({ id, onBack }) {
 
         <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
  
-        <SectionLabel>VFO Showroom</SectionLabel>
+        <SectionLabel>VFO Showroom<span style={{ marginLeft: '8px', textTransform: 'none' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Skool & login" context={emailCtx} templates={[
+            { name: 'SPECIALIST_skool_invite', when: 'Skool community invite' },
+            { name: 'SPECIALIST_login_setup', when: 'Portal login setup email' },
+          ]} /></span></SectionLabel>
         {!getTaskStatus(5, 'added_to_showroom') ? (
           <>
             <button onClick={createSpecialistAndShowroom} disabled={isStopped || saving['5-added_to_showroom']} style={{ padding: '10px 28px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', cursor: (isStopped || saving['5-added_to_showroom']) ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', width: '100%' }}>{saving['5-added_to_showroom'] ? 'Creating…' : 'Add to Showroom & Send Specialist Login'}</button>
@@ -1549,7 +1604,7 @@ function OnboardingDetail({ id, onBack }) {
       </>
     )
   }
- 
+
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
       <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0, fontFamily: 'Inter, sans-serif' }}>← Back to list</button>

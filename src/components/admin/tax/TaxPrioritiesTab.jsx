@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, cloneElement } from 'react'
 import { callApi, loadCachedAction } from '../../../lib/api'
 import { TaxPlanListSkeleton } from '../../shared/Skeleton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { TrackHero, PhaseBadge, ListHeader } from '../../shared/TrackKit'
 import { hasStrategicSplit, computeStrategicShares } from '../../../lib/strategicSplits'
 import StepDate from '../../shared/StepDate'
+import StepEmailsChip from '../../shared/StepEmailsChip'
 
 // Matches the backend invoice money formatting ($X,XXX.XX).
 const fmtMoney = (n) => (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -596,6 +597,20 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const [trackStatus, setTrackStatus] = useState(plan.status || 'live')
   const [togglingStatus, setTogglingStatus] = useState(false)
 
+  // Known-value substitutions for the email previews (see StepEmailsChip).
+  // Reactive to the selected client; empty values are omitted so those tokens
+  // keep rendering as bracketed chips.
+  const emailCtx = (() => {
+    const ctx = {}
+    const full = client ? `${client.first_name || ''} ${client.last_name || ''}`.trim() : ''
+    if (full) { ctx['Client Name'] = full; ctx['Client First'] = full.split(/\s+/)[0] }
+    const pf = client?.assigned_pf ? String(client.assigned_pf).trim() : ''
+    if (pf) ctx['PF Name'] = pf
+    const member = client?.member_name ? String(client.member_name).trim() : ''
+    if (member) { ctx['Member Name'] = member; ctx['Member First'] = member.split(/\s+/)[0] }
+    return ctx
+  })()
+
   async function toggleTrackStatus() {
     const newStatus = trackStatus === 'live' ? 'stopped' : 'live'
     setTogglingStatus(true)
@@ -898,9 +913,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         const isFormShown = isDone ? expanded[formExpandKey] : true
         return (
           <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)', padding: '7px 0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: isDone ? 'pointer' : 'default' }} onClick={() => isDone && setExpanded(prev => ({ ...prev, [formExpandKey]: !prev[formExpandKey] }))}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: isDone ? 'pointer' : 'default', flexWrap: 'wrap' }} onClick={() => isDone && setExpanded(prev => ({ ...prev, [formExpandKey]: !prev[formExpandKey] }))}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? decisionColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? decisionColor : 'var(--vfo-border-mid)'}` }} />
-              <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
+              <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}<span style={{ marginLeft: '8px', fontWeight: 400 }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_agreementsent|Yes', when: 'If Yes — congratulations + agreement signing link' }, { name: 'TAX_decision_undecided', when: 'If Undecided — options email to the client' }, { name: 'TAX_decision_decline', when: 'If Decline' }, { name: 'TAX_decision_reminder', when: 'Automatic reminder if the Undecided email gets no response (48h)' }]} context={emailCtx} /></span></span>
               {isDone && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${decisionColor}22`, color: decisionColor, border: `1px solid ${decisionColor}44` }}>{decisionLabel}</span>}
               <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
               {isDone && <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isFormShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>}
@@ -945,20 +960,20 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const decision = enterDetailsStatus.replace('Completed - ', '')
       let aiState = {}
       try { aiState = JSON.parse(localProgress[key]?.notes || '{}') } catch(e) { aiState = {} }
-      const autoStep = (label, done) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+      const autoStep = (label, done, chip = null) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
-          <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
+          <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}{chip && <span style={{ marginLeft: '8px' }}>{chip}</span>}</span>
           {done && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>}
         </div>
       )
       const sharedSteps = [
         { label: 'Engagement agreement created and sent for signing', done: !!livePlan?.boldsign_doc_id },
         { label: 'Engagement agreement signed by client',             done: livePlan?.client_signed === 'Yes' },
-        { label: 'Engagement agreement signed by Anton',              done: livePlan?.ceo_signed === 'Yes' },
-        { label: 'Payment link sent to client (ACH or Card choice)',  done: !!livePlan?.checkout_token },
-        { label: 'Retainer payment collected and confirmation email sent', done: livePlan?.retainer_confirmation_status === 'Sent' },
-        { label: 'Invoice and receipt created and emailed to client', done: livePlan?.retainer_invoice_email_sent === true },
+        { label: 'Engagement agreement signed by Anton',              done: livePlan?.ceo_signed === 'Yes', chip: readOnly ? null : <StepEmailsChip pipeline="TAX" title="Engagement agreement signed by Anton" templates={[{ name: 'TAX_ceocountersign|Yes', when: 'Automatic — asks the CEO to countersign' }, { name: 'TAX_signing_reminder', when: 'Automatic reminder if unsigned (48h)' }]} context={emailCtx} /> },
+        { label: 'Payment link sent to client (ACH or Card choice)',  done: !!livePlan?.checkout_token, chip: readOnly ? null : <StepEmailsChip pipeline="TAX" title="Payment link sent to client (ACH or Card choice)" templates={[{ name: 'TAX_paymentemail|Yes', when: 'Automatic — retainer payment link' }, { name: 'TAX_payment_reminder', when: 'Automatic reminder if unpaid (48h)' }]} context={emailCtx} /> },
+        { label: 'Retainer payment collected and confirmation email sent', done: livePlan?.retainer_confirmation_status === 'Sent', chip: readOnly ? null : <StepEmailsChip pipeline="TAX" title="Retainer payment collected and confirmation email sent" templates={[{ name: 'TAX_confirmationemail|card', when: 'If paid by card' }, { name: 'TAX_confirmationemail|ach', when: 'If paid by bank transfer (ACH)' }, { name: 'TAX_confirmationemail|check', when: 'If paid by check' }, { name: 'TAX_paidbycheck|check', when: 'When admin records a check is on the way' }]} context={emailCtx} /> },
+        { label: 'Invoice and receipt created and emailed to client', done: livePlan?.retainer_invoice_email_sent === true, chip: readOnly ? null : <StepEmailsChip pipeline="TAX" title="Invoice and receipt created and emailed to client" templates={[{ name: 'TAX_invoicereceipt_email|retainer', when: 'Retainer invoice + receipt' }]} context={emailCtx} /> },
       ]
       const signingEmailSent = livePlan?.agreement_sent === 'Yes'
       // Reflect client's final decision when Undecided path resolved
@@ -1016,7 +1031,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             {decision === 'Yes' && (
               <>
                 {autoStep('Signing link and next steps email sent', signingEmailSent)}
-                {sharedSteps.map((s, i) => <div key={i}>{autoStep(s.label, s.done)}</div>)}
+                {sharedSteps.map((s, i) => <div key={i}>{autoStep(s.label, s.done, s.chip)}</div>)}
               </>
             )}
             {decision === 'Undecided' && (() => {
@@ -1046,7 +1061,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                       )}
                       {hasPricing && pricingStep(true)}
                       {autoStep('Signing link and next steps email sent', signingEmailSent)}
-                      {sharedSteps.map((s, i) => <div key={i}>{autoStep(s.label, s.done)}</div>)}
+                      {sharedSteps.map((s, i) => <div key={i}>{autoStep(s.label, s.done, s.chip)}</div>)}
                     </>
                   )}
 
@@ -1098,7 +1113,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                           {autoStep('PF confirmed — Yes with pricing', true)}
                           {pricingStep(true)}
                           {autoStep('Signing link and next steps email sent', signingEmailSent)}
-                          {sharedSteps.map((s, i) => <div key={i}>{autoStep(s.label, s.done)}</div>)}
+                          {sharedSteps.map((s, i) => <div key={i}>{autoStep(s.label, s.done, s.chip)}</div>)}
                         </>
                       )}
                     </>
@@ -1131,7 +1146,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       return (
         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, flexShrink: 0, border: `1.5px solid ${dotBorder}` }} />
-          <span style={{ fontSize: '13px', color: (done || scheduled) ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+          <span style={{ fontSize: '13px', color: (done || scheduled) ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_presentation_link', when: 'Automatic — ROI meeting email drafted on the scheduled date' }]} context={emailCtx} /></span>}</span>
           {done ? (
             <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>Email drafted — {formatDate(sendDate)}</span>
           ) : readOnly ? (
@@ -1188,7 +1203,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         <div key={key}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, flexShrink: 0, border: `1.5px solid ${dotBorder}` }} />
-            <span style={{ fontSize: '13px', color: (done || requestedAt) ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
+            <span style={{ fontSize: '13px', color: (done || requestedAt) ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px', fontWeight: 400 }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_request_returns', when: 'Asks the client to upload tax returns via a secure link' }]} context={emailCtx} /></span>}</span>
             {done ? (
               <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>Returns received — {formatStamp(receivedAt)}</span>
             ) : readOnly ? (
@@ -1229,7 +1244,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       return (
         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: savedDate ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${savedDate ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
-          <span style={{ fontSize: '13px', color: savedDate ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
+          <span style={{ fontSize: '13px', color: savedDate ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px', fontWeight: 400 }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_highlevelmeeting_confirm|Yes', when: 'High-level meeting confirmation' }]} context={emailCtx} /></span>}</span>
           {savedDate ? (
             <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>Confirmation sent — {confirmedLabel}</span>
           ) : readOnly ? null : formOpen ? (
@@ -1271,7 +1286,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       return (
         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: implDecision ? decisionColor : 'transparent', flexShrink: 0, border: `1.5px solid ${implDecision ? decisionColor : 'var(--vfo-border-mid)'}` }} />
-          <span style={{ fontSize: '13px', color: implDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
+          <span style={{ fontSize: '13px', color: implDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px', fontWeight: 400 }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_implementdecision|Proceed', when: 'If Proceed — charges after 24h unless the client responds' }, { name: 'TAX_implementdecision|Undecided', when: 'If Undecided' }, { name: 'TAX_implementdecision|Not Implementing', when: 'If Not Implementing' }, { name: 'TAX_implementdecision|Reminder', when: 'Automatic reminder if no response (48h)' }]} context={emailCtx} /></span>}</span>
           {implDecision ? (
             <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${decisionColor}22`, color: decisionColor, border: `1px solid ${decisionColor}44` }}>{decisionLabel}</span>
           ) : (
@@ -1317,10 +1332,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const fullyDone = revEmailSent === true
       const aipcDone = declined || fullyDone
 
-      const autoStep = (label, done) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+      const autoStep = (label, done, chip = null) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
-          <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
+          <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}{chip && <span style={{ marginLeft: '8px' }}>{chip}</span>}</span>
           {done && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>}
           {!done && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', marginLeft: 'auto' }}>Not completed</span>}
         </div>
@@ -1328,9 +1343,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
 
       const chargeCascade = (
         <>
-          {autoStep('Implementation fee auto-charged using saved payment method', chargeStatus === 'succeeded')}
+          {autoStep('Implementation fee auto-charged using saved payment method', chargeStatus === 'succeeded', readOnly ? null : <StepEmailsChip pipeline="TAX" title="Implementation fee auto-charged using saved payment method" templates={[{ name: 'TAX_confirmationemail|implementation', when: 'Automatic — implementation charge confirmation' }, { name: 'TAX_invoicereceipt_email|implementation', when: 'Automatic — implementation invoice + receipt' }, { name: 'TAX_implementation_charge_failed', when: 'Automatic — if the implementation charge fails' }]} context={emailCtx} />)}
           {autoStep('Implementation fee receipt created and emailed to client', recStatus === 'Sent')}
-          {autoStep('Implementation fee revenue share verified, member paid, member emailed', revEmailSent === true)}
+          {autoStep('Implementation fee revenue share verified, member paid, member emailed', revEmailSent === true, readOnly ? null : <StepEmailsChip pipeline="TAX" title="Implementation fee revenue share verified, member paid, member emailed" templates={[{ name: 'TAX_member_revshare|retainer', when: 'Automatic — member revenue-share notice (retainer)' }, { name: 'TAX_member_revshare|implementation', when: 'Automatic — member revenue-share notice (implementation)' }]} context={emailCtx} />)}
         </>
       )
 
@@ -1520,7 +1535,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       return (
         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap', opacity: greyed && !refunded ? 0.3 : 1 }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: refunded ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${refunded ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
-          <span style={{ fontSize: '13px', color: refunded ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+          <span style={{ fontSize: '13px', color: refunded ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_deposit_refund', when: 'Deposit refund confirmation' }]} context={emailCtx} /></span>}</span>
           {refunded
             ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>Refunded ${livePlan?.deposit_refund_amount}</span>
             : <button disabled={greyed || readOnly} onClick={sendDepositRefund} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: greyed ? 'not-allowed' : 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600 }} title={!hasPi ? 'Enter the Deposit PaymentIntent ID first' : (greenlightStatus !== 'Stop' ? 'Available once Tax Plan Greenlight = Stop' : '')}>Send refund</button>
@@ -1544,7 +1559,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
-            <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+            <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_readyfortax3|Yes', when: 'If date confirmed / not confirmed' }, { name: 'TAX_readyfortax3|No', when: 'If declined' }]} context={emailCtx} /></span>}</span>
             {isDone
               ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
               : dateOpen
@@ -1639,20 +1654,22 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const autoStep = (label, done, opts = {}) => {
         const na = !!opts.na
         return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: (done || na) ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${(done || na) ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
-          <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
+          <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}{opts.chip && <span style={{ marginLeft: '8px' }}>{cloneElement(opts.chip, { title: label })}</span>}</span>
           {(done || na) && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>{na ? 'N/A' : 'Done'}</span>}
           {!(done || na) && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', marginLeft: 'auto' }}>{opts.pendingLabel || 'Not completed'}</span>}
         </div>
         )
       }
+      const revshareChip = readOnly ? null : <StepEmailsChip pipeline="TAX" templates={[{ name: 'TAX_member_revshare|retainer', when: 'Automatic — member revenue-share notice (retainer)' }, { name: 'TAX_member_revshare|implementation', when: 'Automatic — member revenue-share notice (implementation)' }]} context={emailCtx} />
+      const refundChip = readOnly ? null : <StepEmailsChip pipeline="TAX" templates={[{ name: 'TAX_refund_email|Yes', when: 'Automatic — retainer refund confirmation' }]} context={emailCtx} />
 
       return (
         <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: adminDecision ? decisionColor : 'transparent', flexShrink: 0, border: `1.5px solid ${adminDecision ? decisionColor : 'var(--vfo-border-mid)'}` }} />
-            <span style={{ fontSize: '13px', color: adminDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+            <span style={{ fontSize: '13px', color: adminDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_postreview|Continue', when: 'If Continue — green Continue / red Refund buttons (locks in after 24h)' }, { name: 'TAX_postreview|Undecided', when: 'If Undecided — Proceed / Refund buttons' }, { name: 'TAX_postreview|Reminder', when: 'Automatic reminder if no response (48h)' }]} context={emailCtx} /></span>}</span>
             {adminDecision ? (
               <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${decisionColor}22`, color: decisionColor, border: `1px solid ${decisionColor}44` }}>{adminDecision}</span>
             ) : (
@@ -1670,7 +1687,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)', marginBottom: '8px' }}>
               {adminDecision === 'Stop - Refund' && (
                 <>
-                  {autoStep('Refund processed and confirmation email drafted', refundStatus === 'succeeded')}
+                  {autoStep('Refund processed and confirmation email drafted', refundStatus === 'succeeded', { chip: refundChip })}
                 </>
               )}
               {adminDecision === 'Continue - Revenue Share' && (
@@ -1680,19 +1697,19 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                   {clientDecision === 'Refund' && (
                     <>
                       {autoStep('Client clicked Refund within 24h', true)}
-                      {autoStep('Refund issued', refundStatus === 'succeeded')}
+                      {autoStep('Refund issued', refundStatus === 'succeeded', { chip: refundChip })}
                     </>
                   )}
                   {clientDecision === 'Auto-Locked' && (
                     <>
                       {autoStep('24h passed — decision locked in', true)}
-                      {autoStep('Revenue share verified, member paid, member emailed', revPaid === 'Yes', { na: zeroShare })}
+                      {autoStep('Revenue share verified, member paid, member emailed', revPaid === 'Yes', { na: zeroShare, chip: revshareChip })}
                     </>
                   )}
                   {clientDecision === 'Confirmed' && (
                     <>
                       {autoStep('Client confirmed Continue (clicked "Continue now")', true)}
-                      {autoStep('Revenue share verified, member paid, member emailed', revPaid === 'Yes', { na: zeroShare })}
+                      {autoStep('Revenue share verified, member paid, member emailed', revPaid === 'Yes', { na: zeroShare, chip: revshareChip })}
                     </>
                   )}
                 </>
@@ -1706,13 +1723,13 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                   {clientDecision === 'Proceed' && (
                     <>
                       {autoStep('Client clicked Proceed', true)}
-                      {autoStep('Revenue share verified, member paid, member emailed', revPaid === 'Yes', { na: zeroShare })}
+                      {autoStep('Revenue share verified, member paid, member emailed', revPaid === 'Yes', { na: zeroShare, chip: revshareChip })}
                     </>
                   )}
                   {clientDecision === 'Refund' && (
                     <>
                       {autoStep('Client clicked Refund', true)}
-                      {autoStep('Refund issued', refundStatus === 'succeeded')}
+                      {autoStep('Refund issued', refundStatus === 'succeeded', { chip: refundChip })}
                     </>
                   )}
                 </>
