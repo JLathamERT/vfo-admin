@@ -298,10 +298,12 @@ function MemberDirectoryView({
 }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'search')
   useEffect(() => { setActiveTab(initialTab || 'search') }, [initialTab])
-  // Only the SuperAdmin (Jake) may open a "VFO Reconciliation (Free)" advisor.
-  // A non-super click flashes a small "Access Denied" marker at the cursor
-  // (click-only, never on hover) and the row does not open.
-  const isSuper = !!getSession()?.is_superadmin
+  // Only the SuperAdmin (Jake) and Paul Latham (platham@elitert.com) may open a
+  // "VFO Reconciliation (Free)" advisor. Any other admin's click flashes a small
+  // "Access Denied" marker at the cursor (click-only, never on hover) and the
+  // row does not open.
+  const _sess = getSession()
+  const canOpenReconciliation = !!_sess?.is_superadmin || (_sess?.email || '').toLowerCase() === 'platham@elitert.com'
   const [deny, setDeny] = useState(null) // { x, y } screen coords of the last blocked click
   const denyTimer = useRef(null)
   useEffect(() => () => clearTimeout(denyTimer.current), [])
@@ -374,7 +376,7 @@ function MemberDirectoryView({
           <div>
             {sortMembers(filteredMembers, listSort).map(m => (
               <div key={m.plugin_member_number}
-                onClick={(e) => { if (m.member_type === 'VFO Reconciliation (Free)' && !isSuper) { flashDeny(e); return } setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem(selectedKey, m.plugin_member_number); sessionStorage.setItem(featureTabKey, 'profile_details') }}
+                onClick={(e) => { if (m.member_type === 'VFO Reconciliation (Free)' && !canOpenReconciliation) { flashDeny(e); return } setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem(selectedKey, m.plugin_member_number); sessionStorage.setItem(featureTabKey, 'profile_details') }}
                 style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 16px', marginBottom: '6px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '12px', boxShadow: '0 2px 8px rgba(20,45,95,0.04)', cursor: 'pointer' }}
                 onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,149,255,0.4)'}
                 onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--vfo-border-soft)'}>
