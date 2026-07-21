@@ -215,6 +215,16 @@ The handler **only transfers** if:
 - `shareAmount > 0` (else: marked `"N/A — No Share Due"`)
 - `members.stripe_account_id` is set (else: skipped silently)
 
+> **Proportional split (2026-07-21, gotcha #252):** a `share` value is ALWAYS a dollar amount of the TOTAL engagement; the portion transferred on any one installment is `portion = (share / totalGross) × paymentReceived`. The legacy ">100 → dollars else percent-of-payment" heuristic was removed from every leg (MAP1 member + strategic, tax member + strategic, tax planner) AND from the Payments-tab display math (`actions/payments/normalize.ts`) so the transfer and the displayed split always agree.
+
+### Tax Planner Share → the GROUP account (2026-07-21)
+
+The Tax Planning 3-way split adds a **third Connect transfer** (beyond the member share + the 10% strategic-partner share): the **Tax Planner Share**, paid by `utils/tax-planner-payout.ts transferPlannerShare`. Its destination is NOT the planner's own account but the planner's **Tax Planning Group** ("company") account, resolved `tax_planners.member_type` → `tax_planning_groups.name` (exact match) → `tax_planning_groups.stripe_account_id` (exactly mirrors the strategic-partner group model). It lands `Failed` (Jake bell + daily sweep retry) when the planner has no `member_type`, the group is missing, or the group has no Stripe account. Idempotency key `planner-tax-<plan.id>-<retainer|implementation>`; memo `Tax Planning Revenue Share - Client: (<ref>) <name> - Tax Planner: <planner> — <group> - Retainer|Implementation`. Group Connect setup is `tax_planning_group_stripe_connect_request` (mirrors `strategic_group_stripe_connect_request`). Gotcha #253.
+
+### Per-case test-member sandbox override (2026-07-21)
+
+Independent of the per-pipeline `pipeline_sandbox_config` toggle, every client-scoped TAX/MAP1/PIP money/email/BoldSign handler now resolves its mode via `loadSandboxConfigForClient(sb, pipeline, clientId)` (`integrations/sandbox-config.ts`) instead of the bare `loadSandboxConfig`. It reads the global row, and if the pipeline is LIVE it force-flips ONLY cases whose client belongs to a `constants/test-sandbox.ts TEST_SANDBOX_MEMBER_NUMBERS` member (currently `59524`) to sandbox (sandbox Stripe key + BoldSign test + `sandbox_email` redirect). Force-ON-only and fail-safe: any lookup failure returns the unchanged global result, so it can never push a real case to live. It exists so Jake can exercise the live automations end-to-end on the test member without a real charge. Gotcha #251.
+
 ## Sandbox vs live transitions
 
 | Setting | Live | Sandbox |

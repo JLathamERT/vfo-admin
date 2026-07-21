@@ -671,7 +671,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
           </div>
 
           {specialistTab === 'profile' && (
-            <SpecialistProfileView expert={selectedExpert} ecos={ecoMap[selectedExpert.id] || []} />
+            <SpecialistProfileView expert={selectedExpert} ecos={ecoMap[selectedExpert.id] || []} connectBusy={connectBusy} connectMsg={connectMsg} onConnect={handleSpecialistConnect} />
           )}
 
           {specialistTab === 'payments' && (
@@ -731,7 +731,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
 // account & payout, biography, tax) shows once; when the person serves more than
 // one ecosystem, a toggle switches the short bio + Details & Benefits between
 // each ecosystem's write-up.
-function SpecialistProfileView({ expert, ecos: ecosProp }) {
+function SpecialistProfileView({ expert, ecos: ecosProp, connectBusy = false, connectMsg = '', onConnect = () => {} }) {
   const entries = entriesFor(expert, uniqueEcos(ecosProp))
   const [active, setActive] = useState(0)
   const activeIdx = Math.min(active, Math.max(0, entries.length - 1))
@@ -832,6 +832,15 @@ function SpecialistProfileView({ expert, ecos: ecosProp }) {
               </div>
             ))}
             {expert.stripe_account_id && <div style={{ fontSize: '11px', color: 'var(--vfo-faint)', fontFamily: 'monospace', marginTop: '8px', wordBreak: 'break-all' }}>{expert.stripe_account_id}</div>}
+            {!expert.stripe_account_id && (
+              <div style={{ marginTop: '16px' }}>
+                <button type="button" onClick={onConnect} disabled={connectBusy}
+                  style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #125ecc', background: 'var(--vfo-card)', color: '#125ecc', fontSize: '13px', fontWeight: 600, cursor: connectBusy ? 'wait' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                  {connectBusy ? 'Working…' : 'Send Stripe Connect setup email'}
+                </button>
+                {connectMsg && <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '8px' }}>{connectMsg}</p>}
+              </div>
+            )}
           </div>
         </div>
         {entries.length > 0 && (

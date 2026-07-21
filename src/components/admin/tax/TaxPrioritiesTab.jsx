@@ -10,6 +10,14 @@ import StepEmailsChip from '../../shared/StepEmailsChip'
 // Matches the backend invoice money formatting ($X,XXX.XX).
 const fmtMoney = (n) => (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
+// Tax planner display name with certifications (professional designations) appended
+// as a comma suffix: "Carson Grover, EA, CPA". DISPLAY ONLY — the value saved to the
+// task status / tax_allocate_planner stays the plain full name. Module scope so the
+// nested track view can use it without prop threading (gotcha #193).
+const plannerPlainName = (pl) => `${pl?.first_name || ''} ${pl?.last_name || ''}`.trim()
+const plannerCerts = (pl) => Array.isArray(pl?.certifications) ? pl.certifications.map(c => String(c || '').trim()).filter(Boolean) : []
+const plannerDisplayName = (pl) => [plannerPlainName(pl), ...plannerCerts(pl)].filter(Boolean).join(', ')
+
 // Diron Insley — his clients get a display-only invoice discount (mirrors
 // backend constants/tax-discount.ts; delete both to retire the special case).
 const DISCOUNT_MEMBER_NUMBER = '59073'
@@ -30,6 +38,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   const [implementationFee, setImplementationFee] = useState(existing.implementationFee || '')
   const [splitType, setSplitType] = useState(existing.splitType || '')
   const [memberShare, setMemberShare] = useState(existing.memberShare || '')
+  const [taxPlannerShare, setTaxPlannerShare] = useState(existing.taxPlannerShare || '')
   const [vfosShare, setVfosShare] = useState(existing.vfosShare || '')
   const [strategicPartnerShare, setStrategicPartnerShare] = useState(existing.strategicPartnerShare || '')
   const [potentialTaxSavings, setPotentialTaxSavings] = useState(existing.potentialTaxSavings || '')
@@ -45,46 +54,36 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
 
   useEffect(() => {
     if (isViewMode) return
-    if (splitType === '1/3 Member, 2/3 VFOS') {
-      const ms = (totalFee / 3).toFixed(2)
-      const vs = (totalFee - parseFloat(ms)).toFixed(2)
-      setMemberShare(ms)
+    if (splitType === '1/3 Member, 1/3 Tax Planner, 1/3 VFOS') {
+      const share = (totalFee / 3).toFixed(2)
+      const vs = (totalFee - parseFloat(share) - parseFloat(share)).toFixed(2)
+      setMemberShare(share)
+      setTaxPlannerShare(share)
       setVfosShare(vs)
-    } else if (splitType === '50/50') {
-      const half = (totalFee / 2).toFixed(2)
-      setMemberShare(half)
-      setVfosShare(half)
     }
   }, [splitType, totalFee])
 
-  // Strategic members: fixed three-way split auto-computed off the total fee.
+  // Strategic members: fixed split auto-computed off the total fee. Tax
+  // Priorities uses the 'tax' rules for BOTH programs (program 1 and 4).
   useEffect(() => {
     if (isViewMode || !isStrategic) return
     if (splitType !== 'Strategic Partner') setSplitType('Strategic Partner')
-    const shares = computeStrategicShares(memberType, programType, totalFee)
+    const shares = computeStrategicShares(memberType, 'tax', totalFee)
     if (shares) {
       setMemberShare(shares.member.toFixed(2))
+      setTaxPlannerShare((shares.planner ?? 0).toFixed(2))
       setVfosShare(shares.vfos.toFixed(2))
       setStrategicPartnerShare(shares.strategic.toFixed(2))
     } else {
-      setMemberShare(''); setVfosShare(''); setStrategicPartnerShare('')
+      setMemberShare(''); setTaxPlannerShare(''); setVfosShare(''); setStrategicPartnerShare('')
     }
-  }, [isStrategic, memberType, programType, totalFee, splitType])
+  }, [isStrategic, memberType, totalFee, splitType])
 
-  function handleMemberShareChange(val) {
-    setMemberShare(val)
-    if (splitType === 'Custom') {
-      const remaining = (totalFee - (parseFloat(val) || 0)).toFixed(2)
-      setVfosShare(remaining >= 0 ? remaining : '0.00')
-    }
-  }
-  function handleVfosShareChange(val) {
-    setVfosShare(val)
-    if (splitType === 'Custom') {
-      const remaining = (totalFee - (parseFloat(val) || 0)).toFixed(2)
-      setMemberShare(remaining >= 0 ? remaining : '0.00')
-    }
-  }
+  // Custom split: all three shares (member, tax-planner, VFOS) are freely
+  // editable and must sum to the total fee (validated on submit). The preset
+  // and Strategic splits stay auto-computed.
+  function handleMemberShareChange(val) { setMemberShare(val) }
+  function handlePlannerShareChange(val) { setTaxPlannerShare(val) }
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
   const labelStyle = { fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }
@@ -105,6 +104,10 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
       const d = parseFloat(discountApplied)
       if (!(d > 0)) { alert('Please enter a valid discount amount greater than 0.'); return }
     }
+    if (decision === 'Yes' && splitType === 'Custom') {
+      const splitTotal = (parseFloat(memberShare) || 0) + (parseFloat(taxPlannerShare) || 0) + (parseFloat(vfosShare) || 0)
+      if (Math.abs(splitTotal - totalFee) > 0.01) return
+    }
     setSubmitting(true)
     const formData = { decision, presentationLink, ccRecipients, memberPayingOnBehalf }
     if (decision === 'Yes') {
@@ -114,6 +117,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
       formData.totalFee = totalFee.toFixed(2)
       formData.splitType = splitType
       formData.memberShare = memberShare
+      formData.taxPlannerShare = taxPlannerShare
       formData.vfosShare = vfosShare
       if (isStrategic) formData.strategicPartnerShare = strategicPartnerShare
       if (isDironInsley && discountToggle === 'Yes') formData.discountApplied = parseFloat(discountApplied)
@@ -150,9 +154,14 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
     'Yes — Risk 4 — Moderately Aggressive Mindset',
     'Yes — Risk 5 — Very Aggressive Mindset',
   ]
-  const splitOptions = ['1/3 Member, 2/3 VFOS', '50/50', 'Custom']
+  const splitOptions = ['1/3 Member, 1/3 Tax Planner, 1/3 VFOS', 'Custom']
   const isCustomSplit = splitType === 'Custom'
   const isPresetSplit = splitType && !isCustomSplit
+  const isLegacySplit = splitType && !isCustomSplit && splitType !== 'Strategic Partner' && !splitOptions.includes(splitType)
+  const needsPlannerAllocation = decision === 'Yes' && !plan?.tax_planner_id
+  // Custom split must sum to the total fee (mirrors MAP 1 PIPDecisionForm).
+  const customSplitTotal = (parseFloat(memberShare) || 0) + (parseFloat(taxPlannerShare) || 0) + (parseFloat(vfosShare) || 0)
+  const customSplitMismatch = decision === 'Yes' && isCustomSplit && Math.abs(customSplitTotal - totalFee) > 0.01
 
   return (
     <div style={{ marginLeft: '18px', padding: '16px', background: 'var(--vfo-tint)', borderRadius: '10px', border: '1px solid var(--vfo-tint-deep)', marginTop: '4px', marginBottom: '8px' }}>
@@ -234,6 +243,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
                 : <select value={splitType} onChange={e => setSplitType(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
                     <option value="">-- Select --</option>
                     {splitOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                    {isLegacySplit && <option value={splitType} disabled>{splitType} (legacy)</option>}
                   </select>
               }
             </div>
@@ -256,10 +266,17 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
                   </div>
                 </div>
                 <div style={{ flex: 1, minWidth: '120px' }}>
+                  <label style={labelStyle}>Tax Planner share</label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+                    <input value={taxPlannerShare} onChange={e => handlePlannerShareChange(e.target.value)} placeholder="0.00" readOnly={isViewMode || isPresetSplit} style={{ ...(isViewMode || isPresetSplit ? readOnlyInput : inputStyle), paddingLeft: '28px' }} />
+                  </div>
+                </div>
+                <div style={{ flex: 1, minWidth: '120px' }}>
                   <label style={labelStyle}>VFOS share</label>
                   <div style={{ position: 'relative' }}>
                     <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-                    <input value={vfosShare} onChange={e => handleVfosShareChange(e.target.value)} placeholder="0.00" readOnly={isViewMode || isPresetSplit} style={{ ...(isViewMode || isPresetSplit ? readOnlyInput : inputStyle), paddingLeft: '28px' }} />
+                    <input value={vfosShare} onChange={e => setVfosShare(e.target.value)} placeholder="0.00" readOnly={isViewMode || isPresetSplit} style={{ ...(isViewMode || isPresetSplit ? readOnlyInput : inputStyle), paddingLeft: '28px' }} />
                   </div>
                 </div>
               </div>
@@ -355,9 +372,17 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
 
 
           {!isViewMode && (
-            <button onClick={handleSubmit} disabled={submitting} style={{ width: '100%', padding: '12px', borderRadius: '8px', background: submitting ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '15px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
-              {submitting ? 'Submitting...' : 'Submit Outcome'}
-            </button>
+            <>
+              {needsPlannerAllocation && (
+                <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, marginBottom: '8px' }}>You must allocate a tax planner before submitting.</div>
+              )}
+              {customSplitMismatch && (
+                <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginBottom: '8px' }}>Revenue split (${customSplitTotal.toFixed(2)}) must equal Total Fee (${totalFee.toFixed(2)})</div>
+              )}
+              <button onClick={handleSubmit} disabled={submitting || needsPlannerAllocation || customSplitMismatch} style={{ width: '100%', padding: '12px', borderRadius: '8px', background: (submitting || needsPlannerAllocation || customSplitMismatch) ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '15px', fontWeight: '600', cursor: (submitting || needsPlannerAllocation || customSplitMismatch) ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                {submitting ? 'Submitting...' : 'Submit Outcome'}
+              </button>
+            </>
           )}
         </>
       )}
@@ -370,14 +395,16 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
 // TaxDecisionForm but with no decision dropdown and a configurable submit
 // handler so the same component can fire either automation_TAX_pricing or
 // automation_TAX_extrameeting.
-function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCategory, memberType, programType, memberNumber }) {
+function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCategory, memberType, programType, memberNumber, plan }) {
   const isStrategic = memberCategory === 'strategic_member' && hasStrategicSplit(memberType)
   const isDironInsley = memberNumber === DISCOUNT_MEMBER_NUMBER
+  const needsPlannerAllocation = !plan?.tax_planner_id
   const [taxRiskMindset, setTaxRiskMindset] = useState('')
   const [retainerPayment, setRetainerPayment] = useState('')
   const [implementationFee, setImplementationFee] = useState('')
   const [splitType, setSplitType] = useState('')
   const [memberShare, setMemberShare] = useState('')
+  const [taxPlannerShare, setTaxPlannerShare] = useState('')
   const [vfosShare, setVfosShare] = useState('')
   const [strategicPartnerShare, setStrategicPartnerShare] = useState('')
   const [discountToggle, setDiscountToggle] = useState('No')
@@ -387,57 +414,55 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
   const totalFee = (parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0)
 
   useEffect(() => {
-    if (splitType === '1/3 Member, 2/3 VFOS') {
-      const ms = (totalFee / 3).toFixed(2)
-      const vs = (totalFee - parseFloat(ms)).toFixed(2)
-      setMemberShare(ms); setVfosShare(vs)
-    } else if (splitType === '50/50') {
-      const half = (totalFee / 2).toFixed(2)
-      setMemberShare(half); setVfosShare(half)
+    if (splitType === '1/3 Member, 1/3 Tax Planner, 1/3 VFOS') {
+      const share = (totalFee / 3).toFixed(2)
+      const vs = (totalFee - parseFloat(share) - parseFloat(share)).toFixed(2)
+      setMemberShare(share); setTaxPlannerShare(share); setVfosShare(vs)
     }
   }, [splitType, totalFee])
 
-  // Strategic members: fixed three-way split auto-computed off the total fee.
+  // Strategic members: fixed split auto-computed off the total fee. Tax
+  // Priorities uses the 'tax' rules for BOTH programs (program 1 and 4).
   useEffect(() => {
     if (!isStrategic) return
     if (splitType !== 'Strategic Partner') setSplitType('Strategic Partner')
-    const shares = computeStrategicShares(memberType, programType, totalFee)
+    const shares = computeStrategicShares(memberType, 'tax', totalFee)
     if (shares) {
       setMemberShare(shares.member.toFixed(2))
+      setTaxPlannerShare((shares.planner ?? 0).toFixed(2))
       setVfosShare(shares.vfos.toFixed(2))
       setStrategicPartnerShare(shares.strategic.toFixed(2))
     } else {
-      setMemberShare(''); setVfosShare(''); setStrategicPartnerShare('')
+      setMemberShare(''); setTaxPlannerShare(''); setVfosShare(''); setStrategicPartnerShare('')
     }
-  }, [isStrategic, memberType, programType, totalFee, splitType])
+  }, [isStrategic, memberType, totalFee, splitType])
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
   const labelStyle = { fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }
   const sectionStyle = { background: 'var(--vfo-tint)', borderRadius: '8px', padding: '14px', marginBottom: '10px', border: '1px solid var(--vfo-border-chip)' }
   const riskOptions = ['Yes — Risk 1 — Very Conservative Mindset','Yes — Risk 2 - Moderately Conservative Mindset','Yes — Risk 3 — Average Risk Mindset','Yes — Risk 4 — Moderately Aggressive Mindset','Yes — Risk 5 — Very Aggressive Mindset']
-  const splitOptions = ['1/3 Member, 2/3 VFOS', '50/50', 'Custom']
+  const splitOptions = ['1/3 Member, 1/3 Tax Planner, 1/3 VFOS', 'Custom']
   const isPresetSplit = splitType && splitType !== 'Custom'
+  const isLegacySplit = splitType && splitType !== 'Custom' && splitType !== 'Strategic Partner' && !splitOptions.includes(splitType)
+  // Custom split must sum to the total fee (mirrors MAP 1 PIPDecisionForm).
+  const customSplitTotal = (parseFloat(memberShare) || 0) + (parseFloat(taxPlannerShare) || 0) + (parseFloat(vfosShare) || 0)
+  const customSplitMismatch = splitType === 'Custom' && Math.abs(customSplitTotal - totalFee) > 0.01
 
-  function handleMemberShareChange(val) {
-    setMemberShare(val)
-    if (splitType === 'Custom') {
-      const remaining = (totalFee - (parseFloat(val) || 0)).toFixed(2)
-      setVfosShare(remaining >= 0 ? remaining : '0.00')
-    }
-  }
-  function handleVfosShareChange(val) {
-    setVfosShare(val)
-    if (splitType === 'Custom') {
-      const remaining = (totalFee - (parseFloat(val) || 0)).toFixed(2)
-      setMemberShare(remaining >= 0 ? remaining : '0.00')
-    }
-  }
+  // Custom split: all three shares (member, tax-planner, VFOS) are freely
+  // editable and must sum to the total fee (validated on submit). The preset
+  // and Strategic splits stay auto-computed.
+  function handleMemberShareChange(val) { setMemberShare(val) }
+  function handlePlannerShareChange(val) { setTaxPlannerShare(val) }
 
   async function handle() {
     if (!taxRiskMindset || !retainerPayment || !implementationFee || !splitType) return
     if (isDironInsley && discountToggle === 'Yes') {
       const d = parseFloat(discountApplied)
       if (!(d > 0)) { alert('Please enter a valid discount amount greater than 0.'); return }
+    }
+    if (splitType === 'Custom') {
+      const splitTotal = (parseFloat(memberShare) || 0) + (parseFloat(taxPlannerShare) || 0) + (parseFloat(vfosShare) || 0)
+      if (Math.abs(splitTotal - totalFee) > 0.01) return
     }
     setSubmitting(true)
     try {
@@ -448,6 +473,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
         totalFee: totalFee.toFixed(2),
         splitType,
         memberShare,
+        taxPlannerShare,
         vfosShare,
         ...(isStrategic ? { strategicPartnerShare } : {}),
         ...(isDironInsley && discountToggle === 'Yes' ? { discountApplied: parseFloat(discountApplied) } : {}),
@@ -506,6 +532,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
             : <select value={splitType} onChange={e => setSplitType(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
                 <option value="">-- Select --</option>
                 {splitOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                {isLegacySplit && <option value={splitType} disabled>{splitType} (legacy)</option>}
               </select>
           }
         </div>
@@ -528,10 +555,17 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
               </div>
             </div>
             <div style={{ flex: 1, minWidth: '120px' }}>
+              <label style={labelStyle}>Tax Planner share</label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+                <input value={taxPlannerShare} onChange={e => handlePlannerShareChange(e.target.value)} placeholder="0.00" readOnly={isPresetSplit} style={{ ...inputStyle, paddingLeft: '28px', ...(isPresetSplit ? { opacity: 0.6 } : {}) }} />
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: '120px' }}>
               <label style={labelStyle}>VFOS share</label>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-                <input value={vfosShare} onChange={e => handleVfosShareChange(e.target.value)} placeholder="0.00" readOnly={isPresetSplit} style={{ ...inputStyle, paddingLeft: '28px', ...(isPresetSplit ? { opacity: 0.6 } : {}) }} />
+                <input value={vfosShare} onChange={e => setVfosShare(e.target.value)} placeholder="0.00" readOnly={isPresetSplit} style={{ ...inputStyle, paddingLeft: '28px', ...(isPresetSplit ? { opacity: 0.6 } : {}) }} />
               </div>
             </div>
           </div>
@@ -573,9 +607,15 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
         </div>
       )}
 
+      {needsPlannerAllocation && (
+        <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, marginTop: '10px', textAlign: 'right' }}>You must allocate a tax planner before submitting.</div>
+      )}
+      {customSplitMismatch && (
+        <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginTop: '10px', textAlign: 'right' }}>Revenue split (${customSplitTotal.toFixed(2)}) must equal Total Fee (${totalFee.toFixed(2)})</div>
+      )}
       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '14px' }}>
         {onCancel && <button disabled={submitting} onClick={onCancel} style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }}>Cancel</button>}
-        <button disabled={submitting} onClick={handle} style={{ padding: '8px 18px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer', border: 'none', background: submitting ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#fff' }}>{submitting ? 'Submitting…' : submitLabel}</button>
+        <button disabled={submitting || needsPlannerAllocation || customSplitMismatch} onClick={handle} style={{ padding: '8px 18px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: (submitting || needsPlannerAllocation || customSplitMismatch) ? 'not-allowed' : 'pointer', border: 'none', background: (submitting || needsPlannerAllocation || customSplitMismatch) ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#fff' }}>{submitting ? 'Submitting…' : submitLabel}</button>
       </div>
     </div>
   )
@@ -596,6 +636,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const [depositPiDrafts, setDepositPiDrafts] = useState({})
   const [trackStatus, setTrackStatus] = useState(plan.status || 'live')
   const [togglingStatus, setTogglingStatus] = useState(false)
+  const [taxPlanners, setTaxPlanners] = useState([])
+  const [taxGroups, setTaxGroups] = useState([])
 
   // Known-value substitutions for the email previews (see StepEmailsChip).
   // Reactive to the selected client; empty values are omitted so those tokens
@@ -627,6 +669,47 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const fresh = (res.plans || []).find(p => p.id === plan.id)
       if (fresh) setLivePlan(fresh)
     } catch (err) { console.error('refreshLivePlan failed', err) }
+  }
+
+  useEffect(() => {
+    loadCachedAction('tax_planners_load')
+      .then(res => {
+        setTaxPlanners(Array.isArray(res?.tax_planners) ? res.tax_planners : [])
+        setTaxGroups(Array.isArray(res?.tax_planning_groups) ? res.tax_planning_groups : [])
+      })
+      .catch(() => { setTaxPlanners([]); setTaxGroups([]) })
+  }, [])
+
+  async function allocatePlanner(task, planner) {
+    const key = task.id
+    setSaving(p => ({ ...p, [key]: true }))
+    try {
+      await callApi('tax_allocate_planner', { tax_plan_id: plan.id, tax_planner_id: planner.id })
+      const fullName = `${planner.first_name || ''} ${planner.last_name || ''}`.trim()
+      await saveTask(task.id, fullName, localProgress[key]?.completed_date)
+    } catch (err) {
+      console.error(err)
+      alert('Allocation failed: ' + (err?.message || 'unknown error'))
+    } finally {
+      setSaving(p => ({ ...p, [key]: false }))
+    }
+  }
+
+  // Clearing the allocation: choosing the empty "-- Select --" option removes the
+  // planner (backend accepts null) and resets the task status to '' the same way
+  // the generic dropdown tasks do (saveTask handles the plan refresh).
+  async function clearPlanner(task) {
+    const key = task.id
+    setSaving(p => ({ ...p, [key]: true }))
+    try {
+      await callApi('tax_allocate_planner', { tax_plan_id: plan.id, tax_planner_id: null })
+      await saveTask(task.id, '')
+    } catch (err) {
+      console.error(err)
+      alert('Clear failed: ' + (err?.message || 'unknown error'))
+    } finally {
+      setSaving(p => ({ ...p, [key]: false }))
+    }
   }
 
   useEffect(() => {
@@ -923,7 +1006,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             {isFormShown && (
               <TaxDecisionForm
                 task={task}
-                plan={plan}
+                plan={livePlan}
                 saveTask={saveTask}
                 taxSpecialistId={taxSpecialistId}
                 existingData={formData}
@@ -1049,6 +1132,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                       {!hasPricing && !readOnly && (
                         <TaxPricingForm
                           submitLabel="Submit Pricing & Send Agreement"
+                          plan={livePlan}
                           memberCategory={client?.member_category}
                           memberType={client?.member_type}
                           programType={plan.program_id === 4 ? 'tax' : 'holistic'}
@@ -1096,6 +1180,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                       {!viaExtra && extraMeetingPricingOpen && (
                         <TaxPricingForm
                           submitLabel="Submit Pricing & Send Agreement"
+                          plan={livePlan}
                           memberCategory={client?.member_category}
                           memberType={client?.member_type}
                           programType={plan.program_id === 4 ? 'tax' : 'holistic'}
@@ -1345,7 +1430,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         <>
           {autoStep('Implementation fee auto-charged using saved payment method', chargeStatus === 'succeeded', readOnly ? null : <StepEmailsChip pipeline="TAX" title="Implementation fee auto-charged using saved payment method" templates={[{ name: 'TAX_confirmationemail|implementation', when: 'Automatic — implementation charge confirmation' }, { name: 'TAX_invoicereceipt_email|implementation', when: 'Automatic — implementation invoice + receipt' }, { name: 'TAX_implementation_charge_failed', when: 'Automatic — if the implementation charge fails' }]} context={emailCtx} />)}
           {autoStep('Implementation fee receipt created and emailed to client', recStatus === 'Sent')}
-          {autoStep('Implementation fee revenue share verified, member paid, member emailed', revEmailSent === true, readOnly ? null : <StepEmailsChip pipeline="TAX" title="Implementation fee revenue share verified, member paid, member emailed" templates={[{ name: 'TAX_member_revshare|retainer', when: 'Automatic — member revenue-share notice (retainer)' }, { name: 'TAX_member_revshare|implementation', when: 'Automatic — member revenue-share notice (implementation)' }]} context={emailCtx} />)}
+          {autoStep('Implementation fee revenue share verified, member paid, member emailed', revEmailSent === true, readOnly ? null : <StepEmailsChip pipeline="TAX" title="Implementation fee revenue share verified, member paid, member emailed" templates={[{ name: 'TAX_member_revshare|retainer', when: 'Automatic — member revenue-share notice (retainer)' }, { name: 'TAX_member_revshare|implementation', when: 'Automatic — member revenue-share notice (implementation)' }, { name: 'TAX_planner_revshare|retainer', when: 'Automatic — tax planner revenue-share notice (retainer)' }, { name: 'TAX_planner_revshare|implementation', when: 'Automatic — tax planner revenue-share notice (implementation)' }]} context={emailCtx} />)}
         </>
       )
 
@@ -1662,7 +1747,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         </div>
         )
       }
-      const revshareChip = readOnly ? null : <StepEmailsChip pipeline="TAX" templates={[{ name: 'TAX_member_revshare|retainer', when: 'Automatic — member revenue-share notice (retainer)' }, { name: 'TAX_member_revshare|implementation', when: 'Automatic — member revenue-share notice (implementation)' }]} context={emailCtx} />
+      const revshareChip = readOnly ? null : <StepEmailsChip pipeline="TAX" templates={[{ name: 'TAX_member_revshare|retainer', when: 'Automatic — member revenue-share notice (retainer)' }, { name: 'TAX_member_revshare|implementation', when: 'Automatic — member revenue-share notice (implementation)' }, { name: 'TAX_planner_revshare|retainer', when: 'Automatic — tax planner revenue-share notice (retainer)' }, { name: 'TAX_planner_revshare|implementation', when: 'Automatic — tax planner revenue-share notice (implementation)' }]} context={emailCtx} />
       const refundChip = readOnly ? null : <StepEmailsChip pipeline="TAX" templates={[{ name: 'TAX_refund_email|Yes', when: 'Automatic — retainer refund confirmation' }]} context={emailCtx} />
 
       return (
@@ -1754,6 +1839,69 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
       </div>
     )
+
+    if (task.status_options === 'tax_planner_select' || task.name === 'Allocate to Advanced Tax Planner') {
+      const green = '#1b9254'
+      const allocatedId = livePlan?.tax_planner_id
+      const activePlanners = taxPlanners.filter(pl => pl.status ? String(pl.status).toLowerCase() === 'active' : true)
+      // The selected planner: match by id (plan.tax_planner_id) first, falling
+      // back to the stored name for legacy rows without an id.
+      const selectedPlanner = taxPlanners.find(pl => String(pl.id) === String(allocatedId))
+        || activePlanners.find(pl => `${pl.first_name || ''} ${pl.last_name || ''}`.trim() === (p.status || ''))
+      // Display name carries the certifications suffix; the stored value (p.status)
+      // is the plain full name and is never rewritten from here.
+      const allocatedName = selectedPlanner ? plannerDisplayName(selectedPlanner) : (p.status || '')
+      const isAllocated = !!allocatedId || !!p.status
+      const greenPill = { fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: green, fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }
+      // Small pills sitting next to the select for the currently selected planner.
+      // Colors reuse the portal's tinted-pill idiom: green #1b9254 (positive),
+      // red #e74c3c (No Stripe).
+      const tintedChip = (hex, rgb) => ({ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: `rgba(${rgb},0.15)`, color: hex, fontWeight: 600, border: `1px solid rgba(${rgb},0.3)` })
+      // Stripe status now comes from the planner's Tax Planning Group (member_type),
+      // not the planner row. Connected only when the group has a Stripe account.
+      const plannerGroup = selectedPlanner ? taxGroups.find(g => g.name === selectedPlanner.member_type) : null
+      const groupConnected = !!(plannerGroup && (plannerGroup.stripe_account_id || '').trim())
+      const chips = selectedPlanner ? [
+        groupConnected
+          ? { label: 'Stripe Connected', style: tintedChip('#1b9254', '27,146,84') }
+          : { label: 'No Stripe', style: tintedChip('#e74c3c', '231,76,60') },
+      ] : []
+
+      if (readOnly) {
+        return (
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isAllocated ? green : 'transparent', flexShrink: 0, border: `1.5px solid ${isAllocated ? green : 'var(--vfo-border-mid)'}` }} />
+            <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: 1 }}>{task.name}</span>
+            {isAllocated
+              ? <span style={greenPill}>{allocatedName || 'Allocated'}</span>
+              : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>}
+          </div>
+        )
+      }
+
+      const selectValue = selectedPlanner ? String(selectedPlanner.id) : ''
+      return (
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isAllocated ? green : 'transparent', flexShrink: 0, border: `1.5px solid ${isAllocated ? green : 'var(--vfo-border-mid)'}` }} />
+          <span style={{ fontSize: '13px', color: isAllocated ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+          {activePlanners.length === 0 ? (
+            <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>No tax planners yet — add one under Tax Planners.</span>
+          ) : (
+            <>
+              {chips.map(c => <span key={c.label} style={c.style}>{c.label}</span>)}
+              <select
+                value={selectValue}
+                onChange={e => { if (!e.target.value) { clearPlanner(task); return } const pl = activePlanners.find(x => String(x.id) === e.target.value); if (pl) allocatePlanner(task, pl) }}
+                disabled={saving[key]}
+                style={{ ...inputStyle, background: 'var(--vfo-card)', minWidth: '150px', borderColor: isAllocated ? `${green}66` : 'var(--vfo-border-strong)', color: isAllocated ? green : 'var(--vfo-ink)' }}>
+                <option value="">-- Select --</option>
+                {activePlanners.map(pl => <option key={pl.id} value={String(pl.id)}>{plannerDisplayName(pl)}</option>)}
+              </select>
+            </>
+          )}
+        </div>
+      )
+    }
 
     if (task.status_options === 'specialist_select') return null
 

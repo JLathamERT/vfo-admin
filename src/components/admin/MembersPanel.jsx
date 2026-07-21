@@ -232,7 +232,7 @@ function AddAccountantForm({ allMembers, onDataChange }) {
   )
 }
 
-function FeatureTabDropdown({ label, isActive, options, onSelect }) {
+export function FeatureTabDropdown({ label, isActive, options, onSelect }) {
   const [open, setOpen] = useState(false)
   const closeTimer = useRef(null)
 
@@ -936,10 +936,21 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                     <div><div style={fieldLabel}>Eligible for Credit Note</div><div style={fieldValue}>{profile.credit_note_eligible === false ? 'No' : 'Yes'}</div></div>
                     {profile.website_url && <div><div style={fieldLabel}>Website</div><div style={fieldValue}><a href={normalizeUrl(profile.website_url)} target="_blank" rel="noopener noreferrer" style={{ color: '#0095ff', textDecoration: 'none', wordBreak: 'break-all' }}>{profile.website_url}</a></div></div>}
                   </div>
-                  {profile.stripe_account_id && (
+                  {profile.stripe_account_id ? (
                     <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid var(--vfo-tint)' }}>
                       <div style={fieldLabel}>Stripe Account</div>
                       <div style={{ display: 'inline-block', marginTop: '7px', fontSize: '13px', color: 'var(--vfo-ink-2)', fontFamily: 'monospace', padding: '6px 12px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '8px' }}>{profile.stripe_account_id}</div>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid var(--vfo-tint)' }}>
+                      <div style={fieldLabel}>Stripe Connect</div>
+                      <div style={{ marginTop: '10px' }}>
+                        <button type="button" onClick={sendStripeRequest} disabled={stripeRequesting}
+                          style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #125ecc', background: 'var(--vfo-card)', color: '#125ecc', fontSize: '13px', fontWeight: 600, cursor: stripeRequesting ? 'wait' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                          {stripeRequesting ? 'Working…' : 'Send Stripe Connect setup email'}
+                        </button>
+                        {stripeMsg && <p style={{ fontSize: '12px', marginTop: '8px', color: stripeMsgType === 'success' ? '#1b9254' : '#d93025' }}>{stripeMsg}</p>}
+                      </div>
                     </div>
                   )}
                 </div>

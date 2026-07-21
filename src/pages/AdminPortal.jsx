@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { getSession, clearSession, callApi } from '../lib/api'
 import { usePortalTheme } from '../lib/theme'
 import SpecialistsPanel from '../components/admin/SpecialistsPanel'
+import TaxPlannersPanel from '../components/admin/TaxPlannersPanel'
 import MembersPanel from '../components/admin/MembersPanel'
 import MemberOverviewPanel from '../components/admin/MemberOverviewPanel'
 import ClientOverviewPanel from '../components/admin/ClientOverviewPanel'
@@ -153,6 +154,7 @@ export default function AdminPortal() {
   const [accountantsSection, setAccountantsSection] = useState(sessionStorage.getItem('adminAccountantsSection') || 'accountant_search')
   const [navClickCount, setNavClickCount] = useState(0)
   const [specialistsSection, setSpecialistsSection] = useState(sessionStorage.getItem('adminSpecialistsSection') || 'specialist_search')
+  const [taxPlannersSection, setTaxPlannersSection] = useState(sessionStorage.getItem('adminTaxPlannersSection') || 'tax_planner_search')
   const [strategicSection, setStrategicSection] = useState(sessionStorage.getItem('adminStrategicSection') || 'strategic_member_search')
   const [automationSection, setAutomationSection] = useState(sessionStorage.getItem('adminAutomationSection') || 'map1_pipeline')
   const [accountingSection, setAccountingSection] = useState(sessionStorage.getItem('adminAccountingSection') || 'payments')
@@ -213,6 +215,7 @@ export default function AdminPortal() {
         accountants: [setAccountantsSection, 'adminAccountantsSection'],
         strategic: [setStrategicSection, 'adminStrategicSection'],
         specialists: [setSpecialistsSection, 'adminSpecialistsSection'],
+        taxplanners: [setTaxPlannersSection, 'adminTaxPlannersSection'],
         automation: [setAutomationSection, 'adminAutomationSection'],
         accounting: [setAccountingSection, 'adminAccountingSection'],
       }
@@ -293,6 +296,17 @@ export default function AdminPortal() {
     sessionStorage.setItem('adminActiveTab', 'specialists')
     setSpecialistsSection(key)
     sessionStorage.setItem('adminSpecialistsSection', key)
+    sessionStorage.removeItem('adminSelectedMember')
+    sessionStorage.removeItem('adminMemberFeatureTab')
+    setShowEditor(false)
+    setShowSettings(false)
+  }
+
+  function selectTaxPlannersSection(key) {
+    setActiveTab('taxplanners')
+    sessionStorage.setItem('adminActiveTab', 'taxplanners')
+    setTaxPlannersSection(key)
+    sessionStorage.setItem('adminTaxPlannersSection', key)
     sessionStorage.removeItem('adminSelectedMember')
     sessionStorage.removeItem('adminMemberFeatureTab')
     setShowEditor(false)
@@ -443,6 +457,18 @@ export default function AdminPortal() {
     },
   ]
 
+  const taxPlannersDropdownItems = [
+    {
+      key: 'taxplanners', header: null,
+      options: [
+        { key: 'tax_planner_search', label: 'Tax Planner Search' },
+        { key: 'tax_planner_kpis', label: 'Tax Planner KPIs' },
+        { key: 'tax_planning_partners', label: 'Tax Planning Partners' },
+        { key: 'add_tax_planner', label: 'Add Tax Planner' },
+      ]
+    },
+  ]
+
   const automationDropdownItems = [
     {
       key: 'automation', header: null,
@@ -580,6 +606,12 @@ export default function AdminPortal() {
               onSelect={selectSpecialistsSection}
               isActive={activeTab === 'specialists'}
             />
+            <NavDropdown
+              label="Tax Planners"
+              items={taxPlannersDropdownItems}
+              onSelect={selectTaxPlannersSection}
+              isActive={activeTab === 'taxplanners'}
+            />
 
             {/* Secondary "other" tabs — beside the key tabs, muted, access-gated,
                 separated by a faint divider. On narrow screens they collapse
@@ -687,6 +719,10 @@ export default function AdminPortal() {
             // in place would trip React's hooks-count check and the navigation
             // (e.g. the Stage-5 "Open specialist →" link) could silently fail.
             <SpecialistsPanel key={specialistsSection} allExperts={allExperts} ecoMap={ecoMap} onDataChange={loadAllData} section={specialistsSection} />
+          )}
+
+          {activeTab === 'taxplanners' && !loading && (
+            <TaxPlannersPanel key={taxPlannersSection} section={taxPlannersSection} />
           )}
 
           {activeTab === 'member_overview' && !loading && (

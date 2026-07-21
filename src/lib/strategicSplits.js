@@ -16,18 +16,18 @@
 export const STRATEGIC_SPLITS = {
   'Action Coach': {
     holistic: { strategic: 0.10, vfos: 0.45, member: 0.45 },
-    tax: { strategic: 0.10, vfos: 0.60, member: 0.30 },
+    tax: { strategic: 0.10, member: 0.30, planner: 0.30, vfos: 0.30 },
     blurbs: {
       holistic: 'Holistic — Action Coach takes a 10% Strategic Partner Share off the gross; the remaining 90% is split 50/50, giving 45% to the member and 45% to VFOS.',
-      tax: 'Tax Planning — Action Coach takes a 10% Strategic Partner Share off the gross; the remaining 90% is split two-thirds / one-third, giving 60% to VFOS and 30% to the member.',
+      tax: 'Tax Planning — Action Coach takes a 10% Strategic Partner Share off the gross; the remaining 90% splits three ways — 30% to the member, 30% to the tax planner, and 30% to VFOS.',
     },
   },
   'Tax Plan IQ': {
     holistic: { strategic: 0.10, vfos: 0.40, member: 0.50 },
-    tax: { strategic: 0.10, vfos: 0.40, member: 0.50 },
+    tax: { strategic: 0.10, member: 0.50, planner: 0.20, vfos: 0.20 },
     blurbs: {
       holistic: 'Holistic — the member gets 50% of gross, VFOS gets 40%, and Tax Plan IQ takes a 10% Strategic Partner Share.',
-      tax: 'Tax Planning — same split as holistic: member 50%, VFOS 40%, Tax Plan IQ 10% Strategic Partner Share.',
+      tax: 'Tax Planning — the member gets 50% of gross, the tax planner and VFOS each get 20%, and Tax Plan IQ takes a 10% Strategic Partner Share.',
     },
   },
 }
@@ -48,14 +48,25 @@ export function getStrategicSplit(groupName, programType) {
   return programType === 'tax' ? g.tax : g.holistic
 }
 
-// Computes the three dollar amounts off a gross total. The member share absorbs
-// the rounding remainder so strategic + vfos + member === gross exactly.
-// Returns { strategic, vfos, member } as numbers, or null if not applicable.
+// Computes the dollar amounts off a gross total. Two shapes:
+//   - holistic (and any two-way split): { strategic, vfos, member }, member
+//     absorbs the rounding remainder (strategic + vfos + member === gross).
+//   - tax splits that carry a `planner` fraction (three-way member/planner/VFOS):
+//     { strategic, member, planner, vfos }, VFOS absorbs the rounding remainder
+//     (strategic + member + planner + vfos === gross).
+// Returns numbers, or null if not applicable. The holistic return shape is kept
+// exactly for the MAP 1 callers (PFPricingForm, PFExtraMeetingForm, PIPDecisionForm).
 export function computeStrategicShares(groupName, programType, grossTotal) {
   const split = getStrategicSplit(groupName, programType)
   const gross = parseFloat(String(grossTotal ?? '').replace(/[,$]/g, '')) || 0
   if (!split || gross <= 0) return null
   const strategic = +(gross * split.strategic).toFixed(2)
+  if (split.planner != null) {
+    const member = +(gross * split.member).toFixed(2)
+    const planner = +(gross * split.planner).toFixed(2)
+    const vfos = +(gross - strategic - member - planner).toFixed(2)
+    return { strategic, member, planner, vfos }
+  }
   const vfos = +(gross * split.vfos).toFixed(2)
   const member = +(gross - strategic - vfos).toFixed(2)
   return { strategic, vfos, member }

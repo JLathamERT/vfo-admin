@@ -4,7 +4,7 @@ Tax engagements run alongside (and downstream of) the regular member-program. A 
 
 ## `client_tax_plans`
 
-State machine for the tax-planning engagement. **84 columns total** (4 original + 51 added via migration `20260518000000_tax_phase0_schema.sql` + 14 split column families + 6 deposit-refund columns added in the Tax Planning alignment session + 4 member-pays columns: `member_paying_on_behalf`, `tax4_meeting_time`, `tax4_meeting_timezone`, `tax4_meeting_confirm_email_sent_at` + 4 added in the presentation-step session: `member_presentation_link`, `presentation_send_date`, `presentation_scheduled_at`, `presentation_email_sent_at` + 1 Phase D admin card-update column: `default_payment_method_id`). Parallel to `pipeline_map1` for MAP1; see [tax-planning flow](../flows/tax-planning.md) for end-to-end usage.
+State machine for the tax-planning engagement. **84 columns total** (4 original + 51 added via migration `20260518000000_tax_phase0_schema.sql` + 14 split column families + 6 deposit-refund columns added in the Tax Planning alignment session + 4 member-pays columns: `member_paying_on_behalf`, `tax4_meeting_time`, `tax4_meeting_timezone`, `tax4_meeting_confirm_email_sent_at` + 4 added in the presentation-step session: `member_presentation_link`, `presentation_send_date`, `presentation_scheduled_at`, `presentation_email_sent_at` + 1 Phase D admin card-update column: `default_payment_method_id` + 8 tax-planner columns added 2026-07-21: `tax_planner_id`, `tax_planner_share`, `{retainer,implementation}_planner_paid`/`_completed_at`/`_email_sent_at`). Parallel to `pipeline_map1` for MAP1; see [tax-planning flow](../flows/tax-planning.md) for end-to-end usage.
 
 > **Program-aware**: rows are tagged with `program_id` so the same handlers serve both Holistic Planning's Tax Priorities track (program_id=1) and the standalone VFO Tax Planning program (program_id=4). Client-visible labels (invoice/receipt headers, Stripe line items, BoldSign agreement title) switch between "VFO Holistic Planning" and "VFO Tax Planning" via the `programLabel(programId)` helper in `utils/program-label.ts`.
 
@@ -16,7 +16,7 @@ State machine for the tax-planning engagement. **84 columns total** (4 original 
 | `status` | text | not null, default `'live'`. Plan status (live / stopped). |
 | `created_at` | timestamptz | not null, default `now()`. |
 | `program_id` | integer | fk → `programs.id`. Distinguishes Holistic Planning (1) vs standalone Tax Planning (4). NULL on rows pre-dating migration. |
-| `atp_name` | text | Advanced Tax Planner allocated (Tim Gacsy / Steven Cox per task option). |
+| `atp_name` | text | Advanced Tax Planner allocated — legacy free-text (Tim Gacsy / Steven Cox per the old task option). **Superseded 2026-07-21 by the `tax_planner_id` fk** (the allocation step is now a dropdown of `tax_planners`); kept for historical rows. |
 | `sandbox` | boolean | default false. Snapshot of sandbox_mode at row creation. |
 | `extra_cc` | text | Comma-separated extra CC emails captured from `TaxDecisionForm` (read via `utils/extra-cc.ts extraCcList()`, which also tolerates legacy JSON-array strings — gotcha #244). |
 
@@ -35,9 +35,11 @@ State machine for the tax-planning engagement. **84 columns total** (4 original 
 | `implementation_amount` | numeric | Second 50% — admin-entered. May differ from retainer (not enforced 50/50). |
 | `total_fee` | numeric | Auto-computed retainer + implementation. |
 | `discount_applied` | numeric | **Display-only** (added 2026-07-14). Diron Insley (member 59073) clients only — server-gated in `decision.ts`/`pricing.ts`/`extra-meeting.ts` against `clients.member_number` = `constants/tax-discount.ts DISCOUNT_MEMBER_NUMBER`. When > 0 the invoice PDF shows gross Tax Planning Fee (retainer + implementation + discount), the discount in red, Net Payable, and a small-print footnote; the retainer invoice/receipt + implementation receipt emails get a small-print footnote. Does NOT affect charged amounts, receipts, agreement, or revshare. NULL = no discount. |
-| `split_type` | text | `1/3 Member, 2/3 VFOS` / `50/50` / `Custom`. |
-| `member_share` | numeric | Dollar amount of member's revshare. |
+| `split_type` | text | `1/3 Member, 2/3 VFOS` / `50/50` / `Custom` (legacy 2-way) — and, since 2026-07-21, the 3-way preset `1/3 Member, 1/3 Tax Planner, 1/3 VFOS`. `TaxDecisionForm`/`TaxPricingForm` now offer the 3-way preset + a Custom mode where all three boxes are editable and must sum to `total_fee` (1-cent tolerance). Strategic-member tax splits (`src/lib/strategicSplits.js`, `programType='tax'`) add a 4th Strategic Partner leg. |
+| `member_share` | numeric | Dollar amount of member's revshare (of the TOTAL — proportional per installment, gotcha #252). |
 | `vfos_share` | numeric | Dollar amount of VFOS's cut. |
+| `tax_planner_id` | bigint | **2026-07-21.** fk → `tax_planners.id`. The Advanced Tax Planner allocated to the plan (set/cleared by the `tax_allocate_planner` action from the "Allocate to Advanced Tax Planner" step; supersedes the free-text `atp_name`). Gates the Yes-path (decision/pricing/extra-meeting return 400 without it). |
+| `tax_planner_share` | numeric | **2026-07-21.** Dollar amount of the Tax Planner leg (of the TOTAL). Paid proportionally per installment to the planner's GROUP Connect account by `utils/tax-planner-payout.ts` (gotcha #253). |
 | `potential_tax_savings` | numeric | Undecided branch only — from form's `potentialTaxSavings`. |
 | `initial_retainer_quoted` | numeric | Undecided branch only — quoted in meeting. |
 | `presentation_link` | text | Optional link from the **Tax 3 "Client tax planning decision"** form. Used as `[PRESENTATION_LINK]` in Undecided + decline + agreement emails (`decision.ts`/`pricing.ts`/`extra-meeting.ts`/`final-decision.ts`/`send-agreement.ts`). **Distinct from `member_presentation_link`** (the Tax 2 step) — do not conflate. |
@@ -91,6 +93,18 @@ State machine for the tax-planning engagement. **84 columns total** (4 original 
 | `retainer_rev_email_sent` | boolean | default false. |
 | `member_contrib_status` | text | `Pending` / `Applied` (mirror MAP1 pattern). |
 | `tracy_intro_email_sent` | boolean | default false. Optional Tracy intro email parallel to MAP1's `c24_email_sent`. |
+
+### Tax Planner payout (3rd split leg — added 2026-07-21)
+Written by `utils/tax-planner-payout.ts transferPlannerShare` — the tax planner leg of the 3-way split, paid to the planner's **Tax Planning Group** Connect account (`tax_planners.member_type` → `tax_planning_groups.name` → `stripe_account_id`). Proportional per installment (`tax_planner_share / total_fee × payment`). Independent of the member's revenue decision — the planner's own governs (though `revenue_decision` is retired; see `tax_planners`). Gotcha #253.
+
+| Column | Type | Notes |
+|---|---|---|
+| `retainer_planner_paid` | text | `Yes` (transferred) / `Money Mapping` / `N/A — No Share Due` / `Failed` (no group / group missing / group has no Stripe account / transfer errored → `FAILURE_tax_planner_share` bell + sweep retry). |
+| `retainer_planner_completed_at` | timestamptz | Set on a terminal-success status (`Yes`/`Money Mapping`/`N/A`). |
+| `retainer_planner_email_sent_at` | timestamptz | Guard for the `TAX_planner_revshare\|retainer` confirmation email (id 198, Draft) to the planner's own email. |
+| `implementation_planner_paid` | text | Same statuses as retainer, for the implementation installment. |
+| `implementation_planner_completed_at` | timestamptz | Terminal-success stamp. |
+| `implementation_planner_email_sent_at` | timestamptz | Guard for `TAX_planner_revshare\|implementation` (id 199, Draft). |
 
 ### Tax 3 — reminder timers (Phase post-Tax-5 polish)
 The Tax 3 cascade is gated by client action at 3 different points (Undecided email click, agreement signing, payment). Each has a 48h reminder + 96h PF-notification timer driven by `tax-revshare-sweep-daily` cron.
@@ -224,3 +238,42 @@ Per-task progress within a tax plan, scoped to a specialist.
 | `notes` | text | |
 
 **Touched by:** `tax_load_progress`, `tax_save_task`.
+
+---
+
+## `tax_planners` (added 2026-07-21)
+
+Admin-managed person-type — the "Advanced Tax Planner" attached to tax engagements. Mirrors `experts` (Specialists): admin CRUD + a private document vault + Stripe Connect, but **no portal login** (every surface is admin-only, all access is service-role via the edge fn). RLS deny-all in the creating migration (`20260721100000_tax_planners.sql`; gotcha #141).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | pk (identity). |
+| `first_name` / `last_name` | text | not null. |
+| `email` | text | Optional. Recipient of the planner rev-share confirmation emails. |
+| `status` | text | not null, default `'Active'`. The allocation dropdown lists Active planners. |
+| `revenue_decision` | text | not null, default `'Revenue Share'`. **Retired** — wiped to '' and dropped from the planner UI; the GROUP model governs payout. Kept for schema stability. |
+| `member_type` | text | The planner's **Tax Planning Group** name — must match `tax_planning_groups.name`; the payout destination resolves through it. Nullable (an unassigned planner cannot be paid → `Failed` + Jake alert). Added in `20260721120000`. |
+| `certifications` | jsonb | not null, default `'[]'`. Multi-add certifications, shown as a name suffix. Added in `20260721130000`. |
+| `headshot_image` / `bio` / `website_url` / `notes` | text | Profile fields. |
+| `stripe_account_id` | text | **Vestigial** — the payout goes to the GROUP account, not the planner's own. |
+| `join_date` / `leave_date` | date | |
+| `created_at` | timestamptz | not null, default `now()`. |
+
+**Private bucket:** `tax-planner-documents` (namespaced by `tax_planners.id`). **Touched by:** `tax_planners_load`, `save_tax_planner`, `delete_tax_planner`, `tax_planner_payments_load`, `tax_planner_vault_{list,upload_url,download,delete}`, `tax_allocate_planner`, `utils/tax-planner-payout.ts`.
+
+---
+
+## `tax_planning_groups` (added 2026-07-21)
+
+The "companies" that receive the Tax Planner Share via a group-level Stripe Connect account. Exact mirror of `strategic_member_groups`. RLS deny-all in the creating migration (`20260721120000_tax_planning_groups.sql`).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | pk (identity). |
+| `name` | text | not null. Case-insensitive UNIQUE (`tax_planning_groups_name_lower_key`) → friendly 23505 dup message. A group name is a `tax_planners.member_type` option; RENAME cascades planners' `member_type`; DELETE is guarded when any planner references it. |
+| `stripe_account_id` | text | The GROUP Connect account the planner share transfers to (resolved via `tax_planners.member_type` → this row). |
+| `contact_email` | text | Used by the group Stripe-Connect setup-email flow. |
+| `created_by` | text | |
+| `created_at` | timestamptz | not null, default `now()`. |
+
+**Touched by:** `save_tax_planning_group`, `delete_tax_planning_group`, `tax_planning_group_stripe_connect_request`, `utils/tax-planner-payout.ts` (destination resolution).

@@ -80,6 +80,7 @@ export const TEMPLATE_META = {
     ['TAX_invoicereceipt_email|retainer', 'Retainer cleared — invoice and receipt PDFs attached', 'To: Client · Auto-Cc: Member + PF + Tracy'],
     mv('TAX_invoicereceipt_email|retainer', 'Retainer cleared — invoice and receipt PDFs attached', 'To: Member · Auto-Cc: Client + PF + Tracy'),
     ['TAX_member_revshare|retainer', 'Revenue share confirmation to the member — tax retainer received from their client'],
+    ['TAX_planner_revshare|retainer', 'Tax planner revenue share confirmation — retainer half (sent when the retainer revenue share is transferred)', 'To: Tax Planner · Bcc: Accounting'],
     ['TAX_postreview|Continue', 'After the plan review — continuing; green "Continue now" and red "Refund" buttons (locks in after 24h)', 'To: Client · Auto-Cc: Member'],
     mv('TAX_postreview|Continue', 'After the plan review — continuing; green "Continue now" and red "Refund" buttons (locks in after 24h)', 'To: Member · Auto-Cc: Client'),
     ['TAX_postreview|Undecided', 'After the plan review — undecided; Proceed / Refund buttons', 'To: Client · Auto-Cc: Member'],
@@ -102,6 +103,7 @@ export const TEMPLATE_META = {
     ['TAX_invoicereceipt_email|implementation', 'Implementation fee receipt PDF attached', 'To: Client · Auto-Cc: Member + PF'],
     mv('TAX_invoicereceipt_email|implementation', 'Implementation fee receipt PDF attached', 'To: Member · Auto-Cc: Client + PF'),
     ['TAX_member_revshare|implementation', 'Revenue share confirmation to the member — implementation fee received from their client'],
+    ['TAX_planner_revshare|implementation', 'Tax planner revenue share confirmation — implementation half (sent when the implementation revenue share is transferred)', 'To: Tax Planner · Bcc: Accounting'],
     ['TAX_deposit_refund', 'Setup-phase deposit refunded in full — confirmation (standalone Tax Planning only)'],
   ],
   'PIP': [
