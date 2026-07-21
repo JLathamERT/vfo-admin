@@ -93,9 +93,11 @@ A scheduled, cron-drafted step that sits right after "Tax 3 Confirmation Email" 
 
 > **Diron Insley display-only discount** (added 2026-07-14). For clients whose `clients.member_number` = `59073` (`constants/tax-discount.ts DISCOUNT_MEMBER_NUMBER`), all three pricing forms (`TaxDecisionForm`, `TaxPricingForm` for the deferred Undecided→Yes path, and the extra-meeting outcome form) show a "Discount applied due to previous Diron Insley planning issue?" toggle + required $ input + live invoice-preview box. The value persists to `client_tax_plans.discount_applied` (server-gated by member number in `decision.ts`/`pricing.ts`/`extra-meeting.ts`; re-saving with the toggle off clears it). When > 0: the invoice PDF shows gross "Tax Planning Fee" (retainer + implementation + discount), "Discount Applied*" in red, "Net Payable", drops the "(50%)" row suffixes, and adds a small-print footnote; the retainer invoice/receipt email + implementation receipt email get a small-print footnote after the signature. **Purely cosmetic** — charged amounts, receipt PDFs, agreement, and revshare are unchanged; non-discount plans render byte-identical to before.
 
+> **3-way revenue split + Tax Planner allocation gate** (added 2026-07-21). `TaxDecisionForm` + `TaxPricingForm` (shared by program-1 Holistic Tax Priorities + program-4 VFO Tax Planning) now split the fee three ways — **Member / Tax Planner / VFOS** — via a preset `1/3 Member, 1/3 Tax Planner, 1/3 VFOS` or a Custom mode where all three boxes are editable and must sum to `total_fee` (1-cent tolerance, PIPDecisionForm idiom). The pick persists to `member_share` / `tax_planner_share` / `vfos_share`. Strategic-member clients instead get a 4-way split from `src/lib/strategicSplits.js` (`programType='tax'`): Action Coach `{strategic .10, member .30, planner .30, vfos .30}`, Tax Plan IQ `{strategic .10, member .50, planner .20, vfos .20}` (VFOS absorbs the rounding remainder). **Allocation gate:** a Tax Planner must be allocated (via the "Allocate to Advanced Tax Planner" step → `tax_allocate_planner` → `client_tax_plans.tax_planner_id`) before the Yes-path can submit — `decision`(Yes), `pricing`, and `extra-meeting`(Yes) return **400** without a `tax_planner_id`, and the frontend disables submit with "You must allocate a tax planner before submitting." Gotchas #252/#253/#254.
+
 ### Decision = `Yes`
 
-1. UPDATEs plan with pricing fields: `tax_decision`, `risk_mindset`, `retainer_amount`, `implementation_amount`, `total_fee`, `split_type`, `member_share`, `vfos_share`, `discount_applied` (Diron clients only, see note above), `presentation_link`, `meeting_notes`, `extra_cc`, `sandbox`.
+1. UPDATEs plan with pricing fields: `tax_decision`, `risk_mindset`, `retainer_amount`, `implementation_amount`, `total_fee`, `split_type`, `member_share`, `tax_planner_share`, `vfos_share`, `discount_applied` (Diron clients only, see note above), `presentation_link`, `meeting_notes`, `extra_cc`, `sandbox`.
 2. **Chains** `automation_TAX_sendagreement` — server-to-server via HTTP fetch + **admin auth token forwarded in body.token** (critical — see Step 4 chain auth note).
 
 ### Decision = `Undecided`
@@ -449,7 +451,7 @@ Revshare + refund handler details follow below. The `tax-revshare-sweep-daily` c
 4. Walks batch sheet tabs, picks one whose name contains `client_ref` + a 4-digit year + NOT "account".
 5. Reads tab G7:O200, looks for row where col I = receipt number AND col J within $0.01 of expected payment AND K+L+M+N+O sums to col J. Side-scans for "Member Contribution" row in col G.
 6. On no batch sheet / no tab / no matching row → returns `{ pending: true, reason: "..." }`. Daily sweep retries (Phase 6c).
-7. On verified: computes `shareAmount` from `member_share` (>100 = flat dollar split in half across retainer/implementation; ≤100 = % of current payment). Applies member contribution on retainer only (`member_contrib_status='Applied'`).
+7. On verified: computes `shareAmount` from `member_share`. **Updated 2026-07-21 (gotcha #252):** `member_share` is ALWAYS a dollar amount of the TOTAL engagement and the portion for this payment is proportional — `portion = (member_share / total_fee) × paymentReceived` (fallback `total_fee` → `retainer_amount + implementation_amount` → last-resort `share / 2`). The legacy ">100 = flat half-split, ≤100 = percent-of-payment" heuristic was REMOVED. Applies member contribution on retainer only (`member_contrib_status='Applied'`).
 8. If `member.revenue_decision==='Money Mapping'` → no transfer, `rev_paid='Money Mapping'`.
 9. Else if `shareAmount > 0` AND `member.stripe_account_id` set → Stripe POST `/v1/transfers` with `amount`, `currency=usd`, `destination=stripe_account_id`, `description='Tax Planning Revenue Share - Client: (<ref>) <Client Name> - Member: (<member_number>) <Member Name> - <Retainer|Implementation>'`.
 10. On Stripe success → `rev_paid='Yes'`; on Stripe error → `rev_paid='Failed'`, no email, sweep retries.
@@ -463,7 +465,16 @@ Revshare + refund handler details follow below. The `tax-revshare-sweep-daily` c
 > - Single handler with `payment_kind` param vs MAP1's `payment_number` (1-4)
 > - No quarterly schedule block (tax has 2 payments max — replaced with single "implementation pending" line on retainer email)
 > - No Tracy intro email (`c24_email_sent` equivalent skipped — Tracy already CC'd on `automation_TAX_invoicereceipt`)
-> - `member_share` flat-dollar values split in half across retainer/implementation rather than quartered
+> - `member_share` (and `tax_planner_share`) are dollars of the TOTAL, paid proportionally per installment (`share/total × payment`) — NOT a flat half-split or a percent-of-payment (gotcha #252)
+
+### Tax Planner Share leg (added 2026-07-21)
+
+Alongside the member + strategic legs, `automation_TAX_revshare` also pays the **Tax Planner Share** by calling `utils/tax-planner-payout.ts transferPlannerShare(sb, plan, payment_kind, stripeKey)` — the third leg of the 3-way split. It only acts when the plan carries both a `tax_planner_id` and a `tax_planner_share` (else `skipped`, no write). Amount semantics mirror the member leg exactly: `portion = (tax_planner_share / total_fee) × paymentReceived`. **The destination is the planner's GROUP Connect account**, resolved `tax_planners.member_type` → `tax_planning_groups.name` (exact match) → `stripe_account_id` (NOT the planner's own account). Statuses written to `{retainer,implementation}_planner_paid`:
+
+- `Yes` — transferred (idempotency key `planner-tax-<plan.id>-<kind>`); also drafts the `TAX_planner_revshare|<kind>` confirmation email (ids 198/199, Draft) to the planner's own email.
+- `Money Mapping` — the planner is on Money Mapping (nothing transferred).
+- `N/A — No Share Due` — the portion is zero.
+- `Failed` — the planner has no `member_type`, the named group is missing, the group has no Stripe account, or the transfer errored → fires a `FAILURE_tax_planner_share` action-required bell to Jake; the daily `tax-revshare-sweep-daily` retries (it covers both `Failed` AND stranded-NULL `*_planner_paid` rows). Stripe memo: `Tax Planning Revenue Share - ... - Tax Planner: <name> — <group> - Retainer|Implementation`. Gotcha #253.
 
 > **Gotcha:** `members.stripe_account_id` must point to a Connect account with `transfers` capability ACTIVE. Failed transfers return `rev_paid='Failed'`; the actual Stripe error body is logged via `console.error` but NOT surfaced by `get_logs` MCP — diagnose via `dashboard.stripe.com/test/events`. Fix is to update the member row; no handler change needed.
 
