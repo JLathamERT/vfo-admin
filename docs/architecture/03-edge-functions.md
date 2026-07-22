@@ -102,7 +102,7 @@ serve(req)
   │      • Applies MEMBER_SCOPED_ACTIONS gate (forces body.member_number to caller's own)
   │      • Applies CLIENT_ALLOWED_ACTIONS gate (client role limited to 4 vault actions, scoped to auth.callerClientId)
   │      • Applies SPECIALIST_ALLOWED_ACTIONS gate (specialist role limited to 4 vault actions, scoped to auth.callerSpecialistId)
-  │      • Applies TAX_PLANNER_ALLOWED_ACTIONS gate (2026-07-22; tax_planner role ~36 actions; per-handler group-scope guards, gotcha #257)
+  │      • Applies TAX_PLANNER_ALLOWED_ACTIONS gate (2026-07-22, TRIMMED; tax_planner role deny-by-default; per-handler group-scope guards + 3-surface PLANNER_EDITABLE_TASK_NAMES, gotchas #257/#262)
   │
   ├─ 7. AUTH_HANDLERS[action]  (from router/dispatch.ts)
   │      • 200 entries

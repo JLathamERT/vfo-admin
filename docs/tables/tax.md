@@ -151,12 +151,13 @@ The Tax 4 flow no longer fires money movement on admin click. Admin picks a 3-op
 | `tax_returns_received_at` | timestamptz | Set by `actions/vault/upload-notify.ts` when a program-4 client uploads their returns. Drives the "Tax returns received" sub-step (green) + the `TAX_returns_received` bell. |
 | `tax4_meeting_confirm_email_sent_at` | timestamptz | When the client High Level Meeting Confirmation Email (`TAX_highlevelmeeting_confirm\|Yes`, id 148) was drafted. |
 | `tax4_meeting_reminder_last_sent_at` | timestamptz | Guard for the once-per-plan in-app "Client decision 1 needed" notification (sweep sets it once; the confirm handler nulls it so the reminder fires fresh after a new meeting date is set). |
+| `tax4_planner_nudge_sent_at` | timestamptz | **NEW 2026-07-22** (migration `20260722130000`). One-shot guard for the day-after-meeting PLANNER bell `TAX_planner_post_meeting` ("Confirm detailed tax plan presentation completion and client decision 1"), fired by `revshare-sweep.ts` when `tax4_meeting_date < today` + a planner is set + NOT(presentation done AND `post_review_decision` set). |
 | `post_review_decision` | text | Admin's pick: `Continue - Revenue Share` / `Undecided` / `Stop - Refund`. |
 | `post_review_decision_token` | text | 32-byte hex for `/tax-postreview-decide?token=`. Indexed. Generated on Continue + Undecided. |
-| `post_review_decision_email_sent_at` | timestamptz | When client email was drafted — sweep base for 24h (Continue lock-in) / 48h (Undecided reminder) / 96h (Undecided PF). |
-| `post_review_client_decision` | text | Client's click on the email button: `Proceed` (Undecided→Proceed → fires revshare) / `Confirmed` (Continue-email green "Continue now" click → fires revshare immediately, skipping the 24h grace) / `Refund` (fires refund) / `Auto-Locked` (sweep-set after 24h Continue grace expires with no client click). |
-| `post_review_reminder_sent_at` | timestamptz | Undecided 48h reminder timestamp. |
-| `post_review_pf_notified_at` | timestamptz | Undecided 96h PF notification timestamp. |
+| `post_review_decision_email_sent_at` | timestamptz | When client email was drafted — sweep base for the 48h reminder / 96h PF ladder (as of 2026-07-22 BOTH the Continue and Undecided picks use it; the Continue 24h auto-lock is REMOVED, gotcha #264). |
+| `post_review_client_decision` | text | Client's click on the email button: `Proceed` (Undecided→Proceed → fires revshare) / `Confirmed` (Continue-email green "Continue now" click → fires revshare) / `Refund` (fires refund). **`Auto-Locked` is NO LONGER written by Tax 4 as of 2026-07-22 (gotcha #264)** — Continue is now click-only; the value survives only as historical data + the Tax 5 implementation twin. |
+| `post_review_reminder_sent_at` | timestamptz | 48h reminder timestamp — shared by BOTH the Undecided AND (as of 2026-07-22) the Continue reminder ladder (safe: mutually exclusive per plan). |
+| `post_review_pf_notified_at` | timestamptz | 96h PF notification timestamp — shared by BOTH the Undecided AND (as of 2026-07-22) the Continue-stalled bell. |
 | `refund_status` | text | `succeeded` / `failed`. Set by `automation_TAX_refund` (PUBLIC, accepts service-role bearer OR admin session token). |
 | `refund_id` | text | Stripe refund object id. |
 | `refund_amount` | numeric | What was actually refunded (BASE amount only — no card-fee gross-up). |

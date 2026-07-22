@@ -155,7 +155,10 @@ Additionally, `actions/msm/update-client.ts` now **ignores `status` and `assigne
 
 ### Tax-planner group-scope guards (2026-07-22 — the planner IDOR fence)
 
-The `tax_planner` role is deny-by-default to `TAX_PLANNER_ALLOWED_ACTIONS`, but the allowlist is broad (the whole tax editing surface), so a second layer scopes each call to the caller's **Tax Planning Group**. `utils/tax-planner-ownership.ts` exports:
+The `tax_planner` role is deny-by-default to `TAX_PLANNER_ALLOWED_ACTIONS`, so a second layer scopes each allowed call to the caller's **Tax Planning Group**. `utils/tax-planner-ownership.ts` exports:
+
+> **Allowlist TRIMMED 2026-07-22 (gotcha #262):** the original broad allowlist was narrowed — planners LOST `automation_TAX_decision`/`_readyfortax3`/`_presentation_schedule`/`_request_returns`/`_pricing`/`_extrameeting`/`_depositrefund`/`_sendagreement`/`tax_save_deposit_pi`/`tax_allocate_planner`/`msm_update_tax_status` and KEEP `tax_save_task`, `tax_save_assess_form`, `tax_add_specialist`, `automation_TAX_highlevelmeeting_confirm`, `automation_TAX_implementdecision`, `automation_TAX_postreviewdecision` + loaders/vault/notifications/portal/login. Per-step edits via `tax_save_task` are further gated by the three-surface `PLANNER_EDITABLE_TASK_NAMES` whitelist. The group-scope guards below still live on the de-allowlisted handlers as defence-in-depth, but a planner can no longer reach them.
+
 
 | Guard | Checks |
 |---|---|
