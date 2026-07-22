@@ -4,6 +4,7 @@ import { callApi, loadCachedAction } from '../../lib/api'
 import { Skeleton, ClientsListSkeleton, TrainingTrackSkeleton, CoachingMeetingsSkeleton, CoachingRenewalSkeleton, MsmHomeSkeleton } from '../shared/Skeleton'
 import { TrackHero, PhaseBadge } from '../shared/TrackKit'
 import { countedTasks, countedDone, phaseState, isPositiveStatus } from '../shared/trainingStatus'
+import { isTrackerTask } from '../shared/trackerSteps'
 
 // Group a phase's tasks so each section header owns the contiguous sub-steps beneath it,
 // letting the UI enclose the group and keep following standalone tasks visually separate.
@@ -414,6 +415,10 @@ function MemberTrainingView({ enrollment, program }) {
           {(() => {
             const renderMemberTask = (task, inGroup) => {
               const p = progress[task.id] || {}
+              const trackerMeta = isTrackerTask(task)
+              if (trackerMeta) return (
+                <MemberTrackerTask key={task.id} task={task} meta={trackerMeta} enrollmentId={enrollment.id} progress={p} inGroup={inGroup} onStatusChange={handleTaskComplete} />
+              )
               if (task.video_url) return (
                 <div key={task.id} style={{ marginBottom: '8px' }}>
                   <VideoTask task={task} progress={p} enrollmentId={enrollment.id} onComplete={handleTaskComplete} />
@@ -443,6 +448,171 @@ function MemberTrainingView({ enrollment, program }) {
         </div>
         )
       })}
+    </div>
+  )
+}
+
+// Member-driven "90 Day Plan" tracker step: an expandable row where the member fills a
+// short form and each Add appends a read-only entry. Backend re-derives the step status
+// from the count, so after an add we patch the parent's progress map (onStatusChange) to
+// keep the phase / TrackHero coloring live without a full reload.
+function MemberTrackerTask({ task, meta, enrollmentId, progress, inGroup, onStatusChange }) {
+  const [open, setOpen] = useState(false)
+  const [entries, setEntries] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [firmName, setFirmName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [source, setSource] = useState('')
+  const [warmCold, setWarmCold] = useState('')
+  const [notes, setNotes] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const labelStyle = { fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }
+
+  // Before the entries load we can only approximate the count from the step status
+  // (Completed ⇒ at/above threshold; any other status ⇒ at least one). Once loaded the
+  // exact length replaces it and the pill self-corrects.
+  const fallbackCount = isPositiveStatus(progress?.status) ? meta.threshold : (progress?.status ? 1 : 0)
+  const count = entries != null ? entries.length : fallbackCount
+  const dotColor = count >= meta.threshold ? '#1b9254' : count >= 1 ? '#e06717' : 'transparent'
+  const pillStyle = count >= meta.threshold
+    ? { background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }
+    : count >= 1
+      ? { background: 'rgba(224,103,23,0.15)', color: '#e06717', fontWeight: 600 }
+      : { background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }
+
+  async function ensureLoaded() {
+    if (loaded || loading) return
+    setLoading(true)
+    try {
+      const data = await callApi('training_tracker_load', { enrollment_id: enrollmentId, task_id: task.id })
+      setEntries(data.entries || [])
+      setLoaded(true)
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
+  }
+
+  function toggle() {
+    const next = !open
+    setOpen(next)
+    if (next) ensureLoaded()
+  }
+
+  async function addEntry() {
+    const fn = firstName.trim(), ln = lastName.trim(), em = email.trim()
+    if (!fn) { setError('First name is required.'); return }
+    if (!ln) { setError('Last name is required.'); return }
+    if (!em || !em.includes('@')) { setError('A valid email is required.'); return }
+    if (!warmCold) { setError('Please choose Warm or Cold.'); return }
+    setError('')
+    setSubmitting(true)
+    try {
+      const data = await callApi('training_tracker_add', {
+        enrollment_id: enrollmentId,
+        task_id: task.id,
+        entry: { first_name: fn, last_name: ln, firm_name: firmName.trim(), email: em, phone: phone.trim(), source: source.trim(), warm_cold: warmCold, notes: notes.trim() },
+      })
+      setEntries(prev => [...(prev || []), data.entry])
+      setFirstName(''); setLastName(''); setFirmName(''); setEmail(''); setPhone(''); setSource(''); setWarmCold(''); setNotes('')
+      if (data.status && onStatusChange) onStatusChange(task.id, data.status, null)
+    } catch (err) { setError(err.message) }
+    finally { setSubmitting(false) }
+  }
+
+  const fieldGroup = (label, node, minWidth = '140px') => (
+    <div style={{ flex: 1, minWidth }}><label style={labelStyle}>{label}</label>{node}</div>
+  )
+
+  return (
+    <div style={{ padding: '10px 0', borderBottom: inGroup ? 'none' : '1px solid var(--vfo-tint)' }}>
+      <div onClick={toggle} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: dotColor, flexShrink: 0, border: '1px solid var(--vfo-border-mid)' }} />
+        <div style={{ flex: 1 }}>
+          <span style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{task.name}</span>
+        </div>
+        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', ...pillStyle }}>{count}/{meta.threshold}</span>
+        <button onClick={(e) => { e.stopPropagation(); toggle() }} style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: open ? 'rgba(231,76,60,0.15)' : 'rgba(0,149,255,0.15)', color: open ? '#e74c3c' : '#0095ff', fontFamily: 'Inter, sans-serif' }}>
+          {open ? 'Hide' : `+ Add ${meta.nounPlural}`}
+        </button>
+      </div>
+
+      {open && (
+        <div style={{ marginLeft: '18px', marginTop: '12px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '8px', padding: '16px' }}>
+          {loading && <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginBottom: '12px' }}>Loading...</div>}
+          {(entries || []).map(en => (
+            <TrackerEntryCard key={en.id} entry={en} />
+          ))}
+          {loaded && (entries || []).length === 0 && <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginBottom: '12px' }}>No {meta.nounPlural.toLowerCase()} added yet.</div>}
+
+          <div style={{ marginTop: (entries || []).length ? '12px' : '0' }}>
+            <div style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Add {meta.noun}</div>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+              {fieldGroup('First Name *', <input value={firstName} onChange={e => setFirstName(e.target.value)} style={inputStyle} />)}
+              {fieldGroup('Last Name *', <input value={lastName} onChange={e => setLastName(e.target.value)} style={inputStyle} />)}
+            </div>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+              {fieldGroup('Firm Name', <input value={firmName} onChange={e => setFirmName(e.target.value)} style={inputStyle} />)}
+              {fieldGroup('Email *', <input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} />, '180px')}
+            </div>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+              {fieldGroup('Phone', <input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} />)}
+              {fieldGroup('Source', <input value={source} onChange={e => setSource(e.target.value)} placeholder="e.g. LinkedIn, Word of mouth" style={inputStyle} />)}
+              {fieldGroup('Warm / Cold *', (
+                <select value={warmCold} onChange={e => setWarmCold(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
+                  <option value="">-- Select --</option>
+                  <option value="Warm">Warm</option>
+                  <option value="Cold">Cold</option>
+                </select>
+              ), '130px')}
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={labelStyle}>Notes</label>
+              <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
+            </div>
+            {error && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginBottom: '8px' }}>{error}</div>}
+            <button onClick={addEntry} disabled={submitting} style={{ padding: '10px 24px', borderRadius: '8px', background: submitting ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '14px', fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              {submitting ? 'Adding...' : `Add ${meta.noun}`}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Read-only rendering of one tracker entry in the SIF label/value style.
+function TrackerEntryCard({ entry, onRemove }) {
+  const dash = (v) => (v && String(v).trim() ? v : '—')
+  const field = (label, value) => (
+    <div style={{ marginBottom: '10px', minWidth: 0 }}>
+      <div style={{ fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{label}</div>
+      <div style={{ fontSize: '12px', color: 'var(--vfo-ink)', whiteSpace: 'pre-wrap', lineHeight: 1.5, overflowWrap: 'anywhere' }}>{dash(value)}</div>
+    </div>
+  )
+  const warm = entry.warm_cold
+  return (
+    <div style={{ padding: '10px 12px', marginBottom: '8px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--vfo-ink)' }}>{entry.first_name} {entry.last_name}</span>
+          {entry.firm_name && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>{entry.firm_name}</span>}
+          {warm && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', fontWeight: 600, background: warm === 'Warm' ? 'rgba(224,103,23,0.15)' : 'rgba(0,149,255,0.15)', color: warm === 'Warm' ? '#e06717' : '#0095ff' }}>{warm}</span>}
+        </div>
+        {onRemove && <button onClick={onRemove} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Remove</button>}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0 20px' }}>
+        {field('Email', entry.email)}
+        {field('Phone', entry.phone)}
+        {field('Source', entry.source)}
+      </div>
+      {field('Notes', entry.notes)}
+      {entry.created_at && <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '2px' }}>Added {entry.created_at.split('T')[0]}</div>}
     </div>
   )
 }

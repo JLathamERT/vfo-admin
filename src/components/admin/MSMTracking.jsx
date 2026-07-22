@@ -4,6 +4,7 @@ import { callApi, getSession, loadCachedAction } from '../../lib/api'
 import { ClientsListSkeleton, TrainingTrackSkeleton, CoachingMeetingsSkeleton, CoachingRenewalSkeleton, AdminMsmHomeSkeleton, ProgramNotesSkeleton, AdminProgramViewSkeleton, SkeletonText, PhaseListSkeleton } from '../shared/Skeleton'
 import { TrackHero, PhaseBadge } from '../shared/TrackKit'
 import { countedTasks, countedDone, phaseState, isPositiveStatus, planStatusLabel } from '../shared/trainingStatus'
+import { isTrackerTask } from '../shared/trackerSteps'
 import { VisibilityBadge, noteTint, SaveVisibilityButtons } from '../shared/NoteVisibility'
 import StepDate from '../shared/StepDate'
 
@@ -455,6 +456,10 @@ function EnrolledPanel({ member, enrollment, program, onDataChange }) {
   const isCoachingLike = isCoaching || isStandard
   const isTaxPlanning = program.name === 'VFO Tax Planning'
   const [activeTab, setActiveTab] = useState(() => {
+    // Deep link from a notification (?sub=training) — consume once, then fall back to
+    // the pft-return tab and finally Home.
+    const deep = sessionStorage.getItem('msmInitialSubTab')
+    if (deep) { sessionStorage.removeItem('msmInitialSubTab'); return deep }
     const ret = sessionStorage.getItem('pftReturnEnrolledTab')
     if (ret) { sessionStorage.removeItem('pftReturnEnrolledTab'); return ret }
     return 'home'
@@ -673,6 +678,13 @@ function TrainingTrack({ enrollment, program, onPlanStatusChange }) {
     return phaseState(phase.program_training_tasks, progress)
   }
 
+  // Tracker steps have no status dropdown — the backend re-derives the step status
+  // from the entry count on add/delete, so we patch progress here to keep the phase
+  // and header (planStatusLabel) coloring live without a reload.
+  function patchTrackerStatus(taskId, status) {
+    setProgress(p => ({ ...p, [taskId]: { ...p[taskId], task_id: taskId, status } }))
+  }
+
   function formatDate(d) {
     if (!d) return ''
     const parts = d.split('-')
@@ -733,6 +745,10 @@ function TrainingTrack({ enrollment, program, onPlanStatusChange }) {
                 {(() => {
                   const renderRow = (task, inGroup) => {
                     const p = progress[task.id] || {}
+                    const trackerMeta = isTrackerTask(task)
+                    if (trackerMeta) {
+                      return <AdminTrackerRow key={task.id} task={task} meta={trackerMeta} inGroup={inGroup} enrollmentId={enrollment.id} progress={p} onStatusChange={patchTrackerStatus} />
+                    }
                     // isTouched drives the status-coloured dot/select (orange Outstanding, red
                     // Stopped); only a positive selection greys the task name out as done.
                     const isTouched = !!p.status
@@ -775,6 +791,106 @@ function TrainingTrack({ enrollment, program, onPlanStatusChange }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// Admin view of a member-driven "90 Day Plan" tracker step. Replaces the status
+// dropdown + StepDate with a SIF-style chip: a status pill and an expandable panel
+// listing the member's submitted entries read-only, each with an admin-only Remove.
+function AdminTrackerRow({ task, meta, inGroup, enrollmentId, progress, onStatusChange }) {
+  const [open, setOpen] = useState(false)
+  const [entries, setEntries] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  const fallbackCount = isPositiveStatus(progress?.status) ? meta.threshold : (progress?.status ? 1 : 0)
+  const count = entries != null ? entries.length : fallbackCount
+  const dotColor = count >= meta.threshold ? '#1b9254' : count >= 1 ? '#e06717' : 'transparent'
+  const pillStyle = count >= meta.threshold
+    ? { background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }
+    : count >= 1
+      ? { background: 'rgba(224,103,23,0.15)', color: '#e06717', fontWeight: 600, border: '1px solid rgba(224,103,23,0.3)' }
+      : { background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }
+
+  async function ensureLoaded() {
+    if (loaded || loading) return
+    setLoading(true)
+    try {
+      const data = await callApi('training_tracker_load', { enrollment_id: enrollmentId, task_id: task.id })
+      setEntries(data.entries || [])
+      setLoaded(true)
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
+  }
+
+  function toggle() {
+    const next = !open
+    setOpen(next)
+    if (next) ensureLoaded()
+  }
+
+  async function removeEntry(entryId) {
+    if (!window.confirm('Remove this entry? This cannot be undone.')) return
+    try {
+      const data = await callApi('training_tracker_delete', { entry_id: entryId })
+      setEntries(prev => (prev || []).filter(e => e.id !== entryId))
+      if (onStatusChange) onStatusChange(task.id, data.status || '')
+    } catch (err) { console.error(err) }
+  }
+
+  return (
+    <div style={{ padding: '8px 0', borderBottom: inGroup ? 'none' : '1px solid var(--vfo-tint)' }}>
+      <div onClick={toggle} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flexWrap: 'wrap' }}>
+        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, flexShrink: 0, border: `1.5px solid ${count >= 1 ? dotColor : 'var(--vfo-border-mid)'}` }} />
+        <div style={{ flex: 1, minWidth: '150px' }}>
+          <span style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{task.name}</span>
+        </div>
+        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', ...pillStyle }}>{count}/{meta.threshold}</span>
+        <span style={{ color: 'var(--vfo-muted)', fontSize: '9px', transform: open ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+      </div>
+
+      {open && (
+        <div style={{ marginLeft: '18px', marginTop: '12px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '8px', padding: '16px' }}>
+          {loading && <div style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>Loading...</div>}
+          {(entries || []).map(en => (
+            <AdminTrackerEntryCard key={en.id} entry={en} onRemove={() => removeEntry(en.id)} />
+          ))}
+          {loaded && (entries || []).length === 0 && <div style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>No {meta.nounPlural.toLowerCase()} added by the member yet.</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Read-only rendering of one tracker entry in the SIF label/value style, with an
+// admin-only Remove control.
+function AdminTrackerEntryCard({ entry, onRemove }) {
+  const dash = (v) => (v && String(v).trim() ? v : '—')
+  const field = (label, value) => (
+    <div style={{ marginBottom: '10px', minWidth: 0 }}>
+      <div style={{ fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{label}</div>
+      <div style={{ fontSize: '12px', color: 'var(--vfo-ink)', whiteSpace: 'pre-wrap', lineHeight: 1.5, overflowWrap: 'anywhere' }}>{dash(value)}</div>
+    </div>
+  )
+  const warm = entry.warm_cold
+  return (
+    <div style={{ padding: '10px 12px', marginBottom: '8px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--vfo-ink)' }}>{entry.first_name} {entry.last_name}</span>
+          {entry.firm_name && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>{entry.firm_name}</span>}
+          {warm && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', fontWeight: 600, background: warm === 'Warm' ? 'rgba(224,103,23,0.15)' : 'rgba(0,149,255,0.15)', color: warm === 'Warm' ? '#e06717' : '#0095ff' }}>{warm}</span>}
+        </div>
+        <button onClick={onRemove} style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Remove</button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0 20px' }}>
+        {field('Email', entry.email)}
+        {field('Phone', entry.phone)}
+        {field('Source', entry.source)}
+      </div>
+      {field('Notes', entry.notes)}
+      {entry.created_at && <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '2px' }}>Added {entry.created_at.split('T')[0]}</div>}
     </div>
   )
 }

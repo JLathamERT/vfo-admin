@@ -193,6 +193,10 @@ export default function AdminPortal() {
       if (!allMembers.length) return // members not loaded yet — effect re-runs when they are
       const m = allMembers.find(x => String(x.plugin_member_number) === String(memberNum))
       if (m) {
+        // Optional MSM sub-tab (e.g. ?sub=training) — stashed for EnrolledPanel to
+        // consume-and-clear once on mount, same as pftReturnEnrolledTab.
+        const sub = params.get('sub')
+        if (sub) sessionStorage.setItem('msmInitialSubTab', sub)
         openMemberProfile(m, params.get('feature') || 'profile_details')
         navigate('/admin', { replace: true }) // strip params so manual nav isn't re-hijacked
       }
