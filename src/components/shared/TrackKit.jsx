@@ -24,7 +24,9 @@ export function PhaseBadge({ number, state }) {
 }
 
 // Horizontal mini-stepper: one node per phase, connected by lines.
-// steps: [{ label, state: 'done' | 'active' | 'pending' }]
+// steps: [{ label, state: 'done' | 'active' | 'pending', number? }]
+// `number` overrides the positional 1..N node label for tracks whose business
+// numbering doesn't match render order (see the tax track's Set Up / Tax 5).
 function PhaseStepper({ steps }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--vfo-tint)' }}>
@@ -45,7 +47,7 @@ function PhaseStepper({ steps }) {
                 color: isDone ? '#ffffff' : isActive ? '#125ecc' : 'var(--vfo-faint)',
                 boxShadow: isActive ? '0 2px 8px rgba(18,94,204,0.22)' : 'none',
               }}>
-                {isDone ? '✓' : i + 1}
+                {isDone ? '✓' : (s.number != null ? s.number : i + 1)}
               </div>
               <div style={{
                 fontSize: '10px', fontWeight: 600, lineHeight: 1.25, textAlign: 'center',

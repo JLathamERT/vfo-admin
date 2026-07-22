@@ -22,6 +22,35 @@ const plannerDisplayName = (pl) => [plannerPlainName(pl), ...plannerCerts(pl)].f
 // backend constants/tax-discount.ts; delete both to retire the special case).
 const DISCOUNT_MEMBER_NUMBER = '59073'
 
+// Phase badge tokens come from the phase NAME, never its render position: the
+// track's business numbering ("Tax 1".."Tax 6") doesn't line up with an index —
+// VFO Tax Planning leads with an unnumbered "Set Up" phase, and the two stored
+// "Tax 5" phases render as one merged card. Set Up gets a letter so it reads as
+// a pre-step outside the Tax 1-6 sequence.
+const TAX5A_PHASE = 'Tax 5 - Education & DD (Specialist Allocation)'
+const TAX5B_PHASE = 'Tax 5 - Education & DD (Post Allocation)'
+const phaseBadgeToken = (name) => {
+  if (name === 'Set Up') return 'S'
+  const m = /^Tax (\d+)/.exec(name || '')
+  return m ? m[1] : ''
+}
+// Descriptive half of the phase name — the badge already carries the number, so
+// the stepper label doesn't repeat it ("1 / Diagnostic", not "1 / Tax 1").
+const phaseShortLabel = (name) => {
+  if (name === 'Set Up') return 'Set Up'
+  const rest = (name || '').split(' - ').slice(1).join(' - ')
+  return rest || name || ''
+}
+
+// Done / In progress / Not started pill — module scope so the merged Tax 5 card
+// can reuse it for the card header and both of its sub-sections (gotcha #193).
+function PhasePill({ state, detail = '' }) {
+  const base = { fontSize: '11px', padding: '3px 10px', borderRadius: '999px', fontWeight: 600 }
+  if (state === 'done') return <span style={{ ...base, background: 'rgba(27,146,84,0.15)', color: '#1b9254', border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
+  if (state === 'active') return <span style={{ ...base, background: 'rgba(0,149,255,0.15)', color: '#0095ff', border: '1px solid rgba(0,149,255,0.3)' }}>In progress{detail}</span>
+  return <span style={{ ...base, background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', fontWeight: 400 }}>Not started</span>
+}
+
 function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, onSubmitted, memberCategory, memberType, programType, memberNumber }) {
   const existing = existingData || {}
   const isViewMode = !!existingData
@@ -2081,18 +2110,23 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     )
   }
 
-  // Display-only summary for the hero stepper: short label + state per phase,
-  // in render order (before-spec phases, 5a, 5b, after-spec). 5a/5b states
-  // mirror the pill logic used on their cards below.
+  // Display-only summary for the hero stepper: badge token + short label +
+  // state per phase, in render order (before-spec phases, the merged Tax 5,
+  // after-spec). The 5a/5b states mirror the pill logic on the card below.
   const tax5aHeroState = taxSpecialists.length > 0 && taxSpecialists.every(spec => tax5aTasks.filter(t => t.status_options !== 'specialist_select').every(t => localProgress[`${t.id}_${spec.id}`]?.status))
     ? 'done'
     : taxSpecialists.length > 0 && taxSpecialists.some(spec => tax5aTasks.filter(t => t.status_options !== 'specialist_select').some(t => localProgress[`${t.id}_${spec.id}`]?.status))
       ? 'active' : 'pending'
+  const tax5bState = tax5bPhase ? (tax5bUnlocked ? getPhaseState(tax5bPhase) : 'pending') : 'pending'
+  // The two stored Tax 5 phases render as ONE card, so the stepper shows one
+  // node: done only when both halves are done, active as soon as either moves.
+  const tax5State = (tax5aHeroState === 'done' && tax5bState === 'done')
+    ? 'done'
+    : (tax5aHeroState !== 'pending' || tax5bState !== 'pending') ? 'active' : 'pending'
   const heroSteps = [
-    ...phasesBeforeSpec.map(ph => ({ label: ph.name.split(' - ')[0], state: getPhaseState(ph) })),
-    ...(tax5aPhase ? [{ label: 'Tax 5a', state: tax5aHeroState }] : []),
-    ...(tax5bPhase ? [{ label: 'Tax 5b', state: tax5bUnlocked ? getPhaseState(tax5bPhase) : 'pending' }] : []),
-    ...phasesAfterSpec.map(ph => ({ label: ph.name.split(' - ')[0], state: getPhaseState(ph) })),
+    ...phasesBeforeSpec.map(ph => ({ number: phaseBadgeToken(ph.name), label: phaseShortLabel(ph.name), state: getPhaseState(ph) })),
+    ...((tax5aPhase || tax5bPhase) ? [{ number: '5', label: 'Education & DD', state: tax5State }] : []),
+    ...phasesAfterSpec.map(ph => ({ number: phaseBadgeToken(ph.name), label: phaseShortLabel(ph.name), state: getPhaseState(ph) })),
   ]
   // Task-level hero counts, mirroring the same per-phase visibility rules the
   // card pills use (Tax 1 children only when info required, refund only on
@@ -2119,9 +2153,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const heroDoneTasks = [...phasesBeforeSpec, ...phasesAfterSpec].reduce((s, ph) => s + heroCountedTasks(ph).filter(t => isTaskStatused(t)).length, 0)
     + taxSpecialists.reduce((s, spec) => s + tax5aSpecTasks.filter(t => !!localProgress[`${t.id}_${spec.id}`]?.status).length, 0)
     + tax5bCounted.filter(tax5bTaskDone).length
-  const tax5aNumber = phasesBeforeSpec.length + 1
-  const tax5bNumber = phasesBeforeSpec.length + (tax5aPhase ? 1 : 0) + 1
-  const afterSpecNumberBase = phasesBeforeSpec.length + (tax5aPhase ? 1 : 0) + (tax5bPhase ? 1 : 0)
+  const tax5aNoteCount = (notes || []).filter(n => n.phase_name === TAX5A_PHASE && n.tab_name === 'Tax Priorities').length
+  const tax5bNoteCount = (notes || []).filter(n => n.phase_name === TAX5B_PHASE && n.tab_name === 'Tax Priorities').length
+  const tax5Expanded = expanded['tax5'] !== undefined ? expanded['tax5'] : (tax5State !== 'done')
 
   return (
     <div>
@@ -2176,7 +2210,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           <div key={phase.id} style={{ background: 'var(--vfo-card)', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
               <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !isExpanded }))} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flex: 1 }}>
-                <PhaseBadge number={phaseIdx + 1} state={state} />
+                <PhaseBadge number={phaseBadgeToken(phase.name)} state={state} />
                 <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -2197,28 +2231,45 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         )
       })}
 
-      {tax5aPhase && (
-        <div style={{ background: 'var(--vfo-card)', border: '1px solid rgba(0,149,255,0.4)', borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
+      {(tax5aPhase || tax5bPhase) && (() => {
+        // The two stored "Tax 5" phases (Specialist Allocation / Post Allocation)
+        // render as ONE numbered card, so the badge matches the title on both
+        // programs. Each half keeps its own status pill, notes thread and lock
+        // state as a sub-section inside.
+        const t5Border = tax5State === 'done' ? 'rgba(27,146,84,0.3)' : tax5State === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
+        const subHeader = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', paddingBottom: '8px', marginBottom: '10px', borderBottom: '1px solid var(--vfo-border-soft)' }
+        const subTitle = { fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 800, color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px' }
+        const toggle5 = () => setExpanded(p => ({ ...p, tax5: !tax5Expanded }))
+        return (
+        <div style={{ background: 'var(--vfo-card)', border: `1px solid ${t5Border}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <PhaseBadge number={tax5aNumber} state={tax5aHeroState} />
-              <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: tax5aHeroState === 'active' ? 'var(--vfo-primary)' : 'var(--vfo-heading)', textTransform: 'uppercase', letterSpacing: '1px' }}>Tax 5 - Education & DD (Specialist Allocation)</span>
+            <div onClick={toggle5} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flex: 1 }}>
+              <PhaseBadge number="5" state={tax5State} />
+              <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: tax5State === 'active' ? 'var(--vfo-primary)' : 'var(--vfo-heading)', textTransform: 'uppercase', letterSpacing: '1px' }}>Tax 5 - Education &amp; DD</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {!readOnly && !plannerMode && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === 'Tax 5 - Education & DD (Specialist Allocation)' && n.tab_name === 'Tax Priorities').length} isOpen={expanded['notes_tax5a']} onClick={() => setExpanded(p => ({ ...p, ['notes_tax5a']: !p['notes_tax5a'] }))} />}
-              {taxSpecialists.length > 0 && taxSpecialists.every(spec => tax5aTasks.filter(t => t.status_options !== 'specialist_select').every(t => localProgress[`${t.id}_${spec.id}`]?.status))
-                ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
-                : taxSpecialists.length > 0 && taxSpecialists.some(spec => tax5aTasks.filter(t => t.status_options !== 'specialist_select').some(t => localProgress[`${t.id}_${spec.id}`]?.status))
-                  ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress</span>
-                  : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>
-              }
-              {!readOnly && (
-                <button onClick={() => setShowAddSpec(!showAddSpec)} style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff' }}>+ Add Specialist</button>
-              )}
+              {!readOnly && !plannerMode && <PhaseNotesButton count={tax5aNoteCount + tax5bNoteCount} isOpen={expanded['notes_tax5']} onClick={() => setExpanded(p => ({ ...p, ['notes_tax5']: !p['notes_tax5'] }))} />}
+              <PhasePill state={tax5State} />
+              <span onClick={toggle5} style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: tax5Expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
             </div>
           </div>
-          {!readOnly && !plannerMode && expanded['notes_tax5a'] && <PhaseNotesPanel clientId={clientId} phaseName="Tax 5 - Education & DD (Specialist Allocation)" tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
-          <div style={{ borderTop: '1px solid rgba(0,149,255,0.2)', padding: '12px 18px' }}>
+          {/* One notes thread for the whole merged card: written under the
+              Specialist Allocation phase, read across both stored phases so any
+              note previously filed under Post Allocation still shows. */}
+          {!readOnly && !plannerMode && expanded['notes_tax5'] && <PhaseNotesPanel clientId={clientId} phaseName={TAX5A_PHASE} phaseNames={[TAX5A_PHASE, TAX5B_PHASE]} tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
+          {tax5Expanded && (
+          <div style={{ borderTop: `1px solid ${t5Border}`, padding: '12px 18px' }}>
+          {tax5aPhase && (
+          <div style={{ marginBottom: tax5bPhase ? '20px' : 0 }}>
+            <div style={subHeader}>
+              <span style={subTitle}>Specialist Allocation</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <PhasePill state={tax5aHeroState} />
+                {!readOnly && (
+                  <button onClick={() => setShowAddSpec(!showAddSpec)} style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff' }}>+ Add Specialist</button>
+                )}
+              </div>
+            </div>
             {showAddSpec && (
               <div style={{ padding: '12px', background: 'var(--vfo-tint)', borderRadius: '8px', marginBottom: '12px' }}>
                 <select value={newSpecId} onChange={e => setNewSpecId(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)', width: '100%', marginBottom: '8px', padding: '8px 12px' }}>
@@ -2265,33 +2316,20 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               )
             })}
           </div>
-        </div>
-      )}
-
-      {tax5bPhase && (() => {
-        const tax5bState = getPhaseState(tax5bPhase)
-        const tax5bDotColor = tax5bState === 'done' ? '#1b9254' : tax5bState === 'active' ? '#0095ff' : 'transparent'
-        const tax5bBorderColor = tax5bState === 'done' ? 'rgba(27,146,84,0.3)' : tax5bState === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
-        return (
-        <div style={{ background: 'var(--vfo-card)', border: `1px solid ${tax5bBorderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden', opacity: tax5bUnlocked ? 1 : 0.3, pointerEvents: tax5bUnlocked ? 'auto' : 'none' }}>
-          <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <PhaseBadge number={tax5bNumber} state={tax5bState} />
-              <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: tax5bState === 'active' ? 'var(--vfo-primary)' : 'var(--vfo-heading)', textTransform: 'uppercase', letterSpacing: '1px' }}>Tax 5 - Education & DD (Post Allocation)</span>
-              {!tax5bUnlocked && <span style={{ fontSize: '11px', color: '#e06717', fontWeight: 600 }}>(Unlocks when "Confirm ready for implementation" is set on any specialist)</span>}
+          )}
+          {tax5bPhase && (
+          <div style={{ opacity: tax5bUnlocked ? 1 : 0.45, pointerEvents: tax5bUnlocked ? 'auto' : 'none' }}>
+            <div style={subHeader}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span style={subTitle}>Post Allocation</span>
+                {!tax5bUnlocked && <span style={{ fontSize: '11px', color: '#e06717', fontWeight: 600 }}>(Unlocks when "Confirm ready for implementation" is set on any specialist)</span>}
+              </div>
+              {tax5bUnlocked && <PhasePill state={tax5bState} />}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {!readOnly && !plannerMode && tax5bUnlocked && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === 'Tax 5 - Education & DD (Post Allocation)' && n.tab_name === 'Tax Priorities').length} isOpen={expanded['notes_tax5b']} onClick={() => setExpanded(p => ({ ...p, ['notes_tax5b']: !p['notes_tax5b'] }))} />}
-              {tax5bUnlocked && tax5bState === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
-              {tax5bUnlocked && tax5bState === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress</span>}
-              {tax5bUnlocked && tax5bState === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>}
-            </div>
+            {tax5bUnlocked && (tax5bPhase.program_client_tasks || []).map(task => renderTask(task, tax5bPhase))}
           </div>
-          {!readOnly && !plannerMode && expanded['notes_tax5b'] && <PhaseNotesPanel clientId={clientId} phaseName="Tax 5 - Education & DD (Post Allocation)" tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
-          {tax5bUnlocked && (
-            <div style={{ borderTop: '1px solid var(--vfo-border)', padding: '12px 18px' }}>
-              {(tax5bPhase.program_client_tasks || []).map(task => renderTask(task, tax5bPhase))}
-            </div>
+          )}
+          </div>
           )}
         </div>
         )
@@ -2318,7 +2356,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           <div key={phase.id} style={{ background: 'var(--vfo-card)', border: `1px solid ${borderColor}`, borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
               <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !isExpanded }))} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flex: 1 }}>
-                <PhaseBadge number={afterSpecNumberBase + phaseIdx + 1} state={state} />
+                <PhaseBadge number={phaseBadgeToken(phase.name)} state={state} />
                 <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

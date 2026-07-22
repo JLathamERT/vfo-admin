@@ -17,6 +17,16 @@ Ready for Tax 3  →  Tax 3 Decision  →  /tax-decide      →  PCADMIN pricing
                                                                                                                                                                                                        implementation)
 ```
 
+### Phase cards vs stored phases (display, 2026-07-22)
+
+The tax track stores **7 phases on Holistic (program 1)** and **8 on VFO Tax Planning (program 4)**, but renders **6** and **7** cards respectively, because the two stored phases named `Tax 5` — `Tax 5 - Education & DD (Specialist Allocation)` and `Tax 5 - Education & DD (Post Allocation)` — render as ONE card badged `5`, with each half a sub-section inside it (own status pill, own unlock gate, one shared notes thread). Badge numbers are derived from the phase NAME (`Set Up` → `S`, `Tax <n>` → `n`), never the render position, so badges read `1,2,3,4,5,6` on Holistic and `S,1,2,3,4,5,6` on Tax Planning and always match the card title.
+
+**Do not rename the stored phases** to "fix" the numbering — the names are exact-string-matched in `actions/clients/overview-tax.ts` (`phaseReach`), at ~14 sites in `TaxPrioritiesTab.jsx`, and are stored as data in `client_notes.phase_name`. See gotcha #260. Steps below still refer to the stored phase names (including "Tax 5a"/"Tax 5b" shorthand), which are unchanged.
+
+### Risk profile seeding (Holistic only, 2026-07-22)
+
+On a **Holistic** plan, `tax_start_plan` copies the client's MAP 1 "Priorities Decided / Risk Profile" answer onto the new plan's Tax 1 "Client risk profile complete" task (`Completed + Risk N` → `Yes — Risk N — <Mindset>`). Creation-time only, never re-synced; `Completed + N/A` seeds nothing; program 4 clients are excluded (no MAP 1 track). Expect a new Holistic plan to open at `1 / N` with Tax 1 reading "In progress". See gotcha #261.
+
 Each arrow is either:
 - A user clicking something in the admin UI (`callApi(...)`),
 - A token-link landing page (raw fetch, no session),
