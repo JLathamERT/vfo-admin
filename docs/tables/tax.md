@@ -4,7 +4,7 @@ Tax engagements run alongside (and downstream of) the regular member-program. A 
 
 ## `client_tax_plans`
 
-State machine for the tax-planning engagement. **84 columns total** (4 original + 51 added via migration `20260518000000_tax_phase0_schema.sql` + 14 split column families + 6 deposit-refund columns added in the Tax Planning alignment session + 4 member-pays columns: `member_paying_on_behalf`, `tax4_meeting_time`, `tax4_meeting_timezone`, `tax4_meeting_confirm_email_sent_at` + 4 added in the presentation-step session: `member_presentation_link`, `presentation_send_date`, `presentation_scheduled_at`, `presentation_email_sent_at` + 1 Phase D admin card-update column: `default_payment_method_id` + 8 tax-planner columns added 2026-07-21: `tax_planner_id`, `tax_planner_share`, `{retainer,implementation}_planner_paid`/`_completed_at`/`_email_sent_at`). Parallel to `pipeline_map1` for MAP1; see [tax-planning flow](../flows/tax-planning.md) for end-to-end usage.
+State machine for the tax-planning engagement. **84 columns total** (4 original + 51 added via migration `20260518000000_tax_phase0_schema.sql` + 14 split column families + 6 deposit-refund columns added in the Tax Planning alignment session + 4 member-pays columns: `member_paying_on_behalf`, `tax4_meeting_time`, `tax4_meeting_timezone`, `tax4_meeting_confirm_email_sent_at` + 4 added in the presentation-step session: `member_presentation_link`, `presentation_send_date`, `presentation_scheduled_at`, `presentation_email_sent_at` + 1 Phase D admin card-update column: `default_payment_method_id` + 8 tax-planner columns added 2026-07-21: `tax_planner_id`, `tax_planner_share`, `{retainer,implementation}_planner_paid`/`_completed_at`/`_email_sent_at` + 3 assess-form columns added 2026-07-22: `assess_form`, `assess_form_submitted_at`, `assess_form_submitted_by`). Parallel to `pipeline_map1` for MAP1; see [tax-planning flow](../flows/tax-planning.md) for end-to-end usage.
 
 > **Program-aware**: rows are tagged with `program_id` so the same handlers serve both Holistic Planning's Tax Priorities track (program_id=1) and the standalone VFO Tax Planning program (program_id=4). Client-visible labels (invoice/receipt headers, Stripe line items, BoldSign agreement title) switch between "VFO Holistic Planning" and "VFO Tax Planning" via the `programLabel(programId)` helper in `utils/program-label.ts`.
 
@@ -38,7 +38,7 @@ State machine for the tax-planning engagement. **84 columns total** (4 original 
 | `split_type` | text | `1/3 Member, 2/3 VFOS` / `50/50` / `Custom` (legacy 2-way) — and, since 2026-07-21, the 3-way preset `1/3 Member, 1/3 Tax Planner, 1/3 VFOS`. `TaxDecisionForm`/`TaxPricingForm` now offer the 3-way preset + a Custom mode where all three boxes are editable and must sum to `total_fee` (1-cent tolerance). Strategic-member tax splits (`src/lib/strategicSplits.js`, `programType='tax'`) add a 4th Strategic Partner leg. |
 | `member_share` | numeric | Dollar amount of member's revshare (of the TOTAL — proportional per installment, gotcha #252). |
 | `vfos_share` | numeric | Dollar amount of VFOS's cut. |
-| `tax_planner_id` | bigint | **2026-07-21.** fk → `tax_planners.id`. The Advanced Tax Planner allocated to the plan (set/cleared by the `tax_allocate_planner` action from the "Allocate to Advanced Tax Planner" step; supersedes the free-text `atp_name`). Gates the Yes-path (decision/pricing/extra-meeting return 400 without it). |
+| `tax_planner_id` | bigint | **2026-07-21.** fk → `tax_planners.id`. The Advanced Tax Planner allocated to the plan (set/cleared by the `tax_allocate_planner` action from the "Allocate to Advanced Tax Planner" step; supersedes the free-text `atp_name`). Gates the Yes-path (decision/pricing/extra-meeting return 400 without it). **Also the group-rights key for the Tax Planner portal (2026-07-22):** a `tax_planner` caller may view/edit any plan whose `tax_planner_id` is a planner sharing their `tax_planners.member_type` (Tax Planning Group) — enforced by `denyIfNotPlannerPlan`/`denyIfNotPlannerClient` in `utils/tax-planner-ownership.ts` (gotcha #257). |
 | `tax_planner_share` | numeric | **2026-07-21.** Dollar amount of the Tax Planner leg (of the TOTAL). Paid proportionally per installment to the planner's GROUP Connect account by `utils/tax-planner-payout.ts` (gotcha #253). |
 | `potential_tax_savings` | numeric | Undecided branch only — from form's `potentialTaxSavings`. |
 | `initial_retainer_quoted` | numeric | Undecided branch only — quoted in meeting. |
@@ -105,6 +105,15 @@ Written by `utils/tax-planner-payout.ts transferPlannerShare` — the tax planne
 | `implementation_planner_paid` | text | Same statuses as retainer, for the implementation installment. |
 | `implementation_planner_completed_at` | timestamptz | Terminal-success stamp. |
 | `implementation_planner_email_sent_at` | timestamptz | Guard for `TAX_planner_revshare\|implementation` (id 199, Draft). |
+
+### Tax 2 — Assess-form step (added 2026-07-22)
+Backs the **"Assess tax planning opportunities (and enter presentation details)"** form-step (task ids 89 program 1 / 123 program 4, RENAMED from "Assess tax planning opportunities"; trigger `status_options==='assess_form'` OR the exact renamed task name — sentinel-first, #254 pattern). A PIP-Follow-Up-Decision-style step: green "Enter Details" button → inline form (ONE question, textarea) → `tax_save_assess_form` → then `saveTask 'Completed'`. Written ONLY by `tax_save_assess_form` (AUTH, ADMIN_ONLY + TAX_PLANNER allowlist, `denyIfNotPlannerPlan` guard, whitelists `{question_1}`); NO chains / emails / notifications. Migration `20260722120000_client_tax_plans_assess_form.sql`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `assess_form` | jsonb | The submitted answers (currently `{question_1}`). |
+| `assess_form_submitted_at` | timestamptz | Stamped on submit; drives the green "Submitted" pill + the read-only chevron-expand view (no re-edit). |
+| `assess_form_submitted_by` | text | Session email of the submitter. |
 
 ### Tax 3 — reminder timers (Phase post-Tax-5 polish)
 The Tax 3 cascade is gated by client action at 3 different points (Undecided email click, agreement signing, payment). Each has a 48h reminder + 96h PF-notification timer driven by `tax-revshare-sweep-daily` cron.
@@ -277,3 +286,20 @@ The "companies" that receive the Tax Planner Share via a group-level Stripe Conn
 | `created_at` | timestamptz | not null, default `now()`. |
 
 **Touched by:** `save_tax_planning_group`, `delete_tax_planning_group`, `tax_planning_group_stripe_connect_request`, `utils/tax-planner-payout.ts` (destination resolution).
+
+---
+
+## `tax_planner_logins` (added 2026-07-22)
+
+The **5th `*_logins` table** — per-planner portal credentials for the NEW Tax Planner portal (5th portal / 6th login type). Whereas the 2026-07-21 build gave planners NO login (admin-only), a planner can now sign in at `/tax-planner`. RLS enabled, **deny-all** (no policies → service-role only; all access via the edge fn). The caller role `'tax_planner'` is fenced to `TAX_PLANNER_ALLOWED_ACTIONS` + per-handler group-scope guards (gotcha #257). Shares the `admin_sessions` token table with the other four login types. Migration `20260722100000_tax_planner_logins.sql` (anon probe → `Content-Range: */0`). See [auth.md](auth.md) + [../architecture/04-auth-and-sessions.md](../architecture/04-auth-and-sessions.md).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | identity pk. |
+| `name` | text | |
+| `email` | text | not null. **Unique index on `lower(email)`.** |
+| `tax_planner_id` | bigint | not null. **Unique.** fk → `tax_planners.id` ON DELETE CASCADE (one login per planner). |
+| `passcode_hash` | text | not null. Salted PBKDF2-HMAC-SHA256. |
+| `created_at` | timestamptz | default `now()`. |
+
+**Touched by:** written by `submit_login_setup` (`login_type='tax_planner'`, keyed on `tax_planner_id`) + `tax_planner_update_login` (self-service); read by `tax_planner_login`. NOTE: the `login_setup_tokens` `login_type` CHECK constraint was widened to admit `'tax_planner'` (migration `20260722110000` — without it, planner token creation 500s; gotcha #258).
