@@ -32,7 +32,10 @@ The 32 `msm_*` actions fall into 5 subsystems. Each is a small CRUD island — n
 |---|---|---|
 | `msm_load_training_track` | `program_training_phases`, `program_training_tasks` | The training curriculum template. `program_training_tasks.task_type` ∈ `'dropdown'`\|`'section'`\|`'substep'`: `'section'` rows are label-only sub-headings (never counted), `'substep'` rows render indented inside the enclosing section box — see gotcha #173 + `tables/programs.md`. **Completion is decided client-side by `components/shared/trainingStatus.js`: POSITIVE-only (a task counts only on a done-style status, not `Outstanding`/`Stopped`/`Will Watch`); `N/A` removes a task from the total; any `Stopped` step makes the "90 Day Plan:" header read Stopped — gotcha #233.** |
 | `msm_load_training_progress` | `member_training_progress` | Per-enrollment task progress. |
-| `msm_save_training_task` | upserts `member_training_progress` | Keyed by `(enrollment_id, task_id)`. |
+| `msm_save_training_task` | upserts `member_training_progress` | Keyed by `(enrollment_id, task_id)`. **ADMIN_ONLY as of 2026-07-21** (gotcha #256 — the list previously carried only the dead name `msm_save_training_progress`, leaving this ungated). |
+| `training_tracker_load` | `training_tracker_entries`, `program_training_tasks` | **Member-driven tracker steps (2026-07-21).** MEMBER_SCOPED; loads a step's entries (`{enrollment_id, task_id}`), admins any / members own-enrollment via `denyIfNotOwnEnrollment`. Config resolved by `resolveTrackerConfig` — sentinel `status_options` (`tracker_accountants`/`tracker_clients`) first, exact task-name fallback (gotcha #255). |
+| `training_tracker_add` | inserts `training_tracker_entries`; syncs `member_training_progress`; bell | MEMBER-only 403 gate + ownership. The member adds an accountant/client row (task id 76 PFT "Add ≥2 Accountants", id 19 Holistic "Add ≥5 Clients"); `syncTrackerProgress` re-derives the step status from the entry count (0→grey/row-deleted, 1..threshold-1→`In Progress`, ≥threshold→`Completed`), never overwriting `Stopped`/`N/A`. Completion-only FYI bell to the assigned MSM (`TRAINING_tracker_accountant_added`/`_client_added`) — fires once when the step reaches `Completed` at the threshold, not per add. |
+| `training_tracker_delete` | deletes `training_tracker_entries`; syncs `member_training_progress` | ADMIN_ONLY. Removes a member-added row, re-derives status via `syncTrackerProgress`. |
 
 ### C — Meetings (per-enrollment)
 
@@ -85,7 +88,7 @@ load_exclusions, load_member_contacts
 **Adding clients is member-allowed (v337).** `msm_add_client` (the member-side "+ Add Client" on Holistic / Tax / Partnership Fast Track — on Partnership the "clients" are accountants, same action with an `-PFT` ref) and `msm_add_client_contact` are in `MEMBER_SCOPED_ACTIONS`. Because the middleware only scopes `member_number` (not `enrollment_id` / `client_id`), the **handlers add their own ownership guard**: `add-client.ts` returns `403` unless `enrollment.member_number === member_number` (all callers; no-op for admins), and `add-client-contact.ts` returns `403` unless the target client belongs to the caller (member callers only). See [04-auth-and-sessions.md](../architecture/04-auth-and-sessions.md#role-gates).
 
 Other mutations are admin-only (in `ADMIN_ONLY_ACTIONS` array — `constants/role-gates.ts`). Notably:
-- `msm_save_training_task` and `msm_save_client_task` are NOT in either list. The handler doesn't enforce role. Members could in theory write training/client progress for any enrollment/client they know the ID of. Application-level (UI-level) ownership is the only guard.
+- `msm_save_client_task` is NOT in either list — the handler doesn't enforce role, so members could in theory write client progress for any client they know the ID of (application/UI-level ownership is the only guard). **`msm_save_training_task` was closed 2026-07-21** — it is now in `ADMIN_ONLY_ACTIONS` (the list previously carried only the dead name `msm_save_training_progress`, which matched no dispatched action, so the real training-status writer was ungated; gotcha #256).
 
 ## Cross-talk with other flows
 
@@ -94,7 +97,7 @@ Other mutations are admin-only (in `ADMIN_ONLY_ACTIONS` array — `constants/rol
 
 ## Tables touched (composite list)
 
-- **Read/written:** `programs`, `program_training_phases`, `program_training_tasks`, `program_client_phases`, `program_client_tasks`, `member_enrollments`, `member_program_enabled`, `member_training_progress`, `member_meetings`, `clients`, `client_contacts`, `client_enrollments`, `client_progress`, `client_priority_tracks`, `priority_progress`, `members.assigned_msm`.
+- **Read/written:** `programs`, `program_training_phases`, `program_training_tasks`, `program_client_phases`, `program_client_tasks`, `member_enrollments`, `member_program_enabled`, `member_training_progress`, `training_tracker_entries` (member-driven 90 Day Plan tracker steps, 2026-07-21), `member_meetings`, `clients`, `client_contacts`, `client_enrollments`, `client_progress`, `client_priority_tracks`, `priority_progress`, `members.assigned_msm`.
 - **Read only:** `members` (for context).
 
 ## Downstream chains
@@ -105,7 +108,7 @@ Other mutations are admin-only (in `ADMIN_ONLY_ACTIONS` array — `constants/rol
 
 1. **No DB transactions** — `msm_add_client` does 3 inserts (`clients`, `client_contacts`, `client_enrollments`) sequentially, not in a transaction. A failure between #1 and #2 leaves an orphan `clients` row.
 2. **`msm_update_client` duplicate handler** — see [05-api-action-catalog.md](../architecture/05-api-action-catalog.md). The duplicate at line 3216 is dead code.
-3. **Cross-tenant write** — for actions not in `ADMIN_ONLY_ACTIONS` and not in `MEMBER_SCOPED_ACTIONS` (notably `msm_save_training_task`, `msm_save_client_task`, `msm_save_priority_task`), there's no server-side ownership check. Relies on UI not exposing other members' enrollment/client IDs. (`msm_add_client` / `msm_add_client_contact` are NO LONGER in this gap as of v337 — they're member-scoped AND carry handler-level ownership guards on `enrollment_id` / `client_id`.)
+3. **Cross-tenant write** — for actions not in `ADMIN_ONLY_ACTIONS` and not in `MEMBER_SCOPED_ACTIONS` (notably `msm_save_client_task`, `msm_save_priority_task` — `msm_save_training_task` was moved into `ADMIN_ONLY_ACTIONS` 2026-07-21, gotcha #256), there's no server-side ownership check. Relies on UI not exposing other members' enrollment/client IDs. (`msm_add_client` / `msm_add_client_contact` are NO LONGER in this gap as of v337 — they're member-scoped AND carry handler-level ownership guards on `enrollment_id` / `client_id`.)
 4. **`msm_link_existing_client`** could in theory let an admin link a client to any enrollment without ownership validation. No checks observed.
 
 ## Cross-references
