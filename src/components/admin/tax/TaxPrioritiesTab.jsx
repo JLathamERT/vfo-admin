@@ -621,7 +621,59 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
   )
 }
 
-function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists, onBack, readOnly = false, notes = [], onNotesChange, clientId, programName, client }) {
+function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCancel }) {
+  const isViewMode = !!existingData
+  const [question1, setQuestion1] = useState(existingData?.question_1 || '')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+
+  const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const labelStyle = { fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }
+
+  async function handleSubmit() {
+    const q = question1.trim()
+    if (!q) { setSubmitError('Question 1 is required'); return }
+    setSubmitError('')
+    setSubmitting(true)
+    try {
+      await callApi('tax_save_assess_form', { tax_plan_id: plan.id, form: { question_1: q } })
+      await saveTask(task.id, 'Completed', null)
+      if (onSubmitted) onSubmitted()
+    } catch (err) {
+      console.error(err)
+      setSubmitError(err?.message || 'Submit failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div style={{ marginLeft: '18px', padding: '16px', background: 'var(--vfo-tint)', borderRadius: '10px', border: '1px solid var(--vfo-tint-deep)', marginTop: '4px', marginBottom: '8px' }}>
+      <div style={{ marginBottom: '16px' }}>
+        <label style={labelStyle}>Question 1</label>
+        {isViewMode
+          ? <div style={{ ...inputStyle, opacity: 0.6, whiteSpace: 'pre-wrap' }}>{question1 || '—'}</div>
+          : <textarea value={question1} onChange={e => setQuestion1(e.target.value)} placeholder="Enter your answer..." style={{ ...inputStyle, minHeight: '90px', resize: 'vertical' }} />
+        }
+      </div>
+      {!isViewMode && (
+        <>
+          {submitError && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginBottom: '8px' }}>{submitError}</div>}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={handleSubmit} disabled={submitting} style={{ flex: 1, padding: '12px', borderRadius: '8px', background: submitting ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '15px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              {submitting ? 'Submitting...' : 'Submit'}
+            </button>
+            {onCancel && <button onClick={onCancel} disabled={submitting} style={{ padding: '12px 20px', borderRadius: '8px', background: 'transparent', border: '1px solid var(--vfo-border-strong)', color: 'var(--vfo-muted)', fontSize: '15px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              Cancel
+            </button>}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists, onBack, readOnly = false, plannerMode = false, notes = [], onNotesChange, clientId, programName, client }) {
   const [localProgress, setLocalProgress] = useState(initialProgress)
   const [saving, setSaving] = useState({})
   const [expanded, setExpanded] = useState({})
@@ -672,13 +724,19 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   }
 
   useEffect(() => {
+    if (plannerMode) {
+      loadCachedAction('tax_planner_portal_clients')
+        .then(res => { setTaxPlanners(Array.isArray(res?.group) ? res.group : []); setTaxGroups([]) })
+        .catch(() => { setTaxPlanners([]); setTaxGroups([]) })
+      return
+    }
     loadCachedAction('tax_planners_load')
       .then(res => {
         setTaxPlanners(Array.isArray(res?.tax_planners) ? res.tax_planners : [])
         setTaxGroups(Array.isArray(res?.tax_planning_groups) ? res.tax_planning_groups : [])
       })
       .catch(() => { setTaxPlanners([]); setTaxGroups([]) })
-  }, [])
+  }, [plannerMode])
 
   async function allocatePlanner(task, planner) {
     const key = task.id
@@ -962,6 +1020,64 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     const isDone = !!p.status
     const statusColor = statusColors[p.status] || 'var(--vfo-muted)'
 
+    if (task.status_options === 'assess_form' || task.name === 'Assess tax planning opportunities (and enter presentation details)') {
+      const green = '#1b9254'
+      const submitted = !!livePlan?.assess_form_submitted_at
+      const answer = livePlan?.assess_form?.question_1 || ''
+      const expandKey = `assessform_${task.id}`
+
+      if (readOnly) {
+        return (
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: submitted ? green : 'transparent', flexShrink: 0, border: `1.5px solid ${submitted ? green : 'var(--vfo-border-mid)'}` }} />
+            <span style={{ fontSize: '13px', color: submitted ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+            {submitted
+              ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${green}22`, color: green, border: `1px solid ${green}44` }}>Submitted</span>
+              : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>}
+            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{submitted ? formatStamp(livePlan.assess_form_submitted_at) : ''}</span>
+          </div>
+        )
+      }
+
+      if (submitted) {
+        const isShown = expanded[expandKey]
+        return (
+          <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)', padding: '7px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flexWrap: 'wrap' }} onClick={() => setExpanded(prev => ({ ...prev, [expandKey]: !prev[expandKey] }))}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: green, flexShrink: 0, border: `1.5px solid ${green}` }} />
+              <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: 1, fontWeight: '600' }}>{task.name}</span>
+              <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${green}22`, color: green, border: `1px solid ${green}44` }}>Submitted</span>
+              <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{formatStamp(livePlan.assess_form_submitted_at)}</span>
+              <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+            </div>
+            {isShown && (
+              <AssessTaxForm task={task} plan={livePlan} saveTask={saveTask} existingData={{ question_1: answer }} />
+            )}
+          </div>
+        )
+      }
+
+      const formOpen = expanded[expandKey]
+      return (
+        <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)', padding: '7px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid var(--vfo-border-mid)' }} />
+            <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
+            <button onClick={() => setExpanded(prev => ({ ...prev, [expandKey]: !prev[expandKey] }))} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: green, fontWeight: 600 }}>Enter Details</button>
+          </div>
+          {formOpen && (
+            <AssessTaxForm
+              task={task}
+              plan={livePlan}
+              saveTask={saveTask}
+              onCancel={() => setExpanded(prev => ({ ...prev, [expandKey]: false }))}
+              onSubmitted={() => refreshLivePlan()}
+            />
+          )}
+        </div>
+      )
+    }
+
     if (task.name === 'Client tax planning decision' && task.status_options === 'enter_details') {
       const enterPhase = phases.find(p => p.name === 'Tax 3 - ROI Meeting')
       const isInTax3 = enterPhase?.program_client_tasks?.some(pt => pt.id === task.id)
@@ -1053,10 +1169,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const sharedSteps = [
         { label: 'Engagement agreement created and sent for signing', done: !!livePlan?.boldsign_doc_id },
         { label: 'Engagement agreement signed by client',             done: livePlan?.client_signed === 'Yes' },
-        { label: 'Engagement agreement signed by Anton',              done: livePlan?.ceo_signed === 'Yes', chip: readOnly ? null : <StepEmailsChip pipeline="TAX" title="Engagement agreement signed by Anton" templates={[{ name: 'TAX_ceocountersign|Yes', when: 'Automatic — asks the CEO to countersign' }, { name: 'TAX_signing_reminder', when: 'Automatic reminder if unsigned (48h)' }]} context={emailCtx} /> },
-        { label: 'Payment link sent to client (ACH or Card choice)',  done: !!livePlan?.checkout_token, chip: readOnly ? null : <StepEmailsChip pipeline="TAX" title="Payment link sent to client (ACH or Card choice)" templates={[{ name: 'TAX_paymentemail|Yes', when: 'Automatic — retainer payment link' }, { name: 'TAX_payment_reminder', when: 'Automatic reminder if unpaid (48h)' }]} context={emailCtx} /> },
-        { label: 'Retainer payment collected and confirmation email sent', done: livePlan?.retainer_confirmation_status === 'Sent', chip: readOnly ? null : <StepEmailsChip pipeline="TAX" title="Retainer payment collected and confirmation email sent" templates={[{ name: 'TAX_confirmationemail|card', when: 'If paid by card' }, { name: 'TAX_confirmationemail|ach', when: 'If paid by bank transfer (ACH)' }, { name: 'TAX_confirmationemail|check', when: 'If paid by check' }, { name: 'TAX_paidbycheck|check', when: 'When admin records a check is on the way' }]} context={emailCtx} /> },
-        { label: 'Invoice and receipt created and emailed to client', done: livePlan?.retainer_invoice_email_sent === true, chip: readOnly ? null : <StepEmailsChip pipeline="TAX" title="Invoice and receipt created and emailed to client" templates={[{ name: 'TAX_invoicereceipt_email|retainer', when: 'Retainer invoice + receipt' }]} context={emailCtx} /> },
+        { label: 'Engagement agreement signed by Anton',              done: livePlan?.ceo_signed === 'Yes', chip: (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Engagement agreement signed by Anton" templates={[{ name: 'TAX_ceocountersign|Yes', when: 'Automatic — asks the CEO to countersign' }, { name: 'TAX_signing_reminder', when: 'Automatic reminder if unsigned (48h)' }]} context={emailCtx} /> },
+        { label: 'Payment link sent to client (ACH or Card choice)',  done: !!livePlan?.checkout_token, chip: (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Payment link sent to client (ACH or Card choice)" templates={[{ name: 'TAX_paymentemail|Yes', when: 'Automatic — retainer payment link' }, { name: 'TAX_payment_reminder', when: 'Automatic reminder if unpaid (48h)' }]} context={emailCtx} /> },
+        { label: 'Retainer payment collected and confirmation email sent', done: livePlan?.retainer_confirmation_status === 'Sent', chip: (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Retainer payment collected and confirmation email sent" templates={[{ name: 'TAX_confirmationemail|card', when: 'If paid by card' }, { name: 'TAX_confirmationemail|ach', when: 'If paid by bank transfer (ACH)' }, { name: 'TAX_confirmationemail|check', when: 'If paid by check' }, { name: 'TAX_paidbycheck|check', when: 'When admin records a check is on the way' }]} context={emailCtx} /> },
+        { label: 'Invoice and receipt created and emailed to client', done: livePlan?.retainer_invoice_email_sent === true, chip: (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Invoice and receipt created and emailed to client" templates={[{ name: 'TAX_invoicereceipt_email|retainer', when: 'Retainer invoice + receipt' }]} context={emailCtx} /> },
       ]
       const signingEmailSent = livePlan?.agreement_sent === 'Yes'
       // Reflect client's final decision when Undecided path resolved
@@ -1231,7 +1347,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       return (
         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, flexShrink: 0, border: `1.5px solid ${dotBorder}` }} />
-          <span style={{ fontSize: '13px', color: (done || scheduled) ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_presentation_link', when: 'Automatic — ROI meeting email drafted on the scheduled date' }]} context={emailCtx} /></span>}</span>
+          <span style={{ fontSize: '13px', color: (done || scheduled) ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_presentation_link', when: 'Automatic — ROI meeting email drafted on the scheduled date' }]} context={emailCtx} /></span>}</span>
           {done ? (
             <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>Email drafted — {formatDate(sendDate)}</span>
           ) : readOnly ? (
@@ -1288,7 +1404,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         <div key={key}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, flexShrink: 0, border: `1.5px solid ${dotBorder}` }} />
-            <span style={{ fontSize: '13px', color: (done || requestedAt) ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px', fontWeight: 400 }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_request_returns', when: 'Asks the client to upload tax returns via a secure link' }]} context={emailCtx} /></span>}</span>
+            <span style={{ fontSize: '13px', color: (done || requestedAt) ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px', fontWeight: 400 }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_request_returns', when: 'Asks the client to upload tax returns via a secure link' }]} context={emailCtx} /></span>}</span>
             {done ? (
               <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>Returns received — {formatStamp(receivedAt)}</span>
             ) : readOnly ? (
@@ -1329,7 +1445,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       return (
         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: savedDate ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${savedDate ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
-          <span style={{ fontSize: '13px', color: savedDate ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px', fontWeight: 400 }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_highlevelmeeting_confirm|Yes', when: 'High-level meeting confirmation' }]} context={emailCtx} /></span>}</span>
+          <span style={{ fontSize: '13px', color: savedDate ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px', fontWeight: 400 }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_highlevelmeeting_confirm|Yes', when: 'High-level meeting confirmation' }]} context={emailCtx} /></span>}</span>
           {savedDate ? (
             <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>Confirmation sent — {confirmedLabel}</span>
           ) : readOnly ? null : formOpen ? (
@@ -1371,7 +1487,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       return (
         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: implDecision ? decisionColor : 'transparent', flexShrink: 0, border: `1.5px solid ${implDecision ? decisionColor : 'var(--vfo-border-mid)'}` }} />
-          <span style={{ fontSize: '13px', color: implDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px', fontWeight: 400 }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_implementdecision|Proceed', when: 'If Proceed — charges after 24h unless the client responds' }, { name: 'TAX_implementdecision|Undecided', when: 'If Undecided' }, { name: 'TAX_implementdecision|Not Implementing', when: 'If Not Implementing' }, { name: 'TAX_implementdecision|Reminder', when: 'Automatic reminder if no response (48h)' }]} context={emailCtx} /></span>}</span>
+          <span style={{ fontSize: '13px', color: implDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px', fontWeight: 400 }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_implementdecision|Proceed', when: 'If Proceed — charges after 24h unless the client responds' }, { name: 'TAX_implementdecision|Undecided', when: 'If Undecided' }, { name: 'TAX_implementdecision|Not Implementing', when: 'If Not Implementing' }, { name: 'TAX_implementdecision|Reminder', when: 'Automatic reminder if no response (48h)' }]} context={emailCtx} /></span>}</span>
           {implDecision ? (
             <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${decisionColor}22`, color: decisionColor, border: `1px solid ${decisionColor}44` }}>{decisionLabel}</span>
           ) : (
@@ -1428,9 +1544,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
 
       const chargeCascade = (
         <>
-          {autoStep('Implementation fee auto-charged using saved payment method', chargeStatus === 'succeeded', readOnly ? null : <StepEmailsChip pipeline="TAX" title="Implementation fee auto-charged using saved payment method" templates={[{ name: 'TAX_confirmationemail|implementation', when: 'Automatic — implementation charge confirmation' }, { name: 'TAX_invoicereceipt_email|implementation', when: 'Automatic — implementation invoice + receipt' }, { name: 'TAX_implementation_charge_failed', when: 'Automatic — if the implementation charge fails' }]} context={emailCtx} />)}
+          {autoStep('Implementation fee auto-charged using saved payment method', chargeStatus === 'succeeded', (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Implementation fee auto-charged using saved payment method" templates={[{ name: 'TAX_confirmationemail|implementation', when: 'Automatic — implementation charge confirmation' }, { name: 'TAX_invoicereceipt_email|implementation', when: 'Automatic — implementation invoice + receipt' }, { name: 'TAX_implementation_charge_failed', when: 'Automatic — if the implementation charge fails' }]} context={emailCtx} />)}
           {autoStep('Implementation fee receipt created and emailed to client', recStatus === 'Sent')}
-          {autoStep('Implementation fee revenue share verified, member paid, member emailed', revEmailSent === true, readOnly ? null : <StepEmailsChip pipeline="TAX" title="Implementation fee revenue share verified, member paid, member emailed" templates={[{ name: 'TAX_member_revshare|retainer', when: 'Automatic — member revenue-share notice (retainer)' }, { name: 'TAX_member_revshare|implementation', when: 'Automatic — member revenue-share notice (implementation)' }, { name: 'TAX_planner_revshare|retainer', when: 'Automatic — tax planner revenue-share notice (retainer)' }, { name: 'TAX_planner_revshare|implementation', when: 'Automatic — tax planner revenue-share notice (implementation)' }]} context={emailCtx} />)}
+          {autoStep('Implementation fee revenue share verified, member paid, member emailed', revEmailSent === true, (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Implementation fee revenue share verified, member paid, member emailed" templates={[{ name: 'TAX_member_revshare|retainer', when: 'Automatic — member revenue-share notice (retainer)' }, { name: 'TAX_member_revshare|implementation', when: 'Automatic — member revenue-share notice (implementation)' }, { name: 'TAX_planner_revshare|retainer', when: 'Automatic — tax planner revenue-share notice (retainer)' }, { name: 'TAX_planner_revshare|implementation', when: 'Automatic — tax planner revenue-share notice (implementation)' }]} context={emailCtx} />)}
         </>
       )
 
@@ -1620,7 +1736,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       return (
         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap', opacity: greyed && !refunded ? 0.3 : 1 }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: refunded ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${refunded ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
-          <span style={{ fontSize: '13px', color: refunded ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_deposit_refund', when: 'Deposit refund confirmation' }]} context={emailCtx} /></span>}</span>
+          <span style={{ fontSize: '13px', color: refunded ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_deposit_refund', when: 'Deposit refund confirmation' }]} context={emailCtx} /></span>}</span>
           {refunded
             ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>Refunded ${livePlan?.deposit_refund_amount}</span>
             : <button disabled={greyed || readOnly} onClick={sendDepositRefund} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: greyed ? 'not-allowed' : 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600 }} title={!hasPi ? 'Enter the Deposit PaymentIntent ID first' : (greenlightStatus !== 'Stop' ? 'Available once Tax Plan Greenlight = Stop' : '')}>Send refund</button>
@@ -1644,7 +1760,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
-            <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_readyfortax3|Yes', when: 'If date confirmed / not confirmed' }, { name: 'TAX_readyfortax3|No', when: 'If declined' }]} context={emailCtx} /></span>}</span>
+            <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_readyfortax3|Yes', when: 'If date confirmed / not confirmed' }, { name: 'TAX_readyfortax3|No', when: 'If declined' }]} context={emailCtx} /></span>}</span>
             {isDone
               ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
               : dateOpen
@@ -1747,14 +1863,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         </div>
         )
       }
-      const revshareChip = readOnly ? null : <StepEmailsChip pipeline="TAX" templates={[{ name: 'TAX_member_revshare|retainer', when: 'Automatic — member revenue-share notice (retainer)' }, { name: 'TAX_member_revshare|implementation', when: 'Automatic — member revenue-share notice (implementation)' }, { name: 'TAX_planner_revshare|retainer', when: 'Automatic — tax planner revenue-share notice (retainer)' }, { name: 'TAX_planner_revshare|implementation', when: 'Automatic — tax planner revenue-share notice (implementation)' }]} context={emailCtx} />
-      const refundChip = readOnly ? null : <StepEmailsChip pipeline="TAX" templates={[{ name: 'TAX_refund_email|Yes', when: 'Automatic — retainer refund confirmation' }]} context={emailCtx} />
+      const revshareChip = (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" templates={[{ name: 'TAX_member_revshare|retainer', when: 'Automatic — member revenue-share notice (retainer)' }, { name: 'TAX_member_revshare|implementation', when: 'Automatic — member revenue-share notice (implementation)' }, { name: 'TAX_planner_revshare|retainer', when: 'Automatic — tax planner revenue-share notice (retainer)' }, { name: 'TAX_planner_revshare|implementation', when: 'Automatic — tax planner revenue-share notice (implementation)' }]} context={emailCtx} />
+      const refundChip = (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" templates={[{ name: 'TAX_refund_email|Yes', when: 'Automatic — retainer refund confirmation' }]} context={emailCtx} />
 
       return (
         <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: adminDecision ? decisionColor : 'transparent', flexShrink: 0, border: `1.5px solid ${adminDecision ? decisionColor : 'var(--vfo-border-mid)'}` }} />
-            <span style={{ fontSize: '13px', color: adminDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_postreview|Continue', when: 'If Continue — green Continue / red Refund buttons (locks in after 24h)' }, { name: 'TAX_postreview|Undecided', when: 'If Undecided — Proceed / Refund buttons' }, { name: 'TAX_postreview|Reminder', when: 'Automatic reminder if no response (48h)' }]} context={emailCtx} /></span>}</span>
+            <span style={{ fontSize: '13px', color: adminDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_postreview|Continue', when: 'If Continue — green Continue / red Refund buttons (locks in after 24h)' }, { name: 'TAX_postreview|Undecided', when: 'If Undecided — Proceed / Refund buttons' }, { name: 'TAX_postreview|Reminder', when: 'Automatic reminder if no response (48h)' }]} context={emailCtx} /></span>}</span>
             {adminDecision ? (
               <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${decisionColor}22`, color: decisionColor, border: `1px solid ${decisionColor}44` }}>{adminDecision}</span>
             ) : (
@@ -1861,7 +1977,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       // not the planner row. Connected only when the group has a Stripe account.
       const plannerGroup = selectedPlanner ? taxGroups.find(g => g.name === selectedPlanner.member_type) : null
       const groupConnected = !!(plannerGroup && (plannerGroup.stripe_account_id || '').trim())
-      const chips = selectedPlanner ? [
+      const chips = (selectedPlanner && !plannerMode) ? [
         groupConnected
           ? { label: 'Stripe Connected', style: tintedChip('#1b9254', '27,146,84') }
           : { label: 'No Stripe', style: tintedChip('#e74c3c', '231,76,60') },
@@ -2064,14 +2180,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: titleColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                {!readOnly && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === phase.name && n.tab_name === 'Tax Priorities').length} isOpen={expanded[`notes_${phase.id}`]} onClick={() => setExpanded(p => ({ ...p, [`notes_${phase.id}`]: !p[`notes_${phase.id}`] }))} />}
+                {!readOnly && !plannerMode && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === phase.name && n.tab_name === 'Tax Priorities').length} isOpen={expanded[`notes_${phase.id}`]} onClick={() => setExpanded(p => ({ ...p, [`notes_${phase.id}`]: !p[`notes_${phase.id}`] }))} />}
                 {state === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
                 {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress{doneTasks < nonAutoTasks.length ? ` · ${doneTasks}/${nonAutoTasks.length}` : ''}</span>}
                 {state === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>}
                 <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !isExpanded }))} style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
               </div>
             </div>
-            {!readOnly && expanded[`notes_${phase.id}`] && <PhaseNotesPanel clientId={clientId} phaseName={phase.name} tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
+            {!readOnly && !plannerMode && expanded[`notes_${phase.id}`] && <PhaseNotesPanel clientId={clientId} phaseName={phase.name} tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
             {isExpanded && (
               <div style={{ borderTop: `1px solid ${borderColor}`, padding: '12px 18px' }}>
                 {tasks.map(task => renderTask(task, phase))}
@@ -2089,7 +2205,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: tax5aHeroState === 'active' ? 'var(--vfo-primary)' : 'var(--vfo-heading)', textTransform: 'uppercase', letterSpacing: '1px' }}>Tax 5 - Education & DD (Specialist Allocation)</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {!readOnly && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === 'Tax 5 - Education & DD (Specialist Allocation)' && n.tab_name === 'Tax Priorities').length} isOpen={expanded['notes_tax5a']} onClick={() => setExpanded(p => ({ ...p, ['notes_tax5a']: !p['notes_tax5a'] }))} />}
+              {!readOnly && !plannerMode && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === 'Tax 5 - Education & DD (Specialist Allocation)' && n.tab_name === 'Tax Priorities').length} isOpen={expanded['notes_tax5a']} onClick={() => setExpanded(p => ({ ...p, ['notes_tax5a']: !p['notes_tax5a'] }))} />}
               {taxSpecialists.length > 0 && taxSpecialists.every(spec => tax5aTasks.filter(t => t.status_options !== 'specialist_select').every(t => localProgress[`${t.id}_${spec.id}`]?.status))
                 ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>
                 : taxSpecialists.length > 0 && taxSpecialists.some(spec => tax5aTasks.filter(t => t.status_options !== 'specialist_select').some(t => localProgress[`${t.id}_${spec.id}`]?.status))
@@ -2101,7 +2217,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               )}
             </div>
           </div>
-          {!readOnly && expanded['notes_tax5a'] && <PhaseNotesPanel clientId={clientId} phaseName="Tax 5 - Education & DD (Specialist Allocation)" tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
+          {!readOnly && !plannerMode && expanded['notes_tax5a'] && <PhaseNotesPanel clientId={clientId} phaseName="Tax 5 - Education & DD (Specialist Allocation)" tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
           <div style={{ borderTop: '1px solid rgba(0,149,255,0.2)', padding: '12px 18px' }}>
             {showAddSpec && (
               <div style={{ padding: '12px', background: 'var(--vfo-tint)', borderRadius: '8px', marginBottom: '12px' }}>
@@ -2165,13 +2281,13 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               {!tax5bUnlocked && <span style={{ fontSize: '11px', color: '#e06717', fontWeight: 600 }}>(Unlocks when "Confirm ready for implementation" is set on any specialist)</span>}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {!readOnly && tax5bUnlocked && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === 'Tax 5 - Education & DD (Post Allocation)' && n.tab_name === 'Tax Priorities').length} isOpen={expanded['notes_tax5b']} onClick={() => setExpanded(p => ({ ...p, ['notes_tax5b']: !p['notes_tax5b'] }))} />}
+              {!readOnly && !plannerMode && tax5bUnlocked && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === 'Tax 5 - Education & DD (Post Allocation)' && n.tab_name === 'Tax Priorities').length} isOpen={expanded['notes_tax5b']} onClick={() => setExpanded(p => ({ ...p, ['notes_tax5b']: !p['notes_tax5b'] }))} />}
               {tax5bUnlocked && tax5bState === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
               {tax5bUnlocked && tax5bState === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress</span>}
               {tax5bUnlocked && tax5bState === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>}
             </div>
           </div>
-          {!readOnly && expanded['notes_tax5b'] && <PhaseNotesPanel clientId={clientId} phaseName="Tax 5 - Education & DD (Post Allocation)" tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
+          {!readOnly && !plannerMode && expanded['notes_tax5b'] && <PhaseNotesPanel clientId={clientId} phaseName="Tax 5 - Education & DD (Post Allocation)" tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
           {tax5bUnlocked && (
             <div style={{ borderTop: '1px solid var(--vfo-border)', padding: '12px 18px' }}>
               {(tax5bPhase.program_client_tasks || []).map(task => renderTask(task, tax5bPhase))}
@@ -2208,12 +2324,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {state === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
                 {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress{doneTasks < nonAutoTasks.length ? ` · ${doneTasks}/${nonAutoTasks.length}` : ''}</span>}
-                {!readOnly && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === phase.name && n.tab_name === 'Tax Priorities').length} isOpen={expanded[`notes_${phase.id}`]} onClick={() => setExpanded(p => ({ ...p, [`notes_${phase.id}`]: !p[`notes_${phase.id}`] }))} />}
+                {!readOnly && !plannerMode && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === phase.name && n.tab_name === 'Tax Priorities').length} isOpen={expanded[`notes_${phase.id}`]} onClick={() => setExpanded(p => ({ ...p, [`notes_${phase.id}`]: !p[`notes_${phase.id}`] }))} />}
                 {state === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>}
                 <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !isExpanded }))} style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
               </div>
             </div>
-            {!readOnly && expanded[`notes_${phase.id}`] && <PhaseNotesPanel clientId={clientId} phaseName={phase.name} tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
+            {!readOnly && !plannerMode && expanded[`notes_${phase.id}`] && <PhaseNotesPanel clientId={clientId} phaseName={phase.name} tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
             {isExpanded && (
               <div style={{ borderTop: `1px solid ${borderColor}`, padding: '12px 18px' }}>
                 {tasks.map(task => renderTask(task, phase))}
@@ -2226,16 +2342,27 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   )
 }
 
-function TaxPrioritiesTab({ clientId, programId, programName, client, specialists, readOnly = false, notes = [], onNotesChange, initialPlanId = null }) {
+function TaxPrioritiesTab({ clientId, programId, programName, client, specialists, readOnly = false, notes = [], onNotesChange, initialPlanId = null, plannerMode = false }) {
   const [taxPlans, setTaxPlans] = useState([])
   const [phases, setPhases] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedPlan, setSelectedPlan] = useState(null)
   const [taxEnabled, setTaxEnabled] = useState(false)
   const [allProgress, setAllProgress] = useState({})
+  const [plannerExperts, setPlannerExperts] = useState([])
   const autoSelectedRef = useRef(false)
+  // Planners never receive load_data, so the Tax 5 "+ Add Specialist" picker
+  // gets its Active-specialist names from the planner-scoped roster instead.
+  const effectiveSpecialists = plannerMode ? plannerExperts : specialists
 
   useEffect(() => { loadData() }, [clientId])
+
+  useEffect(() => {
+    if (!plannerMode) return
+    loadCachedAction('tax_planner_portal_experts')
+      .then(res => setPlannerExperts(Array.isArray(res?.experts) ? res.experts : []))
+      .catch(() => setPlannerExperts([]))
+  }, [plannerMode])
 
   // Deep-link from Client Overview: open the requested plan once, after the
   // list has loaded. The user can still navigate back to the list afterwards.
@@ -2300,9 +2427,10 @@ function TaxPrioritiesTab({ clientId, programId, programName, client, specialist
         plan={selectedPlan}
         phases={phases}
         progress={allProgress[selectedPlan.id] || {}}
-        specialists={specialists}
+        specialists={effectiveSpecialists}
         onBack={() => { setSelectedPlan(null); loadData() }}
         readOnly={readOnly}
+        plannerMode={plannerMode}
         notes={notes}
         onNotesChange={onNotesChange}
         clientId={clientId}
@@ -2325,7 +2453,7 @@ function TaxPrioritiesTab({ clientId, programId, programName, client, specialist
           <ListHeader
             title="Tax Plans"
             count={taxPlans.length}
-            action={!readOnly && <button onClick={startPlan} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Start Tax Plan</button>}
+            action={!readOnly && !plannerMode && <button onClick={startPlan} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>+ Start Tax Plan</button>}
           />
 
           {taxPlans.length === 0 && (

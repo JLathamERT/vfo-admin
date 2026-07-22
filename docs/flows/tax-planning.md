@@ -646,6 +646,25 @@ Sandbox toggle uses `save_sandbox_config` with `pipeline='TAX'` parameter (exten
 
 ---
 
+## "Assess tax planning opportunities (and enter presentation details)" form-step (added 2026-07-22)
+
+A Tax 2 - Deeper Dive step (`program_client_tasks` ids **89** program 1 Holistic / **123** program 4 VFO Tax Planning), RENAMED in DB from "Assess tax planning opportunities". It is now a PIP-Follow-Up-Decision-style **form step** rather than a plain status toggle:
+
+- **Trigger:** `status_options==='assess_form'` OR the exact renamed task name (sentinel-first, the gotcha #254 pattern — the DB `status_options` swap `UPDATE program_client_tasks SET status_options='assess_form' WHERE id IN (89,123)` is owed at the FE deploy; the name fallback keeps it working until then).
+- **UI (`AssessTaxForm` in [TaxPrioritiesTab.jsx](src/components/admin/tax/TaxPrioritiesTab.jsx)):** a single green **"Enter Details"** button → an inline form with ONE question (textarea) → submit calls `tax_save_assess_form` (whitelists `{question_1}`), then `saveTask 'Completed'` greens the step. Submitted state = a green "Submitted" pill + date + a chevron-expand READ-ONLY view (no re-edit, matching the PIP-follow-up idiom). Member/planner readOnly = the pill only.
+- **Handler:** [`tax_save_assess_form`](../../supabase/functions/vfo-admin-api/actions/tax/save-assess-form.ts) — AUTH, in `ADMIN_ONLY_ACTIONS` + `TAX_PLANNER_ALLOWED_ACTIONS`, `denyIfNotPlannerPlan` group-scope guard. Stamps `client_tax_plans.assess_form` (jsonb) + `assess_form_submitted_at` + `assess_form_submitted_by` (session email). **NO chains / emails / notifications.** Migration `20260722120000_client_tax_plans_assess_form.sql`; `tax_load_plans` uses `select("*")` so no loader change.
+
+## Tax Planner portal (added 2026-07-22)
+
+The 5th portal / 6th login type. A tax planner (table `tax_planners`) now has a portal login (`tax_planner_logins`) and signs in at `/tax-planner` to work their **whole Tax Planning Group's** tax clients. See [../architecture/04-auth-and-sessions.md](../architecture/04-auth-and-sessions.md) + [../architecture/02-frontend-shell.md](../architecture/02-frontend-shell.md) for the portal/route/auth detail; the tax-flow-specific facts:
+
+- **Auth fence.** A `tax_planner` caller is deny-by-default to `TAX_PLANNER_ALLOWED_ACTIONS` (~36 entries) and SKIPS the tab + ADMIN_ONLY gates, so EVERY planner-callable tax handler ALSO carries an in-handler `denyIfNotPlannerClient`/`denyIfNotPlannerPlan` WHOLE-GROUP-scope guard (`utils/tax-planner-ownership.ts` — a planner may view/edit any client whose plan is allocated to a planner sharing their `tax_planners.member_type`). Gotcha #257.
+- **Scope applied to ~18 tax handlers** (save-task, allocate-planner [a planner may only allocate a TARGET inside their own group], decision, ready-for-tax3, highlevel-meeting-confirm, presentation-schedule, request-returns, pricing, extra-meeting, implement-decision, postreview-decision, deposit-refund, save-deposit-pi, add-specialist, load-specialists, load-progress, `automation_TAX_sendagreement`, msm/update-tax-status) + the client-scoped loaders + vault reads.
+- **Chain closure.** `automation_TAX_decision`/`pricing`/`extrameeting` forward the planner's token to `automation_TAX_sendagreement`, which re-enters the gate AS the planner → it is allowlisted + guarded. `automation_TAX_refund`/`_charge_implementation` are PUBLIC_HANDLERS (bypass the gate) → intentionally NOT allowlisted.
+- **Sensitive vault.** In-group planners get `can_view=true` + a 300s signed download on `vault_tax_list`/`_download`; NO upload/delete/share for planners (not allowlisted + UI hidden). The `isTaxAdmin` (Jake/Tray/Paul) admin path is unchanged.
+- **Planner-mode Tax Priorities.** Fully editable EXCEPT: no "+ Start Tax Plan" (`tax_start_plan` not allowlisted), all `StepEmailsChip` email-preview chips suppressed, PhaseNotes hidden (note writes not allowlisted), the allocation dropdown sources the GROUP roster (via `tax_planner_portal_clients`), no Stripe-status chips, and the "+ Add Specialist" picker uses `tax_planner_portal_experts` (planners never receive `load_data`).
+- **Notifications.** The portal header `NotificationBell` is scoped to the planner's OWN-email rows only — the `'admin'`/`'all'` broadcast recipients are excluded for planners (gotcha #259).
+
 ## Cross-references
 
 - Tax-plans column dictionary: [../tables/tax.md](../tables/tax.md)

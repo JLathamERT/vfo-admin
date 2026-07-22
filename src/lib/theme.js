@@ -37,6 +37,6 @@ export function usePortalTheme() {
 // light first. Any /login route and all public token pages stay light.
 export function applyThemeForCurrentRoute() {
   const p = window.location.pathname
-  const isPortal = /\/(admin|member|client|specialist)(\/|$)/.test(p) && !p.includes('/login')
+  const isPortal = /\/(admin|member|client|specialist|tax-planner)(\/|$)/.test(p) && !p.includes('/login')
   applyTheme(isPortal ? getTheme() : 'light')
 }

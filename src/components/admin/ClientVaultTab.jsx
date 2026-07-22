@@ -12,7 +12,7 @@ const fmtSize = (n) => n == null ? '' : n < 1024 ? `${n} B` : n < 1048576 ? `${(
 //  - General Documentation: all admins can view/add/delete/share.
 // Each manageable file can be SHARED with specialists (Feature A): the specialist
 // then sees it in their portal's "Shared with Me" tab. Revoke any time.
-export default function ClientVaultTab({ clientId, sectionStyle, specialists = [] }) {
+export default function ClientVaultTab({ clientId, sectionStyle, specialists = [], readOnly = false }) {
   const [sensitive, setSensitive] = useState([])
   const [canView, setCanView] = useState(false)
   const [general, setGeneral] = useState([])
@@ -148,8 +148,8 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
                       {sec.canManage ? (
                         <>
                           <button onClick={() => view(sec, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>View</button>
-                          {!sec.noShare && <button onClick={() => toggleShare(sec.bucket, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(18,94,204,0.4)', background: open ? 'rgba(18,94,204,0.22)' : 'rgba(18,94,204,0.1)', color: '#125ecc', fontWeight: 600, cursor: 'pointer' }}>Share</button>}
-                          <button onClick={() => remove(sec, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer' }}>Delete</button>
+                          {!readOnly && !sec.noShare && <button onClick={() => toggleShare(sec.bucket, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(18,94,204,0.4)', background: open ? 'rgba(18,94,204,0.22)' : 'rgba(18,94,204,0.1)', color: '#125ecc', fontWeight: 600, cursor: 'pointer' }}>Share</button>}
+                          {!readOnly && <button onClick={() => remove(sec, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer' }}>Delete</button>}
                         </>
                       ) : (
                         <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontStyle: 'italic' }}>locked</span>
@@ -183,7 +183,7 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
                   </div>
                 )
               })}
-              {sec.canManage && (
+              {sec.canManage && !readOnly && (
                 <label style={{ display: 'block', textAlign: 'center', cursor: 'pointer', marginTop: '14px', padding: '18px', borderRadius: '8px', border: '1px dashed var(--vfo-border-mid)', background: 'var(--vfo-tint)' }}>
                   <input type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={e => { handleFiles(sec, e.target.files); e.target.value = '' }} />
                   <span style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>{busy === sec.key ? 'Uploading…' : '+ Add document'}</span>
