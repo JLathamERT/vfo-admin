@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { callApi } from '../lib/api'
+import { callApi, getSession } from '../lib/api'
  
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState([])
@@ -41,20 +41,22 @@ export default function NotificationBell() {
  
   async function handleClick(notif) {
     setOpen(false)
+    // A click IS the action for FYI (dismissible) notifications — mark it read.
+    // Action-required (non-dismissible) ones only clear when the action completes.
+    // The mark must COMPLETE before navigating: the destination page mounts its
+    // own bell whose load otherwise races this write and resurrects the row.
+    if (notif.dismissible !== false) {
+      setNotifications(prev => prev.filter(x => x.id !== notif.id))
+      try {
+        await callApi('mark_notification_read', { notification_id: notif.id })
+      } catch (err) { console.error('mark read error:', err) }
+    }
     if (notif.link) {
       // Append a changing nonce so navigating to the SAME link still re-triggers
       // the destination's location.search-based deep-link effect every time
       // (without it, a second click on the same target is a no-op).
       const sep = notif.link.includes('?') ? '&' : '?'
       navigate(`${notif.link}${sep}_n=${Date.now()}`)
-    }
-    // A click IS the action for FYI (dismissible) notifications — mark it read.
-    // Action-required (non-dismissible) ones only clear when the action completes.
-    if (notif.dismissible !== false) {
-      try {
-        await callApi('mark_notification_read', { notification_id: notif.id })
-        setNotifications(prev => prev.filter(x => x.id !== notif.id))
-      } catch (err) { console.error('mark read error:', err) }
     }
   }
  
@@ -110,7 +112,7 @@ export default function NotificationBell() {
         <div style={{
           position: 'absolute', top: '100%', right: 0, marginTop: '8px',
           background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-strong)',
-          borderRadius: '10px', width: '380px', maxHeight: '420px', overflowY: 'auto',
+          borderRadius: '10px', width: '480px', maxWidth: 'calc(100vw - 32px)', maxHeight: '420px', overflowY: 'auto',
           zIndex: 300, boxShadow: '0 8px 32px rgba(20,45,95,0.25)'
         }}>
           <div style={{
@@ -126,11 +128,13 @@ export default function NotificationBell() {
               )}
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <button
-                onClick={() => { setOpen(false); navigate(`/admin?tab=notifications&_n=${Date.now()}`) }}
-                style={{ background: 'transparent', border: 'none', color: '#0095ff', fontWeight: 600, fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                View all
-              </button>
+              {getSession()?.role !== 'tax_planner' && (
+                <button
+                  onClick={() => { setOpen(false); navigate(`/admin?tab=notifications&_n=${Date.now()}`) }}
+                  style={{ background: 'transparent', border: 'none', color: '#0095ff', fontWeight: 600, fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                  View all
+                </button>
+              )}
               {count > 0 && (
                 <button onClick={markAllRead} disabled={loading}
                   style={{ background: 'transparent', border: 'none', color: '#0095ff', fontWeight: 600, fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
@@ -171,8 +175,7 @@ export default function NotificationBell() {
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
-                      fontSize: '12.5px', color: 'var(--vfo-ink)', fontWeight: 600, marginBottom: '3px',
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                      fontSize: '12.5px', color: 'var(--vfo-ink)', fontWeight: 600, marginBottom: '3px', lineHeight: '1.35'
                     }}>{n.title}</div>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                       {!isDismissible && (

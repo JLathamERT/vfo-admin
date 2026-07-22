@@ -449,6 +449,7 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
                     <option value="Evan Anderson">Evan Anderson</option>
                     <option value="Bridger Silvester">Bridger Silvester</option>
                     <option value="Ian Welham">Ian Welham</option>
+                    <option value="Jake Latham">Jake Latham</option>
                   </select>
                   <button onClick={savePf} disabled={savingPf} style={{ padding: '8px 20px', borderRadius: '8px', background: savingPf ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '14px', cursor: savingPf ? 'not-allowed' : 'pointer' }}>{savingPf ? 'Saving...' : 'Save'}</button>
                   {pfSaved && <span style={{ color: '#1b9254', fontSize: '14px', fontWeight: '600' }}>Saved!</span>}
