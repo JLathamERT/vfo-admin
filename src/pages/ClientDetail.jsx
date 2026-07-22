@@ -72,13 +72,18 @@ export default function ClientDetail() {
 
   // Back URL — prefer state passed via navigate, fallback to admin
   const isMember = location.pathname.startsWith('/member')
-  const backUrl = location.state?.from || (isMember ? '/member' : '/admin')
+  // Tax-planner portal viewer: same ClientDetail component, reached from the
+  // planner's own client list. Never an admin — sees a stripped, view/edit-tax
+  // surface only.
+  const isPlanner = location.pathname.startsWith('/tax-planner')
+  const isAdmin = !isMember && !isPlanner
+  const backUrl = location.state?.from || (isMember ? '/member' : isPlanner ? '/tax-planner' : '/admin')
 
   // Program sub-tabs (PFT / MAP 1 / Regular / Tax / PIP) are locked on the admin
   // side until a PF is assigned to this client (set on the Profile tab). Members
-  // never assign PFs, so the gate never applies to the member view.
+  // and planners never assign PFs, so the gate never applies to those views.
   const PROGRAM_TABS = ['pft', 'map1', 'regular', 'tax', 'pip']
-  const pfLocked = !isMember && !(client?.assigned_pf && String(client.assigned_pf).trim())
+  const pfLocked = isAdmin && !(client?.assigned_pf && String(client.assigned_pf).trim())
 
   // PFT accountants are reached from MSMTracking's internal drill-down (not a
   // route), so navigate(-1) loses that state. Restore the member's Accountants
@@ -86,6 +91,11 @@ export default function ClientDetail() {
   const isPFTBack = program?.name === 'Partnership Fast Track' && location.state?.backTo === 'pft_accountants'
   const backLabel = isPFTBack ? '← Back to Accountants' : '← Back to Clients'
   function handleBack() {
+    if (isPlanner) {
+      sessionStorage.setItem('taxPlannerActiveTab', 'planning')
+      navigate('/tax-planner')
+      return
+    }
     if (isPFTBack && location.state?.memberNumber) {
       sessionStorage.setItem('adminActiveTab', 'accountants')
       sessionStorage.setItem('adminAccountantsSection', 'accountant_search')
@@ -99,7 +109,11 @@ export default function ClientDetail() {
   }
 
   useEffect(() => {
-    if (!session) { navigate('/admin/login?next=' + encodeURIComponent(location.pathname + location.search)); return }
+    if (isPlanner) {
+      if (!session || session.role !== 'tax_planner') { navigate('/tax-planner/login'); return }
+    } else if (!session) {
+      navigate('/admin/login?next=' + encodeURIComponent(location.pathname + location.search)); return
+    }
     loadData()
   }, [clientId])
 
@@ -109,9 +123,11 @@ export default function ClientDetail() {
       const qp = new URLSearchParams(window.location.search)
       const passedEnrollmentId = location.state?.enrollment_id || null
       const passedProgramId = location.state?.program_id || (qp.get('program') ? parseInt(qp.get('program')) : null)
+      // Planners never call load_data (admin-wide dataset, denied for their role);
+      // the specialists list it feeds is only used by admin-only surfaces.
       const [data, expertsData] = await Promise.all([
         callApi('msm_load_client_home', { client_id: parseInt(clientId), enrollment_id: passedEnrollmentId, program_id: passedProgramId }),
-        loadCachedData(),
+        isPlanner ? Promise.resolve({ experts: [] }) : loadCachedData(),
       ])
       setClient(data.client)
       setProgram(data.program)
@@ -138,6 +154,13 @@ export default function ClientDetail() {
 
   // Which tabs are valid for the resolved program (mirror the render conditions).
   function validTabsForProgram(prog) {
+    if (isPlanner) {
+      // Planner: Profile + Vault always; Tax Priorities for Holistic + Tax
+      // Planning; no track tab for any other program (e.g. PFT).
+      const base = ['home', 'vault']
+      if (prog?.name === 'Partnership Fast Track') return base
+      return [...base, 'tax']
+    }
     const profile = isMember ? ['home'] : ['home', 'details', 'vault', 'payments', 'settings', ...(session?.is_superadmin ? ['continuation'] : [])]
     if (prog?.name === 'Partnership Fast Track') return [...profile, 'pft']
     if (prog?.name === 'VFO Tax Planning') return [...profile, 'tax']
@@ -170,7 +193,10 @@ export default function ClientDetail() {
     <div style={{ minHeight: '100vh', background: 'var(--vfo-page)', color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif' }}>
       <div style={{ background: 'linear-gradient(90deg, #002973 0%, #125ecc 100%)', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '58px', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(0,41,115,0.25)' }}>
         <VfoWordmark size={17} light onClick={() => {
-          if (isMember) {
+          if (isPlanner) {
+            sessionStorage.setItem('taxPlannerActiveTab', 'planning')
+            navigate('/tax-planner')
+          } else if (isMember) {
             sessionStorage.setItem('memberActiveTab', 'profile')
             navigate('/member')
           } else {
@@ -186,19 +212,25 @@ export default function ClientDetail() {
               slim name + Sign Out variant. */}
           {!isMember && <NotificationBell />}
           <span style={{ color: 'rgba(255,255,255,0.88)', fontSize: '14px', fontWeight: 500, whiteSpace: 'nowrap', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{session?.name || ''}</span>
-          {!isMember && session?.is_superadmin && (
+          {isAdmin && session?.is_superadmin && (
             <button onClick={() => { sessionStorage.setItem('adminOpenView', 'editor'); navigate('/admin') }}
               style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,205,150,0.5)', background: 'transparent', color: '#ffd9a0', fontWeight: 500, fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
               Admin Editor
             </button>
           )}
-          {!isMember && (
+          {isAdmin && (
             <button onClick={() => { sessionStorage.setItem('adminOpenView', 'settings'); navigate('/admin') }}
               style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,255,255,0.32)', background: 'transparent', color: '#fff', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
               Settings
             </button>
           )}
-          <button onClick={() => { sessionStorage.clear(); navigate(isMember ? '/member/login' : '/admin/login') }} style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,255,255,0.32)', background: 'transparent', color: '#fff', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Sign Out</button>
+          {isPlanner && (
+            <button onClick={() => { sessionStorage.setItem('taxPlannerActiveTab', 'settings'); navigate('/tax-planner') }}
+              style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,255,255,0.32)', background: 'transparent', color: '#fff', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              Settings
+            </button>
+          )}
+          <button onClick={() => { sessionStorage.clear(); navigate(isMember ? '/member/login' : isPlanner ? '/tax-planner/login' : '/admin/login') }} style={{ padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(255,255,255,0.32)', background: 'transparent', color: '#fff', fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Sign Out</button>
         </div>
       </div>
 
@@ -243,6 +275,15 @@ export default function ClientDetail() {
               <Skeleton width={110} height={20} />
             </>
           ) : (
+            isPlanner ? (
+              <>
+                <button style={tabStyle(activeTab === 'home')} onClick={() => setActiveTab('home')}>Profile</button>
+                <button style={tabStyle(activeTab === 'vault')} onClick={() => setActiveTab('vault')}>Vault</button>
+                {program && program.name !== 'Partnership Fast Track' && (
+                  <button style={tabStyle(activeTab === 'tax')} onClick={() => setActiveTab('tax')}>Tax Priorities</button>
+                )}
+              </>
+            ) : (
             <>
               {isMember
                 ? <button style={tabStyle(activeTab === 'home')} onClick={() => setActiveTab('home')}>Profile</button>
@@ -261,6 +302,7 @@ export default function ClientDetail() {
                 </>
               )}
             </>
+            )
           )}
         </div>
 
@@ -268,29 +310,29 @@ export default function ClientDetail() {
           <ProfileTabSkeleton sections={isMember ? 3 : 4} />
         ) : (
           <>
-            {activeTab === 'home' && <ClientHome client={client} contacts={contacts} onUpdate={() => loadData(true)} sectionStyle={sectionStyle} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} program={program} />}
-            {activeTab === 'details' && !isMember && <ClientDetails client={client} contacts={contacts} onUpdate={loadData} onReloadContacts={reloadContacts} sectionStyle={sectionStyle} />}
+            {activeTab === 'home' && <ClientHome client={client} contacts={contacts} onUpdate={() => loadData(true)} sectionStyle={sectionStyle} readOnly={isMember || isPlanner} plannerMode={isPlanner} notes={clientNotes} onNotesChange={setClientNotes} program={program} />}
+            {activeTab === 'details' && isAdmin && <ClientDetails client={client} contacts={contacts} onUpdate={loadData} onReloadContacts={reloadContacts} sectionStyle={sectionStyle} />}
             {pfLocked && PROGRAM_TABS.includes(activeTab) && (
               <div style={{ ...sectionStyle, borderColor: 'rgba(231,76,60,0.3)', textAlign: 'center', padding: '40px' }}>
                 <div style={{ fontSize: '15px', color: 'var(--vfo-muted)' }}>Please Select a PF</div>
                 <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '8px' }}>Assign a PF on the Profile tab before working this client's tracks.</div>
               </div>
             )}
-            {activeTab === 'map1' && program && !pfLocked && <ClientTrackViewV2 clientId={parseInt(clientId)} programId={program.id} client={client} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
-            {activeTab === 'pft' && program && !pfLocked && <PFTEngagementTrack clientId={parseInt(clientId)} programId={program.id} client={client} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
-            {activeTab === 'regular' && program && !pfLocked && <RegularPrioritiesTab clientId={parseInt(clientId)} programId={program.id} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} initialTrackId={initialTrackId} />}
-            {activeTab === 'tax' && program && !pfLocked && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} programName={program.name} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} initialPlanId={initialPlanId} />}
-            {activeTab === 'pip' && program && !pfLocked && <PipMeetingsTab clientId={parseInt(clientId)} programId={program.id} client={client} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
-            {activeTab === 'vault' && !isMember && <ClientVaultTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} specialists={specialists} />}
-            {activeTab === 'payments' && !isMember && <ClientPaymentsTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} />}
-            {activeTab === 'settings' && !isMember && (
+            {activeTab === 'map1' && program && !pfLocked && !isPlanner && <ClientTrackViewV2 clientId={parseInt(clientId)} programId={program.id} client={client} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+            {activeTab === 'pft' && program && !pfLocked && !isPlanner && <PFTEngagementTrack clientId={parseInt(clientId)} programId={program.id} client={client} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+            {activeTab === 'regular' && program && !pfLocked && !isPlanner && <RegularPrioritiesTab clientId={parseInt(clientId)} programId={program.id} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} initialTrackId={initialTrackId} />}
+            {activeTab === 'tax' && program && !pfLocked && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} programName={program.name} client={client} specialists={specialists} readOnly={isMember} plannerMode={isPlanner} notes={clientNotes} onNotesChange={setClientNotes} initialPlanId={initialPlanId} />}
+            {activeTab === 'pip' && program && !pfLocked && !isPlanner && <PipMeetingsTab clientId={parseInt(clientId)} programId={program.id} client={client} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
+            {activeTab === 'vault' && (isAdmin || isPlanner) && <ClientVaultTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} specialists={specialists} readOnly={isPlanner} />}
+            {activeTab === 'payments' && isAdmin && <ClientPaymentsTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} />}
+            {activeTab === 'settings' && isAdmin && (
               <div style={sectionStyle}>
                 <div style={cardTitle}>Client Login</div>
                 <p style={{ fontSize: '14px', color: 'var(--vfo-muted)', marginBottom: '16px' }}>Send a setup email so this client can create their own portal passcode.</p>
                 <SendSetupEmailButton loginType="client" subjectId={parseInt(clientId)} hint="Drafts a Gmail with a secure link. The client sets their own passcode." />
               </div>
             )}
-            {activeTab === 'continuation' && !isMember && session?.is_superadmin && (
+            {activeTab === 'continuation' && isAdmin && session?.is_superadmin && (
               <PaymentContinuationTab clientId={parseInt(clientId)} client={client} />
             )}
           </>
@@ -300,7 +342,7 @@ export default function ClientDetail() {
   )
 }
 
-function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = false, notes = [], onNotesChange, program }) {
+function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = false, plannerMode = false, notes = [], onNotesChange, program }) {
   const [editingNoteId, setEditingNoteId] = useState(null)
   const [editNoteText, setEditNoteText] = useState('')
   const [status, setStatus] = useState(client?.status || 'pending')
@@ -457,8 +499,36 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
         </div>
       )}
 
+      {/* Planner view — the FULL All Notes list (internal + shared), read-only:
+          same rows as the admin block but with no composer / edit / delete. */}
+      {readOnly && plannerMode && (
+        <div style={sectionStyle}>
+          <div style={{ ...cardTitle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>All Notes</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{notes.length}</span>
+            </div>
+          </div>
+          {notes.length === 0 && <div style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>No notes yet.</div>}
+          {notes.map(note => (
+            <div key={note.id} style={{ padding: '10px 12px', marginBottom: '4px', borderRadius: '8px', border: '1px solid var(--vfo-border-soft)', background: noteTint(note.visibility) }}>
+              <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', lineHeight: '1.5', marginBottom: '6px', whiteSpace: 'pre-wrap' }}>{note.note_text}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_by}</span>
+                <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>·</span>
+                <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{note.created_at?.split('T')[0]}</span>
+                <VisibilityBadge visibility={note.visibility} />
+                {note.program_name && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.2)' }}>{note.program_name}</span>}
+                {note.tab_name && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.2)' }}>{note.tab_name}</span>}
+                {note.phase_name !== 'General' && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{note.phase_name}</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Member view — read-only list of notes the team chose to share. */}
-      {readOnly && notes.length > 0 && (
+      {readOnly && !plannerMode && notes.length > 0 && (
         <div style={sectionStyle}>
           <div style={{ ...cardTitle, marginBottom: '4px' }}>Notes from your team</div>
           {notes.map(note => (

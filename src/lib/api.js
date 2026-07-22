@@ -16,7 +16,7 @@ function isReadAction(action) {
 // Login actions return 401 on bad credentials — that's a wrong-password, NOT an
 // expired session, so callApi must surface it inline on the login page instead of
 // redirecting to the portal-selection page.
-const LOGIN_ACTIONS = ['admin_login', 'member_login', 'client_login', 'specialist_login', 'login']
+const LOGIN_ACTIONS = ['admin_login', 'member_login', 'client_login', 'specialist_login', 'tax_planner_login', 'login']
 
 export async function callApi(action, payload = {}, retries = 3) {
   const session = JSON.parse(sessionStorage.getItem('vfo_session') || 'null')
