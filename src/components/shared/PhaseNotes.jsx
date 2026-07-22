@@ -11,14 +11,19 @@ export function PhaseNotesButton({ count, isOpen, onClick }) {
   )
 }
 
-export function PhaseNotesPanel({ clientId, phaseName, tabName, programName, notes, onNotesChange }) {
+// `phaseName` is the phase notes are WRITTEN under. `phaseNames` optionally
+// widens what's READ back, for a card that merges several stored phases into
+// one thread (the tax track's Tax 5) — new notes still land on `phaseName`, but
+// notes filed under the merged-away phase stay visible.
+export function PhaseNotesPanel({ clientId, phaseName, phaseNames, tabName, programName, notes, onNotesChange }) {
   const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [editText, setEditText] = useState('')
   const session = getSession()
 
-  const phaseNotes = (notes || []).filter(n => n.phase_name === phaseName && n.tab_name === tabName)
+  const readPhases = (phaseNames && phaseNames.length) ? phaseNames : [phaseName]
+  const phaseNotes = (notes || []).filter(n => readPhases.includes(n.phase_name) && n.tab_name === tabName)
 
   async function addNote(visibility) {
     if (!newNote.trim()) return
