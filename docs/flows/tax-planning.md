@@ -6,7 +6,7 @@ The state machine is the column values on a single `client_tax_plans` row — se
 
 > **Program-aware client-visible labels** (added in the Tax Planning alignment session). The invoice/receipt PDF headers + footer, Stripe Checkout line items, the Stripe off-session implementation charge description, and the BoldSign agreement title all switch between "VFO Holistic Planning" (program_id=1 or NULL legacy) and "VFO Tax Planning" (program_id=4) via the `programLabel(programId)` helper in `utils/program-label.ts`. Internal-only labels (`notifications.pipeline='TAX'`, `email_templates.pipeline='TAX'`, sandbox-config `pipeline='TAX'`) stay program-agnostic — they're keys, not display names.
 
-> **Session-3 redesign note (2026-05-19).** Steps 13 (Tax 4 Continue/Stop) and 14 (Tax 5 implementation) below describe the **original** Phase 6/7 designs where admin clicks fire money movement directly. Both have since been **redesigned** to mirror a unified pattern: admin picks a 3-option dropdown → for the affirmative pick, the client gets an email with a back-out button + 24h grace; for Undecided, the client gets a buttons-email with a 48h reminder + 96h PF-call-the-client admin notification; for the decline pick, the engagement closes immediately. Daily sweep (`tax-revshare-sweep-daily`) drives all timers. Same pattern was also added to Tax 3 (Undecided email reminder, agreement-signing reminder, payment-link reminder). For the canonical current behavior of these steps see [TAX_BUILD_RESUME.md](C:/vfo-edge-functions/.claude/worktrees/thirsty-gould-06a64e/TAX_BUILD_RESUME.md) Phase index and [../architecture/05-api-action-catalog.md](../architecture/05-api-action-catalog.md) entries `automation_TAX_postreviewdecision`, `automation_TAX_postreviewclientdecision`, `automation_TAX_implementdecision`, `automation_TAX_implementfinaldecision`, `automation_TAX_revshare_sweep`. Notifications now carry a `dismissible` boolean — FYI notifications have a Done button; action-required ones (Tax 3 Yes → pricing form; Tax 3 ExtraMeeting → schedule meeting) clear only when admin completes the action.
+> **Session-3 redesign note (2026-05-19).** Steps 13 (Tax 4 Continue/Stop) and 14 (Tax 5 implementation) below describe the **original** Phase 6/7 designs where admin clicks fire money movement directly. Both have since been **redesigned** to mirror a unified pattern: admin picks a 3-option dropdown → for the affirmative pick, the client gets an email with a back-out button + 24h grace; for Undecided, the client gets a buttons-email with a 48h reminder + 96h PF-call-the-client admin notification; for the decline pick, the engagement closes immediately. **(Update 2026-07-22: the Tax 4 Continue 24h grace/auto-lock was REMOVED — Tax 4 Continue is now click-only with the 48h/96h nag ladder like Undecided; only Tax 5 implementation Proceed retains the 24h auto-charge — gotcha #264.)** Daily sweep (`tax-revshare-sweep-daily`) drives all timers. Same pattern was also added to Tax 3 (Undecided email reminder, agreement-signing reminder, payment-link reminder). For the canonical current behavior of these steps see [TAX_BUILD_RESUME.md](C:/vfo-edge-functions/.claude/worktrees/thirsty-gould-06a64e/TAX_BUILD_RESUME.md) Phase index and [../architecture/05-api-action-catalog.md](../architecture/05-api-action-catalog.md) entries `automation_TAX_postreviewdecision`, `automation_TAX_postreviewclientdecision`, `automation_TAX_implementdecision`, `automation_TAX_implementfinaldecision`, `automation_TAX_revshare_sweep`. Notifications now carry a `dismissible` boolean — FYI notifications have a Done button; action-required ones (Tax 3 Yes → pricing form; Tax 3 ExtraMeeting → schedule meeting) clear only when admin completes the action.
 
 ## Lifecycle overview
 
@@ -62,7 +62,7 @@ Each arrow is either:
 **Handler:** [`automation_TAX_readyfortax3`](../../supabase/functions/vfo-admin-api/actions/tax/ready-for-tax3.ts) — AUTH handler.
 
 **What it does:**
-1. Validates `client_tax_plans` row exists (created earlier by `tax_start_plan`). (No longer hard-blocks on `ready_for_tax3_email_sent='Yes'` — re-sends are allowed.)
+1. Validates `client_tax_plans` row exists (created earlier by `tax_start_plan`). (No longer hard-blocks on `ready_for_tax3_email_sent='Yes'` — re-sends are allowed.) **As of 2026-07-22 a confirm send (`confirm_date`/`confirm_no_date`) now 400s unless the plan has a `tax_planner_id` allocated** ("Allocate an Advanced Tax Planner before sending the Tax 3 confirmation email"); the `declined` path is exempt. The Yes template also gets `[Planner Name]` substitution + the `TAX_PLANNER` Cc chip.
 2. Loads `clients`, `members`, `pipeline_sandbox_config` (pipeline='TAX').
 3. UPDATEs plan: `ready_for_tax3_decision`=`Yes` (confirm_*) / `No` (declined), `ready_for_tax3_email_sent='No'` initially, `sandbox`.
 4. Loads `email_templates` row — `confirm_date`/`confirm_no_date` → `TAX_readyfortax3|Yes`; `declined` → `TAX_readyfortax3|No`.
@@ -328,7 +328,7 @@ BoldSign fires `event.eventType='Signed'` with CEO email AND eventually `event.e
 **For ACH retainer cleared** (subsequent `payment_intent.succeeded` with `metadata.payment_kind='retainer'` and `retainer_status='processing'`):
 - UPDATEs `retainer_status='succeeded'`, **chains** `automation_TAX_invoicereceipt`.
 
-> **No revshare chain on Stripe webhook for tax.** Tax retainer revshare is gated by the Tax 4 Continue path — admin records `post_review_decision='Continue - Revenue Share'`, then revshare fires when either (a) client clicks the green "Continue now" button in the post-review email (`post_review_client_decision='Confirmed'`), or (b) the 24h grace expires and the sweep auto-locks (`post_review_client_decision='Auto-Locked'`). MAP1 auto-chains revshare on payment; tax does not.
+> **No revshare chain on Stripe webhook for tax.** Tax retainer revshare is gated by the Tax 4 Continue path — admin records `post_review_decision='Continue - Revenue Share'`, then revshare fires **only** when the client clicks the green "Continue now" button in the post-review email (`post_review_client_decision='Confirmed'`). **As of 2026-07-22 this is CLICK-ONLY — the 24h auto-lock is REMOVED (gotcha #264):** Tax 4 no longer writes `post_review_client_decision='Auto-Locked'`; if the client never clicks, the sweep runs a Continue reminder ladder (48h reminder email + 96h PF bell) but never auto-fires revshare. MAP1 auto-chains revshare on payment; tax does not.
 
 ---
 
@@ -407,14 +407,14 @@ Visible when `payment_method_type='check'` AND `retainer_status='check_pending'`
 
 ---
 
-## Step 12½ — Tax 4 High Level Meeting Confirmation Email + in-app reminder to Tim & Tracy
+## Step 12½ — Tax 4 Detailed tax plan meeting confirmation email + in-app reminder to the planner & Tracy
 
-**Trigger:** Admin opens the **"High Level Meeting Confirmation Email"** task at the top of the `Tax 4 - Tax Plan Review` phase (replaces the old "Date Scheduled for High Level Meeting" date-picker task). The task lives in `program_client_tasks` ids **153 + 154** (both tax programs — Holistic Planning phase 21 + standalone Tax Planning phase 29) with `task_order=0` (above `Detailed tax plan presentation`); `status_options` is now `tax_hlm_confirm` (was `tax_meeting_date`). The task renders a single green **"Send email (with date)"** button plus date (required) / time / timezone pickers.
+**Trigger:** Admin opens the **"Detailed tax plan meeting confirmation email"** task at the top of the `Tax 4 - Tax Plan Review` phase (RENAMED 2026-07-22 from "High Level Meeting Confirmation Email"; the name is exact-matched in the FE `PLANNER_EDITABLE_TASK_NAMES` whitelist, so both were changed together — gotcha #262). The task lives in `program_client_tasks` ids **153 + 154** (both tax programs — Holistic Planning phase 21 + standalone Tax Planning phase 29) with `task_order=0` (above `Detailed tax plan presentation`); `status_options` is `tax_hlm_confirm`. The task renders a single green **"Send email (with date)"** button plus date (required) / time / timezone pickers. It is one of the planner-editable steps (saves via `automation_TAX_highlevelmeeting_confirm`, not `tax_save_task`).
 
 **Handler:** [`automation_TAX_highlevelmeeting_confirm`](../../supabase/functions/vfo-admin-api/actions/tax/highlevel-meeting-confirm.ts) — AUTH admin-only (registered in `router/dispatch.ts`). Takes `tax_plan_id` + `meeting_date` (required) + optional `meeting_time` / `meeting_timezone`.
 
 **What it does:**
-1. Loads the new template `TAX_highlevelmeeting_confirm|Yes` (id 148, **CLIENT-ONLY** — no member variant; body references "our Advanced Tax Planner, Tim Gacsy").
+1. Loads the template `TAX_highlevelmeeting_confirm|Yes` (id 148, **CLIENT-ONLY** — no member variant). **As of 2026-07-22 the hardcoded "Tim Gacsy" was replaced with the `[Planner Name]` token** (substituted per-send from the plan's allocated planner; templates 148/16/25/137 were de-hardcoded). The template also carries `"TAX_PLANNER"` in its `cc_list` (the new "Tax Planner" recipient chip — gotcha #266) so the allocated planner is Cc'd on live-mode sends.
 2. Drafts a Gmail confirmation to the client.
 3. Records `client_tax_plans.tax4_meeting_date` + new columns `tax4_meeting_time` / `tax4_meeting_timezone` + `tax4_meeting_confirm_email_sent_at`.
 4. **Nulls `tax4_meeting_reminder_last_sent_at`** so the in-app reminder (below) fires fresh.
@@ -422,6 +422,8 @@ Visible when `payment_method_type='check'` AND `retainer_status='check_pending'`
 > The old `automation_TAX_save_meeting_date` handler is now orphaned (its frontend caller was removed) but still registered. The template `TAX_meeting_nudge|Yes` is an unused orphan left in the DB.
 
 **In-app reminder (replaced the old daily Gmail-to-Tim nudge):** the `tax-revshare-sweep-daily` cron (02:30 UTC) now raises **ONE persistent action-required in-app notification** (`dismissible:false`) — title `Client decision 1 needed — <client>` — to BOTH **tgacsy@elitert.com** (Tim) and **tnmiller@elitert.com** (Tracy), when `tax4_meeting_date < today` AND `post_review_decision IS NULL`. Fired once per plan, guarded by `tax4_meeting_reminder_last_sent_at`. (The old `sendMeetingNudgeEmail` function that drafted a daily Gmail to Tim CC Tracy is **DELETED**.)
+
+**Planner day-after-meeting nudge (NEW 2026-07-22):** the same sweep also fires a **planner** bell `TAX_planner_post_meeting` ("Confirm detailed tax plan presentation completion and client decision 1") to the allocated planner when `tax4_meeting_date < today` + a planner is set + `tax4_planner_nudge_sent_at IS NULL` + NOT(presentation done AND `post_review_decision` set). One-shot, stamped on `client_tax_plans.tax4_planner_nudge_sent_at`, rule-disable-gated BEFORE the stamp (gotcha #176). This is one of the six planner bells (see the Tax Planner portal section below).
 
 **Cleared by:** `actions/tax/postreview-decision.ts` clears both notifications (`.ilike("title","Client decision 1 needed%")`) when any Tax 4 `Client decision 1` is recorded.
 
@@ -440,11 +442,11 @@ Visible when `payment_method_type='check'` AND `retainer_status='check_pending'`
 
 **Trigger:** After Tax Plan Review meeting (Tax 4 phase, manual), admin picks one of the 3-option `Client decision 1` values. Picks `automation_TAX_postreviewdecision` which sends the appropriate client email:
 
-- **`Continue - Revenue Share`** → drafts client email with **two buttons**: green "Continue now" (skip the 24h wait → immediate revshare, writes `post_review_client_decision='Confirmed'`) + red "Refund my retainer" (fires refund chain). If 24h passes with no click → sweep auto-locks (`post_review_client_decision='Auto-Locked'`) and fires revshare.
+- **`Continue - Revenue Share`** → drafts client email with **two buttons**: green "Continue now" (→ immediate revshare, writes `post_review_client_decision='Confirmed'`) + red "Refund my retainer" (fires refund chain). **CLICK-ONLY as of 2026-07-22 (gotcha #264): the 24h auto-lock is REMOVED** — if the client never clicks, revshare NEVER auto-fires; instead the sweep runs a Continue reminder ladder (48h reminder email via `TAX_postreview_continue_reminder_email`, reusing the `TAX_postreview|Reminder` template + 96h PF bell `TAX_postreview_continue_stalled`, title "«Client name» hasn't made a decision on Client decision 1"), REUSING the `post_review_reminder_sent_at`/`post_review_pf_notified_at` guard columns (safe — Continue and Undecided are mutually exclusive per plan). Client email body was rewritten (templates 35/138) to drop all 24h language.
 - **`Undecided`** → drafts client email with green "Proceed with planning" + red "Refund my retainer". 48h sweep reminder + 96h PF notification if neither clicked. Client Proceed click writes `post_review_client_decision='Proceed'` and fires revshare; client Refund click fires refund.
 - **`Stop - Refund`** → no client email; immediately chains `automation_TAX_refund` server-to-server. Engagement closes.
 
-Revshare + refund handler details follow below. The `tax-revshare-sweep-daily` cron (02:30 UTC) drives the 24h Continue auto-lock + 48h/96h Undecided timers.
+Revshare + refund handler details follow below. The `tax-revshare-sweep-daily` cron (02:30 UTC) drives the Continue **and** Undecided 48h/96h reminder ladders (no auto-lock on either any more; only the Tax 5 implementation path still has a 24h auto-charge).
 
 ### Revenue Share path
 
@@ -452,7 +454,7 @@ Revshare + refund handler details follow below. The `tax-revshare-sweep-daily` c
 
 **Frontend:** Tax 4 `Client decision 1` Continue button at [TaxPrioritiesTab.jsx](src/components/admin/tax/TaxPrioritiesTab.jsx) `saveTask` → `callApi('automation_TAX_revshare', { tax_plan_id, payment_kind: 'retainer' })` → derived-status write to `Revenue share for initial 50%` subtask progress row (`Completed - Revenue Share` | `Completed - Money Mapping` | `Completed - N/A` | `Failed` | `Pending`).
 
-> **⚠️ Updated 2026-07-01 (gotcha #164):** the **Tracy Revenue-Master cross-check was REMOVED** from `tax/revshare.ts`. Steps 3–6 below (reading the sheet, matching the tab/receipt row, and the `K+L+M+N+O=J` reconciliation) **no longer happen** — the share now pays the instant the payment clears, amounts taken straight from the PF input form on `client_tax_plans`. The **trigger is unchanged** (still the Tax 4 Continue/Confirmed/24h-auto-lock decision — that business gate stayed). The handler also now transfers the 10% **strategic partner share** to the partner company (½ retainer / ½ implementation) + drafts the partner rev-share email when the connected member is a strategic member.
+> **⚠️ Updated 2026-07-01 (gotcha #164):** the **Tracy Revenue-Master cross-check was REMOVED** from `tax/revshare.ts`. Steps 3–6 below (reading the sheet, matching the tab/receipt row, and the `K+L+M+N+O=J` reconciliation) **no longer happen** — the share now pays the instant the payment clears, amounts taken straight from the PF input form on `client_tax_plans`. The **trigger is unchanged** (still the Tax 4 Continue/Confirmed client-click decision — that business gate stayed; note the 24h auto-lock was removed 2026-07-22, so the trigger is now the client click only — gotcha #264). The handler also now transfers the 10% **strategic partner share** to the partner company (½ retainer / ½ implementation) + drafts the partner rev-share email when the connected member is a strategic member.
 
 **What it does:**
 1. Validates plan + receipt number exists, idempotent skip if `rev_paid` already resolved (`Yes`/`Money Mapping`/`N/A — No Share Due`).
@@ -522,7 +524,8 @@ Alongside the member + strategic legs, `automation_TAX_revshare` also pays the *
 **What it does:**
 1. Validates Authorization header matches `SUPABASE_SERVICE_ROLE_KEY` (401 otherwise).
 2. Enumerates `client_tax_plans` for both `retainer_*` and `implementation_*` payment kinds (Phase 7 future-proof — implementation_* rows currently never match since Phase 7 hasn't shipped).
-3. Candidate = receipt_number IS NOT NULL AND (`rev_share='Pending'` OR `rev_paid='Failed'`). **Retry-only**: plans where revshare was never started are NOT picked up — they must wait for their natural trigger (Tax 4 Continue 24h auto-lock OR Undecided→Proceed/Confirmed client click) to set `Pending` first. This gate was added to prevent revshare from auto-firing on a paid plan as soon as Tracy's sheet was populated, bypassing the Tax 4 admin decision entirely.
+3. Candidate = receipt_number IS NOT NULL AND (`rev_share='Pending'` OR `rev_paid='Failed'`). **Retry-only**: plans where revshare was never started are NOT picked up — they must wait for their natural trigger (Undecided→Proceed/Confirmed **or** Continue→Confirmed client click — the 24h Continue auto-lock is REMOVED as of 2026-07-22, gotcha #264) to set `Pending` first. This gate was added to prevent revshare from auto-firing on a paid plan as soon as Tracy's sheet was populated, bypassing the Tax 4 admin decision entirely.
+   - **PLANNER-LEG PREMATURE-PAYOUT FIX (2026-07-22, gotcha #265):** the v633 planner-payout "stranded leg" retry (receipt set + planner + share + `*_planner_paid` NULL) used to pay the planner share BEFORE the client's Tax 4 confirmation (masked for months by the then-24h auto-lock). It now only retries a NULL planner leg when the MEMBER leg resolved (`retainer_rev_paid`/`implementation_rev_paid` ∈ Yes / Money Mapping / N/A — No Share Due); `Failed`-leg retries are unchanged. Live-verified on v642.
 4. For each candidate: POSTs to `automation_TAX_revshare` with `tax_plan_id` + `payment_kind` + service-role auth. Logs the fire reason (`still-pending` / `retry-failed`).
 5. Returns `{ ok: true, swept: <count>, fired: [...candidates with results...] }`.
 
@@ -558,7 +561,7 @@ Current flow — admin clicks the one button → client picks Yes/No on `/tax-im
 
 **Failure mode for zero implementations:** if client picks Decline OR Not Implementing, no charge ever fires. No automatic refund — client absorbs the retainer cost (different rule from the Tax 4 Stop-Refund branch).
 
-> **Template wording fix (this session, 3 LIVE client templates):** `TAX_implementdecision|Undecided` + `TAX_postreview|Undecided` dropped the false "within 48 hours" deadline (the Undecided paths have no auto-lock — only the 24h Proceed/Continue paths do); `TAX_implementdecision|Reminder` dropped a vestigial "if you can no longer find the original email" line.
+> **Template wording fix (2026-07-15, 3 LIVE client templates):** `TAX_implementdecision|Undecided` + `TAX_postreview|Undecided` dropped the false "within 48 hours" deadline; `TAX_implementdecision|Reminder` dropped a vestigial "if you can no longer find the original email" line. **Update 2026-07-22:** with the Tax 4 24h Continue auto-lock removed (gotcha #264), ONLY the Tax 5 implementation Proceed path still has a 24h auto-charge — the Tax 4 Continue path is now click-only. The Continue client body (templates 35/138) was rewritten to click-to-confirm wording.
 
 ---
 
@@ -601,6 +604,8 @@ Recipients below reflect the **2026-06-09 reroute (v432)**. "PF" = `taxPfRecipie
 | 8b | Tax 3 | [confirmation-email.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/confirmation-email.ts) | **Retainer paid** (card/ACH/check; retainer kind only) — **NEW 2026-06-09** | **PF** | true | FYI | click / Done |
 | 9 | Tax 4 | [revshare-sweep.ts:559](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/revshare-sweep.ts) (×2 rows) | High Level Meeting date passed + no `post_review_decision` recorded (once/plan, guard `tax4_meeting_reminder_last_sent_at`) | **Tim+Tracy** | **false** | Action-required (record Client decision 1) | `postreview-decision.ts:53` — `.ilike("title","Client decision 1 needed%")` when any Client decision 1 is recorded |
 | 10 | Tax 4 | [revshare-sweep.ts:186](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/revshare-sweep.ts) | Undecided pick, **96h** no client click (guard `post_review_pf_notified_at`) | **Tim+Tracy** | true | FYI ("\<PF\>: reach out") | click / Done |
+| 10b | Tax 4 | [revshare-sweep.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/revshare-sweep.ts) | **Continue** pick, **96h** no client click (rule `TAX_postreview_continue_stalled`, REUSES guard `post_review_pf_notified_at`) — NEW 2026-07-22, replaces the removed 24h auto-lock | **PF** | true | FYI (title "«Client name» hasn't made a decision on Client decision 1") | click / Done |
+| P | Tax 4 | [revshare-sweep.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/revshare-sweep.ts) | Day after `tax4_meeting_date` + planner set + NOT(presentation done AND decision set) (rule `TAX_planner_post_meeting`, one-shot guard `tax4_planner_nudge_sent_at`) — NEW 2026-07-22 | **allocated planner** | true | FYI ("Confirm detailed tax plan presentation completion and client decision 1") | click / Done |
 | 11 | Tax 5 | [revshare-sweep.ts:292](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/revshare-sweep.ts) | Undecided pick, **96h** no client click (guard `implementation_pf_notified_at`) | **Tim+Tracy** | true | FYI ("\<PF\>: reach out") | click / Done |
 | 12 | Tax 3 | [revshare-sweep.ts:337](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/revshare-sweep.ts) (`addPfNotif`, ×3 stalls) | **96h** on each of: Undecided email not clicked (guard `tax_decision_pf_notified_at`), agreement unsigned (`signed_pf_notified_at`), retainer unpaid (`payment_pf_notified_at`) | **PF** | true | FYI ("\<PF\>: reach out") | click / Done |
 
@@ -622,9 +627,10 @@ All live in [revshare-sweep.ts](C:/vfo-edge-functions/supabase/functions/vfo-adm
 | Tax 3 — agreement unsigned | `TAX_signing_reminder` (line 471) | #12 |
 | Tax 3 — retainer unpaid | `TAX_payment_reminder` (line 508) | #12 |
 | Tax 4 — post-review Undecided | `TAX_postreview\|Reminder` (line 155) | #10 |
+| Tax 4 — post-review **Continue** (NEW 2026-07-22) | `TAX_postreview\|Reminder` (reused; rule `TAX_postreview_continue_reminder_email`) | #10b |
 | Tax 5 — implementation Undecided | `TAX_implementdecision\|Reminder` (line 261) | #11 |
 
-The **Continue** (Tax 4) and **Proceed** (Tax 5) picks have NO nag — they auto-lock/auto-charge at 24h instead.
+The **Proceed** (Tax 5) pick has NO nag — it auto-charges at 24h instead. **The Tax 4 Continue pick, as of 2026-07-22, DOES nag** (48h reminder email + 96h PF bell, table row #10b) — its 24h auto-lock was removed and it is now click-only (gotcha #264).
 
 ### What shipped 2026-06-09 (v432)
 
@@ -668,12 +674,30 @@ A Tax 2 - Deeper Dive step (`program_client_tasks` ids **89** program 1 Holistic
 
 The 5th portal / 6th login type. A tax planner (table `tax_planners`) now has a portal login (`tax_planner_logins`) and signs in at `/tax-planner` to work their **whole Tax Planning Group's** tax clients. See [../architecture/04-auth-and-sessions.md](../architecture/04-auth-and-sessions.md) + [../architecture/02-frontend-shell.md](../architecture/02-frontend-shell.md) for the portal/route/auth detail; the tax-flow-specific facts:
 
-- **Auth fence.** A `tax_planner` caller is deny-by-default to `TAX_PLANNER_ALLOWED_ACTIONS` (~36 entries) and SKIPS the tab + ADMIN_ONLY gates, so EVERY planner-callable tax handler ALSO carries an in-handler `denyIfNotPlannerClient`/`denyIfNotPlannerPlan` WHOLE-GROUP-scope guard (`utils/tax-planner-ownership.ts` — a planner may view/edit any client whose plan is allocated to a planner sharing their `tax_planners.member_type`). Gotcha #257.
-- **Scope applied to ~18 tax handlers** (save-task, allocate-planner [a planner may only allocate a TARGET inside their own group], decision, ready-for-tax3, highlevel-meeting-confirm, presentation-schedule, request-returns, pricing, extra-meeting, implement-decision, postreview-decision, deposit-refund, save-deposit-pi, add-specialist, load-specialists, load-progress, `automation_TAX_sendagreement`, msm/update-tax-status) + the client-scoped loaders + vault reads.
-- **Chain closure.** `automation_TAX_decision`/`pricing`/`extrameeting` forward the planner's token to `automation_TAX_sendagreement`, which re-enters the gate AS the planner → it is allowlisted + guarded. `automation_TAX_refund`/`_charge_implementation` are PUBLIC_HANDLERS (bypass the gate) → intentionally NOT allowlisted.
+- **Auth fence.** A `tax_planner` caller is deny-by-default to `TAX_PLANNER_ALLOWED_ACTIONS` and SKIPS the tab + ADMIN_ONLY gates, so EVERY planner-callable tax handler ALSO carries an in-handler `denyIfNotPlannerClient`/`denyIfNotPlannerPlan` WHOLE-GROUP-scope guard (`utils/tax-planner-ownership.ts` — a planner may view/edit any client whose plan is allocated to a planner sharing their `tax_planners.member_type`). Gotcha #257.
+- **Allowlist TRIMMED 2026-07-22 (gotcha #262).** Planners LOST `automation_TAX_decision`, `_readyfortax3`, `_presentation_schedule`, `_request_returns`, `_pricing`, `_extrameeting`, `_depositrefund`, `_sendagreement`, `tax_save_deposit_pi`, `tax_allocate_planner`, `msm_update_tax_status`. They KEEP `tax_save_task`, `tax_save_assess_form`, `tax_add_specialist`, `automation_TAX_highlevelmeeting_confirm`, `automation_TAX_implementdecision`, `automation_TAX_postreviewdecision` + the loaders / vault / notifications / portal / login actions. (The in-handler group-scope guards still live on the de-allowlisted handlers as defence-in-depth, but a planner can no longer reach them.)
+- **Per-step visible-but-locked whitelist (three surfaces, gotcha #262).** In `plannerMode` the Tax Priorities tab shows every step but LOCKS all but a whitelisted subset (outer div `cursor:not-allowed` + inner div `pointerEvents:'none'` — a child style must NOT set `pointerEvents:'auto'` or it punches through the lock, gotcha #263). The editable subset is decided in THREE synced places: FE `PLANNER_EDITABLE_TASK_NAMES` (12 names, `TaxPrioritiesTab.jsx`, incl. "Detailed tax plan meeting confirmation email" which saves via `automation_TAX_highlevelmeeting_confirm`), BE `PLANNER_EDITABLE_TASK_NAMES` (11 `tax_save_task`-reachable names, exported from `save-task.ts` — a planner touching any other task via `tax_save_task` gets 403 "Tax planners cannot edit this step"), and the trimmed allowlist above. `+ Add Specialist` and the specialist repeater picker stay active.
+- **Chain closure.** `automation_TAX_refund`/`_charge_implementation` are PUBLIC_HANDLERS (bypass the gate) → intentionally NOT allowlisted.
 - **Sensitive vault.** In-group planners get `can_view=true` + a 300s signed download on `vault_tax_list`/`_download`; NO upload/delete/share for planners (not allowlisted + UI hidden). The `isTaxAdmin` (Jake/Tray/Paul) admin path is unchanged.
-- **Planner-mode Tax Priorities.** Fully editable EXCEPT: no "+ Start Tax Plan" (`tax_start_plan` not allowlisted), all `StepEmailsChip` email-preview chips suppressed, PhaseNotes hidden (note writes not allowlisted), the allocation dropdown sources the GROUP roster (via `tax_planner_portal_clients`), no Stripe-status chips, and the "+ Add Specialist" picker uses `tax_planner_portal_experts` (planners never receive `load_data`).
-- **Notifications.** The portal header `NotificationBell` is scoped to the planner's OWN-email rows only — the `'admin'`/`'all'` broadcast recipients are excluded for planners (gotcha #259).
+- **Planner-mode Tax Priorities.** Editable per the whitelist above EXCEPT: no "+ Start Tax Plan" (`tax_start_plan` not allowlisted), all `StepEmailsChip` email-preview chips suppressed, PhaseNotes hidden (note writes not allowlisted), the allocation dropdown sources the GROUP roster (via `tax_planner_portal_clients`), no Stripe-status chips, and the "+ Add Specialist" picker uses `tax_planner_portal_experts` (planners never receive `load_data`).
+- **Notifications — the portal header `NotificationBell`** is scoped to the planner's OWN-email rows only — the `'admin'`/`'all'` broadcast recipients are excluded for planners (gotcha #259). The row-click handler awaits `mark_notification_read` BEFORE navigating so the destination bell's mount-load can't resurrect the row (gotcha #267). "View all" is hidden for `tax_planner` sessions.
+
+### Six planner notification bells (NEW 2026-07-22)
+
+All resolve `tax_planners.email` from the plan's `tax_planner_id` via `notifyAllocatedPlanner` (`utils/tax-planner-notify.ts`; try/catch-safe, skips null client/planner/email; bell link `/tax-planner/client/<client_id>?program=<pid||1>`). Seeded in `notification_rules` (area 'Tax Planners', `default_recipients '["ALLOCATED_TAX_PLANNER"]'` placeholder — the real email is passed per-call) by migration `20260722130000_tax_planner_step_notifications.sql`:
+
+| Rule key | Fires from | When |
+|----------|-----------|------|
+| `TAX_planner_allocated` | `allocate-planner.ts` | a genuine (re)assignment of the plan's planner (reads prior id first) |
+| `TAX_planner_returns_uploaded` | `vault/upload-notify.ts` | client uploads a tax return (token page OR portal) → to the latest plan-with-planner's ATP |
+| `TAX_planner_hlm_ready` | `invoice-receipt.ts` | after the retainer receipt completes ("send detailed tax plan meeting confirmation email") |
+| `TAX_planner_decision2_ready` | `revshare.ts` | after retainer revshare success |
+| `TAX_planner_impl_decision_ready` | `save-task.ts` | "Confirm ready for implementation" transitions to "Yes" (dedupe unread) |
+| `TAX_planner_post_meeting` | `revshare-sweep.ts` | day after `tax4_meeting_date`, one-shot on `tax4_planner_nudge_sent_at` (table row P above) |
+
+### `TAX_PLANNER` email recipient chip (NEW 2026-07-22, gotcha #266)
+
+`"TAX_PLANNER"` was added to `RECIPIENT_ROLE_TOKENS` (`utils/email-recipients.ts`) + `ROLE_LABELS.TAX_PLANNER='Tax Planner'` (`components/shared/templateMeta.js`), so an admin can drop a "Tax Planner" Cc chip on any tax email template. It resolves per-send from the plan's `tax_planner_id` (helper `taxPlannerEmail`); ALL 25 tax `resolveTemplateRecipients` call sites pass it in ctx. Sandbox mode SUPPRESSES all Cc, so the chip is only observable on live-mode sends. 17 templates got `"TAX_PLANNER"` appended to `cc_list` this session (148; the postreview + implementdecision families; refund 27/141). A NEW tax email handler that omits `TAX_PLANNER` in its ctx silently no-ops the chip.
 
 ## Cross-references
 

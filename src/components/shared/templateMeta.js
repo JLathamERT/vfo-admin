@@ -236,6 +236,7 @@ export const ROLE_LABELS = {
   CLIENT: 'Client',
   MEMBER: 'Member',
   ASSIGNED_PF: 'Assigned PF',
+  TAX_PLANNER: 'Tax Planner',
   SPECIALIST: 'Specialist',
   ADVISOR: 'Advisor',
   ACCOUNTANT: 'Accountant',

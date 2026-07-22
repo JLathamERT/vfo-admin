@@ -18,6 +18,27 @@ const plannerPlainName = (pl) => `${pl?.first_name || ''} ${pl?.last_name || ''}
 const plannerCerts = (pl) => Array.isArray(pl?.certifications) ? pl.certifications.map(c => String(c || '').trim()).filter(Boolean) : []
 const plannerDisplayName = (pl) => [plannerPlainName(pl), ...plannerCerts(pl)].filter(Boolean).join(', ')
 
+// Tax-planner portal: the ONLY steps a planner may interact with. Mirrors the
+// backend tax_save_task whitelist (PLANNER_EDITABLE_TASK_NAMES) plus the High
+// Level Meeting confirm, which saves through its own automation endpoint. Every
+// other step stays fully visible but locked (non-clickable) for planners. Names
+// match program_client_tasks.name verbatim, identical across programs 1 and 4.
+const PLANNER_EDITABLE_TASK_NAMES = new Set([
+  'Assess tax planning opportunities (and enter presentation details)',
+  'Detailed tax plan meeting confirmation email',
+  'Detailed tax plan presentation',
+  'Client decision 1',
+  'Client decision 2',
+  'VFO specialist introductions / discussions',
+  'Confirm ready for implementation',
+  'Implementation decision',
+  'ATP works with client & specialist to confirm implementation going to plan',
+  'Specialist confirms implementation completed',
+  'Specialist confirms VFOS Gross Rev',
+  'PC confirms receipt of VFOS Gross Rev',
+])
+const isPlannerEditable = (task) => PLANNER_EDITABLE_TASK_NAMES.has(task?.name)
+
 // Diron Insley — his clients get a display-only invoice discount (mirrors
 // backend constants/tax-discount.ts; delete both to retire the special case).
 const DISCOUNT_MEMBER_NUMBER = '59073'
@@ -774,6 +795,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       await callApi('tax_allocate_planner', { tax_plan_id: plan.id, tax_planner_id: planner.id })
       const fullName = `${planner.first_name || ''} ${planner.last_name || ''}`.trim()
       await saveTask(task.id, fullName, localProgress[key]?.completed_date)
+      refreshLivePlan()
     } catch (err) {
       console.error(err)
       alert('Allocation failed: ' + (err?.message || 'unknown error'))
@@ -791,6 +813,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     try {
       await callApi('tax_allocate_planner', { tax_plan_id: plan.id, tax_planner_id: null })
       await saveTask(task.id, '')
+      refreshLivePlan()
     } catch (err) {
       console.error(err)
       alert('Clear failed: ' + (err?.message || 'unknown error'))
@@ -969,13 +992,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const decision2Task = allTasks.find(t => t.name === 'Client decision 2')
   const decision2Status = decision2Task ? localProgress[decision2Task.id]?.status : ''
   // Phase 7: Tax 5b unlocks when ANY specialist has 'Confirm ready for
-  // implementation' set to any value (Yes / Undecided / No), OR when Client
-  // decision 2 = 'Move to Implementation' (the shortcut that greys/bypasses the
-  // per-specialist confirm step — without this, that path leaves Tax 5b locked).
+  // implementation' set to 'Yes' or 'Undecided' — a 'No' does NOT unlock — OR
+  // when Client decision 2 = 'Move to Implementation' (the shortcut that
+  // greys/bypasses the per-specialist confirm step — without this, that path
+  // leaves Tax 5b locked).
   const confirmReadyTask = phases.find(p => p.name === 'Tax 5 - Education & DD (Specialist Allocation)')?.program_client_tasks?.find(t => t.name === 'Confirm ready for implementation')
   const tax5bUnlocked = (confirmReadyTask && taxSpecialists.some(spec => {
-    const k = `${confirmReadyTask.id}_${spec.id}`
-    return !!localProgress[k]?.status
+    const st = localProgress[`${confirmReadyTask.id}_${spec.id}`]?.status
+    return st === 'Yes' || st === 'Undecided'
   })) || decision2Status === 'Move to Implementation'
 
   // A task counts as statused for display when its progress is recorded in
@@ -1043,7 +1067,24 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const phasesBeforeSpec = phases.filter(p => ['Set Up', 'Tax 1 - Diagnostic', 'Tax 2 - Deeper Dive', 'Tax 3 - ROI Meeting', 'Tax 4 - Tax Plan Review'].includes(p.name))
   const phasesAfterSpec = phases.filter(p => p.name === 'Tax 6 - Implementation')
 
+  // Planner lock gate: in the tax-planner portal, every non-whitelisted step
+  // renders its normal admin UI (readOnly stays false) but is made inert here —
+  // pointer-events off on the body so no control fires, with the not-allowed
+  // cursor on an outer wrapper (disabled controls don't reliably show the cursor
+  // across browsers). Admin (no flags) and member (readOnly) pass straight
+  // through unchanged.
   function renderTask(task, phase, taxSpecialistId = null) {
+    const node = renderTaskInner(task, phase, taxSpecialistId)
+    if (!node || !plannerMode || isPlannerEditable(task)) return node
+    const key = taxSpecialistId ? `${task.id}_${taxSpecialistId}` : task.id
+    return (
+      <div key={key} style={{ cursor: 'not-allowed' }}>
+        <div style={{ pointerEvents: 'none' }}>{node}</div>
+      </div>
+    )
+  }
+
+  function renderTaskInner(task, phase, taxSpecialistId = null) {
     const key = taxSpecialistId ? `${task.id}_${taxSpecialistId}` : task.id
     const p = localProgress[key] || {}
     const isDone = !!p.status
@@ -1074,7 +1115,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)', padding: '7px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flexWrap: 'wrap' }} onClick={() => setExpanded(prev => ({ ...prev, [expandKey]: !prev[expandKey] }))}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: green, flexShrink: 0, border: `1.5px solid ${green}` }} />
-              <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: 1, fontWeight: '600' }}>{task.name}</span>
+              <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: 1 }}>{task.name}</span>
               <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${green}22`, color: green, border: `1px solid ${green}44` }}>Submitted</span>
               <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{formatStamp(livePlan.assess_form_submitted_at)}</span>
               <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
@@ -1091,8 +1132,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)', padding: '7px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid var(--vfo-border-mid)' }} />
-            <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
-            <button onClick={() => setExpanded(prev => ({ ...prev, [expandKey]: !prev[expandKey] }))} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: green, fontWeight: 600 }}>Enter Details</button>
+            <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+            <button onClick={() => setExpanded(prev => ({ ...prev, [expandKey]: !prev[expandKey] }))} style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600 }}>Enter Details</button>
+            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}></span>
           </div>
           {formOpen && (
             <AssessTaxForm
@@ -1776,6 +1818,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     }
 
     if (task.status_options === 'tax_3_decision') {
+      // The confirmation email names the allocated Advanced Tax Planner, so the
+      // confirm sends are blocked until one is allocated (decline stays open).
+      const plannerAllocated = !!(livePlan?.tax_planner_id ?? plan?.tax_planner_id)
       const draft = declineDrafts[task.id] || {}
       const declineOpen = !!draft.open
       const dateOpen = !!draft.dateOpen
@@ -1809,8 +1854,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                   </div>
                 : !declineOpen && (
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      <button disabled={sending} onClick={() => setDraft({ dateOpen: true, tz: draft.tz || 'ET' })} style={tdGreen}>Send email (with date)</button>
-                      <button disabled={sending} onClick={() => fireReadyForTax3(task.id, 'confirm_no_date', { existingDate: p.completed_date })} style={{ ...tdGreen, opacity: sending ? 0.6 : 1 }}>{sending ? 'Sending...' : 'Send email - date not confirmed'}</button>
+                      <button disabled={sending} onClick={() => { if (!plannerAllocated) { alert('Allocate an Advanced Tax Planner (Tax 1) before sending the confirmation email.'); return } setDraft({ dateOpen: true, tz: draft.tz || 'ET' }) }} style={tdGreen}>Send email (with date)</button>
+                      <button disabled={sending} onClick={() => { if (!plannerAllocated) { alert('Allocate an Advanced Tax Planner (Tax 1) before sending the confirmation email.'); return } fireReadyForTax3(task.id, 'confirm_no_date', { existingDate: p.completed_date }) }} style={{ ...tdGreen, opacity: sending ? 0.6 : 1 }}>{sending ? 'Sending...' : 'Send email - date not confirmed'}</button>
                       <button disabled={sending} onClick={() => setDeclineDrafts(d => ({ ...d, [task.id]: { open: true, reason: '', sending: false } }))} style={tdRed}>No - Declined email to client</button>
                     </div>
                   )
@@ -1865,7 +1910,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
 
       async function handlePick(value) {
         if (!value) return
-        if (value === 'Continue - Revenue Share' && !confirm("Mark client as Continue?\n\nThis sends them an email with a refund button + a 24h grace window. After 24h with no click the revenue share is auto-fired.")) return
+        if (value === 'Continue - Revenue Share' && !confirm("Mark client as Continue?\n\nThis sends them an email with a green Confirm button and a red Refund button. The revenue share fires ONLY when they click Confirm. After 48h with no click they get a reminder email, after 96h the PF is notified to reach out.")) return
         if (value === 'Stop - Refund' && !confirm("Stop - Refund? This will IMMEDIATELY fire a Stripe refund of the retainer and draft a refund confirmation email to the client.")) return
         if (value === 'Undecided' && !confirm("Mark client as Undecided?\n\nThey'll get an email with two buttons (Proceed / Refund). After 48h with no click we send a reminder, after 96h we notify you to call the client.")) return
         await saveTask(task.id, value, new Date().toISOString().slice(0, 10))
@@ -1899,7 +1944,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: adminDecision ? decisionColor : 'transparent', flexShrink: 0, border: `1.5px solid ${adminDecision ? decisionColor : 'var(--vfo-border-mid)'}` }} />
-            <span style={{ fontSize: '13px', color: adminDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_postreview|Continue', when: 'If Continue — green Continue / red Refund buttons (locks in after 24h)' }, { name: 'TAX_postreview|Undecided', when: 'If Undecided — Proceed / Refund buttons' }, { name: 'TAX_postreview|Reminder', when: 'Automatic reminder if no response (48h)' }]} context={emailCtx} /></span>}</span>
+            <span style={{ fontSize: '13px', color: adminDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_postreview|Continue', when: 'If Continue — green Confirm / red Refund buttons (client must click Confirm)' }, { name: 'TAX_postreview|Undecided', when: 'If Undecided — Proceed / Refund buttons' }, { name: 'TAX_postreview|Reminder', when: 'Automatic reminder if no response (48h)' }]} context={emailCtx} /></span>}</span>
             {adminDecision ? (
               <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${decisionColor}22`, color: decisionColor, border: `1px solid ${decisionColor}44` }}>{adminDecision}</span>
             ) : (
@@ -1922,11 +1967,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               )}
               {adminDecision === 'Continue - Revenue Share' && (
                 <>
-                  {autoStep('Email sent to client with refund button + 24h window', !!emailSentAt)}
-                  {!clientDecision && autoStep('Waiting for client (auto-locks after 24h)', false)}
+                  {autoStep('Email sent to client with Confirm + Refund buttons', !!emailSentAt)}
+                  {!clientDecision && !reminderSentAt && autoStep('Waiting for client to confirm (click required)', false)}
+                  {reminderSentAt && autoStep('48h reminder email sent to client', true)}
+                  {pfNotifiedAt && autoStep('96h passed — PF notified to contact client', true)}
+                  {!clientDecision && reminderSentAt && autoStep('Waiting for client to confirm (click required)', false)}
                   {clientDecision === 'Refund' && (
                     <>
-                      {autoStep('Client clicked Refund within 24h', true)}
+                      {autoStep('Client clicked Refund', true)}
                       {autoStep('Refund issued', refundStatus === 'succeeded', { chip: refundChip })}
                     </>
                   )}
@@ -2065,7 +2113,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             </select>
             <StepDate value={p.completed_date || ''} onChange={d => saveTask(task.id, p.status, d, taxSpecialistId)} disabled={saving[key]} />
           </div>
-          <div style={{ marginLeft: '18px', borderLeft: '1px solid var(--vfo-tint-deep)', paddingLeft: '12px', paddingBottom: '4px', opacity: greyed ? 0.3 : 1, pointerEvents: greyed ? 'none' : 'auto' }}>
+          <div style={{ marginLeft: '18px', borderLeft: '1px solid var(--vfo-tint-deep)', paddingLeft: '12px', paddingBottom: '4px', opacity: greyed ? 0.3 : 1, pointerEvents: greyed ? 'none' : undefined }}>
             {childTasks.map(ct => {
               const ck = taxSpecialistId ? `${ct.id}_${taxSpecialistId}` : ct.id
               const cp = localProgress[ck] || {}
@@ -2098,7 +2146,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     }
 
     return (
-      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap', opacity: isGreyedOut ? 0.3 : 1, pointerEvents: isGreyedOut ? 'none' : 'auto' }}>
+      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap', opacity: isGreyedOut ? 0.3 : 1, pointerEvents: isGreyedOut ? 'none' : undefined }}>
         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
         <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{greyNote && <span style={{ fontSize: '11px', color: '#e06717', fontWeight: 600, marginLeft: '8px' }}>({greyNote})</span>}</span>
         <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, taxSpecialistId)} disabled={saving[key]} style={{ ...inputStyle, background: 'var(--vfo-card)', minWidth: '150px', borderColor: isDone ? `${statusColor}66` : 'var(--vfo-border-strong)', color: isDone ? statusColor : 'var(--vfo-ink)' }}>
@@ -2170,8 +2218,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         action={!readOnly && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: '600' }}>{trackStatus === 'live' ? 'Live' : 'Stopped'}</span>
-            <div onClick={() => !togglingStatus && toggleTrackStatus()}
-              style={{ width: '44px', height: '24px', borderRadius: '12px', background: trackStatus === 'live' ? '#1b9254' : '#e74c3c', cursor: 'pointer', position: 'relative', opacity: togglingStatus ? 0.5 : 1 }}>
+            <div onClick={() => { if (plannerMode) return; if (!togglingStatus) toggleTrackStatus() }}
+              style={{ width: '44px', height: '24px', borderRadius: '12px', background: trackStatus === 'live' ? '#1b9254' : '#e74c3c', cursor: plannerMode ? 'not-allowed' : 'pointer', position: 'relative', opacity: togglingStatus ? 0.5 : 1 }}>
               <div style={{ position: 'absolute', top: '2px', left: trackStatus === 'live' ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'var(--vfo-card)', transition: 'left 0.2s' }} />
             </div>
           </div>
@@ -2322,7 +2370,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             <div style={subHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <span style={subTitle}>Post Allocation</span>
-                {!tax5bUnlocked && <span style={{ fontSize: '11px', color: '#e06717', fontWeight: 600 }}>(Unlocks when "Confirm ready for implementation" is set on any specialist)</span>}
+                {!tax5bUnlocked && <span style={{ fontSize: '11px', color: '#e06717', fontWeight: 600 }}>(Unlocks when "Confirm ready for implementation" is Yes or Undecided on any specialist)</span>}
               </div>
               {tax5bUnlocked && <PhasePill state={tax5bState} />}
             </div>
