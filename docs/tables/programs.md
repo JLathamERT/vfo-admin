@@ -42,7 +42,7 @@ Each member enrolls into a program (`member_enrollments`), then training-progres
 | `name` | text | not null |
 | `task_type` | text | default `'dropdown'`. **Three values render differently in the 90-Day-Plan UI:** `'dropdown'` = a normal checkable step (status dropdown, counts toward phase completion); `'section'` = a **label-only sub-heading** (no dropdown, NEVER counted — see gotcha #173); `'substep'` = a checkable step rendered **indented inside** the enclosing section box (counts normally). |
 | `task_order` | integer | not null. Section headers and their sub-steps are contiguous — a `'section'` owns every following `'substep'` until the next `'section'` or a `'dropdown'`. |
-| `status_options` | text | Comma/JSON-encoded list of allowed `status` values for `member_training_progress.status`. NULL for `'section'` rows (labels have no status). |
+| `status_options` | text | Comma/JSON-encoded list of allowed `status` values for `member_training_progress.status`. NULL for `'section'` rows (labels have no status). **Sentinel values `'tracker_accountants'` / `'tracker_clients'` (2026-07-21)** mark a **member-driven tracker step** (see `training_tracker_entries` below): the member adds rows and the step status is DERIVED from the entry count — NOT an admin dropdown. Task ids 76 (PFT "Add ≥2 Accountants") and 19 (Holistic "Add ≥5 Clients") are these; both are recognized by a sentinel-first / exact-task-name-fallback resolver in BOTH repos until the deploy-time swap sets the sentinel (gotchas #255, #256). |
 | `video_url` | text | Optional training video — the member-side `VideoTask` embeds it. Three providers, detected by URL shape: **YouTube** (`…?v=<id>`, YT IFrame API), **Wistia** (`https://fast.wistia.net/embed/iframe/<mediaId>`), or **Loom** (`https://www.loom.com/embed/<id>`) — any URL containing `wistia` or `loom` renders in a plain 16:9 iframe. Provider **share** links are NOT stored directly: Wistia `/s/<slug>` (resolve via oEmbed) and Loom `/share/<id>?sid=…` (rewrite to `/embed/<id>`) must be converted first — see gotcha #174. |
 
 > **90-Day-Plan sections (2026-07-02):** VFO Holistic Planning (program 1) MSM 1–4 and Partnership Fast Track (program 2) MSM 1–4 were restructured so each old "Watched Module/Step" step is now a `task_type='section'` header with `'substep'` watch-items beneath it (e.g. Holistic MSM 1 → *Watch "Foundation of a Virtual Family Office"* + 4 sub-steps). Section rows are labels only — both the admin `MSMTracking.jsx` and member `MemberMSMTracking.jsx` exclude them from every count via `countableTasks()` and enclose each `groupTasks()` group in a tinted box. Data-only change (rendering already generic); see gotcha #173.
@@ -119,7 +119,31 @@ Per-task progress through the training curriculum. One row per `(enrollment_id, 
 | `completed_by` | text | |
 | `notes` | text | |
 
-**Touched by:** `msm_load_training_progress`, `msm_save_training_task`.
+**Touched by:** `msm_load_training_progress`, `msm_save_training_task`. For the two **member-driven tracker steps** (task ids 76, 19), the `status`/`completed_date`/`completed_by` are DERIVED from `training_tracker_entries` by `syncTrackerProgress` (see below), not written by `msm_save_training_task`.
+
+---
+
+## `training_tracker_entries`
+
+**NEW 2026-07-21.** Member-added rows behind a **member-driven 90 Day Plan training step** — the member builds a list (accountants for the PFT "Add ≥2 Accountants to Tracker" step, id 76; clients for the Holistic "Add ≥5 Clients to Client Target List" step, id 19) and the enclosing `member_training_progress` status is DERIVED from the row count vs a threshold (0 → grey/row-deleted, 1..threshold-1 → `In Progress`, ≥threshold → `Completed`). RLS deny-all (SECURITY INVARIANT #1). Created in migration `20260721150000_training_tracker_entries.sql`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | serial | pk |
+| `enrollment_id` | integer | fk → `member_enrollments.id` (**ON DELETE CASCADE**) |
+| `task_id` | integer | fk → `program_training_tasks.id` |
+| `first_name` | text | not null |
+| `last_name` | text | not null |
+| `email` | text | not null (must contain `@`) |
+| `warm_cold` | text | not null (`Warm` \| `Cold`) |
+| `firm_name` | text | nullable |
+| `phone` | text | nullable |
+| `source` | text | nullable (e.g. "LinkedIn", "Word of mouth") |
+| `notes` | text | nullable |
+| `created_at` | timestamptz | |
+| `created_by` | text | member name |
+
+Index on `(enrollment_id, task_id)`. **Touched by:** `training_tracker_load` (read), `training_tracker_add` (member insert + `syncTrackerProgress`), `training_tracker_delete` (admin delete + `syncTrackerProgress`). Config resolved by `resolveTrackerConfig` (sentinel `status_options` first, exact task-name fallback). See gotcha #255 + [flows/msm-tracking.md](../flows/msm-tracking.md).
 
 ---
 
