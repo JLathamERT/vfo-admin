@@ -446,7 +446,7 @@ The "Send Email to Change Payment Method" button on every per-person Payments ta
 | Action | File | R | W | Chains |
 |---|---|---|---|---|
 | `tax_load_plans` | `actions/tax/load-plans.ts` | `client_tax_plans` | — | — |
-| `tax_start_plan` | `actions/tax/start-plan.ts` | — | `client_tax_plans` (client_id + optional `program_id`) | — |
+| `tax_start_plan` | `actions/tax/start-plan.ts` | — | `client_tax_plans` (client_id + optional `program_id`); **on a HOLISTIC plan also inserts one `client_tax_progress` row** seeding "Client risk profile complete" from the client's MAP 1 "Priorities Decided / Risk Profile" answer (`Completed + Risk N` → `Yes — Risk N — <Mindset>`) | — (seeding is fail-soft: any miss leaves the task blank, gotcha #261) |
 | `tax_load_progress` | `actions/tax/load-progress.ts` | `client_tax_progress` | — | — |
 | `tax_save_task` | `actions/tax/save-task.ts` | — | `client_tax_progress` (upsert) | — |
 | `tax_save_deposit_pi` | `actions/tax/save-deposit-pi.ts` | — | `client_tax_plans` (deposit_payment_intent_id), `client_tax_progress` (Deposit Paid status='Completed') | — (Setup phase Deposit Paid task. Extracts last `pi_...` substring defensively against paste-over; also accepts Stripe dashboard URLs containing `/payments/pi_...`) |
