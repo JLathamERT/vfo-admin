@@ -24,6 +24,7 @@ const plannerDisplayName = (pl) => [plannerPlainName(pl), ...plannerCerts(pl)].f
 // other step stays fully visible but locked (non-clickable) for planners. Names
 // match program_client_tasks.name verbatim, identical across programs 1 and 4.
 const PLANNER_EDITABLE_TASK_NAMES = new Set([
+  'Additional information required',
   'Assess tax planning opportunities (and enter presentation details)',
   'Detailed tax plan meeting confirmation email',
   'Detailed tax plan presentation',
@@ -993,9 +994,6 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   }
 
   const allTasks = phases.flatMap(p => p.program_client_tasks || [])
-  const addInfoTask = allTasks.find(t => t.name === 'Additional information required')
-  const addInfoStatus = addInfoTask ? localProgress[addInfoTask.id]?.status : ''
-  const additionalInfoRequired = addInfoStatus === 'Additional info required'
   const decision1Task = allTasks.find(t => t.name === 'Client decision 1')
   const decision1Status = decision1Task ? localProgress[decision1Task.id]?.status : ''
   const decision2Task = allTasks.find(t => t.name === 'Client decision 2')
@@ -1018,12 +1016,18 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (t.status_options === 'tax_hlm_confirm') return !!livePlan?.tax4_meeting_date
     if (t.status_options === 'tax_presentation_link') return !!livePlan?.presentation_send_date
     if (t.status_options === 'tax_returns_request') return !!livePlan?.tax_returns_received_at
+    // Additional information required: the dropdown alone isn't done while info
+    // is still being requested — it needs the received stamp to complete.
+    if (t.name === 'Additional information required') {
+      const st = localProgress[t.id]?.status
+      return !!st && (st !== 'Additional info required' || !!livePlan?.additional_info_received_at)
+    }
     return !!localProgress[t.id]?.status
   }
 
   function getPhaseState(phase) {
     let tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
-    if (phase.name === 'Tax 1 - Diagnostic' && !additionalInfoRequired) {
+    if (phase.name === 'Tax 1 - Diagnostic') {
       tasks = tasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
     }
     if (phase.name === 'Set Up') {
@@ -2108,12 +2112,43 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (task.status_options === 'specialist_select') return null
 
     if (task.name === 'Additional information required') {
-      const childTaskNames = ['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L']
-      const childTasks = allTasks.filter(t => childTaskNames.includes(t.name))
-      const greyed = !additionalInfoRequired
+      const infoRequired = p.status === 'Additional info required'
+      const requestedAt = livePlan?.additional_info_requested_at
+      const receivedAt = livePlan?.additional_info_received_at
+      const done = !!receivedAt
+      const clientFull = client ? `${client.first_name || ''} ${client.last_name || ''}`.trim() : ''
+      const clientFirst = clientFull ? clientFull.split(/\s+/)[0] : ''
+      const draft = declineDrafts[task.id] || {}
+      const composeOpen = !!draft.composeOpen
+      const sending = !!draft.sending
+      const text = draft.text || ''
+      const setDraft = (patch) => setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), ...patch } }))
+      const clearDraft = () => setDeclineDrafts(d => { const n = { ...d }; delete n[task.id]; return n })
+      const tdGreen = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600 }
+      const subDotColor = done ? '#1b9254' : requestedAt ? '#0095ff' : 'transparent'
+      const subDotBorder = done ? '#1b9254' : requestedAt ? '#0095ff' : 'var(--vfo-border-mid)'
+      async function sendRequest() {
+        setDraft({ sending: true })
+        try {
+          const res = await callApi('automation_TAX_request_additional_info', { tax_plan_id: plan.id, requested_info: text })
+          if (res?.error) { alert('Error: ' + res.error); setDraft({ sending: false }); return }
+          clearDraft()
+          await refreshLivePlan()
+        } catch (err) {
+          alert('Failed to send email: ' + (err?.message || 'unknown error'))
+          setDraft({ sending: false })
+        }
+      }
+      const aiStep = (label, isGreen) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: isGreen ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${isGreen ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+          <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
+          {isGreen && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>}
+        </div>
+      )
       return (
-        <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
+        <div key={key}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
             <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
             <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date, taxSpecialistId)} disabled={saving[key]} style={{ ...inputStyle, background: 'var(--vfo-card)', minWidth: '150px', borderColor: isDone ? `${statusColor}66` : 'var(--vfo-border-strong)', color: isDone ? statusColor : 'var(--vfo-ink)' }}>
@@ -2122,25 +2157,62 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             </select>
             <StepDate value={p.completed_date || ''} onChange={d => saveTask(task.id, p.status, d, taxSpecialistId)} disabled={saving[key]} />
           </div>
-          <div style={{ marginLeft: '18px', borderLeft: '1px solid var(--vfo-tint-deep)', paddingLeft: '12px', paddingBottom: '4px', opacity: greyed ? 0.3 : 1, pointerEvents: greyed ? 'none' : undefined }}>
-            {childTasks.map(ct => {
-              const ck = taxSpecialistId ? `${ct.id}_${taxSpecialistId}` : ct.id
-              const cp = localProgress[ck] || {}
-              const cDone = !!cp.status
-              const cColor = statusColors[cp.status] || 'var(--vfo-muted)'
-              return (
-                <div key={ck} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: cDone ? cColor : 'transparent', flexShrink: 0, border: `1px solid ${cDone ? cColor : 'var(--vfo-border-mid)'}` }} />
-                  <span style={{ fontSize: '12px', color: cDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{ct.name}</span>
-                  <select value={cp.status || ''} onChange={e => saveTask(ct.id, e.target.value, cp.completed_date, taxSpecialistId)} style={{ ...inputStyle, background: 'var(--vfo-card)', minWidth: '120px', fontSize: '11px', borderColor: cDone ? `${cColor}66` : 'var(--vfo-border-strong)', color: cDone ? cColor : 'var(--vfo-ink)' }}>
-                    <option value="">-- Select --</option>
-                    {(ct.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <StepDate value={cp.completed_date || ''} onChange={d => saveTask(ct.id, cp.status, d, taxSpecialistId)} disabled={saving[ck]} />
+          {infoRequired && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: subDotColor, flexShrink: 0, border: `1.5px solid ${subDotBorder}` }} />
+                <span style={{ fontSize: '13px', color: (done || requestedAt) ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>Request additional information{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px', fontWeight: 400 }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_request_additional_info', when: 'Asks the client to upload the requested additional information via a secure link' }]} context={emailCtx} /></span>}</span>
+                {readOnly ? (
+                  done
+                    ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>Information received — {formatStamp(receivedAt)}</span>
+                    : requestedAt ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#0095ff22', color: '#0095ff', fontWeight: 600, border: '1px solid #0095ff44' }}>Email sent — {formatStamp(requestedAt)}</span> : null
+                ) : (
+                  <button disabled={sending} onClick={() => setDraft({ composeOpen: !composeOpen })} style={tdGreen} title="Drafts a Gmail to the client requesting additional information with a secure upload link.">{requestedAt ? 'Resend request email' : 'Send email to request additional information'}</button>
+                )}
+                <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{requestedAt ? formatStamp(requestedAt) : ''}</span>
+              </div>
+              {composeOpen && !readOnly && (
+                <div style={{ marginLeft: '18px', marginBottom: '8px', padding: '14px 16px', background: 'var(--vfo-tint)', borderRadius: '10px', border: '1px solid var(--vfo-tint-deep)', fontFamily: 'Inter, sans-serif' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+                    Subject: Additional information required - {clientFull || '[Client Name]'}
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#44557a', lineHeight: '1.6' }}>
+                    <p style={{ margin: '0 0 12px' }}>Dear {clientFirst},</p>
+                    <p style={{ margin: '0 0 12px' }}>As part of your tax planning engagement, we are requesting the following additional information:</p>
+                    <textarea
+                      value={text}
+                      onChange={e => setDraft({ text: e.target.value })}
+                      placeholder="List the additional information you need from the client."
+                      disabled={sending}
+                      style={{ width: '100%', minHeight: '90px', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.06)', color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif', fontSize: '13px', lineHeight: '1.55', boxSizing: 'border-box', resize: 'vertical', marginBottom: '12px' }}
+                    />
+                    <p style={{ margin: '0 0 12px' }}>Please use the secure button below to provide the additional information:</p>
+                    <div style={{ margin: '0 0 12px' }}>
+                      <span style={{ display: 'inline-block', padding: '10px 18px', borderRadius: '6px', background: '#0095ff', color: '#fff', fontSize: '13px', fontWeight: 600, pointerEvents: 'none' }}>Upload Additional Information</span>
+                    </div>
+                    <p style={{ margin: '0 0 12px' }}>If you have any questions, please reply all to this email and we'd be happy to help!</p>
+                    <p style={{ margin: 0 }}>Thank you,</p>
+                  </div>
+                  <div style={{ marginTop: '14px', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                    <button disabled={sending} onClick={clearDraft} style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }}>Cancel</button>
+                    <button disabled={sending || !text.trim()} onClick={sendRequest} style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', cursor: (sending || !text.trim()) ? 'not-allowed' : 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: (sending || !text.trim()) ? 'rgba(0,149,255,0.06)' : 'rgba(0,149,255,0.18)', color: '#0095ff', fontWeight: '600' }}>{sending ? 'Sending…' : 'Send'}</button>
+                  </div>
                 </div>
-              )
-            })}
-          </div>
+              )}
+              {requestedAt && (
+                <div style={{ padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+                    <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>AI PC Admin</span>
+                  </div>
+                  <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
+                    {aiStep('Request email sent to client', !!requestedAt)}
+                    {aiStep('Additional information received', !!receivedAt)}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )
     }
@@ -2191,7 +2263,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   // decision read from the plan row).
   const heroCountedTasks = (phase) => {
     let tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
-    if (phase.name === 'Tax 1 - Diagnostic' && !additionalInfoRequired) {
+    if (phase.name === 'Tax 1 - Diagnostic') {
       tasks = tasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
     }
     if (phase.name === 'Set Up') {
@@ -2240,7 +2312,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         const isExpanded = expanded[phase.id] !== undefined ? expanded[phase.id] : (state === 'active')
         const tasks = phase.program_client_tasks || []
         let nonAutoTasks = tasks.filter(t => t.status_options !== 'auto')
-        if (phase.name === 'Tax 1 - Diagnostic' && !additionalInfoRequired) {
+        if (phase.name === 'Tax 1 - Diagnostic') {
           nonAutoTasks = nonAutoTasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
         }
         if (phase.name === 'Set Up') {
@@ -2258,6 +2330,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           if (t.status_options === 'tax_presentation_link') return !!livePlan?.presentation_send_date
           // tax_returns_request writes to client_tax_plans (received), not client_tax_progress
           if (t.status_options === 'tax_returns_request') return !!livePlan?.tax_returns_received_at
+          // Additional information required needs the received stamp to complete
+          // while info is still being requested.
+          if (t.name === 'Additional information required') {
+            const st = localProgress[t.id]?.status
+            return !!st && (st !== 'Additional info required' || !!livePlan?.additional_info_received_at)
+          }
           return !!localProgress[t.id]?.status
         }).length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
@@ -2404,6 +2482,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           if (t.status_options === 'tax_presentation_link') return !!livePlan?.presentation_send_date
           // tax_returns_request writes to client_tax_plans (received), not client_tax_progress
           if (t.status_options === 'tax_returns_request') return !!livePlan?.tax_returns_received_at
+          // Additional information required needs the received stamp to complete
+          // while info is still being requested.
+          if (t.name === 'Additional information required') {
+            const st = localProgress[t.id]?.status
+            return !!st && (st !== 'Additional info required' || !!livePlan?.additional_info_received_at)
+          }
           return !!localProgress[t.id]?.status
         }).length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
