@@ -43,6 +43,15 @@ const isPlannerEditable = (task) => PLANNER_EDITABLE_TASK_NAMES.has(task?.name)
 // backend constants/tax-discount.ts; delete both to retire the special case).
 const DISCOUNT_MEMBER_NUMBER = '59073'
 
+// A plan belongs to program (plan.program_id || 1): NULL/undefined is legacy
+// Holistic (program 1). A program view must render ONLY its own plans —
+// tax_load_plans returns every plan for the client regardless of program, so a
+// Holistic plan opened under the VFO Tax Planning view half-worked because
+// program-4-only auto-stamps (e.g. tax_returns_received_at) are hard-gated to
+// program-4 plans on the backend (gotcha #123).
+const plansForProgram = (plans, programId) =>
+  (plans || []).filter(p => (p.program_id || 1) === (programId || 1))
+
 // Phase badge tokens come from the phase NAME, never its render position: the
 // track's business numbering ("Tax 1".."Tax 6") doesn't line up with an index —
 // VFO Tax Planning leads with an unnumbered "Set Up" phase, and the two stored
@@ -2466,14 +2475,19 @@ function TaxPrioritiesTab({ clientId, programId, programName, client, specialist
         loadCachedAction('msm_load_client_track', { program_id: programId, track_type: 'tax' }),
         callApi('msm_load_client_progress', { client_id: clientId }),
       ])
-      setTaxPlans(plansData.plans || [])
+      // Scope to the current program view before anything downstream sees the
+      // list: plan cards, livePlan selection, TrackHero counts, MSM status, the
+      // per-plan track view, the Start button, and deep-link resolution all read
+      // from taxPlans, so the filter belongs at this single entry point.
+      const scopedPlans = plansForProgram(plansData.plans, programId)
+      setTaxPlans(scopedPlans)
       const loadedPhases = phasesData.phases || []
       loadedPhases.forEach(p => p.program_client_tasks?.sort((a, b) => a.task_order - b.task_order))
       setPhases(loadedPhases)
       const enabled = programName === 'VFO Tax Planning' || (map1Progress.progress || []).some(p => p.status === 'Tax priorities tab enabled')
       setTaxEnabled(enabled)
       const progressMap = {}
-      await Promise.all((plansData.plans || []).map(async plan => {
+      await Promise.all(scopedPlans.map(async plan => {
         const pd = await callApi('tax_load_progress', { tax_plan_id: plan.id })
         progressMap[plan.id] = {}
         ;(pd.progress || []).forEach(p => {
