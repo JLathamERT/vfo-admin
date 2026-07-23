@@ -194,7 +194,7 @@ export default function ClientDetail() {
       <div style={{ background: 'linear-gradient(90deg, #002973 0%, #125ecc 100%)', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '58px', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(0,41,115,0.25)' }}>
         <VfoWordmark size={17} light onClick={() => {
           if (isPlanner) {
-            sessionStorage.setItem('taxPlannerActiveTab', 'planning')
+            sessionStorage.removeItem('taxPlannerActiveTab')
             navigate('/tax-planner')
           } else if (isMember) {
             sessionStorage.setItem('memberActiveTab', 'profile')

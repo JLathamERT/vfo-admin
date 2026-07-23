@@ -62,7 +62,7 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
     const expandState = {}
     phases.forEach(phase => {
       const tasks = countedTasks(phase)
-      const allDone = tasks.length > 0 && tasks.every(isTaskDone)
+      const allDone = tasks.length === 0 || tasks.every(isTaskDone)
       expandState[phase.id] = !allDone
     })
     setExpanded(expandState)
