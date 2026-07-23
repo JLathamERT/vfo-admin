@@ -367,6 +367,7 @@ function MemberTrainingView({ enrollment, program }) {
   const [phases, setPhases] = useState([])
   const [progress, setProgress] = useState({})
   const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState({})
 
   function handleTaskComplete(taskId, status, date) {
     setProgress(p => ({ ...p, [taskId]: { ...p[taskId], task_id: taskId, status, completed_date: date } }))
@@ -381,10 +382,17 @@ function MemberTrainingView({ enrollment, program }) {
         loadCachedAction('msm_load_training_track', { program_id: program.id }),
         callApi('msm_load_training_progress', { enrollment_id: enrollment.id }),
       ])
-      setPhases(trackData.phases || [])
+      const loadedPhases = trackData.phases || []
+      setPhases(loadedPhases)
       const prog = {}
       ;(progressData.progress || []).forEach(p => { prog[p.task_id] = p })
       setProgress(prog)
+      // A fully-done phase defaults collapsed on load; manual toggles win after.
+      const expandState = {}
+      loadedPhases.forEach(phase => {
+        expandState[phase.id] = phaseState(phase.program_training_tasks, prog) !== 'done'
+      })
+      setExpanded(expandState)
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
   }
@@ -409,10 +417,14 @@ function MemberTrainingView({ enrollment, program }) {
       />
       {phases.map(phase => {
         const isReview = phase.name.includes('Review')
+        const isExpanded = expanded[phase.id]
         return (
         <div key={phase.id} style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '16px', marginTop: isReview ? '-6px' : '0', marginLeft: isReview ? '20px' : '0', borderTopLeftRadius: isReview ? '0' : '12px' }}>
-          <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: 'var(--vfo-heading)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}{isReview && <span style={{ fontSize: '10px', color: 'var(--vfo-muted)', marginLeft: '8px', textTransform: 'none', fontWeight: '400', letterSpacing: '0' }}>checkpoint</span>}</div>
-          {(() => {
+          <div onClick={() => setExpanded(p => ({ ...p, [phase.id]: !p[phase.id] }))} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: isExpanded ? '16px' : '0' }}>
+            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 800, color: 'var(--vfo-heading)', textTransform: 'uppercase', letterSpacing: '1px' }}>{phase.name}{isReview && <span style={{ fontSize: '10px', color: 'var(--vfo-muted)', marginLeft: '8px', textTransform: 'none', fontWeight: '400', letterSpacing: '0' }}>checkpoint</span>}</span>
+            <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+          </div>
+          {isExpanded && (() => {
             const renderMemberTask = (task, inGroup) => {
               const p = progress[task.id] || {}
               const trackerMeta = isTrackerTask(task)
@@ -763,7 +775,7 @@ function MemberClientTrackView({ client, program }) {
       const expandState = {}
       loadedPhases.forEach(phase => {
         const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
-        const allDone = tasks.length > 0 && tasks.every(t => prog[t.id]?.status)
+        const allDone = tasks.length === 0 || tasks.every(t => prog[t.id]?.status)
         expandState[phase.id] = !allDone
       })
       setExpanded(expandState)

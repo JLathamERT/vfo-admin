@@ -836,9 +836,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     const expandState = {}
     phases.forEach(phase => {
       if (phase.name === 'Tax 5 - Education & DD (Specialist Allocation)' || phase.name === 'Tax 5 - Education & DD (Post Allocation)') return
-      const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
-      const allDone = tasks.length > 0 && tasks.every(t => localProgress[t.id]?.status)
-      expandState[phase.id] = !allDone
+      // Use the component's canonical phase-state predicate so plan-column steps
+      // (tax_returns_request etc.) and the per-phase special cases are counted;
+      // a fully-done phase defaults collapsed.
+      expandState[phase.id] = getPhaseState(phase) !== 'done'
     })
     setExpanded(expandState)
     loadSpecialists()
@@ -2030,21 +2031,6 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         </div>
       )
     }
-
-    if (task.status_options === 'tax_dd_implementation') return (
-      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
-        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
-        <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
-        {isDone
-          ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
-          : <div style={{ display: 'flex', gap: '6px' }}>
-              <button onClick={() => saveTask(task.id, 'Continue DD', p.completed_date)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }}>Continue DD</button>
-              <button onClick={() => saveTask(task.id, 'Move to Implementation', p.completed_date)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }}>Move to Implementation</button>
-            </div>
-        }
-        <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
-      </div>
-    )
 
     if (task.status_options === 'tax_planner_select' || task.name === 'Allocate to Advanced Tax Planner') {
       const green = '#1b9254'

@@ -534,7 +534,12 @@ function PFTEngagementTrack({ clientId, programId, client, readOnly = false, not
         const isAssoc = phase.name.includes('VFO-Associate')
         const isFT = phase.name.includes('VFO-FT Accountant')
         if (isAssoc || isFT) {
-          expandState[phase.id] = (isAssoc && decStatus === 'VFO Associate confirmed') || (isFT && decStatus === 'VFO FT confirmed')
+          // Open the confirmed branch, but collapse it once its visible tasks
+          // are all done.
+          const branchConfirmed = (isAssoc && decStatus === 'VFO Associate confirmed') || (isFT && decStatus === 'VFO FT confirmed')
+          const tasks = visiblePhaseTasks(phase, gateStatus, prog)
+          const allDone = tasks.length === 0 || tasks.every(t => prog[t.id]?.status)
+          expandState[phase.id] = branchConfirmed && !allDone
           return
         }
         const tasks = visiblePhaseTasks(phase, gateStatus, prog)
