@@ -284,7 +284,7 @@ function GateStep({ task, p, readOnly, onChoose }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
       <Dot done={isDone} color={statusColor} />
-      <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
+      <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
       {isDone
         ? <StatusPill status={p.status} color={statusColor} />
         : readOnly
@@ -741,7 +741,7 @@ function PFTEngagementTrack({ clientId, programId, client, readOnly = false, not
             })}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', marginTop: '4px' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: a11Val ? a11Color : 'transparent', flexShrink: 0, border: `1px solid ${a11Val ? a11Color : 'var(--vfo-border-mid)'}` }} />
-              <span style={{ fontSize: '12px', color: 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
+              <span style={{ fontSize: '12px', color: 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
               <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${a11Color}22`, color: a11Color, border: `1px solid ${a11Color}44`, fontWeight: '600' }}>{a11Val || 'Pending'}</span>
             </div>
           </div>
