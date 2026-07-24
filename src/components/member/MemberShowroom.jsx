@@ -40,7 +40,7 @@ function Avatar({ expert, big }) {
     : stage === 1 ? HEADSHOT_FALLBACK + expert.headshot_image
     : null
   if (!src) return <div className="vfo-sr-avatar-ph" style={big ? { fontSize: '36px' } : undefined}>{(expert.name || '?').charAt(0)}</div>
-  return <img src={src} alt={formatName(expert.name)} onError={() => setStage(s => s + 1)} />
+  return <img src={src} alt={formatName(expert.name)} loading="lazy" decoding="async" onError={() => setStage(s => s + 1)} />
 }
 
 // Background-check tiers, styled so the symbol is nicest for Max, a notch down
