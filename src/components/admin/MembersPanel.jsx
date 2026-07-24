@@ -380,7 +380,7 @@ function MemberDirectoryView({
           <div>
             {sortMembers(filteredMembers, listSort).map(m => (
               <div key={m.plugin_member_number}
-                onClick={(e) => { if (m.member_type === 'VFO Reconciliation (Free)' && !canOpenReconciliation) { flashDeny(e); return } setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem(selectedKey, m.plugin_member_number); sessionStorage.setItem(featureTabKey, 'profile_details') }}
+                onClick={(e) => { if (m.member_type === 'VFO Reconciliation (Free)' && !canOpenReconciliation) { flashDeny(e); return } setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem(selectedKey, m.plugin_member_number); sessionStorage.setItem(featureTabKey, 'profile_details'); window.scrollTo(0, 0) }}
                 style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 16px', marginBottom: '6px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '12px', boxShadow: '0 2px 8px rgba(20,45,95,0.04)', cursor: 'pointer' }}
                 onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,149,255,0.4)'}
                 onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--vfo-border-soft)'}>
@@ -824,7 +824,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
     let n = bstr.length
     const u8 = new Uint8Array(n)
     while (n--) u8[n] = bstr.charCodeAt(n)
-    setPhotoFile(new File([u8], 'headshot.png', { type: 'image/png' }))
+    setPhotoFile(new File([u8], 'headshot.jpg', { type: 'image/jpeg' }))
     setPhotoPreview(dataUrl)
     setCropState(null)
     setDirty(true)
@@ -870,7 +870,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
       if (photoFile) {
         const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
         const nm = `${profile.first_name || ''} ${profile.last_name || ''}`.replace(/[^a-zA-Z0-9 ]/g, '').trim()
-        const filename = ts + '_' + (nm || 'member') + '.png'
+        const filename = ts + '_' + (nm || 'member') + '.jpg'
         const base64 = await new Promise((resolve, reject) => {
           const reader = new FileReader()
           reader.onload = () => resolve(reader.result.split(',')[1])
@@ -1318,7 +1318,7 @@ function MemberSpecialists({ member, allExperts, allExclusionMap, ecoMap = {}, o
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', cursor: 'pointer' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: 'var(--vfo-border)', flexShrink: 0 }}>
-                {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
               </div>
               <div style={{ textAlign: 'left' }}>
                 <div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{expert.name}</div>
@@ -1340,7 +1340,7 @@ function MemberSpecialists({ member, allExperts, allExclusionMap, ecoMap = {}, o
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: 'var(--vfo-tint)', border: '1px dashed var(--vfo-border-strong)', borderRadius: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: 'var(--vfo-border)', flexShrink: 0 }}>
-                  {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                  {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                 </div>
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{expert.name}</div>

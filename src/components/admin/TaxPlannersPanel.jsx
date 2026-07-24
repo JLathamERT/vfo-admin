@@ -109,6 +109,7 @@ export default function TaxPlannersPanel({ section }) {
     setSelectedPlanner(planner)
     setPlannerTab('profile')
     setDeleteMsg('')
+    window.scrollTo(0, 0)
   }
 
   function backToList() {
@@ -135,7 +136,7 @@ export default function TaxPlannersPanel({ section }) {
     let n = bstr.length
     const u8 = new Uint8Array(n)
     while (n--) u8[n] = bstr.charCodeAt(n)
-    const file = new File([u8], 'headshot.png', { type: 'image/png' })
+    const file = new File([u8], 'headshot.jpg', { type: 'image/jpeg' })
     if (which === 'add') { setAddFile(file); setAddPreview(dataUrl) }
     else { setEditFile(file); setEditPreview(dataUrl) }
     setCropState(null)
@@ -149,7 +150,7 @@ export default function TaxPlannersPanel({ section }) {
       let headshotFilename = ''
       if (file) {
         const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
-        headshotFilename = ts + '_' + fullName(form).replace(/[^a-zA-Z0-9 ]/g, '').trim() + '.png'
+        headshotFilename = ts + '_' + fullName(form).replace(/[^a-zA-Z0-9 ]/g, '').trim() + '.jpg'
         const base64 = await new Promise((resolve, reject) => {
           const reader = new FileReader()
           reader.onload = () => resolve(reader.result.split(',')[1])
