@@ -128,10 +128,45 @@
 - Membership charges appear on the **global Payments page** (Membership chip; face-value
   amounts; paid/processing/missed/declined + termination fees; `all-payments-load.ts`).
 
+## Invoices, receipts & the confirmation email (added 2026-07-24, v653)
+
+Membership was the last money pipeline with no success-side email. Seven templates now exist,
+all Draft, all **To** member / **Cc** `tvaldes@elitert.com` / **Bcc** `platham@elitert.com` +
+`aanderson@elitert.com`. Full invariants in gotchas **#280** (document engine) and **#281**
+(the card-fee rule).
+
+| Moment | Confirmation | Invoice | Receipt |
+|---|---|---|---|
+| First sign-up, card | instant | instant | instant |
+| First sign-up, ACH | instant | on clearing | on clearing |
+| Mid-year transfer | instant | catch-up invoice | yes |
+| Monthly pulls 2–12 | — | — | every month |
+| Renewal (year 2+) | — | new-year invoice | yes |
+| Annual payers | sign-up only | once a year | once a year |
+| A charge fails | — | — | — (the `MEMBERSHIP_payment_failed` email instead) |
+
+- The confirmation (`MEMBERSHIP_confirmation|card` / `|ach`) fires **once**, at genuine first
+  sign-up — never at renewal. `activateMembershipPlan` returns `activated|refreshed|failed`, and
+  `refreshed` (the member re-used the link to swap their card) must not re-confirm.
+- `automation_MEMBERSHIP_invoicereceipt` decides invoice-vs-receipt **from the ledger**: rows
+  sharing a `year_start` are one membership year, the earliest `due_date` in that group is the
+  opener that earns an invoice. Idempotent on `docs_emailed_at`, so a redelivered Stripe event
+  cannot double-send. Chained from three webhook points (card first payment, ACH settle,
+  off-session pull); `membership_termination_fee` is deliberately excluded.
+- Both PDFs are filed in the **`member-ert-docs` ERT vault** keyed by `member_number` — the
+  admin-managed, member-read-only section, the same place signed agreements land. NOT Google
+  Drive (unlike MAP 1). Paths recorded on the ledger row; a vault failure logs and never loses
+  the already-sent email.
+- The **card fee is mentioned only when charged** (New Model + card). Legacy and every ACH payer
+  see no fee wording anywhere — rows, footnote, breakdown box and email sentence all omit.
+- `member_payment_plans.prior_payments_made` is admin-entered on the transfer form, because the
+  system holds no record of payments collected on the old platform. Blank falls back to
+  `(12 − remaining)`.
+
 ## NOT built yet (next work)
 
-- Membership invoice/receipt PDFs (never requested); per-row itemization of the card gross-up
-  (the charge is grossed up; the ledger shows face value).
+- Per-row itemization of the card gross-up in the ledger UI (the charge is grossed up; the
+  ledger shows face value — the invoice/receipt PDFs DO itemize it).
 - From the 2026-07-17 audit, still open (everything else — H4/M1/M2/M4, Outstanding dead-end
   button, timestamptz dates, M3 suspended-flag separation, M8 link expiry+resend — was FIXED
   across v619/620/621): combined-pull charges aren't grouped/gross-up-explained in the

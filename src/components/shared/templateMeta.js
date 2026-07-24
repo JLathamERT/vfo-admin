@@ -192,6 +192,12 @@ export const TEMPLATE_META = {
     ['MEMBERSHIP_transfer_setup_link', 'Member moving over from the old billing mid-year — same setup link, but explains the transfer and where they are in their year', 'To: Member'],
     ['MEMBERSHIP_payment_failed', 'A monthly membership charge failed — friendly note that next month doubles to catch up, with an update-payment-method link', 'To: Member'],
     ['MEMBERSHIP_update_link', 'Admin-sent fresh update-payment-method link for an active plan (links expire after 30 days)', 'To: Member'],
+    ['MEMBERSHIP_confirmation|card', 'First sign-up on card — immediate acknowledgement that the payment went through; invoice and receipt follow moments later', 'To: Member · Cc: Tray · Bcc: Paul, Anna'],
+    ['MEMBERSHIP_confirmation|ach', 'First sign-up on ACH — immediate acknowledgement; invoice and receipt follow when the transfer clears', 'To: Member · Cc: Tray · Bcc: Paul, Anna'],
+    ['MEMBERSHIP_invoicereceipt_email|first', 'First payment of a brand-new membership — invoice and receipt attached', 'To: Member · Cc: Tray · Bcc: Paul, Anna'],
+    ['MEMBERSHIP_invoicereceipt_email|renewal', 'Opening payment of a renewed membership year — new-year invoice and receipt attached', 'To: Member · Cc: Tray · Bcc: Paul, Anna'],
+    ['MEMBERSHIP_invoicereceipt_email|transfer', 'First payment after moving over from the old billing — catch-up invoice showing where they are in the year, plus receipt', 'To: Member · Cc: Tray · Bcc: Paul, Anna'],
+    ['MEMBERSHIP_receipt_email|monthly', 'Every later monthly pull — receipt only, no invoice', 'To: Member · Cc: Tray · Bcc: Paul, Anna'],
   ],
   'PARTNERSHIP_FAST_TRACK': [
     ['PFT_meeting_confirm', 'A PFT meeting is booked — confirmation (used for every meeting in the track)', 'To: Accountant'],
