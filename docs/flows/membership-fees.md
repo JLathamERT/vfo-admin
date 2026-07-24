@@ -158,7 +158,14 @@ all Draft, all **To** member / **Cc** `tvaldes@elitert.com` / **Bcc** `platham@e
   Drive (unlike MAP 1). Paths recorded on the ledger row; a vault failure logs and never loses
   the already-sent email.
 - The **card fee is mentioned only when charged** (New Model + card). Legacy and every ACH payer
-  see no fee wording anywhere — rows, footnote, breakdown box and email sentence all omit.
+  see no fee wording anywhere — rows, footnote, breakdown box, email sentence and the schedule
+  line's fee clause all omit. The figure shown is read from
+  `member_payment_schedule.card_processing_fee`, stamped at settle time from Stripe's
+  `amount_received` (the same convention as every other pipeline) — not re-derived. On a $1,500
+  pull that is **$45.11**, charged as $1,545.11, netting ERT exactly $1,500 (gotcha #281).
+- **Ordinals on a transfer year carry no "of N" denominator**, because the admin-entered
+  made-count and the renewal-derived remaining-count need not total 12. The FE warns
+  (non-blocking) when they don't.
 - `member_payment_plans.prior_payments_made` is admin-entered on the transfer form, because the
   system holds no record of payments collected on the old platform. Blank falls back to
   `(12 − remaining)`.
@@ -170,8 +177,10 @@ all Draft, all **To** member / **Cc** `tvaldes@elitert.com` / **Bcc** `platham@e
 - From the 2026-07-17 audit, still open (everything else — H4/M1/M2/M4, Outstanding dead-end
   button, timestamptz dates, M3 suspended-flag separation, M8 link expiry+resend — was FIXED
   across v619/620/621): combined-pull charges aren't grouped/gross-up-explained in the
-  ledger UI; a `terminated` plan blocks creating a new plan for the same member (flip it to
-  `canceled` to free the slot); transfer credit spread is estimated at plan-save, not pay time.
+  ledger UI; a `terminated` plan blocks creating a new plan for the same member — only
+  `canceled` frees the slot, and the FE surfaces this as a bare "duplicate key value violates
+  unique constraint `member_payment_plans_one_live_idx`" with no hint of the cause (gotcha
+  #283); transfer credit spread is estimated at plan-save, not pay time.
 - **Go-live steps** (order matters — the flip trap is #1: every charge site reads the plan's
   snapshotted `sandbox`, so an ACTIVE plan set up under sandbox keeps charging the SANDBOX
   account forever after the flip, green-but-fake):

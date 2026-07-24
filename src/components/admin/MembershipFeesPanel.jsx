@@ -664,6 +664,11 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
     : 0
   const priorPaidValid = priorPaid === '' ||
     (/^\d+$/.test(priorPaid.trim()) && Number(priorPaid) >= 0 && Number(priorPaid) <= 11)
+  // The entered "already made" count and the count derived from the renewal
+  // date are independent, so they can disagree. Warn rather than block — a real
+  // transfer with an irregular history may legitimately not total 12.
+  const priorPaidMismatch = priorPaid !== '' && priorPaidValid && transferRenewalValid &&
+    transferPullCount > 0 && Number(priorPaid) + transferPullCount !== 12
   const perPull = frequency === 'annual'
     ? roundDollar(isTransfer ? annual : net)
     : isTransfer
@@ -787,6 +792,10 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
             />
             {priorPaid !== '' && !priorPaidValid ? (
               <div style={{ marginTop: '5px', fontSize: '12px', color: '#b91c1c' }}>Must be a whole number between 0 and 11.</div>
+            ) : priorPaidMismatch ? (
+              <div style={{ marginTop: '5px', fontSize: '12px', color: '#b45309' }}>
+                That makes {Number(priorPaid) + transferPullCount} payments this year, not 12 — check the renewal date, or enter {12 - transferPullCount}. Saving is still allowed.
+              </div>
             ) : (
               <div style={{ marginTop: '5px', fontSize: '12px', color: 'var(--vfo-ink-3)' }}>Shown on their catch-up invoice. Leave blank and it is worked out from the renewal date instead.</div>
             )}
