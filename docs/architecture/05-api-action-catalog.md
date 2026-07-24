@@ -222,7 +222,7 @@ All dispatched AFTER `middleware/auth.ts::authenticate()` validates body.token. 
 | `save_specialist` | `actions/specialists/save.ts` | — | `experts`, `vfo_ecosystem_assignments` (delete+insert). On **insert** (no `editing_id`), also renormalizes `experts.sort_order` for every row to its 1-based alphabetical position by `name`. **Edit** branch does not touch `sort_order`. (No longer touches `ciq_assignments` — removed 2026-07-01, gotcha #168.) | — |
 | `save_specialist_order` | `actions/specialists/save-order.ts` | — | `experts.sort_order` | — |
 | `delete_specialist` | `actions/specialists/delete.ts` | — | `member_exclusions`, `vfo_ecosystem_assignments`, `experts` (delete chain; no longer `ciq_assignments` — removed 2026-07-01) | — |
-| `upload_headshot` | `actions/specialists/upload-headshot.ts` | — | Supabase storage `headshots` bucket | — |
+| `upload_headshot` | `actions/specialists/upload-headshot.ts` | — | Supabase storage `headshots` bucket | Uploads a 500×500 JPEG (from `ImageCropModal`) under a fresh timestamped filename; sets `cacheControl: "31536000"` on `.upload()` → served `Cache-Control: public, max-age=31536000` (as of v652). See gotcha #278. |
 
 > **Removed in Phase 6 mechanical:** `delete_specialist` previously also targeted `vfo_assignments` (a non-existent table) — that line was deleted; the silent no-op is gone.
 

@@ -89,7 +89,7 @@ Seven storage buckets in use:
 
 | Bucket | Visibility | Used by | Notes |
 |---|---|---|---|
-| `headshots` | public | `upload_headshot` | Specialist headshots, served via direct public URL. |
+| `headshots` | public | `upload_headshot` | Member/specialist/tax-planner headshots (500×500 JPEG via `ImageCropModal`, 1-year cache), served via direct public URL. Backfilled 2026-07-24 (gotcha #278). |
 | `member-vault` | private | `vault_list` / `vault_upload_url` / `vault_download` / `vault_delete` | **General** section of the member vault, under `<member_number>/`. Signed-URL upload (was base64 `vault_upload`, still registered but unused). |
 | `member-tax-returns` | private | same `vault_*` actions, `section='sensitive'` | **Tax Documents** section of the member vault (added this session, 50 MB). |
 | `specialist-tax-returns` | private | `specialist_vault_*` / `specialist_vault_admin_*`, `section='sensitive'` | **Tax Documents** section of the specialist vault (added this session). General stays in `specialist-documents`. |
@@ -101,7 +101,7 @@ Seven storage buckets in use:
 
 ### `headshots`
 
-Per-specialist headshot images. RLS-locked by migration `lock_down_headshots_storage` (2026-04-28).
+Member / specialist / tax-planner headshot images. RLS-locked by migration `lock_down_headshots_storage` (2026-04-28).
 
 | Action | Where | Path scheme |
 |---|---|---|
@@ -110,6 +110,8 @@ Per-specialist headshot images. RLS-locked by migration `lock_down_headshots_sto
 Public read: yes — the frontend builds URLs like `https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/<filename>` ([MemberPortal.jsx:10](src/pages/MemberPortal.jsx)). The bucket is configured as public despite the "lock_down" migration name; the migration likely restricts only WRITE not READ.
 
 Filename is stored on `experts.headshot_image` as the bare filename (no path). The frontend URL-encodes when building the public URL.
+
+**Image pipeline + caching (2026-07-24, gotcha #278).** Uploads route through `ImageCropModal` (fixed 500×500 JPEG q0.85, white-flattened, ~25kB — was PNG ~300kB) and save under a `.jpg` filename. `upload_headshot` sets `cacheControl: "31536000"` on `.upload()` so objects serve `Cache-Control: public, max-age=31536000` (as of v652; safe because every upload gets a fresh timestamped filename). Every headshot `<img>` on showroom/list grids is `loading="lazy" decoding="async"`. All 111 legacy objects were **backfilled in place 2026-07-24** (re-encoded ≤500px JPEG q82: 24.7MB→2.2MB, avg 20kB; 110 `image/jpeg` + 1 kept-`image/png` `20260629234146_Shay Novak.png` for real transparency). Some `.png` object names now hold JPEG bytes — Content-Type is authoritative, so never "fix" the extensions (DB `headshot_image` values reference them). The bucket shares the `supabase.co` host with the REST API; a bypass upload of large originals or a new eager (non-lazy) grid re-saturates that host and starves API calls (the portal-wide slow-load root cause fixed this session).
 
 ### `member-vault`
 
