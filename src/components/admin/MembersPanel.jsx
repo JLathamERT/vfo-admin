@@ -18,6 +18,10 @@ import { TrackHero, HeroAvatar, ListHeader } from '../shared/TrackKit'
 import { VisibilityBadge, noteTint } from '../shared/NoteVisibility'
 import ImageCropModal from './ImageCropModal'
 
+// Creating advisors / accountants / strategic members is restricted to the
+// SuperAdmin (Jake) plus Tray Valdés-Dennis (tvaldes@elitert.com).
+const canAddMembers = () => { const s = getSession(); return !!s?.is_superadmin || (s?.email || '').toLowerCase() === 'tvaldes@elitert.com' }
+
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
 // Prepend https:// to a bare domain so member website links resolve as absolute.
 const normalizeUrl = (u) => { const s = (u || '').trim(); return s && !/^https?:\/\//i.test(s) ? 'https://' + s : s }
@@ -148,7 +152,7 @@ function AddAccountantForm({ allMembers, onDataChange }) {
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
 
   async function submit() {
-    if (!getSession()?.is_superadmin) { setStatusType('error'); setStatus('Access Denied'); return }
+    if (!canAddMembers()) { setStatusType('error'); setStatus('Access Denied'); return }
     if (!firstName || !lastName || !memberType) { setStatusType('error'); setStatus('First name, last name, and member type are required.'); return }
     if (!email.trim()) { setStatusType('error'); setStatus('Email is required.'); return }
     if (!eliteStatus) { setStatusType('error'); setStatus('Please pick a status.'); return }
@@ -494,7 +498,7 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
   }
 
   async function submit() {
-    if (!getSession()?.is_superadmin) { setStatusType('error'); setStatus('Access Denied'); return }
+    if (!canAddMembers()) { setStatusType('error'); setStatus('Access Denied'); return }
     if (!firstName || !lastName || !memberType) { setStatusType('error'); setStatus('First name, last name, and member type are required.'); return }
     if (!email.trim()) { setStatusType('error'); setStatus('Email is required.'); return }
     if (!eliteStatus) { setStatusType('error'); setStatus('Please pick a status.'); return }
@@ -668,7 +672,7 @@ function AddStrategicMemberForm({ groupNames, allMembers, onDataChange }) {
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
 
   async function submit() {
-    if (!getSession()?.is_superadmin) { setStatusType('error'); setStatus('Access Denied'); return }
+    if (!canAddMembers()) { setStatusType('error'); setStatus('Access Denied'); return }
     if (!firstName || !lastName || !memberType) { setStatusType('error'); setStatus('First name, last name, and member type are required.'); return }
     if (!email.trim()) { setStatusType('error'); setStatus('Email is required.'); return }
     if (!eliteStatus) { setStatusType('error'); setStatus('Please pick a status.'); return }
