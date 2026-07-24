@@ -619,6 +619,9 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
   const [memberNumber, setMemberNumber] = useState(editPlan?.member_number || '')
   const [isTransfer, setIsTransfer] = useState(!!editPlan?.transfer)
   const [transferRenewal, setTransferRenewal] = useState(editPlan?.transfer ? editPlan.renewal_date : '')
+  const [priorPaid, setPriorPaid] = useState(
+    editPlan?.prior_payments_made === 0 || editPlan?.prior_payments_made ? String(editPlan.prior_payments_made) : '',
+  )
   const [frequency, setFrequency] = useState(editPlan?.frequency || 'monthly')
   const [annualAmount, setAnnualAmount] = useState(editPlan ? String(editPlan.annual_amount) : '')
   const [creditNote, setCreditNote] = useState(editPlan && Number(editPlan.credit_note) > 0 ? String(editPlan.credit_note) : '')
@@ -659,6 +662,8 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
   const transferPullCount = isTransfer && transferRenewalValid && frequency === 'monthly'
     ? 1 + chargeDatesAfter(today, transferRenewal, 23).length
     : 0
+  const priorPaidValid = priorPaid === '' ||
+    (/^\d+$/.test(priorPaid.trim()) && Number(priorPaid) >= 0 && Number(priorPaid) <= 11)
   const perPull = frequency === 'annual'
     ? roundDollar(isTransfer ? annual : net)
     : isTransfer
@@ -670,6 +675,7 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
     if (!memberNumber) { setMsg({ tone: 'error', text: 'Pick a member first.' }); return }
     if (!(annual > 0)) { setMsg({ tone: 'error', text: 'Enter the annual membership value.' }); return }
     if (isTransfer && !transferRenewalValid) { setMsg({ tone: 'error', text: 'Enter the member\'s existing renewal date — it must be the 15th of a month, within a year.' }); return }
+    if (!priorPaidValid) { setMsg({ tone: 'error', text: 'Payments already made must be a whole number between 0 and 11.' }); return }
     setBusy(true)
     try {
       const res = await callApi('membership_plan_save', {
@@ -682,6 +688,7 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
         credit_note: credit,
         credit_note_memo: creditMemo || undefined,
         renewal_date: isTransfer ? transferRenewal : undefined,
+        prior_payments_made: isTransfer && frequency === 'monthly' && priorPaid !== '' ? Number(priorPaid) : undefined,
       })
       if (!res?.ok) { setMsg({ tone: 'error', text: res?.error || 'Could not save the plan.' }); return }
       if (editPlan) { onSaved?.({ tone: 'success', text: 'Plan updated.' }); return }
@@ -768,6 +775,20 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
             <input type="date" value={transferRenewal} onChange={e => setTransferRenewal(e.target.value)} style={input} />
             {transferRenewal && !transferRenewalValid && (
               <div style={{ marginTop: '5px', fontSize: '12px', color: '#b91c1c' }}>Must be the 15th of a month, in the future and within a year.</div>
+            )}
+          </div>
+        )}
+        {isTransfer && frequency === 'monthly' && (
+          <div>
+            <div style={label}>Payments already made this year (optional)</div>
+            <input
+              type="number" min="0" max="11" step="1" placeholder="e.g. 6"
+              value={priorPaid} onChange={e => setPriorPaid(e.target.value)} style={input}
+            />
+            {priorPaid !== '' && !priorPaidValid ? (
+              <div style={{ marginTop: '5px', fontSize: '12px', color: '#b91c1c' }}>Must be a whole number between 0 and 11.</div>
+            ) : (
+              <div style={{ marginTop: '5px', fontSize: '12px', color: 'var(--vfo-ink-3)' }}>Shown on their catch-up invoice. Leave blank and it is worked out from the renewal date instead.</div>
             )}
           </div>
         )}
