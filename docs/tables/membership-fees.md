@@ -54,6 +54,7 @@ sweep index `(status, due_date)`.
 | `invoice_number` / `receipt_number` | `INV-<member#>-NNNN` / `REC-<member#>-NNNN`, allocated via `document_numbers.member_payment_plan_id`. The invoice number lives on the year's opening row only |
 | `invoice_vault_path` / `receipt_vault_path` | object paths in the `member-ert-docs` ERT vault bucket (NOT Google Drive) |
 | `docs_emailed_at` | set once the invoice/receipt email is drafted — the idempotency guard against Stripe event redelivery |
+| `card_processing_fee` | the fee Stripe ACTUALLY charged (`amount_received` − base), stamped at settle time in both webhook branches. A combined catch-up charge stamps the SAME total on every row it covered — read it from the primary row, never sum it (gotcha #281) |
 | `reminder_sent_at` | guard so the failed-payment email drafts once per missed row |
 
 ## Related config
