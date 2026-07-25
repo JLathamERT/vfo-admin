@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, cloneElement } from 'react'
-import { callApi, loadCachedAction } from '../../../lib/api'
+import { callApi, loadCachedAction, getSession } from '../../../lib/api'
 import { TaxPlanListSkeleton } from '../../shared/Skeleton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { TrackHero, PhaseBadge, ListHeader } from '../../shared/TrackKit'
 import { hasStrategicSplit, computeStrategicShares } from '../../../lib/strategicSplits'
 import StepDate from '../../shared/StepDate'
 import StepEmailsChip from '../../shared/StepEmailsChip'
+import PricingSplitCard from './PricingSplitCard'
 
 // Matches the backend invoice money formatting ($X,XXX.XX).
 const fmtMoney = (n) => (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -1017,6 +1018,15 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (t.status_options === 'tax_hlm_confirm') return !!livePlan?.tax4_meeting_date
     if (t.status_options === 'tax_presentation_link') return !!livePlan?.presentation_send_date
     if (t.status_options === 'tax_returns_request') return !!livePlan?.tax_returns_received_at
+    // Allocating a tax planner completes only when a planner is actually allocated
+    // (client_tax_plans.tax_planner_id), not when the progress row merely holds a
+    // name. Rows migrated from before the Tax Planners table carry a free-text name
+    // — in practice a departed employee — that resolves to nobody and earns nobody
+    // revenue, so it must not read as done. Re-selecting a real planner writes the id
+    // and overwrites the stale name, so these self-heal.
+    if (t.status_options === 'tax_planner_select' || t.name === 'Allocate to Advanced Tax Planner') {
+      return livePlan?.tax_planner_id != null
+    }
     // Additional information required: the dropdown alone isn't done while info
     // is still being requested — it needs the received stamp to complete.
     if (t.name === 'Additional information required') {
@@ -1294,6 +1304,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                   <span style={{ color: 'var(--vfo-muted)' }}>Total fee:</span><span style={{ color: 'var(--vfo-ink)' }}>${Number(livePlan?.total_fee || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                   {livePlan?.split_type && (<><span style={{ color: 'var(--vfo-muted)' }}>Split:</span><span style={{ color: 'var(--vfo-ink)' }}>{livePlan.split_type}</span></>)}
                   {livePlan?.member_share && (<><span style={{ color: 'var(--vfo-muted)' }}>Member share:</span><span style={{ color: 'var(--vfo-ink)' }}>${Number(livePlan.member_share).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></>)}
+                  {livePlan?.tax_planner_share && (<><span style={{ color: 'var(--vfo-muted)' }}>Tax Planner share:</span><span style={{ color: 'var(--vfo-ink)' }}>${Number(livePlan.tax_planner_share).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></>)}
                   {livePlan?.vfos_share && (<><span style={{ color: 'var(--vfo-muted)' }}>VFOS share:</span><span style={{ color: 'var(--vfo-ink)' }}>${Number(livePlan.vfos_share).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></>)}
                   {livePlan?.risk_mindset && (<><span style={{ color: 'var(--vfo-muted)' }}>Risk mindset:</span><span style={{ color: 'var(--vfo-ink)' }}>{livePlan.risk_mindset}</span></>)}
                   {livePlan?.presentation_link && (<><span style={{ color: 'var(--vfo-muted)' }}>Presentation:</span><span style={{ color: 'var(--vfo-ink)', wordBreak: 'break-all' }}>{livePlan.presentation_link}</span></>)}
@@ -1572,7 +1583,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       return (
         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: implDecision ? decisionColor : 'transparent', flexShrink: 0, border: `1.5px solid ${implDecision ? decisionColor : 'var(--vfo-border-mid)'}` }} />
-          <span style={{ fontSize: '13px', color: implDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_implementdecision|Proceed', when: 'If Proceed — charges after 24h unless the client responds' }, { name: 'TAX_implementdecision|Undecided', when: 'If Undecided' }, { name: 'TAX_implementdecision|Not Implementing', when: 'If Not Implementing' }, { name: 'TAX_implementdecision|Reminder', when: 'Automatic reminder if no response (48h)' }]} context={emailCtx} /></span>}</span>
+          <span style={{ fontSize: '13px', color: implDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_implementdecision|Undecided', when: 'Sent when you click "Send implementation decision email" — Proceed / Do not proceed buttons' }, { name: 'TAX_implementdecision|Not Implementing', when: 'Sent if the client clicks "No - Do not proceed"' }, { name: 'TAX_implementdecision|Reminder', when: 'Automatic reminder if no response (48h)' }]} context={emailCtx} /></span>}</span>
           {implDecision ? (
             <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${decisionColor}22`, color: decisionColor, border: `1px solid ${decisionColor}44` }}>{decisionLabel}</span>
           ) : (
@@ -2043,7 +2054,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       // Display name carries the certifications suffix; the stored value (p.status)
       // is the plain full name and is never rewritten from here.
       const allocatedName = selectedPlanner ? plannerDisplayName(selectedPlanner) : (p.status || '')
-      const isAllocated = !!allocatedId || !!p.status
+      // Allocated means a real planner id on the plan — the one thing that decides who
+      // gets paid. A legacy progress row holding only a name (a departed employee)
+      // used to satisfy this and show green while the dropdown sat on "-- Select --".
+      const isAllocated = !!allocatedId
       const greenPill = { fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: green, fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }
       // Small pills sitting next to the select for the currently selected planner.
       // Colors reuse the portal's tinted-pill idiom: green #1b9254 (positive),
@@ -2293,6 +2307,25 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         )}
       />
 
+      {/* ADMIN (VFOS/ERT) SURFACE ONLY — this exposes VFO's own cut, so it is not
+          rendered at all in the member view (readOnly) or the tax-planner portal
+          (plannerMode), rather than being shown to them read-only. Every admin may
+          READ it; only the superadmin gets the Edit button, and tax_update_split
+          re-checks that server-side. Rendered regardless of tax_decision, because the
+          Tax 3 cascade that used to be the only home for the fee amounts and the split
+          is gated on it — and migrated clients never have one. */}
+      {!readOnly && !plannerMode && (
+        <PricingSplitCard
+          plan={livePlan}
+          plannerName={(() => {
+            const pl = taxPlanners.find(x => String(x.id) === String(livePlan?.tax_planner_id))
+            return pl ? plannerPlainName(pl) : ''
+          })()}
+          isSuperadmin={!!getSession()?.is_superadmin}
+          onSaved={refreshLivePlan}
+        />
+      )}
+
       {phasesBeforeSpec.map((phase, phaseIdx) => {
         const state = getPhaseState(phase)
         const isExpanded = expanded[phase.id] !== undefined ? expanded[phase.id] : (state === 'active')
@@ -2309,21 +2342,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             nonAutoTasks = nonAutoTasks.filter(t => t.status_options !== 'tax_refund')
           }
         }
-        const doneTasks = nonAutoTasks.filter(t => {
-          // tax_hlm_confirm writes to client_tax_plans.tax4_meeting_date, not client_tax_progress
-          if (t.status_options === 'tax_hlm_confirm') return !!livePlan?.tax4_meeting_date
-          // tax_presentation_link writes to client_tax_plans (scheduled or sent), not client_tax_progress
-          if (t.status_options === 'tax_presentation_link') return !!livePlan?.presentation_send_date
-          // tax_returns_request writes to client_tax_plans (received), not client_tax_progress
-          if (t.status_options === 'tax_returns_request') return !!livePlan?.tax_returns_received_at
-          // Additional information required needs the received stamp to complete
-          // while info is still being requested.
-          if (t.name === 'Additional information required') {
-            const st = localProgress[t.id]?.status
-            return !!st && (st !== 'Additional info required' || !!livePlan?.additional_info_received_at)
-          }
-          return !!localProgress[t.id]?.status
-        }).length
+        // Same rule as the hero count and the phase pills — isTaskStatused owns every
+        // "this step doesn't live in client_tax_progress" special case in one place.
+        const doneTasks = nonAutoTasks.filter(isTaskStatused).length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
         const titleColor = state === 'active' ? 'var(--vfo-primary)' : 'var(--vfo-heading)'
@@ -2461,21 +2482,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         const isExpanded = expanded[phase.id] !== undefined ? expanded[phase.id] : (state === 'active')
         const tasks = phase.program_client_tasks || []
         const nonAutoTasks = tasks.filter(t => t.status_options !== 'auto')
-        const doneTasks = nonAutoTasks.filter(t => {
-          // tax_hlm_confirm writes to client_tax_plans.tax4_meeting_date, not client_tax_progress
-          if (t.status_options === 'tax_hlm_confirm') return !!livePlan?.tax4_meeting_date
-          // tax_presentation_link writes to client_tax_plans (scheduled or sent), not client_tax_progress
-          if (t.status_options === 'tax_presentation_link') return !!livePlan?.presentation_send_date
-          // tax_returns_request writes to client_tax_plans (received), not client_tax_progress
-          if (t.status_options === 'tax_returns_request') return !!livePlan?.tax_returns_received_at
-          // Additional information required needs the received stamp to complete
-          // while info is still being requested.
-          if (t.name === 'Additional information required') {
-            const st = localProgress[t.id]?.status
-            return !!st && (st !== 'Additional info required' || !!livePlan?.additional_info_received_at)
-          }
-          return !!localProgress[t.id]?.status
-        }).length
+        // Same rule as the hero count and the phase pills — isTaskStatused owns every
+        // "this step doesn't live in client_tax_progress" special case in one place.
+        const doneTasks = nonAutoTasks.filter(isTaskStatused).length
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
         const titleColor = state === 'active' ? 'var(--vfo-primary)' : 'var(--vfo-heading)'

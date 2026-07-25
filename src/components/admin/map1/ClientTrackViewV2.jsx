@@ -7,6 +7,7 @@ import PIPDecisionForm from './PIPDecisionForm'
 import MeetingCompleteButton from './MeetingCompleteButton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { TrackHero, PhaseBadge } from '../../shared/TrackKit'
+import Map1PricingSplitCard from './Map1PricingSplitCard'
 import StepDate from '../../shared/StepDate'
 import StepEmailsChip from '../../shared/StepEmailsChip'
 
@@ -337,6 +338,17 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
         total={totalTasks}
         steps={phases.map(ph => ({ label: ph.name.replace(/^MAP 1 - /, ''), state: getPhaseState(ph) }))}
       />
+
+      {/* Admin surface only — exposes VFO's own cut, so it is not rendered in the
+          member view. Read-only: MAP 1 splits are set through the pricing flow or the
+          Payment Continuation tool, not here. (Tax planners never reach this tab.) */}
+      {!readOnly && (
+        <Map1PricingSplitCard
+          plan={pipelineData}
+          expanded={!!expanded.map1_split}
+          onToggle={() => setExpanded(p => ({ ...p, map1_split: !p.map1_split }))}
+        />
+      )}
 
       {/* Phases */}
       {phases.map((phase, phaseIdx) => {

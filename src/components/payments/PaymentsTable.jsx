@@ -219,12 +219,23 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
               {[r.invoiceNumber, r.receiptNumber].filter(Boolean).join('  ·  ')}
             </div>
           )}
-          {r.revShare && (r.revShare.member != null || r.revShare.vfo != null) && (
+          {r.revShare && (r.revShare.member != null || r.revShare.vfo != null || r.revShare.taxPlanner != null || r.revShare.status) && (
             <div style={{ fontSize: '11px', color: 'var(--vfo-faint)', marginTop: '4px' }}>
-              {`Revenue share${r.revShare.splitType ? ` (${r.revShare.splitType})` : ''}: Member `}
-              {r.revShare.member == null ? '—' : (r.revShare.memberIsPercent ? `${r.revShare.member}%` : fmtMoney(r.revShare.member))}
-              {' · VFO '}
-              {r.revShare.vfo == null ? '—' : fmtMoney(r.revShare.vfo)}
+              {`Revenue share${r.revShare.splitType ? ` (${r.revShare.splitType})` : ''}`}
+              {/* A settled old-system payment carries a status and no breakdown — the
+                  split describes what the implementation will pay, not what that
+                  retainer did. */}
+              {(r.revShare.member != null || r.revShare.vfo != null || r.revShare.taxPlanner != null) && (
+                <>
+                  {': Member '}
+                  {r.revShare.member == null ? '—' : (r.revShare.memberIsPercent ? `${r.revShare.member}%` : fmtMoney(r.revShare.member))}
+                  {/* Only shown once a tax planner share exists — plans predating the
+                      3-way split have none and should not gain an empty leg. */}
+                  {r.revShare.taxPlanner != null && <>{' · Tax planner '}{fmtMoney(r.revShare.taxPlanner)}</>}
+                  {' · VFO '}
+                  {r.revShare.vfo == null ? '—' : fmtMoney(r.revShare.vfo)}
+                </>
+              )}
               {r.revShare.status ? <> — <strong>{r.revShare.status}</strong></> : ''}
             </div>
           )}
