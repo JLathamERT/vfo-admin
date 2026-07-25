@@ -1,0 +1,326 @@
+import { useState, useEffect } from 'react'
+import { callApi } from '../../../lib/api'
+
+// Pricing + revenue-split summary for a tax plan, sitting directly under the Tax Plan
+// hero. ADMIN (VFOS/ERT) SURFACE ONLY — the caller gates it out of the member and
+// tax-planner views of the same track entirely, so neither ever sees VFO's own cut.
+// Every admin may READ it; `isSuperadmin` gates the Edit button alone, and
+// tax_update_split re-checks superadmin server-side so the button is convenience, not
+// the security boundary.
+//
+// It exists because the fee amounts and the split were previously rendered ONLY inside
+// the Tax 3 "AI PC Admin" cascade, which is gated on livePlan.tax_decision. A client
+// migrated in through the Payment Continuation tool never gets a tax_decision (that
+// decision happened on the old system), so for every migrated client the entire money
+// picture was invisible on the portal while still being live.
+//
+// It also hosts the only place a split can be corrected after pricing: automation_TAX_pricing
+// refuses once agreement_sent='Yes', which is true for every migrated row and every
+// organic client past Tax 3.
+//
+// UNITS. Shares are STORED as dollars of the TOTAL engagement and prorated per payment
+// (portion = share / total * payment). Operators think in per-payment dollars, so the
+// table always shows the prorated figures and the editor takes whichever base is still
+// live — implementation-only once the retainer legs are settled, total otherwise.
+
+const TERMINAL = ['Yes', 'Money Mapping', 'N/A — No Share Due']
+const WITHHELD = 'Awaiting Planner Allocation'
+
+const money = v => parseFloat(String(v ?? '0').replace(/[,$]/g, '')) || 0
+const round2 = x => Math.round(x * 100) / 100
+const fmt = n => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+// Short human label for a leg's payout status. Null/blank means the payment hasn't
+// reached its payout yet, which reads better as nothing than as "pending".
+function legNote(status) {
+  if (!status) return ''
+  if (status === 'Yes') return 'paid'
+  if (status === 'Money Mapping') return 'money mapping'
+  if (status === 'N/A — No Share Due') return 'no share due'
+  if (status === WITHHELD) return 'withheld'
+  if (status === 'Failed') return 'failed — retrying'
+  if (status === 'Pending') return 'in progress'
+  return String(status).toLowerCase()
+}
+
+function noteColor(status) {
+  if (status === 'Yes') return '#1b9254'
+  if (status === WITHHELD || status === 'Failed') return '#b9451d'
+  return 'var(--vfo-muted)'
+}
+
+const label = { fontSize: '11px', color: 'var(--vfo-muted)' }
+const value = { fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: 600 }
+const inputStyle = { width: '100%', padding: '7px 9px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', boxSizing: 'border-box' }
+const readonlyInput = { ...inputStyle, background: 'var(--vfo-tint)', color: 'var(--vfo-muted)' }
+
+export default function PricingSplitCard({ plan, plannerName = '', isSuperadmin = false, readOnly = false, onSaved }) {
+  // Collapsed by default — this sits on every tax plan and would otherwise shout over
+  // the phase list it is introducing. The withheld-share warning is the one thing that
+  // renders outside the fold, because that is money sitting still.
+  const [expanded, setExpanded] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [splitType, setSplitType] = useState('')
+  const [memberShare, setMemberShare] = useState('')
+  const [plannerShare, setPlannerShare] = useState('')
+  const [vfosShare, setVfosShare] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [warnings, setWarnings] = useState([])
+
+  const retAmt = money(plan?.retainer_amount)
+  const implAmt = money(plan?.implementation_amount)
+  const totalFee = money(plan?.total_fee) > 0 ? money(plan?.total_fee) : retAmt + implAmt
+  const hasPricing = totalFee > 0
+
+  const storedMember = money(plan?.member_share)
+  const storedPlanner = money(plan?.tax_planner_share)
+  const storedVfos = money(plan?.vfos_share)
+
+  // The editor's base: once the retainer legs are settled they can never pay again, so
+  // the only dollars in play are the implementation's — which is also how the operator
+  // entered them in the Payment Continuation tool.
+  const retainerSettled = TERMINAL.includes(plan?.retainer_rev_paid) && TERMINAL.includes(plan?.retainer_planner_paid)
+  const basisIsImpl = retainerSettled && implAmt > 0
+  const basisAmt = basisIsImpl ? implAmt : totalFee
+  const scale = basisIsImpl && implAmt > 0 ? totalFee / implAmt : 1
+
+  const chargeInFlight = plan?.implementation_charge_status === 'succeeded' || plan?.implementation_charge_status === 'processing'
+  const implSettled = TERMINAL.includes(plan?.implementation_rev_paid) || TERMINAL.includes(plan?.implementation_planner_paid)
+  const locked = chargeInFlight || implSettled
+  const canEdit = isSuperadmin && !readOnly && hasPricing && !locked
+
+  // Seed the form from the stored values, converted back into the active base.
+  useEffect(() => {
+    if (!editing) return
+    setSplitType(plan?.split_type || '')
+    setMemberShare(storedMember ? round2(storedMember / scale).toFixed(2) : '0.00')
+    setPlannerShare(storedPlanner ? round2(storedPlanner / scale).toFixed(2) : '0.00')
+    setVfosShare(storedVfos ? round2(storedVfos / scale).toFixed(2) : '0.00')
+    setErr('')
+    setWarnings([])
+  }, [editing])
+
+  // Preset auto-calculates equal thirds of the active base; VFOS absorbs the rounding
+  // remainder, mirroring the Payment Continuation tool. Driven from the dropdown's
+  // onChange rather than an effect on splitType — an effect would also fire on the
+  // seed above, silently rewriting the saved figures of any plan already stamped with
+  // the preset label before the operator had touched anything.
+  function pickSplitType(next) {
+    setSplitType(next)
+    if (next === '1/3 Member, 1/3 Tax Planner, 1/3 VFOS') {
+      const third = round2(basisAmt / 3)
+      setMemberShare(third.toFixed(2))
+      setPlannerShare(third.toFixed(2))
+      setVfosShare(round2(basisAmt - third - third).toFixed(2))
+    }
+  }
+
+  const draftMember = money(memberShare)
+  const draftPlanner = money(plannerShare)
+  const draftVfos = money(vfosShare)
+  const draftSum = round2(draftMember + draftPlanner + draftVfos)
+  const sumOk = Math.abs(draftSum - basisAmt) <= 0.01
+
+  // What the entered numbers become in storage (dollars of total). VFOS takes the
+  // remainder so the three always sum to the total exactly.
+  const toStored = () => {
+    const m = round2(draftMember * scale)
+    const p = round2(draftPlanner * scale)
+    return { member_share: m, tax_planner_share: p, vfos_share: round2(totalFee - m - p) }
+  }
+
+  // Prorated payout for one payment from a stored (of-total) share.
+  const portion = (share, payment) => (totalFee > 0 ? round2((share / totalFee) * payment) : 0)
+
+  const rows = [
+    { key: 'member', name: 'Member', stored: storedMember, retStatus: plan?.retainer_rev_paid, implStatus: plan?.implementation_rev_paid },
+    { key: 'planner', name: plannerName ? `Tax planner — ${plannerName}` : 'Tax planner', stored: storedPlanner, retStatus: plan?.retainer_planner_paid, implStatus: plan?.implementation_planner_paid },
+    { key: 'vfos', name: 'VFO Services', stored: storedVfos, retStatus: null, implStatus: null },
+  ]
+
+  const plannerUnallocated = storedPlanner > 0 && plan?.tax_planner_id == null
+
+  // A migrated plan's retainer was collected on the old system under a policy that had
+  // no tax planner share, and its legs are settled + locked. The stored split describes
+  // the implementation only, so the retainer column must not derive dollars from it.
+  // Clients who start in this system have one split across both payments, so for them
+  // both columns are genuine.
+  const retainerIsHistoric = !!plan?.legacy_source
+
+  async function save() {
+    setBusy(true)
+    setErr('')
+    setWarnings([])
+    try {
+      const stored = toStored()
+      const res = await callApi('tax_update_split', {
+        tax_plan_id: plan.id,
+        split_type: splitType || null,
+        ...stored,
+      })
+      if (res?.error) { setErr(res.error); return }
+      setWarnings(res?.warnings || [])
+      setEditing(false)
+      if (onSaved) await onSaved()
+    } catch (e) {
+      setErr(e?.message || 'Save failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border)', borderRadius: '10px', padding: '9px 14px', marginBottom: '14px', fontFamily: 'Inter, sans-serif' }}>
+      <div onClick={() => setExpanded(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: '9px', cursor: 'pointer', flexWrap: 'wrap' }}>
+        <span style={{ color: 'var(--vfo-muted)', fontSize: '9px', transform: expanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--vfo-heading)' }}>Pricing &amp; revenue split</span>
+        <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>
+          {hasPricing ? `${fmt(totalFee)} · ${plan?.split_type || 'no split set'}` : 'No pricing entered yet'}
+        </span>
+        {plan?.legacy_source && (
+          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Migrated</span>
+        )}
+        {locked && hasPricing && (
+          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', border: '1px solid rgba(27,146,84,0.3)', color: '#1b9254', fontWeight: 600 }}>Locked — charged</span>
+        )}
+        <span style={{ flex: 1 }} />
+        {expanded && canEdit && !editing && (
+          <button onClick={e => { e.stopPropagation(); setEditing(true) }} style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600 }}>Edit split</button>
+        )}
+      </div>
+
+      {/* Outside the fold on purpose — a held share is money that has stopped moving. */}
+      {plannerUnallocated && (
+        <div style={{ marginTop: '9px', padding: '8px 12px', borderRadius: '8px', background: 'rgba(185,69,29,0.08)', border: '1px solid rgba(185,69,29,0.25)', fontSize: '11px', color: '#b9451d' }}>
+          No tax planner allocated. {chargeInFlight
+            ? `Their ${fmt(portion(storedPlanner, implAmt))} share is being held — allocate a planner and it pays out immediately.`
+            : `Their ${fmt(portion(storedPlanner, implAmt))} share will be held when the implementation is charged, and paid as soon as you allocate one.`}
+        </div>
+      )}
+
+      {expanded && !hasPricing && (
+        <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '10px' }}>No pricing entered for this plan yet.</div>
+      )}
+
+      {expanded && hasPricing && (
+        <div style={{ marginTop: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px 20px', marginBottom: '14px' }}>
+            <div>
+              <div style={label}>Retainer</div>
+              <div style={value}>{fmt(retAmt)}</div>
+              <div style={{ fontSize: '10px', color: 'var(--vfo-muted)' }}>
+                {plan?.legacy_source ? `Paid ${plan?.retainer_date || ''} (old system)` : plan?.retainer_status === 'succeeded' ? `Paid ${plan?.retainer_date || ''}` : 'Not yet paid'}
+              </div>
+            </div>
+            <div>
+              <div style={label}>Implementation</div>
+              <div style={value}>{fmt(implAmt)}</div>
+              <div style={{ fontSize: '10px', color: 'var(--vfo-muted)' }}>
+                {plan?.implementation_charge_status === 'succeeded' ? 'Charged'
+                  : plan?.implementation_charge_status === 'processing' ? 'Charge in progress'
+                    : plan?.implementation_charge_status === 'declined' ? 'Charge declined — pay link sent'
+                      : 'Not yet charged'}
+              </div>
+            </div>
+            <div>
+              <div style={label}>Total fee</div>
+              <div style={value}>{fmt(totalFee)}</div>
+              <div style={{ fontSize: '10px', color: 'var(--vfo-muted)' }}>{plan?.split_type || 'No split type set'}</div>
+            </div>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '420px' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--vfo-muted)', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid var(--vfo-border-soft)' }}>Pays out to</th>
+                  <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--vfo-muted)', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid var(--vfo-border-soft)' }}>Retainer {fmt(retAmt)}</th>
+                  <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--vfo-muted)', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid var(--vfo-border-soft)' }}>Implementation {fmt(implAmt)}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => (
+                  <tr key={r.key}>
+                    <td style={{ padding: '7px 8px', color: 'var(--vfo-ink)', borderBottom: '1px solid var(--vfo-border-soft)' }}>{r.name}</td>
+                    <td style={{ padding: '7px 8px', textAlign: 'right', color: retainerIsHistoric ? 'var(--vfo-muted)' : 'var(--vfo-ink)', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+                      {/* A migrated retainer was collected on the old system, under the
+                          two-way policy that predates the tax planner share. Deriving a
+                          figure from today's split would invent a payout that never
+                          happened and never will — those legs are settled and locked. */}
+                      {retainerIsHistoric ? '—' : fmt(portion(r.stored, retAmt))}
+                      <div style={{ fontSize: '10px', color: retainerIsHistoric ? 'var(--vfo-muted)' : noteColor(r.retStatus) }}>
+                        {retainerIsHistoric ? 'settled on old system' : legNote(r.retStatus)}
+                      </div>
+                    </td>
+                    <td style={{ padding: '7px 8px', textAlign: 'right', color: 'var(--vfo-ink)', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+                      {fmt(portion(r.stored, implAmt))}
+                      {legNote(r.implStatus) && <div style={{ fontSize: '10px', color: noteColor(r.implStatus) }}>{legNote(r.implStatus)}</div>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {warnings.length > 0 && (
+            <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--vfo-muted)' }}>
+              {warnings.map((w, i) => <div key={i}>• {w}</div>)}
+            </div>
+          )}
+
+          {editing && (
+            <div style={{ marginTop: '14px', padding: '12px 14px', borderRadius: '10px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)' }}>
+              <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginBottom: '10px' }}>
+                {basisIsImpl
+                  ? `Enter what each party receives from the ${fmt(implAmt)} implementation fee. The retainer was settled outside this system and pays nothing.`
+                  : `Enter what each party receives across the ${fmt(totalFee)} engagement. Each payment pays out its proportional share.`}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+                <div>
+                  <div style={{ ...label, marginBottom: '3px' }}>Split</div>
+                  <select value={splitType} onChange={e => pickSplitType(e.target.value)} style={inputStyle}>
+                    <option value="">-- Select --</option>
+                    <option value="1/3 Member, 1/3 Tax Planner, 1/3 VFOS">1/3 Member, 1/3 Tax Planner, 1/3 VFOS</option>
+                    <option value="Custom">Custom</option>
+                  </select>
+                </div>
+                <div>
+                  <div style={{ ...label, marginBottom: '3px' }}>Member ($)</div>
+                  <input value={memberShare} onChange={e => setMemberShare(e.target.value)} readOnly={splitType !== 'Custom'} style={splitType === 'Custom' ? inputStyle : readonlyInput} />
+                </div>
+                <div>
+                  <div style={{ ...label, marginBottom: '3px' }}>Tax Planner ($)</div>
+                  <input value={plannerShare} onChange={e => setPlannerShare(e.target.value)} readOnly={splitType !== 'Custom'} style={splitType === 'Custom' ? inputStyle : readonlyInput} />
+                </div>
+                <div>
+                  <div style={{ ...label, marginBottom: '3px' }}>VFO Services ($)</div>
+                  <input value={vfosShare} onChange={e => setVfosShare(e.target.value)} readOnly={splitType !== 'Custom'} style={splitType === 'Custom' ? inputStyle : readonlyInput} />
+                </div>
+              </div>
+
+              <div style={{ marginTop: '10px', fontSize: '12px', fontWeight: 600, color: sumOk ? '#1b9254' : '#e74c3c' }}>
+                {sumOk
+                  ? `Sums to ${fmt(basisAmt)}`
+                  : `${fmt(draftSum)} entered — must sum to ${fmt(basisAmt)}`}
+              </div>
+
+              {sumOk && basisIsImpl && (
+                <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--vfo-muted)' }}>
+                  Stored as dollars of the {fmt(totalFee)} total: member {fmt(toStored().member_share)} · planner {fmt(toStored().tax_planner_share)} · VFOS {fmt(toStored().vfos_share)}.
+                </div>
+              )}
+
+              {err && <div style={{ marginTop: '8px', fontSize: '11px', color: '#e74c3c' }}>{err}</div>}
+
+              <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+                <button disabled={busy || !sumOk} onClick={save} style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '11px', cursor: (busy || !sumOk) ? 'not-allowed' : 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600, opacity: (busy || !sumOk) ? 0.6 : 1 }}>{busy ? 'Saving…' : 'Save split'}</button>
+                <button disabled={busy} onClick={() => setEditing(false)} style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
