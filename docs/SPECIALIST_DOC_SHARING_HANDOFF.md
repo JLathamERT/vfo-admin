@@ -24,7 +24,7 @@ Let our team share **specific client tax documents** with **individual specialis
 
 - **Private buckets** (verified `public=false`, zero public storage policies → backend/service-role only): `client-tax-returns` (sensitive tax returns), `client-documents` (general). Files namespaced `"<client_id>/<rand>_<filename>"`.
 - **Client upload** (signed upload URLs): public token page `/tax-upload` (`vault_tax_upload_url`, keyed on `clients.tax_upload_token`) + logged-in client `client_vault_upload_url` (section `sensitive`/`general`).
-- **Admin view** (the exact signed-URL pattern to copy): `actions/.../vault_tax_download` mints a **300-second** signed download URL. Tax returns are allowlist-gated by `isTaxAdmin()` in `supabase/functions/vfo-admin-api/constants/tax-access.ts` (currently Jake / Tim Gacsy / Tray). Any admin can list titles (`vault_tax_list`); only the allowlist can open/upload/delete.
+- **Admin view** (the exact signed-URL pattern to copy): `actions/.../vault_tax_download` mints a **300-second** signed download URL. Tax returns are allowlist-gated by `isTaxAdmin()` in `supabase/functions/vfo-admin-api/constants/tax-access.ts` (currently Jake / Tray / Paul — Tim Gacsy was removed 2026-07-21 after leaving). Any admin can list titles (`vault_tax_list`); only the allowlist can open/upload/delete.
 - **Specialist portal** already exists end-to-end: `specialist_login` → session in `admin_sessions`, role `specialist`, `auth.callerSpecialistId` = `experts.id`. Specialists are fenced to `SPECIALIST_ALLOWED_ACTIONS` (`constants/role-gates.ts`) and today can only touch their OWN vault (`specialist_vault_list/upload_url/download/delete`, scoped to `callerSpecialistId`). **Mirror this scoping exactly.**
 - **Specialist ↔ client link** (for the picker / sanity checks): `experts` (the specialist list), `specialist_logins` (`expert_id`), `client_tax_specialists` (`tax_plan_id`, `expert_id`), `client_tax_plans.implementing_specialist_id`.
 - **The C2 ownership-guard pattern to copy**: `supabase/functions/vfo-admin-api/utils/client-ownership.ts` (`denyIfNotOwnClient`) — every specialist action must verify the caller actually owns/was-granted the thing, keyed on the **session** id, never a body value.
@@ -87,7 +87,7 @@ create policy "Deny all access" on public.document_access_log for all to public 
 ## 7. Open questions to confirm with the client BEFORE building
 
 1. **Which buckets?** Tax returns only (`client-tax-returns`), or general docs (`client-documents`) too?
-2. **Who can share?** For tax returns: only the `isTaxAdmin` allowlist (Jake/Tim/Tray), or any admin?
+2. **Who can share?** For tax returns: only the `isTaxAdmin` allowlist (Jake/Tray/Paul), or any admin?
 3. **Notify the specialist** when something is shared (email / in-portal bell), or silent?
 4. **Specialist list source** for the picker — all `experts`, or only experts that have a `specialist_logins` row (can actually log in)?
 
