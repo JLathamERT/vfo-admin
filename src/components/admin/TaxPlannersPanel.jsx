@@ -14,7 +14,10 @@ const STATUS_COLORS = { Active: '#1b9254', Lost: '#e74c3c', Removed: 'var(--vfo-
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
 
 const fullName = (p) => `${p.first_name || ''} ${p.last_name || ''}`.trim() || '(unnamed)'
-const normalizeUrl = (u) => { const s = (u || '').trim(); return s && !/^https?:\/\//i.test(s) ? 'https://' + s : s }
+
+// Rows predating the Team Member role carry no planner_role — they are planners.
+const PLANNER_ROLES = ['Tax Planner', 'Team Member']
+const roleOf = (p) => p?.planner_role || 'Tax Planner'
 
 // Certifications (professional designations, e.g. "EA", "CPA") stored as a jsonb
 // array on the planner. Defined at module scope so every nested component can use
@@ -24,14 +27,14 @@ const certsOf = (p) => Array.isArray(p?.certifications) ? p.certifications.map(c
 const plannerDisplayName = (p) => [fullName(p), ...certsOf(p)].join(', ')
 
 function blankForm() {
-  return { first_name: '', last_name: '', email: '', status: 'Active', member_type: '', website_url: '', join_date: '', leave_date: '', certifications: [] }
+  return { first_name: '', last_name: '', email: '', status: 'Active', planner_role: 'Tax Planner', member_type: '', join_date: '', leave_date: '', certifications: [] }
 }
 function pickForm(p) {
   return {
     first_name: p.first_name || '', last_name: p.last_name || '', email: p.email || '',
     status: p.status || 'Active',
+    planner_role: roleOf(p),
     member_type: p.member_type || '',
-    website_url: p.website_url || '',
     join_date: p.join_date ? String(p.join_date).split('T')[0] : '',
     leave_date: p.leave_date ? String(p.leave_date).split('T')[0] : '',
     certifications: certsOf(p),
@@ -146,6 +149,7 @@ export default function TaxPlannersPanel({ section }) {
     const form = which === 'add' ? addForm : editForm
     const file = which === 'add' ? addFile : editFile
     if (!form.first_name.trim() || !form.last_name.trim()) { showStatus(which, 'error', 'First and last name are required.'); return }
+    if (form.planner_role === 'Team Member' && !form.member_type) { showStatus(which, 'error', 'Team members require a partnership'); return }
     try {
       let headshotFilename = ''
       if (file) {
@@ -162,9 +166,9 @@ export default function TaxPlannersPanel({ section }) {
       const planner = {
         first_name: form.first_name.trim(), last_name: form.last_name.trim(), email: form.email.trim(),
         status: form.status || 'Active',
+        planner_role: form.planner_role || 'Tax Planner',
         member_type: form.member_type || '',
         certifications: Array.isArray(form.certifications) ? form.certifications : [],
-        website_url: form.website_url || '',
         join_date: form.join_date || null,
         leave_date: (form.status === 'Active' || !form.leave_date) ? null : form.leave_date,
       }
@@ -205,6 +209,7 @@ export default function TaxPlannersPanel({ section }) {
 
   const listFilterGroups = [
     { key: 'status', label: 'Status', options: ['Active', 'Lost', 'Removed'], get: p => p.status || 'Active' },
+    ...(groupNames.length ? [{ key: 'partnership', label: 'Partnership', options: groupNames, get: p => p.member_type || '(none)' }] : []),
   ]
 
   // The Edit / Add form — cloned from SpecialistForm's card structure. `full`
@@ -296,6 +301,13 @@ export default function TaxPlannersPanel({ section }) {
 
           <div style={fieldStyle}>
             <label style={labelStyle}>Member Type</label>
+            <select value={form.planner_role || 'Tax Planner'} onChange={e => upd('planner_role', e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
+              {PLANNER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Partnership</label>
             <select value={form.member_type} onChange={e => upd('member_type', e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }} disabled={groupNames.length === 0}>
               <option value="">-- Select group --</option>
               {groupNames.map(t => <option key={t} value={t}>{t}</option>)}
@@ -303,7 +315,8 @@ export default function TaxPlannersPanel({ section }) {
             {groupNames.length === 0 && <p style={{ color: 'var(--vfo-muted)', fontSize: '12px', marginTop: '6px' }}>No Tax Planning Groups yet. Add one under Add Tax Planner → Add Tax Planning Group.</p>}
           </div>
 
-          <div style={full ? fieldStyle : { ...fieldStyle, marginBottom: 0 }}>
+          {form.planner_role !== 'Team Member' && (
+          <div style={{ ...fieldStyle, marginBottom: 0 }}>
             <label style={labelStyle}>Certifications <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vfo-faint)' }}>— professional designations shown after the name (e.g. EA, CPA)</span></label>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input value={certInput} onChange={e => setCertInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCert() } }} placeholder="e.g. EA" style={{ ...inputStyle, flex: 1 }} />
@@ -320,12 +333,6 @@ export default function TaxPlannersPanel({ section }) {
               </div>
             )}
           </div>
-
-          {full && (
-            <div style={{ ...fieldStyle, marginBottom: 0 }}>
-              <label style={labelStyle}>Website</label>
-              <input value={form.website_url} onChange={e => upd('website_url', e.target.value)} placeholder="https://example.com" style={inputStyle} />
-            </div>
           )}
         </div>{/* end Profile & Identity card */}
       </div>
@@ -382,7 +389,7 @@ export default function TaxPlannersPanel({ section }) {
         // empty-state agree with what's rendered.
         const filteredPlanners = sortByJoin(
           planners
-            .filter(p => !search || fullName(p).toLowerCase().includes(search) || (p.email || '').toLowerCase().includes(search) || (p.member_type || '').toLowerCase().includes(search))
+            .filter(p => !search || fullName(p).toLowerCase().includes(search) || (p.email || '').toLowerCase().includes(search) || (p.member_type || '').toLowerCase().includes(search) || roleOf(p).toLowerCase().includes(search))
             .filter(p => matchesFilter(p, listFilterGroups, listFilter)),
           listSort
         )
@@ -412,7 +419,7 @@ export default function TaxPlannersPanel({ section }) {
                   {planner.status || '—'}
                 </span>
                 <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', width: '160px', flexShrink: 0 }}>{planner.member_type || '—'}</span>
-                <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', whiteSpace: 'nowrap' }}>{plans} plan{plans === 1 ? '' : 's'}</span>
+                <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', whiteSpace: 'nowrap' }}>{roleOf(planner) === 'Team Member' ? 'Team Member' : `${plans} plan${plans === 1 ? '' : 's'}`}</span>
               </div>
               )
             })}
@@ -526,9 +533,9 @@ function TaxPlannerProfileView({ planner }) {
               <div><div style={fieldLabel}>Status</div><div style={fieldValue}>{planner.status || 'Active'}</div></div>
               <div><div style={fieldLabel}>Join Date</div><div style={fieldValue}>{planner.join_date ? String(planner.join_date).split('T')[0] : '—'}</div></div>
               {hasLeaveDate && <div><div style={fieldLabel}>Leave Date</div><div style={fieldValue}>{planner.leave_date ? String(planner.leave_date).split('T')[0] : '—'}</div></div>}
-              <div><div style={fieldLabel}>Member Type</div><div style={fieldValue}>{planner.member_type || '—'}</div></div>
+              <div><div style={fieldLabel}>Member Type</div><div style={fieldValue}>{roleOf(planner)}</div></div>
+              <div><div style={fieldLabel}>Partnership</div><div style={fieldValue}>{planner.member_type || '—'}</div></div>
               <div><div style={fieldLabel}>Allocations</div><div style={fieldValue}>{allocations} tax plan{allocations === 1 ? '' : 's'}</div></div>
-              {planner.website_url && <div><div style={fieldLabel}>Website</div><div style={fieldValue}><a href={normalizeUrl(planner.website_url)} target="_blank" rel="noopener noreferrer" style={{ color: '#0095ff', textDecoration: 'none', wordBreak: 'break-all' }}>{planner.website_url}</a></div></div>}
             </div>
           </div>
         </div>
@@ -708,7 +715,7 @@ function AddTaxPlanningGroupForm({ onGroupsChange }) {
       await callApi('save_tax_planning_group', { group: { name } })
       await onGroupsChange()
       setGroupName('')
-      setStatusType('success'); setStatus(`Group "${name}" created. It's now a Member Type option.`)
+      setStatusType('success'); setStatus(`Group "${name}" created. It's now a Partnership option.`)
     } catch (err) { setStatusType('error'); setStatus(err.message) }
     finally { setLoading(false) }
   }
@@ -738,7 +745,7 @@ function TaxPlanningPartnersPanel({ groups, loadError, onSaved }) {
       <div style={{ marginBottom: '18px' }}>
         <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif' }}>Tax Planning Partners</div>
         <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '4px' }}>
-          Each partner group is a Member Type option for tax planners. Set up the group's payout account here — the tax planner revenue share transfers to it automatically.
+          Each partner group is a Partnership option for tax planners. Set up the group's payout account here — the tax planner revenue share transfers to it automatically.
         </div>
       </div>
       {groups.length === 0 && (

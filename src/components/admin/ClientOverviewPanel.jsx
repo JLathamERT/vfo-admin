@@ -18,6 +18,17 @@ const SECTIONS = [
   { key: 'pft', label: 'Partnership Fast Track' },
 ]
 
+// Where a client-name click lands, per section — mirrors the per-track `link`
+// values the backend emits (overview-*.ts), so e.g. the Tax Planning sub-tab
+// opens the client under program 4, not the Holistic default.
+const SECTION_LINK = {
+  map1: { program: 1, tab: 'map1' },
+  regular: { program: 1, tab: 'regular' },
+  holistic_tax: { program: 1, tab: 'tax' },
+  tax_planning: { program: 4, tab: 'tax' },
+  pft: { program: 2, tab: 'pft' },
+}
+
 // The trailing section-specific columns of the expanded sub-table (the leading
 // Track/State/Last action/Date/Next action columns are shared).
 const SUB_EXTRAS = {
@@ -219,7 +230,7 @@ export default function ClientOverviewPanel() {
                       {allComplete && <span style={dot('#1b9254')} title="All tracks completed" />}
                     </span>
                     <span style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--vfo-muted)' }}>{c.client_ref || '—'}</span>
-                    <span onClick={() => navigate(`/admin/client/${c.id}`)} style={{ fontWeight: 600, color: '#125ecc', cursor: 'pointer' }}
+                    <span onClick={() => { const sl = SECTION_LINK[activeSection]; navigate(sl ? `/admin/client/${c.id}?program=${sl.program}&tab=${sl.tab}` : `/admin/client/${c.id}`) }} style={{ fontWeight: 600, color: '#125ecc', cursor: 'pointer' }}
                       onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
                       onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}>{c.name || '—'}</span>
                     <span style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--vfo-muted)' }}>{c.member_number || '—'}</span>

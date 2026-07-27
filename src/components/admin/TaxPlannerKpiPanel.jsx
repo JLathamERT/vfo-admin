@@ -51,8 +51,10 @@ export default function TaxPlannerKpiPanel({ planners = [], groups = [] }) {
     return { connected, notSet: scoped.length - connected }
   }, [scoped, groupHasStripe])
 
+  // Team Members are never allocated to tax plans, so they stay off the leaderboard.
   const allocationRows = useMemo(() => {
     return scoped
+      .filter((p) => p.planner_role !== 'Team Member')
       .map((p) => ({ key: p.id, label: fullName(p), count: Number(p.allocation_count) || 0 }))
       .sort((a, b) => b.count - a.count)
   }, [scoped])
