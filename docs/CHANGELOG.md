@@ -8,6 +8,23 @@
 
 ---
 
+## Archived from SESSION_REFERENCE on 2026-07-27 (decide-link confirm-screen session)
+
+**CURRENT STATE — one full session entry condensed to a one-liner in the hub.** Its full text follows.
+
+- **Membership invoice/receipt hardening — six bugs found by tracing the paths the first round shipped untested, fixed and then verified across a full 5-scenario live test matrix** (2026-07-24, branch `claude/membership-docs-fixes` BOTH repos, immediately after the entry below merged. **+0 actions (439)**. deno 0, `npm run build` clean, `boldsign-webhook` untouched (v40), `router/webhooks.ts pipeRow` null-check untouched. **Backend DEPLOYED v654→v659** (six rounds as each test surfaced the next issue). **FRONTEND DEPLOYED.** 2 migrations, advisor **GREEN**. Smoke 5/5 vs v653; **a re-run vs v659 is OWED** (`webhooks.ts` was edited after that run). Gotchas **#282 + #283**, and **#281 CORRECTED**. **MERGE-PENDING both repos.**)
+  - **WHY.** The first round merged with the transfer, renewal, ACH and monthly-pull paths never exercised — only the card first-payment. Tracing them found four real bugs before testing, and testing then found two more. Four would have hit real members.
+  - **1. Card monthly receipts never sent (critical).** The sweep marks a CARD pull `paid` synchronously, so by the time `payment_intent.succeeded` arrives the row no longer matches the webhook's `['processing','scheduled']` flip filter — `mmFlipped` is empty and the old `mmFlipped.length > 0` guard suppressed the chain entirely. ACH was unaffected. The guard is gone; the handler re-queries by PaymentIntent id and `docs_emailed_at` still blocks redelivery.
+  - **2. Duplicate invoice/receipt numbers.** `document_numbers.member_payment_plan_id` was never added to the `document_numbers_exactly_one_owner` CHECK, so every insert failed `23514` — and `allocateDocNumber` swallows non-`23505` errors and returns the unreserved candidate anyway. Two payments both got `INV-…-0001`. Fixed by migration + a reservation-verification guard that bells Jake and refuses to send rather than issuing a duplicate (#282).
+  - **3. Annual transfers got the catch-up email** a year later, because they have no year-1 rows; `kind='transfer'` now requires `year_start === plan.start_date`.
+  - **4. Renewal invoice lost behind arrears.** A combined pull spanning two membership years keyed off the earliest row and read as an ordinary monthly pull. The primary row is now the year OPENER when one is present.
+  - **5. Email/PDF disagreement (found in test).** The transfer email said "5 remain … including the payment you have just made" while the invoice said 6, and still claimed "of your 12 payments"; the confirmation said "Payment 1 of 12" for a member on payment 7. All three corrected; transfer-year ordinals now omit the "of N" denominator entirely because made + remaining need not equal 12.
+  - **6. Fee re-derived instead of read (found in test).** Membership recomputed the card fee locally while every other pipeline reads Stripe's `amount_received − base`. Now stamped to `member_payment_schedule.card_processing_fee` in both webhook branches and read from there (#281). **The charge maths was already identical to MAP 1/Tax/Advisor/Accountant/PIP** — `(base+0.30)/(1-0.029)` — it was only the display that diverged.
+  - **Also:** a non-blocking FE warning when the entered prior-payments count and the derived remaining count don't total 12; templates 190/191/195 reworded to "ERT Membership"; the schedule line now names the recurring fee when one applies.
+  - **Live test matrix, all PASS:** (1) card monthly receipt — receipt-only, `REC-…-0002`, no invoice reissued; (2) mid-year transfer — panel 6 made / 6 remaining, ordinals 7–12, August skipped, `prior_payments_made` stored; (3) renewal — `renewed:1, charged:1`, transfer offset correctly did NOT leak into year 2; (4) New Model card — $1,545.11 charged, `card_processing_fee: 45.11` stamped from Stripe; (5) ACH on a New Model member — **no fee wording anywhere**, invoice/receipt correctly withheld until settle. Test artefacts: orphan PDFs remain in member 59524's ERT vault (Storage API blocks SQL deletion — user clearing manually).
+
+---
+
 ## Archived from SESSION_REFERENCE on 2026-07-26 (purchase-confirmation-policy session)
 
 **LIVE STATE — superseded DB cell.** The row below described the 2026-07-25 tax split-edit session; it was displaced when the DB cell was rewritten for the 2026-07-26 session (which had NO migration and NO DDL at all).

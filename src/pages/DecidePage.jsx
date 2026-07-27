@@ -1,25 +1,21 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import TokenShell from '../components/shared/TokenShell'
+import DecisionConfirmCard from '../components/shared/DecisionConfirmCard'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
 export default function DecidePage() {
   const [searchParams] = useSearchParams()
-  const [status, setStatus] = useState('processing')
+  const [status, setStatus] = useState('confirm')
   const [error, setError] = useState('')
-  const [decision, setDecision] = useState('')
-  const [serviceLevel, setServiceLevel] = useState('')
+  const [decision, setDecision] = useState(() => searchParams.get('decision') || '')
+  const [serviceLevel, setServiceLevel] = useState(() => searchParams.get('serviceLevel') || '')
 
   useEffect(() => {
-    processDecision()
-  }, [])
-
-  async function processDecision() {
     const token = searchParams.get('token')
     const dec = searchParams.get('decision')
     const level = searchParams.get('serviceLevel')
-    const clientRef = searchParams.get('clientRef')
 
     if (!token || !dec) {
       setError('Invalid link — missing required parameters.')
@@ -29,6 +25,19 @@ export default function DecidePage() {
 
     setDecision(dec)
     setServiceLevel(level || '')
+    setStatus('confirm')
+  }, [])
+
+  function handleConfirm() {
+    setStatus('processing')
+    processDecision()
+  }
+
+  async function processDecision() {
+    const token = searchParams.get('token')
+    const dec = searchParams.get('decision')
+    const level = searchParams.get('serviceLevel')
+    const clientRef = searchParams.get('clientRef')
 
     try {
       const res = await fetch(API_URL, {
@@ -62,6 +71,15 @@ export default function DecidePage() {
     }
   }
 
+  if (status === 'confirm') {
+    const confirm = getConfirm(decision, serviceLevel)
+    return (
+      <TokenShell maxWidth={520}>
+        <DecisionConfirmCard {...confirm} onConfirm={handleConfirm} />
+      </TokenShell>
+    )
+  }
+
   const view = getView(status, decision, serviceLevel, error)
 
   return (
@@ -75,6 +93,31 @@ export default function DecidePage() {
       </div>
     </TokenShell>
   )
+}
+
+function getConfirm(decision, serviceLevel) {
+  if (decision === 'ExtraMeeting') {
+    return {
+      title: 'Please confirm your request',
+      message: "You're about to request an additional meeting with your Proactive Facilitator.",
+      buttonLabel: 'Confirm — request a meeting',
+      buttonColor: '#125ecc',
+    }
+  }
+  if (decision === 'Yes') {
+    return {
+      title: 'Please confirm your decision',
+      message: `You're about to confirm moving forward${serviceLevel ? ` with the ${serviceLevel} Membership` : ''}.`,
+      buttonLabel: 'Confirm — move forward',
+      buttonColor: '#16a34a',
+    }
+  }
+  return {
+    title: 'Please confirm your decision',
+    message: "You're about to let us know you won't be moving forward at this time.",
+    buttonLabel: 'Confirm my decision',
+    buttonColor: '#64748b',
+  }
 }
 
 function getView(status, decision, serviceLevel, error) {

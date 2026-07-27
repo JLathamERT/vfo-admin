@@ -87,9 +87,9 @@ Each arrow is implemented either as:
 
 ## Step 3a — Client clicks decision button on `/decide` (Undecided path only)
 
-**Trigger:** Client receives the email with C15 buttons, clicks one. Browser navigates to [DecidePage.jsx](src/pages/DecidePage.jsx) at `/decide?token=...&decision=...&serviceLevel=...&clientRef=...`.
+**Trigger:** Client receives the email with C15 buttons, clicks one. Browser navigates to [DecidePage.jsx](src/pages/DecidePage.jsx) at `/decide?token=...&decision=...&serviceLevel=...&clientRef=...`. **Opening the link records NOTHING** — the page validates the params and renders a confirmation card ("You're about to confirm moving forward with the <serviceLevel> Membership."); the client must click its button to submit (2026-07-27, gotcha #290 — email link-scanners were executing the old on-mount POST).
 
-**Handler:** `automation_PCADMIN_finaldecision` ([admin-api:586-742](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) — fired via raw `fetch` (no session) from [DecidePage.jsx:33](src/pages/DecidePage.jsx).
+**Handler:** `automation_PCADMIN_finaldecision` ([admin-api:586-742](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) — fired via raw `fetch` (no session) from [DecidePage.jsx](src/pages/DecidePage.jsx), on the confirm button's `onClick`. Handler, body and token are unchanged.
 
 **What it does:**
 1. Looks up `pipeline_map1` by `c15_token`. If `c15_final_decision` is already set, returns `existing_decision` (idempotent).

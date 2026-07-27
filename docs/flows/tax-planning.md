@@ -140,9 +140,9 @@ A scheduled, cron-drafted step that sits right after "Tax 3 Confirmation Email" 
 
 ## Step 3a — Client clicks decision button on `/tax-decide` (Undecided path only)
 
-**Trigger:** Client receives the email, clicks one of the 3 buttons. Browser navigates to [TaxDecidePage.jsx](src/pages/TaxDecidePage.jsx) at `/tax-decide?token=<tax_token>&decision=Yes|No|ExtraMeeting`.
+**Trigger:** Client receives the email, clicks one of the 3 buttons. Browser navigates to [TaxDecidePage.jsx](src/pages/TaxDecidePage.jsx) at `/tax-decide?token=<tax_token>&decision=Yes|No|ExtraMeeting`. **Opening the link records NOTHING** — the page validates the params and renders a confirmation card; the client must click its button to submit (2026-07-27, gotcha #290).
 
-**Handler:** [`automation_TAX_finaldecision`](../../supabase/functions/vfo-admin-api/actions/tax/final-decision.ts) — PUBLIC handler (pre-auth), called via raw fetch from `/tax-decide`.
+**Handler:** [`automation_TAX_finaldecision`](../../supabase/functions/vfo-admin-api/actions/tax/final-decision.ts) — PUBLIC handler (pre-auth), called via raw fetch from `/tax-decide` on the confirm button's `onClick`. Handler, body and token are unchanged.
 
 **What it does:**
 1. Looks up plan by `tax_token`. If `tax_final_decision` already set, returns `existing_decision` (idempotent).
@@ -448,7 +448,7 @@ Visible when `payment_method_type='check'` AND `retainer_status='check_pending'`
 - **`Undecided`** → drafts client email with green "Proceed with planning" + red "Refund my retainer". 48h sweep reminder + 96h PF notification if neither clicked. Client Proceed click writes `post_review_client_decision='Proceed'` and fires revshare; client Refund click fires refund.
 - **`Stop - Refund`** → no client email; immediately chains `automation_TAX_refund` server-to-server. Engagement closes.
 
-Revshare + refund handler details follow below. The `tax-revshare-sweep-daily` cron (02:30 UTC) drives the Continue **and** Undecided 48h/96h reminder ladders (no auto-lock on either any more; only the Tax 5 implementation path still has a 24h auto-charge).
+Both Tax 4 client buttons land on `/tax-postreview-decide`, which as of 2026-07-27 renders a confirmation card first and records nothing until the client clicks it (gotcha #290; the `window_expired` branch is unchanged). Revshare + refund handler details follow below. The `tax-revshare-sweep-daily` cron (02:30 UTC) drives the Continue **and** Undecided 48h/96h reminder ladders (no auto-lock on either any more; only the Tax 5 implementation path still has a 24h auto-charge).
 
 ### Revenue Share path
 
@@ -548,7 +548,7 @@ Alongside the member + strategic legs, `automation_TAX_revshare` also pays the *
 
 > **Single-button rework (2026-06-09).** The admin step is now ONE button — **"Send implementation decision email"** — that always sends the (reworded) `TAX_implementdecision|Undecided` email with two **client** buttons: **"Yes - Proceed with implementation"** (→ charge **immediately**, no 24h grace) and **"No - Do not proceed"** (→ decline, engagement closes, no charge). No-response → 48h reminder + 96h PF notify (no auto-charge). Internally it still records `implementation_decision='Undecided'` (reuses that path). The old admin 3-option choice (Proceed / Undecided / Not Implementing) and the **24h auto-lock** are gone — those code branches are now unreachable. Frontend: `TaxPrioritiesTab.jsx` shows the one button + pill "Email sent — awaiting client decision".
 
-Current flow — admin clicks the one button → client picks Yes/No on `/tax-implement-decide`:
+Current flow — admin clicks the one button → client picks Yes/No on `/tax-implement-decide`. **Landing on that page records NOTHING as of 2026-07-27 (gotcha #290)** — it renders a confirmation card (the Proceed variant states the fee will be charged to the payment method on file) and only the card's button submits. This is the exact page that an email link-scanner auto-Declined a $10,000 implementation on, so the guard matters most here:
 - **Yes (`decision=Proceed`)** → `automation_TAX_implement-final-decision` fires `automation_TAX_charge_implementation` immediately (no 24h grace).
 - **No (`decision=Decline`)** → drafts the decline email (`TAX_implementdecision|Not Implementing` template). Engagement closes; no charge ever.
 - **No response** → 48h sweep reminder email + 96h PF notification (routes to the assigned PF). No auto-charge.
