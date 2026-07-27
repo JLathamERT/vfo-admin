@@ -1,20 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import TokenShell from '../components/shared/TokenShell'
+import DecisionConfirmCard from '../components/shared/DecisionConfirmCard'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
 export default function TaxImplementDecidePage() {
   const [searchParams] = useSearchParams()
-  const [status, setStatus] = useState('processing')
+  const [status, setStatus] = useState('confirm')
   const [error, setError] = useState('')
-  const [decision, setDecision] = useState('')
+  const [decision, setDecision] = useState(() => searchParams.get('decision') || '')
 
   useEffect(() => {
-    processDecision()
-  }, [])
-
-  async function processDecision() {
     const token = searchParams.get('token')
     const dec = searchParams.get('decision')
 
@@ -25,6 +22,17 @@ export default function TaxImplementDecidePage() {
     }
 
     setDecision(dec)
+    setStatus('confirm')
+  }, [])
+
+  function handleConfirm() {
+    setStatus('processing')
+    processDecision()
+  }
+
+  async function processDecision() {
+    const token = searchParams.get('token')
+    const dec = searchParams.get('decision')
 
     try {
       const res = await fetch(API_URL, {
@@ -57,6 +65,15 @@ export default function TaxImplementDecidePage() {
     }
   }
 
+  if (status === 'confirm') {
+    const confirm = getConfirm(decision)
+    return (
+      <TokenShell maxWidth={520}>
+        <DecisionConfirmCard {...confirm} onConfirm={handleConfirm} />
+      </TokenShell>
+    )
+  }
+
   const view = getView(status, decision, error)
 
   return (
@@ -70,6 +87,23 @@ export default function TaxImplementDecidePage() {
       </div>
     </TokenShell>
   )
+}
+
+function getConfirm(decision) {
+  if (decision === 'Proceed' || decision === 'Confirmed' || decision === 'Yes') {
+    return {
+      title: 'Please confirm your decision',
+      message: "You're about to confirm proceeding with your tax planning implementation. The implementation fee will be charged to your payment method on file.",
+      buttonLabel: 'Confirm — proceed with implementation',
+      buttonColor: '#16a34a',
+    }
+  }
+  return {
+    title: 'Please confirm your decision',
+    message: "You're about to decline the tax planning implementation. Your engagement will close and no implementation fee will be charged.",
+    buttonLabel: 'Confirm — decline implementation',
+    buttonColor: '#ef4444',
+  }
 }
 
 function getView(status, decision, error) {

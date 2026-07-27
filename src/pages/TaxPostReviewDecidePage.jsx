@@ -1,20 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import TokenShell from '../components/shared/TokenShell'
+import DecisionConfirmCard from '../components/shared/DecisionConfirmCard'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
 export default function TaxPostReviewDecidePage() {
   const [searchParams] = useSearchParams()
-  const [status, setStatus] = useState('processing')
+  const [status, setStatus] = useState('confirm')
   const [error, setError] = useState('')
-  const [decision, setDecision] = useState('')
+  const [decision, setDecision] = useState(() => searchParams.get('decision') || '')
 
   useEffect(() => {
-    processDecision()
-  }, [])
-
-  async function processDecision() {
     const token = searchParams.get('token')
     const dec = searchParams.get('decision')
     if (!token || !dec) {
@@ -23,6 +20,17 @@ export default function TaxPostReviewDecidePage() {
       return
     }
     setDecision(dec)
+    setStatus('confirm')
+  }, [])
+
+  function handleConfirm() {
+    setStatus('processing')
+    processDecision()
+  }
+
+  async function processDecision() {
+    const token = searchParams.get('token')
+    const dec = searchParams.get('decision')
     try {
       const res = await fetch(API_URL, {
         method: 'POST',
@@ -56,6 +64,15 @@ export default function TaxPostReviewDecidePage() {
     }
   }
 
+  if (status === 'confirm') {
+    const confirm = getConfirm(decision)
+    return (
+      <TokenShell maxWidth={520}>
+        <DecisionConfirmCard {...confirm} onConfirm={handleConfirm} />
+      </TokenShell>
+    )
+  }
+
   const view = getView(status, decision, error)
   return (
     <TokenShell maxWidth={520}>
@@ -68,6 +85,23 @@ export default function TaxPostReviewDecidePage() {
       </div>
     </TokenShell>
   )
+}
+
+function getConfirm(decision) {
+  if (decision === 'Refund') {
+    return {
+      title: 'Please confirm your decision',
+      message: "You're about to request a refund of your retainer. This will end your Tax Planning Engagement.",
+      buttonLabel: 'Confirm — refund my retainer',
+      buttonColor: '#ef4444',
+    }
+  }
+  return {
+    title: 'Please confirm your decision',
+    message: "You're about to confirm that you would like to continue with your Tax Planning Engagement.",
+    buttonLabel: 'Confirm — continue my engagement',
+    buttonColor: '#16a34a',
+  }
 }
 
 function getView(status, decision, error) {

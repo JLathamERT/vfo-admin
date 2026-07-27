@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import DecisionConfirmCard from '../components/shared/DecisionConfirmCard'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
@@ -9,15 +10,26 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.su
 // Tracy. Replaces the per-meeting rev-share decision that used to live in Stage 2.
 export default function SpecialistRevShareFinalPage() {
   const [searchParams] = useSearchParams()
-  const [status, setStatus] = useState('processing')
+  const [status, setStatus] = useState('confirm')
   const [response, setResponse] = useState('')
+  const [urlDecision, setUrlDecision] = useState(() => searchParams.get('decision') || '')
 
-  useEffect(() => { run() }, [])
+  useEffect(() => {
+    const token = searchParams.get('token')
+    const decision = searchParams.get('decision')
+    if (!token || !decision) { setStatus('error'); return }
+    setUrlDecision(decision)
+    setStatus('confirm')
+  }, [])
+
+  function handleConfirm() {
+    setStatus('processing')
+    run()
+  }
 
   async function run() {
     const token = searchParams.get('token')
     const decision = searchParams.get('decision')
-    if (!token || !decision) { setStatus('error'); return }
     try {
       const res = await fetch(API_URL, {
         method: 'POST',
@@ -33,6 +45,17 @@ export default function SpecialistRevShareFinalPage() {
     } catch { setStatus('error') }
   }
 
+  if (status === 'confirm') {
+    const confirm = getConfirm(urlDecision)
+    return (
+      <div style={pageStyle}>
+        <div style={{ textAlign: 'center', maxWidth: '480px', padding: '48px 32px' }}>
+          <DecisionConfirmCard {...confirm} onConfirm={handleConfirm} />
+        </div>
+      </div>
+    )
+  }
+
   const view = getView(status, response)
   return (
     <div style={pageStyle}>
@@ -45,6 +68,23 @@ export default function SpecialistRevShareFinalPage() {
       </div>
     </div>
   )
+}
+
+function getConfirm(decision) {
+  if (decision === 'Approved') {
+    return {
+      title: 'Please confirm your decision',
+      message: "You're about to approve the revenue sharing proposal. It will be attached as Exhibit A to your final VFO Specialist Agreement.",
+      buttonLabel: 'Confirm — approve the proposal',
+      buttonColor: '#16a34a',
+    }
+  }
+  return {
+    title: 'Please confirm your decision',
+    message: "You're about to let us know you have questions about the revenue sharing proposal. Tracy Miller will follow up with you before it is finalized.",
+    buttonLabel: 'Confirm — I have questions',
+    buttonColor: '#125ecc',
+  }
 }
 
 function getView(status, response) {

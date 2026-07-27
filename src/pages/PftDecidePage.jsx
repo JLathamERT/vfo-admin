@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import TokenShell from '../components/shared/TokenShell'
+import DecisionConfirmCard from '../components/shared/DecisionConfirmCard'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
@@ -9,13 +10,11 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.su
 // read from the URL and recorded via automation_PFT_undecided_response.
 export default function PftDecidePage() {
   const [searchParams] = useSearchParams()
-  const [status, setStatus] = useState('processing')
+  const [status, setStatus] = useState('confirm')
   const [error, setError] = useState('')
-  const [choice, setChoice] = useState('')
+  const [choice, setChoice] = useState(() => searchParams.get('choice') || '')
 
-  useEffect(() => { processDecision() }, [])
-
-  async function processDecision() {
+  useEffect(() => {
     const token = searchParams.get('token')
     const ch = searchParams.get('choice')
 
@@ -25,6 +24,17 @@ export default function PftDecidePage() {
       return
     }
     setChoice(ch)
+    setStatus('confirm')
+  }, [])
+
+  function handleConfirm() {
+    setStatus('processing')
+    processDecision()
+  }
+
+  async function processDecision() {
+    const token = searchParams.get('token')
+    const ch = searchParams.get('choice')
 
     try {
       const res = await fetch(API_URL, {
@@ -56,6 +66,15 @@ export default function PftDecidePage() {
     }
   }
 
+  if (status === 'confirm') {
+    const confirm = getConfirm(choice)
+    return (
+      <TokenShell maxWidth={520}>
+        <DecisionConfirmCard {...confirm} onConfirm={handleConfirm} />
+      </TokenShell>
+    )
+  }
+
   const view = getView(status, choice, error)
 
   return (
@@ -69,6 +88,23 @@ export default function PftDecidePage() {
       </div>
     </TokenShell>
   )
+}
+
+function getConfirm(choice) {
+  if (choice === 'no') {
+    return {
+      title: 'Please confirm your decision',
+      message: "You're about to let us know you won't be joining the Partnership Fast Track at this time.",
+      buttonLabel: 'Confirm my decision',
+      buttonColor: '#64748b',
+    }
+  }
+  return {
+    title: 'Please confirm your decision',
+    message: `You're about to confirm you would like to move forward with the ${choice} option.`,
+    buttonLabel: 'Confirm — move forward',
+    buttonColor: '#16a34a',
+  }
 }
 
 function getView(status, choice, error) {

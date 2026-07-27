@@ -1,18 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import TokenShell from '../components/shared/TokenShell'
+import DecisionConfirmCard from '../components/shared/DecisionConfirmCard'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
 export default function AdvisorDecidePage() {
   const [searchParams] = useSearchParams()
-  const [status, setStatus] = useState('processing')
+  const [status, setStatus] = useState('confirm')
   const [error, setError] = useState('')
-  const [decision, setDecision] = useState('')
+  const [decision, setDecision] = useState(() => searchParams.get('decision') || '')
 
-  useEffect(() => { processDecision() }, [])
-
-  async function processDecision() {
+  useEffect(() => {
     const token = searchParams.get('token')
     const dec = searchParams.get('decision')
 
@@ -22,6 +21,17 @@ export default function AdvisorDecidePage() {
       return
     }
     setDecision(dec)
+    setStatus('confirm')
+  }, [])
+
+  function handleConfirm() {
+    setStatus('processing')
+    processDecision()
+  }
+
+  async function processDecision() {
+    const token = searchParams.get('token')
+    const dec = searchParams.get('decision')
 
     try {
       const res = await fetch(API_URL, {
@@ -52,6 +62,15 @@ export default function AdvisorDecidePage() {
     }
   }
 
+  if (status === 'confirm') {
+    const confirm = getConfirm(decision)
+    return (
+      <TokenShell maxWidth={520}>
+        <DecisionConfirmCard {...confirm} onConfirm={handleConfirm} />
+      </TokenShell>
+    )
+  }
+
   const view = getView(status, decision, error)
 
   return (
@@ -65,6 +84,31 @@ export default function AdvisorDecidePage() {
       </div>
     </TokenShell>
   )
+}
+
+function getConfirm(decision) {
+  if (decision === 'ExtraMeeting') {
+    return {
+      title: 'Please confirm your request',
+      message: "You're about to request an additional meeting.",
+      buttonLabel: 'Confirm — request a meeting',
+      buttonColor: '#125ecc',
+    }
+  }
+  if (decision === 'Yes') {
+    return {
+      title: 'Please confirm your decision',
+      message: "You're about to confirm moving forward with your VFO onboarding.",
+      buttonLabel: 'Confirm — move forward',
+      buttonColor: '#16a34a',
+    }
+  }
+  return {
+    title: 'Please confirm your decision',
+    message: "You're about to let us know you won't be moving forward at this time.",
+    buttonLabel: 'Confirm my decision',
+    buttonColor: '#64748b',
+  }
 }
 
 function getView(status, decision, error) {
