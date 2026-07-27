@@ -2087,7 +2087,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (task.status_options === 'tax_planner_select' || task.name === 'Allocate to Advanced Tax Planner') {
       const green = '#1b9254'
       const allocatedId = livePlan?.tax_planner_id
-      const activePlanners = taxPlanners.filter(pl => pl.status ? String(pl.status).toLowerCase() === 'active' : true)
+      // Team Members can never hold an allocation (the backend rejects it), so they
+      // never reach this picker.
+      const activePlanners = taxPlanners.filter(pl => pl.planner_role !== 'Team Member' && (pl.status ? String(pl.status).toLowerCase() === 'active' : true))
       // The selected planner: match by id (plan.tax_planner_id) first, falling
       // back to the stored name for legacy rows without an id.
       const selectedPlanner = taxPlanners.find(pl => String(pl.id) === String(allocatedId))

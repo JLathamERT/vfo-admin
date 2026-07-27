@@ -255,7 +255,9 @@ Per-task progress within a tax plan, scoped to a specialist.
 
 ## `tax_planners` (added 2026-07-21)
 
-Admin-managed person-type — the "Advanced Tax Planner" attached to tax engagements. Mirrors `experts` (Specialists): admin CRUD + a private document vault + Stripe Connect, but **no portal login** (every surface is admin-only, all access is service-role via the edge fn). RLS deny-all in the creating migration (`20260721100000_tax_planners.sql`; gotcha #141).
+Admin-managed person-type — the "Advanced Tax Planner" attached to tax engagements. Mirrors `experts` (Specialists): admin CRUD + a private document vault + Stripe Connect. As of 2026-07-22 a row also has a **portal login** (`tax_planner_logins`, the 5th portal / 6th login type — see [../architecture/04-auth-and-sessions.md](../architecture/04-auth-and-sessions.md)); every ADMIN surface remains service-role via the edge fn. RLS deny-all in the creating migration (`20260721100000_tax_planners.sql`; gotcha #141).
+
+**As of 2026-07-27 the table holds TWO person-types, split by `planner_role`.** A **Team Member** logs into the SAME portal with the same capabilities, restrictions, allowlist and group-scope guards as a Tax Planner, but can **never be allocated to a tax plan** — and that single block is the *entire* reason a team member receives no planner notifications and no planner payout (both key off `client_tax_plans.tax_planner_id`). Gotcha #294.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -264,14 +266,16 @@ Admin-managed person-type — the "Advanced Tax Planner" attached to tax engagem
 | `email` | text | Optional. Recipient of the planner rev-share confirmation emails. |
 | `status` | text | not null, default `'Active'`. The allocation dropdown lists Active planners. |
 | `revenue_decision` | text | not null, default `'Revenue Share'`. **Retired** — wiped to '' and dropped from the planner UI; the GROUP model governs payout. Kept for schema stability. |
-| `member_type` | text | The planner's **Tax Planning Group** name — must match `tax_planning_groups.name`; the payout destination resolves through it. Nullable (an unassigned planner cannot be paid → `Failed` + Jake alert). Added in `20260721120000`. |
-| `certifications` | jsonb | not null, default `'[]'`. Multi-add certifications, shown as a name suffix. Added in `20260721130000`. |
-| `headshot_image` / `bio` / `website_url` / `notes` | text | Profile fields. |
+| `planner_role` | text | **NEW 2026-07-27** (`20260727120000_tax_planner_roles.sql`). not null, default `'Tax Planner'`; CHECK `tax_planners_planner_role_check` = `'Tax Planner' \| 'Team Member'`. **A `'Team Member'` can never be allocated** — `tax_allocate_planner` 400s (the single server-side choke point), and the admin allocation dropdown, the KPI allocation leaderboard and the portal's `group` roster all filter the role out. `save_tax_planner` sanitizes it and preserves the stored value when an edit omits it. Legacy rows read as `'Tax Planner'` via the default. Labelled **"Member Type"** in the admin UI. Gotcha #294. |
+| `member_type` | text | The planner's **Tax Planning Group** / **partnership** name — must match `tax_planning_groups.name`; the payout destination AND the portal group-scope both resolve through it. Nullable for a Tax Planner (an unassigned planner cannot be paid → `Failed` + Jake alert) but **REQUIRED for a Team Member** (`save_tax_planner` 400s `"Team members require a partnership"` — with no partnership their portal would show nothing). Semantics deliberately UNCHANGED by the 2026-07-27 role split; labelled **"Partnership"** in the admin UI (do not confuse it with the "Member Type" label, which is `planner_role`). Added in `20260721120000`. |
+| `certifications` | jsonb | not null, default `'[]'`. Multi-add certifications, shown as a name suffix. **Hidden in the UI for a Team Member** (existing data untouched). Added in `20260721130000`. |
+| `headshot_image` / `bio` / `notes` | text | Profile fields. |
+| `website_url` | text | **RETIRED 2026-07-27 — dead column.** Removed from the planner Edit form, the profile view and the `save_tax_planner` write whitelist for BOTH roles. The column and its stored values are retained, but nothing reads or writes them any more; a future writer must be re-added to the whitelist. |
 | `stripe_account_id` | text | **Vestigial** — the payout goes to the GROUP account, not the planner's own. |
 | `join_date` / `leave_date` | date | |
 | `created_at` | timestamptz | not null, default `now()`. |
 
-**Private bucket:** `tax-planner-documents` (namespaced by `tax_planners.id`). **Touched by:** `tax_planners_load`, `save_tax_planner`, `delete_tax_planner`, `tax_planner_payments_load`, `tax_planner_vault_{list,upload_url,download,delete}`, `tax_allocate_planner`, `utils/tax-planner-payout.ts`.
+**Private bucket:** `tax-planner-documents` (namespaced by `tax_planners.id`). **Touched by:** `tax_planners_load`, `save_tax_planner`, `delete_tax_planner`, `tax_planner_payments_load`, `tax_planner_vault_{list,upload_url,download,delete}`, `tax_allocate_planner`, `tax_planner_portal_clients`, `utils/tax-planner-payout.ts`, `utils/tax-planner-ownership.ts`.
 
 ---
 
