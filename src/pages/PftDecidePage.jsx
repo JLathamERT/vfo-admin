@@ -5,6 +5,10 @@ import DecisionConfirmCard from '../components/shared/DecisionConfirmCard'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
+// The decision email links with lowercase slugs (choice=vfo_ft|vfo_associate|no),
+// so the confirm copy needs display labels — the raw slug is never shown.
+const CHOICE_LABELS = { vfo_ft: 'VFO Fast Track', vfo_associate: 'VFO Associate' }
+
 // Public token page for the PFT "Undecided" decision email. The client clicks
 // VFO Fast Track / VFO Associate / No in the email and lands here; the choice is
 // read from the URL and recorded via automation_PFT_undecided_response.
@@ -101,7 +105,7 @@ function getConfirm(choice) {
   }
   return {
     title: 'Please confirm your decision',
-    message: `You're about to confirm you would like to move forward with the ${choice} option.`,
+    message: `You're about to confirm you would like to move forward with the ${CHOICE_LABELS[choice] || 'Partnership Fast Track'} option.`,
     buttonLabel: 'Confirm — move forward',
     buttonColor: '#16a34a',
   }
