@@ -85,7 +85,8 @@ accountants without spamming them. Frontend-only; PFT-only (`PFTEngagementTrack.
 
 `automation_PFT_decisionemail`:
 - **vfo_ft** — drafts `PFT_decision_vfo_ft` with **two recipient buttons** ("I Don't Need Another Meeting -
-  Confirm Onboarding" / "I'd Like Another Meeting" → `/pft-ft-decide?token=&decision=confirm|another_meeting`).
+  Confirm Onboarding" / "I'd Like Another Meeting" → `/pft-ft-decide?token=&decision=confirm|another_meeting`;
+  that page shows a confirmation card and records nothing until the recipient clicks it — gotcha #290).
   **Immediately creates** the `accountant_onboarding` handoff (`selected_vfo_ft`, `accountant_type='VFO FT'`),
   links it on `pft_engagement.accountant_onboarding_id`, stamps `ft_response_token` + `ft_email_sent_at`.
 - **vfo_associate** — (2026-07-13) now **mirrors vfo_ft**: drafts `PFT_decision_vfo_associate` with the SAME
@@ -101,7 +102,9 @@ Mirrors the MAP 1 `/decide` undecided flow. Admin clicks **Undecided email** →
 (VFO FT / VFO Associate / No → `/pft-decide?token=<decision_token>&choice=vfo_ft|vfo_associate|no`), stamps
 `decision_token` + `decision_email_sent_at` + `decision_task_id`, and marks the step
 **"Undecided - awaiting client"** (an amber pending status that the tracker treats as "no final decision" so
-both Phase-6 sections stay visible-but-pending). Client clicks → `PftDecidePage.jsx` (`/pft-decide`) →
+both Phase-6 sections stay visible-but-pending). Client clicks → `PftDecidePage.jsx` (`/pft-decide`), which
+**shows a confirmation card and records nothing until the client clicks it** (2026-07-27, gotcha #290 — note
+this page's param is `choice`, not `decision`) →
 `automation_PFT_undecided_response` (PUBLIC, idempotent on `decision_response`) records the choice then
 **delegates in-process to `automation_PFT_decisionemail`** with that choice, so the exact same per-choice work
 runs (onboarding + confirmation email + progress + lost-on-no). Rolls `decision_response` back to null if the
