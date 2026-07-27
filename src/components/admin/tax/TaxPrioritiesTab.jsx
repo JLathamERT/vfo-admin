@@ -748,6 +748,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const [extraMeetingPricingOpen, setExtraMeetingPricingOpen] = useState(false)
   const [submittingExtraNo, setSubmittingExtraNo] = useState(false)
   const [depositPiDrafts, setDepositPiDrafts] = useState({})
+  const [refundReasonDrafts, setRefundReasonDrafts] = useState({})
   const [trackStatus, setTrackStatus] = useState(plan.status || 'live')
   const [togglingStatus, setTogglingStatus] = useState(false)
   const [taxPlanners, setTaxPlanners] = useState([])
@@ -978,8 +979,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     'Continue DD': '#1b9254', 'Continue - Revenue Share': '#1b9254', 'Stop - Refund': '#e74c3c', 'N/A': 'var(--vfo-muted)',
     'Proceed with Implementation': '#1b9254', 'Not Implementing': '#e74c3c',
     'Pending Completion': '#e06717',
-    'Go': '#1b9254',
-    'Stop': '#e74c3c',
+    'Proceed': '#1b9254',
   }
 
   function formatDate(d) {
@@ -1019,6 +1019,11 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (t.status_options === 'tax_hlm_confirm') return !!livePlan?.tax4_meeting_date
     if (t.status_options === 'tax_presentation_link') return !!livePlan?.presentation_send_date
     if (t.status_options === 'tax_returns_request') return !!livePlan?.tax_returns_received_at
+    // Green/Red light call: 'Proceed' closes the step, and so does a completed
+    // refund. The refund path writes no progress status of its own.
+    if (t.status_options === 'tax_refund') {
+      return localProgress[t.id]?.status === 'Proceed' || livePlan?.deposit_refund_status === 'succeeded'
+    }
     // Allocating a tax planner completes only when a planner is actually allocated
     // (client_tax_plans.tax_planner_id), not when the progress row merely holds a
     // name. Rows migrated from before the Tax Planners table carry a free-text name
@@ -1041,14 +1046,6 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     let tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
     if (phase.name === 'Tax 1 - Diagnostic') {
       tasks = tasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
-    }
-    if (phase.name === 'Set Up') {
-      // tax_refund only applies when greenlight === 'Stop'; otherwise it's greyed and shouldn't block 'done'
-      const greenlightTask = (phase.program_client_tasks || []).find(t => t.status_options === 'tax_greenlight')
-      const greenlightStatus = greenlightTask ? localProgress[greenlightTask.id]?.status : ''
-      if (greenlightStatus !== 'Stop') {
-        tasks = tasks.filter(t => t.status_options !== 'tax_refund')
-      }
     }
 
     // Phases that contain an AI-PC-Admin cascade aren't really "done" just
@@ -1734,6 +1731,91 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       )
     }
 
+    if (task.status_options === 'tax_refund') {
+      const decision = p.status || ''
+      const hasPi = !!livePlan?.deposit_payment_intent_id
+      const refunded = livePlan?.deposit_refund_status === 'succeeded'
+      const locked = readOnly || plannerMode
+      // The go/no-go is an internal call — the client-facing track only ever
+      // sees this step once a refund has actually been issued.
+      if (readOnly && !refunded) return null
+      const done = decision === 'Proceed' || refunded
+      const draft = refundReasonDrafts[task.id] || {}
+      const refundOpen = !!draft.open
+      const sending = !!draft.sending
+      const reason = draft.reason || ''
+      const canSend = hasPi && !!reason.trim() && !sending
+      const trGreen = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
+      const trRed = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600 }
+      const closeRefundDraft = () => setRefundReasonDrafts(d => { const next = { ...d }; delete next[task.id]; return next })
+      async function sendDepositRefund() {
+        const trimmed = reason.trim()
+        if (!confirm('Refund the deposit via Stripe and draft the decline email?\n\nThis refunds the saved PaymentIntent in full and drafts an email to the client including your reason(s). Cannot be undone.')) return
+        setRefundReasonDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), sending: true } }))
+        const res = await callApi('automation_TAX_depositrefund', { tax_plan_id: plan.id, reason: trimmed })
+        if (res?.error) {
+          alert(`Refund failed: ${res.error}`)
+          setRefundReasonDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), sending: false } }))
+          return
+        }
+        await refreshLivePlan()
+        const pd = await callApi('tax_load_progress', { tax_plan_id: plan.id })
+        const map = {}
+        ;(pd.progress || []).forEach(pr => {
+          const k = pr.tax_specialist_id ? `${pr.task_id}_${pr.tax_specialist_id}` : pr.task_id
+          map[k] = pr
+        })
+        setLocalProgress(map)
+        closeRefundDraft()
+      }
+      return (
+        <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+            <span style={{ fontSize: '13px', color: done ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!locked && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_deposit_refund', when: 'Refund — deposit refunded with decline reason(s)' }]} context={{ ...emailCtx, 'Refund Reason': reason.trim() || 'your reason(s) — typed on this step' }} /></span>}</span>
+            {refunded
+              ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>Refunded ${livePlan?.deposit_refund_amount}</span>
+              : decision
+                ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{decision}</span>
+                : !refundOpen && (
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      <button disabled={sending} onClick={() => saveTask(task.id, 'Proceed', p.completed_date, taxSpecialistId)} style={trGreen}>Proceed</button>
+                      <button disabled={sending} onClick={() => setRefundReasonDrafts(d => ({ ...d, [task.id]: { open: true, reason: '', sending: false } }))} style={trRed}>Refund</button>
+                    </div>
+                  )
+            }
+            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{refunded && livePlan?.deposit_refund_date ? formatDate(livePlan.deposit_refund_date) : (done && p.completed_date ? formatDate(p.completed_date) : '')}</span>
+          </div>
+          {refundOpen && !done && !locked && (
+            <div style={{ marginLeft: '18px', marginBottom: '8px', padding: '14px 16px', background: 'var(--vfo-tint)', borderRadius: '10px', border: '1px solid var(--vfo-tint-deep)', fontFamily: 'Inter, sans-serif' }}>
+              <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+                Subject: VFO Services - Tax Planning Deposit Refunded — {client?.first_name ? `${client.first_name} ${client.last_name || ''}`.trim() : '[Client Name]'}
+              </div>
+              <div style={{ fontSize: '13px', color: '#44557a', lineHeight: '1.6' }}>
+                <p style={{ margin: '0 0 12px' }}>Hi {client?.first_name || '[Client First]'},</p>
+                <textarea
+                  value={reason}
+                  onChange={e => setRefundReasonDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), reason: e.target.value } }))}
+                  placeholder="Type the reason we are not moving forward here - written as if speaking directly to the client."
+                  disabled={sending}
+                  style={{ width: '100%', minHeight: '90px', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.06)', color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif', fontSize: '13px', lineHeight: '1.55', boxSizing: 'border-box', resize: 'vertical', marginBottom: '12px' }}
+                />
+                <p style={{ margin: '0 0 12px' }}>We have refunded your $500 tax planning deposit — you should see the funds back in your account within the next few days.</p>
+                <p style={{ margin: '0 0 12px' }}>If you have any questions, just let us know.</p>
+                <p style={{ margin: '0 0 12px' }}>Thank you for your time.</p>
+                <p style={{ margin: 0 }}>Best regards,</p>
+              </div>
+              {!hasPi && <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--vfo-muted)' }}>Enter the Deposit PaymentIntent ID on the Deposit Paid step first</div>}
+              <div style={{ marginTop: '14px', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button disabled={sending} onClick={closeRefundDraft} style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }}>Cancel</button>
+                <button disabled={!canSend} onClick={sendDepositRefund} style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', cursor: canSend ? 'pointer' : 'not-allowed', border: '1px solid rgba(231,76,60,0.4)', background: canSend ? 'rgba(231,76,60,0.18)' : 'rgba(231,76,60,0.06)', color: '#e74c3c', fontWeight: '600' }} title={!hasPi ? 'Enter the Deposit PaymentIntent ID on the Deposit Paid step first' : (!reason.trim() ? 'Enter the reason(s) first' : '')}>{sending ? 'Sending...' : 'Send Refund'}</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
     if (readOnly) return (
       <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
@@ -1756,21 +1838,6 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           : <button onClick={() => saveTask(task.id, 'Completed', p.completed_date, taxSpecialistId)} style={{ padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600 }}>Enter details</button>
         }
         <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{p.completed_date ? formatDate(p.completed_date) : ''}</span>
-      </div>
-    )
-
-    if (task.status_options === 'tax_greenlight') return (
-      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
-        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
-        <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
-        {isDone
-          ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
-          : <div style={{ display: 'flex', gap: '6px' }}>
-              <button onClick={() => saveTask(task.id, 'Go', p.completed_date, taxSpecialistId)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }}>Go</button>
-              <button onClick={() => saveTask(task.id, 'Stop', p.completed_date, taxSpecialistId)} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600 }}>Stop</button>
-            </div>
-        }
-        <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
       </div>
     )
 
@@ -1812,33 +1879,6 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             </>
           )}
           <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
-        </div>
-      )
-    }
-
-    if (task.status_options === 'tax_refund') {
-      const greenlightTask = allTasks.find(t => t.name === 'Tax Plan Greenlight')
-      const greenlightStatus = greenlightTask ? (localProgress[greenlightTask.id]?.status || '') : ''
-      const hasPi = !!livePlan?.deposit_payment_intent_id
-      const refunded = livePlan?.deposit_refund_status === 'succeeded'
-      const greyed = greenlightStatus !== 'Stop' || !hasPi
-      async function sendDepositRefund() {
-        if (!confirm(`Refund the deposit ($${livePlan?.deposit_refund_amount || 'full PI amount'}) via Stripe?\n\nThis will refund the saved PaymentIntent in full and draft a confirmation email to the client. Cannot be undone.`)) return
-        const res = await callApi('automation_TAX_depositrefund', { tax_plan_id: plan.id })
-        if (res?.error) { alert(`Refund failed: ${res.error}`); return }
-        // Mark task as completed
-        await saveTask(task.id, 'Completed', new Date().toISOString().slice(0, 10), taxSpecialistId)
-        await refreshLivePlan()
-      }
-      return (
-        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap', opacity: greyed && !refunded ? 0.3 : 1 }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: refunded ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${refunded ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
-          <span style={{ fontSize: '13px', color: refunded ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_deposit_refund', when: 'Deposit refund confirmation' }]} context={emailCtx} /></span>}</span>
-          {refunded
-            ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>Refunded ${livePlan?.deposit_refund_amount}</span>
-            : <button disabled={greyed || readOnly} onClick={sendDepositRefund} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: greyed ? 'not-allowed' : 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600 }} title={!hasPi ? 'Enter the Deposit PaymentIntent ID first' : (greenlightStatus !== 'Stop' ? 'Available once Tax Plan Greenlight = Stop' : '')}>Send refund</button>
-          }
-          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{refunded && livePlan?.deposit_refund_date ? formatDate(livePlan.deposit_refund_date) : (isDone && p.completed_date ? formatDate(p.completed_date) : '')}</span>
         </div>
       )
     }
@@ -2259,18 +2299,13 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     ...phasesAfterSpec.map(ph => ({ number: phaseBadgeToken(ph.name), label: phaseShortLabel(ph.name), state: getPhaseState(ph) })),
   ]
   // Task-level hero counts, mirroring the same per-phase visibility rules the
-  // card pills use (Tax 1 children only when info required, refund only on
-  // Stop, hlm/presentation read from the plan row, 5a per specialist, 5b's
-  // decision read from the plan row).
+  // card pills use (Tax 1 children only when info required, hlm/presentation
+  // read from the plan row, 5a per specialist, 5b's decision read from the
+  // plan row).
   const heroCountedTasks = (phase) => {
     let tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
     if (phase.name === 'Tax 1 - Diagnostic') {
       tasks = tasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
-    }
-    if (phase.name === 'Set Up') {
-      const greenlightTask = (phase.program_client_tasks || []).find(t => t.status_options === 'tax_greenlight')
-      const greenlightStatus = greenlightTask ? localProgress[greenlightTask.id]?.status : ''
-      if (greenlightStatus !== 'Stop') tasks = tasks.filter(t => t.status_options !== 'tax_refund')
     }
     return tasks
   }
@@ -2334,14 +2369,6 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         let nonAutoTasks = tasks.filter(t => t.status_options !== 'auto')
         if (phase.name === 'Tax 1 - Diagnostic') {
           nonAutoTasks = nonAutoTasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
-        }
-        if (phase.name === 'Set Up') {
-          // tax_refund task only counts when greenlight === 'Stop' (otherwise it's greyed in the UI)
-          const greenlightTask = tasks.find(t => t.status_options === 'tax_greenlight')
-          const greenlightStatus = greenlightTask ? localProgress[greenlightTask.id]?.status : ''
-          if (greenlightStatus !== 'Stop') {
-            nonAutoTasks = nonAutoTasks.filter(t => t.status_options !== 'tax_refund')
-          }
         }
         // Same rule as the hero count and the phase pills — isTaskStatused owns every
         // "this step doesn't live in client_tax_progress" special case in one place.

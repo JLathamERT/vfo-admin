@@ -37,21 +37,42 @@ Each arrow is either:
 
 ## Step 0 — Set Up phase (VFO Tax Planning program_id=4 only)
 
-**Context:** standalone VFO Tax Planning clients pay a deposit BEFORE we even know they exist (typically via a public Stripe payment link, outside our system). Admin then creates the client record and binds them to the program. This phase has 3 tasks before the Tax 1 diagnostic begins. Holistic Tax Priorities (program_id=1) clients don't see this phase — they arrive via MAP1.
+**Context:** standalone VFO Tax Planning clients pay a deposit BEFORE we even know they exist (typically via a public Stripe payment link, outside our system). Admin then creates the client record and binds them to the program. Holistic Tax Priorities (program_id=1) clients don't see this phase — they arrive via MAP1.
+
+**As of 2026-07-27 the Set Up phase contains exactly ONE task.** The former `tax_greenlight` ("Tax Plan Greenlight", Go/Stop) task is **deleted**, and the former "Refund Paid" task has been renamed and **relocated to the LAST step of Tax 1 - Diagnostic** as a single go/no-go decision — see [Step 0b](#step-0b--tax-plan-greenred-light-decision-last-step-of-tax-1---diagnostic) below.
 
 | Task | status_options | What it does |
 |---|---|---|
 | Deposit Paid | `tax_deposit_pi` | Text input. Admin pastes the Stripe PaymentIntent ID (`pi_...`) or a Stripe dashboard URL containing it. `tax_save_deposit_pi` extracts the last `pi_...` substring (defensive against paste-over), writes it to `client_tax_plans.deposit_payment_intent_id`, and marks the task `Completed`. |
-| Tax Plan Greenlight | `tax_greenlight` | Two-button task: **Go** (proceed to Tax 1) or **Stop** (refund deposit + close engagement). |
-| Refund Paid | `tax_refund` | Greyed unless Greenlight = Stop. "Send refund" button fires `automation_TAX_depositrefund` which: (1) fetches the PaymentIntent from Stripe to get the amount, (2) POSTs to `/v1/refunds` with `payment_intent=<saved pi_>`, (3) writes `deposit_refund_id`/`deposit_refund_amount`/`deposit_refund_date`/`deposit_refund_status='succeeded'`, (4) drafts a Gmail confirmation to the client, (5) inserts an admin notification with the Stripe refund id. |
 
-**Handlers:** [`tax_save_deposit_pi`](../../supabase/functions/vfo-admin-api/actions/tax/save-deposit-pi.ts), [`automation_TAX_depositrefund`](../../supabase/functions/vfo-admin-api/actions/tax/deposit-refund.ts) — both AUTH (admin-only).
+**Handler:** [`tax_save_deposit_pi`](../../supabase/functions/vfo-admin-api/actions/tax/save-deposit-pi.ts) — AUTH (admin-only).
 
-**Tables read:** `client_tax_plans`, `clients`, `members`, `pipeline_sandbox_config`(pipeline=`TAX`).
-**Tables written:** `client_tax_plans`(deposit_payment_intent_id, deposit_refund_*, deposit_refund_email_sent), `client_tax_progress` (Deposit Paid + Refund Paid status), `notifications`.
+---
+
+## Step 0b — Tax Plan Green/Red Light decision (LAST step of Tax 1 - Diagnostic)
+
+**Task:** "Tax Plan Green/Red Light - Refund $500 Deposit if unable to proceed based on the information provided" (`program_client_tasks` id **116**, sentinel `status_options='tax_refund'`, `phase_id=26`, `task_order=8`). It is the last VISIBLE step of Tax 1, sitting immediately below "Additional information required" (the three hidden legacy rows 120–122 occupy orders 5–7 and stay filtered out — see gotcha #271). The decision is deliberately placed at the END of the diagnostic, because that is where the information needed to make it arrives.
+
+**Two admin buttons:**
+
+| Button | What it does |
+|---|---|
+| **Proceed** (green) | Saves progress status **`'Proceed'`** via `tax_save_task`. The step goes done, a green `Proceed` pill replaces the buttons, and they do not come back — **one-way in the UI**, the same shape as the Tax 3 decline pattern. Nothing else fires; the plan continues into Tax 2. |
+| **Refund** (red) | **Saves nothing.** Opens an inline email-preview card (copied from the `tax_3_decision` decline card): the real subject line, `Hi [Client First],`, a **required** reason `<textarea>` sitting mid-body (placeholder *"Type the reason we are not moving forward here - written as if speaking directly to the client."*), the fixed refund / questions / thank-you / sign-off paragraphs, and **Cancel** + **Send Refund**. Send Refund is disabled until a reason is typed **AND** `client_tax_plans.deposit_payment_intent_id` exists, then `confirm()`s before firing. |
+
+**Send Refund** → `automation_TAX_depositrefund` with a **REQUIRED `reason`** body field (**400 `"reason required"`** without it), which: (1) fetches the PaymentIntent from Stripe to get the amount, (2) POSTs to `/v1/refunds` with `payment_intent=<saved pi_>` (full amount), (3) writes `deposit_refund_id`/`deposit_refund_amount`/`deposit_refund_date`/`deposit_refund_status='succeeded'`, (4) drafts a Gmail confirmation to the client from template `TAX_deposit_refund` with the typed reason substituted into the **`[Refund Reason]`** token (HTML-escaped, newlines → `<br>`, injected by function replacement so a `$` in the reason stays literal), (5) inserts an admin notification with the Stripe refund id. Refund columns and the PF bell are otherwise unchanged.
+
+**Done-math (both repos):** done = progress `status === 'Proceed'` **OR** `client_tax_plans.deposit_refund_status === 'succeeded'`. **The Refund path writes no progress status at all** — the closed state rides on `deposit_refund_status` alone. `'Proceed'` is an exact-matched load-bearing string in the FE `isTaskStatused` helper (`TaxPrioritiesTab.jsx`) and in `overview-tax.ts`; renaming the task or that string breaks both. See gotcha **#293**.
+
+**Visibility:** the client/member-facing `readOnly` track **hides this step entirely unless a refund actually happened** (the go/no-go is an internal call). The **tax-planner portal shows it visible but LOCKED** — the task name is deliberately absent from both `PLANNER_EDITABLE_TASK_NAMES` whitelists (#262), because the step is admin-only.
+
+**Handler:** [`automation_TAX_depositrefund`](../../supabase/functions/vfo-admin-api/actions/tax/deposit-refund.ts) — AUTH (admin-only; removed from `TAX_PLANNER_ALLOWED_ACTIONS` in the #262 trim).
+
+**Tables read:** `client_tax_plans`, `clients`, `members`, `pipeline_sandbox_config`(pipeline=`TAX`), `email_templates`.
+**Tables written:** `client_tax_plans`(deposit_payment_intent_id, deposit_refund_*, deposit_refund_email_sent), `client_tax_progress` (Deposit Paid status + the `'Proceed'` decision), `notifications`.
 **External calls:** Stripe `GET /v1/payment_intents/<id>`, Stripe `POST /v1/refunds`, Gmail drafts API.
 
-> **Greenlight = Go path is the normal lifecycle entry point** — flow continues to Step 1 below. The Setup phase is informational once Greenlight is set.
+> **Proceed is the normal lifecycle path** — flow continues to Step 1 below. Refund closes the engagement (`overview-tax.ts` reports `"Stopped — deposit refunded"`). The whole deposit / Set Up / Green-Red-Light flow is **program_id=4 (standalone VFO Tax Planning) only**.
 
 ---
 
@@ -605,7 +626,7 @@ Recipients below reflect the **2026-06-09 reroute (v432)** as re-cut by the **20
 | 5 | Tax 5 | [implement-final-decision.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/implement-final-decision.ts) | Client clicks **Proceed/Confirmed** on implementation email | **PF+planner** | true | FYI | click / Done |
 | 6 | Tax 5 | [implement-final-decision.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/implement-final-decision.ts) | Client clicks **Decline** on implementation email | **PF+planner** | true | FYI | click / Done |
 | 7 | Tax 5 | [charge-implementation.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/charge-implementation.ts) | Off-session implementation charge **fails** (incl. ACH-retainer restriction) | **Jake** (`TAX_impl_charge_failed`) | true | FYI (failure alert — someone must email a fresh `/tax-pay` link) | click / Done |
-| 8 | Setup (prog 4) | [deposit-refund.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/deposit-refund.ts) | Deposit refund issued (Greenlight = Stop) | **PF** | true | FYI | click / Done |
+| 8 | Tax 1 (prog 4) | [deposit-refund.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/deposit-refund.ts) | Deposit refund issued — admin picked **Refund** on the Tax Plan Green/Red Light step and typed a reason | **PF** | true | FYI | click / Done |
 | 8b | Tax 3 | [confirmation-email.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/confirmation-email.ts) | **Retainer paid** (card/ACH/check; retainer kind only) — **NEW 2026-06-09** | **PF** | true | FYI | click / Done |
 | 9 | Tax 4 | [revshare-sweep.ts:559](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/revshare-sweep.ts) (×2 rows) | High Level Meeting date passed + no `post_review_decision` recorded (once/plan, guard `tax4_meeting_reminder_last_sent_at`) | **PF+planner+Tracy** | **false** | Action-required (record Client decision 1) | `postreview-decision.ts:53` — `.ilike("title","Client decision 1 needed%")` when any Client decision 1 is recorded |
 | 10 | Tax 4 | [revshare-sweep.ts:186](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/tax/revshare-sweep.ts) | Undecided pick, **96h** no client click (guard `post_review_pf_notified_at`) | **PF** | true | FYI ("\<PF\>: reach out") | click / Done |

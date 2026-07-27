@@ -105,7 +105,7 @@ export const TEMPLATE_META = {
     mv('TAX_invoicereceipt_email|implementation', 'Implementation fee receipt PDF attached', 'To: Member · Auto-Cc: Client + PF'),
     ['TAX_member_revshare|implementation', 'Revenue share confirmation to the member — implementation fee received from their client'],
     ['TAX_planner_revshare|implementation', 'Tax planner revenue share confirmation — implementation half (sent when the implementation revenue share is transferred)', 'To: Tax Planner · Bcc: Accounting'],
-    ['TAX_deposit_refund', 'Setup-phase deposit refunded in full — confirmation (standalone Tax Planning only)'],
+    ['TAX_deposit_refund', 'Refund chosen on the Tax Plan Green/Red Light step — deposit refunded in full with decline reason(s) (standalone Tax Planning only)'],
   ],
   'PIP': [
     ['PIP_meeting_confirmation', 'PIP meeting is booked — confirmation', 'To: Client · Auto-Cc: Member + PF'],

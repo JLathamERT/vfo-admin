@@ -166,8 +166,8 @@ The Tax 4 flow no longer fires money movement on admin click. Admin picks a 3-op
 | `refund_date` | date | |
 | `refund_email_sent` | boolean | default false. |
 
-### Setup phase — Deposit + refund
-Tax Planning (program_id=4) starts with a Setup phase containing 3 tasks: **Deposit Paid** (captures Stripe PI), **Tax Plan Greenlight** (Go / Stop), **Refund Paid** (active only when Greenlight = Stop, fires Stripe refund). Holistic Tax Priorities (program_id=1) doesn't render Setup (those clients arrive via MAP1 instead), but the same columns work for either program if populated.
+### Set Up phase — Deposit, and the Green/Red Light decision
+Tax Planning (program_id=4) starts with a **Set Up** phase containing exactly ONE task: **Deposit Paid** (`tax_deposit_pi`, `program_client_tasks` 114 — captures the Stripe PI). The go/no-go on that deposit is a **separate single decision step at the END of Tax 1 - Diagnostic**: "Tax Plan Green/Red Light - Refund $500 Deposit if unable to proceed based on the information provided" (`program_client_tasks` **116**, sentinel `status_options='tax_refund'`, `phase_id=26`, `task_order=8`). **Proceed** stores progress status exactly `'Proceed'`; **Refund** stores no progress status at all and instead fires `automation_TAX_depositrefund` (reason REQUIRED), which populates the `deposit_refund_*` columns below — those columns alone carry the refunded/closed state. Restructured 2026-07-27: the old two-task pair (`tax_greenlight` id 115 "Tax Plan Greenlight" Go/Stop + "Refund Paid") was collapsed into this one step and task 115 was DELETED. See gotcha #293. Holistic Tax Priorities (program_id=1) doesn't render Set Up (those clients arrive via MAP1 instead), but the same columns work for either program if populated.
 
 | Column | Type | Notes |
 |---|---|---|
