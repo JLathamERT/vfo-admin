@@ -31,11 +31,14 @@ import ClientSetupPage from './pages/ClientSetupPage'
 import ClientPortal from './pages/ClientPortal'
 import SpecialistLogin from './pages/SpecialistLogin'
 import SpecialistPortal from './pages/SpecialistPortal'
+import TaxPlannerLogin from './pages/TaxPlannerLogin'
+import TaxPlannerPortal from './pages/TaxPlannerPortal'
 import SpecialistDdcHelpPage from './pages/SpecialistDdcHelpPage'
 import SpecialistRevShareFinalPage from './pages/SpecialistRevShareFinalPage'
 import Map4FormPage from './pages/Map4FormPage'
 import UpdateCardPage from './pages/UpdateCardPage'
 import ConnectCardPage from './pages/ConnectCardPage'
+import PayoutSetupPage from './pages/PayoutSetupPage'
 import SpecialistRevenuePayPage from './pages/SpecialistRevenuePayPage'
 import MembershipPayPage from './pages/MembershipPayPage'
 
@@ -65,6 +68,7 @@ export default function App() {
       <Route path="/pip-pay" element={<PipPayPage />} />
       <Route path="/update-card" element={<UpdateCardPage />} />
       <Route path="/connect-card" element={<ConnectCardPage />} />
+      <Route path="/payout-setup" element={<PayoutSetupPage />} />
       <Route path="/specialist-revenue-pay" element={<SpecialistRevenuePayPage />} />
       <Route path="/membership-pay" element={<MembershipPayPage />} />
       <Route path="/member-setup" element={<MemberSetupPage />} />
@@ -80,6 +84,9 @@ export default function App() {
       <Route path="/client" element={<ClientPortal />} />
       <Route path="/specialist/login" element={<SpecialistLogin />} />
       <Route path="/specialist" element={<SpecialistPortal />} />
+      <Route path="/tax-planner/login" element={<TaxPlannerLogin />} />
+      <Route path="/tax-planner" element={<TaxPlannerPortal />} />
+      <Route path="/tax-planner/client/:clientId" element={<ClientDetail />} />
       <Route path="/specialist-ddc-help" element={<SpecialistDdcHelpPage />} />
       <Route path="/specialist-revshare-final" element={<SpecialistRevShareFinalPage />} />
       <Route path="*" element={<Navigate to="/" />} />

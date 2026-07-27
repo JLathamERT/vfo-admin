@@ -1,6 +1,6 @@
 # Auth tables
 
-Session tokens and login credentials for all portals. The frontend never talks to Supabase Auth — instead it calls `vfo-admin-api` actions `admin_login` / `member_login` / `client_login` / `specialist_login`, which return a token stored in `sessionStorage` and presented on every subsequent request.
+Session tokens and login credentials for all portals. The frontend never talks to Supabase Auth — instead it calls `vfo-admin-api` actions `admin_login` / `member_login` / `client_login` / `specialist_login` / `tax_planner_login` (the 6th, added 2026-07-22), which return a token stored in `sessionStorage` and presented on every subsequent request.
 
 ## `admin_sessions`
 
@@ -89,9 +89,17 @@ The fourth login type (after admin/member/client) — per-specialist portal logi
 
 ---
 
+## `tax_planner_logins`
+
+The **fifth login type** (after admin/member/client/specialist) — per-planner portal logins, each linked to a `tax_planners` row. Added 2026-07-22 with the NEW Tax Planner portal (5th portal). RLS enabled, **deny-all** (service-role mediated). The caller role `'tax_planner'` is fenced to `TAX_PLANNER_ALLOWED_ACTIONS` + per-handler group-scope guards (gotcha #257). Shares the `admin_sessions` token table. **Full schema in [tax.md](tax.md#tax_planner_logins-added-2026-07-22)** (it lives with the tax-domain tables). Columns: `id` (bigint identity pk), `name`, `email` (not null, unique `lower(email)`), `tax_planner_id` (not null, unique, fk → `tax_planners.id` CASCADE), `passcode_hash` (salted PBKDF2), `created_at`. Migration `20260722100000_tax_planner_logins.sql`.
+
+**Touched by:** written by `submit_login_setup` (`login_type='tax_planner'`) + `tax_planner_update_login`; read by `tax_planner_login`.
+
+---
+
 ## `login_attempts`
 
-Brute-force throttle ledger for all five login handlers (H1, added 2026-06-18). One row per **failed** login attempt; rows are pruned opportunistically once older than 1h (the rolling window is only 15 min). RLS enabled, **deny-all** (no policies → service-role only; only the edge function via `utils/login-throttle.ts` touches it). Migration adds indexes on `(identifier, created_at)` and `(ip, created_at)` for the windowed count queries.
+Brute-force throttle ledger for all six login handlers (H1, added 2026-06-18; `tax_planner_login` added 2026-07-22). One row per **failed** login attempt; rows are pruned opportunistically once older than 1h (the rolling window is only 15 min). RLS enabled, **deny-all** (no policies → service-role only; only the edge function via `utils/login-throttle.ts` touches it). Migration adds indexes on `(identifier, created_at)` and `(ip, created_at)` for the windowed count queries.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -102,7 +110,7 @@ Brute-force throttle ledger for all five login handlers (H1, added 2026-06-18). 
 
 **Throttle rule:** a login is blocked (handler returns **429**) when ≥5 failures for the `identifier` OR ≥20 failures for the `ip` occurred in the last 15 minutes. `checkLoginThrottle` runs before the credential check; `recordLoginFailure` inserts on each 401; `clearLoginFailures` deletes the identifier's rows on a successful login.
 
-**Touched by:** `admin_login`, `member_login`, `client_login`, `specialist_login`, `login` (all via `utils/login-throttle.ts`).
+**Touched by:** `admin_login`, `member_login`, `client_login`, `specialist_login`, `tax_planner_login`, `login` (all via `utils/login-throttle.ts`).
 
 ---
 

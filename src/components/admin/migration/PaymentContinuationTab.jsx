@@ -77,6 +77,7 @@ export default function PaymentContinuationTab({ clientId, client }) {
   // pricing
   const [netInvoice, setNetInvoice] = useState('')
   const [memberShare, setMemberShare] = useState('')
+  const [taxPlannerShare, setTaxPlannerShare] = useState('')
   const [vfosShare, setVfosShare] = useState('')
   const [serviceLevel, setServiceLevel] = useState('')
   const [retainerAmount, setRetainerAmount] = useState('')
@@ -147,7 +148,7 @@ export default function PaymentContinuationTab({ clientId, client }) {
         : { paid: false, date: r.date })
       return { ...base, pricing: { net_invoice: netInvoice, member_share: memberShare, vfos_share: vfosShare, service_level: serviceLevel, payment_plan: 'Quarterly' }, invoice_number: invoiceNumber, payments }
     }
-    return { ...base, program_id: plan.program_id, pricing: { retainer_amount: retainerAmount, implementation_amount: implementationAmount, total_fee: taxTotal ? taxTotal.toFixed(2) : '', member_share: memberShare, vfos_share: vfosShare, split_type: splitType, atp_name: atpName }, retainer: { date: retDate, receipt_number: retReceipt, invoice_number: retInvoice } }
+    return { ...base, program_id: plan.program_id, pricing: { retainer_amount: retainerAmount, implementation_amount: implementationAmount, total_fee: taxTotal ? taxTotal.toFixed(2) : '', impl_member_share: memberShare, impl_tax_planner_share: taxPlannerShare, impl_vfos_share: vfosShare, split_type: splitType, atp_name: atpName }, retainer: { date: retDate, receipt_number: retReceipt, invoice_number: retInvoice } }
   }
 
   async function run(isPreview) {
@@ -195,10 +196,15 @@ export default function PaymentContinuationTab({ clientId, client }) {
 
   const money = (v) => parseFloat(String(v ?? '').replace(/[,$]/g, '')) || 0
   const taxTotal = money(retainerAmount) + money(implementationAmount)
-  const totalAmount = isMap1 ? money(netInvoice) : taxTotal
+  const implAmount = money(implementationAmount)
+  // Tax split is entered/validated against the IMPLEMENTATION amount (the only leg
+  // that pays out here — the retainer was settled on the old system).
+  const totalAmount = isMap1 ? money(netInvoice) : implAmount
   const sharesFilled = String(memberShare).trim() !== '' && String(vfosShare).trim() !== ''
-  const sharesSum = money(memberShare) + money(vfosShare)
-  const sumOk = sharesFilled && totalAmount > 0 && Math.abs(sharesSum - totalAmount) < 0.01
+  const sharesSum = isMap1 ? money(memberShare) + money(vfosShare) : money(memberShare) + money(taxPlannerShare) + money(vfosShare)
+  const sumOk = isMap1
+    ? (sharesFilled && totalAmount > 0 && Math.abs(sharesSum - totalAmount) < 0.01)
+    : (totalAmount > 0 ? (sharesFilled && Math.abs(sharesSum - totalAmount) < 0.01) : true)
   // Live serialization of the exact save payload (preview flag pinned to false so
   // it is stable across Preview/Save). Compared against previewSig to detect
   // whether the on-screen preview still describes what Save would write.
@@ -210,13 +216,10 @@ export default function PaymentContinuationTab({ clientId, client }) {
   // Any input change (currentSig moves) drops a stale overwrite acknowledgement and
   // clears a surfaced conflict; the operator must Preview again to re-arm Save.
   useEffect(() => { setForceAck(false); setConflict(null) }, [currentSig])
-  function onMemberShare(val) { setMemberShare(val); if (!isMap1 && splitType === 'Custom') setVfosShare(Math.max(0, taxTotal - (parseFloat(val) || 0)).toFixed(2)) }
-  function onVfosShare(val) { setVfosShare(val); if (!isMap1 && splitType === 'Custom') setMemberShare(Math.max(0, taxTotal - (parseFloat(val) || 0)).toFixed(2)) }
   useEffect(() => {
     if (isMap1) return
-    if (splitType === '1/3 Member, 2/3 VFOS') { const ms = (taxTotal / 3).toFixed(2); setMemberShare(ms); setVfosShare((taxTotal - parseFloat(ms)).toFixed(2)) }
-    else if (splitType === '50/50') { const half = (taxTotal / 2).toFixed(2); setMemberShare(half); setVfosShare(half) }
-  }, [splitType, taxTotal, isMap1])
+    if (splitType === '1/3 Member, 1/3 Tax Planner, 1/3 VFOS') { const implAmt = money(implementationAmount); const share = (implAmt / 3).toFixed(2); setMemberShare(share); setTaxPlannerShare(share); setVfosShare((implAmt - parseFloat(share) - parseFloat(share)).toFixed(2)) }
+  }, [splitType, implementationAmount, isMap1])
 
   return (
     <div>
@@ -256,29 +259,38 @@ export default function PaymentContinuationTab({ clientId, client }) {
         ) : (
           <>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <Field label="Total fee ($)"><input value={taxTotal ? taxTotal.toFixed(2) : ''} readOnly style={readonlyInput} placeholder="retainer + implementation" /></Field>
-              <Field label="Split type">
-                <select value={splitType} onChange={e => setSplitType(e.target.value)} style={inputStyle}>
-                  <option value="">-- Select --</option>
-                  <option value="1/3 Member, 2/3 VFOS">1/3 Member, 2/3 VFOS</option>
-                  <option value="50/50">50/50</option>
-                  <option value="Custom">Custom</option>
-                </select>
-              </Field>
-              <Field label="Member share ($)"><input value={memberShare} onChange={e => onMemberShare(e.target.value)} readOnly={splitType !== 'Custom'} style={splitType === 'Custom' ? inputStyle : readonlyInput} placeholder={splitType === 'Custom' ? 'e.g. 5000' : 'auto'} /></Field>
-              <Field label="Our (VFO) share ($)"><input value={vfosShare} onChange={e => onVfosShare(e.target.value)} readOnly={splitType !== 'Custom'} style={splitType === 'Custom' ? inputStyle : readonlyInput} placeholder={splitType === 'Custom' ? 'e.g. 5000' : 'auto'} /></Field>
-            </div>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '12px' }}>
               <Field label="Retainer amount ($)"><input value={retainerAmount} onChange={e => setRetainerAmount(e.target.value)} style={inputStyle} placeholder="e.g. 5000" /></Field>
               <Field label="Implementation amount ($)"><input value={implementationAmount} onChange={e => setImplementationAmount(e.target.value)} style={inputStyle} placeholder="e.g. 5000" /></Field>
+              <Field label="Total fee ($)"><input value={taxTotal ? taxTotal.toFixed(2) : ''} readOnly style={readonlyInput} placeholder="retainer + implementation" /></Field>
             </div>
+            {implAmount > 0 && (
+              <>
+                <p style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '12px', marginBottom: '10px' }}>Implementation split — what pays out when the implementation fee is charged. The retainer was settled on the old system; nothing pays out from it.</p>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <Field label="Split type">
+                    <select value={splitType} onChange={e => setSplitType(e.target.value)} style={inputStyle}>
+                      <option value="">-- Select --</option>
+                      <option value="1/3 Member, 1/3 Tax Planner, 1/3 VFOS">1/3 Member, 1/3 Tax Planner, 1/3 VFOS</option>
+                      <option value="Custom">Custom</option>
+                    </select>
+                  </Field>
+                  <Field label="Member share ($)"><input value={memberShare} onChange={e => setMemberShare(e.target.value)} readOnly={splitType !== 'Custom'} style={splitType === 'Custom' ? inputStyle : readonlyInput} placeholder={splitType === 'Custom' ? 'e.g. 5000' : 'auto'} /></Field>
+                  <Field label="Tax Planner share ($)"><input value={taxPlannerShare} onChange={e => setTaxPlannerShare(e.target.value)} readOnly={splitType !== 'Custom'} style={splitType === 'Custom' ? inputStyle : readonlyInput} placeholder={splitType === 'Custom' ? 'e.g. 5000' : 'auto'} /></Field>
+                  <Field label="Our (VFO) share ($)"><input value={vfosShare} onChange={e => setVfosShare(e.target.value)} readOnly={splitType !== 'Custom'} style={splitType === 'Custom' ? inputStyle : readonlyInput} placeholder={splitType === 'Custom' ? 'e.g. 5000' : 'auto'} /></Field>
+                </div>
+              </>
+            )}
           </>
         )}
         {sharesFilled && totalAmount > 0 && (
           <div style={{ marginTop: '12px', fontSize: '13px', fontWeight: 600, color: sumOk ? '#1b9254' : '#e74c3c' }}>
-            {sumOk
-              ? `Shares add up to the ${isMap1 ? 'net invoice' : 'total fee'} ($${sharesSum.toLocaleString()}).`
-              : `Member + VFO share ($${sharesSum.toLocaleString()}) must equal the ${isMap1 ? 'net invoice' : 'total fee'} ($${totalAmount.toLocaleString()}).`}
+            {isMap1
+              ? (sumOk
+                ? `Shares add up to the net invoice ($${sharesSum.toLocaleString()}).`
+                : `Member + VFO share ($${sharesSum.toLocaleString()}) must equal the net invoice ($${totalAmount.toLocaleString()}).`)
+              : (sumOk
+                ? `Split adds up to the implementation amount ($${sharesSum.toLocaleString()}).`
+                : `Member + Tax Planner + VFO share ($${sharesSum.toLocaleString()}) must equal the implementation amount ($${totalAmount.toLocaleString()}).`)}
           </div>
         )}
       </div>
@@ -314,8 +326,8 @@ export default function PaymentContinuationTab({ clientId, client }) {
             <p style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: 0, marginBottom: '12px' }}>Record the retainer they already paid. The implementation fee is charged later via the normal Tax 5 step against the saved card.</p>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <Field label="Retainer date paid"><input type="date" value={retDate} onChange={e => setRetDate(e.target.value)} style={inputStyle} /></Field>
-              <Field label="Retainer receipt number"><input value={retReceipt} onChange={e => setRetReceipt(e.target.value)} style={inputStyle} /></Field>
               <Field label="Retainer invoice number"><input value={retInvoice} onChange={e => setRetInvoice(e.target.value)} style={inputStyle} /></Field>
+              <Field label="Retainer receipt number"><input value={retReceipt} onChange={e => setRetReceipt(e.target.value)} style={inputStyle} /></Field>
             </div>
           </>
         )}
@@ -359,7 +371,7 @@ export default function PaymentContinuationTab({ clientId, client }) {
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
         <button onClick={() => run(true)} disabled={busy || !sumOk} style={ghostBtn}>{busy ? 'Working…' : 'Preview'}</button>
         <button onClick={() => run(false)} disabled={saveDisabled} style={primaryBtn(saveDisabled)}>{busy ? 'Working…' : (stripeMode === 'setup_link' ? 'Save & send setup link' : 'Save')}</button>
-        {!sumOk && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Enter member + VFO share (dollars) that sum to the total.</span>}
+        {!sumOk && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>{isMap1 ? 'Enter member + VFO share (dollars) that sum to the total.' : 'Enter member + tax planner + VFO implementation split (dollars) that sum to the implementation amount.'}</span>}
         {sumOk && stripeMode === 'existing' && !chosenPm && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Look up + pick a payment method to enable Save.</span>}
         {sumOk && (stripeMode !== 'existing' || chosenPm) && !previewFresh && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Preview first — Save unlocks after you review the exact row.</span>}
         {previewFresh && needsForce && !forceAck && <span style={{ fontSize: '12px', color: '#b9451d', fontWeight: 600 }}>Confirm the overwrite box below to enable Save.</span>}

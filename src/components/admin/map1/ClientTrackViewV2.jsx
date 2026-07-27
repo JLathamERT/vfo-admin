@@ -7,6 +7,7 @@ import PIPDecisionForm from './PIPDecisionForm'
 import MeetingCompleteButton from './MeetingCompleteButton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { TrackHero, PhaseBadge } from '../../shared/TrackKit'
+import Map1PricingSplitCard from './Map1PricingSplitCard'
 import StepDate from '../../shared/StepDate'
 import StepEmailsChip from '../../shared/StepEmailsChip'
 
@@ -338,6 +339,17 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
         steps={phases.map(ph => ({ label: ph.name.replace(/^MAP 1 - /, ''), state: getPhaseState(ph) }))}
       />
 
+      {/* Admin surface only — exposes VFO's own cut, so it is not rendered in the
+          member view. Read-only: MAP 1 splits are set through the pricing flow or the
+          Payment Continuation tool, not here. (Tax planners never reach this tab.) */}
+      {!readOnly && (
+        <Map1PricingSplitCard
+          plan={pipelineData}
+          expanded={!!expanded.map1_split}
+          onToggle={() => setExpanded(p => ({ ...p, map1_split: !p.map1_split }))}
+        />
+      )}
+
       {/* Phases */}
       {phases.map((phase, phaseIdx) => {
         const state = getPhaseState(phase)
@@ -613,7 +625,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                     return (
                       <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dateVal ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${dateVal ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
-                        <span style={{ fontSize: '13px', color: dateVal ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
+                        <span style={{ fontSize: '13px', color: dateVal ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
                         {readOnly
                           ? (dateVal
                               ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>{formatDate(dateVal)}</span>
@@ -719,7 +731,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                       <div key={task.id} style={{ borderBottom: '1px solid var(--vfo-border-soft)', padding: '7px 0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: isDone ? 'pointer' : 'default', flexWrap: 'wrap' }} onClick={() => isDone && setExpanded(prev => ({ ...prev, [formExpandKey]: !prev[formExpandKey] }))}>
                           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? dc : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? dc : 'var(--vfo-border-mid)'}` }} />
-                          <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px', fontWeight: 400 }}><StepEmailsChip pipeline="MAP 1" display="modal" title={task.name} templates={[
+                          <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="MAP 1" display="modal" title={task.name} templates={[
                             { name: 'CONTRACT_agreementsent|Yes', when: 'If Yes — congratulations + agreement signing link' },
                             { name: 'PCADMIN_followup|Undecided', when: 'If Undecided — options email to the client' },
                             { name: 'PCADMIN_followup|No', when: 'If No — decline email' },

@@ -62,7 +62,7 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
     const expandState = {}
     phases.forEach(phase => {
       const tasks = countedTasks(phase)
-      const allDone = tasks.length > 0 && tasks.every(isTaskDone)
+      const allDone = tasks.length === 0 || tasks.every(isTaskDone)
       expandState[phase.id] = !allDone
     })
     setExpanded(expandState)
@@ -254,7 +254,7 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                       <div key={task.id} style={{ padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: allDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${allDone ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
-                          <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
+                          <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
                         </div>
                         <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
                           {autoStep('Payment link sent to client (ACH or Card choice)', !!track.pip_payment_email_sent_at, null, [{ name: 'PIP_payment', when: 'Automatic — payment link' }])}
@@ -289,7 +289,7 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', cursor: done ? 'pointer' : 'default' }}
                           onClick={() => done && setExpanded(prev => ({ ...prev, [formExpandKey]: !prev[formExpandKey] }))}>
                           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? pillColor : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? pillColor : 'var(--vfo-border-mid)'}` }} />
-                          <span style={{ fontSize: '13px', color: done ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
+                          <span style={{ fontSize: '13px', color: done ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
                           {done
                             ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${pillColor}22`, color: pillColor, border: `1px solid ${pillColor}44` }}>{decisionLabel}</span>
                             : <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>
@@ -363,7 +363,7 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                     return (
                       <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: savedDate ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${savedDate ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
-                        <span style={{ fontSize: '13px', color: savedDate ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>{task.name}</span>
+                        <span style={{ fontSize: '13px', color: savedDate ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
                         {readOnly ? (
                           savedDate && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>{savedDate}</span>
                         ) : (

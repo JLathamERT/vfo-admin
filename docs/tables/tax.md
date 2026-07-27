@@ -4,7 +4,7 @@ Tax engagements run alongside (and downstream of) the regular member-program. A 
 
 ## `client_tax_plans`
 
-State machine for the tax-planning engagement. **84 columns total** (4 original + 51 added via migration `20260518000000_tax_phase0_schema.sql` + 14 split column families + 6 deposit-refund columns added in the Tax Planning alignment session + 4 member-pays columns: `member_paying_on_behalf`, `tax4_meeting_time`, `tax4_meeting_timezone`, `tax4_meeting_confirm_email_sent_at` + 4 added in the presentation-step session: `member_presentation_link`, `presentation_send_date`, `presentation_scheduled_at`, `presentation_email_sent_at` + 1 Phase D admin card-update column: `default_payment_method_id` + 8 tax-planner columns added 2026-07-21: `tax_planner_id`, `tax_planner_share`, `{retainer,implementation}_planner_paid`/`_completed_at`/`_email_sent_at`). Parallel to `pipeline_map1` for MAP1; see [tax-planning flow](../flows/tax-planning.md) for end-to-end usage.
+State machine for the tax-planning engagement. **84 columns total** (4 original + 51 added via migration `20260518000000_tax_phase0_schema.sql` + 14 split column families + 6 deposit-refund columns added in the Tax Planning alignment session + 4 member-pays columns: `member_paying_on_behalf`, `tax4_meeting_time`, `tax4_meeting_timezone`, `tax4_meeting_confirm_email_sent_at` + 4 added in the presentation-step session: `member_presentation_link`, `presentation_send_date`, `presentation_scheduled_at`, `presentation_email_sent_at` + 1 Phase D admin card-update column: `default_payment_method_id` + 8 tax-planner columns added 2026-07-21: `tax_planner_id`, `tax_planner_share`, `{retainer,implementation}_planner_paid`/`_completed_at`/`_email_sent_at` + 3 assess-form columns added 2026-07-22: `assess_form`, `assess_form_submitted_at`, `assess_form_submitted_by`). Parallel to `pipeline_map1` for MAP1; see [tax-planning flow](../flows/tax-planning.md) for end-to-end usage.
 
 > **Program-aware**: rows are tagged with `program_id` so the same handlers serve both Holistic Planning's Tax Priorities track (program_id=1) and the standalone VFO Tax Planning program (program_id=4). Client-visible labels (invoice/receipt headers, Stripe line items, BoldSign agreement title) switch between "VFO Holistic Planning" and "VFO Tax Planning" via the `programLabel(programId)` helper in `utils/program-label.ts`.
 
@@ -38,8 +38,8 @@ State machine for the tax-planning engagement. **84 columns total** (4 original 
 | `split_type` | text | `1/3 Member, 2/3 VFOS` / `50/50` / `Custom` (legacy 2-way) — and, since 2026-07-21, the 3-way preset `1/3 Member, 1/3 Tax Planner, 1/3 VFOS`. `TaxDecisionForm`/`TaxPricingForm` now offer the 3-way preset + a Custom mode where all three boxes are editable and must sum to `total_fee` (1-cent tolerance). Strategic-member tax splits (`src/lib/strategicSplits.js`, `programType='tax'`) add a 4th Strategic Partner leg. |
 | `member_share` | numeric | Dollar amount of member's revshare (of the TOTAL — proportional per installment, gotcha #252). |
 | `vfos_share` | numeric | Dollar amount of VFOS's cut. |
-| `tax_planner_id` | bigint | **2026-07-21.** fk → `tax_planners.id`. The Advanced Tax Planner allocated to the plan (set/cleared by the `tax_allocate_planner` action from the "Allocate to Advanced Tax Planner" step; supersedes the free-text `atp_name`). Gates the Yes-path (decision/pricing/extra-meeting return 400 without it). |
-| `tax_planner_share` | numeric | **2026-07-21.** Dollar amount of the Tax Planner leg (of the TOTAL). Paid proportionally per installment to the planner's GROUP Connect account by `utils/tax-planner-payout.ts` (gotcha #253). |
+| `tax_planner_id` | bigint | **2026-07-21.** fk → `tax_planners.id`. The Advanced Tax Planner allocated to the plan (set/cleared by the `tax_allocate_planner` action from the "Allocate to Advanced Tax Planner" step; supersedes the free-text `atp_name`). Gates the Yes-path (decision/pricing/extra-meeting return 400 without it). **Also the group-rights key for the Tax Planner portal (2026-07-22):** a `tax_planner` caller may view/edit any plan whose `tax_planner_id` is a planner sharing their `tax_planners.member_type` (Tax Planning Group) — enforced by `denyIfNotPlannerPlan`/`denyIfNotPlannerClient` in `utils/tax-planner-ownership.ts` (gotcha #257). |
+| `tax_planner_share` | numeric | **2026-07-21.** Dollar amount of the Tax Planner leg (of the TOTAL). Paid proportionally per installment to the planner's GROUP Connect account by `utils/tax-planner-payout.ts` (gotcha #253). The Payment Continuation backfill (`migration_backfill_tax`, 2026-07-24) also writes it — the operator enters the per-IMPLEMENTATION split and the tool SCALES it to dollars-of-total for storage (`scale = totalForSplit/implAmt`), storing NULL (not 0) when blank so the sweep's `.not(...,is,null)` filter never enumerates a no-op row (gotcha #277). |
 | `potential_tax_savings` | numeric | Undecided branch only — from form's `potentialTaxSavings`. |
 | `initial_retainer_quoted` | numeric | Undecided branch only — quoted in meeting. |
 | `presentation_link` | text | Optional link from the **Tax 3 "Client tax planning decision"** form. Used as `[PRESENTATION_LINK]` in Undecided + decline + agreement emails (`decision.ts`/`pricing.ts`/`extra-meeting.ts`/`final-decision.ts`/`send-agreement.ts`). **Distinct from `member_presentation_link`** (the Tax 2 step) — do not conflate. |
@@ -99,12 +99,21 @@ Written by `utils/tax-planner-payout.ts transferPlannerShare` — the tax planne
 
 | Column | Type | Notes |
 |---|---|---|
-| `retainer_planner_paid` | text | `Yes` (transferred) / `Money Mapping` / `N/A — No Share Due` / `Failed` (no group / group missing / group has no Stripe account / transfer errored → `FAILURE_tax_planner_share` bell + sweep retry). |
+| `retainer_planner_paid` | text | `Yes` (transferred) / `Money Mapping` / `N/A — No Share Due` / `Failed` (no group / group missing / group has no Stripe account / transfer errored → `FAILURE_tax_planner_share` bell + sweep retry). **The Payment Continuation backfill PRE-SETTLES this to `N/A — No Share Due` (+ `retainer_planner_completed_at`)** because the retainer was collected on the old system — otherwise a NULL planner leg + settled member leg + receipt + an allocated planner is exactly the sweep's stranded-leg rescue signature (#265) and would pay the planner a cut of that old-system retainer once a planner is allocated (gotcha #277). |
 | `retainer_planner_completed_at` | timestamptz | Set on a terminal-success status (`Yes`/`Money Mapping`/`N/A`). |
 | `retainer_planner_email_sent_at` | timestamptz | Guard for the `TAX_planner_revshare\|retainer` confirmation email (id 198, Draft) to the planner's own email. |
-| `implementation_planner_paid` | text | Same statuses as retainer, for the implementation installment. |
+| `implementation_planner_paid` | text | Same statuses as retainer, for the implementation installment. **Plus `Awaiting Planner Allocation`** (2026-07-25, gotcha #284) — a share is due but no planner is allocated, so the money is held in the VFO balance and an action-required `TAX_planner_share_withheld` bell is raised. Deliberately NON-terminal: `tax_allocate_planner` releases it immediately on allocation, and the daily sweep's planner-retry query accepts it as a backstop. Can appear on the retainer leg too in principle, though in practice the retainer resolves before a planner matters. |
 | `implementation_planner_completed_at` | timestamptz | Terminal-success stamp. |
 | `implementation_planner_email_sent_at` | timestamptz | Guard for `TAX_planner_revshare\|implementation` (id 199, Draft). |
+
+### Tax 2 — Assess-form step (added 2026-07-22)
+Backs the **"Assess tax planning opportunities (and enter presentation details)"** form-step (task ids 89 program 1 / 123 program 4, RENAMED from "Assess tax planning opportunities"; trigger `status_options==='assess_form'` OR the exact renamed task name — sentinel-first, #254 pattern). A PIP-Follow-Up-Decision-style step: green "Enter Details" button → inline form (ONE question, textarea) → `tax_save_assess_form` → then `saveTask 'Completed'`. Written ONLY by `tax_save_assess_form` (AUTH, ADMIN_ONLY + TAX_PLANNER allowlist, `denyIfNotPlannerPlan` guard, whitelists `{question_1}`); NO chains / emails / notifications. Migration `20260722120000_client_tax_plans_assess_form.sql`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `assess_form` | jsonb | The submitted answers (currently `{question_1}`). |
+| `assess_form_submitted_at` | timestamptz | Stamped on submit; drives the green "Submitted" pill + the read-only chevron-expand view (no re-edit). |
+| `assess_form_submitted_by` | text | Session email of the submitter. |
 
 ### Tax 3 — reminder timers (Phase post-Tax-5 polish)
 The Tax 3 cascade is gated by client action at 3 different points (Undecided email click, agreement signing, payment). Each has a 48h reminder + 96h PF-notification timer driven by `tax-revshare-sweep-daily` cron.
@@ -140,14 +149,17 @@ The Tax 4 flow no longer fires money movement on admin click. Admin picks a 3-op
 | `tax4_meeting_timezone` | text | Optional meeting timezone captured by the same handler. |
 | `tax_returns_requested_at` | timestamptz | Set by `automation_TAX_request_returns` when the "Request Tax Returns" email is drafted (VFO Tax Planning / program 4 step). Drives the "Request email sent" AI PC Admin sub-step. |
 | `tax_returns_received_at` | timestamptz | Set by `actions/vault/upload-notify.ts` when a program-4 client uploads their returns. Drives the "Tax returns received" sub-step (green) + the `TAX_returns_received` bell. |
+| `additional_info_requested_at` | timestamptz | Set by `automation_TAX_request_additional_info` when the "Request additional information" email is drafted (Tax 1 - Diagnostic, PROGRAM-AGNOSTIC — Holistic program 1 AND VFO Tax Planning program 4). Drives the "Request email sent" AI PC Admin sub-step. A resend re-stamps it and clears `additional_info_received_at`. Added in migration `20260723120000`. |
+| `additional_info_received_at` | timestamptz | Set by `actions/vault/upload-notify.ts` on ANY client upload while a request is outstanding — ALWAYS-overwritten on the newest plan with `additional_info_requested_at NOT NULL` (re-greens on every upload; NO `program_id` gate, unlike `tax_returns_received_at`). Drives the "Additional information received" sub-step (green) + fires `TAX_additional_info_received` (Tracy/Tray) and `TAX_planner_additional_info_uploaded` (allocated planner). Added in migration `20260723120000`. |
 | `tax4_meeting_confirm_email_sent_at` | timestamptz | When the client High Level Meeting Confirmation Email (`TAX_highlevelmeeting_confirm\|Yes`, id 148) was drafted. |
 | `tax4_meeting_reminder_last_sent_at` | timestamptz | Guard for the once-per-plan in-app "Client decision 1 needed" notification (sweep sets it once; the confirm handler nulls it so the reminder fires fresh after a new meeting date is set). |
+| `tax4_planner_nudge_sent_at` | timestamptz | **NEW 2026-07-22** (migration `20260722130000`). One-shot guard for the day-after-meeting PLANNER bell `TAX_planner_post_meeting` ("Confirm detailed tax plan presentation completion and client decision 1"), fired by `revshare-sweep.ts` when `tax4_meeting_date < today` + a planner is set + NOT(presentation done AND `post_review_decision` set). |
 | `post_review_decision` | text | Admin's pick: `Continue - Revenue Share` / `Undecided` / `Stop - Refund`. |
 | `post_review_decision_token` | text | 32-byte hex for `/tax-postreview-decide?token=`. Indexed. Generated on Continue + Undecided. |
-| `post_review_decision_email_sent_at` | timestamptz | When client email was drafted — sweep base for 24h (Continue lock-in) / 48h (Undecided reminder) / 96h (Undecided PF). |
-| `post_review_client_decision` | text | Client's click on the email button: `Proceed` (Undecided→Proceed → fires revshare) / `Confirmed` (Continue-email green "Continue now" click → fires revshare immediately, skipping the 24h grace) / `Refund` (fires refund) / `Auto-Locked` (sweep-set after 24h Continue grace expires with no client click). |
-| `post_review_reminder_sent_at` | timestamptz | Undecided 48h reminder timestamp. |
-| `post_review_pf_notified_at` | timestamptz | Undecided 96h PF notification timestamp. |
+| `post_review_decision_email_sent_at` | timestamptz | When client email was drafted — sweep base for the 48h reminder / 96h PF ladder (as of 2026-07-22 BOTH the Continue and Undecided picks use it; the Continue 24h auto-lock is REMOVED, gotcha #264). |
+| `post_review_client_decision` | text | Client's click on the email button: `Proceed` (Undecided→Proceed → fires revshare) / `Confirmed` (Continue-email green "Continue now" click → fires revshare) / `Refund` (fires refund). **`Auto-Locked` is NO LONGER written by Tax 4 as of 2026-07-22 (gotcha #264)** — Continue is now click-only; the value survives only as historical data + the Tax 5 implementation twin. |
+| `post_review_reminder_sent_at` | timestamptz | 48h reminder timestamp — shared by BOTH the Undecided AND (as of 2026-07-22) the Continue reminder ladder (safe: mutually exclusive per plan). |
+| `post_review_pf_notified_at` | timestamptz | 96h PF notification timestamp — shared by BOTH the Undecided AND (as of 2026-07-22) the Continue-stalled bell. |
 | `refund_status` | text | `succeeded` / `failed`. Set by `automation_TAX_refund` (PUBLIC, accepts service-role bearer OR admin session token). |
 | `refund_id` | text | Stripe refund object id. |
 | `refund_amount` | numeric | What was actually refunded (BASE amount only — no card-fee gross-up). |
@@ -201,7 +213,7 @@ Tax 5b "Implementation decision" mirrors Tax 4's 3-option pattern: Proceed picks
 - `idx_client_tax_plans_implementation_token` ON `implementation_token`
 - `idx_client_tax_plans_post_review_token` ON `post_review_decision_token`
 
-**Touched by:** `tax_load_plans`, `tax_start_plan` (now accepts `program_id`), `tax_save_deposit_pi`, `automation_TAX_readyfortax3`, `automation_TAX_decision`, `automation_TAX_finaldecision`, `automation_TAX_pricing`, `automation_TAX_extrameeting`, `automation_TAX_sendagreement`, `automation_TAX_ceocountersign`, `automation_TAX_stripecustomer`, `automation_TAX_paymentemail`, `automation_TAX_loadpayment`, `automation_TAX_stripecheckout`, `automation_TAX_confirmationemail`, `automation_TAX_invoicereceipt`, `automation_TAX_paidbycheck`, `automation_TAX_checkcleared`, `automation_TAX_postreviewdecision`, `automation_TAX_postreviewclientdecision`, `automation_TAX_refund`, `automation_TAX_revshare`, `automation_TAX_revshare_sweep`, `automation_TAX_implementdecision`, `automation_TAX_implementfinaldecision`, `automation_TAX_charge_implementation`, `automation_TAX_implementation_receipt`, `automation_TAX_highlevelmeeting_confirm`, `automation_TAX_save_meeting_date` (orphaned), `automation_TAX_depositrefund`, `automation_load_tax_plans`, Stripe webhook (`maybeHandleStripeWebhook`), BoldSign webhook (`maybeHandleBoldSignWebhook` + standalone `boldsign-webhook` function). Frontend: [TaxPrioritiesTab.jsx](src/components/admin/tax/TaxPrioritiesTab.jsx), [TaxAutomationPanel.jsx](src/components/admin/TaxAutomationPanel.jsx), [TaxDecidePage.jsx](src/pages/TaxDecidePage.jsx), [TaxPayPage.jsx](src/pages/TaxPayPage.jsx), [TaxPostReviewDecidePage.jsx](src/pages/TaxPostReviewDecidePage.jsx), [TaxImplementDecidePage.jsx](src/pages/TaxImplementDecidePage.jsx).
+**Touched by:** `tax_load_plans`, `tax_start_plan` (accepts `program_id`; on a Holistic plan ALSO seeds one `client_tax_progress` row for "Client risk profile complete" from the client's MAP 1 risk answer — gotcha #261), `tax_save_deposit_pi`, `automation_TAX_readyfortax3`, `automation_TAX_decision`, `automation_TAX_finaldecision`, `automation_TAX_pricing`, `automation_TAX_extrameeting`, `automation_TAX_sendagreement`, `automation_TAX_ceocountersign`, `automation_TAX_stripecustomer`, `automation_TAX_paymentemail`, `automation_TAX_loadpayment`, `automation_TAX_stripecheckout`, `automation_TAX_confirmationemail`, `automation_TAX_invoicereceipt`, `automation_TAX_paidbycheck`, `automation_TAX_checkcleared`, `automation_TAX_postreviewdecision`, `automation_TAX_postreviewclientdecision`, `automation_TAX_refund`, `automation_TAX_revshare`, `automation_TAX_revshare_sweep`, `automation_TAX_implementdecision`, `automation_TAX_implementfinaldecision`, `automation_TAX_charge_implementation`, `automation_TAX_implementation_receipt`, `automation_TAX_highlevelmeeting_confirm`, `automation_TAX_save_meeting_date` (orphaned), `automation_TAX_depositrefund`, `automation_load_tax_plans`, Stripe webhook (`maybeHandleStripeWebhook`), BoldSign webhook (`maybeHandleBoldSignWebhook` + standalone `boldsign-webhook` function). Frontend: [TaxPrioritiesTab.jsx](src/components/admin/tax/TaxPrioritiesTab.jsx), [TaxAutomationPanel.jsx](src/components/admin/TaxAutomationPanel.jsx), [TaxDecidePage.jsx](src/pages/TaxDecidePage.jsx), [TaxPayPage.jsx](src/pages/TaxPayPage.jsx), [TaxPostReviewDecidePage.jsx](src/pages/TaxPostReviewDecidePage.jsx), [TaxImplementDecidePage.jsx](src/pages/TaxImplementDecidePage.jsx).
 
 ---
 
@@ -277,3 +289,20 @@ The "companies" that receive the Tax Planner Share via a group-level Stripe Conn
 | `created_at` | timestamptz | not null, default `now()`. |
 
 **Touched by:** `save_tax_planning_group`, `delete_tax_planning_group`, `tax_planning_group_stripe_connect_request`, `utils/tax-planner-payout.ts` (destination resolution).
+
+---
+
+## `tax_planner_logins` (added 2026-07-22)
+
+The **5th `*_logins` table** — per-planner portal credentials for the NEW Tax Planner portal (5th portal / 6th login type). Whereas the 2026-07-21 build gave planners NO login (admin-only), a planner can now sign in at `/tax-planner`. RLS enabled, **deny-all** (no policies → service-role only; all access via the edge fn). The caller role `'tax_planner'` is fenced to `TAX_PLANNER_ALLOWED_ACTIONS` + per-handler group-scope guards (gotcha #257). Shares the `admin_sessions` token table with the other four login types. Migration `20260722100000_tax_planner_logins.sql` (anon probe → `Content-Range: */0`). See [auth.md](auth.md) + [../architecture/04-auth-and-sessions.md](../architecture/04-auth-and-sessions.md).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | identity pk. |
+| `name` | text | |
+| `email` | text | not null. **Unique index on `lower(email)`.** |
+| `tax_planner_id` | bigint | not null. **Unique.** fk → `tax_planners.id` ON DELETE CASCADE (one login per planner). |
+| `passcode_hash` | text | not null. Salted PBKDF2-HMAC-SHA256. |
+| `created_at` | timestamptz | default `now()`. |
+
+**Touched by:** written by `submit_login_setup` (`login_type='tax_planner'`, keyed on `tax_planner_id`) + `tax_planner_update_login` (self-service); read by `tax_planner_login`. NOTE: the `login_setup_tokens` `login_type` CHECK constraint was widened to admit `'tax_planner'` (migration `20260722110000` — without it, planner token creation 500s; gotcha #258).

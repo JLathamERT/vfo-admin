@@ -8,6 +8,7 @@ import TaxPlannerKpiPanel from './TaxPlannerKpiPanel'
 import { DirectoryListSkeleton } from '../shared/Skeleton'
 import { TrackHero, HeroAvatar, ListHeader } from '../shared/TrackKit'
 import { FeatureTabDropdown } from './MembersPanel'
+import SendSetupEmailButton from './SendSetupEmailButton'
 
 const STATUS_COLORS = { Active: '#1b9254', Lost: '#e74c3c', Removed: 'var(--vfo-muted)' }
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
@@ -108,6 +109,7 @@ export default function TaxPlannersPanel({ section }) {
     setSelectedPlanner(planner)
     setPlannerTab('profile')
     setDeleteMsg('')
+    window.scrollTo(0, 0)
   }
 
   function backToList() {
@@ -134,7 +136,7 @@ export default function TaxPlannersPanel({ section }) {
     let n = bstr.length
     const u8 = new Uint8Array(n)
     while (n--) u8[n] = bstr.charCodeAt(n)
-    const file = new File([u8], 'headshot.png', { type: 'image/png' })
+    const file = new File([u8], 'headshot.jpg', { type: 'image/jpeg' })
     if (which === 'add') { setAddFile(file); setAddPreview(dataUrl) }
     else { setEditFile(file); setEditPreview(dataUrl) }
     setCropState(null)
@@ -148,7 +150,7 @@ export default function TaxPlannersPanel({ section }) {
       let headshotFilename = ''
       if (file) {
         const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
-        headshotFilename = ts + '_' + fullName(form).replace(/[^a-zA-Z0-9 ]/g, '').trim() + '.png'
+        headshotFilename = ts + '_' + fullName(form).replace(/[^a-zA-Z0-9 ]/g, '').trim() + '.jpg'
         const base64 = await new Promise((resolve, reject) => {
           const reader = new FileReader()
           reader.onload = () => resolve(reader.result.split(',')[1])
@@ -479,12 +481,19 @@ export default function TaxPlannersPanel({ section }) {
           )}
 
           {plannerTab === 'settings' && (
+            <>
+            <div style={sectionStyle}>
+              <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Tax Planner Login</div>
+              <p style={{ fontSize: '14px', color: 'var(--vfo-muted)', marginBottom: '16px' }}>{selectedPlanner.email ? <>Send a setup email to <strong>{selectedPlanner.email}</strong> so they can set their own portal passcode.</> : <>Add an email in Edit Profile first, then send the setup email.</>}</p>
+              {selectedPlanner.email && <SendSetupEmailButton loginType="tax_planner" subjectId={selectedPlanner.id} hint="Drafts a Gmail with a secure link. The tax planner sets their own passcode." />}
+            </div>
             <div style={{ ...sectionStyle, border: '1px solid rgba(231,76,60,0.3)' }}>
               <div style={{ fontSize: '13px', color: '#e74c3c', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Danger Zone</div>
               <p style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginBottom: '12px' }}>Permanently delete this tax planner. This cannot be undone, and is blocked while they are allocated to any tax plan.</p>
               <button onClick={deletePlanner} style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid rgba(231,76,60,0.4)', background: 'transparent', color: '#e74c3c', fontWeight: 500, fontSize: '14px', cursor: 'pointer' }}>Delete Tax Planner</button>
               {deleteMsg && <p style={{ fontSize: '13px', color: '#d93025', fontWeight: 600, marginTop: '12px' }}>{deleteMsg}</p>}
             </div>
+            </>
           )}
         </div>
       )}

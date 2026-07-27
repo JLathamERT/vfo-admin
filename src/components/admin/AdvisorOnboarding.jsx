@@ -224,6 +224,18 @@ function OnboardingDetail({ id, onBack }) {
       const data = await callApi('load_advisor_onboarding', { onboarding_id: id })
       if (!data?.onboarding) { onBack(); return }   // deleted/missing → back to list
       setOb(data.onboarding)
+      // Default a fully-done stage to collapsed, computed ONCE per loaded
+      // onboarding so later manual toggles and live setOb updates aren't
+      // overwritten. Mirrors stage1State/stage2State/stage3State below.
+      const row = data.onboarding
+      const dec = row.prelim_meeting_decision
+      const fin = row.final_decision || (dec === 'Yes' ? 'Yes' : dec === 'No' ? 'No' : null)
+      const yes = fin === 'Yes'
+      const no = fin === 'No'
+      const s1 = !row.prelim_meeting_status ? 'pending' : !row.prelim_meeting_decision ? 'active' : 'done'
+      const s2 = !dec ? 'pending' : (no && row.decline_email_sent_at) ? 'done' : (yes && row.invoice_sent_at) ? 'done' : 'active'
+      const s3 = row.member_created_at ? 'done' : (yes && row.invoice_sent_at) ? 'active' : 'pending'
+      setExpanded({ 1: s1 !== 'done', 2: s2 !== 'done', 3: s3 !== 'done' })
     } catch (err) {
       // A stale deep-link to a deleted onboarding 404s — bounce to the list
       // instead of getting stuck on an error.

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 
 // Square crop + zoom editor for headshots. Drag the image to reposition, slide to
-// zoom, Apply → returns a square PNG data URL (the cropped/zoomed result). The image
+// zoom, Apply → returns a square JPEG data URL (the cropped/zoomed result). The image
 // is sized to "cover" the viewport at zoom=1, so it always fills the frame.
 export default function ImageCropModal({ src, onApply, onCancel, output = 500, viewport = 300 }) {
   const [zoom, setZoom] = useState(1)
@@ -54,7 +54,7 @@ export default function ImageCropModal({ src, onApply, onCancel, output = 500, v
     img.onload = () => {
       ctx.drawImage(img, left * ratio, top * ratio, imgDispW * ratio, imgDispH * ratio)
       try {
-        onApply(canvas.toDataURL('image/png'))
+        onApply(canvas.toDataURL('image/jpeg', 0.85))
       } catch {
         // Canvas tainted (remote image without CORS) — fall back to re-uploading.
         window.alert('Could not process this image for cropping. Please choose the image file again.')

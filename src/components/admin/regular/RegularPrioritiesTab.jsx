@@ -224,7 +224,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
     const expandState = {}
     phases.forEach(phase => {
       const tasks = (phase.program_client_tasks || []).filter(t => t.status_options !== 'auto')
-      const allDone = tasks.length > 0 && tasks.every(t => localProgress[t.id]?.status)
+      const allDone = tasks.length === 0 || tasks.every(t => localProgress[t.id]?.status)
       expandState[phase.id] = !allDone
     })
     setExpanded(expandState)

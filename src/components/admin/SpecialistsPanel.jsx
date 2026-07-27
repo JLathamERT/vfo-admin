@@ -193,6 +193,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
     setEditFile(null)
     setEditPreview(expert.headshot_image ? HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image) : null)
     setSelectedExpert(expert)
+    window.scrollTo(0, 0)
   }
 
   function handleFileChange(which, e) {
@@ -201,7 +202,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
     const tooBig = fileSizeError(file)
     if (tooBig) { window.alert(tooBig); e.target.value = ''; return }
     // Open the zoom/crop editor instead of using the raw file — the cropped square
-    // PNG it returns becomes the upload.
+    // JPEG it returns becomes the upload.
     const reader = new FileReader()
     reader.onload = ev => setCropState({ which, src: ev.target.result })
     reader.readAsDataURL(file)
@@ -215,7 +216,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
     let n = bstr.length
     const u8 = new Uint8Array(n)
     while (n--) u8[n] = bstr.charCodeAt(n)
-    const file = new File([u8], 'headshot.png', { type: 'image/png' })
+    const file = new File([u8], 'headshot.jpg', { type: 'image/jpeg' })
     if (which === 'add') { setAddFile(file); setAddPreview(dataUrl) }
     else { setEditFile(file); setEditPreview(dataUrl) }
     setCropState(null)
@@ -260,7 +261,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
       let headshotFilename = ''
       if (file) {
         const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
-        headshotFilename = ts + '_' + shared.name.replace(/[^a-zA-Z0-9 ]/g, '').trim() + '.png'
+        headshotFilename = ts + '_' + shared.name.replace(/[^a-zA-Z0-9 ]/g, '').trim() + '.jpg'
         const base64 = await new Promise((resolve, reject) => {
           const reader = new FileReader()
           reader.onload = () => resolve(reader.result.split(',')[1])
@@ -631,7 +632,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
                 onClick={() => handleEditSelect(expert)}
                 style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '10px 14px', marginBottom: '4px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', cursor: 'pointer' }}>
                 <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', background: 'var(--vfo-border)', flexShrink: 0 }}>
-                  {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                  {expert.headshot_image && <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -793,7 +794,7 @@ function SpecialistProfileView({ expert, ecos: ecosProp, connectBusy = false, co
         <div style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
           <div style={{ width: '72px', height: '72px', borderRadius: '50%', overflow: 'hidden', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {expert.headshot_image
-              ? <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.src = HEADSHOT_BASE + expert.headshot_image }} />
+              ? <img src={HEADSHOT_SUPABASE + encodeURIComponent(expert.headshot_image)} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.src = HEADSHOT_BASE + expert.headshot_image }} />
               : <span style={{ color: 'var(--vfo-faint)', fontSize: '24px', fontWeight: 700 }}>{(expert.name || '?').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()}</span>}
           </div>
           <div style={{ minWidth: '200px', flex: 1 }}>

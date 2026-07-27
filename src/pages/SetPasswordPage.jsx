@@ -4,13 +4,14 @@ import { TokenFormSkeleton } from '../components/shared/Skeleton'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.supabase.co/functions/v1/vfo-admin-api'
 
-// Generic, on-demand login-setup page (Feature B). One page for all three login
+// Generic, on-demand login-setup page (Feature B). One page for all login
 // types — the token (login_setup_tokens) carries whether the person is a member,
-// specialist, or client, and we route them to the right portal after.
+// specialist, client, or tax planner, and we route them to the right portal after.
 const PORTAL = {
   member: { label: 'Member', login: '/member/login' },
   specialist: { label: 'Specialist', login: '/specialist/login' },
   client: { label: 'Client', login: '/client/login' },
+  tax_planner: { label: 'Tax Planner', login: '/tax-planner/login' },
 }
 
 export default function SetPasswordPage() {

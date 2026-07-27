@@ -54,7 +54,7 @@ Phase/tab-scoped notes on a client. Used by the program-tracking UI to attach no
 | `created_by` | text | not null |
 | `created_at` / `updated_at` | timestamptz | default `now()` |
 
-**Touched by:** `load_client_notes`, `add_client_note`, `update_client_note`, `delete_client_note`. Frontend: [PhaseNotes.jsx](src/components/shared/PhaseNotes.jsx), [AddGeneralNote.jsx](src/components/shared/AddGeneralNote.jsx).
+**Touched by:** `load_client_notes`, `add_client_note`, `update_client_note`, `delete_client_note` (all four are admin-only AND — as of 2026-07-23 — planner-callable from the Tax Planner portal per-phase Notes, with in-handler group-scope guards on the writes; gotcha #273). Frontend: [PhaseNotes.jsx](src/components/shared/PhaseNotes.jsx), [AddGeneralNote.jsx](src/components/shared/AddGeneralNote.jsx).
 
 ---
 

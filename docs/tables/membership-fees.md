@@ -30,6 +30,7 @@ when checking, so terminate → create-new works).
 | `setup_link_expires_at` | update-method links (ACTIVE plans only) expire 30 days after last emailed; re-stamped by every link emailer + activation; NULL/past = expired (gotcha #241) |
 | `next_year_amount` / `next_year_credit_note` | admin-editable renewal terms, consumed + cleared by the renewal pass |
 | `termination_fee` / `terminated_at` | set by `membership_terminate` |
+| `prior_payments_made` | transfers only: payments already collected this year under the OLD billing. Admin-entered on the transfer form (0–11) because the system holds no record of them; printed on the catch-up invoice. NULL falls back to `(12 − remaining)` (gotcha #280) |
 | `sandbox` | Stripe mode the customer was created in (key selection follows this, not the live toggle) |
 
 ## member_payment_schedule
@@ -49,6 +50,11 @@ sweep index `(status, due_date)`.
 | `status` | `scheduled` → `processing`/`paid` \| `missed`/`declined` (arrears — swept into the next combined charge) \| `waived` \| `canceled` |
 | `stripe_payment_intent_id` | a combined catch-up charge stamps the SAME PI on every row it covered |
 | `paid_at` / `payment_method_type` / `acct_last4` / `failure_reason` | |
+| `year_start` / `year_end` | the membership year this row belongs to, stamped at BOTH insert sites (activation + renewal pass). Rows sharing a `year_start` are one year; the earliest `due_date` in the group is the opener that earns an INVOICE. Needed because the renewal pass advances `plan.renewal_date` but leaves `start_date` alone (gotcha #280) |
+| `invoice_number` / `receipt_number` | `INV-<member#>-NNNN` / `REC-<member#>-NNNN`, allocated via `document_numbers.member_payment_plan_id`. The invoice number lives on the year's opening row only |
+| `invoice_vault_path` / `receipt_vault_path` | object paths in the `member-ert-docs` ERT vault bucket (NOT Google Drive) |
+| `docs_emailed_at` | set once the invoice/receipt email is drafted — the idempotency guard against Stripe event redelivery |
+| `card_processing_fee` | the fee Stripe ACTUALLY charged (`amount_received` − base), stamped at settle time in both webhook branches. A combined catch-up charge stamps the SAME total on every row it covered — read it from the primary row, never sum it (gotcha #281) |
 | `reminder_sent_at` | guard so the failed-payment email drafts once per missed row |
 
 ## Related config
