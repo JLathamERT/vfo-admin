@@ -104,7 +104,8 @@ Mirrors the MAP 1 `/decide` undecided flow. Admin clicks **Undecided email** →
 **"Undecided - awaiting client"** (an amber pending status that the tracker treats as "no final decision" so
 both Phase-6 sections stay visible-but-pending). Client clicks → `PftDecidePage.jsx` (`/pft-decide`), which
 **shows a confirmation card and records nothing until the client clicks it** (2026-07-27, gotcha #290 — note
-this page's param is `choice`, not `decision`) →
+this page's param is `choice`, not `decision`; the confirm card renders `vfo_ft`/`vfo_associate` as
+"VFO Fast Track"/"VFO Associate") →
 `automation_PFT_undecided_response` (PUBLIC, idempotent on `decision_response`) records the choice then
 **delegates in-process to `automation_PFT_decisionemail`** with that choice, so the exact same per-choice work
 runs (onboarding + confirmation email + progress + lost-on-no). Rolls `decision_response` back to null if the
