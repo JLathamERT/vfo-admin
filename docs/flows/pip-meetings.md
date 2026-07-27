@@ -23,11 +23,12 @@ Client clicks /pip-pay?token=... → picks ACH or Card
 
 Stripe webhook (checkout.session.completed, metadata.pipeline='PIP')
   ├─► writes pip_payment_status / payment_method_type / acct_last4 / card_processing_fee / payment_intent_id / pip_payment_completed_at
-  ├─► CARD path → chains:
-  │     ├─► automation_PIP_confirmationemail
+  ├─► CARD path (already cleared) → chains, NO confirmation email:
   │     ├─► automation_PIP_invoicereceipt
   │     └─► automation_PIP_revshare
-  └─► ACH path → waits for payment_intent.succeeded, then same chains
+  └─► ACH path (days in flight) → chains automation_PIP_confirmationemail NOW,
+        then automation_PIP_invoicereceipt + automation_PIP_revshare on
+        payment_intent.succeeded once the funds settle
 
 automation_PIP_revshare
   ├─► Revenue Share members: Stripe Connect transfer to members.stripe_account_id
@@ -102,16 +103,18 @@ After the form locks itself into view mode (collapsed by default; click row to e
 
 Writes columns: `pip_payment_status` (`'succeeded'` for card / `'processing'` for ACH), `pip_payment_method_type`, `pip_acct_last4`, `pip_card_processing_fee` (card only — derived from PI `amount_received - baseAmount`), `pip_payment_intent_id`, `pip_payment_completed_at` (card only; ACH waits for pi.succeeded).
 
-Card path immediately chains 3 handlers via service-role HTTP:
-- `automation_PIP_confirmationemail`
-- `automation_PIP_invoicereceipt`
-- `automation_PIP_revshare`
+**One email at purchase time, selected by method** (the system-wide purchase-email policy — card = invoice/receipt only, ACH = confirmation now + docs at settle):
 
-ACH path: same 3 chains fire on `payment_intent.succeeded` (when ACH clears), gated by `pi?.metadata?.pipeline === "PIP"`.
+- **Card path** (already cleared) chains 2 handlers immediately via service-role HTTP — `automation_PIP_invoicereceipt` + `automation_PIP_revshare`. **No confirmation email at all**: the invoice/receipt lands in the same moment and says everything the confirmation would.
+- **ACH path** chains `automation_PIP_confirmationemail` immediately (it exists to break the multi-day silence before settlement), then `automation_PIP_invoicereceipt` + `automation_PIP_revshare` on `payment_intent.succeeded` (gated by `pi?.metadata?.pipeline === "PIP"`) once the funds clear.
 
-### Step 7 — Confirmation email
+The card branch never reaches `payment_intent.succeeded` (its status is already `succeeded`), so that block is an ACH-settlement path plus an idempotent safety net.
 
-`automation_PIP_confirmationemail` (PUBLIC): loads template `PIP_confirmation`, substitutes including `[CARD_FEE_TEXT]` (`" A card processing fee of $X.XX was applied, bringing your total charge to $Y.YY."` — same format as MAP1) and `[PROCESSING_TIME]` ("Your payment has been processed immediately. An invoice/receipt will follow shortly." for card; ACH variant identical to MAP1's). Drafts Gmail. Writes `pip_confirmation_email_sent_at`. Idempotent.
+### Step 7 — Confirmation email *(ACH only)*
+
+`automation_PIP_confirmationemail` (PUBLIC): loads template `PIP_confirmation`, substitutes `[CARD_FEE_TEXT]` and `[PROCESSING_TIME]` ("Please allow 2-4 business days…"). Drafts Gmail. Writes `pip_confirmation_email_sent_at`. Idempotent.
+
+**Only the ACH path chains it.** The gate is at the webhook CALL SITE (`isCardP`), not inside the handler — unlike MAP 1 / Tax, this handler owns nothing but the email, so there are no side effects to preserve for card. A card purchase therefore leaves `pip_confirmation_email_sent_at` NULL forever; the admin panels render that step as "skipped", not pending.
 
 ### Step 8 — Invoice & receipt
 
@@ -151,8 +154,8 @@ Writes `pip_rev_share_amount`, `pip_rev_share_completed_at`. Drafts inline-HTML 
 ## Failure modes
 
 1. **Stripe Connect transfer fails** (`insufficient_capabilities_for_transfer`, or member has no `stripe_account_id`) → `pip_rev_share_status='Pending'`. Locked child meetings stay locked. Admin can manually re-fire `automation_PIP_revshare` after fixing the Connect setup.
-2. **ACH cleared but pi.succeeded missed** → track stays at `pip_payment_status='processing'`. No reminder cron for PIP; recovery is manual (re-fire `automation_PIP_confirmationemail` + `automation_PIP_invoicereceipt` + `automation_PIP_revshare` via service-role).
-3. **Webhook fires for a PIP purchase before Phase 4 was deployed** → tracks stay at `pip_payment_status='pending'`. Recover by manually UPDATEing payment columns + firing `automation_PIP_confirmationemail` etc.
+2. **ACH cleared but pi.succeeded missed** → track stays at `pip_payment_status='processing'`. No reminder cron for PIP; recovery is manual (re-fire `automation_PIP_invoicereceipt` + `automation_PIP_revshare` via service-role — the ACH confirmation already went out at checkout time).
+3. **Webhook fires for a PIP purchase before Phase 4 was deployed** → tracks stay at `pip_payment_status='pending'`. Recover by manually UPDATEing payment columns + firing `automation_PIP_invoicereceipt` + `automation_PIP_revshare` (plus `automation_PIP_confirmationemail` only if the purchase was ACH).
 4. **Idempotency** — all four chain handlers (confirmation, invoicereceipt, revshare) are guarded by their respective `*_sent_at` or `_status` column. Re-firing the chain on an already-completed track is a no-op.
 
 ## Frontend surfaces

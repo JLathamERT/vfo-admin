@@ -48,7 +48,7 @@
 | **Client chose Yes (Tax 3)** — Client clicked Yes on the /tax-decide page - pricing form needs to be completed to send the engagement agreement. | **Action required** | Assigned PF | Client click on /tax-decide — instant |
 | **Client requested extra meeting** — Client clicked Request Extra Meeting on the /tax-decide page instead of Yes/No. | **Action required** | Assigned PF | Client click on /tax-decide — instant |
 | **Deposit refund issued** — Setup-phase deposit was refunded via Stripe after Tax Plan Greenlight = Stop; confirmation email drafted to the client. | FYI | Assigned PF | Admin Send refund button — instant |
-| **Retainer paid** — Client's Tax Planning retainer payment cleared (card/ACH/check); confirmation email drafted. | FYI | Assigned PF | Stripe webhook chain — instant |
+| **Retainer paid** — Client's Tax Planning retainer payment cleared (card/ACH/check). The client confirmation email is drafted for ACH + check only; a card retainer is receipt-only (gotcha #287) — **the bell still fires on every method**, because it lives in the same handler and is a payment side effect, not part of the email. | FYI | Assigned PF | Stripe webhook chain — instant |
 | **Client clicked Proceed (implementation)** — Client clicked Proceed on the Tax 5 implementation email; off-session charge fired. | FYI | Tim | Client click on Tax 5 email — instant |
 | **Client clicked Decline (implementation)** — Client clicked Decline on the Tax 5 implementation email; engagement closes, no implementation charge. | FYI | Tim | Client click on Tax 5 email — instant |
 | **Client clicked Refund (Decision 1)** — Client clicked Refund on the Tax 4 Client Decision 1 email; auto-refund fired. | FYI | Tim | Client click on Tax 4 email — instant |

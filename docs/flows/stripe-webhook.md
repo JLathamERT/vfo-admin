@@ -72,7 +72,7 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
    - `pay1_date` = today
    - For Quarterly plan: `pay2_date`, `pay3_date`, `pay4_date` = today + 91/182/273 days
    - `confirmation_status='Confirmation Needed'`
-6. **Chains** `automation_CONTRACT_confirmationemail` (always).
+6. **Chains** `automation_CONTRACT_confirmationemail` (always — both methods, deliberately). That handler owns the "client paid" PF bell, the ERT vault agreement copy and Tracy's new-case email in addition to the email, so the gate lives INSIDE it: for a **card** first payment it skips the client Gmail draft and stamps `confirmation_status='Skipped - Card (Receipt Only)'` (no `confirmation_email_sent_at`); ACH gets the confirmation. See [contract-and-payment.md](contract-and-payment.md) Step 11.
 7. **Chains** `automation_CONTRACT_invoicereceipt` for card only (ACH waits for `payment_intent.succeeded` to chain).
 8. **Chains** `automation_CONTRACT_revshare` for card only (P1). As of 2026-07-01 (gotcha #164) the Tracy Revenue-Master cross-check was removed — this **pays the share immediately** on clear (amounts from the PF input form) and also transfers the 10% strategic-partner share when the connected member is a strategic member; the daily 02:00-UTC `_revshare_sweep` cron now only retries **failed** transfers.
 
@@ -135,8 +135,8 @@ The rule keys deliberately reuse the synchronous sweep paths'. See [SESSION_REFE
 | Branch | Chains |
 |---|---|
 | A1 (GC) | none |
-| A2 (MAP1 card) | `automation_CONTRACT_confirmationemail` + `automation_CONTRACT_invoicereceipt` + `automation_CONTRACT_revshare` (payment 1) |
-| A2 (MAP1 ACH) | `automation_CONTRACT_confirmationemail` only |
+| A2 (MAP1 card) | `automation_CONTRACT_confirmationemail` (side effects only — **no client email**, status `'Skipped - Card (Receipt Only)'`) + `automation_CONTRACT_invoicereceipt` + `automation_CONTRACT_revshare` (payment 1) |
+| A2 (MAP1 ACH) | `automation_CONTRACT_confirmationemail` only (client confirmation email **is** drafted) |
 | B1 (Quarterly N) | `automation_CONTRACT_invoicereceipt` + `automation_CONTRACT_revshare` (payment N) |
 | B2 (ACH cleared) | `automation_CONTRACT_invoicereceipt` + `automation_CONTRACT_revshare` (payment 1) |
 

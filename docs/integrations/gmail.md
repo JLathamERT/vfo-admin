@@ -146,7 +146,7 @@ All automation emails use HTML templates from the [`email_templates`](../tables/
 | `CONTRACT_agreementsent\|Yes` | `automation_CONTRACT_sendagreement` |
 | `CONTRACT_ceocountersign\|Yes` | `automation_CONTRACT_ceocountersign` |
 | `CONTRACT_paymentemail\|Yes` | `automation_CONTRACT_paymentemail` |
-| `CONTRACT_confirmationemail\|card` / `\|ach` / `\|check` | `automation_CONTRACT_confirmationemail` |
+| `CONTRACT_confirmationemail\|card` / `\|ach` / `\|check` | `automation_CONTRACT_confirmationemail`. **The `\|card` variant is no longer sent automatically** (2026-07-26): a card payment 1 is receipt-only, so only `\|ach` and `\|check` are drafted by the automation. The row is kept for reference + manual resend. The same rule retires the automatic use of `TAX_confirmationemail\|card`, `ADVISOR_payment_confirmation\|card`, `ACCOUNTANT_payment_confirmation\|card`, `SPECIALIST_bg_confirmation\|card`, `SPECIALIST_lic_confirmation\|card` and `MEMBERSHIP_confirmation\|card`; `PIP_confirmation` and `SPECREV_payment_confirmation` are single-variant templates that are now ACH-only. See [stripe.md](stripe.md#purchase-email-policy--system-wide-2026-07-26-v663). |
 | `CONTRACT_invoicereceipt_email\|first` / `\|subsequent` | `automation_CONTRACT_invoicereceipt` |
 | `CONTRACT_paidbycheck\|check` | `automation_CONTRACT_paidbycheck` (inline Gmail draft when admin clicks "Pay via check"). Body has a `[QUARTERLY_NOTE]` placeholder that the handler substitutes per payment plan (Quarterly: reminder-note sentence; OneTime: empty). |
 | `CONTRACT_checkreminder\|check` | `automation_CONTRACT_checkreminder_sweep` (daily 04:00 UTC cron). `[Due Date]` substituted via `utils/format-date.ts::formatLongDate()`. |
