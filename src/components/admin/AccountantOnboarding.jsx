@@ -396,18 +396,15 @@ function OnboardingDetail({ id, onBack }) {
   const emCard = <OnboardingExtraMeetingCard ob={ob} pipeline="accountant" onComplete={loadDetail} compact />
   const yesRows = (withTags) => (
     <>
-      <AutoRow label="Agreement sent" done={!!ob.agreement_sent_at} date={ob.agreement_sent_at} emails={ACCOUNTANT_AGREEMENT_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
+      <AutoRow label="Engagement agreement created and sent for signing" done={!!ob.agreement_sent_at} date={ob.agreement_sent_at} emails={ACCOUNTANT_AGREEMENT_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
       {emRequested && emStage === 'signing' && emCard}
-      <AutoRow label="Agreement signed by accountant" done={!!ob.agreement_signed_by_accountant_at} date={ob.agreement_signed_by_accountant_at} tag={withTags ? [ob.selected_vfo_ft && 'VFO FT', ob.selected_pft && 'PFT', ob.selected_corporate && 'CM'] : undefined} />
-      <AutoRow label="Agreement signed by CEO" done={!!ob.agreement_signed_by_ceo_at} date={ob.agreement_signed_by_ceo_at} emails={ACCOUNTANT_CEO_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
-      <AutoRow label="Payment link sent" done={!!ob.payment_link_sent_at} date={ob.payment_link_sent_at} emails={ACCOUNTANT_PAYMENT_LINK_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
+      <AutoRow label="Engagement agreement signed" done={!!ob.agreement_signed_by_accountant_at} date={ob.agreement_signed_by_accountant_at} tag={withTags ? [ob.selected_vfo_ft && 'VFO FT', ob.selected_pft && 'PFT', ob.selected_corporate && 'CM'] : undefined} />
+      <AutoRow label="Engagement agreement signed by CEO" done={!!ob.agreement_signed_by_ceo_at} date={ob.agreement_signed_by_ceo_at} emails={ACCOUNTANT_CEO_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
+      <AutoRow label="Payment link sent (ACH or Card choice)" done={!!ob.payment_link_sent_at} date={ob.payment_link_sent_at} emails={ACCOUNTANT_PAYMENT_LINK_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
       {emRequested && emStage === 'payment' && emCard}
-      <AutoRow label="Payment made" done={ob.payment_status === 'succeeded'} date={ob.payment_completed_at} tag={withTags ? (ob.payment_method_type ? ob.payment_method_type.toUpperCase() : null) : undefined} />
-      {/* Card is receipt-only — see the advisor mirror. */}
-      {(!!ob.confirmation_email_sent_at || ob.payment_method_type !== 'card') && (
-        <AutoRow label="Confirmation email sent" done={!!ob.confirmation_email_sent_at} date={ob.confirmation_email_sent_at} emails={ACCOUNTANT_CONFIRMATION_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
-      )}
-      <AutoRow label="Invoice/receipt sent" done={!!ob.invoice_sent_at} date={ob.invoice_sent_at} emails={ACCOUNTANT_INVOICE_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
+      {/* The ACH confirmation email no longer gets its own row — preview it here. */}
+      <AutoRow label="Payment collected" done={ob.payment_status === 'succeeded'} date={ob.payment_completed_at} tag={withTags ? (ob.payment_method_type ? ob.payment_method_type.toUpperCase() : null) : undefined} emails={ACCOUNTANT_CONFIRMATION_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
+      <AutoRow label="Invoice and receipt created and emailed to client" done={!!ob.invoice_sent_at} date={ob.invoice_sent_at} emails={ACCOUNTANT_INVOICE_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
     </>
   )
 
