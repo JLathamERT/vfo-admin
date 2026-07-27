@@ -1229,14 +1229,17 @@ function OnboardingDetail({ id, onBack }) {
           </span>
         </div>
 
-        <AutoStep done={confirmSent} label="Payment confirmation email sent" />
+        {/* Card is receipt-only — no confirmation email is ever sent for it. */}
+        {(confirmSent || ob.bg_payment_method_type !== 'card') && (
+          <AutoStep done={confirmSent} label="Payment confirmation email sent" />
+        )}
         <AutoStep done={bgPaid} label="Payment cleared — receipt, next steps, and DD checklist sent" />
 
         {/* ── Background Check ── */}
         <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
         <SectionLabel>Background Check<span style={{ marginLeft: '8px', textTransform: 'none' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Background Check" context={emailCtx} templates={[
-            { name: 'SPECIALIST_bg_confirmation|card', when: 'If paid by card' },
-            { name: 'SPECIALIST_bg_confirmation|ach', when: 'If paid by bank transfer (ACH)' },
+            { name: 'SPECIALIST_bg_confirmation|card', when: 'No longer sent automatically — card gets the invoice/receipt instead' },
+            { name: 'SPECIALIST_bg_confirmation|ach', when: 'If paid by bank transfer (ACH) — the only method that gets a confirmation' },
             { name: 'SPECIALIST_bg_receipt', when: 'Automatic — background-check receipt' },
             { name: 'SPECIALIST_bg_passed', when: 'When the background check passes' },
           ]} /></span></SectionLabel>
@@ -1485,13 +1488,16 @@ function OnboardingDetail({ id, onBack }) {
         <AutoStep done={!!getTaskStatus(4, 'agreement_signed_ceo')} label="Agreement signed by CEO" />
         <AutoStep done={!!getTaskStatus(4, 'payment_link_sent')} label={<>Payment link sent<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Licensing fee" context={emailCtx} templates={[
             { name: 'SPECIALIST_lic_payment', when: 'Automatic — monthly license payment link' },
-            { name: 'SPECIALIST_lic_confirmation|card', when: 'If paid by card' },
-            { name: 'SPECIALIST_lic_confirmation|ach', when: 'If paid by bank transfer (ACH)' },
+            { name: 'SPECIALIST_lic_confirmation|card', when: 'No longer sent automatically — card gets the invoice/receipt instead' },
+            { name: 'SPECIALIST_lic_confirmation|ach', when: 'If paid by bank transfer (ACH) — the only method that gets a confirmation' },
             { name: 'SPECIALIST_lic_invoicereceipt', when: 'Automatic — license invoice + receipt (monthly)' },
             { name: 'SPECIALIST_licpayment_reminder', when: 'Automatic reminder if the license payment is not made (48h)' },
           ]} /></span></>} />
         <AutoStep done={!!getTaskStatus(4, 'payment_made')} label="Payment made" />
-        <AutoStep done={!!getTaskStatus(4, 'confirmation_email_sent')} label="Confirmation email sent" />
+        {/* Card is receipt-only — the confirmation progress task is never stamped for it. */}
+        {(!!getTaskStatus(4, 'confirmation_email_sent') || ob.lic_payment_method_type !== 'card') && (
+          <AutoStep done={!!getTaskStatus(4, 'confirmation_email_sent')} label="Confirmation email sent" />
+        )}
         <AutoStep done={!!getTaskStatus(4, 'invoice_receipt_sent')} label="Invoice/receipt sent" />
       </>
     )

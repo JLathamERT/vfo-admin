@@ -29,8 +29,8 @@ const ACCOUNTANT_PAYMENT_LINK_EMAILS = [
   { name: 'ACCOUNTANT_payment_reminder', when: 'Automatic reminder if unpaid (48h)' },
 ]
 const ACCOUNTANT_CONFIRMATION_EMAILS = [
-  { name: 'ACCOUNTANT_payment_confirmation|card', when: 'If paid by card' },
-  { name: 'ACCOUNTANT_payment_confirmation|ach', when: 'If paid by bank transfer (ACH)' },
+  { name: 'ACCOUNTANT_payment_confirmation|card', when: 'No longer sent automatically — card gets the invoice/receipt instead' },
+  { name: 'ACCOUNTANT_payment_confirmation|ach', when: 'If paid by bank transfer (ACH) — the only method that gets a confirmation' },
 ]
 const ACCOUNTANT_INVOICE_EMAILS = [
   { name: 'ACCOUNTANT_invoice_receipt', when: 'Automatic — invoice + receipt' },
@@ -389,7 +389,10 @@ function OnboardingDetail({ id, onBack }) {
       <AutoRow label="Payment link sent" done={!!ob.payment_link_sent_at} date={ob.payment_link_sent_at} emails={ACCOUNTANT_PAYMENT_LINK_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
       {emRequested && emStage === 'payment' && emCard}
       <AutoRow label="Payment made" done={ob.payment_status === 'succeeded'} date={ob.payment_completed_at} tag={withTags ? (ob.payment_method_type ? ob.payment_method_type.toUpperCase() : null) : undefined} />
-      <AutoRow label="Confirmation email sent" done={!!ob.confirmation_email_sent_at} date={ob.confirmation_email_sent_at} emails={ACCOUNTANT_CONFIRMATION_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
+      {/* Card is receipt-only — see the advisor mirror. */}
+      {(!!ob.confirmation_email_sent_at || ob.payment_method_type !== 'card') && (
+        <AutoRow label="Confirmation email sent" done={!!ob.confirmation_email_sent_at} date={ob.confirmation_email_sent_at} emails={ACCOUNTANT_CONFIRMATION_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
+      )}
       <AutoRow label="Invoice/receipt sent" done={!!ob.invoice_sent_at} date={ob.invoice_sent_at} emails={ACCOUNTANT_INVOICE_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
     </>
   )

@@ -415,8 +415,8 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                       { name: 'CONTRACT_payment_reminder', when: 'Automatic reminder if unpaid (48h)' },
                     ],
                     'Payment received': [
-                      { name: 'CONTRACT_confirmationemail|card', when: 'If paid by card' },
-                      { name: 'CONTRACT_confirmationemail|ach', when: 'If paid by bank transfer (ACH)' },
+                      { name: 'CONTRACT_confirmationemail|card', when: 'No longer sent automatically — card gets the invoice/receipt instead' },
+                      { name: 'CONTRACT_confirmationemail|ach', when: 'If paid by bank transfer (ACH) — the only method that gets a confirmation' },
                       { name: 'CONTRACT_confirmationemail|check', when: 'If paid by check' },
                       { name: 'CONTRACT_paidbycheck|check', when: 'When admin records a check is on the way' },
                       { name: 'CONTRACT_checkreminder|check', when: 'Automatic reminder 7 days before a check payment is due' },
