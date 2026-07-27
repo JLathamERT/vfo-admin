@@ -113,7 +113,7 @@ Set by `automation_PCADMIN_pricing` ([PFPricingForm.jsx:19](src/components/admin
 ### Stage C24+ — Confirmation & receipts
 | Column | Type | Notes |
 |---|---|---|
-| `confirmation_status` | text | |
+| `confirmation_status` | text | Payment-1 only. `'Confirmation Needed'` on payment → `'Sent'` once the client confirmation email is drafted (ACH / check), OR **`'Skipped - Card (Receipt Only)'`** for a card payment 1 — since 2026-07-26 a card gets the invoice/receipt and no confirmation. The skip value is terminal-equivalent to `'Sent'` for the handler's idempotency guard but leaves `confirmation_email_sent_at` NULL so a manual resend stays possible. Constant: `constants/confirmation-status.ts CONFIRMATION_CARD_SKIP` (edge) / `src/lib/confirmationStatus.js` (react). |
 | `invoice_number` | text | Sequential — pulled from `document_numbers`. |
 | `invoice_drive_id` | text | Google Drive file ID for stored PDF (write target during `automation_CONTRACT_confirmationemail`). |
 | `invoice_email_sent` | boolean | default `false` |

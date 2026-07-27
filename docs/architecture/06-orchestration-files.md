@@ -83,7 +83,7 @@ These are the components where most of the per-feature logic and `callApi` calls
 | `automation_CONTRACT_paymentemail` | Server chain from `automation_CONTRACT_stripecustomer` | (server side only) |
 | `automation_CONTRACT_loadpayment` | Direct fetch (no session) from `/pay` page mount | [PayPage.jsx:19](src/pages/PayPage.jsx) |
 | `automation_CONTRACT_stripecheckout` | Direct fetch (no session) when client picks ACH/Card | [PayPage.jsx:39](src/pages/PayPage.jsx) |
-| `automation_CONTRACT_confirmationemail` | Server chain from Stripe webhook (`checkout.session.completed`) | (server side only) |
+| `automation_CONTRACT_confirmationemail` | Server chain from Stripe webhook (`checkout.session.completed`) — chained on BOTH methods, but the client email is drafted for ACH + check only (gotcha #287) | (server side only) |
 | `automation_CONTRACT_invoicereceipt` | Server chain from Stripe webhook (`checkout.session.completed` for card; `payment_intent.succeeded` for ACH and quarterly 2-4) | (server side only) |
 | `automation_CONTRACT_revshare` | **NOT triggered from frontend** and **NOT chained from any webhook in the source observed.** Mechanism for invocation is unclear — flagged as an open question. |
 | `automation_CONTRACT_stripewebhook` | **REMOVED in Phase 6 mechanical** — was doubly-dead (real Stripe events caught by signature header; synthetic-action assignment was unreachable from dispatch). The function returns 401/400 for explicit calls. | — |

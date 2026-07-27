@@ -322,7 +322,7 @@ BoldSign fires `event.eventType='Signed'` with CEO email AND eventually `event.e
 2. If MAP1 miss, looks up `client_tax_plans` by `stripe_customer_id`.
 3. Expands the PaymentIntent to get `payment_method.type` and `last4`.
 4. UPDATEs `retainer_status` (`succeeded` for card, `processing` for ACH), `payment_method_type`, `acct_last4`, `card_processing_fee`, `retainer_date`, `retainer_payment_intent_id`. Sets `retainer_confirmation_status='Confirmation Needed'`.
-5. **Chains** `automation_TAX_confirmationemail` always.
+5. **Chains** `automation_TAX_confirmationemail` always — for BOTH methods, deliberately. The handler also raises the "paid the retainer" PF bell and copies the signed agreement into the ERT vault, so the card gate lives INSIDE it (see Step 11): a card retainer gets no client confirmation email.
 6. **Chains** `automation_TAX_invoicereceipt` for card only — ACH waits.
 
 **For ACH retainer cleared** (subsequent `payment_intent.succeeded` with `metadata.payment_kind='retainer'` and `retainer_status='processing'`):
@@ -356,24 +356,26 @@ Visible when `payment_method_type='check'` AND `retainer_status='check_pending'`
 
 **What it does:**
 1. Sets `retainer_status='succeeded'`, `retainer_confirmation_status='Confirmation Needed'`.
-2. **Chains** `automation_TAX_confirmationemail` (uses `TAX_confirmationemail|check` template — `[PROCESSING_TIME]` substituted to "Your check has been received and cleared.")
+2. **Chains** `automation_TAX_confirmationemail` (uses `TAX_confirmationemail|check` template — `[PROCESSING_TIME]` substituted to "Your check has been received and cleared."). **The check path is deliberately EXEMPT from the card receipt-only policy** — a cleared check still gets both the confirmation and the docs.
 3. **Chains** `automation_TAX_invoicereceipt`.
 4. No revshare chain — handled by Phase 6 admin button.
 
 ---
 
-## Step 11 — Confirmation email
+## Step 11 — Confirmation email *(ACH + check only — a card retainer is receipt-only)*
 
 **Trigger:** Server-to-server chain from Stripe webhook OR `automation_TAX_checkcleared`.
 
 **Handler:** [`automation_TAX_confirmationemail`](../../supabase/functions/vfo-admin-api/actions/tax/confirmation-email.ts) — PUBLIC handler.
 
 **What it does:**
-1. Validates `retainer_confirmation_status !== 'Sent'` (idempotent).
+1. Validates `retainer_confirmation_status` is neither `'Sent'` NOR `'Skipped - Card (Receipt Only)'` — both are terminal (idempotent; without the second value a replayed webhook would re-raise the PF bell).
 2. Loads template `'TAX_confirmationemail|card'`, `'|ach'`, or `'|check'` based on `payment_method_type`.
-3. Substitutes `[Client Name]`, `[Client First]`, `[Payment Amount]`, `[CARD_FEE_TEXT]` (card only — `<br><br>A card processing fee of $X.XX (2.9% + $0.30) was applied. Total amount charged: $Y.YY.`; empty for ACH/check), `[PROCESSING_TIME]` (card: "processed immediately...", ACH: "2-4 business days...", check: "Your check has been received and cleared.").
-4. Creates Gmail draft to client (no CC/BCC — same as MAP1's confirmation email pattern).
-5. UPDATEs `retainer_confirmation_status='Sent'`.
+3. Substitutes `[Client Name]`, `[Client First]`, `[Payment Amount]`, `[CARD_FEE_TEXT]` (empty for ACH/check), `[PROCESSING_TIME]` (ACH: "2-4 business days...", check: "Your check has been received and cleared.").
+4. **Card retainer → the client Gmail draft is SKIPPED** (`cardReceiptOnly = !isImpl && isCard`). The card has already cleared and the Step 12 invoice/receipt lands in the same moment. **ACH and check still get the draft** (client only, no CC/BCC — same as MAP1's confirmation pattern).
+5. UPDATEs `retainer_confirmation_status='Sent'` on the emailed paths; on the skipped card path it writes **`'Skipped - Card (Receipt Only)'`** (`constants/confirmation-status.ts CONFIRMATION_CARD_SKIP`, mirrored in the frontend at `src/lib/confirmationStatus.js`) and **deliberately does NOT stamp `retainer_confirmation_email_sent_at`**, so a manual admin resend stays possible.
+
+> **The gate lives INSIDE the handler, not at the webhook call site, on purpose.** The blocks after the draft — the "paid the retainer" PF bell and the `copyAgreementToErtOnce` vault copy — are retainer-payment side effects that MUST still run for a card. A call-site gate would silently kill them. Implementation charges are unaffected (they have had no confirmation email since 2026-07-15).
 
 **Chains:** none.
 
@@ -647,7 +649,7 @@ The audit's outcome was a **recipient reroute**, not a `dismissible` change. Per
 5. **`pipeline_sandbox_config` missing TAX row** → handlers default to live mode. BoldSign docs created in the wrong account where webhooks aren't configured. **Required fix** during setup.
 6. **`document_numbers` race / collision** → **fixed 2026-06-09** by `utils/doc-numbers.ts` `allocateDocNumber()` (bump-and-retry against the `UNIQUE(number)` constraint; gotcha #92). The old count-then-insert silently reused a number on collision (a reused `client_ref` made retainer + implementation both land on `-0001`).
 7. **Drive folder name change** → if client renamed, prior PDFs orphan in old folder.
-8. **Idempotency**: `agreement_sent === 'Yes'` blocks re-send. `retainer_confirmation_status === 'Sent'` blocks re-send. `retainer_receipt_status === 'Sent'` blocks re-fire. `tax_final_decision` set blocks re-flip on `/tax-decide`. `ready_for_tax3_email_sent === 'Yes'`, `tax_decision_email_sent === 'Yes'` block re-fires.
+8. **Idempotency**: `agreement_sent === 'Yes'` blocks re-send. `retainer_confirmation_status === 'Sent'` **or `=== 'Skipped - Card (Receipt Only)'`** blocks re-send (both terminal). `retainer_receipt_status === 'Sent'` blocks re-fire. `tax_final_decision` set blocks re-flip on `/tax-decide`. `ready_for_tax3_email_sent === 'Yes'`, `tax_decision_email_sent === 'Yes'` block re-fires.
 9. **ACH retainer → implementation auto-charge — FIXED 2026-06-09.** Previously Stripe rejected the off-session implementation charge for an ACH-paid retainer with `"us_bank_account is not allowed for this PaymentIntent"` and fell back to a manual `/tax-pay` link. Root cause: `charge-implementation.ts` didn't declare `payment_method_types[]`, so the PaymentIntent defaulted to card-only. Fix: it now sets `payment_method_types[]` to the saved method's type (`us_bank_account`/`card`), so the ACH implementation fee **auto-charges off-session** (the retainer checkout already saved the ACH mandate via `setup_future_usage=off_session`). Verified end-to-end. The graceful-degradation path (set `implementation_charge_status='declined'`/`'auth_required'`, regenerate `checkout_token`, notify, draft a `/tax-pay` Gmail) still exists as the safety net for genuine declines/auth-required — the page + `automation_TAX_stripecheckout` branch on `retainer_status='succeeded' AND implementation_charge_status IN (declined, auth_required, manual_required)` to serve the implementation re-pay. (Check-paid retainers still have no saved PI → still use the manual link.)
 
 ---

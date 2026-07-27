@@ -76,7 +76,7 @@ These string values appear in pipeline columns. Only two are DB-CHECK-constraine
 | `pay1_status` … `pay4_status` | `'processing'`, `'succeeded'` |
 | `payment_method_type` | `'card'`, `'ach'`, `'check'`, `'unknown'` |
 | `payment_plan` | `'1 Time Payment'`, `'Quarterly'` |
-| `confirmation_status` | `'Confirmation Needed'`, `'Sent'` |
+| `confirmation_status` | `'Confirmation Needed'`, `'Sent'`, `'Skipped - Card (Receipt Only)'` (card = receipt-only since 2026-07-26; same values on tax's `retainer_confirmation_status`) |
 | `recN_status` | (varies, e.g., `'pending'`) |
 | `recN_rev_share` | `'Pending'`, `'Completed - Revenue Share'`, `'Completed - Money Mapping'` |
 | `recN_rev_paid` | `'Yes'`, `'Failed'`, `'Money Mapping'`, `'N/A — No Share Due'` |

@@ -127,8 +127,29 @@ Two handlers run in sequence on this event:
   - Computes `card_processing_fee` from `amount_received - baseAmount`.
   - For Quarterly plans, computes `pay2_date`, `pay3_date`, `pay4_date` as +91/+182/+273 days.
   - Sets `confirmation_status='Confirmation Needed'`.
-  - **Chains** `automation_CONTRACT_confirmationemail` (always).
+  - **Chains** `automation_CONTRACT_confirmationemail` (always — but for a **card** the handler skips the client email; see the policy box below).
   - **Chains** `automation_CONTRACT_invoicereceipt` only for card (ACH waits for `payment_intent.succeeded`).
+
+### Purchase-email policy — SYSTEM-WIDE *(2026-07-26, v663)*
+
+**One email at purchase time, selected by payment method. Any NEW payment pipeline must follow this.**
+
+| Method | At purchase | At settle |
+|---|---|---|
+| **Card** | invoice/receipt only — **no payment-confirmation email anywhere in the system** | (already settled) |
+| **ACH** | payment-confirmation email (it exists to break the 2–4 day silence) | invoice/receipt |
+| **Check** | confirmation **+** docs at check-clear — **deliberately unchanged** | n/a |
+
+A card clears the moment the buyer submits, so the invoice/receipt lands in the same breath and says everything the confirmation would; two emails read as a duplicate. Applies to MAP 1 payment 1, Tax retainer, Advisor onboarding, Accountant onboarding, PIP purchases, Specialist background check, Specialist monthly licence, SpecRev one-time, and Membership first sign-up. Growth Credits sends no purchase emails at all (unchanged). MAP 1 installments 2–4 and Tax implementation charges already had no confirmation.
+
+**Where the gate lives differs, and it matters:**
+
+- **Inside the handler** for MAP 1 (`actions/pipeline/contract-confirmation-email.ts`), Tax (`actions/tax/confirmation-email.ts`) and the Specialist licence (`actions/onboarding/license-confirmation-email.ts`). MAP 1 / Tax because those handlers also own non-email side effects that must still run for a card — the "client paid" PF bell, the ERT vault agreement copy, Tracy's new-case email and the load-bearing `c24_email_sent` stamp; a call-site gate would silently kill them. The licence because TWO racing webhook paths chain it and both must obey the same rule.
+- **At the webhook call site** for Advisor, Accountant, PIP, Specialist background check, SpecRev and Membership — those handlers own nothing but the email.
+
+MAP 1 and Tax record the skip as **`'Skipped - Card (Receipt Only)'`** (`constants/confirmation-status.ts CONFIRMATION_CARD_SKIP`, mirrored frontend-side in `src/lib/confirmationStatus.js`) in `pipeline_map1.confirmation_status` / `client_tax_plans.retainer_confirmation_status`. It is **terminal-equivalent to `'Sent'`** for the idempotency guards (a replayed webhook must not re-raise the PF bell), but it deliberately does **NOT** stamp `*_confirmation_email_sent_at`, so a manual admin resend stays possible. Admin surfaces render it as a "skipped" pill rather than a stuck-pending step.
+
+**Advisor / Accountant / PIP were restructured, not just gated** — they were inverted (card got confirmation + receipt instantly, ACH got total silence until clear). Now `checkout.session.completed` chains ONE action selected by method (card → `*_invoicereceipt` directly; ACH → `*_confirmationemail`), and `payment_intent.succeeded` (the ACH settle) chains `*_invoicereceipt` (+ PIP revshare) directly. **The advisor/accountant confirmation handlers no longer chain `_invoicereceipt` downstream** — the webhook owns receipt sequencing on every path. Re-adding a chain there would double-send the documents (gotcha #289).
 
 ### `payment_intent.succeeded`
 

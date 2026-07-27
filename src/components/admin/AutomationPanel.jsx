@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
 import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate, PanelHero, EmptyState, TableCard } from './automation/StepKit'
 import { AutomationTrackerSkeleton } from '../shared/Skeleton'
+import { CONFIRMATION_CARD_SKIP } from '../../lib/confirmationStatus'
 
 const STAGE_LABELS = {
   c81: 'PIP 1 — Reconfirmation Email',
@@ -177,7 +178,8 @@ function ExpandedRow({ row, onRefresh }) {
   const payStarted = has(row.pay1_status, row.pay1_email_sent_at, row.checkout_token)
   const sPay = paid ? 'done' : payStarted ? 'awaiting' : 'pending'
 
-  const sConfirm = (row.confirmation_email_sent_at || row.confirmation_status === 'Sent') ? 'done' : 'pending'
+  const sConfirm = (row.confirmation_email_sent_at || row.confirmation_status === 'Sent') ? 'done'
+    : row.confirmation_status === CONFIRMATION_CARD_SKIP ? 'skipped' : 'pending'
 
   const sInvoice = row.invoice_email_sent ? 'done' : row.invoice_number ? 'sent' : 'pending'
 

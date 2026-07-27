@@ -97,10 +97,15 @@ function PipPipelineRow({ row, expanded, onToggle }) {
             ) : <Pending />}
           </StepCard>
 
-          <StepCard title="Confirmation Email" status={row.pip_confirmation_email_sent_at ? 'done' : 'pending'}>
+          {/* Card buyers get the invoice/receipt instead of a confirmation, so a card
+              row with nothing sent is resolved, not pending. */}
+          <StepCard title="Confirmation Email" status={row.pip_confirmation_email_sent_at ? 'done'
+            : row.pip_payment_method_type === 'card' ? 'skipped' : 'pending'}>
             {row.pip_confirmation_email_sent_at
               ? <Detail l="Confirmation email" v={fmtDate(row.pip_confirmation_email_sent_at)} />
-              : <Pending />}
+              : row.pip_payment_method_type === 'card'
+                ? <Detail l="Confirmation email" v="Not sent — card is receipt-only" />
+                : <Pending />}
           </StepCard>
 
           <StepCard title="Invoice & Receipt" status={invStatus}>

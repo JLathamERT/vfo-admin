@@ -257,8 +257,10 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                           <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
                         </div>
                         <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
-                          {autoStep('Payment link sent to client (ACH or Card choice)', !!track.pip_payment_email_sent_at, null, [{ name: 'PIP_payment', when: 'Automatic — payment link' }])}
-                          {autoStep('Take the payment due (and send confirmation email)', !!track.pip_payment_completed_at && !!track.pip_confirmation_email_sent_at, methodTag, [{ name: 'PIP_confirmation', when: 'Automatic — payment confirmation' }])}
+                          {autoStep('Payment link sent (ACH or Card choice)', !!track.pip_payment_email_sent_at, null, [{ name: 'PIP_payment', when: 'Automatic — payment link' }])}
+                          {/* The ACH confirmation email no longer gets its own step — the
+                              step completes on the payment alone. Preview it here. */}
+                          {autoStep('Payment collected', !!track.pip_payment_completed_at, methodTag, [{ name: 'PIP_confirmation', when: 'Bank transfer (ACH) only — card gets the invoice/receipt instead' }])}
                           {autoStep('Invoice and receipt created and emailed to client', !!track.pip_invoice_receipt_email_sent_at, null, [{ name: 'PIP_invoicereceipt_email', when: 'Automatic — invoice + receipt' }])}
                           {autoStep('Revenue shares paid · Email member to confirm revenue share details', !!track.pip_rev_share_completed_at && !!track.pip_rev_member_email_sent_at, null, [{ name: 'PIP_member_revshare', when: 'Automatic — member revenue-share notice' }])}
                         </div>

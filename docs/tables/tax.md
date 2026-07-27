@@ -73,7 +73,7 @@ State machine for the tax-planning engagement. **84 columns total** (4 original 
 | `retainer_payment_intent_id` | text | For Phase 6 refund operation. |
 | `retainer_status` | text | `succeeded` / `processing` (ACH) / `check_pending`. NULL = not yet paid. |
 | `retainer_date` | date | Date paid (or date check path was started). |
-| `retainer_confirmation_status` | text | `Confirmation Needed` on payment, `Sent` after confirmation email. |
+| `retainer_confirmation_status` | text | `Confirmation Needed` on payment → `Sent` after the confirmation email (ACH / check), OR **`Skipped - Card (Receipt Only)`** for a card retainer — since 2026-07-26 a card gets the invoice/receipt and no confirmation. The skip value is terminal-equivalent to `Sent` for the handler's idempotency guard (a replayed webhook must not re-raise the PF bell) but leaves `retainer_confirmation_email_sent_at` NULL so a manual resend stays possible. Constant: `constants/confirmation-status.ts CONFIRMATION_CARD_SKIP` (edge) / `src/lib/confirmationStatus.js` (react). |
 
 ### Retainer invoice + receipt
 | Column | Type | Notes |

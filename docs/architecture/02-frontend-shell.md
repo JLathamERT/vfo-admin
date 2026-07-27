@@ -239,7 +239,13 @@ A **multi-mode** page rendered by `/admin/client/:clientId`, `/member/client/:cl
 
 The MAP1 contract-and-payment chain is the most complex frontend flow. It is **driven from inside `ClientDetail`'s MAP1 tab** ([ClientTrackViewV2.jsx](src/components/admin/map1/ClientTrackViewV2.jsx) — 42KB). [AutomationPanel](src/components/admin/AutomationPanel.jsx) is a read-only observer of pipeline rows; its only write is the sandbox/live-mode toggle in the panel header.
 
-In `ClientTrackViewV2.jsx`, the "Payment link sent" step is now driven by `pay1_email_sent_at`/`pay1_status` (was hardcoded `false` in the Undecided→Yes block). The two revenue-share steps render a green **N/A** pill when `member_share=$0` (new `isZeroShare` helper + an `na` param on the `autoStep` renderer).
+In `ClientTrackViewV2.jsx`, the "Payment link sent (ACH or Card choice)" step is driven by `pay1_email_sent_at`/`pay1_status` (was hardcoded `false` in the Undecided→Yes block). The two revenue-share steps render a green **N/A** pill when `member_share=$0` (new `isZeroShare` helper + an `na` param on the `autoStep` renderer).
+
+> **Canonical AI PC Admin cascade wording (2026-07-26).** Every sign / countersign / link / pay / receipt cascade uses one shared set of step labels across **five** surfaces — Tax (`TaxPrioritiesTab.jsx` `sharedSteps`), MAP 1 (`ClientTrackViewV2.jsx`, all three blocks + the chips map), `AdvisorOnboarding.jsx`, `AccountantOnboarding.jsx` and `PipMeetingsTab.jsx`:
+> *"Engagement agreement created and sent for signing" · "Engagement agreement signed" · "Engagement agreement signed by CEO" · "Payment link sent (ACH or Card choice)" · "Payment collected" · "Invoice and receipt created and emailed to client".*
+> Pipeline-specific extras stay (tax's "Signing link and next steps email sent" opener; the MAP 1 / PIP revenue-share tails). MAP 1's old "Payment made" + "Payment received" pair is **merged** into a single "Payment collected" (done on `pay1_status === 'succeeded'`, method tag kept). The advisor/accountant **visible "Confirmation email sent" AutoRows are deleted** — ACH still sends that email server-side, but the preview chips moved onto the "Payment collected" row. **Renaming a step means editing all five surfaces together** (grep the exact label strings); gotcha #289.
+>
+> Card rows never complete a confirmation step, so the panels render it as **skipped** rather than pending: `AutomationPanel` / `TaxAutomationPanel` show a 'skipped' pill on `'Skipped - Card (Receipt Only)'` (`src/lib/confirmationStatus.js`), `PipAutomationPanel` shows "Not sent — card is receipt-only", and `SpecialistOnboarding` hides the bg + licence confirmation AutoSteps for card unless one was actually sent.
 
 ### Where UI mutations happen
 

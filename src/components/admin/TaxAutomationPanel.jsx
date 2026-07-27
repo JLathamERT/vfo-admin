@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
 import { StepCard, Detail, Badge, Pending, fmtDate, PanelHero, EmptyState, TableCard } from './automation/StepKit'
 import { AutomationTrackerSkeleton } from '../shared/Skeleton'
+import { CONFIRMATION_CARD_SKIP } from '../../lib/confirmationStatus'
 
 const STAGE_LABELS = {
   not_started:     'Not Started',
@@ -105,7 +106,8 @@ function ExpandedRow({ row, onRefresh }) {
     : row.tax_final_decision === 'No' ? 'declined' : 'done'
   const sContract = row.agreement_sent === 'Yes' ? (row.ceo_signed === 'Yes' ? 'done' : 'awaiting') : 'pending'
   const sPay = row.retainer_status === 'succeeded' ? 'done' : (row.checkout_token || row.retainer_status) ? 'awaiting' : 'pending'
-  const sConfirm = (row.retainer_confirmation_email_sent_at || row.retainer_confirmation_status === 'Sent') ? 'done' : 'pending'
+  const sConfirm = (row.retainer_confirmation_email_sent_at || row.retainer_confirmation_status === 'Sent') ? 'done'
+    : row.retainer_confirmation_status === CONFIRMATION_CARD_SKIP ? 'skipped' : 'pending'
   const sInvoice = row.retainer_invoice_email_sent ? 'done' : row.retainer_invoice_number ? 'sent' : 'pending'
   const sTax4 = !row.post_review_decision ? 'pending' : (/refund|stop/i.test(row.post_review_decision) ? 'declined' : 'done')
   const sRetRev = (row.retainer_rev_paid === 'Yes' || row.retainer_rev_paid === 'Money Mapping') ? 'done' : row.retainer_rev_share ? 'awaiting' : 'pending'

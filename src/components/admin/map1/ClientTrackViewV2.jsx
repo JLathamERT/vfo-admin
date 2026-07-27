@@ -415,27 +415,27 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                   // sends a templated email exposes a "View emails" chip listing every
                   // variant that step can send. Purely additive display (no send behavior).
                   const STEP_EMAIL_TPLS = {
-                    'Agreement sent to client': [
+                    'Engagement agreement created and sent for signing': [
                       { name: 'CONTRACT_agreementsent|Yes', when: 'Sent automatically when the decision is Yes' },
                       { name: 'CONTRACT_signing_reminder', when: 'Automatic reminder if unsigned (48h)' },
                     ],
-                    'CEO signed': [
+                    'Engagement agreement signed by CEO': [
                       { name: 'CONTRACT_ceocountersign|Yes', when: 'Automatic — asks the CEO to countersign' },
                     ],
-                    'Payment link sent': [
+                    'Payment link sent (ACH or Card choice)': [
                       { name: 'CONTRACT_paymentemail|Yes', when: 'Automatic — first payment link' },
                       { name: 'CONTRACT_payment_reminder', when: 'Automatic reminder if unpaid (48h)' },
                     ],
-                    'Payment received': [
-                      { name: 'CONTRACT_confirmationemail|card', when: 'If paid by card' },
-                      { name: 'CONTRACT_confirmationemail|ach', when: 'If paid by bank transfer (ACH)' },
+                    'Payment collected': [
+                      { name: 'CONTRACT_confirmationemail|card', when: 'No longer sent automatically — card gets the invoice/receipt instead' },
+                      { name: 'CONTRACT_confirmationemail|ach', when: 'If paid by bank transfer (ACH) — the only method that gets a confirmation' },
                       { name: 'CONTRACT_confirmationemail|check', when: 'If paid by check' },
                       { name: 'CONTRACT_paidbycheck|check', when: 'When admin records a check is on the way' },
                       { name: 'CONTRACT_checkreminder|check', when: 'Automatic reminder 7 days before a check payment is due' },
                       { name: 'CONTRACT_installment_charge_failed', when: 'Automatic — if a quarterly auto-charge (payments 2-4) fails' },
                       { name: 'CONTRACT_tracy_newcase', when: 'Internal — new-case notice to Tracy (first payment only)' },
                     ],
-                    'Invoice/receipt sent': [
+                    'Invoice and receipt created and emailed to client': [
                       { name: 'CONTRACT_invoicereceipt_email|first', when: 'First payment' },
                       { name: 'CONTRACT_invoicereceipt_email|subsequent', when: 'Later payments' },
                       { name: 'CONTRACT_invoicereceipt_email|failed', when: 'If a payment failed' },
@@ -487,13 +487,12 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                         const pd = pd_yes
                         return (
                           <>
-                            {autoStep('Agreement sent to client', pd?.c16_sent === 'Yes')}
-                            {autoStep('Client signed', pd?.c17_client_signed === 'Yes')}
-                            {autoStep('CEO signed', pd?.c18_ceo_signed === 'Yes')}
-                            {autoStep('Payment link sent', !!pd?.pay1_email_sent_at || !!pd?.pay1_status)}
-                            {autoStep('Payment made', !!pd?.pay1_status, pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null)}
-                            {autoStep('Payment received', pd?.pay1_status === 'succeeded')}
-                            {autoStep('Invoice/receipt sent', !!pd?.invoice_number)}
+                            {autoStep('Engagement agreement created and sent for signing', pd?.c16_sent === 'Yes')}
+                            {autoStep('Engagement agreement signed', pd?.c17_client_signed === 'Yes')}
+                            {autoStep('Engagement agreement signed by CEO', pd?.c18_ceo_signed === 'Yes')}
+                            {autoStep('Payment link sent (ACH or Card choice)', !!pd?.pay1_email_sent_at || !!pd?.pay1_status)}
+                            {autoStep('Payment collected', pd?.pay1_status === 'succeeded', pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null)}
+                            {autoStep('Invoice and receipt created and emailed to client', !!pd?.invoice_number)}
                             {autoStep('Revenue share paid', ['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd?.rec1_rev_paid), null, isZeroShare(pd?.member_share))}
                             {autoStep('Member notified of revenue share', pd?.c24_email_sent === true, null, isZeroShare(pd?.member_share))}
                           </>
@@ -547,12 +546,12 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                                             <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: 'var(--vfo-muted)', width: '140px' }}>Payment plan</span><span style={{ fontSize: '11px', color: 'var(--vfo-ink-2)' }}>{pd?.payment_plan || '—'}</span></div>
                                           </div>
                                         )}
-                                        {autoStep('Agreement sent to client', pd?.c16_sent === 'Yes')}
-                                        {autoStep('Client signed', pd?.c17_client_signed === 'Yes')}
-                                        {autoStep('CEO signed', pd?.c18_ceo_signed === 'Yes')}
-                                        {autoStep('Payment link sent', !!pd?.pay1_email_sent_at || !!pd?.pay1_status)}
-                                        {autoStep('Payment received', !!pd?.pay1_status)}
-                                        {autoStep('Invoice/receipt sent', !!pd?.invoice_number)}
+                                        {autoStep('Engagement agreement created and sent for signing', pd?.c16_sent === 'Yes')}
+                                        {autoStep('Engagement agreement signed', pd?.c17_client_signed === 'Yes')}
+                                        {autoStep('Engagement agreement signed by CEO', pd?.c18_ceo_signed === 'Yes')}
+                                        {autoStep('Payment link sent (ACH or Card choice)', !!pd?.pay1_email_sent_at || !!pd?.pay1_status)}
+                                        {autoStep('Payment collected', pd?.pay1_status === 'succeeded', pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null)}
+                                        {autoStep('Invoice and receipt created and emailed to client', !!pd?.invoice_number)}
                                         {autoStep('Revenue share paid', ['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd?.rec1_rev_paid), null, isZeroShare(pd?.member_share))}
                                         {autoStep('Member notified of revenue share', pd?.c24_email_sent === true, null, isZeroShare(pd?.member_share))}
                                       </>
@@ -571,13 +570,12 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                             {!finalDec && (
                               <div style={{ marginLeft: '14px', borderLeft: '1px solid var(--vfo-tint-deep)', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px' }}>
                                 <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginBottom: '6px' }}>If Yes:</div>
-                                {autoStep('Agreement sent to client', pd?.c16_sent === 'Yes')}
-                                {autoStep('Client signed', pd?.c17_client_signed === 'Yes')}
-                                {autoStep('CEO signed', pd?.c18_ceo_signed === 'Yes')}
-                                {autoStep('Payment link sent', !!pd?.pay1_email_sent_at || !!pd?.pay1_status)}
-                            {autoStep('Payment made', !!pd?.pay1_status, pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null)}
-                            {autoStep('Payment received', pd?.pay1_status === 'succeeded')}
-                                {autoStep('Invoice/receipt sent', !!pd?.invoice_number)}
+                                {autoStep('Engagement agreement created and sent for signing', pd?.c16_sent === 'Yes')}
+                                {autoStep('Engagement agreement signed', pd?.c17_client_signed === 'Yes')}
+                                {autoStep('Engagement agreement signed by CEO', pd?.c18_ceo_signed === 'Yes')}
+                                {autoStep('Payment link sent (ACH or Card choice)', !!pd?.pay1_email_sent_at || !!pd?.pay1_status)}
+                                {autoStep('Payment collected', pd?.pay1_status === 'succeeded', pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null)}
+                                {autoStep('Invoice and receipt created and emailed to client', !!pd?.invoice_number)}
                                 {autoStep('Revenue share paid', ['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd?.rec1_rev_paid), null, isZeroShare(pd?.member_share))}
                                 {autoStep('Member notified of revenue share', pd?.c24_email_sent === true, null, isZeroShare(pd?.member_share))}
                                 <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginBottom: '6px', marginTop: '10px' }}>If No:</div>

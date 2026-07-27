@@ -255,7 +255,7 @@ BoldSign fires `event.eventType='Signed'` with CEO email AND eventually `event.e
 1. Looks up `pipeline_map1` by `stripe_customer_id`.
 2. Expands the PaymentIntent to get `payment_method.type` and `last4`.
 3. UPDATEs `pay1_status` ('succeeded' for card, 'processing' for ACH), `payment_method_type`, `acct_last4`, `card_processing_fee`, `pay1_date`, plus `pay2/3/4_date` for Quarterly (today + 91/182/273 days). Sets `confirmation_status='Confirmation Needed'`.
-4. **Chains** `automation_CONTRACT_confirmationemail` (always).
+4. **Chains** `automation_CONTRACT_confirmationemail` (always — for BOTH methods, deliberately). The handler is far more than an email: it also raises the "client paid" PF bell, copies the signed agreement into the ERT vault and drafts Tracy's new-case email (+ the load-bearing `c24_email_sent` stamp). It decides INTERNALLY whether to draft the client email — a **card** first payment does not get one (see Step 11).
 5. **Chains** `automation_CONTRACT_invoicereceipt` for card only — ACH waits.
 
 **For ACH first payment cleared** (subsequent `payment_intent.succeeded` with `pipeRow.pay1_status === 'processing'`):
@@ -315,7 +315,7 @@ For each payment cycle (P1 for one-time, P1+P2+P3+P4 for quarterly), the row sho
 1. Validates `payment_method_type='check'` and `pay{N}_status` is NULL or `'check_pending'`.
 2. Sets `pay{N}_status='succeeded'`. For N=1 also sets `confirmation_status='Confirmation Needed'`.
 3. Chains (HTTP fetch + service-role auth, refactor safety rule):
-   - For N=1 only: `automation_CONTRACT_confirmationemail` (uses the new `CONTRACT_confirmationemail|check` template; `[PROCESSING_TIME]` substituted to "Your check has been received and cleared.")
+   - For N=1 only: `automation_CONTRACT_confirmationemail` (uses the `CONTRACT_confirmationemail|check` template; `[PROCESSING_TIME]` substituted to "Your check has been received and cleared."). **The check path is deliberately EXEMPT from the card receipt-only policy** — a cleared check still gets both the confirmation and the docs.
    - For all N: `automation_CONTRACT_invoicereceipt` (renders "Check" on the invoice and "Via Check" on the receipt PDF; no `acct_last4`, no `card_processing_fee`)
    - For all N: `automation_CONTRACT_revshare` (same revshare path as card/ACH — no special handling for check)
 
@@ -338,18 +338,20 @@ For each payment cycle (P1 for one-time, P1+P2+P3+P4 for quarterly), the row sho
 
 ---
 
-## Step 11 — Confirmation email
+## Step 11 — Confirmation email *(ACH + check only — a card first payment is receipt-only)*
 
-**Trigger:** Server-to-server chain from Stripe webhook handler.
+**Trigger:** Server-to-server chain from Stripe webhook handler (or from `automation_CONTRACT_checkcleared` on the check path).
 
-**Handler:** `automation_CONTRACT_confirmationemail` ([admin-api:1660-1809](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)).
+**Handler:** `automation_CONTRACT_confirmationemail` ([actions/pipeline/contract-confirmation-email.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/contract-confirmation-email.ts)).
 
 **What it does:**
-1. Validates `confirmation_status !== 'Sent'` (idempotent).
-2. Loads template `'CONTRACT_confirmationemail|card'` or `'|ach'` based on `payment_method_type`.
+1. Validates `confirmation_status` is neither `'Sent'` NOR `'Skipped - Card (Receipt Only)'` — both are terminal for payment 1 (idempotent; without the second value a replayed webhook would re-raise the PF bell).
+2. Loads template `'CONTRACT_confirmationemail|card'`, `'|ach'` or `'|check'` based on `payment_method_type`.
 3. Substitutes `[Payment Amount]`, `[CARD_FEE_TEXT]`, `[PROCESSING_TIME]`.
-4. Creates Gmail draft to client. CC member + PF.
-5. UPDATEs `confirmation_status='Sent'`.
+4. **Card first payment → the client Gmail draft is SKIPPED** (`cardReceiptOnly = isFirst && isCard`). The card has already cleared and the invoice/receipt email of Step 12 lands in the same moment, so a separate confirmation is pure duplication. **ACH and check still get the draft** — ACH sits days in flight, and the check path is untouched by this policy. Draft goes to the client, CC member + PF.
+5. UPDATEs `confirmation_status='Sent'` on the emailed paths; on the skipped card path it writes the shared constant **`'Skipped - Card (Receipt Only)'`** (`constants/confirmation-status.ts CONFIRMATION_CARD_SKIP`, mirrored in the frontend at `src/lib/confirmationStatus.js`) and **deliberately does NOT stamp `confirmation_email_sent_at`**, so a manual admin resend stays possible.
+
+> **The gate lives INSIDE the handler, not at the webhook call site, on purpose.** Steps 11a onwards — the "client paid" PF bell, the ERT vault agreement copy, Tracy's new-case email and the load-bearing `c24_email_sent` stamp — are payment-1 side effects that MUST still run for a card. A call-site gate would silently kill them. Installments 2-4 are unaffected (they never had a confirmation).
 
 **Chains:** none.
 
@@ -464,7 +466,7 @@ The `pipeline_map1` row evolves through these column writes, in order:
 | 5/7 | `c17_client_signed`, `c18_ceo_signed` (advanced via webhook) |
 | 8 | `stripe_customer_id`, `checkout_token`, `pay1_email_sent_at` (reminder-ladder timer base, written by `automation_CONTRACT_paymentemail`) |
 | 10 | `pay1_status`, `payment_method_type`, `acct_last4`, `card_processing_fee`, `pay1_date`, `pay2-4_date`, `confirmation_status` |
-| 11 | `confirmation_status='Sent'` |
+| 11 | `confirmation_status` — `'Sent'` + `confirmation_email_sent_at` (ACH / check), or `'Skipped - Card (Receipt Only)'` with NO `confirmation_email_sent_at` (card) |
 | 12 | `invoice_number`, `rec{N}_number`, `invoice_drive_id`, `rec{N}_drive_id`, `invoice_email_sent`, `rec{N}_email_sent` |
 | 13 | `rec{N}_rev_share`, `rec{N}_rev_paid`, `rec{N}_rev_email_sent`, `member_contrib_status`, `c24_email_sent` |
 
