@@ -3,6 +3,11 @@
 > Generated 2026-07-02 from a full sweep of every `notifications`-table insert in `vfo-admin-api`.
 > This list is now LIVE data: every row below is a `notification_rules` row, editable in
 > **Admin Portal -> Automation -> Notification Editor** (recipients, days, on/off).
+>
+> **Recipient refresh 2026-07-27 (v664).** Tim Gacsy left the company; every notification hardcoded
+> to him was rerouted (gotcha #291). The tax client-decision bells and the Tax 4 meeting nudge now
+> resolve **assigned PF + allocated tax planner** (+ Tracy on the nudge, and as the universal
+> fallback); the specialist tax-risk-notes prompts go to Tracy. Rows below reflect that.
 
 ## How to read this
 
@@ -13,7 +18,9 @@
   party (client/advisor/accountant/specialist). Listed here because its TIMING (days) and on/off switch
   are editable in the Notification Editor; its wording lives in Email Templates.
 - **Who gets it** — the system default. Dynamic recipients resolve per event: *Assigned PF* = the
-  client's assigned PF login (falls back to Tim + Tracy for tax, or the shared admin bell elsewhere);
+  client's assigned PF login (falls back to Tracy for tax, or the shared admin bell elsewhere);
+  *Allocated Tax Planner* = the plan's `tax_planner_id` planner, who receives a `/tax-planner/...`
+  link of their own on shared bells (gotcha #292);
   *Onboarding Team Member* = the Stage-1 team member (falls back to the shared bell); *Assigned Admin* =
   the growth plan's assigned admin.
 - **Editable days** — sweep ladders fire N days after the prior step; N is now editable per rule.
@@ -49,11 +56,11 @@
 | **Client requested extra meeting** — Client clicked Request Extra Meeting on the /tax-decide page instead of Yes/No. | **Action required** | Assigned PF | Client click on /tax-decide — instant |
 | **Deposit refund issued** — Setup-phase deposit was refunded via Stripe after Tax Plan Greenlight = Stop; confirmation email drafted to the client. | FYI | Assigned PF | Admin Send refund button — instant |
 | **Retainer paid** — Client's Tax Planning retainer payment cleared (card/ACH/check). The client confirmation email is drafted for ACH + check only; a card retainer is receipt-only (gotcha #287) — **the bell still fires on every method**, because it lives in the same handler and is a payment side effect, not part of the email. | FYI | Assigned PF | Stripe webhook chain — instant |
-| **Client clicked Proceed (implementation)** — Client clicked Proceed on the Tax 5 implementation email; off-session charge fired. | FYI | Tim | Client click on Tax 5 email — instant |
-| **Client clicked Decline (implementation)** — Client clicked Decline on the Tax 5 implementation email; engagement closes, no implementation charge. | FYI | Tim | Client click on Tax 5 email — instant |
-| **Client clicked Refund (Decision 1)** — Client clicked Refund on the Tax 4 Client Decision 1 email; auto-refund fired. | FYI | Tim | Client click on Tax 4 email — instant |
-| **Client clicked Proceed (Decision 1)** — Client clicked Proceed / Continue now on the Tax 4 Client Decision 1 email; retainer revshare fired. | FYI | Tim | Client click on Tax 4 email — instant |
-| **Implementation charge failed** — Off-session implementation charge declined or needs authentication; fresh /tax-pay link drafted to the client. | FYI | Tim + Tracy | Implementation charge failure — instant |
+| **Client clicked Proceed (implementation)** — Client clicked Proceed on the Tax 5 implementation email; off-session charge fired. | FYI | Assigned PF + Allocated Tax Planner (fallback Tracy) | Client click on Tax 5 email — instant |
+| **Client clicked Decline (implementation)** — Client clicked Decline on the Tax 5 implementation email; engagement closes, no implementation charge. | FYI | Assigned PF + Allocated Tax Planner (fallback Tracy) | Client click on Tax 5 email — instant |
+| **Client clicked Refund (Decision 1)** — Client clicked Refund on the Tax 4 Client Decision 1 email; auto-refund fired. | FYI | Assigned PF + Allocated Tax Planner (fallback Tracy) | Client click on Tax 4 email — instant |
+| **Client clicked Proceed (Decision 1)** — Client clicked Proceed / Continue now on the Tax 4 Client Decision 1 email; retainer revshare fired. | FYI | Assigned PF + Allocated Tax Planner (fallback Tracy) | Client click on Tax 4 email — instant |
+| **Implementation charge failed** — Off-session implementation charge declined or needs authentication; fresh /tax-pay link drafted to the client. | FYI | Jake (`TAX_impl_charge_failed`) | Implementation charge failure — instant |
 | **Tracy: client paid, cleared to proceed** — Client's tax retainer or implementation payment cleared - green light for Tracy to move forward. Fires once per payment. | FYI | Tracy | Payment cleared (revshare chain) — instant |
 | **Tax 4 Undecided reminder email** — Client has not clicked Proceed/Refund after the Tax 4 Undecided email - reminder email drafted to the client. | Reminder email | The client (email) | Daily tax sweep — after **2 day(s)** (editable) |
 | **Tax 4 Undecided stalled (PF bell)** — Client still has not responded to the Tax 4 Undecided email - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 day(s)** (editable) |
@@ -65,7 +72,7 @@
 | **Agreement signing stalled (PF bell)** — Client still has not signed the agreement - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 day(s)** (editable) |
 | **Retainer payment reminder email** — Client has not paid the Tax Planning retainer - reminder email with a fresh /tax-pay link drafted to the client. | Reminder email | The client (email) | Daily tax sweep — after **2 day(s)** (editable) |
 | **Retainer payment stalled (PF bell)** — Client still has not paid the retainer - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 day(s)** (editable) |
-| **Client decision 1 needed** — The Tax 4 meeting date has passed with no Client decision 1 recorded - persistent bell until the decision is recorded. | **Action required** | Tim + Tracy | Daily tax sweep (meeting date passed) — instant |
+| **Client decision 1 needed** — The Tax 4 meeting date has passed with no Client decision 1 recorded - persistent bell until the decision is recorded. | **Action required** | Assigned PF + Allocated Tax Planner + Tracy | Daily tax sweep (meeting date passed) — instant |
 
 ### Regular Priorities (MAP 4) (4)
 
@@ -113,7 +120,7 @@
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
 | **Stage 4: add general notes (Tracy)** — A specialist reached final executive approval (Stage 4) - Tracy must add her general notes before the executives vote. | **Action required** | Tracy | Stage 3 completes (all three items done) — instant |
-| **Stage 4: add tax risk notes (Tim)** — A tax specialist reached final executive approval (Stage 4) - Tim must add tax risk notes before the executives vote. | **Action required** | Tim | Stage 3 completes (tax specialists only) — instant |
+| **Stage 4: add tax risk notes** — A tax specialist reached final executive approval (Stage 4) - the tax risk notes must be added before the executives vote. | **Action required** | Tracy (was Tim until 2026-07-27) | Stage 3 completes (tax specialists only) — instant |
 | **SIF form submitted** — A specialist submitted their Specialist Information Form. | FYI | Tracy | Public SIF form submit — instant |
 | **Background check paid** — A specialist's background-check payment cleared and the receipt was sent. | FYI | Tracy | Stripe webhook chain (bg receipt) — instant |
 | **Due Diligence Checklist submitted** — A specialist marked their Due Diligence Checklist ready for review. | FYI | Tracy | Public DDC form submit — instant |
@@ -198,7 +205,7 @@
 
 > **Update 2026-07-03 — Phases A + B of the gap list are BUILT** (8 new rules, so the editor now
 > holds 130): gap #2 (tax-return uploads -> `UPLOAD_tax_return_uploaded`, new "Uploads" area,
-> default Tray vD + Tim), #5 (BoldSign Declined/Expired/Revoked -> `<AREA>_agreement_declined`
+> default Tray vD + Tim — Tim removed 2026-07-21, Tracy added), #5 (BoldSign Declined/Expired/Revoked -> `<AREA>_agreement_declined`
 > action-required bells, new `automation_AGREEMENT_declined` handler chained from BOTH BoldSign
 > webhook handlers — 5th approved extension of the standalone function), and #6 (check never
 > cleared -> `MAP1/TAX_check_uncleared_bell`, 14-day editable tier in the check-reminder sweep,
@@ -216,7 +223,7 @@ bell via the 2026-06-15 failure-alert work). What genuinely has no notification 
 | # | Event | What happens today | Suggested notification |
 |---|---|---|---|
 | 1 | **Login setup completed** (client `/client-setup`, member `/set-password`, specialist login-setup) | Timestamp written, login row created — silent | FYI to the assigned PF (clients) / Tracy (specialists) / shared bell (members): "X can now sign in" — confirms the invite landed and closes the loop |
-| 2 | **Client uploads a tax return** (public `/tax-upload` token page or client Vault -> Sensitive) | File stored — silent | FYI to Tim + Tracy (tax admins): "X uploaded a tax document" — this is often the thing Tax 1/2 is waiting on |
+| 2 | **Client uploads a tax return** (public `/tax-upload` token page or client Vault -> Sensitive) | File stored — silent | FYI to the tax admins (Tracy + Tray as of 2026-07-21): "X uploaded a tax document" — this is often the thing Tax 1/2 is waiting on |
 | 3 | **Payment method updated** (Phase D `/connect-card` setup completes via Stripe webhook) | New default card/bank saved — silent | FYI to Jake: "X updated their payment method" — audit trail + confirms a failed-installment recovery is ready to retry |
 | 4 | **Member/specialist Stripe Connect onboarding completes** (payout account becomes active) | Nothing observes this; the next transfer just succeeds | FYI to Jake/Tracy: "X's payout account is active" — today you only find out when a transfer stops failing |
 | 5 | **BoldSign document Declined or Expired** | Event not handled at all — the pipeline just stalls until the signing-stall sweep notices | Action-required to the assigned PF / team member: "X declined the agreement" — a decline is a decision, not a stall, and deserves an immediate bell (the 48h/96h ladder is the wrong tool) |

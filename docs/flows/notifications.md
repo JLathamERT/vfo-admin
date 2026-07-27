@@ -75,21 +75,24 @@ Beyond this MAP1 example, the TAX / Advisor / Accountant / PFT pipelines also in
 
 ### Tax 4 "Client decision 1 needed" reminder (action-required, in-app)
 
-Replaced the old daily Gmail-to-Tim nudge. The `tax-revshare-sweep-daily` cron (02:30 UTC) raises **ONE persistent action-required in-app notification** (`dismissible:false`) per plan to BOTH `tgacsy@elitert.com` (Tim) and `tnmiller@elitert.com` (Tracy) when `tax4_meeting_date < today` AND `post_review_decision IS NULL`:
+Replaced the old daily nudge email. The `tax-revshare-sweep-daily` cron (02:30 UTC) raises **ONE persistent action-required in-app notification** (`dismissible:false`, rule `TAX_tax4_decision_needed`) per plan when `tax4_meeting_date < today` AND `post_review_decision IS NULL`. **Recipients as of 2026-07-27 (v664): the client's assigned PF + the plan's allocated tax planner + Tracy** `tnmiller@elitert.com`, deduped, Tracy always present so the list is never empty (it previously went to departed Tim Gacsy + Tracy — gotcha #291):
 
 ```
-recipient: 'tgacsy@elitert.com' / 'tnmiller@elitert.com'   (two rows)
+recipient: <assigned PF login> / <allocated planner email> / 'tnmiller@elitert.com'
+           (one row each)
 pipeline:  'TAX'
 title:     "Client decision 1 needed — <client>"
 link:      "/admin/client/<id>?tab=tax&program=<program_id>"
+           ...except the PLANNER's row, link-overridden via the `links` map to
+           "/tax-planner/client/<id>?program=<program_id||1>"   (gotcha #292)
 dismissible: false
 ```
 
 Fired once per plan (guarded by `client_tax_plans.tax4_meeting_reminder_last_sent_at`). **Cleared** by `actions/tax/postreview-decision.ts` (`.ilike("title","Client decision 1 needed%")`) when any Tax 4 `Client decision 1` is recorded.
 
-### TAX pipeline — no shared `admin` bell (rerouted 2026-06-09)
+### TAX pipeline — no shared `admin` bell (rerouted 2026-06-09; recipients re-cut 2026-07-27)
 
-Every TAX notification now routes to a specific person via [`utils/tax-notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/tax-notify.ts) — none use `recipient:'admin'`. Tax 3 / Setup-phase → **assigned PF** (`taxPfRecipients`, Tim+Tracy fallback); Tax 4/5 client-decision FYIs → **Tim**; the meeting nudge → **Tim + Tracy**; the Tax 4/5 96h "reach out" escalations → **assigned PF**. Full per-notification inventory: [tax-planning.md § Notification inventory](tax-planning.md#notification-inventory-tax-pipeline--audit-2026-06-09).
+Every TAX notification routes to a specific person via [`utils/tax-notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/tax-notify.ts) — none use `recipient:'admin'`. Tax 3 / Setup-phase → **assigned PF** (`taxPfRecipients`, **Tracy** fallback — `TAX_OWNERS` is `[TRACY_EMAIL]` alone since Tim Gacsy left); Tax 4/5 client-decision FYIs → **assigned PF + the allocated tax planner** (`taxDecisionRecipients`, Tracy fallback, planner row link-overridden into the planner portal); the meeting nudge → **PF + planner + Tracy**; the Tax 4/5 96h "reach out" escalations → **assigned PF**. Gotchas #291 (the four-layer departed-staffer checklist) + #292 (the per-recipient `links` map). Full per-notification inventory: [tax-planning.md § Notification inventory](tax-planning.md#notification-inventory-tax-pipeline--audit-2026-06-09).
 
 ### Advisor / Accountant onboarding — route to the "Team Member Responsible" (2026-06-15)
 
