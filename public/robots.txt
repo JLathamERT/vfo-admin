@@ -1,0 +1,19 @@
+User-agent: *
+Disallow: /admin
+Disallow: /member
+Disallow: /client
+Disallow: /specialist
+Disallow: /tax
+Disallow: /pay
+Disallow: /payout-setup
+Disallow: /decide
+Disallow: /advisor
+Disallow: /accountant
+Disallow: /pft
+Disallow: /map4
+Disallow: /update-card
+Disallow: /connect-card
+Disallow: /membership-pay
+Disallow: /set-password
+
+Sitemap: https://vfoportal.com/sitemap.xml
