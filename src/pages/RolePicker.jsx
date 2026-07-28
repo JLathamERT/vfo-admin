@@ -8,6 +8,10 @@ const ROLES = [
   { label: 'Client', sub: 'Your secure Client portal', to: '/client/login', initials: 'CL' },
 ]
 
+const FOOTER_LINK = { color: '#ffffff', textDecoration: 'none' }
+const underline = e => { e.currentTarget.style.textDecoration = 'underline' }
+const noUnderline = e => { e.currentTarget.style.textDecoration = 'none' }
+
 export default function RolePicker() {
   const navigate = useNavigate()
   return (
@@ -26,7 +30,10 @@ export default function RolePicker() {
 
       <VfoWordmark size={28} light />
       <h1 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.02em', fontSize: '32px', color: '#ffffff', margin: '20px 0 0', textAlign: 'center' }}>Welcome to the VFO Portal</h1>
-      <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.75)', margin: '0 0 28px' }}>Select your portal to sign in</p>
+      <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', lineHeight: 1.6, color: 'rgba(255,255,255,0.8)', maxWidth: '560px', textAlign: 'center', margin: '14px 0 0', position: 'relative' }}>
+        VFO Services is a virtual family office serving Elite Resource Team members and their clients - top national specialists in tax planning, legal services, risk mitigation, wealth management, and business advisory services.
+      </p>
+      <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', color: 'rgba(255,255,255,0.7)', margin: '22px 0 10px', position: 'relative' }}>Select your portal to sign in</p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', width: '100%', maxWidth: '560px', position: 'relative' }}>
         {ROLES.map(role => (
           <button
@@ -49,6 +56,21 @@ export default function RolePicker() {
           </button>
         ))}
       </div>
+
+      <footer style={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', lineHeight: 1.8, color: 'rgba(255,255,255,0.65)', textAlign: 'center', maxWidth: '620px', margin: '34px 0 0', position: 'relative' }}>
+        <div>&copy; 2026 VFO Services &middot; An affiliate of Elite Resource Team</div>
+        <div>
+          12636 High Bluff Drive, Suite 400, San Diego, CA 92130 &middot; (619) 981-9703 &middot;{' '}
+          <a href="mailto:support@elitert.com" style={FOOTER_LINK} onMouseEnter={underline} onMouseLeave={noUnderline}>support@elitert.com</a>
+        </div>
+        <div>
+          <a href="https://www.vfo-services.com" target="_blank" rel="noopener noreferrer" style={FOOTER_LINK} onMouseEnter={underline} onMouseLeave={noUnderline}>vfo-services.com</a>
+          <span style={{ opacity: 0.5 }}> &middot; </span>
+          <a href="/privacy.html" style={FOOTER_LINK} onMouseEnter={underline} onMouseLeave={noUnderline}>Privacy Policy</a>
+          <span style={{ opacity: 0.5 }}> &middot; </span>
+          <a href="/terms.html" style={FOOTER_LINK} onMouseEnter={underline} onMouseLeave={noUnderline}>Terms of Use</a>
+        </div>
+      </footer>
     </div>
   )
 }
