@@ -25,6 +25,9 @@ import { callApi } from '../../../lib/api'
 
 const TERMINAL = ['Yes', 'Money Mapping', 'N/A — No Share Due']
 const WITHHELD = 'Awaiting Planner Allocation'
+// Member leg only, and non-terminal like WITHHELD: the share is due but the member has no
+// payout account. The nightly sweep pays it as soon as one exists.
+const AWAITING_CONNECT = 'Awaiting Connect Setup'
 
 const money = v => parseFloat(String(v ?? '0').replace(/[,$]/g, '')) || 0
 const round2 = x => Math.round(x * 100) / 100
@@ -38,6 +41,7 @@ function legNote(status) {
   if (status === 'Money Mapping') return 'money mapping'
   if (status === 'N/A — No Share Due') return 'no share due'
   if (status === WITHHELD) return 'withheld'
+  if (status === AWAITING_CONNECT) return 'awaiting payout setup'
   if (status === 'Failed') return 'failed — retrying'
   if (status === 'Pending') return 'in progress'
   return String(status).toLowerCase()
@@ -45,7 +49,7 @@ function legNote(status) {
 
 function noteColor(status) {
   if (status === 'Yes') return '#1b9254'
-  if (status === WITHHELD || status === 'Failed') return '#b9451d'
+  if (status === WITHHELD || status === AWAITING_CONNECT || status === 'Failed') return '#b9451d'
   return 'var(--vfo-muted)'
 }
 

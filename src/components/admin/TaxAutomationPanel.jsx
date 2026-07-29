@@ -254,7 +254,6 @@ function ExpandedRow({ row, onRefresh }) {
             <Detail l="Revenue share completed" v={fmtDate(row.retainer_rev_completed_at) || ((row.retainer_rev_paid === 'Yes' || row.retainer_rev_paid === 'Money Mapping') ? row.retainer_rev_paid : null)} />
             <Detail l="Revenue share amount" v={money(row.member_share)} />
             <Detail l="Rev share confirmation email" v={fmtDate(row.retainer_rev_email_sent_at) || (row.retainer_rev_email_sent ? 'Sent' : null)} showEmpty />
-            <Detail l="Member contribution" v={row.member_contrib_status} />
             <Detail l="Tracy intro sent" v={row.tracy_intro_email_sent ? 'Sent' : null} />
           </>
         ) : <Pending />}
