@@ -27,7 +27,11 @@
   The 24h Tax 4/5 auto-locks and the 14-day advisor/accountant auto-decline are business actions,
   not notifications, and are deliberately NOT editable here.
 
-## Every notification in the system (123 rules, 10 areas)
+> **Additions 2026-07-28 (v667–v669).** Five rules were seeded to close the "stalled setup is completely
+> silent" gap (gotchas #296 / #299 / #300): three under **VFO Specialist Revenue** and two under a
+> **NEW area, Payment Continuation**. Both areas are listed below.
+
+## Every notification in the system (128 rules, 11 areas)
 
 ### MAP 1 (14)
 
@@ -174,13 +178,23 @@
 | **Member updated progress** — A member updated the status of a Growth Plan priority (one bell per priority changed). | FYI | Assigned Admin | Member saves accountability progress — instant |
 | **Overdue priority** — A Growth Plan priority passed its due date with no progress. | FYI | Assigned Admin | Daily growth sweep — instant |
 
-### VFO Specialist Revenue (3)
+### VFO Specialist Revenue (6)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
 | **Payment reminder email** — Reminder email to the specialist to pay their VFO Specialist Revenue request. | Reminder email | The specialist (email) | Nightly payout sweep — after **2 day(s)** (editable) |
 | **Specialist still has not paid** — A specialist's revenue payment is still unpaid after the reminder window - asks Tracy to chase. | FYI | Tracy | Nightly payout sweep — after **4 day(s)** (editable) |
 | **Revenue transfer failed (Jake)** — A revenue-share transfer to a member failed; the nightly sweep will retry; auto-clears on success. | **Action required** | Jake | Payout engine transfer failure — instant |
+| **Checkout abandoned** (`SPECREV_checkout_abandoned_bell`, 2026-07-28) — the specialist opened the hosted payment page but never completed it, so the Stripe session expired; nothing was charged and the link they hold still works. Covers BOTH the one-off request and the recurring monthly setup. | FYI | Tracy + Jake | `checkout.session.expired` webhook — instant (gotcha #299) |
+| **Recurring setup reminder email** (`SPECREV_recurring_setup_reminder_email`, 2026-07-28) — nudges a specialist who was sent the recurring ACH setup link but never finished it; carries the amount, charge day and a fresh Complete Setup button. | Reminder email | The specialist (email) | Nightly payout sweep, Pass 3 — after **2 day(s)** (editable) |
+| **Recurring setup still not completed** (`SPECREV_recurring_setup_tracy_bell`, 2026-07-28) — the recurring plan is still `setup_pending` after the reminder window; asks Tracy to chase. | FYI | Tracy | Nightly payout sweep, Pass 3 — after **4 day(s)** (editable) |
+
+### Payment Continuation (2) *(new area, 2026-07-28)*
+
+| Notification | Type | Who gets it (default) | When it fires |
+|---|---|---|---|
+| **Setup-link reminder email** (`MIGRATION_setup_link_reminder_email`) — nudges a migrated client who was emailed the `/connect-card` link but never saved a card or bank; includes the same "Your upcoming payments:" schedule block as the original setup email. **If the link has EXPIRED the sweep mints a fresh 7-day one and emails that instead** (capped at 3 automatic re-sends per row). | Reminder email | The client (email) | Nightly check-reminder sweep — after **2 day(s)** (editable) — gotcha #300 |
+| **Client hasn't set up their payment method** (`MIGRATION_setup_link_stall_bell`) — their remaining scheduled payments cannot run. Wording is four-way truthful: reach out / a fresh link was automatically emailed / re-send manually / automatic re-sends exhausted. | FYI | Tracy + Jake | Nightly check-reminder sweep — after **4 day(s)** (editable) |
 
 ### Payment Failure Alerts (16)
 
@@ -213,6 +227,14 @@
 > configured delay. Gap #1 (login-setup completions) was built then REMOVED same-day at Jake's
 > direction — nobody needs a bell for someone setting a passcode; treat #1 as closed-won't-do.
 > Gaps #3, #4, #7-#10 (Phases C + D) remain open below.
+>
+> **Update 2026-07-28 — a gap the original list missed is now closed: "the setup was never completed".**
+> Neither a SPECREV recurring plan stuck in `setup_pending` nor a migrated client sitting on an unused
+> (or expired) `/connect-card` link produced any signal at all — both failed open and stayed invisible
+> for two weeks. Five rules now cover it (three under VFO Specialist Revenue, two under the new
+> Payment Continuation area), plus abandonment detection off `checkout.session.expired`. Gap **#3**
+> (payment method updated) is still open — that is the SUCCESS side of the same flow; what shipped is
+> the STALL side. Gotchas #296 / #298 / #299 / #300.
 
 ## Gap analysis — places that arguably SHOULD notify but currently do not
 
