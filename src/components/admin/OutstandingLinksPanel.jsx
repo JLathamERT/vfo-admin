@@ -1,0 +1,381 @@
+import { useState, useEffect } from 'react'
+import { callApi } from '../../lib/api'
+import { money, StatusPill } from './specialistRevenueShared'
+import { OnboardingListSkeleton } from '../shared/Skeleton'
+
+const BADGE_FIRST = { label: 'First payment', color: '#125ecc' }
+const BADGE_CONTINUATION = { label: 'Payment continuation', color: '#e06717' }
+const BADGE_IMPLEMENTATION = { label: 'Implementation', color: '#ef4444' }
+const BADGE_RECURRING = { label: 'Recurring setup', color: '#125ecc' }
+const BADGE_ONEOFF = { label: 'One-off payment', color: '#e06717' }
+
+function fmtDate(s) {
+  if (!s) return null
+  try {
+    const d = new Date(s)
+    if (Number.isNaN(d.getTime())) return String(s)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch { return String(s) }
+}
+
+function shortDate(s) {
+  if (!s) return null
+  try {
+    const d = new Date(s)
+    if (Number.isNaN(d.getTime())) return String(s)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  } catch { return String(s) }
+}
+
+function programLabel(pid) {
+  return Number(pid) === 4 ? 'Tax Planning' : 'Tax Priorities'
+}
+
+function emailCount(n) {
+  const c = Number(n) || 0
+  return `${c} email${c === 1 ? '' : 's'} sent`
+}
+
+function ordinal(n) {
+  const v = Number(n) || 0
+  const s = ['th', 'st', 'nd', 'rd']
+  const m = v % 100
+  return `${v}${s[(m - 20) % 10] || s[m] || s[0]}`
+}
+
+const cardStyle = {
+  background: 'var(--vfo-card)',
+  border: '1px solid var(--vfo-border-soft)',
+  borderRadius: '14px',
+  marginBottom: '10px',
+  overflow: 'hidden',
+  fontFamily: 'Inter, sans-serif',
+}
+
+function Detail({ label, value }) {
+  return (
+    <div style={{ display: 'flex', gap: '10px', padding: '7px 0', borderTop: '1px solid var(--vfo-tint)', fontSize: '13px', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ width: '170px', flexShrink: 0, color: 'var(--vfo-muted)', fontWeight: 600 }}>{label}</div>
+      <div style={{ color: 'var(--vfo-ink)' }}>{value}</div>
+    </div>
+  )
+}
+
+function SectionHeader({ title, count }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', margin: '20px 0 10px', fontFamily: 'Inter, sans-serif' }}>
+      <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>{title}</h3>
+      <span style={{ fontSize: '12px', color: 'var(--vfo-faint)' }}>{count} outstanding</span>
+    </div>
+  )
+}
+
+function EmptyLine() {
+  return <div style={{ fontSize: '13px', color: 'var(--vfo-faint)', padding: '4px 2px 10px', fontFamily: 'Inter, sans-serif' }}>None right now.</div>
+}
+
+// One expandable person card. Per-row open state lives here because hooks cannot
+// be used inside the .map calls below.
+function OutstandingCard({ name, subtitle, badge, amount, caption, children }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={cardStyle}>
+      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', cursor: 'pointer' }}>
+        <span style={{ fontSize: '11px', color: 'var(--vfo-faint)', width: '12px' }}>{open ? '▾' : '▸'}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)' }}>{name || '-'}</div>
+          <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{subtitle}</div>
+        </div>
+        <StatusPill label={badge.label} color={badge.color} />
+        <div style={{ width: '120px', textAlign: 'right' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: '#ef4444' }}>{money(amount)}</div>
+          <div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>{caption}</div>
+        </div>
+      </div>
+      {open && (
+        <div style={{ background: 'var(--vfo-input)', borderTop: '1px solid var(--vfo-border-soft)', padding: '14px 18px' }}>
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FirstLinkCard({ item, showProgram }) {
+  const sent = fmtDate(item.link_sent_at)
+  const parts = []
+  if (item.member_number) parts.push(item.member_number)
+  parts.push(sent ? `Link sent ${shortDate(item.link_sent_at)}` : 'Link not sent yet')
+  parts.push(emailCount(item.emails_sent))
+  return (
+    <OutstandingCard
+      name={item.client_name}
+      subtitle={parts.join(' · ')}
+      badge={BADGE_FIRST}
+      amount={item.amount_due}
+      caption="due"
+    >
+      <Detail label="Amount due" value={money(item.amount_due)} />
+      {item.payment_plan ? <Detail label="Payment plan" value={item.payment_plan} /> : null}
+      {showProgram ? <Detail label="Program" value={programLabel(item.program_id)} /> : null}
+      <Detail label="Link sent" value={sent || 'not yet'} />
+      <Detail label="Reminder sent" value={fmtDate(item.reminder_sent_at) || 'not yet'} />
+      <Detail label="PF notified" value={fmtDate(item.pf_notified_at) || 'not yet'} />
+      <Detail label="Emails sent" value={String(Number(item.emails_sent) || 0)} />
+    </OutstandingCard>
+  )
+}
+
+function RemainingTable({ kind, remaining }) {
+  const rows = remaining || []
+  if (rows.length === 0) return null
+  const grid = kind === 'map1' ? '120px 150px 120px 1fr' : '1fr 140px'
+  return (
+    <div style={{ marginBottom: '14px', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)', marginBottom: '6px' }}>Remaining payments</div>
+      <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '10px', padding: '0 0 6px', fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)' }}>
+        {kind === 'map1'
+          ? <><div>Payment</div><div>Date</div><div>Amount</div><div>Status</div></>
+          : <><div>Payment</div><div>Amount</div></>}
+      </div>
+      {rows.map((r, i) => (
+        <div key={i} style={{ display: 'grid', gridTemplateColumns: grid, gap: '10px', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--vfo-tint)', fontSize: '13px', color: 'var(--vfo-ink)' }}>
+          {kind === 'map1'
+            ? (
+              <>
+                <div>Payment {r.n}</div>
+                <div>{fmtDate(r.date) || '-'}</div>
+                <div>{money(r.amount)}</div>
+                <div style={{ color: 'var(--vfo-muted)' }}>{r.status || 'scheduled'}</div>
+              </>
+            ) : (
+              <>
+                <div>{r.label || '-'}</div>
+                <div>{money(r.amount)}</div>
+              </>
+            )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ContinuationCard({ item, kind }) {
+  const parts = []
+  if (item.member_number) parts.push(item.member_number)
+  parts.push(item.link_sent_at ? `Link sent ${shortDate(item.link_sent_at)}` : 'Link not sent yet')
+  parts.push(emailCount(item.emails_sent))
+  const history = item.history || []
+  const subtitle = (
+    <>
+      {parts.join(' · ')}
+      {item.expired
+        ? <span style={{ color: '#ef4444', fontWeight: 600 }}> · link EXPIRED</span>
+        : (item.expires_at ? <> · expires {shortDate(item.expires_at)}</> : null)}
+    </>
+  )
+  return (
+    <OutstandingCard
+      name={item.client_name}
+      subtitle={subtitle}
+      badge={BADGE_CONTINUATION}
+      amount={item.total_remaining}
+      caption="remaining"
+    >
+      <RemainingTable kind={kind} remaining={item.remaining} />
+      <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)', marginBottom: '6px' }}>Link email history</div>
+      {history.length === 0 && <div style={{ fontSize: '13px', color: 'var(--vfo-faint)', padding: '4px 0' }}>No link emails recorded.</div>}
+      {history.map((h, i) => (
+        <div key={i} style={{ padding: '7px 0', borderTop: '1px solid var(--vfo-tint)', fontSize: '13px', color: 'var(--vfo-ink)' }}>
+          <span style={{ fontWeight: 600 }}>{fmtDate(h.sent_at) || 'Date unknown'}</span>
+          <span style={{ color: 'var(--vfo-muted)' }}>
+            {' · '}{h.auto ? 'auto-resent by system' : `sent by ${h.sent_by || 'unknown'}`}
+            {h.expired
+              ? null
+              : (h.expires_at ? ` · expires ${fmtDate(h.expires_at)}` : '')}
+            {h.reminder_sent_at ? ` · reminder sent ${fmtDate(h.reminder_sent_at)}` : ''}
+          </span>
+          {h.expired ? <span style={{ color: '#ef4444', fontWeight: 600 }}>{' · expired'}</span> : null}
+        </div>
+      ))}
+      {item.auto_resends_exhausted ? (
+        <div style={{ marginTop: '12px', padding: '10px 12px', borderRadius: '8px', background: '#fffbeb', border: '1px solid #fde68a', color: '#b45309', fontSize: '12.5px' }}>
+          Auto-resend cap reached (3) - send manually if still needed.
+        </div>
+      ) : null}
+      <div style={{ marginTop: '12px' }}>
+        <Detail label="Reminder sent" value={fmtDate(item.reminder_sent_at) || 'not yet'} />
+        <Detail label="PF notified" value={fmtDate(item.pf_notified_at) || 'not yet'} />
+        <Detail label="Auto-resends used" value={String(Number(item.auto_resends) || 0)} />
+        <Detail label="Emails sent" value={String(Number(item.emails_sent) || 0)} />
+      </div>
+    </OutstandingCard>
+  )
+}
+
+function ImplementationCard({ item }) {
+  const parts = []
+  if (item.member_number) parts.push(item.member_number)
+  parts.push(programLabel(item.program_id))
+  if (item.charge_status) parts.push(`charge ${item.charge_status}`)
+  const charged = fmtDate(item.charge_date)
+  if (charged) parts.push(charged)
+  return (
+    <OutstandingCard
+      name={item.client_name}
+      subtitle={parts.join(' · ')}
+      badge={BADGE_IMPLEMENTATION}
+      amount={item.amount_due}
+      caption="due"
+    >
+      <Detail label="Amount due" value={money(item.amount_due)} />
+      <Detail label="Program" value={programLabel(item.program_id)} />
+      <Detail label="Charge status" value={item.charge_status || 'not started'} />
+      <Detail label="Charge date" value={charged || 'not yet'} />
+    </OutstandingCard>
+  )
+}
+
+function RecurringCard({ item }) {
+  const parts = []
+  parts.push(item.link_sent_at ? `Link sent ${shortDate(item.link_sent_at)}` : 'Link not sent yet')
+  parts.push(emailCount(item.emails_sent))
+  return (
+    <OutstandingCard
+      name={item.specialist_name}
+      subtitle={parts.join(' · ')}
+      badge={BADGE_RECURRING}
+      amount={item.monthly_amount}
+      caption="per month"
+    >
+      <Detail label="Monthly amount" value={money(item.monthly_amount)} />
+      <Detail label="Charge day" value={item.charge_day ? `${ordinal(item.charge_day)} of the month` : 'not set'} />
+      <Detail label="Link sent" value={fmtDate(item.link_sent_at) || 'not yet'} />
+      <Detail label="Reminder sent" value={fmtDate(item.reminder_sent_at) || 'not yet'} />
+      <Detail label="Emails sent" value={String(Number(item.emails_sent) || 0)} />
+    </OutstandingCard>
+  )
+}
+
+function RequestCard({ item }) {
+  const parts = []
+  parts.push(item.link_sent_at ? `Link sent ${shortDate(item.link_sent_at)}` : 'Link not sent yet')
+  parts.push(emailCount(item.emails_sent))
+  return (
+    <OutstandingCard
+      name={item.specialist_name}
+      subtitle={parts.join(' · ')}
+      badge={BADGE_ONEOFF}
+      amount={item.gross_amount}
+      caption="due"
+    >
+      <Detail label="Amount" value={money(item.gross_amount)} />
+      <Detail label="Requested" value={fmtDate(item.link_sent_at) || 'not yet'} />
+      <Detail label="Reminder sent" value={fmtDate(item.reminder_sent_at) || 'not yet'} />
+      <Detail label="Emails sent" value={String(Number(item.emails_sent) || 0)} />
+    </OutstandingCard>
+  )
+}
+
+// Accounting pill tab: everyone who was emailed a payment or account-setup link
+// and has not finished it yet. The link kinds are deliberately split into their
+// own sections (and carry their own badge) so a first payment link is never
+// mistaken for a payment-continuation setup link.
+export default function OutstandingLinksPanel({ kind, embedded = false }) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => { load() }, [])
+
+  async function load() {
+    setLoading(true); setError('')
+    try {
+      const res = await callApi('accounting_outstanding_links_load')
+      if (res?.error) { setError(res.error); return }
+      setData(res || {})
+    } catch (e) {
+      setError(e?.message || 'Failed to load')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const bucket = (data && data[kind]) || {}
+  const firstLinks = bucket.first_links || []
+  const continuation = bucket.continuation || []
+  const implementation = bucket.implementation_links || []
+  const recurring = bucket.recurring || []
+  const requests = bucket.requests || []
+  const totalCount = firstLinks.length + continuation.length + implementation.length + recurring.length + requests.length
+
+  const wrap = embedded
+    ? { fontFamily: 'Inter, sans-serif' }
+    : { padding: '24px', maxWidth: '1100px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
+
+  return (
+    <div style={wrap}>
+      {!embedded && (
+        <div style={{ marginBottom: '18px' }}>
+          <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 6px' }}>Accounting</p>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>Outstanding Payment Links</h2>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+        <button type="button" onClick={load}
+          style={{ background: 'none', border: 'none', padding: 0, color: '#125ecc', fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          Refresh
+        </button>
+      </div>
+
+      {loading && <OnboardingListSkeleton rows={3} />}
+      {!loading && error && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>{error}</div>
+      )}
+
+      {!loading && !error && totalCount === 0 && (
+        <div style={{ ...cardStyle, textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>
+          No outstanding payment links - everyone who was sent a link has completed it.
+        </div>
+      )}
+
+      {!loading && !error && totalCount > 0 && (kind === 'map1' || kind === 'tax') && (
+        <div>
+          <SectionHeader title="New Clients - First Payment Link" count={firstLinks.length} />
+          {firstLinks.length === 0 ? <EmptyLine /> : firstLinks.map(it => (
+            <FirstLinkCard key={it.row_id ?? it.client_id} item={it} showProgram={kind === 'tax'} />
+          ))}
+
+          <SectionHeader title="Payment Continuation - Account Setup Links" count={continuation.length} />
+          {continuation.length === 0 ? <EmptyLine /> : continuation.map(it => (
+            <ContinuationCard key={it.row_id ?? it.client_id} item={it} kind={kind} />
+          ))}
+
+          {kind === 'tax' && implementation.length > 0 && (
+            <>
+              <SectionHeader title="Implementation Payment Links" count={implementation.length} />
+              {implementation.map(it => (
+                <ImplementationCard key={it.row_id ?? it.client_id} item={it} />
+              ))}
+            </>
+          )}
+        </div>
+      )}
+
+      {!loading && !error && totalCount > 0 && kind === 'specrev' && (
+        <div>
+          <SectionHeader title="Recurring Revenue - Setup Pending" count={recurring.length} />
+          {recurring.length === 0 ? <EmptyLine /> : recurring.map(it => (
+            <RecurringCard key={it.plan_id ?? it.expert_id} item={it} />
+          ))}
+
+          <SectionHeader title="One-Off Requests - Awaiting Payment" count={requests.length} />
+          {requests.length === 0 ? <EmptyLine /> : requests.map(it => (
+            <RequestCard key={it.id ?? it.expert_id} item={it} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
