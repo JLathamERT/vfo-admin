@@ -35,6 +35,7 @@ import PipReconciliationPanel from '../components/admin/PipReconciliationPanel'
 import MemberOnboardingPanel from '../components/admin/MemberOnboardingPanel'
 import MembershipFeesPanel from '../components/admin/MembershipFeesPanel'
 import AccountingCombinedPanel from '../components/admin/AccountingCombinedPanel'
+import OutstandingLinksPanel from '../components/admin/OutstandingLinksPanel'
 import SpecialistRevenueAutomationPanel from '../components/admin/SpecialistRevenueAutomationPanel'
 import GrowthCreditsPanel from '../components/admin/GrowthCreditsPanel'
 import GrowthCreditsAccountingPanel from '../components/admin/GrowthCreditsAccountingPanel'
@@ -815,6 +816,7 @@ export default function AdminPortal() {
                 { key: 'specialist_revenue', label: 'VFO Specialist Revenue', render: () => <SpecialistRevenuePanel allExperts={allExperts} allMembers={allMembers} embedded /> },
                 { key: 'specialist_reconciliation', label: 'VFO Specialist Reconciliation', render: () => <SpecialistReconciliationPanel allMembers={allMembers} embedded /> },
                 { key: 'specialist_recurring', label: 'VFO Specialist Recurring Revenue Payments', render: () => <SpecialistRecurringPanel embedded /> },
+                { key: 'specialist_outstanding_links', label: 'Outstanding Payment Links', render: () => <OutstandingLinksPanel kind="specrev" embedded /> },
               ]}
             />
           )}
@@ -831,6 +833,7 @@ export default function AdminPortal() {
               tabs={[
                 { key: 'holistic_revenue', label: 'Holistic Planning Revenue', render: () => <HolisticRevenuePanel embedded /> },
                 { key: 'holistic_reconciliation', label: 'Holistic Planning Reconciliation', render: () => <HolisticReconciliationPanel embedded /> },
+                { key: 'holistic_outstanding_links', label: 'Outstanding Payment Links', render: () => <OutstandingLinksPanel kind="map1" embedded /> },
               ]}
             />
           )}
@@ -841,6 +844,7 @@ export default function AdminPortal() {
               tabs={[
                 { key: 'tax_revenue', label: 'Tax Planning Revenue', render: () => <TaxRevenuePanel embedded /> },
                 { key: 'tax_reconciliation', label: 'Tax Planning Reconciliation', render: () => <TaxReconciliationPanel embedded /> },
+                { key: 'tax_outstanding_links', label: 'Outstanding Payment Links', render: () => <OutstandingLinksPanel kind="tax" embedded /> },
               ]}
             />
           )}
