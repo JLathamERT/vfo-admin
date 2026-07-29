@@ -106,12 +106,12 @@ Written by `utils/tax-planner-payout.ts transferPlannerShare` — the tax planne
 | `implementation_planner_completed_at` | timestamptz | Terminal-success stamp. |
 | `implementation_planner_email_sent_at` | timestamptz | Guard for `TAX_planner_revshare\|implementation` (id 199, Draft). |
 
-### Tax 2 — Assess-form step (added 2026-07-22)
-Backs the **"Assess tax planning opportunities (and enter presentation details)"** form-step (task ids 89 program 1 / 123 program 4, RENAMED from "Assess tax planning opportunities"; trigger `status_options==='assess_form'` OR the exact renamed task name — sentinel-first, #254 pattern). A PIP-Follow-Up-Decision-style step: green "Enter Details" button → inline form (ONE question, textarea) → `tax_save_assess_form` → then `saveTask 'Completed'`. Written ONLY by `tax_save_assess_form` (AUTH, ADMIN_ONLY + TAX_PLANNER allowlist, `denyIfNotPlannerPlan` guard, whitelists `{question_1}`); NO chains / emails / notifications. Migration `20260722120000_client_tax_plans_assess_form.sql`.
+### Tax 2 — Assess-form step (added 2026-07-22; structured presentation-details form as of 2026-07-29, v677)
+Backs the **"Assess tax planning opportunities (and enter presentation details)"** form-step (task ids 89 program 1 / 123 program 4, RENAMED from "Assess tax planning opportunities"; trigger `status_options==='assess_form'` OR the exact renamed task name — sentinel-first, #254 pattern; the swap on 89/123 is applied live). "Enter Details" → the structured form (Fee + strategy list + computed Summary table) → `tax_save_assess_form` → then `saveTask 'Completed'`. Written ONLY by `tax_save_assess_form` (AUTH, ADMIN_ONLY + TAX_PLANNER allowlist, `denyIfNotPlannerPlan` guard); NO chains / emails / notifications. Migration `20260722120000_client_tax_plans_assess_form.sql`. Full validation + shape rules: gotcha #306.
 
 | Column | Type | Notes |
 |---|---|---|
-| `assess_form` | jsonb | The submitted answers (currently `{question_1}`). |
+| `assess_form` | jsonb | The submitted presentation details — ONLY `{ fee, strategies:[{ name, invest_y1, invest_y2, gross_y1, gross_y2 }] }` (dollars, 2 dp; every field required on a kept row). Derived numbers (per-strategy totals, section totals, all of Net = Gross − Investment) are computed at render, NEVER stored — a consumer must compute them and must also handle the legacy `{question_1}` shape on pre-2026-07-29 rows (#306). |
 | `assess_form_submitted_at` | timestamptz | Stamped on submit; drives the green "Submitted" pill + the read-only chevron-expand view (no re-edit). |
 | `assess_form_submitted_by` | text | Session email of the submitter. |
 

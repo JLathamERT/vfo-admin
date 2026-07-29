@@ -690,22 +690,149 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
   )
 }
 
+const ASSESS_AMOUNT_KEYS = ['invest_y1', 'invest_y2', 'gross_y1', 'gross_y2']
+const ASSESS_AMOUNT_FIELDS = [
+  { key: 'invest_y1', label: 'Investment Cost — Year 1' },
+  { key: 'invest_y2', label: 'Investment Cost — Year 2+' },
+  { key: 'gross_y1', label: 'Gross Savings — Year 1' },
+  { key: 'gross_y2', label: 'Gross Savings — Year 2+' },
+]
+const blankStrategy = () => ({ name: '', invest_y1: '', invest_y2: '', gross_y1: '', gross_y2: '' })
+const assessNum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0 }
+const assessMoney = (n) => `${n < 0 ? '-' : ''}$${fmtMoney(Math.abs(n || 0))}`
+
+function assessComputeRows(strategies) {
+  return (strategies || []).map(s => {
+    const iy1 = assessNum(s?.invest_y1), iy2 = assessNum(s?.invest_y2)
+    const gy1 = assessNum(s?.gross_y1), gy2 = assessNum(s?.gross_y2)
+    return {
+      name: String(s?.name || '').trim() || 'Untitled strategy',
+      invest: { y1: iy1, y2: iy2, total: iy1 + iy2 },
+      gross: { y1: gy1, y2: gy2, total: gy1 + gy2 },
+      net: { y1: gy1 - iy1, y2: gy2 - iy2, total: (gy1 + gy2) - (iy1 + iy2) },
+    }
+  })
+}
+
+function assessSectionSum(rows, key) {
+  return rows.reduce((a, r) => ({ y1: a.y1 + r[key].y1, y2: a.y2 + r[key].y2, total: a.total + r[key].total }), { y1: 0, y2: 0, total: 0 })
+}
+
+function AssessSummaryTable({ rows }) {
+  const sections = [
+    { key: 'invest', label: 'Investment Costs' },
+    { key: 'gross', label: 'Gross Tax Plan Savings' },
+    { key: 'net', label: 'Net Tax Savings' },
+  ]
+  const cell = { padding: '5px 10px', fontSize: '12px', color: 'var(--vfo-ink)', textAlign: 'right', whiteSpace: 'nowrap' }
+  const nameCell = { ...cell, textAlign: 'left', color: 'var(--vfo-muted)' }
+  const head = { ...cell, fontSize: '10px', fontWeight: 600, color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }
+  const sumCell = { ...cell, fontWeight: 700, borderTop: '1px solid var(--vfo-border-chip)' }
+  return (
+    <div style={{ overflowX: 'auto', border: '1px solid var(--vfo-border-chip)', borderRadius: '8px', background: 'var(--vfo-card)' }}>
+      <table style={{ width: '100%', minWidth: '440px', borderCollapse: 'collapse', fontFamily: 'Inter, sans-serif' }}>
+        <thead>
+          <tr>
+            <th style={{ ...head, textAlign: 'left' }}>Strategy</th>
+            <th style={head}>Total</th>
+            <th style={head}>Year 1</th>
+            <th style={head}>Year 2+</th>
+          </tr>
+        </thead>
+        {sections.map(sec => {
+          const sum = assessSectionSum(rows, sec.key)
+          return (
+            <tbody key={sec.key}>
+              <tr>
+                <td colSpan={4} style={{ padding: '9px 10px 4px', fontSize: '11px', fontWeight: 700, color: 'var(--vfo-ink)', textTransform: 'uppercase', letterSpacing: '0.5px', borderTop: '1px solid var(--vfo-border-chip)' }}>{sec.label}</td>
+              </tr>
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td style={nameCell}>{r.name}</td>
+                  <td style={cell}>{assessMoney(r[sec.key].total)}</td>
+                  <td style={cell}>{assessMoney(r[sec.key].y1)}</td>
+                  <td style={cell}>{assessMoney(r[sec.key].y2)}</td>
+                </tr>
+              ))}
+              <tr>
+                <td style={{ ...sumCell, textAlign: 'left' }}>Total</td>
+                <td style={sumCell}>{assessMoney(sum.total)}</td>
+                <td style={sumCell}>{assessMoney(sum.y1)}</td>
+                <td style={sumCell}>{assessMoney(sum.y2)}</td>
+              </tr>
+            </tbody>
+          )
+        })}
+      </table>
+    </div>
+  )
+}
+
+function AssessMoneyInput({ label, value, onChange, inputStyle, labelStyle }) {
+  return (
+    <div>
+      <label style={labelStyle}>{label}</label>
+      <div style={{ position: 'relative' }}>
+        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '13px' }}>$</span>
+        <input type="number" min="0" step="0.01" value={value} onChange={e => onChange(e.target.value)} placeholder="0.00" style={{ ...inputStyle, paddingLeft: '24px' }} />
+      </div>
+    </div>
+  )
+}
+
 function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCancel }) {
   const isViewMode = !!existingData
-  const [question1, setQuestion1] = useState(existingData?.question_1 || '')
+  const isStructured = Array.isArray(existingData?.strategies)
+  const [fee, setFee] = useState(existingData?.fee != null ? String(existingData.fee) : '')
+  const [strategies, setStrategies] = useState(() => (
+    isStructured && existingData.strategies.length
+      ? existingData.strategies.map(s => {
+        const row = { name: s?.name || '' }
+        ASSESS_AMOUNT_KEYS.forEach(k => { row[k] = s?.[k] != null ? String(s[k]) : '' })
+        return row
+      })
+      : [blankStrategy()]
+  ))
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
   const labelStyle = { fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }
+  const wrapStyle = { marginLeft: '18px', padding: '16px', background: 'var(--vfo-tint)', borderRadius: '10px', border: '1px solid var(--vfo-tint-deep)', marginTop: '4px', marginBottom: '8px' }
+  const sectionLabelStyle = { fontSize: '11px', color: 'var(--vfo-ink)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }
+
+  const rows = assessComputeRows(strategies)
+
+  function updateStrategy(idx, field, value) {
+    setStrategies(prev => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s))
+  }
+  function addStrategy() { setStrategies(prev => [...prev, blankStrategy()]) }
+  function removeStrategy(idx) { setStrategies(prev => prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)) }
 
   async function handleSubmit() {
-    const q = question1.trim()
-    if (!q) { setSubmitError('Question 1 is required'); return }
+    const feeNum = parseFloat(fee)
+    if (!Number.isFinite(feeNum) || feeNum < 0) { setSubmitError('Fee is required'); return }
+    // Rows the user left completely untouched are dropped rather than rejected.
+    const kept = strategies.filter(s => String(s.name || '').trim() !== '' || ASSESS_AMOUNT_KEYS.some(k => String(s[k] ?? '').trim() !== ''))
+    if (!kept.length) { setSubmitError('At least one strategy is required'); return }
+    const payload = []
+    for (const s of kept) {
+      const name = String(s.name || '').trim()
+      if (!name) { setSubmitError('Each strategy needs a name'); return }
+      const row = { name }
+      for (const k of ASSESS_AMOUNT_KEYS) {
+        const raw = String(s[k] ?? '').trim()
+        if (raw === '') { setSubmitError('All amount fields are required'); return }
+        const n = Number(raw)
+        if (!Number.isFinite(n) || n < 0) { setSubmitError('Amounts must be non-negative numbers'); return }
+        row[k] = Math.round(n * 100) / 100
+      }
+      payload.push(row)
+    }
     setSubmitError('')
     setSubmitting(true)
     try {
-      await callApi('tax_save_assess_form', { tax_plan_id: plan.id, form: { question_1: q } })
+      await callApi('tax_save_assess_form', { tax_plan_id: plan.id, form: { fee: Math.round(feeNum * 100) / 100, strategies: payload } })
       await saveTask(task.id, 'Completed', null)
       if (onSubmitted) onSubmitted()
     } catch (err) {
@@ -716,28 +843,77 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
     }
   }
 
-  return (
-    <div style={{ marginLeft: '18px', padding: '16px', background: 'var(--vfo-tint)', borderRadius: '10px', border: '1px solid var(--vfo-tint-deep)', marginTop: '4px', marginBottom: '8px' }}>
-      <div style={{ marginBottom: '16px' }}>
-        <label style={labelStyle}>Question 1</label>
-        {isViewMode
-          ? <div style={{ ...inputStyle, opacity: 0.6, whiteSpace: 'pre-wrap' }}>{question1 || '—'}</div>
-          : <textarea value={question1} onChange={e => setQuestion1(e.target.value)} placeholder="Enter your answer..." style={{ ...inputStyle, minHeight: '90px', resize: 'vertical' }} />
-        }
+  if (isViewMode && !isStructured) {
+    return (
+      <div style={wrapStyle}>
+        <div style={{ marginBottom: '16px' }}>
+          <label style={labelStyle}>Question 1</label>
+          <div style={{ ...inputStyle, opacity: 0.6, whiteSpace: 'pre-wrap' }}>{existingData?.question_1 || '—'}</div>
+        </div>
       </div>
-      {!isViewMode && (
-        <>
-          {submitError && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginBottom: '8px' }}>{submitError}</div>}
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={handleSubmit} disabled={submitting} style={{ flex: 1, padding: '12px', borderRadius: '8px', background: submitting ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '15px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
-              {submitting ? 'Submitting...' : 'Submit'}
-            </button>
-            {onCancel && <button onClick={onCancel} disabled={submitting} style={{ padding: '12px 20px', borderRadius: '8px', background: 'transparent', border: '1px solid var(--vfo-border-strong)', color: 'var(--vfo-muted)', fontSize: '15px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
-              Cancel
-            </button>}
+    )
+  }
+
+  if (isViewMode) {
+    return (
+      <div style={wrapStyle}>
+        <div style={{ marginBottom: '14px' }}>
+          <label style={labelStyle}>Fee</label>
+          <div style={{ ...inputStyle, opacity: 0.6 }}>{assessMoney(assessNum(existingData?.fee))}</div>
+        </div>
+        <div style={sectionLabelStyle}>Summary</div>
+        <AssessSummaryTable rows={rows} />
+      </div>
+    )
+  }
+
+  return (
+    <div style={wrapStyle}>
+      <div style={{ marginBottom: '16px', maxWidth: '260px' }}>
+        <AssessMoneyInput label="Fee" value={fee} onChange={setFee} inputStyle={inputStyle} labelStyle={labelStyle} />
+      </div>
+
+      <div style={sectionLabelStyle}>Strategies</div>
+      {strategies.map((s, idx) => {
+        const r = rows[idx]
+        return (
+          <div key={idx} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)', background: 'var(--vfo-card)', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', marginBottom: '10px' }}>
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>Strategy Name</label>
+                <input value={s.name} onChange={e => updateStrategy(idx, 'name', e.target.value)} placeholder="e.g. Cost Segregation" style={inputStyle} />
+              </div>
+              {strategies.length > 1 && (
+                <button onClick={() => removeStrategy(idx)} title="Remove strategy" style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '14px', lineHeight: 1, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>×</button>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
+              {ASSESS_AMOUNT_FIELDS.map(f => (
+                <AssessMoneyInput key={f.key} label={f.label} value={s[f.key]} onChange={v => updateStrategy(idx, f.key, v)} inputStyle={inputStyle} labelStyle={labelStyle} />
+              ))}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '8px' }}>
+              Net: Year 1 {assessMoney(r.net.y1)} · Year 2+ {assessMoney(r.net.y2)} · Total {assessMoney(r.net.total)}
+            </div>
           </div>
-        </>
-      )}
+        )
+      })}
+      <button onClick={addStrategy} style={{ padding: '7px 14px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: '16px' }}>+ Add strategy</button>
+
+      <div style={sectionLabelStyle}>Summary</div>
+      <div style={{ marginBottom: '16px' }}>
+        <AssessSummaryTable rows={rows} />
+      </div>
+
+      {submitError && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginBottom: '8px' }}>{submitError}</div>}
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <button onClick={handleSubmit} disabled={submitting} style={{ flex: 1, padding: '12px', borderRadius: '8px', background: submitting ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '15px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          {submitting ? 'Submitting...' : 'Submit'}
+        </button>
+        {onCancel && <button onClick={onCancel} disabled={submitting} style={{ padding: '12px 20px', borderRadius: '8px', background: 'transparent', border: '1px solid var(--vfo-border-strong)', color: 'var(--vfo-muted)', fontSize: '15px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          Cancel
+        </button>}
+      </div>
     </div>
   )
 }
@@ -1168,7 +1344,6 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (task.status_options === 'assess_form' || task.name === 'Assess tax planning opportunities (and enter presentation details)') {
       const green = '#1b9254'
       const submitted = !!livePlan?.assess_form_submitted_at
-      const answer = livePlan?.assess_form?.question_1 || ''
       const expandKey = `assessform_${task.id}`
 
       if (readOnly) {
@@ -1196,7 +1371,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
             </div>
             {isShown && (
-              <AssessTaxForm task={task} plan={livePlan} saveTask={saveTask} existingData={{ question_1: answer }} />
+              <AssessTaxForm task={task} plan={livePlan} saveTask={saveTask} existingData={livePlan?.assess_form || {}} />
             )}
           </div>
         )
