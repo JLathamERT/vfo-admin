@@ -122,7 +122,9 @@ export default function PaymentContinuationTab({ clientId, client }) {
   async function doLookup() {
     setLookingUp(true); setLookupErr(''); setLookup(null); setChosenPm(null)
     try {
-      const d = await callApi('migration_stripe_lookup', { stripe_customer_id: custId.trim(), pipeline: plan.sbPipeline })
+      // client_id lets the backend resolve sandbox mode per-client (test-member
+      // force-sandbox override, gotcha #251/#302) instead of the global toggle.
+      const d = await callApi('migration_stripe_lookup', { stripe_customer_id: custId.trim(), pipeline: plan.sbPipeline, client_id: clientId })
       if (d.error) { setLookupErr(d.error); return }
       setLookup(d)
       setChosenPm(d.default_payment_method || (d.payment_methods?.length === 1 ? d.payment_methods[0] : null))
