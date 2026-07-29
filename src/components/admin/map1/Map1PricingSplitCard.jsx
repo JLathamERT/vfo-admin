@@ -11,15 +11,20 @@
 // Admin surface only; the caller gates it out of the member view. Tax planners never
 // reach the MAP 1 tab at all.
 //
-// UNITS: member_share / vfos_share are dollars of the WHOLE engagement, and each
-// installment pays share ÷ gross × installment — the same proration the payout engine
-// (contract-revshare.ts) uses. The table shows the per-installment dollars.
+// UNITS: member_share / vfos_share are dollars of the WHOLE engagement. The MEMBER leg
+// pays its entered share IN FULL, split across the installments by cumulative difference
+// so the parts sum exactly to the share. The strategic-partner and VFOS legs are still
+// gross-prorated (share ÷ gross × installment). Both match the payout engine
+// (contract-revshare.ts). The table shows the per-installment dollars.
 
 const money = v => parseFloat(String(v ?? '0').replace(/[,$]/g, '')) || 0
 const round2 = x => Math.round(x * 100) / 100
 const fmt = n => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 const TERMINAL = ['Yes', 'Money Mapping', 'N/A — No Share Due']
+// Non-terminal: the share is due but the member has no payout account yet. The nightly
+// sweep pays it the moment one exists, so it must never read as settled.
+const AWAITING_CONNECT = 'Awaiting Connect Setup'
 
 function legNote(status, isHistoric) {
   if (isHistoric && status === 'N/A — No Share Due') return 'settled on old system'
@@ -27,6 +32,7 @@ function legNote(status, isHistoric) {
   if (status === 'Yes') return 'paid'
   if (status === 'Money Mapping') return 'money mapping'
   if (status === 'N/A — No Share Due') return 'no share due'
+  if (status === AWAITING_CONNECT) return 'awaiting payout setup'
   if (status === 'Failed') return 'failed — retrying'
   if (status === 'Pending') return 'in progress'
   return String(status).toLowerCase()
@@ -34,7 +40,7 @@ function legNote(status, isHistoric) {
 
 function noteColor(status) {
   if (status === 'Yes') return '#1b9254'
-  if (status === 'Failed') return '#b9451d'
+  if (status === AWAITING_CONNECT || status === 'Failed') return '#b9451d'
   return 'var(--vfo-muted)'
 }
 
@@ -57,15 +63,25 @@ export default function Map1PricingSplitCard({ plan, expanded, onToggle }) {
   const vfosRaw = plan?.vfos_share == null || plan?.vfos_share === '' ? null : money(plan.vfos_share)
   const stratRaw = plan?.strategic_partner_share == null || plan?.strategic_partner_share === '' ? null : money(plan.strategic_partner_share)
 
-  // Same proration as the payout engine, applied identically to every leg.
+  // Gross proration — still what the strategic-partner and VFOS legs get.
   const portion = raw => (raw == null ? null : (gross > 0 ? round2((raw / gross) * perInstalment) : round2(raw / n)))
+
+  // The member leg pays the entered share IN FULL. Installment k gets the difference
+  // between the running totals, so the parts sum exactly to the share and no dollars are
+  // lost to rounding. It is NOT scaled by net/gross any more: the Member Share is entered
+  // already net of any member contribution.
+  const memberPortion = (raw, k) => {
+    if (raw == null) return null
+    const cum = i => round2((raw * i) / n)
+    return round2(cum(k) - cum(k - 1))
+  }
 
   const isHistoric = !!plan?.legacy_source
 
   const rows = [
-    { key: 'member', name: 'Member', per: portion(memberRaw) },
-    ...(stratRaw ? [{ key: 'strat', name: 'Strategic partner', per: portion(stratRaw) }] : []),
-    { key: 'vfos', name: 'VFO Services', per: portion(vfosRaw) },
+    { key: 'member', name: 'Member', per: k => memberPortion(memberRaw, k) },
+    ...(stratRaw ? [{ key: 'strat', name: 'Strategic partner', per: () => portion(stratRaw) }] : []),
+    { key: 'vfos', name: 'VFO Services', per: () => portion(vfosRaw) },
   ]
 
   const instalments = Array.from({ length: n }, (_, i) => i + 1)
@@ -131,9 +147,10 @@ export default function Map1PricingSplitCard({ plan, expanded, onToggle }) {
                       // the VFO and strategic figures are informational.
                       const status = r.key === 'member' ? plan?.[`rec${i}_rev_paid`] : null
                       const note = legNote(status, isHistoric)
+                      const per = r.per(i)
                       return (
                         <td key={i} style={td}>
-                          {r.per == null ? '—' : fmt(r.per)}
+                          {per == null ? '—' : fmt(per)}
                           {note && <div style={{ fontSize: '10px', color: noteColor(status) }}>{note}</div>}
                         </td>
                       )

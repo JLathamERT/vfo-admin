@@ -46,6 +46,13 @@ const isPlannerEditable = (task) => PLANNER_EDITABLE_TASK_NAMES.has(task?.name)
 // backend constants/tax-discount.ts; delete both to retire the special case).
 const DISCOUNT_MEMBER_NUMBER = '59073'
 
+// "Other (See notes)" — a permanent trailing entry in the Tax 5 specialist
+// picker that allocates a row with NO linked expert (expert_id stays null and
+// the backend sets the name). The sentinel is a string that can never collide
+// with an expert id, and the entry is deliberately exempt from the
+// already-allocated dedupe: one plan may carry several "Other" rows.
+const OTHER_SPEC_VALUE = '__other__'
+
 // A plan belongs to program (plan.program_id || 1): NULL/undefined is legacy
 // Holistic (program 1). A program view must render ONLY its own plans —
 // tax_load_plans returns every plan for the client regardless of program, so a
@@ -743,6 +750,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const [showAddSpec, setShowAddSpec] = useState(false)
   const [newSpecId, setNewSpecId] = useState('')
   const [loadingSpecs, setLoadingSpecs] = useState(true)
+  const [removingSpec, setRemovingSpec] = useState({})
   const [declineDrafts, setDeclineDrafts] = useState({})
   const [livePlan, setLivePlan] = useState(plan)
   const [extraMeetingPricingOpen, setExtraMeetingPricingOpen] = useState(false)
@@ -859,14 +867,59 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
 
   async function addSpecialist() {
     if (!newSpecId) return
-    const expert = specialists.find(s => s.id === parseInt(newSpecId))
-    if (!expert) return
+    // The "Other (See notes)" sentinel sends no expert — the backend creates the
+    // unlinked row and owns its name. Everything else resolves to a real expert.
+    let payload
+    if (newSpecId === OTHER_SPEC_VALUE) {
+      payload = { tax_plan_id: plan.id, other: true }
+    } else {
+      const expert = specialists.find(s => s.id === parseInt(newSpecId))
+      if (!expert) return
+      payload = { tax_plan_id: plan.id, expert_id: expert.id, specialist_name: expert.name }
+    }
     try {
-      await callApi('tax_add_specialist', { tax_plan_id: plan.id, expert_id: expert.id, specialist_name: expert.name })
+      const res = await callApi('tax_add_specialist', payload)
+      if (res?.error) { alert('Add failed: ' + res.error); return }
       setNewSpecId('')
       setShowAddSpec(false)
       loadSpecialists()
-    } catch (err) { console.error(err) }
+    } catch (err) {
+      console.error(err)
+      alert('Add failed: ' + (err?.message || 'unknown error'))
+    }
+  }
+
+  // Saved steps for one specialist live under the composite `${task.id}_${spec.id}`
+  // progress key built in saveTask — count back off that same key so the confirm
+  // text matches exactly what the backend is about to delete.
+  const specialistStepCount = (specId) =>
+    Object.keys(localProgress).filter(k => String(k).endsWith(`_${specId}`) && !!localProgress[k]?.status).length
+
+  // Remove an allocation. Admins and tax planners both get this (gated the same
+  // way as Add — members never see it). The backend deletes the specialist's
+  // step-progress rows before the specialist itself, so the local progress keyed
+  // to them is dropped in the same pass and can't linger as stale step data.
+  async function removeSpecialist(spec) {
+    if (removingSpec[spec.id]) return
+    const steps = specialistStepCount(spec.id)
+    if (!confirm(`Remove ${spec.specialist_name} from this plan? This will also clear ${steps} saved step(s) for them. This cannot be undone.`)) return
+    setRemovingSpec(p => ({ ...p, [spec.id]: true }))
+    try {
+      const res = await callApi('tax_remove_specialist', { tax_plan_id: plan.id, specialist_id: spec.id })
+      if (res?.error) { alert('Remove failed: ' + res.error); return }
+      setLocalProgress(p => {
+        const next = { ...p }
+        Object.keys(next).forEach(k => { if (String(k).endsWith(`_${spec.id}`)) delete next[k] })
+        return next
+      })
+      setExpanded(p => { const next = { ...p }; delete next[`spec_${spec.id}`]; return next })
+      loadSpecialists()
+    } catch (err) {
+      console.error(err)
+      alert('Remove failed: ' + (err?.message || 'unknown error'))
+    } finally {
+      setRemovingSpec(p => ({ ...p, [spec.id]: false }))
+    }
   }
 
   async function saveTask(taskId, status, existingDate, taxSpecialistId = null) {
@@ -2447,6 +2500,11 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 <select value={newSpecId} onChange={e => setNewSpecId(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)', width: '100%', marginBottom: '8px', padding: '8px 12px' }}>
                   <option value="">-- Select Specialist --</option>
                   {specialists.filter(s => !taxSpecialists.some(ts => ts.expert_id === s.id)).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  {/* Permanent trailing entry, after every real specialist and
+                      outside the dedupe filter — `specialists` is already the
+                      effective list (admin roster or planner roster), so this
+                      shows on both surfaces and stays repeatable. */}
+                  <option value={OTHER_SPEC_VALUE}>Other (See notes)</option>
                 </select>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button onClick={addSpecialist} style={{ padding: '6px 16px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>Add</button>
@@ -2470,7 +2528,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                       <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--vfo-ink)' }}>{spec.specialist_name}</span>
                       <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: spec.status === 'stopped' ? 'rgba(231,76,60,0.15)' : 'rgba(27,146,84,0.15)', color: spec.status === 'stopped' ? '#e74c3c' : '#1b9254', border: `1px solid ${spec.status === 'stopped' ? 'rgba(231,76,60,0.3)' : 'rgba(27,146,84,0.3)'}` }}>{spec.status === 'stopped' ? 'Stopped' : 'Live'}</span>
                     </div>
-                    <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isSpecExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {!readOnly && (
+                        <span onClick={e => { e.stopPropagation(); removeSpecialist(spec) }} style={{ fontSize: '11px', fontWeight: 500, color: '#e74c3c', cursor: removingSpec[spec.id] ? 'not-allowed' : 'pointer', opacity: removingSpec[spec.id] ? 0.6 : 1 }}>
+                          {removingSpec[spec.id] ? 'Removing...' : 'Remove'}
+                        </span>
+                      )}
+                      <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isSpecExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                    </div>
                   </div>
                   {isSpecExpanded && (
                     <div style={{ borderTop: '1px solid var(--vfo-border-soft)', padding: '8px 14px' }}>

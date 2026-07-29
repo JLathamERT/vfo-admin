@@ -134,6 +134,10 @@ function ExpandedRow({ row, onRefresh }) {
   const revDecision = (paidVal, share) => {
     if (paidVal === 'Money Mapping') return 'Money Mapping'
     if (paidVal === 'N/A — No Share Due') return 'No share due'
+    // Non-terminal: the share is due but the member has no Stripe payout account. The
+    // nightly sweep pays it once one exists, so say so rather than letting it fall
+    // through to the generic "Revenue Share" and read as ordinary.
+    if (paidVal === 'Awaiting Connect Setup') return 'Share held — payout setup needed'
     if (share || paidVal === 'Yes' || paidVal === 'Failed') return 'Revenue Share'
     return null
   }
