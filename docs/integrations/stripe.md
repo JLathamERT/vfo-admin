@@ -160,6 +160,25 @@ Two cases (lines 394-438):
 
 > **How `metadata.payment_number` gets set for payments 2-4:** by `automation_CONTRACT_chargescheduled_sweep`, a daily-`pg_cron`-driven PUBLIC action (service-role gated). It uses the saved-on-customer payment method (captured by P1's `setup_future_usage: off_session`), creates the PaymentIntent server-side with `Idempotency-Key: chargescheduled-{client_id}-P{N}-{YYYY-MM-DD}`, and stamps `metadata.payment_number=N` so this webhook branch fires the correct chain. See [flows/contract-and-payment.md](../flows/contract-and-payment.md) Step 10½ and [flows/stripe-webhook.md](../flows/stripe-webhook.md).
 
+### `checkout.session.expired` — abandonment detection (added 2026-07-28, v667)
+
+Until this event was consumed, a payer who opened a hosted Checkout page and walked away was **completely invisible**: nothing was charged, nothing was written, and no sweep looked at the row (gotcha #296 — a $800/mo recurring plan sat abandoned for 14 days). `router/webhooks.ts` now carries ONE additive, isolated block on `checkout.session.expired`, handled for the **two VFO Specialist Revenue pipelines ONLY** and branching on `session.metadata.pipeline`:
+
+| `metadata.pipeline` | Resolved by | Acts only while | Raises |
+|---|---|---|---|
+| `VFO_SPECIALIST_REVENUE_RECURRING` | `metadata.plan_id` → `specialist_revenue_recurring_plans` | `status='setup_pending'` | `SPECREV_checkout_abandoned_bell` |
+| `VFO_SPECIALIST_REVENUE` | `metadata.request_id` → `specialist_revenue_requests` (falls back to `session.customer`) | `payment_status='requested'` | `SPECREV_checkout_abandoned_bell` |
+
+Both branches carry the standard `event.livemode` vs row `sandbox` mode-mismatch guard and bell Tracy + Jake (dismissible FYI, `dedupe:"unread"`; the message says the link the payer already has still works, because a SPECREV setup link stays valid while the row is unresolved). Three things to know before extending this (gotcha #299):
+
+- **It only fires if the Stripe endpoint subscribes to `checkout.session.expired`** — same config dependency as `invoice.finalized` and `checkout.session.async_payment_succeeded`. Subscribed on both the live and sandbox endpoints as of 2026-07-28.
+- **An expired session has no PaymentIntent, so `payment_intent_data[metadata]` is ABSENT from the event** — only `session.metadata` survives. The one-off SPECREV builder previously stamped the request id only under `payment_intent_data`, so expiry could not be routed; it now also appends `metadata[request_id]` at session level. **Any session whose expiry you may want to consume must carry its routing keys in the SESSION metadata.**
+- **The block is deliberately scoped to those two pipelines.** Every other pipeline's expired sessions fall through untouched — MAP 1 / Tax / onboarding sessions expire routinely and harmlessly. A new abandonment consumer must add its own `session.metadata.pipeline` branch inside the same block, never act on every expired session.
+
+Expiry timing differs by mode: the SPECREV recurring session is capped to **1 hour** via `expires_at` (so the billing anchor is still in the future at completion); a one-off Checkout session uses Stripe's **24 hour** default.
+
+**Related — SPECREV ACH verification (same deploy).** Neither SPECREV checkout builder sets `payment_method_options[us_bank_account][verification_method]` any more. The removed `'instant'` pin restricted the hosted page to the Financial Connections bank-login flow with **no manual account/routing fallback**; omitting the parameter falls back to Stripe's `automatic` default = instant login **plus** manual entry with 1-2 business-day micro-deposits. Consequence to design around: `checkout.session.completed` fires **at submit** even while micro-deposit verification is pending, so a recurring plan flips to `active` **before the bank is verified**; an unverified bank at charge day surfaces through the existing `invoice.payment_failed` branch (bell, plan stays active, Stripe retries). **Never re-add `'instant'` to a SPECREV builder, and do not add a second verification gate** (gotcha #298). The MAP 1 and Phase-D card-update sessions documented elsewhere in this file keep their own `verification_method` settings — this change is SPECREV-only.
+
 ### Failure events (added 2026-06-15)
 
 Every money-movement failure routes an alert to Jake's bell via `utils/notify-jake-failure.ts` (`notifyJakeFailure`, with an `actionRequired` flag + `clearJakeFailure`/`clearJakeFailuresContaining` for auto-clear), in ADDITION to any existing Tracy/admin/PF alert. A shared `utils/resolve-stripe-failure.ts` maps a Stripe customer + metadata to the right pipeline row + status column (same cascade as `checkout.session.completed`).

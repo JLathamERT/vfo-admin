@@ -186,6 +186,7 @@ export const TEMPLATE_META = {
   ],
   'CLIENT_PAYMENT_CONTINUATION': [
     ['setup_link', 'Migrated client — link to add their card or bank account so payments can continue', 'To: Client'],
+    ['setup_link_reminder', 'Nudges a migrated client who was sent the payment-method setup link but never saved a card or bank', 'To: Client'],
   ],
   'MEMBER_MEMBERSHIP_FEES': [
     ['MEMBERSHIP_setup_link', 'Membership fee plan created — link where the member pays their first payment and saves their card or bank account', 'To: Member'],
@@ -222,6 +223,7 @@ export const TEMPLATE_META = {
     ['SPECREV_connect_setup', 'A recipient needs to set up their payment details (Stripe Connect) before they can be paid', 'To: Recipient (member / specialist)'],
     ['SPECREV_recurring_setup', 'The recurring setup link — asks the specialist to authorize an automatic monthly ACH payment', 'To: Specialist'],
     ['SPECREV_recurring_setup_confirmation', 'The specialist finished recurring ACH setup — confirms the monthly amount and charge day', 'To: Specialist'],
+    ['SPECREV_recurring_setup_reminder', 'Nudges a specialist who was sent the recurring ACH setup link but never completed it', 'To: Specialist'],
   ],
   'MEMBER_PAYOUT': [
     ['member_connect_setup', 'Member payout setup — Stripe Connect onboarding link so they can receive revenue share', 'To: Member'],
