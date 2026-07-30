@@ -1,6 +1,6 @@
 # Tables
 
-52 public-schema tables in Supabase project `ejpsprsmhpufwogbmxjv` (VFO Showroom). All tables documented in this directory; this file is the index by group.
+Public-schema tables in Supabase project `ejpsprsmhpufwogbmxjv` (VFO Showroom), indexed by group below. **The "52" this line used to assert is stale and was not re-counted at the 2026-07-30 audit** — many sessions have added tables since (most recently `vault_upload_tokens`); **verify the real count with MCP `list_tables`, never from this line.**
 
 Read-only schema mapping — column lists, types, defaults, FKs, and which actions/files touch each table. No commentary about whether the design is "good," only about what exists.
 
@@ -17,7 +17,7 @@ Read-only schema mapping — column lists, types, defaults, FKs, and which actio
 | [specialists.md](specialists.md) | `experts`, `vfo_ecosystem_assignments`, `specialist_onboarding`, `specialist_onboarding_meetings`, `specialist_onboarding_progress`, `specialist_onboarding_votes` | Specialist roster, ecosystem tags, onboarding workflow |
 | [coaching.md](coaching.md) | `coaching_meetings`, `coaching_renewals` | Member-coaching meetings and renewal log |
 | [marketplace-gc.md](marketplace-gc.md) | `gc_balances`, `gc_redemptions`, `gc_services`, `gc_transactions` | "Gift credit" marketplace — credits balance, services catalog, ledger |
-| [pipeline.md](pipeline.md) | `pipelines`, `pipeline_map1`, `pipeline_sandbox_config`, `card_update_tokens` | The automation pipeline registry + the **central MAP1 row** (`pipeline_map1`) driving the contract/payment chain + the Phase D admin card-update token. **NOTE:** `advisor_onboarding` / `accountant_onboarding` have **no column-by-column table doc** — despite the long-standing claim on this line, `pipeline.md` never documented them. Their columns are described per-handler in [../architecture/05-api-action-catalog.md](../architecture/05-api-action-catalog.md) (the Advisor / Accountant onboarding sections) and in the gotcha registry. Newest advisor columns: `implementation_value_vfo_ft` / `implementation_value_pft` / `implementation_value_at` (migration `20260730100000`, gotcha #307). |
+| [pipeline.md](pipeline.md) | `pipelines`, `pipeline_map1`, `pipeline_sandbox_config`, `card_update_tokens`, `vault_upload_tokens` | The automation pipeline registry + the **central MAP1 row** (`pipeline_map1`) driving the contract/payment chain + the Phase D admin card-update token + (2026-07-30) the durable vault "Request documentation" upload token. **NOTE:** `advisor_onboarding` / `accountant_onboarding` have **no column-by-column table doc** — despite the long-standing claim on this line, `pipeline.md` never documented them. Their columns are described per-handler in [../architecture/05-api-action-catalog.md](../architecture/05-api-action-catalog.md) (the Advisor / Accountant onboarding sections) and in the gotcha registry. Newest advisor columns: `implementation_value_vfo_ft` / `implementation_value_pft` / `implementation_value_at` (migration `20260730100000`, gotcha #307). |
 | [documents.md](documents.md) | `agreement_templates`, `email_templates`, `document_numbers` | BoldSign agreement templates, automation email copy, sequential invoice/receipt numbers |
 | [notifications.md](notifications.md) | `notifications` | In-portal notification feed |
 
@@ -32,11 +32,13 @@ Read-only schema mapping — column lists, types, defaults, FKs, and which actio
 
 ## CHECK constraints (whole DB)
 
-Three non-null CHECK constraints exist (verified `pg_catalog`):
+Five non-null CHECK constraints exist (the first three verified against `pg_catalog`; the last two added by migration `20260730120000_vault_request_docs.sql` and not re-verified against the catalog at that audit):
 
 - `ciq_priorities.decision IN ('drop', 'park', 'prioritize')`
 - `client_ciqs.status IN ('draft', 'completed')`
 - `card_update_tokens.person_type IN ('client', 'member', 'specialist')` (Phase D)
+- `vault_upload_tokens.entity_type IN ('client', 'member', 'specialist')` (2026-07-30 — **widen this together with `resolveVaultPerson` and `VAULT_REQUEST_BUCKETS`**, gotcha #310)
+- `vault_upload_tokens.section IN ('sensitive', 'general')` (2026-07-30 — the ERT/VFOS third vault section is deliberately not addressable, #204)
 
 Every other status/decision column is **convention-only** — values like `'Yes'/'No'`, `'pending'/'live'/'paid'`, etc. are not constrained at the DB level; the admin-api enforces them.
 
