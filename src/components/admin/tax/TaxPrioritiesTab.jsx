@@ -2387,6 +2387,11 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const requestedAt = livePlan?.additional_info_requested_at
       const receivedAt = livePlan?.additional_info_received_at
       const done = !!receivedAt
+      // Written replies from the /tax-upload page (oldest first, as appended
+      // server-side). Either a written reply or an upload stamps receivedAt.
+      const responses = Array.isArray(livePlan?.additional_info_responses) ? livePlan.additional_info_responses : []
+      const respKey = `addinfo_resp_${task.id}`
+      const respShown = expanded[respKey]
       const clientFull = client ? `${client.first_name || ''} ${client.last_name || ''}`.trim() : ''
       const clientFirst = clientFull ? clientFull.split(/\s+/)[0] : ''
       const draft = declineDrafts[task.id] || {}
@@ -2480,6 +2485,27 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                     {aiStep('Request email sent to client', !!requestedAt)}
                     {aiStep('Additional information received', !!receivedAt)}
                   </div>
+                </div>
+              )}
+              {responses.length > 0 && (
+                <div style={{ borderBottom: '1px solid var(--vfo-border-soft)', padding: '7px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flexWrap: 'wrap' }} onClick={() => setExpanded(prev => ({ ...prev, [respKey]: !prev[respKey] }))}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1b9254', flexShrink: 0, border: '1.5px solid #1b9254' }} />
+                    <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: 1 }}>Client explanation</span>
+                    <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', border: '1px solid #1b925444' }}>Submitted</span>
+                    <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{formatStamp(responses[responses.length - 1]?.at)}</span>
+                    <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: respShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                  </div>
+                  {respShown && (
+                    <div style={{ marginLeft: '18px', padding: '16px', background: 'var(--vfo-tint)', borderRadius: '10px', border: '1px solid var(--vfo-tint-deep)', marginTop: '4px', marginBottom: '8px' }}>
+                      {responses.slice().reverse().map((r, i) => (
+                        <div key={i} style={{ marginBottom: i === responses.length - 1 ? 0 : '12px' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginBottom: '4px' }}>{formatStamp(r?.at)}</div>
+                          <div style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', fontFamily: 'Inter, sans-serif', opacity: 0.6, whiteSpace: 'pre-wrap' }}>{r?.text || '—'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </>
@@ -2696,12 +2722,21 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               const specExpKey = `spec_${spec.id}`
               const allSpecDone = specTasks.every(t => localProgress[`${t.id}_${spec.id}`]?.status)
               const isSpecExpanded = expanded[specExpKey] !== undefined ? expanded[specExpKey] : !allSpecDone
+              // Header pill reflects this specialist's 'Confirm ready for
+              // implementation' answer (client_tax_specialists.status is never
+              // written, so the legacy stopped branch is kept but inert).
+              const confirmSt = confirmReadyTask ? localProgress[`${confirmReadyTask.id}_${spec.id}`]?.status : ''
+              const specPill = spec.status === 'stopped' ? { label: 'Stopped', hex: '#e74c3c', rgb: '231,76,60' }
+                : confirmSt === 'Yes' ? { label: 'Ready', hex: '#1b9254', rgb: '27,146,84' }
+                : confirmSt === 'Undecided' ? { label: 'Undecided', hex: '#e06717', rgb: '224,103,23' }
+                : confirmSt === 'No' ? { label: 'Not Proceeding', hex: '#e74c3c', rgb: '231,76,60' }
+                : null
               return (
                 <div key={spec.id} style={{ background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', marginBottom: '8px', overflow: 'hidden' }}>
                   <div onClick={() => setExpanded(p => ({ ...p, [specExpKey]: !isSpecExpanded }))} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--vfo-ink)' }}>{spec.specialist_name}</span>
-                      <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: spec.status === 'stopped' ? 'rgba(231,76,60,0.15)' : 'rgba(27,146,84,0.15)', color: spec.status === 'stopped' ? '#e74c3c' : '#1b9254', border: `1px solid ${spec.status === 'stopped' ? 'rgba(231,76,60,0.3)' : 'rgba(27,146,84,0.3)'}` }}>{spec.status === 'stopped' ? 'Stopped' : 'Live'}</span>
+                      <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: specPill ? `rgba(${specPill.rgb},0.15)` : 'var(--vfo-tint)', color: specPill ? specPill.hex : 'var(--vfo-muted)', border: `1px solid ${specPill ? `rgba(${specPill.rgb},0.3)` : 'var(--vfo-border-chip)'}` }}>{specPill ? specPill.label : 'Pending Decision'}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       {!readOnly && (

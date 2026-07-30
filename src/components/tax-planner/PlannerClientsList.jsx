@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { callApi } from '../../lib/api'
 import { ListHeader } from '../shared/TrackKit'
 import { DirectoryListSkeleton } from '../shared/Skeleton'
 
 const STORAGE_KEY = 'taxPlannerListIncluded'
+const ROSTER_KEY = 'taxPlannerListRoster'
 
-function readIncluded() {
+function readIds(key) {
   try {
-    const raw = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '[]')
+    const raw = JSON.parse(sessionStorage.getItem(key) || '[]')
     if (Array.isArray(raw)) return raw.map(Number).filter(Number.isFinite)
   } catch { /* ignore malformed */ }
   return []
@@ -23,31 +24,45 @@ export default function PlannerClientsList() {
   const [selfId, setSelfId] = useState(null)
   const [selfRole, setSelfRole] = useState('Tax Planner')
   const [search, setSearch] = useState('')
-  const [included, setIncluded] = useState(() => readIncluded())
+  const [included, setIncluded] = useState(() => readIds(STORAGE_KEY))
   const [filterOpen, setFilterOpen] = useState(false)
-  const filterRef = useRef(null)
 
-  async function load(includedIds) {
+  // One fetch pulls every client the caller is authorized to see (the backend
+  // intersects the requested ids with the group roster), and the checkboxes then
+  // filter in memory. The roster is only known from a response, so it is cached:
+  // the very first mount may need a second call to widen to the full group, every
+  // later mount is a single request.
+  async function load(rosterIds, allowWiden) {
     setLoading(true)
     setLoadError('')
+    let widenTo = null
     try {
-      const payload = includedIds && includedIds.length > 0 ? { planner_ids: includedIds } : {}
+      const payload = rosterIds.length > 0 ? { planner_ids: rosterIds } : {}
       const data = await callApi('tax_planner_portal_clients', payload)
+      const roster = (data.group || []).map(g => g.id)
+      const role = data.self_role || 'Tax Planner'
       setRows(data.clients || [])
       setGroup(data.group || [])
       setSelfId(data.self_id ?? null)
-      setSelfRole(data.self_role || 'Tax Planner')
+      setSelfRole(role)
+      sessionStorage.setItem(ROSTER_KEY, JSON.stringify(roster))
+      // An empty request means "self only" for a planner but "whole partnership"
+      // for a team member, so only the planner case can come back short.
+      const covered = (role === 'Team Member' && rosterIds.length === 0) ||
+        roster.every(id => id === data.self_id || rosterIds.includes(id))
+      if (!covered && allowWiden) widenTo = roster
     } catch (err) {
       setLoadError(err.message || 'Failed to load clients.')
     } finally {
-      setLoading(false)
+      // Stay in the loading state across the widening call so the list never
+      // settles on a half-populated view.
+      if (widenTo) load(widenTo, false)
+      else setLoading(false)
     }
   }
 
   useEffect(() => {
-    const restored = readIncluded()
-    const ids = restored.length > 0 ? restored : null
-    load(ids)
+    load(readIds(ROSTER_KEY), true)
   }, [])
 
   const isTeamMember = selfRole === 'Team Member'
@@ -56,37 +71,19 @@ export default function PlannerClientsList() {
   // every planner in the partnership. The role only arrives with the load
   // response, so mirror that default into the checkboxes once it lands.
   useEffect(() => {
-    if (!isTeamMember || group.length === 0) return
-    setIncluded(prev => {
-      if (prev.length > 0) return prev
-      const all = group.map(g => g.id)
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(all))
-      return all
-    })
-  }, [isTeamMember, group])
-
-  useEffect(() => {
-    if (!filterOpen) return
-    function onDocClick(e) {
-      if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false)
-    }
-    document.addEventListener('mousedown', onDocClick)
-    return () => document.removeEventListener('mousedown', onDocClick)
-  }, [filterOpen])
+    if (!isTeamMember || group.length === 0 || included.length > 0) return
+    const all = group.map(g => g.id)
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(all))
+    setIncluded(all)
+  }, [isTeamMember, group, included])
 
   function toggleInclude(id) {
-    setIncluded(prev => {
-      let next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-      // Clearing every box still shows all clients (the backend falls back to the
-      // whole partnership), so snap back to all-checked instead of an empty filter.
-      if (isTeamMember && next.length === 0) next = group.map(g => g.id)
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-      // Self is a planner only for planner callers; a team member filters purely
-      // by the planners they ticked.
-      const idsToLoad = !isTeamMember && selfId != null ? [selfId, ...next] : next
-      load(idsToLoad)
-      return next
-    })
+    let next = included.includes(id) ? included.filter(x => x !== id) : [...included, id]
+    // Clearing every box would leave a team member with nothing, so snap back to
+    // all-checked — their default view is the whole partnership.
+    if (isTeamMember && next.length === 0) next = group.map(g => g.id)
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    setIncluded(next)
   }
 
   const others = useMemo(
@@ -97,19 +94,26 @@ export default function PlannerClientsList() {
   // For a team member "all checked" is the default, not an active filter.
   const filterActive = included.length > 0 && (!isTeamMember || included.length < others.length)
 
+  // Every authorized row is already in state; the checkboxes narrow it here so a
+  // tick costs no round-trip. A planner always keeps their own clients in view.
+  const visible = useMemo(() => {
+    if (isTeamMember) return included.length === 0 ? rows : rows.filter(r => included.includes(r.planner_id))
+    return rows.filter(r => r.planner_id === selfId || included.includes(r.planner_id))
+  }, [rows, included, isTeamMember, selfId])
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter(r =>
+    if (!q) return visible
+    return visible.filter(r =>
       (r.client_name || '').toLowerCase().includes(q) ||
       (r.client_ref || '').toLowerCase().includes(q) ||
       (r.member_name || '').toLowerCase().includes(q)
     )
-  }, [rows, search])
+  }, [visible, search])
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
 
-  if (loading) {
+  if (loading && rows.length === 0) {
     return (
       <div style={{ maxWidth: '880px', margin: '0 auto', padding: '28px 24px' }}>
         <DirectoryListSkeleton />
@@ -128,24 +132,28 @@ export default function PlannerClientsList() {
       <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
         <input placeholder="Search by client, ref, or member..." style={inputStyle} onChange={e => setSearch(e.target.value)} value={search} />
         {others.length > 0 && (
-          <div ref={filterRef} style={{ position: 'relative', flexShrink: 0 }}>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
             <button
               onClick={() => setFilterOpen(o => !o)}
-              style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: filterActive ? 'rgba(0,149,255,0.08)' : 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' }}>
+              style={{ padding: '9px 16px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: filterActive ? 'rgba(18,94,204,0.1)' : 'var(--vfo-input)', color: filterActive ? '#125ecc' : 'var(--vfo-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               {isTeamMember ? 'Tax Planners' : 'Group'}{filterActive ? ` (${included.length})` : ''}
+              <span style={{ fontSize: '9px', opacity: 0.6 }}>▾</span>
             </button>
             {filterOpen && (
-              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50, minWidth: '240px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '12px', boxShadow: '0 8px 28px rgba(20,45,95,0.16)', padding: '10px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--vfo-faint)', padding: '4px 8px 8px' }}>{isTeamMember ? 'Show clients by planner' : 'Include group clients'}</div>
-                {others.map(g => (
-                  <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', color: 'var(--vfo-ink)' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-tint)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <input type="checkbox" checked={included.includes(g.id)} onChange={() => toggleInclude(g.id)} style={{ cursor: 'pointer' }} />
-                    Include {g.name}'s clients
-                  </label>
-                ))}
-              </div>
+              <>
+                <div onClick={() => setFilterOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
+                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '6px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border)', borderRadius: '12px', minWidth: '220px', zIndex: 200, padding: '8px 0', boxShadow: '0 14px 36px rgba(20,45,95,0.16)', maxHeight: '380px', overflowY: 'auto' }}>
+                  <div style={{ padding: '6px 14px 10px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>{isTeamMember ? 'Show clients by planner' : 'Include group clients'}</div>
+                    {others.map(g => (
+                      <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0', fontSize: '13px', color: 'var(--vfo-ink)', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={included.includes(g.id)} onChange={() => toggleInclude(g.id)} style={{ accentColor: '#125ecc', cursor: 'pointer' }} />
+                        Include {g.name}'s clients
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
           </div>
         )}

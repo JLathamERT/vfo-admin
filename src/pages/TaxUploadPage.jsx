@@ -38,6 +38,12 @@ export default function TaxUploadPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [drag, setDrag] = useState(false)
+  const [note, setNote] = useState('')
+  const [sending, setSending] = useState(false)
+  const [noteSent, setNoteSent] = useState(false)
+  // Separate from `error` so a send failure surfaces next to the Send button
+  // rather than up by the dropzone, off the bottom of the client's screen.
+  const [noteError, setNoteError] = useState('')
 
   async function handleFiles(fileList) {
     if (!token) { setError('This link is invalid or missing its token.'); return }
@@ -51,6 +57,22 @@ export default function TaxUploadPage() {
       } catch (e) { setError(e.message || 'Upload failed') }
     }
     setBusy(false)
+  }
+
+  async function sendNote() {
+    const text = note.trim()
+    if (!token || !text) return
+    setSending(true); setNoteError('')
+    try {
+      const r = await fetch(API_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'vault_tax_text_submit', token, text }),
+      })
+      const d = await r.json()
+      if (!r.ok || !d.success) throw new Error(d.error || 'Could not send your explanation')
+      setNote(''); setNoteSent(true)
+    } catch (e) { setNoteError(e.message || 'Could not send your explanation') }
+    setSending(false)
   }
 
   const card = { background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '12px', padding: '28px' }
@@ -98,6 +120,39 @@ export default function TaxUploadPage() {
               </p>
             </div>
           )}
+
+          <div style={{ marginTop: '26px', paddingTop: '22px', borderTop: '1px solid var(--vfo-border-chip)' }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '6px' }}>Or write an explanation</div>
+            <p style={{ color: 'var(--vfo-muted)', fontSize: '13px', lineHeight: 1.5, margin: '0 0 12px' }}>
+              If what we asked for isn't a document, just tell us here — your message goes straight to your tax team.
+            </p>
+            <textarea
+              rows={5}
+              value={note}
+              onChange={e => { setNote(e.target.value); setNoteSent(false); setNoteError('') }}
+              disabled={sending}
+              placeholder="Type your explanation or additional details here..."
+              style={{
+                ...card, padding: '14px 16px', width: '100%', boxSizing: 'border-box', resize: 'vertical',
+                fontFamily: 'inherit', fontSize: '14px', lineHeight: 1.55, color: 'var(--vfo-ink)',
+              }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+              <button
+                onClick={sendNote}
+                disabled={sending || !note.trim()}
+                style={{
+                  padding: '10px 22px', borderRadius: '8px', fontSize: '14px', fontWeight: 600,
+                  cursor: (sending || !note.trim()) ? 'not-allowed' : 'pointer',
+                  border: '1px solid rgba(0,149,255,0.4)',
+                  background: (sending || !note.trim()) ? 'rgba(0,149,255,0.06)' : 'rgba(0,149,255,0.18)',
+                  color: '#0095ff',
+                }}
+              >{sending ? 'Sending…' : 'Send'}</button>
+              {noteSent && <span style={{ color: '#1b9254', fontSize: '13px', fontWeight: 500 }}>Explanation sent — thank you.</span>}
+              {noteError && <span style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px' }}>{noteError}</span>}
+            </div>
+          </div>
         </>
       )}
     </TokenShell>
