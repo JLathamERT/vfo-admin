@@ -174,3 +174,28 @@ A person-keyed one-time token backing the admin-initiated payment-method-change 
 **Index:** `idx_card_update_tokens_token` ON `token`.
 
 **Email:** the link is delivered by the `card_update` email (`email_templates` id 156, pipeline `PAYMENTS`; placeholders `[First Name]` / `[UPDATE_LINK]`).
+
+---
+
+## `vault_upload_tokens` (vault "Request documentation", added 2026-07-30)
+
+A **durable** per-`(entity_type, entity_key, section)` token backing the public `/vault-upload?token=` page. An admin clicks "Request documentation" on the Sensitive or General section of a client / member / specialist vault; the handler mints the row on the first request and **reuses it on every resend**, so every email ever sent against that section keeps working. Cross-domain in the same way `card_update_tokens` is — `entity_type` decides which table names the person AND which storage bucket receives the upload. Created by migration `20260730120000_vault_request_docs.sql`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | identity pk |
+| `token` | text | not null, **UNIQUE**. Minted with `token32()`. Embedded in the `/vault-upload?token=…` link. **This row is the entire credential** for the two PUBLIC actions — there is no session, no gate and no body-supplied destination (gotcha #310). |
+| `entity_type` | text | not null, **CHECK IN (`'client'`, `'member'`, `'specialist'`)**. Selects the person lookup (`clients.id` / `members.member_number` / `experts.id`) via the exported `resolveVaultPerson`, and the bucket family. |
+| `entity_key` | text | not null. The person identifier, interpreted per `entity_type` — and **also the storage path prefix** (`<entity_key>/<rand16>_<filename>`), which is what confines one person's uploads away from another's. |
+| `section` | text | not null, **CHECK IN (`'sensitive'`, `'general'`)**. Selects the bucket within the family via `VAULT_REQUEST_BUCKETS`: client → `client-tax-returns` / `client-documents`, member → `member-tax-returns` / `member-vault`, specialist → `specialist-tax-returns` / `specialist-documents`. The ERT/VFOS third vault section is deliberately NOT addressable (#204). |
+| `created_at` | timestamptz | not null, default `now()` |
+| `last_requested_at` | timestamptz | nullable. Stamped every time the request email is drafted — including resends against the reused token. |
+| `last_upload_at` | timestamptz | nullable. Stamped best-effort by `vault_request_upload_notify` after a successful upload; a failure here is logged, never fatal. |
+
+**Constraints:** `UNIQUE(token)` + **`UNIQUE(entity_type, entity_key, section)`** — the second is the durability guarantee (one token per section, forever). **RLS: deny-all** (`enable row level security` + `create policy "Deny all access" … USING (false)`) in the SAME migration per invariant #1 / gotcha #141; verified with an anon-key REST probe returning `Content-Range: */0`. All access is service-role through the edge function.
+
+**Note — no expiry column, and therefore no revoke.** Unlike `card_update_tokens` (`expires_at`) and `migration_setup_tokens` (single-use `used_at`), these tokens never expire and are never consumed. That is deliberate — a recipient who finds last month's email can still answer — but it means the only way to invalidate an outstanding link is to delete or rotate the row, which kills **every** link previously sent for that section.
+
+**Touched by:** written by `vault_request_docs` (insert-or-reuse + `last_requested_at`) and `vault_request_upload_notify` (`last_upload_at`); read by `vault_request_upload_url` and `vault_request_upload_notify` (both **PUBLIC**). **Not** related to `clients.tax_upload_token` / `/tax-upload`, which remain a separate system.
+
+**Email:** the link is delivered by the `VAULT_request_documentation` email (`email_templates`, pipeline `VAULT` — the only `VAULT`-pipeline row; `to ["RECIPIENT"]`, `cc ["MEMBER"]`, `send_mode=false` = Draft; placeholders `[Recipient Name]` / `[Recipient First]` / `[REQUESTED_INFO]` / `[UPLOAD_BUTTON]`). Arrival raises the `VAULT_requested_doc_uploaded` bell to Tray.

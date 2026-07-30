@@ -713,7 +713,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
 
           {specialistTab === 'vault' && (
             <div style={sectionStyle}>
-              <SpecialistAdminVault expertId={selectedExpert.id} />
+              <SpecialistAdminVault expertId={selectedExpert.id} recipientName={selectedExpert.name} recipientFirst={(selectedExpert.name || '').trim().split(/\s+/)[0]} />
             </div>
           )}
 
