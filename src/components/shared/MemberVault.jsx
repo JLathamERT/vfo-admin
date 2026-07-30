@@ -13,9 +13,11 @@ const MEMBER_VAULT_ACTIONS = {
   delete: 'vault_delete',
 }
 
-export default function MemberVault({ memberNumber, admin = false }) {
+export default function MemberVault({ memberNumber, admin = false, recipientName, recipientFirst }) {
   const sections = [
-    ...DEFAULT_VAULT_SECTIONS,
+    ...(admin
+      ? DEFAULT_VAULT_SECTIONS.map(s => ({ ...s, requestDocs: { entityType: 'member', entityKey: memberNumber, recipientName, recipientFirst } }))
+      : DEFAULT_VAULT_SECTIONS),
     admin ? ertAdminSection('member', memberNumber, 'member') : ertReadOnlySection(),
   ]
   return <VaultSections actions={MEMBER_VAULT_ACTIONS} params={{ member_number: memberNumber }} sections={sections} />

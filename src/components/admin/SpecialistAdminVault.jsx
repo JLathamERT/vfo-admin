@@ -16,8 +16,11 @@ const SPECIALIST_ADMIN_SECTIONS = [
   { key: 'general', title: 'General Documentation', hint: 'Documents in this specialist’s portal vault (Due Diligence files + anything they’ve added). You can add or remove documents here.' },
 ]
 
-export default function SpecialistAdminVault({ expertId }) {
+export default function SpecialistAdminVault({ expertId, recipientName, recipientFirst }) {
   if (!expertId) return null
-  const sections = [...SPECIALIST_ADMIN_SECTIONS, ertAdminSection('specialist', expertId, 'specialist')]
+  const sections = [
+    ...SPECIALIST_ADMIN_SECTIONS.map(s => ({ ...s, requestDocs: { entityType: 'specialist', entityKey: expertId, recipientName, recipientFirst } })),
+    ertAdminSection('specialist', expertId, 'specialist'),
+  ]
   return <VaultSections actions={SPECIALIST_ADMIN_VAULT_ACTIONS} params={{ expert_id: expertId }} sections={sections} />
 }

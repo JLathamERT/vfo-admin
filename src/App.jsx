@@ -26,6 +26,7 @@ import SpecialistPayPage from './pages/SpecialistPayPage'
 import SpecialistQuestionsPage from './pages/SpecialistQuestionsPage'
 import SpecialistDdcPage from './pages/SpecialistDdcPage'
 import TaxUploadPage from './pages/TaxUploadPage'
+import VaultUploadPage from './pages/VaultUploadPage'
 import ClientLogin from './pages/ClientLogin'
 import ClientSetupPage from './pages/ClientSetupPage'
 import ClientPortal from './pages/ClientPortal'
@@ -79,6 +80,7 @@ export default function App() {
       <Route path="/specialist-questions" element={<SpecialistQuestionsPage />} />
       <Route path="/specialist-ddc" element={<SpecialistDdcPage />} />
       <Route path="/tax-upload" element={<TaxUploadPage />} />
+      <Route path="/vault-upload" element={<VaultUploadPage />} />
       <Route path="/client/login" element={<ClientLogin />} />
       <Route path="/client-setup" element={<ClientSetupPage />} />
       <Route path="/client" element={<ClientPortal />} />

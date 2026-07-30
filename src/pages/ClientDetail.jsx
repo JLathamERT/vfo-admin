@@ -323,7 +323,7 @@ export default function ClientDetail() {
             {activeTab === 'regular' && program && !pfLocked && !isPlanner && <RegularPrioritiesTab clientId={parseInt(clientId)} programId={program.id} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} initialTrackId={initialTrackId} />}
             {activeTab === 'tax' && program && !pfLocked && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} programName={program.name} client={client} specialists={specialists} readOnly={isMember} plannerMode={isPlanner} notes={clientNotes} onNotesChange={setClientNotes} initialPlanId={initialPlanId} />}
             {activeTab === 'pip' && program && !pfLocked && !isPlanner && <PipMeetingsTab clientId={parseInt(clientId)} programId={program.id} client={client} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
-            {activeTab === 'vault' && (isAdmin || isPlanner) && <ClientVaultTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} specialists={specialists} readOnly={isPlanner} />}
+            {activeTab === 'vault' && (isAdmin || isPlanner) && <ClientVaultTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} specialists={specialists} readOnly={isPlanner} recipientName={`${client?.first_name || ''} ${client?.last_name || ''}`.trim() || undefined} recipientFirst={client?.first_name || undefined} />}
             {activeTab === 'payments' && isAdmin && <ClientPaymentsTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} />}
             {activeTab === 'settings' && isAdmin && (
               <div style={sectionStyle}>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
 import { fileSizeError } from '../../lib/fileUpload'
 import { VaultRowsSkeleton } from '../shared/Skeleton'
+import RequestDocsButton from '../shared/RequestDocsButton'
 
 const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/*,application/pdf'
 const fmtSize = (n) => n == null ? '' : n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1048576).toFixed(1)} MB`
@@ -12,7 +13,7 @@ const fmtSize = (n) => n == null ? '' : n < 1024 ? `${n} B` : n < 1048576 ? `${(
 //  - General Documentation: all admins can view/add/delete/share.
 // Each manageable file can be SHARED with specialists (Feature A): the specialist
 // then sees it in their portal's "Shared with Me" tab. Revoke any time.
-export default function ClientVaultTab({ clientId, sectionStyle, specialists = [], readOnly = false }) {
+export default function ClientVaultTab({ clientId, sectionStyle, specialists = [], readOnly = false, recipientName, recipientFirst }) {
   const [sensitive, setSensitive] = useState([])
   const [canView, setCanView] = useState(false)
   const [general, setGeneral] = useState([])
@@ -104,14 +105,14 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
 
   const SECTIONS = [
     {
-      key: 'sensitive', title: 'Sensitive Documents', sub: '(tax returns)', files: sensitive, canManage: canView, bucket: 'client-tax-returns',
+      key: 'sensitive', title: 'Sensitive Documents', sub: '(tax returns)', files: sensitive, canManage: canView, bucket: 'client-tax-returns', canRequestDocs: true,
       blurb: canView
         ? 'Stored in a private vault. You have access to view, add, remove and share these documents.'
         : 'Stored in a private vault. You can see what has been uploaded, but only authorized tax staff can open or share these documents.',
       actions: { download: 'vault_tax_download', delete: 'vault_tax_delete', upload: 'vault_tax_admin_upload_url' },
     },
     {
-      key: 'general', title: 'General Documentation', sub: '', files: general, canManage: true, bucket: 'client-documents',
+      key: 'general', title: 'General Documentation', sub: '', files: general, canManage: true, bucket: 'client-documents', canRequestDocs: true,
       blurb: 'Everyday client documents. All admins can view, add, remove and share these.',
       actions: { download: 'vault_gen_download', delete: 'vault_gen_delete', upload: 'vault_gen_upload_url' },
     },
@@ -131,6 +132,10 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
         <div key={sec.key} style={sectionStyle}>
           <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>{sec.title} {sec.sub && <span style={{ textTransform: 'none', fontSize: '12px' }}>{sec.sub}</span>}</div>
           <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '16px' }}>{sec.blurb}</p>
+
+          {sec.canRequestDocs && sec.canManage && !readOnly && (
+            <RequestDocsButton entityType="client" entityKey={clientId} section={sec.key} recipientName={recipientName} recipientFirst={recipientFirst} />
+          )}
 
           {loading ? <VaultRowsSkeleton rows={2} /> : (
             <>

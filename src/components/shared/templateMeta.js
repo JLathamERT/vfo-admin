@@ -231,6 +231,9 @@ export const TEMPLATE_META = {
   'SPECIALIST_PAYOUT': [
     ['specialist_connect_setup', 'Specialist payout setup — Stripe Connect onboarding link so they can receive revenue share'],
   ],
+  'VAULT': [
+    ['VAULT_request_documentation', 'Request documentation button (all vaults — client / member / specialist, Sensitive + General) — emails the person your documentation request with a secure upload link', 'To: Recipient · Cc: Member (client requests only)'],
+  ],
   'STRATEGIC': [
     ['strategic_group_connect_setup', 'Strategic partner payout setup — Stripe Connect onboarding link for the partner company'],
     ['strategic_partner_revshare', 'Strategic partner revenue share — the 10% share confirmation sent to the partner company'],
@@ -267,6 +270,8 @@ export const TOKEN_LEGEND = {
   'FIRST_NAME': 'first name',
   'SPECIALIST_NAME': "specialist's name",
   'Specialist Name': "specialist's name",
+  'Recipient Name': "recipient's full name",
+  'Recipient First': "recipient's first name",
   'Advisor Name': "advisor's name",
   'Accountant Name': "accountant's name",
   'Payment Amount': 'payment amount',
@@ -286,6 +291,7 @@ export const TOKEN_LEGEND = {
   'CLOSING': 'closing line',
   'DECLINE_REASON': 'reason for declining',
   'REQUESTED_INFO': 'requested additional information',
+  'UPLOAD_BUTTON': 'secure upload button',
   'AGREEMENT_NAME': 'agreement name',
   'SELECTED_PLANS': 'selected plans',
   'Month': 'month',

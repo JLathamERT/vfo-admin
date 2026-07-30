@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { callApi } from '../../lib/api'
 import { fileSizeError } from '../../lib/fileUpload'
 import { VaultRowsSkeleton } from './Skeleton'
+import RequestDocsButton from './RequestDocsButton'
 
 const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/*,application/pdf'
 
@@ -28,6 +29,9 @@ export const DEFAULT_VAULT_SECTIONS = [
 //     through the admin_ert_* actions with { entity, key } instead of the shared
 //     member_number/expert_id params). The section's file LIST always comes from
 //     the shared actions.list response keyed by section (which returns `ert`).
+//   • requestDocs: { entityType, entityKey, recipientName, recipientFirst } →
+//     renders the admin-only "Request documentation" compose card in the section
+//     header. Only the admin surfaces pass it; portals leave it undefined.
 export default function VaultSections({ actions, params = {}, sections = DEFAULT_VAULT_SECTIONS }) {
   const [data, setData] = useState(() => Object.fromEntries(sections.map(s => [s.key, []])))
   const [loading, setLoading] = useState(true)
@@ -92,6 +96,16 @@ export default function VaultSections({ actions, params = {}, sections = DEFAULT
         <div key={sec.key} style={{ background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '12px', padding: '22px', marginBottom: '20px' }}>
           <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>{sec.title}</div>
           <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '16px' }}>{sec.hint}</p>
+
+          {sec.requestDocs && (
+            <RequestDocsButton
+              entityType={sec.requestDocs.entityType}
+              entityKey={sec.requestDocs.entityKey}
+              section={sec.key}
+              recipientName={sec.requestDocs.recipientName}
+              recipientFirst={sec.requestDocs.recipientFirst}
+            />
+          )}
 
           {loading ? (
             <VaultRowsSkeleton rows={2} />

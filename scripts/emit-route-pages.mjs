@@ -38,6 +38,7 @@ const ROUTES = [
   'tax-postreview-decide',
   'tax-upload',
   'update-card',
+  'vault-upload',
 ]
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
