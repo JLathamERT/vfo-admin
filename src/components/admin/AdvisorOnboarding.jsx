@@ -39,6 +39,13 @@ const ADVISOR_LOGIN_EMAILS = [
   { name: 'ADVISOR_login_setup', when: 'Portal login setup email' },
 ]
 
+// The two per-program implementation prices. `col` is the stored column,
+// `body` the request field — only the committed one is ever sent.
+const IMPL_FIELDS = {
+  vfo_ft: { label: 'VFO FT', col: 'implementation_value_vfo_ft', body: 'vfo_ft_value' },
+  pft: { label: 'PFT', col: 'implementation_value_pft', body: 'pft_value' },
+}
+
 export default function AdvisorOnboarding() {
   const [view, setView] = useState('list')
   const [onboardings, setOnboardings] = useState([])
@@ -215,8 +222,17 @@ function OnboardingDetail({ id, onBack }) {
   const [creatingMember, setCreatingMember] = useState(false)
   const [showSaleModal, setShowSaleModal] = useState(false)
   const [expanded, setExpanded] = useState({ 1: true, 2: true, 3: true })
+  const [implBuf, setImplBuf] = useState({ vfo_ft: '', pft: '' })
+  const [implFocus, setImplFocus] = useState(null)
 
   useEffect(() => { loadDetail() }, [id])
+
+  // Buffer the typed dollars locally and only save on blur / Enter (same idiom
+  // as StepDate) — re-seed whenever a stored value changes underneath us.
+  useEffect(() => {
+    const seed = v => (v == null || v === '' ? '' : String(Number(v)))
+    setImplBuf({ vfo_ft: seed(ob?.implementation_value_vfo_ft), pft: seed(ob?.implementation_value_pft) })
+  }, [ob?.implementation_value_vfo_ft, ob?.implementation_value_pft])
 
   async function loadDetail() {
     setLoading(true)
@@ -261,6 +277,34 @@ function OnboardingDetail({ id, onBack }) {
       if (res?.onboarding) setOb(res.onboarding)
     } catch (err) { console.error(err); alert('Error: ' + err.message) }
     finally { setSaving(false) }
+  }
+
+  // Only the field being committed goes in the body — an absent field is left
+  // untouched, so the two inputs never clobber each other.
+  async function saveImplementationValue(patch) {
+    setSaving(true)
+    try {
+      const res = await callApi('save_advisor_implementation_value', { onboarding_id: id, ...patch })
+      if (res?.onboarding) setOb(res.onboarding)
+    } catch (err) { console.error(err); alert('Error: ' + err.message) }
+    finally { setSaving(false) }
+  }
+
+  function commitImplementationValue(key) {
+    const f = IMPL_FIELDS[key]
+    setImplFocus(null)
+    const rawStored = ob?.[f.col]
+    const stored = rawStored == null || rawStored === '' ? null : Number(rawStored)
+    const typed = (implBuf[key] || '').trim()
+    const revert = v => setImplBuf(p => ({ ...p, [key]: v }))
+    if (typed === '') {
+      if (stored != null) saveImplementationValue({ [f.body]: null })
+      return
+    }
+    const n = Math.round(parseFloat(typed) * 100) / 100
+    if (!Number.isFinite(n) || n <= 0) { revert(stored != null ? String(stored) : ''); return }
+    if (stored != null && n === stored) { revert(String(stored)); return }
+    saveImplementationValue({ [f.body]: n })
   }
 
   async function saveDecision(decision) {
@@ -317,6 +361,36 @@ function OnboardingDetail({ id, onBack }) {
   const yesPath = finalDec === 'Yes'
   const noPath = finalDec === 'No'
   const undecidedPending = decision === 'Undecided' && !ob.final_decision
+
+  // The implementation values become the per-program prices on the agreement
+  // and the charge, so the decision can't be sent until both are set.
+  const bothValuesSet = Number(ob.implementation_value_vfo_ft) > 0 && Number(ob.implementation_value_pft) > 0
+  const decisionBlocked = !ob.onboarding_team_member || !bothValuesSet
+
+  // Rendered as a plain call, not a nested component, so the inputs keep their
+  // identity across renders and every buffer/handler stays in this scope.
+  const implField = (key) => {
+    const f = IMPL_FIELDS[key]
+    const stored = Number(ob[f.col])
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+        <span style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{f.label}</span>
+        <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>$</span>
+        <input
+          value={implFocus === key ? implBuf[key] : (stored > 0 ? fmtMoney(stored) : implBuf[key])}
+          inputMode="decimal"
+          placeholder="0.00"
+          disabled={saving}
+          onChange={e => { const v = sanitizeMoney(e.target.value); setImplBuf(p => ({ ...p, [key]: v })) }}
+          onFocus={() => setImplFocus(key)}
+          onBlur={() => commitImplementationValue(key)}
+          onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+          title={`${f.label} implementation value — type the dollar amount, saves when you click away`}
+          style={{ ...selectStyle, minWidth: '100px', width: '100px', textAlign: 'right' }}
+        />
+      </span>
+    )
+  }
 
   // Stage state: done if every "interesting" milestone on the active branch is set.
   function stage1State() {
@@ -385,17 +459,23 @@ function OnboardingDetail({ id, onBack }) {
             {SALES_TEAM_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </Row>
+        <Row label="Implementation Value" done={bothValuesSet} date={ob.implementation_value_at} onDateChange={d => saveStepDate('implementation_value_at', d)} saving={saving}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            {implField('vfo_ft')}
+            {implField('pft')}
+          </span>
+        </Row>
         <Row label="Preliminary Meeting Decision" done={!!decision} date={ob.prelim_meeting_decision_at} emails={ADVISOR_DECISION_EMAILS} pipeline={ADVISOR_PIPELINE} emailCtx={emailCtx} onDateChange={d => saveStepDate('prelim_meeting_decision_at', d)} saving={saving}>
           {decision ? (
             <span style={pillStyle(decision === 'Yes' ? '#1b9254' : decision === 'No' ? '#e74c3c' : '#e06717')}>{decision}</span>
           ) : (
             <>
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', opacity: !ob.onboarding_team_member ? 0.4 : 1 }}>
-              <button onClick={() => saveDecision('Yes')} disabled={!!pendingDecision || !ob.onboarding_team_member} style={{ ...pendingBtn('#1b9254', pendingDecision, 'Yes'), cursor: !ob.onboarding_team_member ? 'not-allowed' : 'pointer' }}>{pendingDecision === 'Yes' ? 'Sending…' : 'Yes'}</button>
-              <button onClick={() => saveDecision('Undecided')} disabled={!!pendingDecision || !ob.onboarding_team_member} style={{ ...pendingBtn('#e06717', pendingDecision, 'Undecided'), cursor: !ob.onboarding_team_member ? 'not-allowed' : 'pointer' }}>{pendingDecision === 'Undecided' ? 'Sending…' : 'Undecided'}</button>
-              <button onClick={() => saveDecision('No')} disabled={!!pendingDecision || !ob.onboarding_team_member} style={{ ...pendingBtn('#e74c3c', pendingDecision, 'No'), cursor: !ob.onboarding_team_member ? 'not-allowed' : 'pointer' }}>{pendingDecision === 'No' ? 'Sending…' : 'No'}</button>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', opacity: decisionBlocked ? 0.4 : 1 }}>
+              <button onClick={() => saveDecision('Yes')} disabled={!!pendingDecision || decisionBlocked} style={{ ...pendingBtn('#1b9254', pendingDecision, 'Yes'), cursor: decisionBlocked ? 'not-allowed' : 'pointer' }}>{pendingDecision === 'Yes' ? 'Sending…' : 'Yes'}</button>
+              <button onClick={() => saveDecision('Undecided')} disabled={!!pendingDecision || decisionBlocked} style={{ ...pendingBtn('#e06717', pendingDecision, 'Undecided'), cursor: decisionBlocked ? 'not-allowed' : 'pointer' }}>{pendingDecision === 'Undecided' ? 'Sending…' : 'Undecided'}</button>
+              <button onClick={() => saveDecision('No')} disabled={!!pendingDecision || decisionBlocked} style={{ ...pendingBtn('#e74c3c', pendingDecision, 'No'), cursor: decisionBlocked ? 'not-allowed' : 'pointer' }}>{pendingDecision === 'No' ? 'Sending…' : 'No'}</button>
             </div>
-            {!ob.onboarding_team_member && <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontStyle: 'italic', marginTop: '4px' }}>Select a team member above to enable the decision.</div>}
+            {decisionBlocked && <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontStyle: 'italic', marginTop: '4px' }}>{!ob.onboarding_team_member && !bothValuesSet ? 'Select a team member and enter both implementation values above to enable the decision.' : !ob.onboarding_team_member ? 'Select a team member above to enable the decision.' : 'Enter both implementation values above to enable the decision.'}</div>}
             </>
           )}
         </Row>
@@ -499,6 +579,22 @@ function formatDate(d) {
   const iso = d.includes('T') ? d.split('T')[0] : d
   const parts = iso.split('-')
   return `${parts[1]}/${parts[2]}`
+}
+
+// Keep only digits and a single decimal point, capped at 2 decimals, so the
+// dollar field can't hold anything that isn't a dollar amount.
+function sanitizeMoney(raw) {
+  let s = String(raw ?? '').replace(/[^0-9.]/g, '')
+  const dot = s.indexOf('.')
+  if (dot !== -1) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, '')
+  const cap = s.indexOf('.')
+  if (cap !== -1) s = s.slice(0, cap + 3)
+  return s
+}
+
+function fmtMoney(n) {
+  const num = Number(n) || 0
+  return num.toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(num) ? 0 : 2, maximumFractionDigits: 2 })
 }
 
 const dateTextStyle = { fontSize: '11px', color: 'var(--vfo-muted)', flexShrink: 0, display: 'inline-block', width: '32px' }
