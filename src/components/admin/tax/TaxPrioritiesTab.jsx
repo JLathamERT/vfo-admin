@@ -46,11 +46,12 @@ const isPlannerEditable = (task) => PLANNER_EDITABLE_TASK_NAMES.has(task?.name)
 // backend constants/tax-discount.ts; delete both to retire the special case).
 const DISCOUNT_MEMBER_NUMBER = '59073'
 
-// "Other (See notes)" — a permanent trailing entry in the Tax 5 specialist
-// picker that allocates a row with NO linked expert (expert_id stays null and
-// the backend sets the name). The sentinel is a string that can never collide
-// with an expert id, and the entry is deliberately exempt from the
-// already-allocated dedupe: one plan may carry several "Other" rows.
+// "Custom" — a permanent trailing entry in the Tax 5 specialist picker that
+// allocates a row with NO linked expert (expert_id stays null; the backend
+// stores the typed name as "Custom - <name>", owning the prefix). The sentinel
+// is a string that can never collide with an expert id, and the entry is
+// deliberately exempt from the already-allocated dedupe: one plan may carry
+// several custom rows. Legacy rows named "Other #N (See notes)" still render.
 const OTHER_SPEC_VALUE = '__other__'
 
 // A plan belongs to program (plan.program_id || 1): NULL/undefined is legacy
@@ -925,6 +926,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const [taxSpecialists, setTaxSpecialists] = useState([])
   const [showAddSpec, setShowAddSpec] = useState(false)
   const [newSpecId, setNewSpecId] = useState('')
+  const [newCustomName, setNewCustomName] = useState('')
   const [loadingSpecs, setLoadingSpecs] = useState(true)
   const [removingSpec, setRemovingSpec] = useState({})
   const [declineDrafts, setDeclineDrafts] = useState({})
@@ -1043,11 +1045,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
 
   async function addSpecialist() {
     if (!newSpecId) return
-    // The "Other (See notes)" sentinel sends no expert — the backend creates the
-    // unlinked row and owns its name. Everything else resolves to a real expert.
+    // The "Custom" sentinel sends the typed name and no expert — the backend
+    // creates the unlinked row as "Custom - <name>" (it owns the prefix).
+    // Everything else resolves to a real expert.
     let payload
     if (newSpecId === OTHER_SPEC_VALUE) {
-      payload = { tax_plan_id: plan.id, other: true }
+      const name = newCustomName.trim()
+      if (!name) return
+      payload = { tax_plan_id: plan.id, other: true, custom_name: name }
     } else {
       const expert = specialists.find(s => s.id === parseInt(newSpecId))
       if (!expert) return
@@ -1057,6 +1062,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const res = await callApi('tax_add_specialist', payload)
       if (res?.error) { alert('Add failed: ' + res.error); return }
       setNewSpecId('')
+      setNewCustomName('')
       setShowAddSpec(false)
       loadSpecialists()
     } catch (err) {
@@ -1083,12 +1089,15 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     try {
       const res = await callApi('tax_remove_specialist', { tax_plan_id: plan.id, specialist_id: spec.id })
       if (res?.error) { alert('Remove failed: ' + res.error); return }
+      // Drop the row locally right away — the loadSpecialists() below reconciles,
+      // but its silent catch must never leave a deleted specialist on screen.
+      setTaxSpecialists(p => p.filter(s => s.id !== spec.id))
       setLocalProgress(p => {
         const next = { ...p }
         Object.keys(next).forEach(k => { if (String(k).endsWith(`_${spec.id}`)) delete next[k] })
         return next
       })
-      setExpanded(p => { const next = { ...p }; delete next[`spec_${spec.id}`]; return next })
+      setExpanded(p => { const next = { ...p }; delete next[`spec_${spec.id}`]; delete next[`tax6_spec_${spec.id}`]; return next })
       loadSpecialists()
     } catch (err) {
       console.error(err)
@@ -1297,6 +1306,15 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const fullyDone = livePlan?.implementation_rev_email_sent === true
       if (decline || fullyDone) return 'done'
       if (impl) return 'active'
+      return 'pending'
+    }
+    // Tax 6 runs once per allocated specialist, so its progress lives under
+    // `${task.id}_${spec.id}` — the plan-level reads below would never see it.
+    if (phase.name === 'Tax 6 - Implementation') {
+      const specDone = (spec) => tasks.every(t => localProgress[`${t.id}_${spec.id}`]?.status)
+      const specAny = (spec) => tasks.some(t => localProgress[`${t.id}_${spec.id}`]?.status)
+      if (taxSpecialists.length > 0 && tasks.length > 0 && taxSpecialists.every(specDone)) return 'done'
+      if (taxSpecialists.some(specAny)) return 'active'
       return 'pending'
     }
 
@@ -2520,7 +2538,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     let greyNote = ''
     if ((isSpecIntroTask || isConfirmReadyImplTask) && decision2Status === 'Move to Implementation') {
       isGreyedOut = true
-      greyNote = 'Moved to implementation'
+      greyNote = 'Due Diligence Skipped - Moved to Implementation'
     }
 
     return (
@@ -2568,12 +2586,18 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const tax5aSpecTasks = tax5aTasks.filter(t => t.status_options !== 'specialist_select')
   const tax5bCounted = tax5bPhase ? (tax5bPhase.program_client_tasks || []).filter(t => t.status_options !== 'auto') : []
   const tax5bTaskDone = (t) => t.status_options === 'tax_implement_decision' ? !!livePlan?.implementation_decision : !!localProgress[t.id]?.status
-  const heroTotalTasks = [...phasesBeforeSpec, ...phasesAfterSpec].reduce((s, ph) => s + heroCountedTasks(ph).length, 0)
+  // Tax 6 (the only after-spec phase) is per-specialist like Tax 5a, so it is
+  // dropped from the plan-level reduce and added as its own term — leaving it in
+  // both would double-count it.
+  const tax6SpecTasks = phasesAfterSpec.flatMap(ph => (ph.program_client_tasks || []).filter(t => t.status_options !== 'auto'))
+  const heroTotalTasks = phasesBeforeSpec.reduce((s, ph) => s + heroCountedTasks(ph).length, 0)
     + taxSpecialists.length * tax5aSpecTasks.length
     + tax5bCounted.length
-  const heroDoneTasks = [...phasesBeforeSpec, ...phasesAfterSpec].reduce((s, ph) => s + heroCountedTasks(ph).filter(t => isTaskStatused(t)).length, 0)
+    + taxSpecialists.length * tax6SpecTasks.length
+  const heroDoneTasks = phasesBeforeSpec.reduce((s, ph) => s + heroCountedTasks(ph).filter(t => isTaskStatused(t)).length, 0)
     + taxSpecialists.reduce((s, spec) => s + tax5aSpecTasks.filter(t => !!localProgress[`${t.id}_${spec.id}`]?.status).length, 0)
     + tax5bCounted.filter(tax5bTaskDone).length
+    + taxSpecialists.reduce((s, spec) => s + tax6SpecTasks.filter(t => !!localProgress[`${t.id}_${spec.id}`]?.status).length, 0)
   const tax5aNoteCount = (notes || []).filter(n => n.phase_name === TAX5A_PHASE && n.tab_name === 'Tax Priorities').length
   const tax5bNoteCount = (notes || []).filter(n => n.phase_name === TAX5B_PHASE && n.tab_name === 'Tax Priorities').length
   const tax5Expanded = expanded['tax5'] !== undefined ? expanded['tax5'] : (tax5State !== 'done')
@@ -2705,11 +2729,16 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                       outside the dedupe filter — `specialists` is already the
                       effective list (admin roster or planner roster), so this
                       shows on both surfaces and stays repeatable. */}
-                  <option value={OTHER_SPEC_VALUE}>Other (See notes)</option>
+                  <option value={OTHER_SPEC_VALUE}>Custom</option>
                 </select>
+                {newSpecId === OTHER_SPEC_VALUE && (
+                  <input value={newCustomName} onChange={e => setNewCustomName(e.target.value)} maxLength={80} placeholder={'Specialist name — saved as "Custom - Name"'} style={{ ...inputStyle, background: 'var(--vfo-card)', width: '100%', marginBottom: '8px', padding: '8px 12px', boxSizing: 'border-box' }} />
+                )}
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={addSpecialist} style={{ padding: '6px 16px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>Add</button>
-                  <button onClick={() => setShowAddSpec(false)} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
+                  {(() => { const blocked = newSpecId === OTHER_SPEC_VALUE && !newCustomName.trim(); return (
+                    <button onClick={addSpecialist} disabled={blocked} style={{ padding: '6px 16px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '12px', cursor: blocked ? 'not-allowed' : 'pointer', opacity: blocked ? 0.5 : 1 }}>Add</button>
+                  ) })()}
+                  <button onClick={() => { setShowAddSpec(false); setNewCustomName('') }} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
                 </div>
               </div>
             )}
@@ -2787,9 +2816,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         const isExpanded = expanded[phase.id] !== undefined ? expanded[phase.id] : (state === 'active')
         const tasks = phase.program_client_tasks || []
         const nonAutoTasks = tasks.filter(t => t.status_options !== 'auto')
-        // Same rule as the hero count and the phase pills — isTaskStatused owns every
-        // "this step doesn't live in client_tax_progress" special case in one place.
-        const doneTasks = nonAutoTasks.filter(isTaskStatused).length
+        // Every task here is answered once per allocated specialist, so the pill
+        // counts specialists x tasks, not tasks.
+        const totalTasks = taxSpecialists.length * nonAutoTasks.length
+        const doneTasks = taxSpecialists.reduce((s, spec) => s + nonAutoTasks.filter(t => !!localProgress[`${t.id}_${spec.id}`]?.status).length, 0)
         const borderColor = state === 'done' ? 'rgba(27,146,84,0.3)' : state === 'active' ? 'rgba(0,149,255,0.4)' : 'var(--vfo-border)'
         const dotColor = state === 'done' ? '#1b9254' : state === 'active' ? '#0095ff' : 'transparent'
         const titleColor = state === 'active' ? 'var(--vfo-primary)' : 'var(--vfo-heading)'
@@ -2802,7 +2832,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {state === 'done' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
-                {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress{doneTasks < nonAutoTasks.length ? ` · ${doneTasks}/${nonAutoTasks.length}` : ''}</span>}
+                {state === 'active' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress{doneTasks < totalTasks ? ` · ${doneTasks}/${totalTasks}` : ''}</span>}
                 {!readOnly && <PhaseNotesButton count={(notes || []).filter(n => n.phase_name === phase.name && n.tab_name === 'Tax Priorities').length} isOpen={expanded[`notes_${phase.id}`]} onClick={() => setExpanded(p => ({ ...p, [`notes_${phase.id}`]: !p[`notes_${phase.id}`] }))} />}
                 {state === 'pending' && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>}
                 <span onClick={() => setExpanded(p => ({ ...p, [phase.id]: !isExpanded }))} style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s', cursor: 'pointer' }}>▼</span>
@@ -2811,7 +2841,36 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             {!readOnly && expanded[`notes_${phase.id}`] && <PhaseNotesPanel clientId={clientId} phaseName={phase.name} tabName="Tax Priorities" programName={programName} notes={notes} onNotesChange={onNotesChange} />}
             {isExpanded && (
               <div style={{ borderTop: `1px solid ${borderColor}`, padding: '12px 18px' }}>
-                {tasks.map(task => renderTask(task, phase))}
+                {taxSpecialists.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '20px', color: 'var(--vfo-muted)', fontSize: '13px' }}>No specialists allocated yet.</div>
+                )}
+                {taxSpecialists.map(spec => {
+                  const specExpKey = `tax6_spec_${spec.id}`
+                  const specDoneCount = nonAutoTasks.filter(t => !!localProgress[`${t.id}_${spec.id}`]?.status).length
+                  const specTaskCount = nonAutoTasks.length
+                  const allSpecDone = specTaskCount > 0 && specDoneCount === specTaskCount
+                  const specStopped = nonAutoTasks.some(t => localProgress[`${t.id}_${spec.id}`]?.status === 'Stopped')
+                  const isSpecExpanded = expanded[specExpKey] !== undefined ? expanded[specExpKey] : !allSpecDone
+                  return (
+                    <div key={spec.id} style={{ background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', marginBottom: '8px', overflow: 'hidden' }}>
+                      <div onClick={() => setExpanded(p => ({ ...p, [specExpKey]: !isSpecExpanded }))} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--vfo-ink)' }}>{spec.specialist_name}</span>
+                          {specStopped && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600, border: '1px solid rgba(231,76,60,0.3)' }}>Stopped</span>}
+                          {!specStopped && allSpecDone && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
+                          {!specStopped && !allSpecDone && specDoneCount > 0 && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>In progress · {specDoneCount}/{specTaskCount}</span>}
+                          {!specStopped && specDoneCount === 0 && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>}
+                        </div>
+                        <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isSpecExpanded ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+                      </div>
+                      {isSpecExpanded && (
+                        <div style={{ borderTop: '1px solid var(--vfo-border-soft)', padding: '8px 14px' }}>
+                          {tasks.map(task => renderTask(task, phase, spec.id))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
