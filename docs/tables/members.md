@@ -23,8 +23,9 @@ The advisor/accountant roster. PK is `member_number` (text), not an integer — 
 | `revenue_decision` | text | Whether they share revenue (`'Revenue Share'` / `'Money Mapping'`). Accountants have NONE — `add_member_full` and `automation_ACCOUNTANT_createmember` leave it NULL when `member_category='accountant'` (gotcha #48). |
 | `stripe_account_id` | text | **Stripe Connect ID** — used by `automation_CONTRACT_revshare` for Transfers. |
 | `primary_relationship` / `advisor_engagement` | text | |
-| `connected_member_number` | text | fk → `members.member_number` (SET NULL). Self-referencing — links a junior member to a senior. |
-| `connection_type` | text | Advisor-only revenue-share tier (e.g. `'5% - Regular Advisor'`). Accountants don't use it — the Edit-Profile dropdown + the details-view pill are hidden when `member_category='accountant'` (2026-06-18). |
+| `connected_member_number` | text | fk → `members.member_number` (SET NULL). Self-referencing. **LEGACY as of 2026-07-31 — corporate-parent pointer ONLY** (gotcha #312). It used to be the system's single member-to-member link; the migration `20260731130000_member_connections.sql` backfilled all 240 one-way links into the new `member_connections` pair table and **CLEARED this column on every non-corporate row**, so **zero live rows carry a value**. The one surviving writer is the Add Advisor **corporate** flow (`add_member_full`, behind the "Connected Member \*" picker that appears only for a Corporate member type). `load_data` still returns it for that purpose. **Reading it to answer "who is this member connected to" is a bug** — use `member_connections`. |
+| `connection_type` | text | The **INTRODUCER's** revenue-share tier for the introduction recorded in `introduced_by_member_number` — i.e. read it off the INTRODUCED member's row and pay it to the introducer. UI label: **"Introducer Benefit"**. Values: `'5% - Regular Advisor'`, `'10% - Accredited Introducer'`, `'10% - Accredited Mentor'`, `'20% - Accredited Introducer + Mentor'`. **Shown for every member category since 2026-07-31, accountants included** (it was hidden for `member_category='accountant'` between 2026-06-18 and then). A **connection** has no tier — this column belongs exclusively to the introduction slot (gotcha #312). |
+| `introduced_by_member_number` | text | nullable. Added 2026-07-31 (migration `20260731120000_introduced_by_member_number.sql`, gotcha #312). fk → `members.member_number` (SET NULL). **Who introduced THIS member — one introducer per member, directional.** The tier the introducer earns is in `connection_type`. The migration moved the three rows that already carried a tier out of `connected_member_number` into this column (a typed old-style link WAS an introduction). No dedicated action: `member_profile_save` is a whole-row spread upsert, so the ordinary Save button persists it; it is surfaced per member by `load_data` (a new `members` column is invisible to the portal until it is whitelisted in that merge — gotcha #207). |
 | `trading_name` | text | nullable. Added 2026-06-18. **"Company Name"** (UI label; the column name stays `trading_name`). Shown/editable on **accountant AND advisor** profiles (2026-07-14 — was accountant-only) — the Add-Accountant form + Edit Profile + profile details + the member's own portal. Auto-filled on onboarding create from the New-Model-Sale modal's `sale_company_name` (`advisor`/`accountant/create-member.ts`). Inserted by `add_member_full`, persisted by `member_profile_save` (passthrough upsert), returned by `load_data`. |
 | `email` | text | |
 | `notes` | text | |
@@ -41,9 +42,30 @@ The advisor/accountant roster. PK is `member_number` (text), not an integer — 
 **Status fields:** `elite_status`, `suspended` (manual), `membership_suspended` (automation), `paused`, `ciq_enabled`.
 **Automation fields:** `stripe_account_id` (revshare), `ciq_enabled` (CIQ start-new gate) / `ciq_vfos_managed` (CIQ "Powered by VFO Services" label).
 
-**Touched by:** `load_data`, `add_member`, `add_member_full`, `save_member`, `delete_member`, `member_profile_load`, `member_profile_save`, `upload_headshot` (profile headshot → `headshots` bucket), `automation_CONTRACT_revshare`. Frontend: [MembersPanel.jsx](src/components/admin/MembersPanel.jsx), [MemberPortal.jsx](src/pages/MemberPortal.jsx).
+**Touched by:** `load_data`, `add_member`, `add_member_full`, `save_member`, `delete_member`, `member_profile_load`, `member_profile_save` (incl. `introduced_by_member_number` + `connection_type` — a full passthrough spread), `upload_headshot` (profile headshot → `headshots` bucket), `automation_CONTRACT_revshare`. Frontend: [MembersPanel.jsx](src/components/admin/MembersPanel.jsx), [MemberPortal.jsx](src/pages/MemberPortal.jsx).
 
 **Roster size:** 556 rows as of 2026-06-18 — the 21 originals + **535 active advisors/accountants bulk-imported** from the legacy Google Sheets (gotcha #140; side-effect-free, OLD numbers preserved). **Member-number suffixes seen in live data** (all non-integer PKs, preserved verbatim, skipped by `nextMemberNumber()`): `-J<n>` legacy joint/secondary advisor · `-C<n>` Corporate Member · `-FC<n>` Free Corporate Member · `-FCL<n>` Free Corporate Member (Legacy) · `-TA<n>` accountant Team Member under a parent firm · `-NRA`/`-NRB` VFO Reconciliation (Free) sub-records · `-F<n>`/`-FF<n>` Free Catalyst/Fusion.
+
+---
+
+## `member_connections`
+
+**Mutual, untyped, unlimited member-to-member connections.** Added 2026-07-31 (migration `20260731130000_member_connections.sql`, gotcha #312) as the second half of the Introductions-vs-Connections split: an *introduction* is directional and lives on `members.introduced_by_member_number`; a *connection* is symmetric and lives here. One row = one link between two members, stored **once**, in canonical order.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | pk, `generated always as identity` |
+| `member_a` | text | not null, fk → `members.member_number` (**CASCADE**) |
+| `member_b` | text | not null, fk → `members.member_number` (**CASCADE**) |
+| `created_at` | timestamptz | not null, default `now()` |
+
+**Constraints:** `member_connections_ordered` CHECK `member_a < member_b` — the canonical-order guarantee, so the same link can never be stored twice in opposite orders and "are these two connected" is ONE symmetric lookup; `member_connections_unique` UNIQUE `(member_a, member_b)` — what makes the add action idempotent (a `23505` is treated as success). **Every writer must sort the two member numbers before inserting or deleting.**
+
+**RLS:** enabled + `"Deny all access" … using (false)` in the same migration (invariant #1 / gotcha #141). Anon-key REST probe verified `Content-Range: */0` on 2026-07-31.
+
+**Seeded from the legacy column:** the migration backfilled every non-corporate `members.connected_member_number` link as a pair (**240 rows**) and then cleared that column, which is why `connected_member_number` is now corporate-parent-only.
+
+**Touched by:** `member_connection_add` (`actions/members/connection-add.ts`) + `member_connection_remove` (`actions/members/connection-remove.ts`) — both AUTH / `ADMIN_ONLY_ACTIONS`, both normalize either argument order, both idempotent; `automation_ACCOUNTANT_createmember` (the PFT auto-link inserts a pair **after** the members row exists, best-effort, `23505` swallowed); `load_data` (returns the raw pairs as the **top-level `member_connections`** payload key). Frontend: [MembersPanel.jsx](src/components/admin/MembersPanel.jsx) (the details "Connections" card + the Edit-Profile Connections editor, which writes immediately and does **not** go through the Save button), [AdminPortal.jsx](src/pages/AdminPortal.jsx) (`memberConnections` state).
 
 ---
 
