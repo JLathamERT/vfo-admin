@@ -1,6 +1,6 @@
 # Tables
 
-Public-schema tables in Supabase project `ejpsprsmhpufwogbmxjv` (VFO Showroom), indexed by group below. **The "52" this line used to assert is stale and was not re-counted at the 2026-07-30 audit** — many sessions have added tables since (most recently `vault_upload_tokens`); **verify the real count with MCP `list_tables`, never from this line.**
+Public-schema tables in Supabase project `ejpsprsmhpufwogbmxjv` (VFO Showroom), indexed by group below. **The "52" this line used to assert is stale and was not re-counted at the 2026-07-31 audit** — many sessions have added tables since (most recently `member_connections`); **verify the real count with MCP `list_tables`, never from this line.**
 
 Read-only schema mapping — column lists, types, defaults, FKs, and which actions/files touch each table. No commentary about whether the design is "good," only about what exists.
 
@@ -9,7 +9,7 @@ Read-only schema mapping — column lists, types, defaults, FKs, and which actio
 | Doc | Tables | One-liner |
 |---|---|---|
 | [auth.md](auth.md) | `admin_sessions`, `allowed_admins`, `member_logins`, `client_logins`, `specialist_logins`, `login_attempts` | Session tokens + login credentials for all four portals + the login brute-force throttle ledger |
-| [members.md](members.md) | `members`, `member_plugin_settings`, `member_type_history`, `member_exclusions` | The advisor/accountant member roster + per-member website widget config |
+| [members.md](members.md) | `members`, `member_connections`, `member_plugin_settings`, `member_type_history`, `member_exclusions` | The advisor/accountant member roster + the mutual member-connection pairs (2026-07-31) + per-member website widget config |
 | [clients.md](clients.md) | `clients`, `client_contacts`, `client_notes`, `client_enrollments`, `client_progress`, `client_priority_tracks`, `priority_progress` | The advisor's clients (downstream of members) + program/priority progress |
 | [ciq.md](ciq.md) | `client_ciqs`, `ciq_answers`, `ciq_priorities`, `ciq_priority_snapshots`, `ciq_assignments` | Client Intake Questionnaire data + ranked priority decisions + snapshots |
 | [tax.md](tax.md) | `client_tax_plans`, `client_tax_progress`, `client_tax_specialists` | Tax engagement plan + per-specialist progress |
@@ -32,13 +32,14 @@ Read-only schema mapping — column lists, types, defaults, FKs, and which actio
 
 ## CHECK constraints (whole DB)
 
-Five non-null CHECK constraints exist (the first three verified against `pg_catalog`; the last two added by migration `20260730120000_vault_request_docs.sql` and not re-verified against the catalog at that audit):
+Six non-null CHECK constraints exist (the first three verified against `pg_catalog`; the next two added by migration `20260730120000_vault_request_docs.sql` and the last by `20260731130000_member_connections.sql`, neither re-verified against the catalog at their audits):
 
 - `ciq_priorities.decision IN ('drop', 'park', 'prioritize')`
 - `client_ciqs.status IN ('draft', 'completed')`
 - `card_update_tokens.person_type IN ('client', 'member', 'specialist')` (Phase D)
 - `vault_upload_tokens.entity_type IN ('client', 'member', 'specialist')` (2026-07-30 — **widen this together with `resolveVaultPerson` and `VAULT_REQUEST_BUCKETS`**, gotcha #310)
 - `vault_upload_tokens.section IN ('sensitive', 'general')` (2026-07-30 — the ERT/VFOS third vault section is deliberately not addressable, #204)
+- `member_connections.member_a < member_b` (`member_connections_ordered`, 2026-07-31 — the canonical-pair guarantee; **every writer must sort the two member numbers first**, #312)
 
 Every other status/decision column is **convention-only** — values like `'Yes'/'No'`, `'pending'/'live'/'paid'`, etc. are not constrained at the DB level; the admin-api enforces them.
 
@@ -47,7 +48,9 @@ Every other status/decision column is **convention-only** — values like `'Yes'
 - Most FKs are `ON DELETE CASCADE` from a parent (client/member/onboarding/ciq/enrollment) — deleting a parent removes all dependent rows.
 - `clients.enrollment_id → member_enrollments.id` is `SET NULL`.
 - `client_tax_progress.tax_specialist_id` is `SET NULL`.
-- `members.connected_member_number → members.member_number` is `SET NULL`.
+- `members.connected_member_number → members.member_number` is `SET NULL` (legacy corporate-parent pointer since 2026-07-31, #312).
+- `members.introduced_by_member_number → members.member_number` is `SET NULL` (2026-07-31) — deleting an introducer un-introduces their members rather than deleting them.
+- `member_connections.member_a` / `member_b → members.member_number` are both `ON DELETE CASCADE` (2026-07-31) — deleting a member drops every pair naming them, on either side.
 - `client_progress.task_id`, `client_tax_progress.task_id`, `priority_progress.task_id`, `member_training_progress.task_id`, `program_*_tasks.phase_id`, `program_*_phases.program_id`, `member_enrollments.program_id`, `member_program_enabled.program_id`, `gc_redemptions.service_id` are all `NO ACTION` (deleting a parent task/phase/program/service errors).
 - `pipeline_map1.client_id → clients.id` is `NO ACTION` — deleting a client will fail if a pipeline row exists, or orphan it. **Worth verifying behavior in practice.**
 - `notifications.client_id → clients.id` is `NO ACTION`.

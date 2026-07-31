@@ -163,6 +163,7 @@ export default function AdminPortal() {
   const [showSettings, setShowSettings] = useState(false)
   const [allExperts, setAllExperts] = useState([])
   const [allMembers, setAllMembers] = useState([])
+  const [memberConnections, setMemberConnections] = useState([])
   const [allExclusionMap, setAllExclusionMap] = useState({})
   const [ecoMap, setEcoMap] = useState({})
   const [loading, setLoading] = useState(true)
@@ -238,6 +239,7 @@ export default function AdminPortal() {
       const data = await callApi('load_data')
       setAllExperts(data.experts || [])
       setAllMembers(data.members || [])
+      setMemberConnections(data.member_connections || [])
       const excMap = {}
       ;(data.exclusions || []).forEach(e => {
         if (!excMap[e.member_number]) excMap[e.member_number] = []
@@ -743,6 +745,7 @@ export default function AdminPortal() {
               allMembers={allMembers} allExperts={allExperts}
               allExclusionMap={allExclusionMap} ecoMap={ecoMap}
               onDataChange={loadAllData} section={advisorsSection} navClickCount={navClickCount}
+              onOpenMember={openMemberProfile} memberConnections={memberConnections}
             />
           )}
 
@@ -751,6 +754,7 @@ export default function AdminPortal() {
               allMembers={allMembers} allExperts={allExperts}
               allExclusionMap={allExclusionMap} ecoMap={ecoMap}
               onDataChange={loadAllData} section={accountantsSection} navClickCount={navClickCount}
+              onOpenMember={openMemberProfile} memberConnections={memberConnections}
             />
           )}
 
@@ -759,6 +763,7 @@ export default function AdminPortal() {
               allMembers={allMembers} allExperts={allExperts}
               allExclusionMap={allExclusionMap} ecoMap={ecoMap}
               onDataChange={loadAllData} section={strategicSection} navClickCount={navClickCount}
+              onOpenMember={openMemberProfile} memberConnections={memberConnections}
             />
           )}
 
