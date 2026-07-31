@@ -74,7 +74,7 @@ const ACCOUNTANT_TYPES = [
   'FAC Historic',
 ]
 
-export default function MembersPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, section, navClickCount }) {
+export default function MembersPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, section, navClickCount, onOpenMember, memberConnections = [] }) {
   if (section === 'advisor_onboarding') return <AdvisorOnboarding />
   if (section === 'accountant_onboarding') return <AccountantOnboarding />
   if (section === 'advisor_kpis') return <MemberKpiPanel allMembers={allMembers} category="advisor" />
@@ -90,26 +90,26 @@ export default function MembersPanel({ allMembers, allExperts, allExclusionMap, 
   if (section === 'strategic_member_search' || section === 'add_strategic_member') {
     return (
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-        <StrategicMembersPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} initialTab={section === 'add_strategic_member' ? 'add' : 'search'} section={section} navClickCount={navClickCount} />
+        <StrategicMembersPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} initialTab={section === 'add_strategic_member' ? 'add' : 'search'} section={section} navClickCount={navClickCount} onOpenMember={onOpenMember} memberConnections={memberConnections} />
       </div>
     )
   }
   if (section === 'accountant_search' || section === 'add_accountant') {
     return (
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-        <AccountantsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} initialTab={section === 'add_accountant' ? 'add' : 'search'} section={section} navClickCount={navClickCount} />
+        <AccountantsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} initialTab={section === 'add_accountant' ? 'add' : 'search'} section={section} navClickCount={navClickCount} onOpenMember={onOpenMember} memberConnections={memberConnections} />
       </div>
     )
   }
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-      <AdvisorsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} initialTab={section === 'add_advisor' ? 'add' : 'search'} section={section} navClickCount={navClickCount} />
+      <AdvisorsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} initialTab={section === 'add_advisor' ? 'add' : 'search'} section={section} navClickCount={navClickCount} onOpenMember={onOpenMember} memberConnections={memberConnections} />
     </div>
   )
 }
 
-function AccountantsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount }) {
+function AccountantsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount, onOpenMember, memberConnections = [] }) {
   // Accountants are tagged durably by member_category (set at create time).
   const accountantMembers = allMembers.filter(m => m.member_category === 'accountant')
 
@@ -127,6 +127,8 @@ function AccountantsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onD
       featureTabKey="adminAccountantFeatureTab"
       initialTab={initialTab}
       navClickCount={navClickCount}
+      onOpenMember={onOpenMember}
+      memberConnections={memberConnections}
       hiddenFields={['revenue_decision']}
       growthPlan={true}
       listTitle="Accountants"
@@ -289,6 +291,8 @@ function MemberDirectoryView({
   featureTabKey,
   initialTab,
   navClickCount,
+  onOpenMember,
+  memberConnections = [],
   hiddenFields = [],
   growthPlan = false,
   listTitle = 'Members',
@@ -322,9 +326,21 @@ function MemberDirectoryView({
     return null
   })
 
+  // A nav click either CLEARS the selection (ordinary tab navigation wipes the
+  // sessionStorage key first) or PRE-SEEDS it (AdminPortal.openMemberProfile,
+  // used by the Member Overview list and the profile "Introduced By /
+  // Connections" name links). Cross-category jumps remount this component and
+  // the useState initializer picks the seed up; a same-category jump keeps it
+  // mounted, so adopt whatever the key now says.
   useEffect(() => {
     const saved = sessionStorage.getItem(selectedKey)
-    if (!saved) { setSelectedMember(null); setMemberFeatureTab('profile_details') }
+    if (!saved) { setSelectedMember(null); setMemberFeatureTab('profile_details'); return }
+    const seeded = allMembers.find(m => m.plugin_member_number === saved)
+    if (seeded) {
+      setSelectedMember(seeded)
+      setMemberFeatureTab(sessionStorage.getItem(featureTabKey) || 'profile_details')
+      window.scrollTo(0, 0)
+    }
   }, [navClickCount])
 
   // Keep selectedMember in sync when allMembers refreshes (e.g. after saving MSM assignment)
@@ -431,7 +447,7 @@ function MemberDirectoryView({
             </Fragment>
           ))}
           </div>
-          {['profile_details','profile_edit','profile_history'].includes(memberFeatureTab) && <MemberProfile member={selectedMember} allMembers={allMembers} onDataChange={onDataChange} activeSection={memberFeatureTab} hiddenFields={hiddenFields} typeOptionsOverride={showModel ? null : typeOptions} />}
+          {['profile_details','profile_edit','profile_history'].includes(memberFeatureTab) && <MemberProfile member={selectedMember} allMembers={allMembers} onDataChange={onDataChange} activeSection={memberFeatureTab} hiddenFields={hiddenFields} typeOptionsOverride={showModel ? null : typeOptions} onOpenMember={onOpenMember} memberConnections={memberConnections} />}
           {memberFeatureTab === 'profile_payments' && <MemberPaymentsTab member={selectedMember} />}
           {['msm_meetings','msm_program_holistic','msm_program_partnership','msm_program_tax','msm_program_coaching','msm_program_standard'].includes(memberFeatureTab) && <MSMTracking member={selectedMember} activeSection={memberFeatureTab} onDataChange={onDataChange} bypassEnableGate={msmBypassEnableGate} allowedProgramKeys={msmAllowedPrograms} />}          {memberFeatureTab === 'specialists' && <MemberSpecialists member={selectedMember} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} />}
           {memberFeatureTab === 'showroom' && <MemberShowroom experts={allExperts} exclusions={allExclusionMap[selectedMember.plugin_member_number] || []} ecoMap={ecoMap} showMemberServices />}
@@ -447,7 +463,7 @@ function MemberDirectoryView({
   )
 }
 
-function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount }) {
+function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount, onOpenMember, memberConnections = [] }) {
   return (
     <MemberDirectoryView
       displayMembers={allMembers.filter(m => m.member_category !== 'accountant' && m.member_category !== 'strategic_member')}
@@ -462,6 +478,8 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onData
       featureTabKey="adminMemberFeatureTab"
       initialTab={initialTab}
       navClickCount={navClickCount}
+      onOpenMember={onOpenMember}
+      memberConnections={memberConnections}
       hiddenFields={[]}
       growthPlan={true}
       listTitle="Advisors"
@@ -600,7 +618,7 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
 // dropdown is DB-driven: each Strategic Member Group (a company) is an option,
 // and a strategic member (a person at that company) stores the group name in
 // member_type. No Legacy/New model — they auto-number from a single bucket.
-function StrategicMembersPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount }) {
+function StrategicMembersPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount, onOpenMember, memberConnections = [] }) {
   const [groups, setGroups] = useState([])
 
   async function loadGroups() {
@@ -626,6 +644,8 @@ function StrategicMembersPanel({ allMembers, allExperts, allExclusionMap, ecoMap
       featureTabKey="adminStrategicFeatureTab"
       initialTab={initialTab}
       navClickCount={navClickCount}
+      onOpenMember={onOpenMember}
+      memberConnections={memberConnections}
       hiddenFields={[]}
       listTitle="Strategic Members"
       showModel={false}
@@ -790,7 +810,7 @@ function AddStrategicGroupForm({ onGroupsChange }) {
   )
 }
 
-function MemberProfile({ member, allMembers, onDataChange, activeSection, hiddenFields = [], typeOptionsOverride = null }) {
+function MemberProfile({ member, allMembers, onDataChange, activeSection, hiddenFields = [], typeOptionsOverride = null, onOpenMember, memberConnections = [] }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -802,6 +822,11 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
   const [statusType, setStatusType] = useState('success')
   const [connectedSearch, setConnectedSearch] = useState('')
   const [showConnectedSearch, setShowConnectedSearch] = useState(false)
+  const [connSaving, setConnSaving] = useState(false)
+  // Introduction is a SECOND, independent link slot (introduced_by_member_number)
+  // with its own typeahead state — never share it with the Connection picker.
+  const [introducedSearch, setIntroducedSearch] = useState('')
+  const [showIntroducedSearch, setShowIntroducedSearch] = useState(false)
   const [programNotes, setProgramNotes] = useState([])
   const [stripeRequesting, setStripeRequesting] = useState(false)
   const [stripeMsg, setStripeMsg] = useState('')
@@ -854,7 +879,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
     setLoading(true)
     try {
       const data = await callApi('member_profile_load', { member_number: member.plugin_member_number })
-      setProfile(data.profile || { member_number: member.plugin_member_number, first_name: member.name?.split(' ')[0] || '', last_name: member.name?.split(' ').slice(1).join(' ') || '', elite_status: 'Active', member_type: '', email: '', suspended: false, paused: false, revenue_decision: 'Revenue Share', credit_note_eligible: true, stripe_account_id: '', connected_member_number: null, connection_type: '', notes: '' })
+      setProfile(data.profile || { member_number: member.plugin_member_number, first_name: member.name?.split(' ')[0] || '', last_name: member.name?.split(' ').slice(1).join(' ') || '', elite_status: 'Active', member_type: '', email: '', suspended: false, paused: false, revenue_decision: 'Revenue Share', credit_note_eligible: true, stripe_account_id: '', connected_member_number: null, introduced_by_member_number: null, connection_type: '', notes: '' })
       setTypeHistory(data.type_history || [])
       setCorporateMembers(allMembers.filter(m => m.plugin_member_number?.startsWith(member.plugin_member_number + '-C') || m.plugin_member_number?.startsWith(member.plugin_member_number + '-FC')))
     } catch (err) { console.error(err) }
@@ -892,6 +917,17 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
     finally { setSaving(false) }
   }
 
+  // Connections write straight through (no Save button): the pair lives in its own
+  // table, so onDataChange() — AdminPortal.loadAllData — is what re-reads it.
+  async function writeConnection(action, otherNumber) {
+    setConnSaving(true)
+    try {
+      await callApi(action, { member_a: member.plugin_member_number, member_b: otherNumber })
+      await onDataChange()
+    } catch (err) { setStatusType('error'); setStatus(err.message) }
+    finally { setConnSaving(false) }
+  }
+
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
   const labelStyle = { fontSize: '11px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
@@ -911,7 +947,25 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
   if (loading) return <MemberProfileDetailsSkeleton />
   if (!profile) return null
 
-  const connectedMemberObj = allMembers.find(m => m.plugin_member_number === profile.connected_member_number)
+  // Introduction stays a one-way slot: introduced_by_member_number points at who
+  // introduced THIS member (tier = connection_type).
+  const introducedByObj = profile.introduced_by_member_number ? allMembers.find(m => m.plugin_member_number === profile.introduced_by_member_number) : null
+
+  // Connections are MUTUAL unordered pairs from member_connections — for every
+  // pair naming me, the partner is the other side. No hierarchy, no limit.
+  const myNumber = member.plugin_member_number
+  const initials = (name) => (name || '').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+  const partnerNumbers = myNumber
+    ? [...new Set((memberConnections || [])
+        .map(p => String(p.member_a) === String(myNumber) ? String(p.member_b) : String(p.member_b) === String(myNumber) ? String(p.member_a) : null)
+        .filter(Boolean))]
+    : []
+  const connectionPartners = partnerNumbers.map(n => allMembers.find(m => m.plugin_member_number === n)).filter(Boolean)
+
+  // Reciprocal roster: everyone linked to me through an introduction or a pair.
+  // Corporate members are excluded — they live in their own card.
+  const introducedByMe = myNumber ? allMembers.filter(m => m.introduced_by_member_number === myNumber && !CORPORATE_TYPES.includes(m.member_type)) : []
+  const connectedToMe = connectionPartners.filter(m => !CORPORATE_TYPES.includes(m.member_type))
 
   return (
     <div>
@@ -920,7 +974,18 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
       {activeTab === 'details' && (() => {
         const fieldLabel = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', color: 'var(--vfo-faint)', textTransform: 'uppercase' }
         const fieldValue = { fontSize: '15px', color: 'var(--vfo-ink)', fontWeight: 600, marginTop: '5px' }
-        const initials = (name) => (name || '').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+        // Clickable member names reuse AdminPortal.openMemberProfile (the same
+        // callback Member Overview uses), so a link lands on the target's own
+        // category tab — an advisor card can open an accountant's profile.
+        // Link treatment matches MemberOverviewPanel: #125ecc + underline on hover.
+        const nameLink = (base) => onOpenMember ? { ...base, color: '#125ecc', cursor: 'pointer' } : base
+        const linkHandlers = onOpenMember ? {
+          onMouseEnter: e => e.currentTarget.style.textDecoration = 'underline',
+          onMouseLeave: e => e.currentTarget.style.textDecoration = 'none',
+        } : {}
+        // Chips reuse styles already in this file: the blue introducer pill and
+        // the neutral count chip.
+        const introChip = { fontSize: '11px', padding: '2px 9px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.25)' }
         return (
           <div>
             {/* Short facts sit side by side; long-form (bio, notes) runs full
@@ -960,23 +1025,64 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                 </div>
               </div>
 
-              {((connectedMemberObj && !CORPORATE_TYPES.includes(member.member_type)) || corporateMembers.length > 0 || profile.vfo_certified_date || profile.vfo_accredited_date) && (
+              {((introducedByObj && !CORPORATE_TYPES.includes(member.member_type)) || introducedByMe.length > 0 || connectedToMe.length > 0 || corporateMembers.length > 0 || profile.vfo_certified_date || profile.vfo_accredited_date) && (
                 <div style={{ flex: '1 1 300px', minWidth: '280px' }}>
-                  {connectedMemberObj && !CORPORATE_TYPES.includes(member.member_type) && (
+                  {((introducedByObj && !CORPORATE_TYPES.includes(member.member_type)) || introducedByMe.length > 0) && (
                     <div style={sectionStyle}>
-                      <div style={cardTitle}>Connected Member</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', flexShrink: 0, boxShadow: '0 2px 8px rgba(18,94,204,0.28)' }}>{initials(connectedMemberObj.name)}</div>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--vfo-ink)' }}>{connectedMemberObj.name}</div>
-                          <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginTop: '2px' }}>{connectedMemberObj.plugin_member_number}</div>
-                        </div>
+                      <div style={{ ...cardTitle, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>Introductions</span>
+                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{(introducedByObj && !CORPORATE_TYPES.includes(member.member_type) ? 1 : 0) + introducedByMe.length}</span>
                       </div>
-                      {!isAccountant && profile.connection_type && (
-                        <div style={{ marginTop: '12px' }}>
-                          <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.25)' }}>{profile.connection_type}</span>
+                      {introducedByObj && !CORPORATE_TYPES.includes(member.member_type) && (
+                        <div style={{ marginBottom: introducedByMe.length > 0 ? '16px' : 0 }}>
+                          <div style={{ ...fieldLabel, marginBottom: '8px' }}>Introduced By</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', flexShrink: 0, boxShadow: '0 2px 8px rgba(18,94,204,0.28)' }}>{initials(introducedByObj.name)}</div>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                <span onClick={() => onOpenMember && onOpenMember(introducedByObj)} {...linkHandlers} style={nameLink({ fontSize: '14px', fontWeight: 600, color: 'var(--vfo-ink)' })}>{introducedByObj.name}</span>
+                                {profile.connection_type && <span style={introChip}>{profile.connection_type}</span>}
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginTop: '2px' }}>{introducedByObj.plugin_member_number}</div>
+                            </div>
+                          </div>
                         </div>
                       )}
+                      {introducedByMe.length > 0 && (
+                        <div>
+                          <div style={{ ...fieldLabel, marginBottom: '2px' }}>Introducer Of</div>
+                          {introducedByMe.map((im, i) => (
+                            <div key={im.plugin_member_number} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: i < introducedByMe.length - 1 ? '1px solid var(--vfo-tint)' : 'none' }}>
+                              <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>{initials(im.name)}</div>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                  <span onClick={() => onOpenMember && onOpenMember(im)} {...linkHandlers} style={nameLink({ fontSize: '13px', fontWeight: 600, color: 'var(--vfo-ink)' })}>{im.name}</span>
+                                  {im.connection_type && <span style={introChip}>{im.connection_type}</span>}
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginTop: '1px' }}>{im.plugin_member_number}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {connectedToMe.length > 0 && (
+                    <div style={sectionStyle}>
+                      <div style={{ ...cardTitle, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>Connections</span>
+                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{connectedToMe.length}</span>
+                      </div>
+                      {connectedToMe.map((im, i) => (
+                        <div key={im.plugin_member_number} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: i < connectedToMe.length - 1 ? '1px solid var(--vfo-tint)' : 'none' }}>
+                          <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>{initials(im.name)}</div>
+                          <div style={{ minWidth: 0 }}>
+                            <div onClick={() => onOpenMember && onOpenMember(im)} {...linkHandlers} style={nameLink({ fontSize: '13px', fontWeight: 600, color: 'var(--vfo-ink)' })}>{im.name}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginTop: '1px' }}>{im.plugin_member_number}</div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
 
@@ -1184,21 +1290,24 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
               </div>
             </div>
           </div>
+          {/* Introduction slot — who introduced this member. The tier
+              (connection_type) is what THAT introducer earns, so it lives here.
+              Shown for every member category, accountants included. */}
           <div style={sectionStyle}>
-            <div style={cardTitle}>Connected Member</div>
+            <div style={cardTitle}>Introductions</div>
             <div style={{ marginBottom: '16px', position: 'relative' }}>
-              <label style={labelStyle}>Search Member</label>
+              <label style={labelStyle}>Introduced By (search member)</label>
               <input
-                value={connectedMemberObj && !showConnectedSearch ? `${connectedMemberObj.name} (${connectedMemberObj.plugin_member_number})` : connectedSearch}
-                onChange={e => { setConnectedSearch(e.target.value); setShowConnectedSearch(true); if (!e.target.value) update('connected_member_number', null) }}
+                value={introducedByObj && !showIntroducedSearch ? `${introducedByObj.name} (${introducedByObj.plugin_member_number})` : introducedSearch}
+                onChange={e => { setIntroducedSearch(e.target.value); setShowIntroducedSearch(true); if (!e.target.value) update('introduced_by_member_number', null) }}
                 placeholder="Search by name or number..."
                 style={{ ...inputStyle, marginTop: '6px' }}
-                onFocus={() => setShowConnectedSearch(true)}
+                onFocus={() => setShowIntroducedSearch(true)}
               />
-              {showConnectedSearch && connectedSearch && (
+              {showIntroducedSearch && introducedSearch && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-mid)', borderRadius: '8px', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
-                  {allMembers.filter(m => m.plugin_member_number !== member.plugin_member_number && (m.name?.toLowerCase().includes(connectedSearch.toLowerCase()) || m.plugin_member_number?.toLowerCase().includes(connectedSearch.toLowerCase()))).map(m => (
-                    <div key={m.plugin_member_number} onClick={() => { update('connected_member_number', m.plugin_member_number); setConnectedSearch(''); setShowConnectedSearch(false) }}
+                  {allMembers.filter(m => m.plugin_member_number !== member.plugin_member_number && (m.name?.toLowerCase().includes(introducedSearch.toLowerCase()) || m.plugin_member_number?.toLowerCase().includes(introducedSearch.toLowerCase()))).map(m => (
+                    <div key={m.plugin_member_number} onClick={() => { update('introduced_by_member_number', m.plugin_member_number); setIntroducedSearch(''); setShowIntroducedSearch(false) }}
                       style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--vfo-tint-deep)', color: 'var(--vfo-ink)', fontSize: '14px' }}
                       onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-tint)'}
                       onMouseLeave={e => e.currentTarget.style.background = 'none'}>
@@ -1208,18 +1317,60 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                 </div>
               )}
             </div>
-            {!isAccountant && (
-              <div>
-                <label style={labelStyle}>Connection Type</label>
-                <select value={profile.connection_type || ''} onChange={e => update('connection_type', e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)', marginTop: '6px' }}>
-                  <option value="">-- Select --</option>
-                  {CONNECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
+            <div>
+              <label style={labelStyle}>Introducer Benefit</label>
+              <select value={profile.connection_type || ''} onChange={e => update('connection_type', e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)', marginTop: '6px' }}>
+                <option value="">-- Select --</option>
+                {CONNECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            {profile.introduced_by_member_number && (
+              <button onClick={() => { update('introduced_by_member_number', null); update('connection_type', ''); setIntroducedSearch('') }} style={{ marginTop: '12px', padding: '8px 16px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600, fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Remove Introduction</button>
             )}
-            {profile.connected_member_number && (
-              <button onClick={() => { update('connected_member_number', null); update('connection_type', ''); setConnectedSearch('') }} style={{ marginTop: '12px', padding: '8px 16px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600, fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Remove Connection</button>
-            )}
+          </div>
+          {/* Connections are mutual pairs with no tier and no limit. Every row here
+              writes immediately — the Save button below does NOT cover this card. */}
+          <div style={sectionStyle}>
+            <div style={{ ...cardTitle, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>Connections</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 9px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>{connectionPartners.length}</span>
+            </div>
+            {connectionPartners.length === 0
+              ? <p style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>No connections yet.</p>
+              : connectionPartners.map((cp, i) => (
+                <div key={cp.plugin_member_number} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: i < connectionPartners.length - 1 ? '1px solid var(--vfo-tint)' : 'none' }}>
+                  <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>{initials(cp.name)}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--vfo-ink)' }}>{cp.name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginTop: '1px' }}>{cp.plugin_member_number}</div>
+                  </div>
+                  <button onClick={() => writeConnection('member_connection_remove', cp.plugin_member_number)} disabled={connSaving} style={{ marginLeft: 'auto', padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600, fontSize: '12px', cursor: connSaving ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', opacity: connSaving ? 0.6 : 1, flexShrink: 0 }}>Remove</button>
+                </div>
+              ))
+            }
+            <div style={{ position: 'relative', marginTop: '16px' }}>
+              <label style={labelStyle}>Add Connection (search member)</label>
+              <input
+                value={connectedSearch}
+                onChange={e => { setConnectedSearch(e.target.value); setShowConnectedSearch(true) }}
+                placeholder="Search by name or number..."
+                style={{ ...inputStyle, marginTop: '6px' }}
+                onFocus={() => setShowConnectedSearch(true)}
+                disabled={connSaving}
+              />
+              {showConnectedSearch && connectedSearch && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-mid)', borderRadius: '8px', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
+                  {allMembers.filter(m => m.plugin_member_number !== member.plugin_member_number && !partnerNumbers.includes(m.plugin_member_number) && (m.name?.toLowerCase().includes(connectedSearch.toLowerCase()) || m.plugin_member_number?.toLowerCase().includes(connectedSearch.toLowerCase()))).map(m => (
+                    <div key={m.plugin_member_number} onClick={() => { setConnectedSearch(''); setShowConnectedSearch(false); writeConnection('member_connection_add', m.plugin_member_number) }}
+                      style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--vfo-tint-deep)', color: 'var(--vfo-ink)', fontSize: '14px' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-tint)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                      {m.name} <span style={{ color: 'var(--vfo-muted)' }}>({m.plugin_member_number})</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div style={sectionStyle}>
             <div style={cardTitle}>VFO Certification</div>
