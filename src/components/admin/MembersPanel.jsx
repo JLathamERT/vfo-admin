@@ -935,8 +935,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
   const rowStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--vfo-tint)' }
   const subTabStyle = (active) => ({ padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' })
   const CONNECTION_TYPES = ['5% - Regular Advisor', '10% - Accredited Introducer', '10% - Accredited Mentor', '20% - Accredited Introducer + Mentor']
-  // Accountants pick from their own product-tier list, and they connect to an
-  // advisor with no connection-type tier (the % tiers are advisor-only).
+  // Accountants pick from their own product-tier list.
   const isAccountant = member.member_category === 'accountant'
   const isAdvisor = member.member_category === 'advisor'
   // Strategic members pick their "type" from the DB-driven group list (passed in
