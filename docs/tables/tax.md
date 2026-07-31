@@ -203,7 +203,7 @@ Tax 5b "Implementation decision" mirrors Tax 4's 3-option pattern: Proceed picks
 | `implementation_rev_paid` | text | `Yes` / `Failed` / `Money Mapping` / `N/A — No Share Due`. Picked up by daily sweep alongside retainer revshare. |
 | `implementation_rev_email_sent` | boolean | default false. |
 | `implementation_announcement_email_sent` | boolean | default false. **Currently unused — wrap-up email was dropped in the Tax 5 client-email redesign.** Kept for future. |
-| `implementing_specialist_id` | integer | fk → `client_tax_specialists.id`. **Currently unused — implementation is decided at the phase level, not per-specialist, in the new design.** |
+| `implementing_specialist_id` | integer | fk → `client_tax_specialists.id`. **Still unused, and NOT the per-specialist mechanism.** (It was written when implementation was decided at the phase level. As of 2026-07-31 / v683 the `Tax 6 - Implementation` steps ARE per-specialist, but they are tracked through `client_tax_progress.tax_specialist_id`, not through this column — see #311. Do not start writing this column expecting anything to read it.) |
 
 ### Indexes
 - `idx_client_tax_plans_tax_token` ON `tax_token`
@@ -226,8 +226,8 @@ Many-to-many between a tax plan and the `experts` working on it.
 |---|---|---|
 | `id` | integer | pk |
 | `tax_plan_id` | integer | not null. fk → `client_tax_plans.id` (CASCADE). |
-| `expert_id` | bigint | **NULLABLE** as of migration `20260729210000_tax_specialist_other_option.sql` — fk → `experts.id` (NO ACTION). **A NULL `expert_id` IS the "Other #N (See notes)" allocation** (#305): it points at no `experts` row, so it can never reach a showroom or the public widget. |
-| `specialist_name` | text | not null. Snapshot of name (so display survives expert renames). Server-controlled `Other #N (See notes)` on the NULL-expert path, numbered max+1 per plan. |
+| `expert_id` | bigint | **NULLABLE** as of migration `20260729210000_tax_specialist_other_option.sql` — fk → `experts.id` (NO ACTION). **A NULL `expert_id` IS the off-directory ("Custom" / legacy "Other #N") allocation** (#305, #311): it points at no `experts` row, so it can never reach a showroom or the public widget. |
+| `specialist_name` | text | not null. Snapshot of name (so display survives expert renames). **Server-controlled on the NULL-expert path, and as of 2026-07-31 (v683) the admin names it** — `tax_add_specialist` `other:true` + `custom_name` stores **`Custom - <name>`**, with the `Custom - ` prefix built server-side from `CUSTOM_PREFIX` and the name sanitized (whitespace collapsed, trimmed, a leading case-insensitive `"custom -"` stripped so it can't double, 80-char cap). **An empty/absent `custom_name` falls back to the legacy `Other #N (See notes)` max+1 numbering** — kept for API back-compat only; the UI can no longer reach it and **no live row carries an `Other #N` name** (the last one was converted to `Custom - Steven Cox` on 2026-07-31). Neither unlinked path dedupes. See #311. |
 | `status` | text | not null, default `'live'`. **DEAD COLUMN — nothing in either repo has ever written it**, so every row reads `'live'` and the `'stopped'` branch is unreachable. It used to drive the allocation pill, which therefore always said "Live". **As of 2026-07-30 the pill instead derives from the per-specialist "Confirm ready for implementation" answer** (`localProgress[`${confirmReadyTask.id}_${spec.id}`]?.status`, `status_options = "Yes\|Undecided\|No"` on `program_client_tasks` 102/135): no answer / task missing → **Pending Decision**, `Yes` → **Ready** (green `#1b9254`), `Undecided` → **Undecided** (amber `#e06717`), `No` → **Not Proceeding** (red `#e74c3c`). The inert `status==='stopped'` branch is preserved at highest priority in case anything ever writes it; the Move-to-Implementation bypass writes no progress row and so renders the Pending Decision default. |
 | `created_at` | timestamptz | not null, default `now()`. |
 
@@ -237,13 +237,13 @@ Many-to-many between a tax plan and the `experts` working on it.
 
 ## `client_tax_progress`
 
-Per-task progress within a tax plan, scoped to a specialist.
+Per-task progress within a tax plan, optionally scoped to a specialist (see `tax_specialist_id` below — NULL is the plan-level row, and the two per-specialist phases are Tax 5a and, since v683, Tax 6).
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | integer | pk |
 | `tax_plan_id` | integer | not null. fk → `client_tax_plans.id` (CASCADE). |
-| `tax_specialist_id` | integer | fk → `client_tax_specialists.id` (SET NULL). |
+| `tax_specialist_id` | integer | fk → `client_tax_specialists.id` (**SET NULL** — which is exactly why `tax_remove_specialist` must delete a specialist's progress rows BEFORE the specialist row, see #305). **NULL means PLAN-LEVEL, not "no specialist"** — `save-task.ts` looks the plan-level row up with `.is("tax_specialist_id", null)`. **Two phases store their tasks per-specialist (non-NULL):** `Tax 5 - Education & DD (Specialist Allocation)` and, as of 2026-07-31 (v683), **`Tax 6 - Implementation`** (#311). For a Tax 6 task a NULL row is **dead data** no reader will surface — the 8 that predated the cutover were backed up and deleted. |
 | `task_id` | integer | not null. fk → `program_client_tasks.id` (NO ACTION). |
 | `status` | text | Status field. |
 | `completed_date` | date | |
