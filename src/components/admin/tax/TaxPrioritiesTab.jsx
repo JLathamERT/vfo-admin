@@ -781,9 +781,10 @@ function AssessMoneyInput({ label, value, onChange, inputStyle, labelStyle }) {
   )
 }
 
-function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCancel }) {
-  const isViewMode = !!existingData
+function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCancel, editing = false, existingCompletedDate = null }) {
+  const isViewMode = !!existingData && !editing
   const isStructured = Array.isArray(existingData?.strategies)
+  const legacyAnswer = !isStructured ? (existingData?.question_1 || '') : ''
   const [fee, setFee] = useState(existingData?.fee != null ? String(existingData.fee) : '')
   const [strategies, setStrategies] = useState(() => (
     isStructured && existingData.strategies.length
@@ -834,7 +835,7 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
     setSubmitting(true)
     try {
       await callApi('tax_save_assess_form', { tax_plan_id: plan.id, form: { fee: Math.round(feeNum * 100) / 100, strategies: payload } })
-      await saveTask(task.id, 'Completed', null)
+      await saveTask(task.id, 'Completed', existingCompletedDate || null)
       if (onSubmitted) onSubmitted()
     } catch (err) {
       console.error(err)
@@ -870,6 +871,12 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
 
   return (
     <div style={wrapStyle}>
+      {editing && legacyAnswer && (
+        <div style={{ marginBottom: '16px' }}>
+          <label style={labelStyle}>Previous answer — will be replaced when you save</label>
+          <div style={{ ...inputStyle, opacity: 0.6, whiteSpace: 'pre-wrap' }}>{legacyAnswer}</div>
+        </div>
+      )}
       <div style={{ marginBottom: '16px', maxWidth: '260px' }}>
         <AssessMoneyInput label="Fee" value={fee} onChange={setFee} inputStyle={inputStyle} labelStyle={labelStyle} />
       </div>
@@ -909,7 +916,7 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
       {submitError && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginBottom: '8px' }}>{submitError}</div>}
       <div style={{ display: 'flex', gap: '8px' }}>
         <button onClick={handleSubmit} disabled={submitting} style={{ flex: 1, padding: '12px', borderRadius: '8px', background: submitting ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '15px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
-          {submitting ? 'Submitting...' : 'Submit'}
+          {submitting ? 'Submitting...' : editing ? 'Save changes' : 'Submit'}
         </button>
         {onCancel && <button onClick={onCancel} disabled={submitting} style={{ padding: '12px 20px', borderRadius: '8px', background: 'transparent', border: '1px solid var(--vfo-border-strong)', color: 'var(--vfo-muted)', fontSize: '15px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
           Cancel
@@ -1379,17 +1386,32 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
 
       if (submitted) {
         const isShown = expanded[expandKey]
+        const editKey = `assessedit_${task.id}`
+        const isEditing = !!expanded[editKey]
         return (
           <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)', padding: '7px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flexWrap: 'wrap' }} onClick={() => setExpanded(prev => ({ ...prev, [expandKey]: !prev[expandKey] }))}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: green, flexShrink: 0, border: `1.5px solid ${green}` }} />
               <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: 1 }}>{task.name}</span>
               <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${green}22`, color: green, border: `1px solid ${green}44` }}>Submitted</span>
+              {!isEditing && (
+                <button onClick={e => { e.stopPropagation(); setExpanded(prev => ({ ...prev, [expandKey]: true, [editKey]: true })) }} style={{ padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }}>Edit</button>
+              )}
               <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{formatStamp(livePlan.assess_form_submitted_at)}</span>
               <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
             </div>
             {isShown && (
-              <AssessTaxForm task={task} plan={livePlan} saveTask={saveTask} existingData={livePlan?.assess_form || {}} />
+              <AssessTaxForm
+                key={isEditing ? 'edit' : 'view'}
+                task={task}
+                plan={livePlan}
+                saveTask={saveTask}
+                existingData={livePlan?.assess_form || {}}
+                editing={isEditing}
+                existingCompletedDate={localProgress[task.id]?.completed_date || null}
+                onCancel={() => setExpanded(prev => ({ ...prev, [editKey]: false }))}
+                onSubmitted={() => { setExpanded(prev => ({ ...prev, [editKey]: false })); refreshLivePlan() }}
+              />
             )}
           </div>
         )
