@@ -217,6 +217,7 @@ export default function MembershipFeesPanel({ title, category, allMembers = [] }
     { key: 'members', label: 'Members' },
     { key: 'setup', label: 'Set Up Payments' },
     { key: 'outstanding', label: 'Outstanding' },
+    { key: 'outstanding_links', label: 'Outstanding Payment Links' },
   ]
 
   return (
@@ -262,6 +263,9 @@ export default function MembershipFeesPanel({ title, category, allMembers = [] }
       )}
       {!loading && !error && section === 'outstanding' && (
         <OutstandingSection plans={plans} />
+      )}
+      {!loading && !error && section === 'outstanding_links' && (
+        <OutstandingLinksSection plans={plans} onChanged={load} onEdit={startEdit} />
       )}
     </div>
   )
@@ -662,25 +666,32 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
   const transferPullCount = isTransfer && transferRenewalValid && frequency === 'monthly'
     ? 1 + chargeDatesAfter(today, transferRenewal, 23).length
     : 0
-  const priorPaidValid = priorPaid === '' ||
-    (/^\d+$/.test(priorPaid.trim()) && Number(priorPaid) >= 0 && Number(priorPaid) <= 11)
-  // The entered "already made" count and the count derived from the renewal
-  // date are independent, so they can disagree. Warn rather than block — a real
-  // transfer with an irregular history may legitimately not total 12.
-  const priorPaidMismatch = priorPaid !== '' && priorPaidValid && transferRenewalValid &&
-    transferPullCount > 0 && Number(priorPaid) + transferPullCount !== 12
+  const priorPaidFilled = String(priorPaid).trim() !== ''
+  const priorPaidValid = priorPaidFilled &&
+    /^\d+$/.test(String(priorPaid).trim()) && Number(priorPaid) >= 0 && Number(priorPaid) <= 11
+  // Everything else about a monthly transfer is derived from the payments they
+  // already made — the backend does the same arithmetic, so keep them in step.
+  const prior = priorPaidValid ? Number(priorPaid) : 0
+  const remaining = 12 - prior
+  // Fewer charge dates left than payments owed (a late-in-the-year transfer)
+  // means the extra months ride along on the payment at the link.
+  const pullsAtLink = 1 + Math.max(0, remaining - transferPullCount)
   const perPull = frequency === 'annual'
     ? roundDollar(isTransfer ? annual : net)
     : isTransfer
-      ? (transferPullCount ? Math.max(0, roundDollar(annual / 12 - credit / transferPullCount)) : 0)
+      ? (priorPaidValid ? Math.max(0, roundDollar(annual / 12 - credit / remaining)) : 0)
       : Math.max(0, roundDollar(net / 12))
+  const linkAmount = pullsAtLink * perPull
 
   async function save() {
     setMsg(null)
     if (!memberNumber) { setMsg({ tone: 'error', text: 'Pick a member first.' }); return }
     if (!(annual > 0)) { setMsg({ tone: 'error', text: 'Enter the annual membership value.' }); return }
     if (isTransfer && !transferRenewalValid) { setMsg({ tone: 'error', text: 'Enter the member\'s existing renewal date — it must be the 15th of a month, within a year.' }); return }
-    if (!priorPaidValid) { setMsg({ tone: 'error', text: 'Payments already made must be a whole number between 0 and 11.' }); return }
+    if (isTransfer && frequency === 'monthly' && !priorPaidValid) {
+      setMsg({ tone: 'error', text: priorPaidFilled ? 'Must be a whole number between 0 and 11.' : 'Enter how many payments they\'ve already made this year (0 if none).' })
+      return
+    }
     setBusy(true)
     try {
       const res = await callApi('membership_plan_save', {
@@ -693,7 +704,7 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
         credit_note: credit,
         credit_note_memo: creditMemo || undefined,
         renewal_date: isTransfer ? transferRenewal : undefined,
-        prior_payments_made: isTransfer && frequency === 'monthly' && priorPaid !== '' ? Number(priorPaid) : undefined,
+        prior_payments_made: isTransfer && frequency === 'monthly' ? Number(priorPaid) : undefined,
       })
       if (!res?.ok) { setMsg({ tone: 'error', text: res?.error || 'Could not save the plan.' }); return }
       if (editPlan) { onSaved?.({ tone: 'success', text: 'Plan updated.' }); return }
@@ -785,19 +796,15 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
         )}
         {isTransfer && frequency === 'monthly' && (
           <div>
-            <div style={label}>Payments already made this year (optional)</div>
+            <div style={label}>Payments already made this year</div>
             <input
               type="number" min="0" max="11" step="1" placeholder="e.g. 6"
               value={priorPaid} onChange={e => setPriorPaid(e.target.value)} style={input}
             />
-            {priorPaid !== '' && !priorPaidValid ? (
+            {priorPaidFilled && !priorPaidValid ? (
               <div style={{ marginTop: '5px', fontSize: '12px', color: '#b91c1c' }}>Must be a whole number between 0 and 11.</div>
-            ) : priorPaidMismatch ? (
-              <div style={{ marginTop: '5px', fontSize: '12px', color: '#b45309' }}>
-                That makes {Number(priorPaid) + transferPullCount} payments this year, not 12 — check the renewal date, or enter {12 - transferPullCount}. Saving is still allowed.
-              </div>
             ) : (
-              <div style={{ marginTop: '5px', fontSize: '12px', color: 'var(--vfo-ink-3)' }}>Shown on their catch-up invoice. Leave blank and it is worked out from the renewal date instead.</div>
+              <div style={{ marginTop: '5px', fontSize: '12px', color: 'var(--vfo-ink-3)' }}>Under the old billing. The rest is worked out from this: 12 minus this number are still to be charged.</div>
             )}
           </div>
         )}
@@ -806,13 +813,19 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
       <div style={{ marginBottom: '16px', padding: '14px 16px', borderRadius: '10px', background: 'var(--vfo-input)', border: '1px solid var(--vfo-border-soft)', fontSize: '13px', color: 'var(--vfo-ink-2)' }}>
         <div style={{ ...label, marginBottom: '8px' }}>Plan preview</div>
         {isTransfer ? (
-          !transferRenewalValid ? (
+          frequency === 'monthly' ? (
+            (!transferRenewalValid || !priorPaidValid) ? (
+              <div style={{ color: '#b45309' }}>Enter their existing renewal date and how many payments they've made to see the remaining schedule.</div>
+            ) : (
+              <div>
+                Paid {prior} of 12 — <strong>{remaining} × {money(perPull)}</strong> left: <strong>{money(linkAmount)}</strong> at the link
+                {pullsAtLink > 1 ? ` (includes ${pullsAtLink - 1}-month catch-up)` : ''}, then {remaining - pullsAtLink} monthly
+                {' '}until renewal <strong>{fmtDate(transferRenewal)}</strong>
+                {credit > 0 ? <> · credit {money(credit)}</> : null}
+              </div>
+            )
+          ) : !transferRenewalValid ? (
             <div style={{ color: '#b45309' }}>Enter their existing renewal date to see the remaining schedule.</div>
-          ) : frequency === 'monthly' ? (
-            <div>
-              <strong>{transferPullCount} × {money(perPull)}</strong> until renewal <strong>{fmtDate(transferRenewal)}</strong>
-              {credit > 0 ? <> · credit {money(credit)}</> : null} · first payment at the link
-            </div>
           ) : (
             <div>Nothing due now · next charge <strong>{money(roundDollar(annual))}</strong> at renewal <strong>{fmtDate(transferRenewal)}</strong></div>
           )
@@ -867,6 +880,120 @@ function OutstandingSection({ plans }) {
       {groups.map(({ plan, overdue, total }) => (
         <OutstandingRow key={plan.id} plan={plan} overdue={overdue} total={total} />
       ))}
+    </div>
+  )
+}
+
+// ── Outstanding Payment Links: setup links sent but never completed ───────────
+
+// Prop is named `label` for readability at the call sites; renamed on the way in
+// so it does not shadow the module-level `label` style.
+function LinkDetail({ label: text, value }) {
+  return (
+    <div style={{ display: 'flex', gap: '10px', padding: '7px 0', borderTop: '1px solid var(--vfo-tint)', fontSize: '13px' }}>
+      <div style={{ width: '170px', flexShrink: 0, color: 'var(--vfo-muted)', fontWeight: 600 }}>{text}</div>
+      <div style={{ color: 'var(--vfo-ink)' }}>{value}</div>
+    </div>
+  )
+}
+
+function OutstandingLinksSection({ plans, onChanged, onEdit }) {
+  // Unlike the tax/holistic Outstanding Payment Links tabs, sandbox plans show
+  // here (badged) — this panel is also where sandbox test runs are watched.
+  const rows = plans.filter(p => p.status === 'setup_pending' && p.setup_email_sent_at)
+
+  if (rows.length === 0) {
+    return (
+      <div style={{ ...card, textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>
+        No outstanding payment links — everyone who was sent a setup link has completed it.
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {rows.map(p => <OutstandingLinkRow key={p.id} plan={p} onChanged={onChanged} onEdit={onEdit} />)}
+    </div>
+  )
+}
+
+// One outstanding setup link. Per-row busy/message state lives here because
+// hooks can't be used inside the .map above.
+function OutstandingLinkRow({ plan, onChanged, onEdit }) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+
+  const perPull = Number(plan.per_pull_amount) || 0
+  // Annual transfers charge nothing now (they renew at the renewal date), so
+  // their link only saves a payment method.
+  const saveOnly = perPull <= 0 || (plan.transfer && plan.frequency === 'annual')
+
+  async function sendLink() {
+    setBusy(true); setMsg(null)
+    try {
+      const res = await callApi('membership_send_setup_link', { plan_id: plan.id })
+      if (!res?.ok) { setMsg({ tone: 'error', text: res?.error || 'Action failed.' }); return }
+      if (res.email_skipped) setMsg({ tone: 'amber', text: `Link ready, but the email template isn't seeded yet — send it manually: ${res.setup_link}` })
+      else setMsg({ tone: 'success', text: `Setup email drafted for ${res.to_email}.` })
+      onChanged?.()
+    } catch (e) {
+      setMsg({ tone: 'error', text: e?.message || 'Action failed.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div style={{ ...card, marginBottom: '10px', overflow: 'hidden' }}>
+      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', cursor: 'pointer' }}>
+        <span style={{ fontSize: '11px', color: 'var(--vfo-faint)', width: '12px' }}>{open ? '▾' : '▸'}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {plan.member_name || plan.member_number}
+            <StatusPill label="Setup link" color="#125ecc" />
+            {plan.transfer && <StatusPill label="Transferred" color="#6b7280" />}
+            {plan.sandbox && <StatusPill label="Sandbox" color="#e06717" />}
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>
+            {plan.member_number} · Link sent {fmtStamp(plan.setup_email_sent_at)}
+            {' · '}{plan.frequency === 'monthly' ? `Monthly (${money(perPull)}/mo)` : `Annual (${money(perPull)}/yr)`}
+          </div>
+        </div>
+        <div style={{ width: '120px', textAlign: 'right' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: saveOnly ? 'var(--vfo-ink-2)' : 'var(--vfo-heading)' }}>
+            {saveOnly ? 'Save-only' : money(perPull)}
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>{saveOnly ? 'no charge at link' : 'due at link'}</div>
+        </div>
+      </div>
+
+      {open && (
+        <div style={{ background: 'var(--vfo-input)', borderTop: '1px solid var(--vfo-border-soft)', padding: '14px 18px' }}>
+          <LinkDetail label="Annual value" value={money(plan.annual_amount)} />
+          <LinkDetail label="Credit note" value={Number(plan.credit_note) > 0 ? money(plan.credit_note) : '—'} />
+          {plan.transfer && <LinkDetail label="Renewal date" value={fmtDate(plan.renewal_date)} />}
+          <LinkDetail label="Plan created" value={`${fmtStamp(plan.created_at)}${plan.created_by ? ` · ${plan.created_by}` : ''}`} />
+          <LinkDetail label="Link sent" value={fmtStamp(plan.setup_email_sent_at)} />
+
+          <div style={{ marginTop: '14px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button type="button" disabled={busy} onClick={sendLink} style={primaryBtn(busy)}>
+              {busy ? 'Working…' : 'Resend payment setup link'}
+            </button>
+            <button type="button" disabled={busy} onClick={e => { e.stopPropagation(); onEdit?.(plan) }}
+              style={{ ...ghostBtn, border: `1px solid ${BLUE}`, color: BLUE }}>
+              Edit plan
+            </button>
+          </div>
+
+          {msg && (
+            <div style={{ marginTop: '10px', fontSize: '12.5px', padding: '8px 12px', borderRadius: '8px', wordBreak: 'break-all',
+              color: msg.tone === 'success' ? '#166534' : msg.tone === 'amber' ? '#b45309' : '#b91c1c',
+              border: `1px solid ${msg.tone === 'success' ? '#bbf7d0' : msg.tone === 'amber' ? '#fde68a' : '#fecaca'}`,
+              background: msg.tone === 'success' ? '#f0fdf4' : msg.tone === 'amber' ? '#fffbeb' : '#fef2f2' }}>{msg.text}</div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
