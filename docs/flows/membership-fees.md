@@ -28,10 +28,29 @@
   (`next_year_amount` − `next_year_credit_note`, editable on any active plan, consumed at renewal) —
   unless auto-renew is toggled off.
 - **Transfers** (members moving off the old billing mid-year): keep their existing renewal 15th
-  (admin inputs it); pay their next month at the link; bill only the charge dates before renewal
-  (credit spreads across those remaining pulls). **Annual transfers** pay nothing now — the link is
-  save-method-only; the first charge is the full annual at renewal. Fully-credited $0 plans are
-  also save-only ($0 rows show "Covered by credit" and are waived when due).
+  (admin inputs it) — **the renewal date never moves**. **Reworked 2026-07-31 (v688–v691):** the
+  admin enters exactly ONE number, **"Payments already made this year"** (`prior_payments_made`,
+  0–11, now **REQUIRED** on monthly transfers), and the server derives the rest —
+  `remaining_payments = 12 − prior` (a real column, written server-side only), `slots` = the link
+  plus every charge date before renewal, and `pullsAtLink = 1 + max(0, remaining − slots)`.
+  **Behind** (fewer charge dates left than payments owed) → the shortfall is collected **as
+  catch-up inside the FIRST payment at the link**, folded into **ONE** ledger row at the combined
+  amount (never several same-date rows — gotcha **#315**), labelled *"August 2026 (includes
+  1-month catch-up)"*. **Ahead** (free weeks paid on the old platform) → fewer scheduled rows;
+  the schedule simply stops early and nothing is billed for months already covered. The credit
+  note spreads across `remaining`, not across the calendar. One helper,
+  `transferLinkPulls(plan, basisDate)` in `actions/membership/shared.ts`, is the **single source**
+  for all four surfaces — `setup-load` (what the page shows), `setup-checkout` (what Stripe
+  charges), `activate` (what the ledger records) and `send-setup-link` (what the email quotes).
+  A **legacy pending transfer** saved before the column existed has NULL `remaining_payments` and
+  falls back to `remaining = slots`, i.e. exactly the old behaviour. **Annual transfers** pay
+  nothing now — the link is save-method-only; the first charge is the full annual at renewal, and
+  `prior_payments_made` stays optional for them. Fully-credited $0 plans are also save-only
+  ($0 rows show "Covered by credit" and are waived when due).
+- **Membership sandbox follows the panel's own toggle.** The `MEMBER_MEMBERSHIP` sandbox row is
+  **member-keyed**, so the `constants/test-sandbox.ts` force-sandbox override for test member
+  **59524** (#251) — which is client-pipeline only (TAX / MAP 1 / PIP) — **does NOT apply here**.
+  Testing a membership plan means setting the panel's SANDBOX badge by hand.
 - **Missed payment**: row → `missed` (red), member gets the friendly `MEMBERSHIP_payment_failed`
   email (no suspension mention — fix your method at the link; next month doubles to catch up),
   `members.membership_suspended` flips on automatically (auto-clears when caught up; login NOT blocked; SEPARATE from the admin's manual `suspended` toggle — displays OR the two, gotcha #240),
@@ -88,6 +107,13 @@
    selector once renewals accumulate, totals row). Outstanding lists overdue/missed by member,
    with a per-row "Send reminder email" button (`membership_send_reminder`, added Phase 4
    2026-07-15) that re-sends the failed-payment email on demand for the member's full arrears.
+   **A 4th pill, "Outstanding Payment Links" (added 2026-07-31),** lists every `setup_pending`
+   plan whose setup link has actually been emailed — expandable cards with Setup link /
+   Transferred / Sandbox badges, the amount due at the link (or "Save-only"), the plan details,
+   and **Resend payment setup link** + **Edit plan** buttons. **Deliberately unlike the tax and
+   holistic Outstanding tabs, sandbox rows are SHOWN here** (orange Sandbox badge) rather than
+   hidden — this panel is where sandbox test runs are watched. Keep that exception if the
+   "outstanding" pills are ever unified.
 
 ## Data
 
@@ -113,6 +139,14 @@
 - Any activation DB failure after the member completed checkout (guard count / ledger insert /
   plan update / method refresh), or a payment method that couldn't be read back from Stripe →
   Jake bell (`activate.ts` + the webhook block; Stripe returned 200 and will not retry).
+  **The alert wording was corrected 2026-07-31:** the title is now *"Membership payment received
+  but NOT recorded — <name>"* (payment path) / *"Membership setup saved but plan NOT activated"*
+  (save-only) and the body opens *"The member's first payment WENT THROUGH at Stripe — the money
+  landed — but it is not recorded on the ledger"*. The old *"Membership activation FAILED"* was
+  read as a **failed charge** during live testing, which is the opposite of what happened and the
+  wrong instinct at the worst moment. **This is the alert that fired for gotcha #315** — the
+  arrears catch-up written as several same-date rows, bounced by the schedule's
+  `(plan_id, due_date)` unique guard *after* Stripe had taken the money.
 - Termination fee declines (sync) or bounces late (ACH) → plan still terminates; the
   `termination_fee` row sits `declined` AND Jake gets a "termination fee declined/failed" bell
   (both paths, v619/620). No member email, no suspend. The fee row shares its `due_date` with a
@@ -167,12 +201,33 @@ all Draft, all **To** member / **Cc** `tvaldes@elitert.com` / **Bcc** `platham@e
   `member_payment_schedule.card_processing_fee`, stamped at settle time from Stripe's
   `amount_received` (the same convention as every other pipeline) — not re-derived. On a $1,500
   pull that is **$45.11**, charged as $1,545.11, netting ERT exactly $1,500 (gotcha #281).
-- **Ordinals on a transfer year carry no "of N" denominator**, because the admin-entered
-  made-count and the renewal-derived remaining-count need not total 12. The FE warns
-  (non-blocking) when they don't.
+- **EVERY member-facing COUNT IS IN MONTHS, NOT LEDGER ROWS (2026-07-31, v691, gotcha #316).**
+  A catch-up row spans several months, so `rowsThisYear.length` stopped meaning "payments
+  remaining" — it made the invoice say 6 where the setup email said 7 and ended the membership
+  year at "Payment 11" of 12. Every count now routes through
+  `monthsCoveredByRow(row, grossMonthly)` = `max(1, round((amount_due + credit_applied) /
+  grossMonthly))`, where `grossMonthly = roundDollar(annual_amount / 12)` — derived from the
+  **row's own money**, so it survives the credit spread (net alone is short by the credit;
+  **net + credit = one gross month**). That covers the invoice's *"Payments remaining (including
+  those collected today)"*, each schedule-line ordinal, the receipt's payment label, and the
+  `[Remaining Payments]` / `[X]` / `[Y]` tokens. **A multi-month row labels as a RANGE** —
+  *"Payments 6-7"* — so the year's numbering still reaches 12. An ordinary row always evaluates
+  to 1, so every non-catch-up document is byte-identical to the pre-v691 output.
+- **Ordinals on a transfer year still carry no "of N" denominator on the schedule lines**, but the
+  email's `[Y]` now genuinely totals 12: with `remaining_payments` derived as
+  `12 − prior_payments_made`, `paymentsMade + remainingCount = 12`. The old FE "13 payments"
+  mismatch warning was **deleted** with the same change — the two halves can no longer disagree.
 - `member_payment_plans.prior_payments_made` is admin-entered on the transfer form, because the
-  system holds no record of payments collected on the old platform. Blank falls back to
-  `(12 − remaining)`.
+  system holds no record of payments collected on the old platform. It is **REQUIRED on monthly
+  transfers** as of v691 (`plan-save.ts` 400s with *"Enter how many payments they already made
+  this year (0-11)"*); still optional on annual transfers. `remaining_payments` is derived from
+  it server-side and any client-supplied value is ignored.
+- **The card fee on a catch-up payment is stamped against the FULL base.** `router/webhooks.ts`
+  reads the checkout session's `pull_count` metadata (stamped on both the session and
+  `payment_intent_data`) and multiplies `per_pull_amount` by it before differencing Stripe's
+  `amount_received` — otherwise the entire extra pull would be stamped as `card_processing_fee`,
+  and the documents **prefer the stamped fee** over any re-derivation (#281). The same multiplier
+  fixes the ACH confirmation email's amount.
 
 ## NOT built yet (next work)
 

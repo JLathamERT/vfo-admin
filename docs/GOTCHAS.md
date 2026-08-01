@@ -1,8 +1,8 @@
-# VFO Session-Learned Gotchas — full registry (#1–#314)
+# VFO Session-Learned Gotchas — full registry (#1–#316)
 
 > Split out of `SESSION_REFERENCE.md` on 2026-06-19 to keep the live hub lean. This is the **complete** numbered list; the hub keeps only a curated ALWAYS-APPLIES subset.
 >
-> **Numbers are permanent.** Gotchas are referenced as `#N` from `SESSION_REFERENCE.md`, the operator prompts, and across `docs/` — **NEVER renumber.** Add new gotchas to the END of this list, incrementing from the current max (#314).
+> **Numbers are permanent.** Gotchas are referenced as `#N` from `SESSION_REFERENCE.md`, the operator prompts, and across `docs/` — **NEVER renumber.** Add new gotchas to the END of this list, incrementing from the current max (#316).
 >
 > Pre-existing ordering quirk preserved verbatim: **#87 physically precedes #86.** (Do not "fix" it — references are by number, not position.)
 
@@ -774,3 +774,40 @@ Cross-ref **#176** (every bell goes through `notifyByRule` + a seed row), **#178
 **Who sees the button, without any role change.** The member portal is unaffected (its `readOnly` early-return fires before the submitted branch). The **tax planner portal gets Edit automatically and correctly** — the step is already on BOTH `PLANNER_EDITABLE_TASK_NAMES` whitelists (#262) and `tax_save_assess_form` is already in `TAX_PLANNER_ALLOWED_ACTIONS` with its `denyIfNotPlannerPlan` guard. **No `role-gates.ts` entry and no whitelist was touched** — which is the thing to re-check, not assume, the next time a step gains a write affordance: if the action were NOT already planner-allowed, the button would render for a planner and 403 on click.
 
 Cross-ref **#306** (the stored shape + derived-values-never-stored + legacy rendering, all intact), **#262** (the three-surface planner whitelist), **#193** (a new prop must reach every nested component that reads it). `see #314`.
+
+---
+
+**315. `member_payment_schedule` carries a deliberate UNIQUE `(plan_id, due_date) WHERE kind='membership'` index — so a multi-month catch-up MUST fold into ONE row at the combined amount, never k same-date rows. The first arrears build did it the wrong way and the ledger insert bounced AFTER Stripe had already collected the money (2026-07-31, v690). ALWAYS-APPLIES (money).** The duplicate-charge guard is migration `20260717190000`'s partial unique index, and it is doing exactly its job: two membership rows on one date for one plan is the shape a double-charge takes, so the DB refuses it. The mid-year-transfer **arrears** feature (a member who transferred in behind pays the shortfall at the setup link) was first implemented by writing the catch-up as **k separate rows all dated the pay date**. In sandbox this failed in the worst possible order:
+
+1. Stripe collected the full multi-month amount at the hosted page — **the money moved**.
+2. `checkout.session.completed` fired, `activateMembershipPlan` built the year-1 ledger, and the very first `insert` hit `23505` on the partial unique index.
+3. Nothing was written. The plan stayed **`setup_pending`**, the member had paid and had no ledger, and the only signal was the activation-failure bell.
+
+**The fix is structural, not defensive.** `buildActivatedSchedule` now emits **ONE** link row at `perPull x linkPulls` with `credit_applied` scaled the same way, labelled `periodLabel + " (includes N-month catch-up)"` when `linkPulls > 1`. That is safe for the documents because **the invoice/receipt engine totals by PaymentIntent, not by row** — a combined charge already stamps the same `stripe_payment_intent_id` (and the same `card_processing_fee`, #281) on every row it covers, so folding several months into one row loses nothing the documents need. Rule for any future work that collects more than one period in a single charge: **change the row's AMOUNT, never the row COUNT.**
+
+Two adjacent traps the same code path exposed, both worth carrying forward:
+
+- **A remainder of 0 must short-circuit before `subsequentChargeDates`.** Its `count` option is checked for truthiness, so `count: 0` reads as **UNLIMITED** and would generate rows forever. The follow-up branch is `total - pulls <= 0 ? [] : subsequentChargeDates(...)`.
+- **`untilExclusive: renewalDate` is now passed on EVERY transfer branch, including the counted one.** A scheduled row landing on or after `renewal_date` looks to the sweep's renewal guard like an already-generated year 2 and permanently blocks the renewal (#235). The count and the cap are belt and braces; keep both.
+
+Cross-ref **#239** (schedule uniqueness is per `kind='membership'`, which is why a same-day termination fee is legal), **#235** (nothing may sort on/after `renewal_date`), **#281** (the shared PI + shared stamped fee), **#282** (a failed reservation must not be assumed to have landed). `see #315`.
+
+---
+
+**316. Member-facing membership COUNTS speak in MONTHS, never in ledger rows — a catch-up row spans several months, and row-counting made the invoice say "6 payments remaining" where the setup email said 7 and ended the membership year at "Payment 11" of 12 (2026-07-31, v691). ALWAYS-APPLIES (money).** Once #315 folded a catch-up into one row, `rowsThisYear.length` stopped meaning "months left" — the two diverged by exactly the catch-up. Every count in `actions/membership/invoice-receipt.ts` was reading rows:
+
+- the invoice panel's **"Payments remaining (including those collected today)"**,
+- each schedule line's **ordinal** (`Payment N of 12`),
+- the receipt's **`paymentLabel`**,
+- and the email tokens **`[Remaining Payments]` / `[X]` / `[Y]`**.
+
+**The unit of truth is `monthsCoveredByRow(row, grossMonthly)` in `actions/membership/shared.ts`** = `max(1, round((amount_due + credit_applied) / grossMonthly))`, with `grossMonthly = roundDollar(annual_amount / 12)`. It derives a row's span **from the row's own money**, which is why it stays correct under a credit spread: the plan's credit note is spread across the remaining pulls, so `amount_due` alone is short by the credit, but **net + credit = one gross month** always. An ordinary row therefore always evaluates to 1, and **every non-catch-up document this session is byte-identical to before** — that is the regression proof, not a claim.
+
+Two consequences to preserve:
+
+- **A multi-month row labels as a RANGE** — `"Payments 6-7"` — via `ordinalSpanOf(idx, row)`, so the year's numbering still reaches **12**. Ranges only ever occur on a transfer year.
+- **`[X]` is the month the payment STARTS at** (`monthStartAt`), not the row index, and `[Y]` on a transfer year is `paymentsMade + remainingCount`. With `remaining_payments` now derived server-side as `12 - prior_payments_made`, those two DO sum to 12 — the old "the denominator need not total 12" caveat is gone, and the FE mismatch warning that used to exist for it was deleted the same session.
+
+The generalizable rule: **whenever a ledger row stops being one-row-one-period, every count derived from that ledger must be re-derived from the row's money, and every ordinal must be able to express a span.** Check the invoice, the receipt, the confirmation email and the setup email together — this bug was only visible because the setup email (which counted months) and the invoice (which counted rows) were read side by side.
+
+Cross-ref **#315** (why a row can span months at all), **#280** (counts are derived from the ledger's `year_start` grouping, never passed in), **#281** (the same "read it off the row, do not re-derive" discipline for the card fee). `see #316`.

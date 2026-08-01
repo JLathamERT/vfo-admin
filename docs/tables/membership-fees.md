@@ -30,7 +30,8 @@ when checking, so terminate → create-new works).
 | `setup_link_expires_at` | update-method links (ACTIVE plans only) expire 30 days after last emailed; re-stamped by every link emailer + activation; NULL/past = expired (gotcha #241) |
 | `next_year_amount` / `next_year_credit_note` | admin-editable renewal terms, consumed + cleared by the renewal pass |
 | `termination_fee` / `terminated_at` | set by `membership_terminate` |
-| `prior_payments_made` | transfers only: payments already collected this year under the OLD billing. Admin-entered on the transfer form (0–11) because the system holds no record of them; printed on the catch-up invoice. NULL falls back to `(12 − remaining)` (gotcha #280) |
+| `prior_payments_made` | transfers only: payments already collected this year under the OLD billing. Admin-entered on the transfer form (0–11) because the system holds no record of them; printed on the catch-up invoice. **REQUIRED on MONTHLY transfers as of 2026-07-31 / v691** (`plan-save.ts` 400s with *"Enter how many payments they already made this year (0-11)"*) — it is now the ONLY schedule input the admin gives; still optional on annual transfers. NULL falls back to `(12 − remaining)` (gotcha #280) |
+| `remaining_payments` | **NEW 2026-07-31** (`20260731150000_membership_remaining_payments.sql`, additive nullable integer). Monthly transfers only: charges left this membership year, **INCLUDING** the one taken at the setup link. **DERIVED server-side at plan save as `12 − prior_payments_made` — never admin-entered**, written unconditionally (so editing a plan away from monthly/transfer clears it) and any client-supplied value is ignored. NULL for new plans, annual plans, and legacy pending transfers saved before the column existed — on those, `transferLinkPulls()` falls back to the renewal-date-derived slot count, which is exactly the pre-v691 behaviour. Drives `pullsAtLink = 1 + max(0, remaining − slots)` (the arrears catch-up) and the per-pull credit spread. Gotchas #315/#316 |
 | `sandbox` | Stripe mode the customer was created in (key selection follows this, not the live toggle) |
 
 ## member_payment_schedule
@@ -44,8 +45,8 @@ sweep index `(status, due_date)`.
 | Column | Notes |
 |---|---|
 | `plan_id` (FK cascade) / `member_number` | |
-| `due_date` / `period_label` | e.g. `2026-08-13` / `August 2026` (annual: `Membership year 2026–2027`) |
-| `amount_due` / `credit_applied` | whole dollars; $0 rows = credit-covered, waived when due |
+| `due_date` / `period_label` | e.g. `2026-08-13` / `August 2026` (annual: `Membership year 2026–2027`). A behind mid-year transfer's first row reads `August 2026 (includes 1-month catch-up)`. **`(plan_id, due_date)` is UNIQUE where `kind='membership'`** (partial index, migration `20260717190000`) — the duplicate-charge guard. **Never write two membership rows on one date for a plan:** a multi-period collection changes the row's AMOUNT, never the row COUNT (gotcha #315) |
+| `amount_due` / `credit_applied` | whole dollars; $0 rows = credit-covered, waived when due. **A catch-up row carries `perPull × N` and `creditPer × N`** — and `(amount_due + credit_applied) / grossMonthly` is exactly how `monthsCoveredByRow` recovers the number of MONTHS the row spans, which is the unit every member-facing count uses (gotcha #316) |
 | `kind` | `'membership'` \| `'termination_fee'` |
 | `status` | `scheduled` → `processing`/`paid` \| `missed`/`declined` (arrears — swept into the next combined charge) \| `waived` \| `canceled` |
 | `stripe_payment_intent_id` | a combined catch-up charge stamps the SAME PI on every row it covered |
