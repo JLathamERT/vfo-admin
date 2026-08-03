@@ -271,6 +271,30 @@ Independent of the per-pipeline `pipeline_sandbox_config` toggle, every client-s
 
 Stripe account-onboarding links (`connect.stripe.com/setup/...`) are **single-use and expire**. The 4 "Set Up Payment Details" emails (member / specialist / strategic group / tax planning group, from `actions/members|specialists|strategic|tax-planners/*stripe-connect-request.ts`) therefore do **not** embed a raw account link any more — they embed a stable portal URL `${PORTAL_BASE}/payout-setup?token=<64-hex>`. One durable token per payout entity lives in `connect_setup_tokens` (`entity_type` ∈ member/specialist/strategic_group/tax_planning_group + `entity_key`, `unique(entity_type, entity_key)`, deny-all RLS); `utils/connect-setup-token.ts ensureConnectSetupToken` mints it lazily and reuses it across resends, so every email ever sent keeps resolving. The PUBLIC action **`connect_setup_link`** (`actions/payouts/connect-setup-link.ts`, in `PUBLIC_HANDLERS`) resolves token → entity → `stripe_account_id`, reads the shared "MAP 1" `pipeline_sandbox_config` toggle (so it talks to whichever platform owns the account), and mints a **fresh** `POST /v1/account_links` (`type=account_onboarding`) on EVERY click — `refresh_url` loops back to the same `/payout-setup?token=` page (Stripe's own mid-flow expiry re-mints through it), `return_url` = `/payout-setup?done=1`. `src/pages/PayoutSetupPage.jsx` auto-POSTs the action and redirects. Errors are friendly/generic (404 invalid, 410 "no longer valid" when the account can't be read — e.g. a sandbox-created account under the live key); the real Stripe error is logged WITHOUT the token (a durable bearer secret). The recovery for any previously-emailed dead raw link is a per-partner **"Resend Setup Email"** (it now carries the durable link). NOTE: the emailed `vfoportal.com/payout-setup` links only resolve once the frontend page is deployed.
 
+**Account links must collect `eventually_due`, not just `currently_due` (2026-08-03, v693, gotcha #317).** Stripe's `account_onboarding` link asks the account holder only for what is **currently** blocking them. An Express account can be `payouts_enabled` with `capabilities.transfers='active'` — payable today — while the identity fields Stripe demands at the **$3,000 lifetime-payout threshold** (SSN, date of birth) sit unrequested in `requirements.eventually_due`. Such a person clicks the setup link, is shown an already-complete page, concludes they are done, and then has payouts stop at the cap months later. **Both mints in the codebase now append `collection_options[fields]=eventually_due`**:
+
+- `actions/payouts/connect-setup-link.ts` — the per-click mint behind the durable `/payout-setup?token=` page, so this covers **all four** entity types (member / specialist / strategic group / tax planning group).
+- `utils/specialist-revenue-payout.ts` — the automatic SPECREV "awaiting connect" setup email minted when a payout line finds `transfers !== 'active'` (gotcha #159).
+
+**Any NEW account-link mint must do the same** — grep `v1/account_links` before adding one. The fix is forward-only: accounts already onboarded through an old currently_due-only link keep their cap until someone resends them a setup email. Those are exactly the accounts the member-profile status dot now renders **orange** (`eligible_capped` — "payouts eligible to $3,000"), which is how you find them; see the Connect-status read below.
+
+### Member Connect status is read live, and it is the only surface that is (2026-08-03, gotcha #318)
+
+`member_connect_status` (`actions/members/connect-status.ts`, AUTH + `ADMIN_ONLY_ACTIONS`) `GET`s `/v1/accounts/{id}` **fresh on every member-profile open** — no DB cache, no cron, no stored status column — and is strictly **read-only** (it writes nothing to Postgres and creates nothing at Stripe). It resolves the platform through the same shared **"MAP 1"** `pipeline_sandbox_config` toggle everything else Connect-related reads, so it always queries the platform that would actually pay the member out. Returned `status`:
+
+| Status | Dot | Meaning |
+|---|---|---|
+| `none` | — | No `members.stripe_account_id` at all. |
+| `complete` | green | `payouts_enabled` **AND** `capabilities.transfers==='active'` **AND** `currently_due` + `eventually_due` both empty. Only this is finished. |
+| `eligible_capped` | orange | Payouts enabled + transfers active, requirements still outstanding — the $3,000-cap state created by pre-v693 links (#317). Deliberately not green. |
+| `pending` | red | Payouts or transfers not enabled. |
+| `mode_mismatch` | gray | 404s under the resolved mode but **resolves under the other key**. Connect accounts live under whichever sandbox/live toggle was active at creation, so this is expected, not an error — it renders neutral and names the mode, never a false red/green. |
+| `unavailable` | gray | Stripe unreachable, or 404 under both keys. |
+
+**The rule: a red or green dot must be earned from a live Stripe read.** The cross-mode retry exists so a mode-mismatched id degrades to gray rather than sending an admin to chase a member whose account is fine on the other platform.
+
+**Scope warning.** This is one profile surface. Every other "connected" indicator in the portal — the Strategic Members, Tax Planners and Specialists panels, and the KPI donut — still infers "connected" from the **mere presence of `stripe_account_id`**, which goes green the instant the account row is created and long before anyone onboards. That false-green, and the transfers-active gate on the payout legs, are the **paused 2026-07-22 Connect-status audit** and remain **UNBUILT**. Extending the dot to those panels should reuse this action's mapping rather than inventing another.
+
 ## Sandbox vs live transitions
 
 | Setting | Live | Sandbox |
