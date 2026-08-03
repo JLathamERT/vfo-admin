@@ -86,7 +86,7 @@ These string values appear in pipeline columns. Only two are DB-CHECK-constraine
 | `client_ciqs.status` | `'draft'`, `'completed'` (DB CHECK constrained) |
 | `ciq_priorities.decision` | `'drop'`, `'park'`, `'prioritize'` (DB CHECK constrained) |
 | `ciq_priorities.progress_status` | `'in_progress'`, `'completed'`, or null=not started (DB CHECK constrained, nullable) — One Page Plan "Update Progress" |
-| `clients.status` | `'pending'`, `'active'`, `'lost'` (UI-defined) |
+| `clients.status` | `'pending'`, `'active'`, `'lost'` (UI-defined, not DB-constrained). Auto-flips `pending`→`active` on first tracking activity via `activateClientIfPending` — gotcha #320. |
 | `members.elite_status` | `'Active'` default; other values not enumerated |
 | `members.revenue_decision` | `'Revenue Share'`, `'Money Mapping'` (read in revshare logic) |
 | `coaching_meetings.status` | `'scheduled'` default; others UI-defined |

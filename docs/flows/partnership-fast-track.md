@@ -94,7 +94,7 @@ accountants without spamming them. Frontend-only; PFT-only (`PFTEngagementTrack.
   immediately creates the handoff (`selected_pft`, `accountant_type='VFO Associate'`), links it, stamps
   `ft_response_token` + `ft_email_sent_at`. The former immediate `PFT_associate_confirmed` bell is dropped —
   the confirm/another-meeting bell fires on the client's click instead (worded per `accountant_type`).
-- **no** — drafts `PFT_decision_no`; sets client `status='lost'`.
+- **no** — drafts `PFT_decision_no`; sets client `status='lost'`. **Ordering note (2026-08-03, gotcha #320):** `savePftProgress` now calls `activateClientIfPending` (which flips `pending`→`active`), but that call happens BEFORE this `'lost'` write returns — and because the auto-activate is conditional on `.eq("status","pending")`, the `'lost'` write lands last and correctly wins. A client declined here does NOT end up "active".
 
 ## Undecided decision — client self-selects (2026-07-13)
 Mirrors the MAP 1 `/decide` undecided flow. Admin clicks **Undecided email** →
