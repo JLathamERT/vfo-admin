@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { callApi } from '../../lib/api'
 import { NAVY, money } from './specialistRevenueShared'
 import { AccountingTableSkeleton } from '../shared/Skeleton'
+import { MemberNameLink } from '../shared/personLinks'
 
 // Accounting > Members > Advisor/Accountant Onboarding. The one-time onboarding fee each
 // member paid when they went through onboarding. kind = 'advisor' | 'accountant'.
@@ -106,15 +107,18 @@ export default function MemberOnboardingPanel({ kind = 'advisor', title }) {
           {filtered.length === 0 && (
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>No onboarding payments for this period.</div>
           )}
-          {filtered.map(p => (
-            <div key={p.id} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '13px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)' }}>
-              <span style={{ fontWeight: 600 }}>{`${p.first_name || ''} ${p.last_name || ''}`.trim() || '—'}{p.acct_last4 && <span style={{ color: 'var(--vfo-faint)', fontWeight: 400 }}> · ••••{p.acct_last4}</span>}</span>
-              <span style={{ color: 'var(--vfo-muted)' }}>{p.member_number || '—'}</span>
-              <StatusTag status={p.payment_status} method={p.payment_method_type} />
-              <span style={{ textAlign: 'right', fontWeight: 700 }}>{money(p.payment_amount)}</span>
-              <span style={{ textAlign: 'right', color: 'var(--vfo-muted)' }}>{fmtDate(p.payment_completed_at)}</span>
-            </div>
-          ))}
+          {filtered.map(p => {
+            const fullName = `${p.first_name || ''} ${p.last_name || ''}`.trim()
+            return (
+              <div key={p.id} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '13px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)' }}>
+                <span style={{ fontWeight: 600 }}>{fullName ? <MemberNameLink memberNumber={p.member_number}>{fullName}</MemberNameLink> : '—'}{p.acct_last4 && <span style={{ color: 'var(--vfo-faint)', fontWeight: 400 }}> · ••••{p.acct_last4}</span>}</span>
+                <span style={{ color: 'var(--vfo-muted)' }}>{p.member_number || '—'}</span>
+                <StatusTag status={p.payment_status} method={p.payment_method_type} />
+                <span style={{ textAlign: 'right', fontWeight: 700 }}>{money(p.payment_amount)}</span>
+                <span style={{ textAlign: 'right', color: 'var(--vfo-muted)' }}>{fmtDate(p.payment_completed_at)}</span>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

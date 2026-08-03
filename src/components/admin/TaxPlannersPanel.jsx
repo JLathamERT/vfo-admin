@@ -9,6 +9,7 @@ import { DirectoryListSkeleton } from '../shared/Skeleton'
 import { TrackHero, HeroAvatar, ListHeader } from '../shared/TrackKit'
 import { FeatureTabDropdown } from './MembersPanel'
 import SendSetupEmailButton from './SendSetupEmailButton'
+import { ClientNameLink } from '../shared/personLinks'
 
 const STATUS_COLORS = { Active: '#1b9254', Lost: '#e74c3c', Removed: 'var(--vfo-muted)' }
 const HEADSHOT_SUPABASE = 'https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/headshots/'
@@ -641,7 +642,7 @@ function TaxPlannerPaymentsTab({ plannerId }) {
               {list.map(r => (
                 <tr key={r.plan_id}>
                   <td style={td}>
-                    <div style={{ fontWeight: 600 }}>{r.client_name || `Client ${r.client_id}`}</div>
+                    <div><ClientNameLink clientId={r.client_id} tab="tax" style={{ fontWeight: 600 }}>{r.client_name || `Client ${r.client_id}`}</ClientNameLink></div>
                     {r.total_fee != null && r.total_fee !== '' && <div style={{ fontSize: '11px', color: 'var(--vfo-faint)', marginTop: '3px' }}>Total fee {fmtMoney(r.total_fee)}</div>}
                   </td>
                   <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>

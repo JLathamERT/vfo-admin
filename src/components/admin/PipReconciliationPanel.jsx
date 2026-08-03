@@ -4,6 +4,7 @@ import { NAVY, money } from './specialistRevenueShared'
 import { inPeriod } from './holisticShared'
 import { clearedPipPurchases } from './pipShared'
 import { AccountingTableSkeleton } from '../shared/Skeleton'
+import { ClientNameLink } from '../shared/personLinks'
 
 // Accounting > VFO Services > Additional PIP Reconciliation. Pick a year → grouped BY
 // CLIENT: each client with additional-PIP activity that year and the revenue split from
@@ -94,7 +95,7 @@ export default function PipReconciliationPanel({ embedded = false }) {
           </div>
           {clients.map(c => (
             <div key={c.clientId} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)' }}>
-              <span style={{ fontWeight: 600 }}>{c.clientName}</span>
+              <span><ClientNameLink clientId={c.clientId} tab="pip" style={{ fontWeight: 600 }}>{c.clientName}</ClientNameLink></span>
               <span style={{ color: 'var(--vfo-muted)' }}>{c.memberName}</span>
               <span style={{ textAlign: 'right', fontWeight: c.member ? 700 : 400, color: c.member ? '#16a34a' : 'var(--vfo-faint)' }}>{money(c.member)}</span>
               <span style={{ textAlign: 'right', fontWeight: c.mm ? 700 : 400, color: c.mm ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{money(c.mm)}</span>

@@ -27,6 +27,7 @@ export function clearedTaxPayments(rows) {
     const label = programLabel(r.program_id)
     const base = {
       clientName: r.client_name || `Client #${r.client_id}`,
+      clientId: r.client_id,
       memberNumber: r.member_number || null,
       memberName: r.member_name || '',
       decision: r.member_revenue_decision || null,

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
 import { money } from './specialistRevenueShared'
 import { Skeleton, TableSkeleton } from '../shared/Skeleton'
+import { MemberNameLink } from '../shared/personLinks'
 
 // Accounting > Members > Growth Credits. Program-wide totals plus the full
 // transaction ledger and every member's current balance. Read-only.
@@ -101,7 +102,7 @@ export default function GrowthCreditsAccountingPanel() {
             {(data.transactions || []).map(t => (
               <div key={t.id} style={{ display: 'grid', gridTemplateColumns: txCols, gap: '8px', padding: '12px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)' }}>
                 <span style={{ color: 'var(--vfo-muted)' }}>{fmtDate(t.created_at)}</span>
-                <span style={{ fontWeight: 600 }}>{t.member_name}</span>
+                <span><MemberNameLink memberNumber={t.member_number} style={{ fontWeight: 600 }}>{t.member_name}</MemberNameLink></span>
                 <span><TypeTag type={t.type} /></span>
                 <span style={{ textAlign: 'right', fontWeight: 700, color: (t.amount || 0) < 0 ? '#d93025' : '#16a34a' }}>{(t.amount || 0) > 0 ? '+' : ''}{t.amount}</span>
                 <span style={{ textAlign: 'right' }}>{t.amount_usd != null ? money(t.amount_usd) : '—'}</span>
@@ -120,7 +121,7 @@ export default function GrowthCreditsAccountingPanel() {
             )}
             {(data.balances || []).map(b => (
               <div key={b.member_number} style={{ display: 'grid', gridTemplateColumns: balCols, gap: '8px', padding: '12px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)' }}>
-                <span style={{ fontWeight: 600 }}>{b.member_name}</span>
+                <span><MemberNameLink memberNumber={b.member_number} style={{ fontWeight: 600 }}>{b.member_name}</MemberNameLink></span>
                 <span style={{ textAlign: 'right', fontWeight: 700 }}>{b.balance}</span>
               </div>
             ))}

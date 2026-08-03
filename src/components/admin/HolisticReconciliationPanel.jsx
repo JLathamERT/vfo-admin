@@ -3,6 +3,7 @@ import { callApi } from '../../lib/api'
 import { NAVY, money } from './specialistRevenueShared'
 import { clearedPayments, inPeriod } from './holisticShared'
 import { AccountingTableSkeleton } from '../shared/Skeleton'
+import { MemberNameLink } from '../shared/personLinks'
 
 // Accounting > VFO Services > Holistic Planning Reconciliation. Pick a year → each
 // member with Holistic activity that year and their revenue split from payments that
@@ -97,7 +98,7 @@ export default function HolisticReconciliationPanel({ embedded = false }) {
           {members.map(m => (
             <div key={m.memberNumber} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)' }}>
               <span style={{ color: 'var(--vfo-muted)' }}>{m.memberNumber}</span>
-              <span style={{ fontWeight: 600 }}>{m.name}</span>
+              <span><MemberNameLink memberNumber={m.memberNumber} style={{ fontWeight: 600 }}>{m.name}</MemberNameLink></span>
               <span style={{ textAlign: 'right', fontWeight: m.member ? 700 : 400, color: m.member ? '#16a34a' : 'var(--vfo-faint)' }}>{money(m.member)}</span>
               <span style={{ textAlign: 'right', fontWeight: m.mm ? 700 : 400, color: m.mm ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{money(m.mm)}</span>
               <span style={{ textAlign: 'right', fontWeight: m.vfos ? 700 : 400, color: m.vfos ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{money(m.vfos)}</span>

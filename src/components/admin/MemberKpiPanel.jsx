@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { KpiHero, SplitDonut, BreakdownRows, BreakdownCard } from './KpiKit'
+import { MemberNameLink } from '../shared/personLinks'
 
 // ── Member-type families ──────────────────────────────────────────────
 // A "family" is a headline product grouped with its constituent member_types.
@@ -339,7 +340,9 @@ function StandingView({ nounTitle, standing, setStanding, lists }) {
               <div key={m.plugin_member_number}
                 style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 16px', marginBottom: '6px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '12px', boxShadow: '0 2px 8px rgba(20,45,95,0.04)' }}>
                 <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', width: '70px', flexShrink: 0, fontFamily: 'monospace' }}>{m.plugin_member_number}</span>
-                <span style={{ fontSize: '14px', color: 'var(--vfo-ink)', fontWeight: 600, flex: 1, minWidth: '160px' }}>{m.name}</span>
+                <span style={{ flex: 1, minWidth: '160px' }}>
+                  <MemberNameLink memberNumber={m.plugin_member_number} style={{ fontSize: '14px', fontWeight: 600 }}>{m.name}</MemberNameLink>
+                </span>
                 <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', width: '200px', flexShrink: 0 }}>{m.member_type || '—'}</span>
                 <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: '12px', flexShrink: 0 }}>
                   {(m.suspended || m.membership_suspended) && <span style={{ fontSize: '12px', fontWeight: 700, color: STANDING.suspended.color }}>Suspended</span>}

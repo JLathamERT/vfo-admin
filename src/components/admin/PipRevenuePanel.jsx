@@ -4,6 +4,7 @@ import { NAVY, money } from './specialistRevenueShared'
 import { inPeriod } from './holisticShared'
 import { clearedPipPurchases } from './pipShared'
 import { AccountingTableSkeleton } from '../shared/Skeleton'
+import { ClientNameLink, MemberNameLink } from '../shared/personLinks'
 
 // Accounting > VFO Services > Additional PIP Revenue. Each additional-PIP purchase
 // (additional PIP meetings or Tax Planning) that cleared in the chosen month/year, with
@@ -102,8 +103,8 @@ export default function PipRevenuePanel({ embedded = false }) {
           {filtered.map(p => (
             <div key={p.id} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)' }}>
               <span style={{ color: 'var(--vfo-muted)' }}>{fmtDate(p.clearedAt)}</span>
-              <span style={{ fontWeight: 600 }}>{p.clientName}</span>
-              <span>{p.memberName || '—'}{p.memberNumber && <span style={{ color: 'var(--vfo-faint)' }}> · {p.memberNumber}</span>}</span>
+              <span style={{ fontWeight: 600 }}><ClientNameLink clientId={p.clientId} tab="pip">{p.clientName}</ClientNameLink></span>
+              <span>{p.memberName ? <MemberNameLink memberNumber={p.memberNumber}>{p.memberName}</MemberNameLink> : '—'}{p.memberNumber && <span style={{ color: 'var(--vfo-faint)' }}> · {p.memberNumber}</span>}</span>
               <span style={{ color: 'var(--vfo-muted)' }}>{p.kindLabel}</span>
               <span style={{ textAlign: 'right', fontWeight: 700, borderRight: '1px solid var(--vfo-tint)', paddingRight: '12px' }}>{money(p.amount)}</span>
               <span style={{ textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>{money(p.member)}</span>

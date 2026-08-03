@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
 import { money, StatusPill } from './specialistRevenueShared'
 import { OnboardingListSkeleton } from '../shared/Skeleton'
+import { MemberNameLink, ClientNameLink } from '../shared/personLinks'
 
 const BADGE_FIRST = { label: 'First payment', color: '#125ecc' }
 const BADGE_CONTINUATION = { label: 'Payment continuation', color: '#e06717' }
@@ -74,16 +75,23 @@ function EmptyLine() {
   return <div style={{ fontSize: '13px', color: 'var(--vfo-faint)', padding: '4px 2px 10px', fontFamily: 'Inter, sans-serif' }}>None right now.</div>
 }
 
+// Leading "· "-joined member number in a card subtitle, linked to the member profile.
+function MemberPrefix({ memberNumber }) {
+  if (!memberNumber) return null
+  return <><MemberNameLink memberNumber={memberNumber}>{memberNumber}</MemberNameLink>{' · '}</>
+}
+
 // One expandable person card. Per-row open state lives here because hooks cannot
-// be used inside the .map calls below.
-function OutstandingCard({ name, subtitle, badge, amount, caption, children }) {
+// be used inside the .map calls below. clientId is optional — specialist cards
+// have no client, so their name stays plain text.
+function OutstandingCard({ name, clientId, subtitle, badge, amount, caption, children }) {
   const [open, setOpen] = useState(false)
   return (
     <div style={cardStyle}>
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', cursor: 'pointer' }}>
         <span style={{ fontSize: '11px', color: 'var(--vfo-faint)', width: '12px' }}>{open ? '▾' : '▸'}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)' }}>{name || '-'}</div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)' }}>{name ? <ClientNameLink clientId={clientId}>{name}</ClientNameLink> : '-'}</div>
           <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{subtitle}</div>
         </div>
         <StatusPill label={badge.label} color={badge.color} />
@@ -104,13 +112,13 @@ function OutstandingCard({ name, subtitle, badge, amount, caption, children }) {
 function FirstLinkCard({ item, showProgram }) {
   const sent = fmtDate(item.link_sent_at)
   const parts = []
-  if (item.member_number) parts.push(item.member_number)
   parts.push(sent ? `Link sent ${shortDate(item.link_sent_at)}` : 'Link not sent yet')
   parts.push(emailCount(item.emails_sent))
   return (
     <OutstandingCard
       name={item.client_name}
-      subtitle={parts.join(' · ')}
+      clientId={item.client_id}
+      subtitle={<><MemberPrefix memberNumber={item.member_number} />{parts.join(' · ')}</>}
       badge={BADGE_FIRST}
       amount={item.amount_due}
       caption="due"
@@ -162,12 +170,12 @@ function RemainingTable({ kind, remaining }) {
 
 function ContinuationCard({ item, kind }) {
   const parts = []
-  if (item.member_number) parts.push(item.member_number)
   parts.push(item.link_sent_at ? `Link sent ${shortDate(item.link_sent_at)}` : 'Link not sent yet')
   parts.push(emailCount(item.emails_sent))
   const history = item.history || []
   const subtitle = (
     <>
+      <MemberPrefix memberNumber={item.member_number} />
       {parts.join(' · ')}
       {item.expired
         ? <span style={{ color: '#ef4444', fontWeight: 600 }}> · link EXPIRED</span>
@@ -177,6 +185,7 @@ function ContinuationCard({ item, kind }) {
   return (
     <OutstandingCard
       name={item.client_name}
+      clientId={item.client_id}
       subtitle={subtitle}
       badge={BADGE_CONTINUATION}
       amount={item.total_remaining}
@@ -215,7 +224,6 @@ function ContinuationCard({ item, kind }) {
 
 function ImplementationCard({ item }) {
   const parts = []
-  if (item.member_number) parts.push(item.member_number)
   parts.push(programLabel(item.program_id))
   if (item.charge_status) parts.push(`charge ${item.charge_status}`)
   const charged = fmtDate(item.charge_date)
@@ -223,7 +231,8 @@ function ImplementationCard({ item }) {
   return (
     <OutstandingCard
       name={item.client_name}
-      subtitle={parts.join(' · ')}
+      clientId={item.client_id}
+      subtitle={<><MemberPrefix memberNumber={item.member_number} />{parts.join(' · ')}</>}
       badge={BADGE_IMPLEMENTATION}
       amount={item.amount_due}
       caption="due"
