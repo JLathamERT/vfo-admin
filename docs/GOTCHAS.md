@@ -1,8 +1,8 @@
-# VFO Session-Learned Gotchas — full registry (#1–#323)
+# VFO Session-Learned Gotchas — full registry (#1–#326)
 
 > Split out of `SESSION_REFERENCE.md` on 2026-06-19 to keep the live hub lean. This is the **complete** numbered list; the hub keeps only a curated ALWAYS-APPLIES subset.
 >
-> **Numbers are permanent.** Gotchas are referenced as `#N` from `SESSION_REFERENCE.md`, the operator prompts, and across `docs/` — **NEVER renumber.** Add new gotchas to the END of this list, incrementing from the current max (#323).
+> **Numbers are permanent.** Gotchas are referenced as `#N` from `SESSION_REFERENCE.md`, the operator prompts, and across `docs/` — **NEVER renumber.** Add new gotchas to the END of this list, incrementing from the current max (#326).
 >
 > Pre-existing ordering quirk preserved verbatim: **#87 physically precedes #86.** (Do not "fix" it — references are by number, not position.)
 
@@ -924,3 +924,72 @@ Cross-ref **#193** (the prop-threading trap this design sidesteps), **#212** (Ad
 - **The deep link is a NAVIGATION action, not a tab.** `/admin?member=<n>&feature=ciq&ciqclient=<client_id>&_n=<Date.now()>` is emitted from two admin-only places: the client-profile Profile dropdown's **"CIQ"** entry (`ClientDetail.jsx`, rendered only when `client.member_number` exists, and only inside the `!isPlanner && !isMember` branch) and the hyperlinked MAP 1 step title (`!readOnly` + `client.member_number`). `'ciq'` is intercepted by `handleTabSelect` **before** `setActiveTab` — `validTabsForProgram` was deliberately left untouched, because it is not a tab. `AdminPortal.jsx`'s `?member=` branch parks `ciqclient` in **sessionStorage `ciqInitialClientId`** (mirroring the existing `sub` → `msmInitialSubTab` handling), and `MemberCIQ.jsx`'s `loadCiqs` consumes it **ONCE** — `isAdmin` only, `removeItem` **even when nothing matches**, so a later manual visit to the CIQ tab is never re-hijacked. **`await openCiq(match)` — the `await` is not cosmetic:** without it the loading skeleton clears before the CIQ opens and the user sees the CIQ *list* flash on screen first. That flash was reported from a real click-through and the `await` is the fix.
 
 Cross-ref **#320** (`activateClientIfPending`, called at the end of the sync), **#187** (destructure every `{error}`), **#212** (AdminPortal deep links are consumed then `replaceState`-stripped, which is why `_n` is stamped inside the onClick), **#193** (why the deep link beats prop threading). `see #323`.
+
+---
+
+**324. A recipient ROLE TOKEN in a template's `to_list`/`cc_list`/`bcc_list` does NOTHING unless the SENDING HANDLER passes that key in its `resolveTemplateRecipients` ctx — an unresolved token is skipped SILENTLY, so a template can look perfectly configured in the admin UI and Cc absolutely nobody, with no error and no log line (2026-08-03, v696). ALWAYS-APPLIES.** This is the general form of a trap that had already been recorded twice for one pipeline each (#266 for `TAX_PLANNER`, the tail of #310 for `MEMBER` on the vault request-documentation template) and had been silently costing real emails in a third the whole time.
+
+**The mechanism, exactly.** `utils/email-recipients.ts` `resolveList` walks each configured entry and branches:
+
+```ts
+if (isRecipientRoleToken(entry)) { const email = ctx[entry]; if (email) out.push(...); continue; }
+```
+
+`ctx` is supplied **by the handler**, per send. A token the handler never mentions resolves to `undefined`, fails the `if (email)` guard, and is dropped — no throw, no `console.error`, no counter. The only observable symptom is a Cc that is shorter than the template says it should be, on a live send (sandbox suppresses all Cc anyway, so the bug is **invisible in sandbox by construction**).
+
+**The live case that produced this entry.** Both `CLIENT_PAYMENT_CONTINUATION` templates — **id 172 `setup_link`** (the admin "send setup link" button) and **id 209 `setup_link_reminder`** (the nightly 48h sweep) — have listed `ASSIGNED_PF` + `MEMBER` in `cc_list` since the day they were created. Neither handler passed either key. `actions/migration/send-setup-link.ts` passed `{ RECIPIENT, CLIENT }`; the `sweepMigrationSetupLinks` loop inside `actions/pipeline/contract-check-reminder-sweep.ts` passed only `{ RECIPIENT: client.email }`. **So every payment-continuation email ever sent went To the client with an EMPTY Cc** — the assigned PF and the member never saw a single one, and nothing anywhere reported a problem. Fixed in v696 by widening both client `.select()`s to include `member_number, assigned_pf`, adding a guarded `members` lookup, and passing the full ctx:
+
+```ts
+MEMBER: member?.email,
+ASSIGNED_PF: getPfEmail(client.assigned_pf || ""),
+```
+
+**A second silent drop rides inside the fix, and it is unchanged behaviour shared by every pipeline.** `utils/pf-emails.ts` is a **HARDCODED four-name map** — `Evan Anderson`, `Bridger Silvester`, `Lindsay Morris`, `Jake Latham` — matched on the exact display string, returning `""` on a miss. `""` is falsy, so it hits the same `if (email)` guard: **a client whose `assigned_pf` is any other name (or blank) still gets no PF Cc, silently.** Adding a PF to the assignment dropdown without adding them to that map ships a half-working Cc.
+
+**The auditing rule that follows from all of this:** when checking who actually receives a templated email, **read the HANDLER's ctx, not just the template row.** The Email Templates tab shows intent; the ctx map is the implementation. For each role-token chip on a template, find every handler that sends that `template_name` and confirm the key is present. `grep -n "resolveTemplateRecipients" -A6` over the handler is the fastest form. And when adding a role-token chip to an existing template, the chip is only half the change — the ctx is the other half.
+
+Cross-ref **#266** (the `TAX_PLANNER` instance, and the reminder that sandbox suppresses Cc so the effect is live-only), **#310** (the `MEMBER` instance on `VAULT_request_documentation`), **#181** (a new templated email needs its `TEMPLATE_META` entry + the delivery layer), **#53** (a handler's `.select()` must include `cc_list, bcc_list` or the Bcc drops — the same class of quiet omission one layer down), **#325** (which of these emails auto-send). `see #324`.
+
+---
+
+**325. NINE `email_templates` rows carry `send_mode=true` and they are the ONLY emails in the entire system that leave without a human looking at them — every other template is Draft-only, and TWO of the nine are SHARED rows whose blast radius is wider than their name suggests (2026-08-03, DML only). ALWAYS-APPLIES.** `send_mode` defaults to `false` everywhere (#181), so for most of this system's life "sending an email" has meant "creating a Gmail draft someone then reviews and sends". As of 2026-08-03 that is no longer universally true, and the exceptions are worth knowing by heart before you touch any of these templates' subject, body, recipients or the handlers that draft them — **an edit to one of these nine goes out to a real person on the next trigger with nobody in between.**
+
+**The roster (verified against `SELECT id, pipeline, template_name FROM email_templates WHERE send_mode = true` — exactly nine rows, no others):**
+
+| id | pipeline | template_name |
+|----|----------|---------------|
+| **158** | `LOGIN_SETUP` | `MANUAL_login_setup` |
+| **159** | `MEMBER_PAYOUT` | `member_connect_setup` |
+| **167** | `VFO_SPECIALIST_REVENUE` | `SPECREV_connect_setup` |
+| **182** | `SPECIALIST_PAYOUT` | `specialist_connect_setup` |
+| **183** | `STRATEGIC` | `strategic_group_connect_setup` |
+| **190** | `MEMBER_MEMBERSHIP_FEES` | `MEMBERSHIP_setup_link` |
+| **191** | `MEMBER_MEMBERSHIP_FEES` | `MEMBERSHIP_transfer_setup_link` |
+| **200** | `TAX` | `tax_planning_group_connect_setup` |
+| **210** | `VAULT` | `VAULT_request_documentation` |
+
+The theme is deliberate: they are all **"here is your link, go do the thing"** emails — portal password setup, Stripe Connect payout setup, membership setup, a documentation request. None of them carries money, a decision, an agreement or a receipt; every one of those still drafts.
+
+**The two shared rows are the trap.** A `template_name` is not one-to-one with a use case:
+
+- **id 158 `MANUAL_login_setup` serves FOUR login types** — member, specialist, client and tax planner all draft this single row from `send_login_setup_email`. Flipping it auto-sends portal login links for **all four**, not just the one you were thinking about. It is also the only one of the nine with **no Cc at all** (`cc_list` is `[]`), which is correct — a login link should not be copied to anyone.
+- **id 210 `VAULT_request_documentation` serves THREE entity types** — client, member and specialist requests all share it (#310). Its `cc_list` leads with the **`MEMBER` role token**, which is exactly the #324 hazard: it resolves only for the entity types whose handler branch supplies it.
+
+**Recipients on the nine were standardised in the same pass, and the shape is uniform:** **Bcc = `jlatham@elitert.com` and nothing else** (`aanderson@elitert.com` + `platham@elitert.com` were removed **from these nine only** — 181 other templates still carry them), and **Cc = `tnmiller@vfo-services.com` + `tvaldes@vfo-services.com`** on all of them except 158. Where 190 / 191 / 182 / 167 already named Tracy or Tray at an `@elitert.com` address, those entries were **replaced in place, not duplicated** (see #326 for why the address differs by pipeline).
+
+**Two operational consequences.** (1) **`send_mode` is a per-row DB flag with no code guard behind it** — the Draft/Send pill in the Email Templates tab is the entire control surface, and the bulk "All send" button in a section will happily flip rows you did not intend. (2) A failed `drafts.send` leaves the draft sitting in Drafts, so nothing is ever lost — but nothing tells you either, which makes the Drafts folder the place to look when an auto-send "didn't arrive".
+
+Cross-ref **#181** (the Draft/Send delivery layer; every new templated email must route through it), **#324** (a role-token Cc on any of these still needs the handler's ctx), **#310** (id 210's three entity types), **#258** (id 158's login types). `see #325`.
+
+---
+
+**326. Tracy Miller and Tray Valdés-Dennis are Cc'd at `@vfo-services.com` on four pipelines and at `@elitert.com` on the rest — the split is DELIBERATE and per-pipeline, so do not "normalise" it (2026-08-03, DML only).** An earlier pass (2026-07-31) had blanket-added `tnmiller@elitert.com` + `tvaldes@elitert.com` to `cc_list` across the `MAP 1` / `TAX` / `PIP` / `PARTNERSHIP_FAST_TRACK` pipelines. Those were the **wrong addresses for those pipelines**; on 2026-08-03 an order-preserving in-place jsonb swap replaced them with **`tnmiller@vfo-services.com`** and **`tvaldes@vfo-services.com`**.
+
+**Measured state after the swap** (re-verified at the wrap-up audit, and the numbers are the point):
+
+- **`MAP 1` 34 + `TAX` 59 + `PIP` 5 + `PARTNERSHIP_FAST_TRACK` 10 = 108 templates, 108/108 carrying BOTH `@vfo-services.com` addresses, and ZERO leftover `@elitert.com` Tracy/Tray Cc in those four pipelines.** (The 2026-07-31 entry recorded 107 — the extra row is TAX **id 211** `TAX_implementdecision|Proceeding`, seeded later the same week.) TAX id **148** (`TAX_highlevelmeeting_confirm|Yes`) carried a pre-existing `tnmiller@elitert.com` from before that pass and was swapped too.
+- **45 templates OUTSIDE those four pipelines KEEP `@elitert.com` ON PURPOSE** — `SPECIALIST_ONBOARDING` 27, `VFO_SPECIALIST_REVENUE` 9, `MEMBER_MEMBERSHIP_FEES` 8, `SPECIALIST_LICENSE_CONTINUATION` 1. (Those counts are net of the four rows — 167 / 182 / 190 / 191 — that moved to the new addresses because they are part of the #325 auto-send nine.)
+
+**So the same human has two Cc addresses and which one is correct depends on the pipeline the template belongs to.** A future "cleanup" that unifies them is a regression, not a fix. Two boundaries that were deliberately NOT crossed: **portal logins** (`allowed_admins`, `*_logins`) and **`notification_rules` recipients + code constants** (`constants/tax-access.ts` `TAX_VIEWERS`, the various `*_EMAIL` constants) still use `@elitert.com` and were not touched — this was **email Cc only**. Adding a NEW template to any of the four pipelines does **not** inherit the Cc (it lives in the row, not in code — see the standing note in `integrations/gmail.md`), so seed it explicitly with the pipeline-correct address.
+
+Cross-ref **#291** (a person's address lives in four separate layers — changing one changes nothing about the others), **#325** (the four rows that moved because they auto-send), **#53**. `see #326`.
