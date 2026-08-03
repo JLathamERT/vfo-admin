@@ -831,6 +831,9 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
   const [stripeRequesting, setStripeRequesting] = useState(false)
   const [stripeMsg, setStripeMsg] = useState('')
   const [stripeMsgType, setStripeMsgType] = useState('success')
+  const [connectStatus, setConnectStatus] = useState(null)
+  const [connectLoading, setConnectLoading] = useState(false)
+  const [connectRefresh, setConnectRefresh] = useState(0)
   const [photoFile, setPhotoFile] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
   const [cropState, setCropState] = useState(null)
@@ -867,6 +870,18 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
   }
 
   useEffect(() => { loadProfile(); loadProgramNotes() }, [member.plugin_member_number])
+
+  const connectAcctId = profile?.stripe_account_id || ''
+  useEffect(() => {
+    if (!connectAcctId) { setConnectStatus(null); setConnectLoading(false); return }
+    let alive = true
+    setConnectLoading(true)
+    callApi('member_connect_status', { member_number: member.plugin_member_number })
+      .then(res => { if (alive) setConnectStatus(res || { status: 'unavailable' }) })
+      .catch(() => { if (alive) setConnectStatus({ status: 'unavailable' }) })
+      .finally(() => { if (alive) setConnectLoading(false) })
+    return () => { alive = false }
+  }, [connectAcctId, member.plugin_member_number, connectRefresh])
 
   async function loadProgramNotes() {
     try {
@@ -985,6 +1000,14 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
         // Chips reuse styles already in this file: the blue introducer pill and
         // the neutral count chip.
         const introChip = { fontSize: '11px', padding: '2px 9px', borderRadius: '999px', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.25)' }
+        const connectState = (connectLoading || !connectStatus) ? 'loading' : (connectStatus.status || 'unavailable')
+        const connectPill =
+          connectState === 'complete' ? { dot: '#16a34a', label: 'Account Set up' }
+          : connectState === 'eligible_capped' ? { dot: '#f59e0b', label: 'Account setup — payouts eligible to $3,000' }
+          : connectState === 'pending' ? { dot: '#dc2626', label: 'Setup pending' }
+          : connectState === 'mode_mismatch' ? { dot: 'var(--vfo-faint)', label: `Status unavailable (account created in ${connectStatus.found_in_sandbox ? 'sandbox' : 'live'} mode)` }
+          : connectState === 'loading' ? { dot: 'var(--vfo-faint)', label: 'Checking status…' }
+          : { dot: 'var(--vfo-faint)', label: 'Status unavailable' }
         return (
           <div>
             {/* Short facts sit side by side; long-form (bio, notes) runs full
@@ -1007,7 +1030,17 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                   {profile.stripe_account_id ? (
                     <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid var(--vfo-tint)' }}>
                       <div style={fieldLabel}>Stripe Account</div>
-                      <div style={{ display: 'inline-block', marginTop: '7px', fontSize: '13px', color: 'var(--vfo-ink-2)', fontFamily: 'monospace', padding: '6px 12px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '8px' }}>{profile.stripe_account_id}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '7px' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--vfo-ink-2)', fontFamily: 'monospace', padding: '6px 12px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '8px' }}>{profile.stripe_account_id}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', fontWeight: 600, color: 'var(--vfo-ink)', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '999px', padding: '4px 12px' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: connectPill.dot, flexShrink: 0 }} />
+                          {connectPill.label}
+                        </span>
+                        <button type="button" onClick={() => setConnectRefresh(n => n + 1)} disabled={connectLoading}
+                          style={{ background: 'none', border: 'none', padding: 0, color: '#0095ff', fontSize: '12px', fontWeight: 600, cursor: connectLoading ? 'wait' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                          Refresh
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid var(--vfo-tint)' }}>
@@ -1247,7 +1280,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
             </div>
           </div>
           <div style={sectionStyle}>
-            <div style={cardTitle}>Revenue &amp; Stripe</div>
+            <div style={cardTitle}>Revenue</div>
             {!hiddenFields.includes('revenue_decision') && (
               <div style={{ marginBottom: '16px' }}>
                 <label style={labelStyle}>Revenue Decision</label>
@@ -1259,25 +1292,6 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
               </div>
             )}
             <div>
-              <label style={labelStyle}>Payment Account (Stripe Connect)</label>
-              {profile.stripe_account_id ? (
-                <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '13px', color: 'var(--vfo-ink-2)', fontFamily: 'monospace', padding: '8px 12px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '8px' }}>{profile.stripe_account_id}</span>
-                  <button onClick={sendStripeRequest} disabled={stripeRequesting} style={{ padding: '9px 16px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: stripeRequesting ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: stripeRequesting ? 0.6 : 1 }}>
-                    {stripeRequesting ? 'Sending...' : 'Resend setup email'}
-                  </button>
-                </div>
-              ) : (
-                <div style={{ marginTop: '6px' }}>
-                  <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginBottom: '10px' }}>No payment account yet. Send the member a secure Stripe setup link — their account ID will appear here once it's created.</div>
-                  <button onClick={sendStripeRequest} disabled={stripeRequesting} style={{ padding: '10px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: stripeRequesting ? 'not-allowed' : 'pointer', opacity: stripeRequesting ? 0.6 : 1 }}>
-                    {stripeRequesting ? 'Sending...' : 'Set Up Payment Details'}
-                  </button>
-                </div>
-              )}
-              {stripeMsg && <p style={{ fontSize: '12.5px', marginTop: '10px', color: stripeMsgType === 'success' ? '#1b9254' : '#d93025' }}>{stripeMsg}</p>}
-            </div>
-            <div style={{ marginTop: '16px' }}>
               <label style={labelStyle}>Eligible for Credit Note</label>
               <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                 {[['On', true], ['Off', false]].map(([lbl, v]) => {
@@ -1646,6 +1660,9 @@ function MemberSettings({ member, onDataChange }) {
   const [ciqEnabled, setCiqEnabled] = useState(member.ciq_enabled || false)
   const [ciqVfosManaged, setCiqVfosManaged] = useState(member.ciq_vfos_managed !== false)
   const [ciqStatus, setCiqStatus] = useState('')
+  const [stripeRequesting, setStripeRequesting] = useState(false)
+  const [stripeMsg, setStripeMsg] = useState('')
+  const [stripeMsgType, setStripeMsgType] = useState('success')
 
   useEffect(() => { loadLogin() }, [member.plugin_member_number])
 
@@ -1687,6 +1704,17 @@ function MemberSettings({ member, onDataChange }) {
     catch (err) { setDeleteStatus(err.message) }
   }
 
+  async function sendStripeRequest() {
+    setStripeRequesting(true); setStripeMsg('')
+    try {
+      const res = await callApi('member_stripe_connect_request', { member_number: member.plugin_member_number })
+      setStripeMsgType('success')
+      setStripeMsg(`Setup email drafted to ${res.to_email}${res.sandbox ? ' (sandbox)' : ''}. Account ${res.stripe_account_id} created — send the draft from Gmail.`)
+      if (onDataChange) await onDataChange()
+    } catch (err) { setStripeMsgType('error'); setStripeMsg(err.message) }
+    finally { setStripeRequesting(false) }
+  }
+
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
 
@@ -1707,6 +1735,25 @@ function MemberSettings({ member, onDataChange }) {
             </>
           )}
         {loginStatus && <p style={{ color: loginStatusType === 'success' ? '#1b9254' : '#d93025', fontSize: '13px', marginTop: '12px' }}>{loginStatus}</p>}
+      </div>
+      <div style={sectionStyle}>
+        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Stripe Connect</div>
+        {member.stripe_account_id ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '13px', color: 'var(--vfo-ink-2)', fontFamily: 'monospace', padding: '8px 12px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '8px' }}>{member.stripe_account_id}</span>
+            <button onClick={sendStripeRequest} disabled={stripeRequesting} style={{ padding: '9px 16px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: stripeRequesting ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: stripeRequesting ? 0.6 : 1 }}>
+              {stripeRequesting ? 'Sending...' : 'Resend setup email'}
+            </button>
+          </div>
+        ) : (
+          <div>
+            <p style={{ color: 'var(--vfo-muted)', fontSize: '14px', marginBottom: '16px' }}>No payment account yet. Send the member a secure Stripe setup link.</p>
+            <button onClick={sendStripeRequest} disabled={stripeRequesting} style={{ padding: '10px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: stripeRequesting ? 'not-allowed' : 'pointer', opacity: stripeRequesting ? 0.6 : 1 }}>
+              {stripeRequesting ? 'Sending...' : 'Set Up Payment Details'}
+            </button>
+          </div>
+        )}
+        {stripeMsg && <p style={{ fontSize: '12.5px', marginTop: '12px', color: stripeMsgType === 'success' ? '#1b9254' : '#d93025' }}>{stripeMsg}</p>}
       </div>
       <div style={{ ...sectionStyle, border: '1px solid rgba(231,76,60,0.3)' }}>
         <div style={{ fontSize: '13px', color: '#e74c3c', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Danger Zone</div>
