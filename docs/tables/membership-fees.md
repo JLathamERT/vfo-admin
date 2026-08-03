@@ -61,7 +61,10 @@ sweep index `(status, due_date)`.
 ## Related config
 
 - `pipeline_sandbox_config` row `MEMBER_MEMBERSHIP` (SANDBOX as of 2026-07-13).
-- `email_templates` pipeline `MEMBER_MEMBERSHIP_FEES`: `MEMBERSHIP_setup_link`,
-  `MEMBERSHIP_transfer_setup_link`, `MEMBERSHIP_payment_failed` (all Draft mode).
+- `email_templates` pipeline `MEMBER_MEMBERSHIP_FEES`: `MEMBERSHIP_setup_link` (**id 190**)
+  and `MEMBERSHIP_transfer_setup_link` (**id 191**) — **both flipped to SEND mode 2026-08-03,
+  so they auto-send with no admin review** (gotcha #325); `MEMBERSHIP_payment_failed` and the
+  other 8 rows in this pipeline stay Draft. The two setup-link rows also had their Tracy/Tray
+  Cc moved to `@vfo-services.com` and their Bcc stripped to `jlatham@elitert.com` only.
 - `notification_rules` key `MEMBERSHIP_charge_failed` (area "Membership Fees").
 - pg_cron jobid 16 `membership-sweep-daily` @12:00 UTC.
