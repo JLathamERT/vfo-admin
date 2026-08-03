@@ -186,6 +186,17 @@ export default function ClientDetail() {
     window.history.replaceState(null, '', window.location.pathname + '?' + params.toString())
   }, [program?.id, activeTab])
 
+  // 'ciq' is a navigation action, not a tab: it hands off to the member's CIQ
+  // feature in AdminPortal with this client pre-selected.
+  function handleTabSelect(key) {
+    if (key === 'ciq') {
+      if (!client?.member_number) return
+      navigate(`/admin?member=${encodeURIComponent(client.member_number)}&feature=ciq&ciqclient=${client.id || clientId}&_n=${Date.now()}`)
+      return
+    }
+    setActiveTab(key)
+  }
+
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
   const tabStyle = (active) => ({ padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' })
   const statusColors2 = { active: '#1b9254', pending: '#e06717', lost: '#e74c3c' }
@@ -288,7 +299,7 @@ export default function ClientDetail() {
             <>
               {isMember
                 ? <button style={tabStyle(activeTab === 'home')} onClick={() => setActiveTab('home')}>Profile</button>
-                : <ClientTabDropdown label="Profile" isActive={activeTab === 'home' || activeTab === 'details' || activeTab === 'vault' || activeTab === 'payments' || activeTab === 'settings' || activeTab === 'continuation'} options={[{key:'home',label:'Profile'},{key:'details',label:'Edit Profile'},{key:'vault',label:'Vault'},{key:'payments',label:'Payments'},{key:'settings',label:'Settings'},...(session?.is_superadmin ? [{key:'continuation',label:'Payment Continuation'}] : [])]} onSelect={setActiveTab} />
+                : <ClientTabDropdown label="Profile" isActive={activeTab === 'home' || activeTab === 'details' || activeTab === 'vault' || activeTab === 'payments' || activeTab === 'settings' || activeTab === 'continuation'} options={[{key:'home',label:'Profile'},{key:'details',label:'Edit Profile'},{key:'vault',label:'Vault'},...(client?.member_number ? [{key:'ciq',label:'CIQ'}] : []),{key:'payments',label:'Payments'},{key:'settings',label:'Settings'},...(session?.is_superadmin ? [{key:'continuation',label:'Payment Continuation'}] : [])]} onSelect={handleTabSelect} />
               }
               {program?.name === 'Partnership Fast Track' ? (
                 <button style={tabStyle(activeTab === 'pft')} onClick={() => setActiveTab('pft')}>PFT Engagement Process</button>

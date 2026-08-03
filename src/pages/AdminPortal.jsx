@@ -199,6 +199,10 @@ export default function AdminPortal() {
         // consume-and-clear once on mount, same as pftReturnEnrolledTab.
         const sub = params.get('sub')
         if (sub) sessionStorage.setItem('msmInitialSubTab', sub)
+        // Optional CIQ client (?ciqclient=) — MemberCIQ consumes-and-clears it
+        // to auto-open that client's newest questionnaire.
+        const ciqClient = params.get('ciqclient')
+        if (ciqClient) sessionStorage.setItem('ciqInitialClientId', ciqClient)
         openMemberProfile(m, params.get('feature') || 'profile_details')
         navigate('/admin', { replace: true }) // strip params so manual nav isn't re-hijacked
       }
