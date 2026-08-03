@@ -94,6 +94,7 @@ export const TEMPLATE_META = {
     mv('TAX_implementdecision|Proceed', 'Implementation going ahead — confirmation with a 24-hour back-out button', 'To: Member · Auto-Cc: Client'),
     ['TAX_implementdecision|Undecided', 'Implementation decision needed — Proceed / Decline buttons', 'To: Client · Auto-Cc: Member'],
     mv('TAX_implementdecision|Undecided', 'Implementation decision needed — Proceed / Decline buttons', 'To: Member · Auto-Cc: Client'),
+    ['TAX_implementdecision|Proceeding', 'Client clicked Proceed on the implementation decision email — acknowledgment that the implementation fee will now be processed', 'To: Client · Auto-Cc: Member'],
     ['TAX_implementdecision|Not Implementing', 'Client is not implementing the plan — close-out', 'To: Client · Auto-Cc: Member'],
     mv('TAX_implementdecision|Not Implementing', 'Client is not implementing the plan — close-out', 'To: Member · Auto-Cc: Client'),
     ['TAX_implementdecision|Reminder', '48-hour reminder — the implementation decision hasn’t been answered', 'To: Client'],
