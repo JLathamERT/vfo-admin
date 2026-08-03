@@ -2,6 +2,16 @@ const EDGE_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.s
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqcHNwcnNtaHB1ZndvZ2JteGp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNDcwNjksImV4cCI6MjA4NzYyMzA2OX0.sdMVsnXePSH8zgstt82O1dhpMxYZq5QivyIrCHMbECU'
 
 const REQUEST_TIMEOUT_MS = 20000
+// automation_* WRITE actions chain external services (BoldSign, Gmail, Stripe)
+// and can legitimately run past 20s — a premature "failed, try again" invites a
+// manual resubmit that double-sends. Reads keep the short timeout (they
+// auto-retry safely).
+const SLOW_WRITE_TIMEOUT_MS = 60000
+function timeoutFor(action) {
+  return action?.startsWith('automation_') && !isReadAction(action)
+    ? SLOW_WRITE_TIMEOUT_MS
+    : REQUEST_TIMEOUT_MS
+}
 
 // An action is considered an idempotent READ if it matches one of the load-style
 // naming conventions (load_*, *_load_*, *_load) or appears in the explicit list
@@ -24,7 +34,8 @@ export async function callApi(action, payload = {}, retries = 3) {
     let res = null
     let timedOut = false
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => { timedOut = true; controller.abort() }, REQUEST_TIMEOUT_MS)
+    const timeoutMs = timeoutFor(action)
+    const timeoutId = setTimeout(() => { timedOut = true; controller.abort() }, timeoutMs)
     try {
       res = await fetch(EDGE_URL, {
         method: 'POST',
@@ -59,7 +70,7 @@ export async function callApi(action, payload = {}, retries = 3) {
           await new Promise(r => setTimeout(r, 1000))
           continue
         }
-        throw new Error(`Request timed out after ${REQUEST_TIMEOUT_MS / 1000}s. Please try again.`)
+        throw new Error(`Request timed out after ${timeoutMs / 1000}s. Please try again.`)
       }
       // Only retry if the request never reached the server (fetch itself failed —
       // network blip, CORS, offline). If we got ANY response, the server may have
