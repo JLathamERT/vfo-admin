@@ -1,8 +1,8 @@
-# VFO Session-Learned Gotchas — full registry (#1–#316)
+# VFO Session-Learned Gotchas — full registry (#1–#318)
 
 > Split out of `SESSION_REFERENCE.md` on 2026-06-19 to keep the live hub lean. This is the **complete** numbered list; the hub keeps only a curated ALWAYS-APPLIES subset.
 >
-> **Numbers are permanent.** Gotchas are referenced as `#N` from `SESSION_REFERENCE.md`, the operator prompts, and across `docs/` — **NEVER renumber.** Add new gotchas to the END of this list, incrementing from the current max (#316).
+> **Numbers are permanent.** Gotchas are referenced as `#N` from `SESSION_REFERENCE.md`, the operator prompts, and across `docs/` — **NEVER renumber.** Add new gotchas to the END of this list, incrementing from the current max (#318).
 >
 > Pre-existing ordering quirk preserved verbatim: **#87 physically precedes #86.** (Do not "fix" it — references are by number, not position.)
 
@@ -811,3 +811,35 @@ Two consequences to preserve:
 The generalizable rule: **whenever a ledger row stops being one-row-one-period, every count derived from that ledger must be re-derived from the row's money, and every ordinal must be able to express a span.** Check the invoice, the receipt, the confirmation email and the setup email together — this bug was only visible because the setup email (which counted months) and the invoice (which counted rows) were read side by side.
 
 Cross-ref **#315** (why a row can span months at all), **#280** (counts are derived from the ledger's `year_start` grouping, never passed in), **#281** (the same "read it off the row, do not re-derive" discipline for the card fee). `see #316`.
+
+---
+
+**317. A Stripe account link collects only `currently_due` by DEFAULT — a half-onboarded Express account sails through the onboarding page with nothing to fill in, and then caps at $3,000 lifetime payouts. Every `POST /v1/account_links` mint must append `collection_options[fields]=eventually_due` (2026-08-03, v693). ALWAYS-APPLIES (Stripe/payments).** Stripe's `account_onboarding` link asks the account holder only for what is **currently** blocking them. An Express account can be `payouts_enabled` with `capabilities.transfers='active'` — i.e. fully payable today — while the identity fields Stripe demands at the **$3,000 lifetime-payout threshold** (SSN, date of birth) sit unrequested in `requirements.eventually_due`. Such a person clicks the setup link, is shown an already-complete page, and reasonably concludes they are done. Months later their payouts stop at the cap, and the only fix is another round of emails.
+
+The fix is one line per mint: `linkParams.append("collection_options[fields]", "eventually_due")`. That flips the hosted page to collect **everything Stripe will ever need**, so setup is set-for-life on the first pass rather than in two rounds separated by a surprise.
+
+**Both existing mints now carry it** — `actions/payouts/connect-setup-link.ts` (which backs the durable `/payout-setup?token=` page and therefore covers all **four** entity types: member, specialist, strategic group, tax planning group — #268) and `utils/specialist-revenue-payout.ts` (the automatic SPECREV "awaiting connect" setup email of #159). **Any NEW account-link mint must too** — grep `v1/account_links` before adding one and match the pattern; a mint without it silently reintroduces the two-round problem for whichever entity type it serves.
+
+Note the asymmetry this creates with the STATUS side: an account onboarded through an old (currently_due-only) link is exactly the `eligible_capped` state #318 renders in orange. The link fix stops NEW accounts from landing there; it does not retroactively repair the ones already in it — those need a resend, which now carries the full collection.
+
+Cross-ref **#268** (never email a raw account link — mint through the durable token page), **#159** (`capabilities.transfers === 'active'` is the pre-transfer gate, and a created-but-unonboarded account must read as "awaiting setup"), **#318** (the status dot that makes the capped state visible). `see #317`.
+
+---
+
+**318. The member-profile Stripe status dot is the ONLY live-status surface in the portal — every other "connected" pill still derives from id-presence alone, which is the known false-green (2026-08-03, v693). ALWAYS-APPLIES (Stripe/payments).** `member_connect_status` (`actions/members/connect-status.ts`, ADMIN_ONLY, **read-only** — writes nothing to the DB and creates nothing at Stripe) `GET`s `/v1/accounts/{id}` **fresh on every profile open** (a `useEffect` keyed on the account id + a Refresh counter; **no DB cache, no cron, no stored status column**). It resolves the platform through the same `pipeline_sandbox_config` **"MAP 1"** row the revenue-share transfer reads, so it always asks the platform that would actually pay the member out.
+
+**The five statuses and what they mean:**
+
+- **`complete`** (green, "Account Set up") — `payouts_enabled` **AND** `capabilities.transfers==='active'` **AND** `currently_due` and `eventually_due` **both empty**. Only this state is safe to call finished.
+- **`eligible_capped`** (orange, "Account setup — payouts eligible to $3,000") — payouts enabled + transfers active, but requirements remain outstanding. This is the #317 state: payable today, capped later. It is deliberately NOT green.
+- **`pending`** (red, "Setup pending") — payouts or transfers not enabled.
+- **`mode_mismatch`** (gray) — the id 404s under the resolved mode but **resolves under the other key**. Connect accounts live under whichever sandbox/live toggle was active when they were created, so this is a real and expected condition, not an error. It renders **neutral** and names the mode it was found in — **never a false red or a false green**.
+- **`unavailable`** (gray) — Stripe unreachable, or a 404 under both keys.
+
+**The rule to carry forward: a red or green dot must be earned from a live Stripe read.** The cross-mode retry exists precisely so that a mode-mismatched id degrades to gray rather than being reported as "setup pending" (which would send an admin chasing a member whose account is perfectly fine, just on the other platform).
+
+**Scope — this is one profile surface, not a system-wide fix.** Every OTHER "connected" indicator in the portal (the Strategic Members, Tax Planners and Specialists panels, and the KPI donut) still infers "connected" from the **mere presence of a `stripe_account_id`**, which is green the instant the account row is created and long before anyone has onboarded. That is the false-green identified by the **paused 2026-07-22 Connect-status audit** and it remains **UNBUILT** — as does the transfers-active gate on the payout legs from that same audit. Do not read this session as having closed it; extending the dot to those panels is the remaining work, and each would reuse this action's mapping rather than inventing its own.
+
+UI placement contract (2026-08-03): the member **Edit Profile** tab no longer carries any Stripe Connect controls — the card there is now just "Revenue". The **buttons** live in **Settings → Stripe Connect** (always visible: "Set Up Payment Details" with no account, "Resend setup email" with one) and the **live status dot** lives on the **Details** view beside the account chip. A future surface should follow the same split: act in Settings, observe on Details.
+
+Cross-ref **#317** (why `eligible_capped` exists at all), **#159** (the pre-transfer `transfers==='active'` check — the payout-side counterpart of this read), **#268** (the durable setup link the buttons send). `see #318`.
