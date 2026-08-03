@@ -3,6 +3,7 @@ import { callApi } from '../../lib/api'
 import { StepCard, Detail, Badge, Pending, fmtDate, PanelHero, EmptyState, TableCard } from './automation/StepKit'
 import { AutomationTrackerSkeleton } from '../shared/Skeleton'
 import { CONFIRMATION_CARD_SKIP } from '../../lib/confirmationStatus'
+import { ClientNameLink, MemberNameLink } from '../shared/personLinks'
 
 const STAGE_LABELS = {
   not_started:     'Not Started',
@@ -428,11 +429,11 @@ export default function TaxAutomationPanel({ programScope = 'holistic' }) {
                         <span style={{ display: 'inline-block', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
                       </td>
                       <td style={{ padding: 12, fontSize: 14, color: 'var(--vfo-ink)' }}>
-                        <div>{row.client_name || row.client_ref || '—'}</div>
+                        <div><ClientNameLink clientId={row.client_id} tab="tax">{row.client_name || row.client_ref || '—'}</ClientNameLink></div>
                         {row.client_ref && row.client_name && <div style={{ fontSize: 11, color: 'var(--vfo-muted)' }}>{row.client_ref}</div>}
                         {row.sandbox && <span style={{ fontSize: 10, color: '#e06717', fontWeight: 600, fontStyle: 'italic' }}>sandbox</span>}
                       </td>
-                      <td style={{ padding: 12, fontSize: 13, color: 'var(--vfo-muted)' }}>{row.member_name || row.member_number || '—'}</td>
+                      <td style={{ padding: 12, fontSize: 13, color: 'var(--vfo-muted)' }}><MemberNameLink memberNumber={row.member_number}>{row.member_name || row.member_number || '—'}</MemberNameLink></td>
                       <td style={{ padding: 12, fontSize: 13, color: 'var(--vfo-muted)' }}>{row.assigned_pf || '—'}</td>
                       <td style={{ padding: 12 }}>
                         <span style={{ padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: `${stageColor}18`, color: stageColor, border: `1px solid ${stageColor}33` }}>

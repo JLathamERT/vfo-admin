@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
 import { TableSkeleton } from '../shared/Skeleton'
+import { MemberNameLink } from '../shared/personLinks'
 
 // Growth Credits page (top-level admin tab, grantable per admin in the Admin
 // Editor via the 'growth_credits' allowed_tabs key). The redemption fulfillment
@@ -99,7 +100,7 @@ export default function GrowthCreditsRedemptionsPage() {
             {pending.length === 0 && <div style={{ textAlign: 'center', padding: '28px', color: 'var(--vfo-faint)', fontSize: '13px' }}>No pending redemptions.</div>}
             {pending.map(r => (
               <div key={r.id} style={rowGrid}>
-                <span style={{ fontWeight: 600 }}>{memberOf(r)}</span>
+                <span><MemberNameLink memberNumber={r.member_number} style={{ fontWeight: 600 }}>{memberOf(r)}</MemberNameLink></span>
                 <span>{serviceOf(r)}</span>
                 <span style={{ color: 'var(--vfo-muted)' }}>{r.credits}</span>
                 <span style={{ color: 'var(--vfo-muted)' }}>{fmtDate(r.created_at)}</span>
@@ -123,7 +124,7 @@ export default function GrowthCreditsRedemptionsPage() {
             {done.length === 0 && <div style={{ textAlign: 'center', padding: '28px', color: 'var(--vfo-faint)', fontSize: '13px' }}>No completed or rejected redemptions yet.</div>}
             {done.map(r => (
               <div key={r.id} style={{ ...rowGrid, opacity: 0.65 }}>
-                <span>{memberOf(r)}</span>
+                <span><MemberNameLink memberNumber={r.member_number}>{memberOf(r)}</MemberNameLink></span>
                 <span>{serviceOf(r)}</span>
                 <span style={{ color: 'var(--vfo-muted)' }}>{r.credits}</span>
                 <span style={{ color: 'var(--vfo-muted)' }}>{fmtDate(r.created_at)}</span>

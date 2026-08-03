@@ -1012,9 +1012,9 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
           <div>
             {/* Short facts sit side by side; long-form (bio, notes) runs full
                 width below so a long bio never strands an empty sidebar. */}
-            <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 340px', minWidth: '300px', display: 'flex' }}>
-                <div style={{ ...sectionStyle, flex: 1 }}>
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 340px', minWidth: '300px' }}>
+                <div style={sectionStyle}>
                   <div style={cardTitle}>Member Details</div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '18px 24px' }}>
                     <div><div style={fieldLabel}>Join Date</div><div style={fieldValue}>{profile.join_date ? profile.join_date.split('T')[0] : '—'}</div></div>
@@ -1128,7 +1128,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                         <div key={cm.plugin_member_number} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: i < corporateMembers.length - 1 ? '1px solid var(--vfo-tint)' : 'none' }}>
                           <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>{initials(cm.name)}</div>
                           <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--vfo-ink)' }}>{cm.name}</div>
+                            <div onClick={() => onOpenMember && onOpenMember(cm)} {...linkHandlers} style={nameLink({ fontSize: '13px', fontWeight: 600, color: 'var(--vfo-ink)' })}>{cm.name}</div>
                             <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginTop: '1px' }}>{cm.plugin_member_number}</div>
                           </div>
                         </div>

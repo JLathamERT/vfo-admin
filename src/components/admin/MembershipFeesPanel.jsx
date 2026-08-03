@@ -4,6 +4,7 @@ import { NAVY, BLUE, money, StatusPill } from './specialistRevenueShared'
 import { OnboardingListSkeleton } from '../shared/Skeleton'
 import SandboxModeToggle from './SandboxModeToggle'
 import StepEmailsChip from '../shared/StepEmailsChip'
+import { MemberNameLink } from '../shared/personLinks'
 
 // Accounting > Members > Advisor/Accountant Membership Fees.
 //
@@ -415,7 +416,7 @@ function PlanCard({ plan, onChanged, onEdit }) {
         <span style={{ fontSize: '11px', color: 'var(--vfo-faint)', width: '12px' }}>{open ? '▾' : '▸'}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {plan.member_name || plan.member_number}
+            <MemberNameLink memberNumber={plan.member_number}>{plan.member_name || plan.member_number}</MemberNameLink>
             {plan.transfer && <StatusPill label="Transferred" color="#6b7280" />}
             {(m.suspended || m.membership_suspended) && <StatusPill label="Suspended" color="#ef4444" />}
             {m.paused && <StatusPill label="Paused" color="#e06717" />}
@@ -950,7 +951,7 @@ function OutstandingLinkRow({ plan, onChanged, onEdit }) {
         <span style={{ fontSize: '11px', color: 'var(--vfo-faint)', width: '12px' }}>{open ? '▾' : '▸'}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {plan.member_name || plan.member_number}
+            <MemberNameLink memberNumber={plan.member_number}>{plan.member_name || plan.member_number}</MemberNameLink>
             <StatusPill label="Setup link" color="#125ecc" />
             {plan.transfer && <StatusPill label="Transferred" color="#6b7280" />}
             {plan.sandbox && <StatusPill label="Sandbox" color="#e06717" />}
@@ -1038,7 +1039,7 @@ function OutstandingRow({ plan, overdue, total }) {
     <div style={{ ...card, marginBottom: '10px', padding: '14px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)' }}>{plan.member_name || plan.member_number}</div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)' }}><MemberNameLink memberNumber={plan.member_number}>{plan.member_name || plan.member_number}</MemberNameLink></div>
           <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>
             {plan.member_number} · {overdue.length} overdue payment{overdue.length === 1 ? '' : 's'}: {overdue.map(r => r.period_label).join(', ')}
           </div>

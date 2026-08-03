@@ -3,6 +3,7 @@ import { callApi } from '../../lib/api'
 import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate, PanelHero, EmptyState, TableCard } from './automation/StepKit'
 import { AutomationTrackerSkeleton } from '../shared/Skeleton'
 import { CONFIRMATION_CARD_SKIP } from '../../lib/confirmationStatus'
+import { ClientNameLink } from '../shared/personLinks'
 
 const STAGE_LABELS = {
   c81: 'PIP 1 — Reconfirmation Email',
@@ -534,7 +535,7 @@ export default function AutomationPanel({ section }) {
                         <span style={{ display: 'inline-block', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
                       </td>
                       <td style={{ padding: '12px', fontSize: '14px', color: 'var(--vfo-ink)' }}>
-                        <div>{row.client_name || row.client_ref || '—'}</div>
+                        <div><ClientNameLink clientId={row.client_id} tab="map1">{row.client_name || row.client_ref || '—'}</ClientNameLink></div>
                         {row.client_ref && row.client_name && <div style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{row.client_ref}</div>}
                         {row.sandbox && <span style={{ fontSize: '10px', color: '#e06717', fontWeight: 600, fontStyle: 'italic' }}>sandbox</span>}
                       </td>

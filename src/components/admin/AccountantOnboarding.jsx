@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { callApi, getSession } from '../../lib/api'
 import { AccountantOnboardingListSkeleton, AccountantOnboardingDetailSkeleton } from '../shared/Skeleton'
 import { TrackHero, PhaseBadge, ListHeader } from '../shared/TrackKit'
@@ -7,6 +7,7 @@ import NewModelSaleModal, { SALES_TEAM_NAMES } from './NewModelSaleModal'
 import OnboardingExtraMeetingCard from './OnboardingExtraMeetingCard'
 import StepEmailsChip from '../shared/StepEmailsChip'
 import StepDate from '../shared/StepDate'
+import { MemberNameLink } from '../shared/personLinks'
 
 const STAGE_NAMES = ['', 'Preliminary Meeting', 'PC Admin', 'Add New Accountant']
 
@@ -174,7 +175,7 @@ export default function AccountantOnboarding() {
               onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,149,255,0.4)'}
               onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--vfo-border)'}>
               <div>
-                <div style={{ fontSize: '15px', color: 'var(--vfo-ink)', fontWeight: '500', marginBottom: '4px' }}>{ob.first_name} {ob.last_name}{ob.member_number ? <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginLeft: '8px' }}>#{ob.member_number}</span> : null}</div>
+                <div style={{ fontSize: '15px', color: 'var(--vfo-ink)', fontWeight: '500', marginBottom: '4px' }}><MemberNameLink memberNumber={ob.member_number}>{ob.first_name} {ob.last_name}</MemberNameLink>{ob.member_number ? <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginLeft: '8px' }}>#{ob.member_number}</span> : null}</div>
                 <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>{ob.email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -224,6 +225,7 @@ export default function AccountantOnboarding() {
 }
 
 function OnboardingDetail({ id, onBack }) {
+  const navigate = useNavigate()
   const [ob, setOb] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -418,6 +420,7 @@ function OnboardingDetail({ id, onBack }) {
           <>
             {ob.accountant_type && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{ob.accountant_type === 'VFO Associate' ? 'VFO Associate' : 'VFO FT'}</span>}
             <span>{ob.email || 'No email'} · Started {ob.created_at?.split('T')[0] || ''}</span>
+            {ob.member_number && <button onClick={() => navigate(`/admin?member=${encodeURIComponent(ob.member_number)}&_n=${Date.now()}`)} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', padding: 0, whiteSpace: 'nowrap' }}>Open member profile →</button>}
           </>
         }
         steps={[

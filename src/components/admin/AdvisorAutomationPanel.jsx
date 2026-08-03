@@ -4,6 +4,7 @@ import { StepCard, Detail, Badge, Pending, fmtMoney, fmtDate, PanelHero, EmptySt
 import SandboxModeToggle from './SandboxModeToggle'
 import { AutomationTrackerSkeleton } from '../shared/Skeleton'
 import OnboardingExtraMeetingCard from './OnboardingExtraMeetingCard'
+import { MemberNameLink } from '../shared/personLinks'
 
 const STAGE_LABELS = {
   new: 'New',
@@ -91,7 +92,7 @@ function AdvisorPipelineRow({ row, expanded, onToggle, onReload }) {
     <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '14px', boxShadow: '0 3px 12px rgba(20,45,95,0.05)', marginBottom: '10px', overflow: 'hidden' }}>
       <div onClick={onToggle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--vfo-ink)' }}>{advisorName}</span>
+          <MemberNameLink memberNumber={row.member_number} style={{ fontSize: '15px', fontWeight: '600' }}>{advisorName}</MemberNameLink>
           {row.member_number && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontFamily: 'monospace' }}>#{row.member_number}</span>}
           {plans && <Badge text={plans} color="#0095ff" />}
           {plans && row.payment_amount && <span style={{ fontSize: '12px', color: 'var(--vfo-ink-2)' }}>{fmtMoney(row.payment_amount)}</span>}

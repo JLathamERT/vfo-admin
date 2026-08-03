@@ -43,6 +43,7 @@ export function clearedPayments(rows) {
         strategic: stratPortion,
         vfos: Math.max(amount - memberPortion - stratPortion, 0),
         clientName: r.client_name || `Client #${r.client_id}`,
+        clientId: r.client_id,
         memberNumber: r.member_number || null,
         memberName: r.member_name || '',
         decision: r.member_revenue_decision || null,

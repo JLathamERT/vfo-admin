@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { callApi, getSession } from '../../lib/api'
 import ListFilterButton, { matchesFilter, SortSelect, useHeaderSort, sortByColumn, SortHeader } from './ListFilterButton'
 import { ClientOverviewSkeleton } from '../shared/skeletons/admin'
+import { MemberNameLink } from '../shared/personLinks'
 
 // Client Overview — a mirror of Member Overview, but oriented around clients and
 // their program tracks. Five sub-tabs, each lazily loaded from the backend
@@ -234,7 +235,9 @@ export default function ClientOverviewPanel() {
                       onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
                       onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}>{c.name || '—'}</span>
                     <span style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--vfo-muted)' }}>{c.member_number || '—'}</span>
-                    <span style={{ fontSize: '12px', color: c.member_name ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{c.member_name || '—'}</span>
+                    {c.member_name
+                      ? <MemberNameLink memberNumber={c.member_number} style={{ fontSize: '12px' }}>{c.member_name}</MemberNameLink>
+                      : <span style={{ fontSize: '12px', color: 'var(--vfo-faint)' }}>—</span>}
                     <span>
                       {c.status
                         ? <span style={{ fontSize: '11px', padding: '2px 9px', borderRadius: '999px', fontWeight: 600, background: sc.bg, color: sc.color }}>{capitalize(c.status)}</span>
