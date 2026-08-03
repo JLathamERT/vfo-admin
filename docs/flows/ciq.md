@@ -49,6 +49,30 @@ The member can either:
 
 `ciq_complete` UPDATEs `client_ciqs.status='completed'`, `client_ciqs.completed_at=now()`. The status CHECK constraint is the only DB-level validation — `'completed'` is the only valid alternate value to `'draft'`.
 
+### Side effect — the MAP 1 "CIQ complete" step ticks itself (2026-08-03, v695)
+
+Finishing a CIQ is precisely what the MAP 1 **"CIQ complete"** step tracks, so an admin no longer ticks a box the system already knew the answer to. After the status update, `ciq_complete` calls module-local **`syncMap1CiqStep`**:
+
+1. Read `client_ciqs.client_id` for the completed CIQ (return quietly if null).
+2. Resolve the MAP 1 phases — `program_client_phases` where `program_id=1` and `track_type='map1'`.
+3. Find the task **BY NAME** — `program_client_tasks.name = 'CIQ complete'` within those phase ids. **There is no hardcoded id** (live id is `7`) because ids differ per environment.
+4. Upsert `client_progress {client_id, task_id, status:'Completed', completed_date:<today>}` — an existing row already `Completed` is left alone.
+5. Call `activateClientIfPending` (see [msm-tracking.md](msm-tracking.md), gotcha #320) so a client whose first tracked activity is the CIQ stops sitting at "Pending".
+
+**It is fail-soft in every branch** — the whole block is `try`/`catch` and each `{error}` is destructured and checked; a failure emits `console.error("ciq complete: MAP1 step sync failed", …)` and the CIQ completion still returns success. **It also works before MAP 1 exists:** `client_progress` is keyed `(client_id, task_id)` with no enrollment column, so the row is simply written early and is already present when the track is later created. **Previously-completed CIQs were NOT backfilled.**
+
+> **The name is the contract, and nothing enforces it.** Renaming the task or the `map1` phase track silently breaks the auto-complete, and the same `'CIQ complete'` literal is exact-matched three more times in `ClientTrackViewV2.jsx` (the hyperlink condition + the two `autoCompleteCodes` lists). Grep both repos before renaming. Gotcha **#323**.
+
+### Deep link — opening one client's CIQ from elsewhere in admin (2026-08-03)
+
+Two admin-only surfaces now navigate straight to a client's questionnaire: the client profile's **Profile** dropdown gained a **"CIQ"** entry below "Vault" (rendered only when `client.member_number` exists), and the MAP 1 **"CIQ complete"** step title is hyperlinked (`#0095ff`, admin/`!readOnly` only). Both emit:
+
+```
+/admin?member=<member_number>&feature=ciq&ciqclient=<client_id>&_n=<Date.now()>
+```
+
+`'ciq'` is a **navigation action, not a tab** — `ClientDetail.jsx`'s `handleTabSelect` intercepts it before `setActiveTab`, and `validTabsForProgram` was deliberately left untouched. `AdminPortal.jsx`'s `?member=` branch parks `ciqclient` in **sessionStorage `ciqInitialClientId`** (mirroring the existing `sub` → `msmInitialSubTab` handling), and `MemberCIQ.jsx`'s `loadCiqs` consumes it **once** — `isAdmin` only, `removeItem` even when nothing matches — then finds the newest CIQ with that `client_id` and **`await openCiq(match)`**. The `await` holds the loading skeleton; without it the CIQ *list* flashes on screen before the questionnaire opens.
+
 > **Note:** `ciq_complete` does NOT auto-generate `ciq_priorities` rows. Those are populated separately when the user enters the priorities phase (Step 6) — but the exact code that inserts them is inside the large `MemberCIQ.jsx` (file is 111KB). The `ciq_save_priorities` action upserts whatever the UI sends; the UI must build the list initially.
 
 ## Step 6 — Rank priorities
