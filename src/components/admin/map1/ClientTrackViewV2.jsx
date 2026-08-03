@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { callApi, loadCachedAction } from '../../../lib/api'
 import { Map1TrackSkeleton } from '../../shared/Skeleton'
 import PFPricingForm from './PFPricingForm'
@@ -91,6 +92,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
   const [expanded, setExpanded] = useState({})
   const [completedPhases, setCompletedPhases] = useState({})
   const [pipelineData, setPipelineData] = useState(null)
+  const navigate = useNavigate()
 
   useEffect(() => { loadTrack() }, [clientId])
 
@@ -757,10 +759,19 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                     )
                   }
 
+                  const isCiqStep = task.name === 'CIQ complete' && !readOnly && !!client?.member_number
                   return (
                     <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
-                      <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+                      {isCiqStep
+                        ? <span
+                            title="Open this client's CIQ"
+                            onClick={() => navigate(`/admin?member=${encodeURIComponent(client.member_number)}&feature=ciq&ciqclient=${clientId}&_n=${Date.now()}`)}
+                            onMouseEnter={e => { e.currentTarget.style.textDecoration = 'underline' }}
+                            onMouseLeave={e => { e.currentTarget.style.textDecoration = 'none' }}
+                            style={{ fontSize: '13px', color: '#0095ff', flex: 1, cursor: 'pointer' }}>{task.name}</span>
+                        : <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+                      }
                       <select value={p.status || ''} onChange={e => saveTask(task.id, e.target.value, p.completed_date)} disabled={saving[task.id]} style={{ ...inputStyle, background: 'var(--vfo-card)', minWidth: '150px', borderColor: isDone ? `${statusColor}66` : 'var(--vfo-border-strong)', color: isDone ? statusColor : 'var(--vfo-ink)' }}>
                         <option value="">-- Select --</option>
                         {(task.status_options || '').split('|').map(s => <option key={s} value={s}>{s}</option>)}

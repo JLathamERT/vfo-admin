@@ -21,6 +21,8 @@ One per (client, CIQ-run) pairing. Status moves `'draft'` → `'completed'`.
 
 **Touched by:** `ciq_load_list`, `ciq_create`, `ciq_add_client_and_create`, `ciq_load`, `ciq_save`, `ciq_complete`, `ciq_load_priorities`, `ciq_save_priorities`, `ciq_complete_priorities`, `ciq_save_priority_snapshot`, `ciq_load_priority_snapshots`, `ciq_load_settings`, `ciq_set_accountability` (writes `accountability_mode`). Frontend: [MemberCIQ.jsx](src/components/shared/MemberCIQ.jsx).
 
+> **`ciq_complete` reaches outside this table (2026-08-03, v695).** After flipping `status`/`completed_at` it re-reads this row's `client_id` and stamps the MAP 1 **"CIQ complete"** step — resolving the task by NAME through `program_client_phases` (`program_id=1`, `track_type='map1'`) + `program_client_tasks`, upserting `client_progress`, then calling `activateClientIfPending` (which can flip `clients.status` `pending`→`active`, #320). Entirely fail-soft: a failure logs and the CIQ still completes. See [flows/ciq.md](../flows/ciq.md) and gotcha #323.
+
 ---
 
 ## `ciq_answers`

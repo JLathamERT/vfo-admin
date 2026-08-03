@@ -225,7 +225,7 @@ A **multi-mode** page rendered by `/admin/client/:clientId`, `/member/client/:cl
 |  | • Partnership Fast Track → "PFT Engagement Process" only |
 |  | • VFO Tax Planning → "Tax Priorities" only |
 |  | • else (Holistic Planning) → MAP 1 / Regular Priorities / Tax Priorities / **PIP Meetings** (4 tabs) — see [../flows/pip-meetings.md](../flows/pip-meetings.md) |
-| Profile dropdown | admin: `ClientTabDropdown` with Profile + Edit Profile + **Vault** (`{key:'vault',label:'Vault'}`); member: Profile only |
+| Profile dropdown | admin: `ClientTabDropdown` with Profile + Edit Profile + **Vault** + **CIQ** + Payments + Settings (+ Payment Continuation for superadmins); member: Profile only. **`'ciq'` is a NAVIGATION action, not a tab (2026-08-03)** — it is rendered only when `client.member_number` exists, and `onSelect` is `handleTabSelect`, which intercepts the key *before* `setActiveTab` and navigates to `/admin?member=<member_number>&feature=ciq&ciqclient=<client_id>&_n=<Date.now()>`. `validTabsForProgram` was deliberately left untouched. The dropdown itself only renders in the `!isPlanner && !isMember` branch, so this is admin-only by construction. See [../flows/ciq.md](../flows/ciq.md) and gotcha #323. |
 | Mutations from ClientHome | `update_client_note`, `delete_client_note`, `msm_update_client` (status, PF assignment) (lines 169, 177, 185, 198) |
 | Mutations from ClientDetails | `msm_update_client` (name/email/phone), `msm_add_client_contact`, `msm_delete_client_contact` (lines 306, 316, 325) |
 

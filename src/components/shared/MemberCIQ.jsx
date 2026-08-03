@@ -66,8 +66,20 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
         callApi('ciq_load_list', { member_number: memberNumber }),
         callApi('load_member_contacts', { member_number: memberNumber }),
       ])
-      setCiqs(data.ciqs || [])
+      const list = data.ciqs || []
+      setCiqs(list)
       setContactsMap(contactData.contacts || {})
+      // Deep-link from a client profile / MAP 1 step: open that client's newest
+      // CIQ straight away. Consume the key even when nothing matches so a later
+      // visit to this tab doesn't re-hijack the list.
+      if (isAdmin) {
+        const wantedClientId = sessionStorage.getItem('ciqInitialClientId')
+        if (wantedClientId) {
+          sessionStorage.removeItem('ciqInitialClientId')
+          const match = list.find(c => String(c.client_id) === String(wantedClientId))
+          if (match) await openCiq(match)
+        }
+      }
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
   }

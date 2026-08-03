@@ -455,6 +455,11 @@ export default function TaxPlannersPanel({ section }) {
               options={[{ key: 'profile', label: 'Profile' }, { key: 'edit', label: 'Edit Profile' }, { key: 'vault', label: 'Vault' }, { key: 'payments', label: 'Payments' }, { key: 'settings', label: 'Settings' }]}
               onSelect={setPlannerTab}
             />
+            <button
+              onClick={() => setPlannerTab('clients')}
+              style={{ padding: '7px 16px', background: plannerTab === 'clients' ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: plannerTab === 'clients' ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: plannerTab === 'clients' ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px' }}>
+              Clients
+            </button>
           </div>
 
           {plannerTab === 'profile' && (
@@ -486,6 +491,10 @@ export default function TaxPlannersPanel({ section }) {
 
           {plannerTab === 'payments' && (
             <TaxPlannerPaymentsTab plannerId={selectedPlanner.id} />
+          )}
+
+          {plannerTab === 'clients' && (
+            <TaxPlannerClientsTab plannerId={selectedPlanner.id} />
           )}
 
           {plannerTab === 'settings' && (
@@ -654,6 +663,86 @@ function TaxPlannerPaymentsTab({ plannerId }) {
                   <td style={td}>
                     <HalfCell amount={r.implementation_amount} paid={!!r.implementation_planner_paid} completedAt={r.implementation_planner_completed_at} receipt={r.implementation_receipt_number} />
                   </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Read-only Clients tab: every client this planner touches, one row per client
+// even when they hold plans under more than one program.
+const PROGRAM_LABELS = { 1: 'Holistic', 4: 'VFO Tax Planning' }
+const programLabel = (id) => PROGRAM_LABELS[Number(id) || 1] || 'Holistic'
+function TaxPlannerClientsTab({ plannerId }) {
+  const [rows, setRows] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let alive = true
+    setLoading(true); setError('')
+    callApi('tax_planner_clients_load', { planner_id: plannerId })
+      .then(d => { if (alive) setRows(d.clients || []) })
+      .catch(e => { if (alive) setError(e?.message || 'Failed to load clients') })
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [plannerId])
+
+  const cardStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px' }
+  const titleStyle = { fontSize: '17px', fontWeight: 800, color: 'var(--vfo-heading)', margin: '0 0 16px', fontFamily: 'Inter, sans-serif' }
+  const th = { textAlign: 'left', padding: '8px 12px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#7a89a8', borderBottom: '1px solid var(--vfo-border)', whiteSpace: 'nowrap' }
+  const td = { padding: '12px', fontSize: '13px', color: 'var(--vfo-ink)', borderBottom: '1px solid var(--vfo-border-soft)', verticalAlign: 'top' }
+
+  if (loading) {
+    return <div style={cardStyle}><h3 style={titleStyle}>Clients</h3><div style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>Loading…</div></div>
+  }
+  if (error) {
+    return <div style={cardStyle}><h3 style={titleStyle}>Clients</h3><div style={{ marginTop: '12px', padding: '14px 16px', background: '#fdecea', border: '1px solid #f7c4bd', borderRadius: '10px', color: '#b42318', fontSize: '13px' }}>{error}</div></div>
+  }
+
+  const byClient = []
+  const seen = new Map()
+  for (const r of (rows || [])) {
+    const key = String(r.client_id)
+    let entry = seen.get(key)
+    if (!entry) {
+      entry = { ...r, programs: [] }
+      seen.set(key, entry)
+      byClient.push(entry)
+    }
+    const label = programLabel(r.program_id)
+    if (!entry.programs.includes(label)) entry.programs.push(label)
+  }
+
+  return (
+    <div style={cardStyle}>
+      <h3 style={titleStyle}>Clients</h3>
+      {byClient.length === 0 ? (
+        <div style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>No clients assigned.</div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: '620px', borderCollapse: 'collapse', fontFamily: 'Inter, sans-serif' }}>
+            <thead>
+              <tr>
+                <th style={th}>Client</th>
+                <th style={th}>Client Ref</th>
+                <th style={th}>Member</th>
+                <th style={th}>Program</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byClient.map(c => (
+                <tr key={c.client_id}>
+                  <td style={td}>
+                    <ClientNameLink clientId={c.client_id} program={c.program_id || 1} tab="tax" style={{ fontWeight: 600 }}>{c.client_name || `Client ${c.client_id}`}</ClientNameLink>
+                  </td>
+                  <td style={{ ...td, fontFamily: 'ui-monospace, monospace', color: 'var(--vfo-muted)', whiteSpace: 'nowrap' }}>{c.client_ref || '—'}</td>
+                  <td style={td}>{c.member_name || '—'}</td>
+                  <td style={{ ...td, color: 'var(--vfo-muted)' }}>{c.programs.join(', ')}</td>
                 </tr>
               ))}
             </tbody>
