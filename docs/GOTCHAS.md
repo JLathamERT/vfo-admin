@@ -1,8 +1,8 @@
-# VFO Session-Learned Gotchas — full registry (#1–#326)
+# VFO Session-Learned Gotchas — full registry (#1–#330)
 
 > Split out of `SESSION_REFERENCE.md` on 2026-06-19 to keep the live hub lean. This is the **complete** numbered list; the hub keeps only a curated ALWAYS-APPLIES subset.
 >
-> **Numbers are permanent.** Gotchas are referenced as `#N` from `SESSION_REFERENCE.md`, the operator prompts, and across `docs/` — **NEVER renumber.** Add new gotchas to the END of this list, incrementing from the current max (#326).
+> **Numbers are permanent.** Gotchas are referenced as `#N` from `SESSION_REFERENCE.md`, the operator prompts, and across `docs/` — **NEVER renumber.** Add new gotchas to the END of this list, incrementing from the current max (#330).
 >
 > Pre-existing ordering quirk preserved verbatim: **#87 physically precedes #86.** (Do not "fix" it — references are by number, not position.)
 
@@ -993,3 +993,50 @@ Cross-ref **#181** (the Draft/Send delivery layer; every new templated email mus
 **So the same human has two Cc addresses and which one is correct depends on the pipeline the template belongs to.** A future "cleanup" that unifies them is a regression, not a fix. Two boundaries that were deliberately NOT crossed: **portal logins** (`allowed_admins`, `*_logins`) and **`notification_rules` recipients + code constants** (`constants/tax-access.ts` `TAX_VIEWERS`, the various `*_EMAIL` constants) still use `@elitert.com` and were not touched — this was **email Cc only**. Adding a NEW template to any of the four pipelines does **not** inherit the Cc (it lives in the row, not in code — see the standing note in `integrations/gmail.md`), so seed it explicitly with the pipeline-correct address.
 
 Cross-ref **#291** (a person's address lives in four separate layers — changing one changes nothing about the others), **#325** (the four rows that moved because they auto-send), **#53**. `see #326`.
+
+---
+
+**327. Stripe REDELIVERS a webhook when our own chain outruns its ~30s timeout, and `router/webhooks.ts` has NO event-id dedupe — so every side effect chained off a webhook needs its OWN idempotency latch or it runs twice (2026-08-04, proven by a live incident). ALWAYS-APPLIES — money/email.** `maybeHandleStripeWebhook` does all of its work — DB updates plus `fetch`-chained `automation_*` calls that mint PDFs, upload to Drive and create Gmail drafts — **before** it returns 200. Stripe waits ~30s for that 200; if it does not arrive, Stripe treats the delivery as failed and **sends the identical event again**. Nothing in the router remembers that `evt.id` was already processed, so the second delivery re-runs the whole branch from the top.
+
+**The live case.** Henry Mennig (client 132, `59380-001`, MAP 1 continuation payment 3, $1,050). The `payment_intent.succeeded` chain — invoice/receipt PDF → Drive upload → Gmail draft — took **longer than 30s**; Stripe redelivered; the MAP 1 P2-4 branch had no guard, so `automation_CONTRACT_invoicereceipt` ran **twice** and produced **two identical Gmail drafts carrying the SAME receipt number** `REC-59380-001-0001`. **Only ONE charge was taken** (the sweep's Stripe idempotency key held), and only **ONE** revshare draft was produced — because `contract-revshare.ts` has an `isResolved` guard and the receipt path had none. **That asymmetry is the proof**: same event, same two deliveries, guarded chain fired once, unguarded chain fired twice. Timestamps in the DB, not inference, established it. v696 was investigated and ruled out.
+
+**What was fixed, and what was not.** The MAP 1 P2-4 branch now widens its `pipeline_map1` select to `rec2/3/4_email_sent` and skips the invoicereceipt chain (with a `console.log`) when `pipeRow[`rec${paymentNum}_email_sent`] === true`. **That closes the realistic late-retry case only** — two deliveries genuinely overlapping in flight both read `false` and both fire. **Every OTHER webhook branch remains exposed**: the P1 ACH branch, tax, advisor, accountant, PIP, specialist, and the revshare chain (which is protected only by its own `isResolved` check). **The systemic fix was proposed and deliberately NOT built:** ack Stripe immediately (return 200) and run the chains under `EdgeRuntime.waitUntil`, which removes the timeout pressure entirely; a real event-id dedupe table would remove the rest. Until one of those ships, **treat "this webhook branch fires exactly once" as false.**
+
+When adding any side effect to `router/webhooks.ts`, name the column or row that proves the effect already happened and check it first. A side effect with no latch is a duplicate waiting for a slow Drive upload.
+
+Cross-ref **#328** (why the receipt number itself is not a latch), **#319** (the same "a slow write did NOT fail" lesson on the browser side — an abort is not a rollback), **#302**, **#187**. `see #327`.
+
+---
+
+**328. A reused receipt NUMBER is not idempotency — `contract-invoice-receipt.ts` reuses `recN_number` when it is already set, which makes a duplicate run look identical instead of being prevented; `recN_email_sent` is the actual latch and until 2026-08-04 NOTHING read it (2026-08-04).** The handler's design is deliberate and correct on its own terms: if `rec{N}_number` is already populated it reuses it rather than burning a new sequence value, so a re-run does not invent a second receipt number for one payment. **The trap is that this reads like a dedupe and is the opposite of one** — it guarantees the second run produces a document *indistinguishable* from the first, which is exactly what turned the #327 redelivery into two byte-identical Gmail drafts sharing `REC-59380-001-0001` rather than into an obvious error.
+
+The handler *does* write **`rec{N}_email_sent = true`** after a successful draft. **That column existed, was written, and was read by nothing** — no caller, no sweep, no webhook branch consulted it before invoking the chain. As of 2026-08-04 the MAP 1 P2-4 webhook branch reads it (#327); no other caller does.
+
+Two consequences. (1) **When you need "has this receipt already gone out?", the answer is `rec{N}_email_sent`, never the presence of `rec{N}_number`** — the number is set early and survives failures. (2) A duplicate run also leaves a **real orphan in Drive**: the first run's PDF is uploaded and its `drive_id` is then overwritten by the second run's, so the original file stays in the folder with nothing pointing at it. One such orphan (`REC-59380-001-0001.pdf`) is known and was left in place.
+
+Cross-ref **#327** (the redelivery that exposed this), **#181**. `see #328`.
+
+---
+
+**329. Accountant member types are PARTNERSHIP-QUALIFIED — `"Implementation - VFO FT (Direct)"` / `"(Advisor)"`. Plain `"Implementation"` is an ADVISOR-pipeline value and was copied into the accountant pipeline when it was cloned, so the first automation-created accountant was born with the wrong type (2026-08-04). ALWAYS-APPLIES — accountant pipeline.** `actions/accountant/create-member.ts` hardcoded `member_type: "Implementation"` and **never read the Direct/Advisor choice the onboarding had already recorded**. The value is legitimate — in the **advisor** pipeline, which the accountant pipeline was cloned from. In the accountant pipeline it is simply not one of the options an admin can pick, so every accountant the automation created carried a type no human would have chosen.
+
+**The mapping is the same one `save-partnership.ts` and the agreement-PDF picker already use:** `ob.accountant_partnership === "Accountant Partnership"` → **`"Implementation - VFO FT (Advisor)"`**, anything else → **`"Implementation - VFO FT (Direct)"`**. (The dropdown's stored value says "Partnership" where the UI says "Advisor" — see #58; do not "tidy" the stored string.) **VFO Associate accountants are deliberately NOT mapped** — that option does not exist yet, and a comment in the file marks the spot.
+
+**One row shipped wrong and was data-fixed, not migrated:** **Anil Grandhi, member 30006**, the first-ever automation-created accountant (born 2026-07-14), was corrected by superadmin to `'Implementation - VFO FT (Direct)'` with a matching `member_type_history` audit row. The in-flight onboardings — Kevin Johnson 16, Cordelia Ekwueme 17, Ade Rogers 21 (already paid), Doug Moini 23, all Advisor-partnership — will now be created correctly.
+
+**The durable lesson is about clones, not about accountants.** The accountant pipeline is a file-for-file copy of the advisor pipeline, so any advisor-shaped literal in it is suspect until checked against the accountant enum: member types, agreement templates, email pipelines, dropdown values. When a cloned handler writes a *constant* where the original wrote a constant, confirm the constant is legal in the new pipeline's vocabulary.
+
+Cross-ref **#58** (the same `accountant_partnership` value picking the BoldSign template + the agreement PDF), **#291**. `see #329`.
+
+---
+
+**330. A MANUAL resend is deliberately not the same event as an automatic one — it mints a fresh token, restarts the ladder, and never counts toward the auto-resend cap; and it stamps the reminder timestamp only-if-null and only-on-success (2026-08-04).** The Accounting → Outstanding Payment Links panel gained two "Resend email" buttons (Holistic + Tax tabs only — **not** on the tax implementation-links, specrev, or membership-fee sections), and their semantics are load-bearing:
+
+- **Payment Continuation rows** reuse `migration_send_setup_link` with the new optional **`body.reminder: true`**, which swaps the template to `CLIENT_PAYMENT_CONTINUATION` / **`setup_link_reminder`** (id 209, "Friendly reminder:"). The default path is byte-identical to before. A manual mint keeps the **operator's** email in the token's `created_by` (not `"sweep"`), which is exactly why it **never counts toward the sweep's 3-auto-resend cap** — and because the token is fresh (7 days), the reminder/bell ladder **restarts** on it. So an expired link and a cap-reached row are precisely the rows the button exists for. Note this path stays **SUPERADMIN-only** — it mints a Stripe/token artifact, not just an email.
+- **New Clients First Payment Link rows** use the NEW `accounting_resend_first_payment_link` (`TAB_ACTIONS.accounting` — any admin with the Accounting tab, same gate as the loader that renders the row). It re-runs the nightly reminder for ONE row by calling the sweeps' **own** senders (`sendStallReminderEmail` + `buttonsPay1Payment` for MAP 1, `sendReminderEmailUnified` + `buttonsTax3Payment` for Tax, all newly `export`ed with no restructuring), so the email is byte-identical to what the sweep would have produced — same template, same member-pays variant, same sandbox redirect. **Do not fork those senders.**
+
+**The stamping rule is the subtle part.** `pay1_reminder_sent_at` / `payment_reminder_sent_at` is written **only when currently null** and **only after a draft actually succeeded**. Only-if-null means a manual nudge suppresses the sweep's imminent duplicate without rewriting the real first-reminder date; only-on-success means a failed draft leaves the row untouched so the nightly sweep still tries — stamping a reminder that never went out would silently disarm it. **`*_pf_notified_at` is never touched**: the PF escalation ladder keeps its own clock.
+
+Both handlers refuse with **400** once the payment is no longer outstanding (`pay1_status` / `retainer_status` non-null) or when the row has no `checkout_token`, rather than drafting a button-less email.
+
+Cross-ref **#268** (never email a raw `connect.stripe.com` link — the durable `/payout-setup` token pattern), **#310**, **#309** (deny-by-omission: the new action is in a named gate on purpose), **#251** (sandbox is resolved per client inside the reused senders). `see #330`.

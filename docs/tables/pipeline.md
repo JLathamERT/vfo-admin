@@ -119,8 +119,8 @@ Set by `automation_PCADMIN_pricing` ([PFPricingForm.jsx:19](src/components/admin
 | `invoice_email_sent` | boolean | default `false` |
 | `rec1_number` … `rec4_number` | text | Receipt numbers per payment. |
 | `rec1_status` … `rec4_status` | text | Receipt lifecycle. Written `"Sent"` by `automation_CONTRACT_invoicereceipt` after the Gmail draft is created. NULL before invoicereceipt has run (AutomationPanel renders NULL as "pending" via fallback). Same on card / ACH / check paths. |
-| `rec1_drive_id` … `rec4_drive_id` | text | Google Drive IDs. |
-| `rec1_email_sent` … `rec4_email_sent` | boolean | default `false` |
+| `rec1_drive_id` … `rec4_drive_id` | text | Google Drive IDs. **A duplicate invoicereceipt run OVERWRITES this with the second upload's id, orphaning the first PDF in Drive** (one such orphan is known — gotcha #328). |
+| `rec1_email_sent` … `rec4_email_sent` | boolean | default `false`. Written `true` by `automation_CONTRACT_invoicereceipt` after the Gmail draft succeeds. **This is the receipt IDEMPOTENCY LATCH — and until 2026-08-04 nothing read it.** The `payment_intent.succeeded` webhook's MAP 1 **P2-4** branch now checks `rec{N}_email_sent` before chaining the receipt, because Stripe redelivers a webhook whose 200 we were too slow to return and the router has no event-id dedupe (gotcha **#327**). **The P1 ACH branch still does not check it.** Note that a populated `rec{N}_number` is NOT equivalent — the handler reuses an existing number, so it is set on a duplicate run too (**#328**). |
 | `member_contrib_status` | text | |
 | `c24_email_sent` | boolean | default `false` |
 

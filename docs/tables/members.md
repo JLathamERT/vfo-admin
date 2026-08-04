@@ -10,7 +10,7 @@ The advisor/accountant roster. PK is `member_number` (text), not an integer — 
 |---|---|---|
 | `member_number` | text | pk |
 | `first_name` / `last_name` | text | |
-| `member_type` | text | The product/service tier, e.g. `"Implementation"`, `"Catalyst"`, `"Fusion A"`, `"VFO Reconciliation (Free)"` — NOT advisor-vs-accountant (that's `member_category`). Drives portal/UI behavior. |
+| `member_type` | text | The product/service tier, e.g. `"Implementation"`, `"Catalyst"`, `"Fusion A"`, `"VFO Reconciliation (Free)"` — NOT advisor-vs-accountant (that's `member_category`). Drives portal/UI behavior. **The legal VALUES DIFFER BY CATEGORY and the two vocabularies are easy to mix up (gotcha #329):** plain `"Implementation"` is an **advisor** value, while accountants use the partnership-qualified **`"Implementation - VFO FT (Direct)"` / `"Implementation - VFO FT (Advisor)"`** (`ACCOUNTANT_TYPES`). `automation_ACCOUNTANT_createmember` hardcoded the advisor value until 2026-08-04 — inherited when the accountant pipeline was cloned from the advisor pipeline — and now branches on `accountant_onboarding.accountant_partnership`. |
 | `member_category` | text | `'advisor'` \| `'accountant'` \| NULL (CHECK-constrained). Added 2026-05-29 (gotcha #48). The durable advisor-vs-accountant tag — replaces the old `ACCOUNTANT_TYPES`/`onboarding_id` heuristic. NULL = uncategorized (incl. corporate `<parent>-C<n>` members, which stay out of the integer numbering buckets). With `advisor_model` it forms the 4 numbering buckets used by `nextMemberNumber()`. Backfill: onboarding FKs → their category, the 20 legacy advisors → `advisor`. Drives the member-side Revenue-Decision hide + the admin AccountantsPanel/AdvisorsPanel filters. |
 | `elite_status` | text | default `'Active'`. Status field. **Since v535 (2026-07-02), `Lost`/`Removed` also blocks `member_login` (403; the `member_logins` row is kept — flip back to Active to restore access, gotcha #171).** |
 | `advisor_model` | text | `'Legacy Model'` or `'New Model'`. Added 2026-05-26 (Phase 5 advisor onboarding). All 19 pre-existing rows backfilled to `'Legacy Model'`. New rows from `automation_ADVISOR_createmember` get `'New Model'`; manual Add Advisor rows take whichever the admin picks (required, no default). Surfaced in the Search Advisors list as the 5th column. Second axis of the numbering buckets (with `member_category`). |
@@ -119,7 +119,7 @@ Audit trail of `member_type` changes.
 | `changed_at` | timestamptz | default `now()` |
 | `changed_by` | text | |
 
-**Touched by:** Any handler that changes `members.member_type` (currently `member_profile_save`).
+**Touched by:** Any handler that changes `members.member_type` (currently `member_profile_save`). Also written by hand — the 2026-08-04 superadmin correction of member **30006** (the accountant `member_type` clone defect, gotcha #329) inserted an audit row alongside the `members` update; a manual data fix should do the same.
 
 ---
 
