@@ -1,8 +1,8 @@
-# VFO Session-Learned Gotchas — full registry (#1–#330)
+# VFO Session-Learned Gotchas — full registry (#1–#331)
 
 > Split out of `SESSION_REFERENCE.md` on 2026-06-19 to keep the live hub lean. This is the **complete** numbered list; the hub keeps only a curated ALWAYS-APPLIES subset.
 >
-> **Numbers are permanent.** Gotchas are referenced as `#N` from `SESSION_REFERENCE.md`, the operator prompts, and across `docs/` — **NEVER renumber.** Add new gotchas to the END of this list, incrementing from the current max (#330).
+> **Numbers are permanent.** Gotchas are referenced as `#N` from `SESSION_REFERENCE.md`, the operator prompts, and across `docs/` — **NEVER renumber.** Add new gotchas to the END of this list, incrementing from the current max (#331).
 >
 > Pre-existing ordering quirk preserved verbatim: **#87 physically precedes #86.** (Do not "fix" it — references are by number, not position.)
 
@@ -1040,3 +1040,17 @@ Cross-ref **#58** (the same `accountant_partnership` value picking the BoldSign 
 Both handlers refuse with **400** once the payment is no longer outstanding (`pay1_status` / `retainer_status` non-null) or when the row has no `checkout_token`, rather than drafting a button-less email.
 
 Cross-ref **#268** (never email a raw `connect.stripe.com` link — the durable `/payout-setup` token pattern), **#310**, **#309** (deny-by-omission: the new action is in a named gate on purpose), **#251** (sandbox is resolved per client inside the reused senders). `see #330`.
+
+---
+
+**331. `/tax-upload` is ONE page, ONE URL and ONE `clients.tax_upload_token` shared by THREE different email flows — so nothing on that page can be conditioned on "which email did they come from"; the "Or write an explanation" box is gated by the PUBLIC `vault_tax_upload_context`, whose payload is a single boolean that must never be widened (2026-08-04). ALWAYS-APPLIES — public token pages.** The Request Tax Returns email, the Request Additional Information email and the first-payment email all embed the **same** `/tax-upload?token=` link, because `clients.tax_upload_token` is one durable per-client value, not a per-request one. There is no per-flow token, no distinguishing query param, and a referrer cannot be trusted — **so "show this section only for flow X" is not implementable on the client at all.** From v680 to v699 the page simply rendered both sections to everyone, and a client who arrived from the returns-only or first-payment email could type an explanation, press Send, and receive `400 "No open request for additional information"` — a real dead end that existed for nine days before anyone framed it as one.
+
+**The fix is a context call, and its shape is the point.** `actions/vault/tax-upload-context.ts` (`vault_tax_upload_context`, **PUBLIC**, registered in `PUBLIC_HANDLERS` immediately beside `vault_tax_text_submit`) takes `{ token }`, validates it against `clients.tax_upload_token` — **400** no token, **403 "Invalid link"** on a miss, 500 on a DB error (#187) — and returns **`{ success: true, allow_text: <bool> }`**. **That boolean is the ENTIRE payload and widening it is a security regression, not a feature.** This is an unauthenticated endpoint whose only credential is a value sitting in an old email: it must disclose one bit and nothing about the client, the plan, the request text, or how many plans exist. A future "while we're in here, also return the requested-info text so the page can show what was asked" is exactly the change this rule forbids. (Same confinement shape as `vault_tax_upload_url` / `vault_request_upload_url` — the token row is the whole credential and the body selects nothing; #309/#310.)
+
+**Visibility is deliberately IDENTICAL to submittability, which means the predicate is written twice and both copies must move together.** The gate re-runs the exact query `vault_tax_text_submit` uses to decide whether to accept — newest `client_tax_plans` row with `additional_info_requested_at NOT NULL`, `order id desc limit 1`. **If you change one, change the other.** Diverge them and the box appears where Send 400s (the bug this closed) or hides where Send would have worked (worse — the client sees no way to answer and nothing logs it).
+
+**Two consequences worth stating out loud.** (1) **The gate is server state, not the link, so every `/tax-upload` link already in a client's inbox self-corrects on load** — nothing needs re-issuing and no previously sent email became wrong. (2) **A client with an open additional-info request sees the box on ANY of their `/tax-upload` arrivals**, including re-opening a months-old Request Tax Returns email. That is deliberate: it is the same page reading the same client state, and a written answer is exactly as valid from that door as from the other one. Do not add per-flow logic to "fix" it — there is no per-flow signal to add it from.
+
+On the react side, `allowText` **defaults to `false`** so the box cannot flash in and then vanish for a dropzone-only client, and the context `fetch` `.catch(() => {})`s — a context failure degrades to "no box", never to an error card over a page whose primary job (dropping files) still works.
+
+Cross-ref **#308** (the box itself, and the shared `additional_info_received_at` stamp that makes an upload and a typed answer equivalent), **#310** (the `/vault-upload` clone that removed the box outright, for the related reason that a typed answer only means something where a step is waiting on it), **#309**, **#187**. `see #331`.

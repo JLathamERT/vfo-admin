@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { fileSizeError } from '../lib/fileUpload'
 import TokenShell from '../components/shared/TokenShell'
@@ -44,6 +44,23 @@ export default function TaxUploadPage() {
   // Separate from `error` so a send failure surfaces next to the Send button
   // rather than up by the dropzone, off the bottom of the client's screen.
   const [noteError, setNoteError] = useState('')
+  // The Request Tax Returns and first-payment emails share this URL, so only the
+  // server knows whether there is an open request for additional information.
+  // Defaults false so the box never flashes for dropzone-only clients.
+  const [allowText, setAllowText] = useState(false)
+
+  useEffect(() => {
+    if (!token) return
+    fetch(API_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'vault_tax_upload_context', token }),
+    })
+      .then(async r => {
+        const d = await r.json()
+        if (r.ok && d.success) setAllowText(!!d.allow_text)
+      })
+      .catch(() => {})
+  }, [token])
 
   async function handleFiles(fileList) {
     if (!token) { setError('This link is invalid or missing its token.'); return }
@@ -121,6 +138,7 @@ export default function TaxUploadPage() {
             </div>
           )}
 
+          {allowText && (
           <div style={{ marginTop: '26px', paddingTop: '22px', borderTop: '1px solid var(--vfo-border-chip)' }}>
             <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '6px' }}>Or write an explanation</div>
             <p style={{ color: 'var(--vfo-muted)', fontSize: '13px', lineHeight: 1.5, margin: '0 0 12px' }}>
@@ -153,6 +171,7 @@ export default function TaxUploadPage() {
               {noteError && <span style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px' }}>{noteError}</span>}
             </div>
           </div>
+          )}
         </>
       )}
     </TokenShell>
