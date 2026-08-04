@@ -200,6 +200,8 @@ export const TEMPLATE_META = {
     ['MEMBERSHIP_invoicereceipt_email|renewal', 'Opening payment of a renewed membership year — new-year invoice and receipt attached', 'To: Member · Cc: Tray · Bcc: Paul, Anna'],
     ['MEMBERSHIP_invoicereceipt_email|transfer', 'First payment after moving over from the old billing — catch-up invoice showing where they are in the year, plus receipt', 'To: Member · Cc: Tray · Bcc: Paul, Anna'],
     ['MEMBERSHIP_receipt_email|monthly', 'Every later monthly pull — receipt only, no invoice', 'To: Member · Cc: Tray · Bcc: Paul, Anna'],
+    ['MEMBERSHIP_renewal_notice', 'Thirty days before the membership renews — what renews and when, with a button to request a meeting about it', 'To: Member · Cc: Tray, Rachael · Bcc: Anton, Paul'],
+    ['MEMBERSHIP_cancel_confirmation', 'The renewal meeting ended in a cancellation — confirms auto-renew is off and the current year completes as contracted', 'To: Member · Cc: Tray, Rachael · Bcc: Anton, Paul'],
   ],
   'PARTNERSHIP_FAST_TRACK': [
     ['PFT_meeting_confirm', 'A PFT meeting is booked — confirmation (used for every meeting in the track)', 'To: Accountant'],

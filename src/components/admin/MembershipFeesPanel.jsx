@@ -35,6 +35,11 @@ const SCHED_STATUS = {
   canceled: { label: 'Canceled', color: '#6b7280' },
 }
 
+// Paused months (kind='pause' marker rows) get their own amber so a pause reads
+// as a band in the grid without looking like a money row.
+const PAUSE_COLOR = '#b45309'
+const PAUSE_TINT = 'rgba(180,83,9,0.06)'
+
 function fmtDate(d) {
   if (!d) return '—'
   const [y, m, day] = String(d).slice(0, 10).split('-').map(Number)
@@ -115,21 +120,34 @@ function fmtMonthYear(dateIso) {
   return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
-// Bucket schedule rows into 12-month membership years anchored on the earliest
-// due date, so the grid shows one year at a time once renewals accumulate.
+// Bucket schedule rows into membership years, so the grid shows one year at a
+// time once renewals accumulate. year_start (stamped by activate/sweep) is the
+// authority: it survives a pause, which stretches a membership year past 12
+// calendar months and would push late rows into the next 12-month window. Rows
+// written before year_start existed (legacy) still fall back to that window,
+// anchored on the earliest due date. Returns oldest → newest.
 function bucketByYear(schedule) {
   if (!schedule.length) return []
-  const firstDue = schedule[0].due_date
-  const buckets = []
+  const firstDue = String(schedule[0].due_date).slice(0, 10)
+  const groups = new Map()
   for (const row of schedule) {
-    const idx = Math.max(0, Math.floor(monthsDiff(firstDue, row.due_date) / 12))
-    if (!buckets[idx]) {
-      const winStart = addMonthsIso(firstDue, idx * 12)
-      buckets[idx] = { label: `${fmtMonthYear(winStart)} – ${fmtMonthYear(addMonthsIso(winStart, 11))}`, rows: [] }
-    }
-    buckets[idx].rows.push(row)
+    const due = String(row.due_date).slice(0, 10)
+    const ys = row.year_start ? String(row.year_start).slice(0, 10) : null
+    const key = ys || addMonthsIso(firstDue, Math.max(0, Math.floor(monthsDiff(firstDue, due) / 12)) * 12)
+    if (!groups.has(key)) groups.set(key, { start: key, end: due, rows: [] })
+    const g = groups.get(key)
+    if (due > g.end) g.end = due
+    g.rows.push(row)
   }
-  return buckets.filter(Boolean)
+  return [...groups.values()]
+    .sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0))
+    .map(g => {
+      // A membership year runs 12 months unless a pause stretched it, so the
+      // label ends at whichever is later: the nominal 12th month or the last row.
+      const nominalEnd = addMonthsIso(g.start, 11)
+      const end = g.end > nominalEnd ? g.end : nominalEnd
+      return { label: `${fmtMonthYear(g.start)} – ${fmtMonthYear(end)}`, rows: g.rows }
+    })
 }
 
 // Self-contained searchable single-select (same pattern as SpecialistPaymentInput).
@@ -184,7 +202,11 @@ const primaryBtn = (busy) => ({ padding: '8px 16px', borderRadius: '8px', border
 const ghostBtn = { padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink-2)', fontWeight: 700, fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }
 const dangerBtn = { padding: '8px 16px', borderRadius: '8px', border: '1px solid #f3c0c0', background: 'var(--vfo-card)', color: '#b91c1c', fontWeight: 700, fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }
 
-export default function MembershipFeesPanel({ title, category, allMembers = [] }) {
+// isSuperadmin gates every money control (create/edit plans, payment links,
+// auto-renew, terminate, reminders). A non-superadmin admin who was granted the
+// Accounting tab gets the read-only cards, the schedule, and the renewal-meeting
+// section — enough to action the renewal-meeting bell, nothing that moves money.
+export default function MembershipFeesPanel({ title, category, allMembers = [], isSuperadmin = false, initialMemberNumber = null }) {
   const [section, setSection] = useState('members')
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
@@ -192,8 +214,16 @@ export default function MembershipFeesPanel({ title, category, allMembers = [] }
   const [editPlan, setEditPlan] = useState(null)
   const [sandboxConfig, setSandboxConfig] = useState(null)
   const [notice, setNotice] = useState(null)
+  // Deep link from the renewal-meeting bell: open that member's plan card once.
+  // The ref keeps a later reload/refresh from re-expanding it.
+  const [focusMember, setFocusMember] = useState(initialMemberNumber || null)
+  const focusConsumed = useRef(false)
 
   useEffect(() => { load() }, [category])
+
+  useEffect(() => {
+    if (initialMemberNumber && !focusConsumed.current) setFocusMember(initialMemberNumber)
+  }, [initialMemberNumber])
 
   async function load() {
     setLoading(true); setError('')
@@ -216,7 +246,7 @@ export default function MembershipFeesPanel({ title, category, allMembers = [] }
 
   const pills = [
     { key: 'members', label: 'Members' },
-    { key: 'setup', label: 'Set Up Payments' },
+    ...(isSuperadmin ? [{ key: 'setup', label: 'Set Up Payments' }] : []),
     { key: 'outstanding', label: 'Outstanding' },
     { key: 'outstanding_links', label: 'Outstanding Payment Links' },
   ]
@@ -256,17 +286,18 @@ export default function MembershipFeesPanel({ title, category, allMembers = [] }
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>{error}</div>}
 
       {!loading && !error && section === 'members' && (
-        <MembersSection plans={plans} onChanged={load} onEdit={startEdit} />
+        <MembersSection plans={plans} onChanged={load} onEdit={startEdit} isSuperadmin={isSuperadmin}
+          focusMember={focusMember} onFocusConsumed={() => { focusConsumed.current = true; setFocusMember(null) }} />
       )}
-      {!loading && !error && section === 'setup' && (
+      {!loading && !error && section === 'setup' && isSuperadmin && (
         <SetupSection key={editPlan?.id || 'new'} category={category} allMembers={allMembers} plans={plans} editPlan={editPlan}
           onSaved={(n) => { setEditPlan(null); setSection('members'); load(); setNotice(n || null) }} />
       )}
       {!loading && !error && section === 'outstanding' && (
-        <OutstandingSection plans={plans} />
+        <OutstandingSection plans={plans} isSuperadmin={isSuperadmin} />
       )}
       {!loading && !error && section === 'outstanding_links' && (
-        <OutstandingLinksSection plans={plans} onChanged={load} onEdit={startEdit} />
+        <OutstandingLinksSection plans={plans} onChanged={load} onEdit={startEdit} isSuperadmin={isSuperadmin} />
       )}
     </div>
   )
@@ -274,7 +305,7 @@ export default function MembershipFeesPanel({ title, category, allMembers = [] }
 
 // ── Members: the reconciliation list ──────────────────────────────────────────
 
-function MembersSection({ plans, onChanged, onEdit }) {
+function MembersSection({ plans, onChanged, onEdit, isSuperadmin, focusMember, onFocusConsumed }) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
 
@@ -305,20 +336,33 @@ function MembersSection({ plans, onChanged, onEdit }) {
           No membership plans yet — create one under Set Up Payments.
         </div>
       )}
-      {filtered.map(p => <PlanCard key={p.id} plan={p} onChanged={onChanged} onEdit={onEdit} />)}
+      {filtered.map(p => (
+        <PlanCard key={p.id} plan={p} onChanged={onChanged} onEdit={onEdit} isSuperadmin={isSuperadmin}
+          autoOpen={!!focusMember && String(p.member_number) === String(focusMember)}
+          onAutoOpened={onFocusConsumed} />
+      ))}
     </div>
   )
 }
 
-function PlanCard({ plan, onChanged, onEdit }) {
+function PlanCard({ plan, onChanged, onEdit, isSuperadmin, autoOpen = false, onAutoOpened }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState(null)
+  const [outcomeFor, setOutcomeFor] = useState(null)
+  const cardRef = useRef(null)
+  const autoOpenedRef = useRef(false)
   const [showTerminate, setShowTerminate] = useState(false)
   const [terminateFee, setTerminateFee] = useState('')
   const [showNextYear, setShowNextYear] = useState(false)
   const [nyAmount, setNyAmount] = useState(plan.next_year_amount ? String(plan.next_year_amount) : '')
   const [nyCredit, setNyCredit] = useState(plan.next_year_credit_note ? String(plan.next_year_credit_note) : '')
+  const [showPause, setShowPause] = useState(false)
+  const [pauseMonths, setPauseMonths] = useState('1')
+  const [pausePreview, setPausePreview] = useState(null)
+  const [pausePreviewBusy, setPausePreviewBusy] = useState(false)
+  const [pauseErr, setPauseErr] = useState('')
+  const pauseReqRef = useRef(0)
   const meta = PLAN_STATUS[plan.status] || { label: plan.status, color: 'var(--vfo-muted)' }
   const allSched = plan.schedule || []
   const years = useMemo(() => bucketByYear(allSched), [allSched])
@@ -332,6 +376,28 @@ function PlanCard({ plan, onChanged, onEdit }) {
   const perPull = Number(plan.per_pull_amount) || 0
   const m = plan.member || {}
   const closed = plan.status === 'canceled' || plan.status === 'terminated'
+  // Header hint: any pause marker still dated today or later means the plan is
+  // sitting inside (or about to enter) a pause. Deliberately simple — the marker
+  // rows are only written by a pause and are removed with it.
+  const pausedNow = allSched.some(r => r.kind === 'pause' && String(r.due_date).slice(0, 10) >= todayIso())
+  const pauseMonthsNum = /^\d+$/.test(String(pauseMonths).trim()) ? Number(String(pauseMonths).trim()) : NaN
+  const pauseMonthsValid = Number.isInteger(pauseMonthsNum) && pauseMonthsNum >= 1 && pauseMonthsNum <= 12
+
+  // Renewal meetings (newest first from the backend). One open request at most.
+  const meetings = plan.renewal_meetings || []
+  const openMeeting = meetings.find(x => !x.completed_at) || null
+  const doneMeetings = meetings.filter(x => x.completed_at)
+  const showMeetings = meetings.length > 0 || !!plan.renewal_notice_for
+
+  // Deep link from the renewal-meeting bell: expand this card and bring it into
+  // view exactly once (the ref survives the reload that follows an outcome).
+  useEffect(() => {
+    if (!autoOpen || autoOpenedRef.current) return
+    autoOpenedRef.current = true
+    setOpen(true)
+    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    onAutoOpened?.()
+  }, [autoOpen])
 
   // Known-value substitutions for the email previews (see StepEmailsChip).
   // Mirrors the setup-link handler exactly: [Amount] uses the annual value for
@@ -399,6 +465,63 @@ function PlanCard({ plan, onChanged, onEdit }) {
     onChanged?.()
   }
 
+  // Records what came out of the renewal meeting. 'cancel' turns auto-renew off
+  // and drafts the cancellation confirmation email — hence the window.confirm,
+  // same shape as the terminate flow.
+  async function recordOutcome(meetingId, outcome) {
+    const res = await run('membership_renewal_meeting_outcome', { meeting_id: meetingId, outcome },
+      outcome === 'cancel'
+        ? `Cancel ${plan.member_name}'s membership? Auto-renew will be turned off, the current year completes as contracted, and a cancellation confirmation email will be drafted.`
+        : undefined)
+    if (!res) return
+    setOutcomeFor(null)
+    setMsg({
+      tone: 'success',
+      text: outcome === 'cancel'
+        ? 'Cancellation recorded — auto-renew is off and the confirmation email has been drafted.'
+        : 'Meeting recorded — the membership continues.',
+    })
+    onChanged?.()
+  }
+
+  // Pause preview: refreshed whenever the panel is open and the month count is
+  // usable. It keeps its own busy flag so the action row above stays clickable,
+  // and a request token so a slow earlier reply can't overwrite a newer one.
+  useEffect(() => {
+    if (!showPause || !pauseMonthsValid) { setPausePreview(null); return }
+    const token = ++pauseReqRef.current
+    setPausePreviewBusy(true); setPauseErr('')
+    callApi('membership_pause', { plan_id: plan.id, months: pauseMonthsNum, preview: true })
+      .then(res => {
+        if (token !== pauseReqRef.current) return
+        if (res?.ok) setPausePreview(res)
+        else { setPausePreview(null); setPauseErr(res?.error || 'Could not preview the pause.') }
+      })
+      .catch(e => {
+        if (token !== pauseReqRef.current) return
+        setPausePreview(null); setPauseErr(e?.message || 'Could not preview the pause.')
+      })
+      .finally(() => { if (token === pauseReqRef.current) setPausePreviewBusy(false) })
+  }, [showPause, pauseMonthsValid, pauseMonthsNum, plan.id])
+
+  // The confirm text spells out both moving parts (when payments restart, where
+  // the renewal lands), same show-then-confirm shape as terminate.
+  async function pausePayments() {
+    if (!pauseMonthsValid || !pausePreview) return
+    const resumeLine = pausePreview.resume_due_date
+      ? `Payments continue on ${fmtDate(pausePreview.resume_due_date)}`
+      : 'No upcoming payments this year — only the renewal date moves'
+    const res = await run('membership_pause', { plan_id: plan.id, months: pauseMonthsNum },
+      `Pause ${plan.member_name}'s membership payments for ${pauseMonthsNum} month${pauseMonthsNum === 1 ? '' : 's'}? ${resumeLine}. The renewal date moves to ${fmtDate(pausePreview.new_renewal_date)}.`)
+    if (!res) return
+    setShowPause(false); setPausePreview(null); setPauseErr('')
+    setMsg({
+      tone: 'success',
+      text: `Payments paused for ${res.months} month${Number(res.months) === 1 ? '' : 's'}${res.resume_due_date ? ` — payments continue ${fmtDate(res.resume_due_date)}` : ''} · renewal now ${fmtDate(res.new_renewal_date)}.`,
+    })
+    onChanged?.()
+  }
+
   async function saveNextYear(clear) {
     const res = await run('membership_next_year_save', clear
       ? { plan_id: plan.id, clear: true }
@@ -411,15 +534,19 @@ function PlanCard({ plan, onChanged, onEdit }) {
   const grid = '1.2fr 110px 110px 110px 110px 1.4fr'
 
   return (
-    <div style={{ ...card, marginBottom: '10px', overflow: 'hidden', opacity: closed ? 0.7 : 1 }}>
+    <div ref={cardRef} style={{ ...card, marginBottom: '10px', overflow: 'hidden', opacity: closed ? 0.7 : 1 }}>
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', cursor: 'pointer' }}>
         <span style={{ fontSize: '11px', color: 'var(--vfo-faint)', width: '12px' }}>{open ? '▾' : '▸'}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <MemberNameLink memberNumber={plan.member_number}>{plan.member_name || plan.member_number}</MemberNameLink>
             {plan.transfer && <StatusPill label="Transferred" color="#6b7280" />}
+            {openMeeting && <StatusPill label="Meeting requested" color="#e06717" />}
             {(m.suspended || m.membership_suspended) && <StatusPill label="Suspended" color="#ef4444" />}
             {m.paused && <StatusPill label="Paused" color="#e06717" />}
+            {/* Payments pause. Suppressed when the member record's own paused
+                flag already renders an identically-worded pill. */}
+            {pausedNow && <StatusPill label="Payments paused" color={PAUSE_COLOR} />}
           </div>
           <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>
             {plan.member_number} · {plan.advisor_model || 'Model —'} · {m.member_type || '—'}
@@ -477,6 +604,21 @@ function PlanCard({ plan, onChanged, onEdit }) {
                 <div>Period</div><div>Due date</div><div>Amount</div><div>Credit</div><div>Status</div><div style={{ textAlign: 'right' }}>Payment</div>
               </div>
               {sched.map(row => {
+                // Pause markers ride in the same grid — positioned by due_date
+                // among the real rows — so the paused months read as a band.
+                // They carry no money, so every money cell is a muted dash.
+                if (row.kind === 'pause') {
+                  return (
+                    <div key={row.id} style={{ display: 'grid', gridTemplateColumns: grid, gap: '10px', alignItems: 'center', padding: '9px 6px', margin: '0 -6px', borderTop: '1px solid var(--vfo-tint)', fontSize: '13px', color: 'var(--vfo-ink-2)', background: PAUSE_TINT, borderRadius: '6px' }}>
+                      <div style={{ fontWeight: 600 }}>{row.period_label}</div>
+                      <div>{fmtDate(row.due_date)}</div>
+                      <div style={{ color: 'var(--vfo-faint)' }}>—</div>
+                      <div style={{ color: 'var(--vfo-faint)' }}>—</div>
+                      <div><StatusPill label="Paused" color={PAUSE_COLOR} /></div>
+                      <div style={{ textAlign: 'right', fontSize: '11.5px', color: 'var(--vfo-muted)' }}>—</div>
+                    </div>
+                  )
+                }
                 const sMeta = SCHED_STATUS[row.status] || { label: row.status, color: 'var(--vfo-muted)' }
                 const zero = Number(row.amount_due) === 0
                 const rowBg = row.status === 'paid' ? 'rgba(22,163,74,0.07)'
@@ -511,7 +653,72 @@ function PlanCard({ plan, onChanged, onEdit }) {
             </>
           )}
 
-          {!closed && (
+          {showMeetings && (
+            <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--vfo-border-soft)' }}>
+              <div style={{ ...label, marginBottom: '8px' }}>Renewal meeting</div>
+
+              {openMeeting && (
+                <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'var(--vfo-card)', border: '1px solid rgba(224,103,23,0.35)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <StatusPill label="Requested" color="#e06717" />
+                    <span style={{ flex: 1, minWidth: '220px', fontSize: '13px', color: 'var(--vfo-ink-2)' }}>
+                      Renewal meeting requested {fmtStamp(openMeeting.requested_at)} — renewal {fmtDate(openMeeting.renewal_date_for)}
+                    </span>
+                    {outcomeFor !== openMeeting.id && (
+                      <button type="button" disabled={busy} style={primaryBtn(busy)} onClick={() => setOutcomeFor(openMeeting.id)}>
+                        {busy ? 'Working…' : 'Meeting complete'}
+                      </button>
+                    )}
+                  </div>
+                  {outcomeFor === openMeeting.id && (
+                    <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--vfo-tint)' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--vfo-ink)', marginBottom: '10px' }}>What was the outcome of the meeting?</div>
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        <button type="button" disabled={busy} style={{ ...ghostBtn, border: `1px solid ${BLUE}`, color: BLUE }}
+                          onClick={() => recordOutcome(openMeeting.id, 'continue')}>
+                          Continue membership
+                        </button>
+                        <button type="button" disabled={busy} style={dangerBtn}
+                          onClick={() => recordOutcome(openMeeting.id, 'cancel')}>
+                          Cancel membership
+                        </button>
+                        <button type="button" disabled={busy} style={ghostBtn} onClick={() => setOutcomeFor(null)}>Back</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {doneMeetings.map(mt => (
+                <div key={mt.id} style={{ fontSize: '12px', color: 'var(--vfo-faint)', padding: '5px 0' }}>
+                  Meeting {fmtStamp(mt.requested_at)} → {mt.outcome === 'cancel' ? 'Cancelled membership' : 'Continued membership'}
+                  {mt.recorded_by ? ` · ${mt.recorded_by}` : ''}
+                  {mt.completed_at ? ` · ${fmtStamp(mt.completed_at)}` : ''}
+                </div>
+              ))}
+
+              {!openMeeting && plan.renewal_notice_for && (
+                <div style={{ fontSize: '12px', color: 'var(--vfo-faint)', padding: '5px 0' }}>
+                  Renewal notice sent for {fmtDate(plan.renewal_notice_for)}
+                </div>
+              )}
+            </div>
+          )}
+
+          {plan.pauses?.length > 0 && (
+            <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--vfo-border-soft)' }}>
+              <div style={{ ...label, marginBottom: '8px' }}>Pauses</div>
+              {plan.pauses.map(pz => (
+                <div key={pz.id} style={{ fontSize: '12px', color: 'var(--vfo-faint)', padding: '5px 0' }}>
+                  Paused {pz.months} month{Number(pz.months) === 1 ? '' : 's'} on {fmtStamp(pz.created_at)}
+                  {pz.created_by ? ` by ${pz.created_by}` : ''}
+                  {' — '}renewal {fmtDate(pz.old_renewal_date)} → {fmtDate(pz.new_renewal_date)}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!closed && isSuperadmin && (
             <div style={{ marginTop: '14px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
               {plan.status === 'setup_pending' && (
                 <>
@@ -543,6 +750,9 @@ function PlanCard({ plan, onChanged, onEdit }) {
                   <button type="button" disabled={busy} style={ghostBtn} onClick={() => setShowNextYear(v => !v)}>
                     Edit next year's terms
                   </button>
+                  <button type="button" disabled={busy} style={ghostBtn} onClick={() => setShowPause(v => !v)}>
+                    Pause Membership Payments
+                  </button>
                   <button type="button" disabled={busy} style={dangerBtn} onClick={() => setShowTerminate(v => !v)}>
                     Terminate member
                   </button>
@@ -556,7 +766,7 @@ function PlanCard({ plan, onChanged, onEdit }) {
             </div>
           )}
 
-          {showNextYear && plan.status === 'active' && (
+          {showNextYear && isSuperadmin && plan.status === 'active' && (
             <div style={{ marginTop: '12px', padding: '14px 16px', borderRadius: '10px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)' }}>
               <div style={{ ...label, marginBottom: '10px' }}>Next membership year (applies at renewal on {fmtDate(plan.renewal_date)})</div>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -579,7 +789,49 @@ function PlanCard({ plan, onChanged, onEdit }) {
             </div>
           )}
 
-          {showTerminate && plan.status === 'active' && (
+          {showPause && isSuperadmin && plan.status === 'active' && (
+            <div style={{ marginTop: '12px', padding: '14px 16px', borderRadius: '10px', background: 'var(--vfo-card)', border: `1px solid ${PAUSE_COLOR}55` }}>
+              <div style={{ ...label, marginBottom: '10px', color: PAUSE_COLOR }}>Pause membership payments</div>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <div style={{ width: '200px' }}>
+                  <div style={label}>Pause for how many months?</div>
+                  <input type="number" min="1" max="12" step="1" value={pauseMonths}
+                    onChange={e => setPauseMonths(e.target.value)} style={input} />
+                </div>
+                <button type="button" disabled={busy || !pausePreview} style={primaryBtn(busy || !pausePreview)} onClick={pausePayments}>
+                  {busy ? 'Working…' : 'Pause payments'}
+                </button>
+                <button type="button" disabled={busy} style={ghostBtn} onClick={() => { setShowPause(false); setPausePreview(null); setPauseErr('') }}>Cancel</button>
+              </div>
+
+              {!pauseMonthsValid && (
+                <div style={{ marginTop: '10px', fontSize: '12px', color: '#b91c1c' }}>Must be a whole number of months between 1 and 12.</div>
+              )}
+              {pauseMonthsValid && pausePreviewBusy && !pausePreview && (
+                <div style={{ marginTop: '10px', fontSize: '12.5px', color: 'var(--vfo-faint)' }}>Working out the new dates…</div>
+              )}
+              {pauseMonthsValid && pauseErr && (
+                <div style={{ marginTop: '10px', fontSize: '12.5px', color: '#b91c1c' }}>{pauseErr}</div>
+              )}
+              {pauseMonthsValid && pausePreview && (
+                <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--vfo-tint)', opacity: pausePreviewBusy ? 0.55 : 1 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)' }}>
+                    {pausePreview.resume_due_date
+                      ? `Payments continue on ${fmtDate(pausePreview.resume_due_date)}`
+                      : 'No upcoming payments this year — only the renewal date moves'}
+                  </div>
+                  <div style={{ marginTop: '4px', fontSize: '13.5px', fontWeight: 600, color: 'var(--vfo-ink-2)' }}>
+                    Renewal date moves {fmtDate(pausePreview.old_renewal_date)} → {fmtDate(pausePreview.new_renewal_date)}
+                  </div>
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--vfo-faint)' }}>
+                    ({Number(pausePreview.rows_to_shift) || 0} upcoming payment{Number(pausePreview.rows_to_shift) === 1 ? '' : 's'} will each move {pausePreview.months} month{Number(pausePreview.months) === 1 ? '' : 's'} later)
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {showTerminate && isSuperadmin && plan.status === 'active' && (
             <div style={{ marginTop: '12px', padding: '14px 16px', borderRadius: '10px', background: 'var(--vfo-card)', border: '1px solid #f3c0c0' }}>
               <div style={{ ...label, marginBottom: '10px', color: '#b91c1c' }}>Terminate {plan.member_name}</div>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -854,7 +1106,7 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
 
 // ── Outstanding: missed / overdue payments ────────────────────────────────────
 
-function OutstandingSection({ plans }) {
+function OutstandingSection({ plans, isSuperadmin }) {
   const today = todayIso()
   const groups = plans
     .filter(p => p.status === 'active' || p.status === 'terminated')
@@ -879,7 +1131,7 @@ function OutstandingSection({ plans }) {
   return (
     <div>
       {groups.map(({ plan, overdue, total }) => (
-        <OutstandingRow key={plan.id} plan={plan} overdue={overdue} total={total} />
+        <OutstandingRow key={plan.id} plan={plan} overdue={overdue} total={total} isSuperadmin={isSuperadmin} />
       ))}
     </div>
   )
@@ -898,7 +1150,7 @@ function LinkDetail({ label: text, value }) {
   )
 }
 
-function OutstandingLinksSection({ plans, onChanged, onEdit }) {
+function OutstandingLinksSection({ plans, onChanged, onEdit, isSuperadmin }) {
   // Unlike the tax/holistic Outstanding Payment Links tabs, sandbox plans show
   // here (badged) — this panel is also where sandbox test runs are watched.
   const rows = plans.filter(p => p.status === 'setup_pending' && p.setup_email_sent_at)
@@ -913,14 +1165,14 @@ function OutstandingLinksSection({ plans, onChanged, onEdit }) {
 
   return (
     <div>
-      {rows.map(p => <OutstandingLinkRow key={p.id} plan={p} onChanged={onChanged} onEdit={onEdit} />)}
+      {rows.map(p => <OutstandingLinkRow key={p.id} plan={p} onChanged={onChanged} onEdit={onEdit} isSuperadmin={isSuperadmin} />)}
     </div>
   )
 }
 
 // One outstanding setup link. Per-row busy/message state lives here because
 // hooks can't be used inside the .map above.
-function OutstandingLinkRow({ plan, onChanged, onEdit }) {
+function OutstandingLinkRow({ plan, onChanged, onEdit, isSuperadmin }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState(null)
@@ -977,15 +1229,17 @@ function OutstandingLinkRow({ plan, onChanged, onEdit }) {
           <LinkDetail label="Plan created" value={`${fmtStamp(plan.created_at)}${plan.created_by ? ` · ${plan.created_by}` : ''}`} />
           <LinkDetail label="Link sent" value={fmtStamp(plan.setup_email_sent_at)} />
 
-          <div style={{ marginTop: '14px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button type="button" disabled={busy} onClick={sendLink} style={primaryBtn(busy)}>
-              {busy ? 'Working…' : 'Resend payment setup link'}
-            </button>
-            <button type="button" disabled={busy} onClick={e => { e.stopPropagation(); onEdit?.(plan) }}
-              style={{ ...ghostBtn, border: `1px solid ${BLUE}`, color: BLUE }}>
-              Edit plan
-            </button>
-          </div>
+          {isSuperadmin && (
+            <div style={{ marginTop: '14px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button type="button" disabled={busy} onClick={sendLink} style={primaryBtn(busy)}>
+                {busy ? 'Working…' : 'Resend payment setup link'}
+              </button>
+              <button type="button" disabled={busy} onClick={e => { e.stopPropagation(); onEdit?.(plan) }}
+                style={{ ...ghostBtn, border: `1px solid ${BLUE}`, color: BLUE }}>
+                Edit plan
+              </button>
+            </div>
+          )}
 
           {msg && (
             <div style={{ marginTop: '10px', fontSize: '12.5px', padding: '8px 12px', borderRadius: '8px', wordBreak: 'break-all',
@@ -1003,7 +1257,7 @@ function OutstandingLinkRow({ plan, onChanged, onEdit }) {
 // per row (hooks can't live inside the .map above). Rows whose overdue payments
 // are all still 'scheduled' (not yet swept) are rejected by the backend, so the
 // reminder button is hidden for them in favour of an explanatory note.
-function OutstandingRow({ plan, overdue, total }) {
+function OutstandingRow({ plan, overdue, total, isSuperadmin }) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState(null)
 
@@ -1048,11 +1302,11 @@ function OutstandingRow({ plan, overdue, total }) {
           <div style={{ fontSize: '14px', fontWeight: 700, color: '#ef4444' }}>{money(total)}</div>
           <div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>owed</div>
         </div>
-        {canRemind ? (
+        {canRemind && isSuperadmin ? (
           <button type="button" disabled={busy} onClick={sendReminder} style={primaryBtn(busy)}>
             {busy ? 'Sending…' : 'Send reminder email'}
           </button>
-        ) : (
+        ) : canRemind ? null : (
           <span style={{ fontSize: '12px', color: 'var(--vfo-faint)', maxWidth: '220px', textAlign: 'right' }}>
             Overdue — will be charged by tonight's automatic run
           </span>

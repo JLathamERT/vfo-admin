@@ -159,6 +159,8 @@ export default function AdminPortal() {
   const [strategicSection, setStrategicSection] = useState(sessionStorage.getItem('adminStrategicSection') || 'strategic_member_search')
   const [automationSection, setAutomationSection] = useState(sessionStorage.getItem('adminAutomationSection') || 'map1_pipeline')
   const [accountingSection, setAccountingSection] = useState(sessionStorage.getItem('adminAccountingSection') || 'payments')
+  // Membership-fees deep link (?…&member=): the plan card to auto-open once.
+  const [initialMemberNumber, setInitialMemberNumber] = useState(null)
   const [showEditor, setShowEditor] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [allExperts, setAllExperts] = useState([])
@@ -191,7 +193,13 @@ export default function AdminPortal() {
     // window.location keeps that re-run from re-applying a consumed deep link.
     const params = new URLSearchParams(window.location.search)
     const memberNum = params.get('member')
-    if (memberNum) {
+    // A membership-fees deep link (?tab=accounting&section=..._membership_fees&member=)
+    // targets one plan card INSIDE that accounting panel, not the member's own
+    // profile view — so it falls through to the tab/section branch below and the
+    // member number is handed to the panel as initialMemberNumber.
+    const membershipFeesLink = params.get('tab') === 'accounting' &&
+      (params.get('section') === 'advisor_membership_fees' || params.get('section') === 'accountant_membership_fees')
+    if (memberNum && !membershipFeesLink) {
       if (!allMembers.length) return // members not loaded yet — effect re-runs when they are
       const m = allMembers.find(x => String(x.plugin_member_number) === String(memberNum))
       if (m) {
@@ -232,6 +240,10 @@ export default function AdminPortal() {
       const entry = sectionSetters[tab]
       if (entry) { entry[0](section); sessionStorage.setItem(entry[1], section) }
     }
+    // Membership-fees bell: the member number rides along so the panel can open
+    // and scroll to that member's plan card. Held in state (not sessionStorage)
+    // so a plain reload lands on the section without re-expanding the card.
+    if (memberNum && membershipFeesLink) setInitialMemberNumber(memberNum)
     // Deep link consumed — strip it so the URL is clean and a reload restores
     // from sessionStorage instead of re-hijacking to this tab (gotcha #182;
     // replaceState, never navigate, for self-heals).
@@ -870,14 +882,16 @@ export default function AdminPortal() {
           {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'advisor_onboarding_fees' && (
             <MemberOnboardingPanel kind="advisor" title="Advisor Onboarding" />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'advisor_membership_fees' && (
-            <MembershipFeesPanel title="Advisor Membership Fees" category="advisor" allMembers={allMembers} />
+          {activeTab === 'accounting' && !loading && canSeeTab('accounting') && accountingSection === 'advisor_membership_fees' && (
+            <MembershipFeesPanel title="Advisor Membership Fees" category="advisor" allMembers={allMembers}
+              isSuperadmin={!!session.is_superadmin} initialMemberNumber={initialMemberNumber} />
           )}
           {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'accountant_onboarding_fees' && (
             <MemberOnboardingPanel kind="accountant" title="Accountant Onboarding" />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'accountant_membership_fees' && (
-            <MembershipFeesPanel title="Accountant Membership Fees" category="accountant" allMembers={allMembers} />
+          {activeTab === 'accounting' && !loading && canSeeTab('accounting') && accountingSection === 'accountant_membership_fees' && (
+            <MembershipFeesPanel title="Accountant Membership Fees" category="accountant" allMembers={allMembers}
+              isSuperadmin={!!session.is_superadmin} initialMemberNumber={initialMemberNumber} />
           )}
           {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'gc_accounting' && (
             <GrowthCreditsAccountingPanel />

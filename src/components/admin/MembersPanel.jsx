@@ -1075,7 +1075,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                                 <span onClick={() => onOpenMember && onOpenMember(introducedByObj)} {...linkHandlers} style={nameLink({ fontSize: '14px', fontWeight: 600, color: 'var(--vfo-ink)' })}>{introducedByObj.name}</span>
                                 {profile.connection_type && <span style={introChip}>{profile.connection_type}</span>}
                               </div>
-                              <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginTop: '2px' }}>{introducedByObj.plugin_member_number}</div>
+                              <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}><span style={{ fontFamily: 'monospace' }}>{introducedByObj.plugin_member_number}</span>{introducedByObj.member_type ? <> · {introducedByObj.member_type}</> : null}</div>
                             </div>
                           </div>
                         </div>
@@ -1091,7 +1091,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                                   <span onClick={() => onOpenMember && onOpenMember(im)} {...linkHandlers} style={nameLink({ fontSize: '13px', fontWeight: 600, color: 'var(--vfo-ink)' })}>{im.name}</span>
                                   {im.connection_type && <span style={introChip}>{im.connection_type}</span>}
                                 </div>
-                                <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginTop: '1px' }}>{im.plugin_member_number}</div>
+                                <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '1px' }}><span style={{ fontFamily: 'monospace' }}>{im.plugin_member_number}</span>{im.member_type ? <> · {im.member_type}</> : null}</div>
                               </div>
                             </div>
                           ))}
@@ -1111,7 +1111,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                           <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>{initials(im.name)}</div>
                           <div style={{ minWidth: 0 }}>
                             <div onClick={() => onOpenMember && onOpenMember(im)} {...linkHandlers} style={nameLink({ fontSize: '13px', fontWeight: 600, color: 'var(--vfo-ink)' })}>{im.name}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginTop: '1px' }}>{im.plugin_member_number}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '1px' }}><span style={{ fontFamily: 'monospace' }}>{im.plugin_member_number}</span>{im.member_type ? <> · {im.member_type}</> : null}</div>
                           </div>
                         </div>
                       ))}
@@ -1129,7 +1129,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                           <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>{initials(cm.name)}</div>
                           <div style={{ minWidth: 0 }}>
                             <div onClick={() => onOpenMember && onOpenMember(cm)} {...linkHandlers} style={nameLink({ fontSize: '13px', fontWeight: 600, color: 'var(--vfo-ink)' })}>{cm.name}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginTop: '1px' }}>{cm.plugin_member_number}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '1px' }}><span style={{ fontFamily: 'monospace' }}>{cm.plugin_member_number}</span>{cm.member_type ? <> · {cm.member_type}</> : null}</div>
                           </div>
                         </div>
                       ))}
@@ -1355,7 +1355,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                   <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>{initials(cp.name)}</div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--vfo-ink)' }}>{cp.name}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontFamily: 'monospace', marginTop: '1px' }}>{cp.plugin_member_number}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '1px' }}><span style={{ fontFamily: 'monospace' }}>{cp.plugin_member_number}</span>{cp.member_type ? <> · {cp.member_type}</> : null}</div>
                   </div>
                   <button onClick={() => writeConnection('member_connection_remove', cp.plugin_member_number)} disabled={connSaving} style={{ marginLeft: 'auto', padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600, fontSize: '12px', cursor: connSaving ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', opacity: connSaving ? 0.6 : 1, flexShrink: 0 }}>Remove</button>
                 </div>

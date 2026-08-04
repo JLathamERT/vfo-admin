@@ -17,6 +17,7 @@ const ROUTES = [
   'decide',
   'map4-form',
   'member-setup',
+  'membership-meeting',
   'membership-pay',
   'pay',
   'payout-setup',
