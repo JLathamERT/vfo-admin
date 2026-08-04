@@ -42,6 +42,7 @@ import ConnectCardPage from './pages/ConnectCardPage'
 import PayoutSetupPage from './pages/PayoutSetupPage'
 import SpecialistRevenuePayPage from './pages/SpecialistRevenuePayPage'
 import MembershipPayPage from './pages/MembershipPayPage'
+import MembershipMeetingPage from './pages/MembershipMeetingPage'
 
 export default function App() {
   return (
@@ -72,6 +73,7 @@ export default function App() {
       <Route path="/payout-setup" element={<PayoutSetupPage />} />
       <Route path="/specialist-revenue-pay" element={<SpecialistRevenuePayPage />} />
       <Route path="/membership-pay" element={<MembershipPayPage />} />
+      <Route path="/membership-meeting" element={<MembershipMeetingPage />} />
       <Route path="/member-setup" element={<MemberSetupPage />} />
       <Route path="/set-password" element={<SetPasswordPage />} />
       <Route path="/specialist-sif" element={<SpecialistSifPage />} />

@@ -1,8 +1,11 @@
 # Tables — Member Membership Fees
 
 > Added 2026-07-13 (`20260713090000_member_payment_plans` + follow-ups `…110000`, `…120000`,
-> `…140000`). Both tables RLS deny-all (anon probe `*/0`). All access via the service-role edge
-> function. Flow: [flows/membership-fees.md](../flows/membership-fees.md).
+> `…140000`); two further tables added 2026-08-04
+> (`20260804120000_membership_renewal_meetings.sql` + `20260804140000_membership_pause.sql`).
+> **All FOUR tables RLS deny-all (anon probe `*/0`, re-verified on both new tables at creation).**
+> All access via the service-role edge function. Flow:
+> [flows/membership-fees.md](../flows/membership-fees.md).
 
 ## member_payment_plans
 
@@ -32,6 +35,8 @@ when checking, so terminate → create-new works).
 | `termination_fee` / `terminated_at` | set by `membership_terminate` |
 | `prior_payments_made` | transfers only: payments already collected this year under the OLD billing. Admin-entered on the transfer form (0–11) because the system holds no record of them; printed on the catch-up invoice. **REQUIRED on MONTHLY transfers as of 2026-07-31 / v691** (`plan-save.ts` 400s with *"Enter how many payments they already made this year (0-11)"*) — it is now the ONLY schedule input the admin gives; still optional on annual transfers. NULL falls back to `(12 − remaining)` (gotcha #280) |
 | `remaining_payments` | **NEW 2026-07-31** (`20260731150000_membership_remaining_payments.sql`, additive nullable integer). Monthly transfers only: charges left this membership year, **INCLUDING** the one taken at the setup link. **DERIVED server-side at plan save as `12 − prior_payments_made` — never admin-entered**, written unconditionally (so editing a plan away from monthly/transfer clears it) and any client-supplied value is ignored. NULL for new plans, annual plans, and legacy pending transfers saved before the column existed — on those, `transferLinkPulls()` falls back to the renewal-date-derived slot count, which is exactly the pre-v691 behaviour. Drives `pullsAtLink = 1 + max(0, remaining − slots)` (the arrears catch-up) and the per-pull credit spread. Gotchas #315/#316 |
+| `renewal_notice_for` | **NEW 2026-08-04** (`20260804120000`). The `renewal_date` the 30-day advance renewal notice was last emailed FOR — the once-per-renewal idempotency stamp for the sweep's pass 0. **Written ONLY after a successful Gmail draft**, so a template/Gmail failure retries tomorrow instead of silently swallowing the notice. The pass re-notices whenever this `<> renewal_date`, which means it **re-arms automatically** when the renewal date moves — including after a **pause** (`membership_pause` deliberately leaves this stale so the member is warned again for the new date). NULL = never noticed. Gotchas #332/#333 |
+| `renewal_meeting_token` | **NEW 2026-08-04** (`20260804120000`). Durable 64-hex `token32()` behind the `/membership-meeting?token=` button in the renewal notice email. **Minted once per plan and reused by every subsequent notice**, and **persisted BEFORE the email is drafted** so a sent link always resolves. Partial unique index `member_payment_plans_renewal_meeting_token_key WHERE renewal_meeting_token is not null` — the token is the ENTIRE credential for the PUBLIC `membership_renewal_meeting_request`, so it must resolve to exactly one plan (#333) |
 | `sandbox` | Stripe mode the customer was created in (key selection follows this, not the live toggle) |
 
 ## member_payment_schedule
@@ -47,7 +52,7 @@ sweep index `(status, due_date)`.
 | `plan_id` (FK cascade) / `member_number` | |
 | `due_date` / `period_label` | e.g. `2026-08-13` / `August 2026` (annual: `Membership year 2026–2027`). A behind mid-year transfer's first row reads `August 2026 (includes 1-month catch-up)`. **`(plan_id, due_date)` is UNIQUE where `kind='membership'`** (partial index, migration `20260717190000`) — the duplicate-charge guard. **Never write two membership rows on one date for a plan:** a multi-period collection changes the row's AMOUNT, never the row COUNT (gotcha #315) |
 | `amount_due` / `credit_applied` | whole dollars; $0 rows = credit-covered, waived when due. **A catch-up row carries `perPull × N` and `creditPer × N`** — and `(amount_due + credit_applied) / grossMonthly` is exactly how `monthsCoveredByRow` recovers the number of MONTHS the row spans, which is the unit every member-facing count uses (gotcha #316) |
-| `kind` | `'membership'` \| `'termination_fee'` |
+| `kind` | `'membership'` \| `'termination_fee'` \| **`'pause'`** (added 2026-08-04, `20260804140000` widened the inline CHECK — constraint name `member_payment_schedule_kind_check`, verified against the live catalog). **`'membership'` is the ONLY kind any money consumer reads.** A `'pause'` row is a zero-dollar MARKER (`status='waived'`, `amount_due` 0) standing in for a month skipped during a membership pause; it exists purely so the ledger shows "Paused" months between the real payments. It is invisible to the charge pass, the renewal guard, the $0-waive pass, the invoice/receipt engine, `all-payments-load`, the webhooks, terminate/cancel voids and `send-reminder` **only because every one of them filters `kind='membership'`** — so **ANY NEW READER of this table must filter `kind` or consciously decide what `'pause'` means to it** (gotcha **#332**). It also cannot collide with a real charge on the same date, because the duplicate-charge unique index is PARTIAL on `kind='membership'` (#315/#239) |
 | `status` | `scheduled` → `processing`/`paid` \| `missed`/`declined` (arrears — swept into the next combined charge) \| `waived` \| `canceled` |
 | `stripe_payment_intent_id` | a combined catch-up charge stamps the SAME PI on every row it covered |
 | `paid_at` / `payment_method_type` / `acct_last4` / `failure_reason` | |
@@ -58,6 +63,45 @@ sweep index `(status, due_date)`.
 | `card_processing_fee` | the fee Stripe ACTUALLY charged (`amount_received` − base), stamped at settle time in both webhook branches. A combined catch-up charge stamps the SAME total on every row it covered — read it from the primary row, never sum it (gotcha #281) |
 | `reminder_sent_at` | guard so the failed-payment email drafts once per missed row |
 
+## membership_renewal_meetings
+
+> **NEW 2026-08-04** (`20260804120000_membership_renewal_meetings.sql`). RLS deny-all
+> (anon probe `*/0` verified). One row per *"I'd like to talk before this renews"* click on the
+> 30-day advance renewal notice, closed out by an admin recording the outcome.
+
+| Column | Notes |
+|---|---|
+| `plan_id` (FK cascade) / `member_number` | the plan the request is against; `member_number` denormalised so the audit line survives without a join |
+| `renewal_date_for` | the renewal the member is asking about. **`(plan_id, renewal_date_for)` with `completed_at IS NULL` is the idempotency key** — `membership_renewal_meeting_request` reuses an existing OPEN row rather than inserting a second one, so a double-click or a re-opened email cannot queue two meetings |
+| `requested_at` / `completed_at` | open vs closed. An open row is what the panel's "Renewal meeting" section and the orange **"Meeting requested"** header pill key off |
+| `outcome` | `check (outcome in ('continue','cancel'))`, NULL while open. **`cancel` also flips `plan.auto_renew=false` and drafts `MEMBERSHIP_cancel_confirmation`** (best-effort — a Gmail failure must not lose the recorded outcome) |
+| `recorded_by` | email of the admin who recorded it (accounting-tab, typically Rachael — NOT necessarily a superadmin) |
+
+**The bell is action-required and is cleared ONLY by `membership_renewal_meeting_outcome`** — on
+BOTH outcomes, matched on pipeline + `dismissible=false` + `read=false` + `link LIKE %member=N%`.
+Nothing else dismisses it (#179/#224 class). Gotcha **#333**.
+
+## member_payment_plan_pauses
+
+> **NEW 2026-08-04** (`20260804140000_membership_pause.sql`). RLS deny-all (anon probe `*/0`
+> verified). **Audit only — nothing reads this table to make a billing decision.** The real
+> effect of a pause lives in the shifted `member_payment_schedule` rows and `plan.renewal_date`;
+> this table exists so the panel can show a pause history and so a shifted schedule can be
+> explained after the fact.
+
+| Column | Notes |
+|---|---|
+| `plan_id` (FK cascade) / `member_number` | as above |
+| `months` | `check (months between 1 and 12)`. Every remaining scheduled row moved this many months later and `renewal_date` advanced by the same amount |
+| `old_renewal_date` / `new_renewal_date` | before/after; `new` is always `old + months`, pinned to the 15th |
+| `resume_due_date` | the first still-scheduled row's NEW `due_date` — the date charging actually resumes. **NULL when the plan had no scheduled rows left to move** (an annual plan mid-year, or a monthly year already fully collected); such a pause only extends the year |
+| `rows_shifted` | how many `kind='membership'` `status='scheduled'` rows moved. 0 for the NULL-resume case |
+| `created_by` | email of the superadmin who applied it |
+
+**Pauses STACK.** Applying a second pause simply re-runs the same shift against the already-shifted
+schedule and writes a second audit row — verified live with a 3-month pause followed by a 2-month
+one. Gotcha **#332**.
+
 ## Related config
 
 - `pipeline_sandbox_config` row `MEMBER_MEMBERSHIP` (SANDBOX as of 2026-07-13).
@@ -66,5 +110,19 @@ sweep index `(status, due_date)`.
   so they auto-send with no admin review** (gotcha #325); `MEMBERSHIP_payment_failed` and the
   other 8 rows in this pipeline stay Draft. The two setup-link rows also had their Tracy/Tray
   Cc moved to `@vfo-services.com` and their Bcc stripped to `jlatham@elitert.com` only.
-- `notification_rules` key `MEMBERSHIP_charge_failed` (area "Membership Fees").
-- pg_cron jobid 16 `membership-sweep-daily` @12:00 UTC.
+  **Two rows added 2026-08-04**, both **Draft** (`send_mode=false`), To `["RECIPIENT"]`,
+  Cc `tvaldes@` + `rhopson@`, Bcc `aanderson@` + `platham@`:
+  **`MEMBERSHIP_renewal_notice` (id 212)** — subject *"Your ERT Membership renewal — [Renewal
+  Date]"*, tokens `[First Name]` `[Renewal Date]` `[Renewal Terms]` `[MEETING_LINK]`; and
+  **`MEMBERSHIP_cancel_confirmation` (id 213)** — subject *"Your ERT Membership — Cancellation
+  Confirmation"*. Bodies end *"Kind regards,"* with **no team name** — `VFO_SIGNATURE` appends the
+  AI-PC block. **Draft mode means a human still has to send the renewal notice out of Gmail
+  Drafts every night the sweep drafts one** — that is the standing operational cost of this
+  feature until someone flips it (gotcha #333, and #325 on the blast radius of flipping).
+- `notification_rules` keys `MEMBERSHIP_charge_failed` and — **added 2026-08-04** —
+  `MEMBERSHIP_renewal_meeting_requested` (area "Membership Fees", `kind='bell'`,
+  **`action_required=true`**, `recipients` NULL so the `default_recipients`
+  `["rhopson@elitert.com"]` is what fires until an admin edits it in Automation → Notification
+  Editor, #176).
+- pg_cron jobid 16 `membership-sweep-daily` @12:00 UTC — **five passes as of 2026-08-04**
+  (renewal notices → renewals → waive → charges → auto-unsuspend).

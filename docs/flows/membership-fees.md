@@ -4,8 +4,15 @@
 > members pay their annual membership through the portal: admin sets terms, the member pays
 > their first payment at a public link, and a daily sweep runs every charge after that.
 > Admin surface: **Accounting → Members → Advisor Membership Fees / Accountant Membership Fees**
-> (`src/components/admin/MembershipFeesPanel.jsx`, superadmin-gated in JSX; actions also under
-> `TAB_ACTIONS.accounting`). Sandbox: `pipeline_sandbox_config` row `MEMBER_MEMBERSHIP`
+> (`src/components/admin/MembershipFeesPanel.jsx`; actions also under `TAB_ACTIONS.accounting`).
+> **Gating SPLIT 2026-08-04 (v700):** the two panel mounts in `AdminPortal.jsx` relaxed from
+> `session.is_superadmin` to `canSeeTab('accounting')`, and the panel now takes an `isSuperadmin`
+> prop. **Every money control — Set Up Payments / create, setup + update links, the auto-renew
+> toggle, next-year terms, Pause, Terminate, cancel, resend/reminder — renders ONLY for a
+> superadmin.** An accounting-tab admin sees the read-only cards, the schedule, the pause history
+> and the **Renewal meeting** section, which is the whole point of the change: Rachael Hopson
+> works the renewal queue and is not a superadmin (gotcha #333).
+> Sandbox: `pipeline_sandbox_config` row `MEMBER_MEMBERSHIP`
 > (badge on both panels — **SANDBOX as of 2026-07-13**). Gotchas #215–#217.
 
 ## Business rules (user-confirmed)
@@ -91,7 +98,9 @@
    `checkout.session.async_payment_succeeded`/`_failed`), locks `charge_day` + `renewal_date`.
    Already-active plans only refresh the method fields (the update-method path).
 5. **Daily sweep** — `automation_MEMBERSHIP_sweep` (PUBLIC service-role, cron jobid 16 @12:00 UTC,
-   `supabase/cron/membership-sweep.sql`), four passes in order: **renewals** (generate the next
+   `supabase/cron/membership-sweep.sql`), **five** passes in order — **pass 0 = renewal notices,
+   added 2026-08-04 / v700, runs FIRST so a plan is always warned before it is rolled over
+   (see "Renewal notice + meeting" below)** — then: **renewals** (generate the next
    year at next-year terms, advance `renewal_date` +12 months, guard = any row on/after renewal),
    **waive** due $0 rows, **charges** (one off-session PI per plan = due + missed rows;
    LOGICAL/date-less sorted row-set idempotency keys `membership-pull-<plan>-<rowids>`, gotcha
@@ -229,8 +238,126 @@ all Draft, all **To** member / **Cc** `tvaldes@elitert.com` / **Bcc** `platham@e
   and the documents **prefer the stamped fee** over any re-derivation (#281). The same multiplier
   fixes the ACH confirmation email's amount.
 
+## Renewal notice + renewal meeting (added 2026-08-04, v700–v701)
+
+**Until this shipped, membership renewal was completely silent.** The sweep rolled a plan into its
+next membership year the moment `renewal_date` arrived — new ledger, next-year terms applied,
+charges resuming — with **no advance email of any kind**, and every plan carries `auto_renew`
+default `true`. A member's first signal that they had been renewed for another year was the charge.
+That gap is what this closes.
+
+**Pass 0 — the 30-day notice.** Window: `status='active'` + `auto_renew` + `renewal_date` in
+`(today, today+30]` — **strictly future**, so a plan that actually reaches its 15th is renewed by
+pass 1 rather than noticed. The "already noticed" filter is
+`renewal_notice_for <> renewal_date` **evaluated in JS**, because PostgREST cannot compare two
+columns and NULL has to read as not-noticed. Per plan, in a `try/catch` so one bad plan never kills
+the sweep: load the member (skip + log when they have no email), load the template, mint-or-reuse
+`renewal_meeting_token` and **persist it BEFORE drafting**, draft `MEMBERSHIP_renewal_notice`
+(id 212, **Draft mode**), then — **and only if the draft succeeded** — stamp
+`renewal_notice_for = renewal_date`. A failure therefore retries tomorrow rather than being lost,
+and a plan can never be double-noticed for one renewal.
+
+**`[Renewal Terms]` is the renewal pass's own arithmetic, written twice.**
+`(next_year_amount ?? annual_amount) − (next_year_credit_note ?? 0)`, rendered as
+*"$X/year, billed monthly|annually"*. **The two copies must move together** — an earlier draft of
+this pass quoted a different figure than pass 1 would charge, which was caught in review before
+deploy. Quoting a renewal price the system then does not charge is the worst failure this feature
+has available to it.
+
+There is **no per-plan Stripe-mode guard** on this pass, matching renewals/waive/unsuspend: it
+touches no Stripe object. Email sandboxing is handled the one way it is everywhere else —
+`resolveTemplateRecipients` redirects the whole send to `sandbox_email` while `MEMBER_MEMBERSHIP`
+is in sandbox mode.
+
+**The meeting request.** The notice carries a **"Request a Meeting"** button to the PUBLIC
+`/membership-meeting?token=` page (`src/pages/MembershipMeetingPage.jsx`, #290 show-then-confirm
+via `DecisionConfirmCard`, raw `fetch` like `MembershipPayPage`). Confirming calls the PUBLIC
+`membership_renewal_meeting_request` — **`renewal_meeting_token` is the whole credential and the
+response is a bare `{ success }` that must never be widened** (#331 shape) — which is **idempotent
+per `(plan_id, renewal_date_for)` open row**, so a re-opened email renders the "already received"
+state instead of queueing a second meeting. It inserts a `membership_renewal_meetings` row and
+fires the **action-required** bell `MEMBERSHIP_renewal_meeting_requested` (default recipient
+`rhopson@elitert.com`) linked straight to that member's Membership Fees card.
+
+**Recording the outcome.** The panel's **Renewal meeting** section shows the open request, then
+*"Meeting complete"* → *"What was the outcome of the meeting?"* → **Continue membership** /
+**Cancel membership** (danger styling + a `window.confirm`).
+`membership_renewal_meeting_outcome` stamps `completed_at` / `outcome` / `recorded_by`;
+**`cancel` also flips `auto_renew=false` and drafts `MEMBERSHIP_cancel_confirmation` (id 213)**
+best-effort. **Both outcomes clear the bell** — nothing else does. This action is deliberately
+**accounting-tab, not superadmin**: it records a conversation, it moves no money.
+
+**Operational cost to know about:** both templates are **Draft mode**, so a human has to send each
+renewal notice out of Gmail Drafts. And the emailed button is a live `vfoportal.com` URL — **the
+notice is only useful once the frontend is deployed** (gotcha #333).
+
+**Still open, deliberately unbuilt: a plan with `auto_renew` OFF still lapses DARK.** It stays
+`status='active'`, no notice pass touches it (the window filters on `auto_renew`), no bell fires,
+and the schedule simply runs out. Nobody is told — not the member, not an admin. Closing that
+needs its own decision about what "lapsed" should mean; it was named this session and left alone.
+
+## Pause Membership Payments (added 2026-08-04, v702–v703)
+
+**A pause means exactly three things and nothing else:** the member skips N months of charging,
+every remaining payment moves N months later, and the membership year ends N months later.
+**The plan stays `status='active'` throughout** — a pause is purely a schedule-shape change plus a
+`renewal_date` shift, so nothing keyed off `plan.status` (the charge pass, the notice pass,
+terminate/cancel eligibility) has to learn a new state. `membership_pause` is **superadmin-only
+in-handler**, same shape as `terminate`; months are 1–12.
+
+**Mechanics, in the order they matter.** Scheduled `kind='membership'` rows shift +N months in
+**DESCENDING `due_date` order**, so the partial unique `(plan_id, due_date) WHERE
+kind='membership'` never sees a transient collision (#315). `period_label` is regenerated **only
+when it still equals `periodLabel(old due)`** — an annotated label like *"August 2026 (includes
+1-month catch-up)"* or an annual *"Membership year 2026–2027"* is preserved verbatim.
+`year_end` extends +N across **all** rows of the affected `year_start` group while **`year_start`
+is never touched** (#280). `renewal_date` advances +N pinned to the 15th, which is precisely what
+keeps **#235** — every row of a year strictly before its renewal — true after the shift.
+
+**The vacated slots get `kind='pause'` markers** (`status='waived'`, `amount_due` 0):
+*"Paused — August 2026"* per month, or ONE combined row *"Paused — Aug 2026 – Oct 2026 (3 mo)"*;
+a single-month window renders *"Paused — Aug 2026 (1 mo)"* (the range-label edge case, fixed in
+v703). When there are **no scheduled rows left to move** — an annual plan mid-year, or a monthly
+year already fully collected — the marker anchors at the OLD renewal date, `rows_shifted` is 0 and
+`resume_due_date` is NULL: that pause only extends the year.
+
+**Why the markers are safe is the entire design (gotcha #332).** Every money consumer filters
+`kind='membership'` — the nightly charge pass, the renewal guard, the $0-waive pass, the
+invoice/receipt engine (4 sites), terminate/cancel voids, `send-reminder`, `all-payments-load`, the
+webhooks and the confirmation email were each checked reader-by-reader. So markers can never be
+charged, never look like a generated year 2, and never enter a month count (#316). **The corollary
+is a standing rule: any NEW reader of `member_payment_schedule` must filter `kind` or consciously
+decide what `'pause'` means to it.**
+
+**`renewal_notice_for` is deliberately left stale** by a pause, so the notice pass re-arms and the
+member is warned again for the new renewal date.
+
+**Preview is the same code path with no writes.** The panel's inline pause form auto-calls
+`membership_pause` with `preview: true` (request-token guarded against races) and renders
+*"Payments continue on &lt;date&gt;"* — or *"No upcoming payments this year — only the renewal date
+moves"* — plus *"Renewal date moves X → Y"* and *"(N upcoming payments will each move N months
+later)"*. Committing goes through the panel's `run()` helper behind a `window.confirm`. A
+partial-failure error message states exactly what was and was not applied.
+
+**In the ledger UI**, a `kind='pause'` row renders as `period_label` / date / — / — /
+`StatusPill "Paused"` (amber `#b45309`, tinted band) / —. Every aggregate — totals, the paid
+counter, payable, missed and the Outstanding section — already excluded them naturally. `bucketByYear`
+was **rewritten to group by `year_start`** (falling back to the legacy 12-month windows only when
+`year_start` is NULL), with the label's end derived from the group's last `due_date` floored at
+start + 11 months — otherwise a paused year's rows spill out of a fixed 12-month bucket. An amber
+**"Payments paused"** header pill shows when any pause marker is due today or later; it is
+**distinct from the pre-existing `members.paused` "Paused" pill** and the two can appear together.
+
+**Pauses stack.** A second pause re-runs the same shift against the already-shifted schedule and
+writes a second audit row — verified live with a 3-month pause followed by a 2-month one.
+
 ## NOT built yet (next work)
 
+- **A plan with `auto_renew` OFF lapses DARK** (named 2026-08-04, deliberately unbuilt). It keeps
+  `status='active'`, the renewal-notice pass skips it (the window filters on `auto_renew`), no bell
+  fires and the schedule just runs out — the member is never told and neither is an admin. The
+  advance-notice pass closed the *warning* gap for auto-renewing plans only; this one is still open
+  and needs a decision about what "lapsed" should mean before it can be built (gotcha #333).
 - Per-row itemization of the card gross-up in the ledger UI (the charge is grossed up; the
   ledger shows face value — the invoice/receipt PDFs DO itemize it).
 - From the 2026-07-17 audit, still open (everything else — H4/M1/M2/M4, Outstanding dead-end
