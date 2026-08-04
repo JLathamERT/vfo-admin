@@ -262,7 +262,7 @@ BoldSign fires `event.eventType='Signed'` with CEO email AND eventually `event.e
 - UPDATEs `pay1_status='succeeded'`, **chains** `automation_CONTRACT_invoicereceipt` for payment 1.
 
 **For quarterly payment 2-4** (subsequent `payment_intent.succeeded` with `metadata.payment_number` ∈ {2,3,4}):
-- UPDATEs `pay${n}_status='succeeded'`, **chains** `automation_CONTRACT_invoicereceipt` for that payment number. (Installments 2-4 get **no confirmation email at all** — the sweep's charge-time confirmation was removed 2026-07-15 because the two-email flow confused clients; this receipt-on-clear is the ONLY client email for 2-4. See Step 10½.)
+- UPDATEs `pay${n}_status='succeeded'`, **chains** `automation_CONTRACT_invoicereceipt` for that payment number — **unless `rec${n}_email_sent` is already `true`, in which case the chain is skipped with a log line (2026-08-04, gotcha #327).** That guard exists because Stripe **redelivers** an event whose 200 we were too slow to return (the PDF → Drive → Gmail chain can exceed ~30s) and `router/webhooks.ts` has no event-id dedupe — which produced **two identical receipt drafts sharing one receipt number** for a live client. The `paid_at` write and the revshare chain either side of it are unchanged, and **the P1 ACH branch below is NOT guarded**. (Installments 2-4 get **no confirmation email at all** — the sweep's charge-time confirmation was removed 2026-07-15 because the two-email flow confused clients; this receipt-on-clear is the ONLY client email for 2-4. See Step 10½.)
 
 > **How payments 2-4 are created:** by the daily scheduled-payment charger — see Step 10½ below.
 

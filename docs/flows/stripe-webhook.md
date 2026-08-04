@@ -96,10 +96,12 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
 **Discriminant:** `pi.metadata.payment_number` ∈ {2, 3, 4}.
 
 **What it does:**
-1. Looks up `pipeline_map1` by `stripe_customer_id`.
+1. Looks up `pipeline_map1` by `stripe_customer_id` (the `.select()` includes `rec2_email_sent, rec3_email_sent, rec4_email_sent` for step 3's guard).
 2. UPDATEs `pay${n}_status='succeeded'`.
-3. **Chains** `automation_CONTRACT_invoicereceipt` for that payment number.
-4. **Chains** `automation_CONTRACT_revshare` for that payment number.
+3. **Chains** `automation_CONTRACT_invoicereceipt` for that payment number — **SKIPPED (with a log line) when `rec${n}_email_sent` is already `true`.**
+4. **Chains** `automation_CONTRACT_revshare` for that payment number (guarded independently by `contract-revshare.ts`'s own `isResolved` check).
+
+> **⚠️ THIS WEBHOOK CAN BE DELIVERED TWICE AND ONLY THIS ONE BRANCH IS LATCHED (2026-08-04, gotcha #327).** The router acks Stripe only after `await`ing the whole chain, and the receipt chain (PDF → Drive upload → Gmail draft) can exceed Stripe's ~30s timeout; Stripe then **redelivers the identical event**, and `router/webhooks.ts` keeps **no event-id dedupe**. Live consequence: two identical Gmail receipt drafts for one $1,050 MAP 1 installment, **sharing one receipt number** — while the revshare chain fired once, because it had a guard. Step 3's `rec{N}_email_sent` check was added in response. It does **not** cover two deliveries overlapping in flight, and **no other branch on this page is protected** — B2 (ACH first payment), the tax / advisor / accountant / PIP / specialist branches all remain able to double-fire. The systemic fix (ack immediately + `EdgeRuntime.waitUntil`) is **not built**. Adding any new chained side effect here means adding its own latch first; note a reused `rec{N}_number` is **not** one (#328).
 
 > **How payments 2-4 are created:** `automation_CONTRACT_chargescheduled_sweep` (PUBLIC, service-role gated) is invoked by a daily `pg_cron` job at 03:00 UTC. It scans `pipeline_map1` for due-but-unpaid quarterly payments, lists saved payment methods on the Stripe customer, and POSTs to `/v1/payment_intents` with `confirm=true off_session=true metadata.payment_number=N` and a **LOGICAL, date-less** `Idempotency-Key: chargescheduled-{client_id}-P{N}` (v612 — the old date suffix let a lost post-charge status write double-charge; gotcha #228). The resulting `payment_intent.succeeded` is what this webhook branch handles. See [contract-and-payment.md](contract-and-payment.md) Step 10½ and [05-api-action-catalog.md](../architecture/05-api-action-catalog.md#public-token-automation-public_handlers-in-routerdispatchts).
 

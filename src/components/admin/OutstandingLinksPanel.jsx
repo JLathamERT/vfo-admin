@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { callApi } from '../../lib/api'
+import { callApi, resendContinuationSetupLink, resendFirstPaymentLink } from '../../lib/api'
 import { money, StatusPill } from './specialistRevenueShared'
 import { OnboardingListSkeleton } from '../shared/Skeleton'
 import { MemberNameLink, ClientNameLink } from '../shared/personLinks'
@@ -81,10 +81,62 @@ function MemberPrefix({ memberNumber }) {
   return <><MemberNameLink memberNumber={memberNumber}>{memberNumber}</MemberNameLink>{' · '}</>
 }
 
+const ghostBtn = {
+  padding: '5px 12px', borderRadius: '99px', border: '1px solid var(--vfo-border-soft)',
+  background: 'transparent', color: '#125ecc', fontSize: '12px', fontWeight: 600,
+  cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
+}
+const confirmBtn = (busy) => ({
+  padding: '5px 12px', borderRadius: '99px', border: 'none',
+  background: busy ? '#c7d2e4' : 'linear-gradient(90deg, #002973 0%, #125ecc 100%)',
+  color: '#fff', fontSize: '12px', fontWeight: 700,
+  cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
+})
+
+// Manual "Resend email" on an outstanding row. Fires on a single click (per Jake —
+// no confirm step; the email only lands in Drafts anyway). Lives inside the card
+// header, which is itself a click-to-expand target — hence stopPropagation on
+// every control here.
+function ResendButton({ send, onDone }) {
+  const [stage, setStage] = useState('idle') // idle | busy | done
+  const [err, setErr] = useState('')
+
+  async function fire(e) {
+    e.stopPropagation()
+    setStage('busy'); setErr('')
+    try {
+      const res = await send()
+      // callApi throws on non-2xx, so an { error } here is a 200-with-error body.
+      if (res?.error) { setErr(res.error); setStage('idle'); return }
+      setStage('done')
+      onDone?.()
+    } catch (ex) {
+      setErr(ex?.message || 'Could not send the email.')
+      setStage('idle')
+    }
+  }
+
+  return (
+    <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', minWidth: '120px' }}>
+      {stage === 'idle' && (
+        <button type="button" style={ghostBtn} onClick={fire}>Resend email</button>
+      )}
+      {stage === 'busy' && <button type="button" disabled style={confirmBtn(true)}>Sending…</button>}
+      {stage === 'done' && (
+        <span style={{ fontSize: '12px', fontWeight: 700, color: '#16a34a', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>✓ Email drafted</span>
+      )}
+      {err && (
+        <span style={{ fontSize: '11px', color: '#b91c1c', fontFamily: 'Inter, sans-serif', textAlign: 'right', maxWidth: '260px', lineHeight: 1.4 }}>{err}</span>
+      )}
+    </div>
+  )
+}
+
 // One expandable person card. Per-row open state lives here because hooks cannot
 // be used inside the .map calls below. clientId is optional — specialist cards
-// have no client, so their name stays plain text.
-function OutstandingCard({ name, clientId, subtitle, badge, amount, caption, children }) {
+// have no client, so their name stays plain text. `action` is an optional
+// right-edge control (the Resend button) — it must not toggle the card.
+function OutstandingCard({ name, clientId, subtitle, badge, amount, caption, action, children }) {
   const [open, setOpen] = useState(false)
   return (
     <div style={cardStyle}>
@@ -99,6 +151,7 @@ function OutstandingCard({ name, clientId, subtitle, badge, amount, caption, chi
           <div style={{ fontSize: '14px', fontWeight: 700, color: '#ef4444' }}>{money(amount)}</div>
           <div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>{caption}</div>
         </div>
+        {action || null}
       </div>
       {open && (
         <div style={{ background: 'var(--vfo-input)', borderTop: '1px solid var(--vfo-border-soft)', padding: '14px 18px' }}>
@@ -109,7 +162,7 @@ function OutstandingCard({ name, clientId, subtitle, badge, amount, caption, chi
   )
 }
 
-function FirstLinkCard({ item, showProgram }) {
+function FirstLinkCard({ item, kind, showProgram, onDone }) {
   const sent = fmtDate(item.link_sent_at)
   const parts = []
   parts.push(sent ? `Link sent ${shortDate(item.link_sent_at)}` : 'Link not sent yet')
@@ -122,6 +175,12 @@ function FirstLinkCard({ item, showProgram }) {
       badge={BADGE_FIRST}
       amount={item.amount_due}
       caption="due"
+      action={(
+        <ResendButton
+          onDone={onDone}
+          send={() => resendFirstPaymentLink({ pipeline: kind === 'tax' ? 'TAX' : 'MAP1', rowId: item.row_id })}
+        />
+      )}
     >
       <Detail label="Amount due" value={money(item.amount_due)} />
       {item.payment_plan ? <Detail label="Payment plan" value={item.payment_plan} /> : null}
@@ -168,7 +227,7 @@ function RemainingTable({ kind, remaining }) {
   )
 }
 
-function ContinuationCard({ item, kind }) {
+function ContinuationCard({ item, kind, onDone }) {
   const parts = []
   parts.push(item.link_sent_at ? `Link sent ${shortDate(item.link_sent_at)}` : 'Link not sent yet')
   parts.push(emailCount(item.emails_sent))
@@ -190,6 +249,14 @@ function ContinuationCard({ item, kind }) {
       badge={BADGE_CONTINUATION}
       amount={item.total_remaining}
       caption="remaining"
+      action={(
+        // Always available: a resend mints a FRESH 7-day token, so an expired link
+        // and an auto-resend-cap-reached row are exactly the rows that need it.
+        <ResendButton
+          onDone={onDone}
+          send={() => resendContinuationSetupLink({ pipeline: kind === 'tax' ? 'TAX' : 'MAP 1', rowId: item.row_id })}
+        />
+      )}
     >
       <RemainingTable kind={kind} remaining={item.remaining} />
       <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)', marginBottom: '6px' }}>Link email history</div>
@@ -297,8 +364,12 @@ export default function OutstandingLinksPanel({ kind, embedded = false }) {
 
   useEffect(() => { load() }, [])
 
-  async function load() {
-    setLoading(true); setError('')
+  // quiet = refresh the data WITHOUT swapping the list for the skeleton. A resend
+  // refreshes through this path so the row's "Email drafted" confirmation survives
+  // (a remount would wipe the button's state the moment it appeared).
+  async function load({ quiet = false } = {}) {
+    if (!quiet) setLoading(true)
+    setError('')
     try {
       const res = await callApi('accounting_outstanding_links_load')
       if (res?.error) { setError(res.error); return }
@@ -332,7 +403,7 @@ export default function OutstandingLinksPanel({ kind, embedded = false }) {
       )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-        <button type="button" onClick={load}
+        <button type="button" onClick={() => load()}
           style={{ background: 'none', border: 'none', padding: 0, color: '#125ecc', fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
           Refresh
         </button>
@@ -353,12 +424,12 @@ export default function OutstandingLinksPanel({ kind, embedded = false }) {
         <div>
           <SectionHeader title="New Clients - First Payment Link" count={firstLinks.length} />
           {firstLinks.length === 0 ? <EmptyLine /> : firstLinks.map(it => (
-            <FirstLinkCard key={it.row_id ?? it.client_id} item={it} showProgram={kind === 'tax'} />
+            <FirstLinkCard key={it.row_id ?? it.client_id} item={it} kind={kind} showProgram={kind === 'tax'} onDone={() => load({ quiet: true })} />
           ))}
 
           <SectionHeader title="Payment Continuation - Account Setup Links" count={continuation.length} />
           {continuation.length === 0 ? <EmptyLine /> : continuation.map(it => (
-            <ContinuationCard key={it.row_id ?? it.client_id} item={it} kind={kind} />
+            <ContinuationCard key={it.row_id ?? it.client_id} item={it} kind={kind} onDone={() => load({ quiet: true })} />
           ))}
 
           {kind === 'tax' && implementation.length > 0 && (

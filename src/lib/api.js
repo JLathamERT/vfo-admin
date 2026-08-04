@@ -83,6 +83,24 @@ export async function callApi(action, payload = {}, retries = 3) {
   }
 }
 
+// ─── Outstanding Payment Links — manual "Resend email" actions ───
+// Both are WRITES (each drafts a Gmail), so they deliberately do NOT match the
+// isReadAction() naming convention above and never auto-retry on timeout: a retry
+// after the server already processed the call would double-draft the email.
+
+// Payment-continuation setup link: mints a FRESH 7-day /connect-card token and drafts
+// the CLIENT_PAYMENT_CONTINUATION `setup_link_reminder` copy. pipeline is the migration
+// action's own spelling — 'MAP 1' (with the space) or 'TAX'.
+export function resendContinuationSetupLink({ pipeline, rowId }) {
+  return callApi('migration_send_setup_link', { pipeline, row_id: rowId, reminder: true })
+}
+
+// First payment link: re-runs the nightly first-payment reminder for one row.
+// pipeline is 'MAP1' or 'TAX'.
+export function resendFirstPaymentLink({ pipeline, rowId }) {
+  return callApi('accounting_resend_first_payment_link', { pipeline, row_id: rowId })
+}
+
 export function getSession() {
   return JSON.parse(sessionStorage.getItem('vfo_session') || 'null')
 }
