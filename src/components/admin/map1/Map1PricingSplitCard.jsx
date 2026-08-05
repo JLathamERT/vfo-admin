@@ -143,9 +143,10 @@ export default function Map1PricingSplitCard({ plan, expanded, onToggle }) {
                   <tr key={r.key}>
                     <td style={{ padding: '7px 8px', color: 'var(--vfo-ink)', borderBottom: '1px solid var(--vfo-border-soft)' }}>{r.name}</td>
                     {instalments.map(i => {
-                      // Only the member leg carries a per-installment payout status;
-                      // the VFO and strategic figures are informational.
-                      const status = r.key === 'member' ? plan?.[`rec${i}_rev_paid`] : null
+                      // The member and strategic legs each carry their own
+                      // per-installment payout status; only the VFO figures are
+                      // informational.
+                      const status = r.key === 'member' ? plan?.[`rec${i}_rev_paid`] : r.key === 'strat' ? plan?.[`rec${i}_strat_paid`] : null
                       const note = legNote(status, isHistoric)
                       const per = r.per(i)
                       return (

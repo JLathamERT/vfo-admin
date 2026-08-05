@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { callApi } from '../../../lib/api'
+import { hasStrategicSplit, computeStrategicShares } from '../../../lib/strategicSplits'
 
 // Jake-only per-client migration tool: backfill an in-flight MAP 1 / Tax plan from the
 // old system so the native engine resumes charging the rest. Two Stripe modes:
@@ -73,12 +74,17 @@ export default function PaymentContinuationTab({ clientId, client }) {
   const plan = PLAN_OPTIONS.find(p => p.key === planKey)
   const isMap1 = planKey === 'map1'
   const [stripeMode, setStripeMode] = useState('existing')
+  // Strategic members get a fixed split (Strategic Partner Share + member +
+  // VFOS, plus the tax planner on the tax side) auto-computed off the gross —
+  // exactly as the native MAP 1 / Tax pricing forms do.
+  const isStrategic = client?.member_category === 'strategic_member' && hasStrategicSplit(client?.member_type)
 
   // pricing
   const [netInvoice, setNetInvoice] = useState('')
   const [memberShare, setMemberShare] = useState('')
   const [taxPlannerShare, setTaxPlannerShare] = useState('')
   const [vfosShare, setVfosShare] = useState('')
+  const [strategicShare, setStrategicShare] = useState('')
   const [serviceLevel, setServiceLevel] = useState('')
   const [retainerAmount, setRetainerAmount] = useState('')
   const [implementationAmount, setImplementationAmount] = useState('')
@@ -148,9 +154,9 @@ export default function PaymentContinuationTab({ clientId, client }) {
       const payments = rows.map((r, i) => i < numPaid
         ? { paid: true, date: r.date, receipt_number: r.receipt_number }
         : { paid: false, date: r.date })
-      return { ...base, pricing: { net_invoice: netInvoice, member_share: memberShare, vfos_share: vfosShare, service_level: serviceLevel, payment_plan: 'Quarterly' }, invoice_number: invoiceNumber, payments }
+      return { ...base, pricing: { net_invoice: netInvoice, member_share: memberShare, vfos_share: vfosShare, ...(isStrategic ? { strategic_partner_share: strategicShare } : {}), service_level: serviceLevel, payment_plan: 'Quarterly' }, invoice_number: invoiceNumber, payments }
     }
-    return { ...base, program_id: plan.program_id, pricing: { retainer_amount: retainerAmount, implementation_amount: implementationAmount, total_fee: taxTotal ? taxTotal.toFixed(2) : '', impl_member_share: memberShare, impl_tax_planner_share: taxPlannerShare, impl_vfos_share: vfosShare, split_type: splitType, atp_name: atpName }, retainer: { date: retDate, receipt_number: retReceipt, invoice_number: retInvoice } }
+    return { ...base, program_id: plan.program_id, pricing: { retainer_amount: retainerAmount, implementation_amount: implementationAmount, total_fee: taxTotal ? taxTotal.toFixed(2) : '', impl_member_share: memberShare, impl_tax_planner_share: taxPlannerShare, impl_vfos_share: vfosShare, ...(isStrategic ? { impl_strategic_share: strategicShare } : {}), split_type: splitType, atp_name: atpName }, retainer: { date: retDate, receipt_number: retReceipt, invoice_number: retInvoice } }
   }
 
   async function run(isPreview) {
@@ -197,13 +203,15 @@ export default function PaymentContinuationTab({ clientId, client }) {
   }
 
   const money = (v) => parseFloat(String(v ?? '').replace(/[,$]/g, '')) || 0
+  const round2 = (x) => Math.round(x * 100) / 100
   const taxTotal = money(retainerAmount) + money(implementationAmount)
   const implAmount = money(implementationAmount)
   // Tax split is entered/validated against the IMPLEMENTATION amount (the only leg
   // that pays out here — the retainer was settled on the old system).
   const totalAmount = isMap1 ? money(netInvoice) : implAmount
   const sharesFilled = String(memberShare).trim() !== '' && String(vfosShare).trim() !== ''
-  const sharesSum = isMap1 ? money(memberShare) + money(vfosShare) : money(memberShare) + money(taxPlannerShare) + money(vfosShare)
+  const stratSum = isStrategic ? money(strategicShare) : 0
+  const sharesSum = (isMap1 ? money(memberShare) + money(vfosShare) : money(memberShare) + money(taxPlannerShare) + money(vfosShare)) + stratSum
   const sumOk = isMap1
     ? (sharesFilled && totalAmount > 0 && Math.abs(sharesSum - totalAmount) < 0.01)
     : (totalAmount > 0 ? (sharesFilled && Math.abs(sharesSum - totalAmount) < 0.01) : true)
@@ -222,6 +230,41 @@ export default function PaymentContinuationTab({ clientId, client }) {
     if (isMap1) return
     if (splitType === '1/3 Member, 1/3 Tax Planner, 1/3 VFOS') { const implAmt = money(implementationAmount); const share = (implAmt / 3).toFixed(2); setMemberShare(share); setTaxPlannerShare(share); setVfosShare((implAmt - parseFloat(share) - parseFloat(share)).toFixed(2)) }
   }, [splitType, implementationAmount, isMap1])
+
+  // MAP 1 strategic: the continuation has no gross_fee / member-contribution
+  // inputs, so the net invoice IS the gross the split is computed off.
+  useEffect(() => {
+    if (!isMap1 || !isStrategic) return
+    const shares = computeStrategicShares(client?.member_type, 'holistic', netInvoice)
+    if (shares) {
+      setMemberShare(shares.member.toFixed(2))
+      setVfosShare(shares.vfos.toFixed(2))
+      setStrategicShare(shares.strategic.toFixed(2))
+    } else {
+      setMemberShare(''); setVfosShare(''); setStrategicShare('')
+    }
+  }, [isMap1, isStrategic, client?.member_type, netInvoice])
+
+  // Tax strategic: the split is defined off the WHOLE fee (retainer +
+  // implementation) but entered here as per-implementation dollars, so each
+  // whole-engagement share is prorated down to the implementation leg.
+  useEffect(() => {
+    if (isMap1 || !isStrategic) return
+    if (splitType !== 'Strategic Partner') setSplitType('Strategic Partner')
+    const totals = taxTotal > 0 ? computeStrategicShares(client?.member_type, 'tax', taxTotal) : null
+    if (totals && implAmount > 0) {
+      const f = implAmount / taxTotal
+      const s = round2(totals.strategic * f)
+      const m = round2(totals.member * f)
+      const p = round2((totals.planner ?? 0) * f)
+      // VFOS absorbs the rounding remainder so the four boxes hit the
+      // implementation amount exactly (same shape computeStrategicShares uses).
+      setStrategicShare(s.toFixed(2)); setMemberShare(m.toFixed(2)); setTaxPlannerShare(p.toFixed(2))
+      setVfosShare(round2(implAmount - s - m - p).toFixed(2))
+    } else {
+      setStrategicShare(''); setMemberShare(''); setTaxPlannerShare(''); setVfosShare('')
+    }
+  }, [isMap1, isStrategic, client?.member_type, taxTotal, implAmount, splitType])
 
   return (
     <div>
@@ -245,19 +288,25 @@ export default function PaymentContinuationTab({ clientId, client }) {
       <div style={sectionStyle}>
         <div style={sectionTitle}>Pricing</div>
         {isMap1 ? (
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <Field label="Net invoice — total ($)"><input value={netInvoice} onChange={e => setNetInvoice(e.target.value)} style={inputStyle} placeholder="e.g. 12000" /></Field>
-            <Field label="Member share ($)"><input value={memberShare} onChange={e => setMemberShare(e.target.value)} style={inputStyle} placeholder="e.g. 6000" /></Field>
-            <Field label="Our (VFO) share ($)"><input value={vfosShare} onChange={e => setVfosShare(e.target.value)} style={inputStyle} placeholder="e.g. 6000" /></Field>
-            <Field label="Service level">
-              <select value={serviceLevel} onChange={e => setServiceLevel(e.target.value)} style={inputStyle}>
-                <option value="">-- Select --</option>
-                <option value="Lite">Lite</option>
-                <option value="Core">Core</option>
-                <option value="Max">Max</option>
-              </select>
-            </Field>
-          </div>
+          <>
+            {isStrategic && (
+              <p style={{ fontSize: '13px', color: '#0095ff', fontWeight: 600, marginTop: 0, marginBottom: '10px' }}>Strategic member ({client.member_type}) — the split is auto-calculated from the net invoice.</p>
+            )}
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <Field label="Net invoice — total ($)"><input value={netInvoice} onChange={e => setNetInvoice(e.target.value)} style={inputStyle} placeholder="e.g. 12000" /></Field>
+              {isStrategic && <Field label={<span style={{ whiteSpace: 'nowrap' }}>Strategic Partner share ($)</span>}><input value={strategicShare} readOnly style={readonlyInput} placeholder="auto" /></Field>}
+              <Field label="Member share ($)"><input value={memberShare} onChange={e => setMemberShare(e.target.value)} readOnly={isStrategic} style={isStrategic ? readonlyInput : inputStyle} placeholder={isStrategic ? 'auto' : 'e.g. 6000'} /></Field>
+              <Field label="Our (VFO) share ($)"><input value={vfosShare} onChange={e => setVfosShare(e.target.value)} readOnly={isStrategic} style={isStrategic ? readonlyInput : inputStyle} placeholder={isStrategic ? 'auto' : 'e.g. 6000'} /></Field>
+              <Field label="Service level">
+                <select value={serviceLevel} onChange={e => setServiceLevel(e.target.value)} style={inputStyle}>
+                  <option value="">-- Select --</option>
+                  <option value="Lite">Lite</option>
+                  <option value="Core">Core</option>
+                  <option value="Max">Max</option>
+                </select>
+              </Field>
+            </div>
+          </>
         ) : (
           <>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -270,12 +319,16 @@ export default function PaymentContinuationTab({ clientId, client }) {
                 <p style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '12px', marginBottom: '10px' }}>Implementation split — what pays out when the implementation fee is charged. The retainer was settled on the old system; nothing pays out from it.</p>
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                   <Field label="Split type">
-                    <select value={splitType} onChange={e => setSplitType(e.target.value)} style={inputStyle}>
-                      <option value="">-- Select --</option>
-                      <option value="1/3 Member, 1/3 Tax Planner, 1/3 VFOS">1/3 Member, 1/3 Tax Planner, 1/3 VFOS</option>
-                      <option value="Custom">Custom</option>
-                    </select>
+                    {isStrategic
+                      ? <div style={readonlyInput}>Strategic Partner ({client.member_type}) — auto-calculated</div>
+                      : <select value={splitType} onChange={e => setSplitType(e.target.value)} style={inputStyle}>
+                          <option value="">-- Select --</option>
+                          <option value="1/3 Member, 1/3 Tax Planner, 1/3 VFOS">1/3 Member, 1/3 Tax Planner, 1/3 VFOS</option>
+                          <option value="Custom">Custom</option>
+                        </select>
+                    }
                   </Field>
+                  {isStrategic && <Field label={<span style={{ whiteSpace: 'nowrap' }}>Strategic Partner share ($)</span>}><input value={strategicShare} readOnly style={readonlyInput} placeholder="auto" /></Field>}
                   <Field label="Member share ($)"><input value={memberShare} onChange={e => setMemberShare(e.target.value)} readOnly={splitType !== 'Custom'} style={splitType === 'Custom' ? inputStyle : readonlyInput} placeholder={splitType === 'Custom' ? 'e.g. 5000' : 'auto'} /></Field>
                   <Field label="Tax Planner share ($)"><input value={taxPlannerShare} onChange={e => setTaxPlannerShare(e.target.value)} readOnly={splitType !== 'Custom'} style={splitType === 'Custom' ? inputStyle : readonlyInput} placeholder={splitType === 'Custom' ? 'e.g. 5000' : 'auto'} /></Field>
                   <Field label="Our (VFO) share ($)"><input value={vfosShare} onChange={e => setVfosShare(e.target.value)} readOnly={splitType !== 'Custom'} style={splitType === 'Custom' ? inputStyle : readonlyInput} placeholder={splitType === 'Custom' ? 'e.g. 5000' : 'auto'} /></Field>
@@ -289,10 +342,10 @@ export default function PaymentContinuationTab({ clientId, client }) {
             {isMap1
               ? (sumOk
                 ? `Shares add up to the net invoice ($${sharesSum.toLocaleString()}).`
-                : `Member + VFO share ($${sharesSum.toLocaleString()}) must equal the net invoice ($${totalAmount.toLocaleString()}).`)
+                : `${isStrategic ? 'Strategic Partner + ' : ''}Member + VFO share ($${sharesSum.toLocaleString()}) must equal the net invoice ($${totalAmount.toLocaleString()}).`)
               : (sumOk
                 ? `Split adds up to the implementation amount ($${sharesSum.toLocaleString()}).`
-                : `Member + Tax Planner + VFO share ($${sharesSum.toLocaleString()}) must equal the implementation amount ($${totalAmount.toLocaleString()}).`)}
+                : `${isStrategic ? 'Strategic Partner + ' : ''}Member + Tax Planner + VFO share ($${sharesSum.toLocaleString()}) must equal the implementation amount ($${totalAmount.toLocaleString()}).`)}
           </div>
         )}
       </div>
@@ -373,7 +426,7 @@ export default function PaymentContinuationTab({ clientId, client }) {
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
         <button onClick={() => run(true)} disabled={busy || !sumOk} style={ghostBtn}>{busy ? 'Working…' : 'Preview'}</button>
         <button onClick={() => run(false)} disabled={saveDisabled} style={primaryBtn(saveDisabled)}>{busy ? 'Working…' : (stripeMode === 'setup_link' ? 'Save & send setup link' : 'Save')}</button>
-        {!sumOk && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>{isMap1 ? 'Enter member + VFO share (dollars) that sum to the total.' : 'Enter member + tax planner + VFO implementation split (dollars) that sum to the implementation amount.'}</span>}
+        {!sumOk && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>{isStrategic ? (isMap1 ? 'Enter the net invoice — the strategic split fills in automatically.' : 'Enter the retainer + implementation amounts — the strategic split fills in automatically.') : (isMap1 ? 'Enter member + VFO share (dollars) that sum to the total.' : 'Enter member + tax planner + VFO implementation split (dollars) that sum to the implementation amount.')}</span>}
         {sumOk && stripeMode === 'existing' && !chosenPm && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Look up + pick a payment method to enable Save.</span>}
         {sumOk && (stripeMode !== 'existing' || chosenPm) && !previewFresh && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Preview first — Save unlocks after you review the exact row.</span>}
         {previewFresh && needsForce && !forceAck && <span style={{ fontSize: '12px', color: '#b9451d', fontWeight: 600 }}>Confirm the overwrite box below to enable Save.</span>}
