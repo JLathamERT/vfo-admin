@@ -117,9 +117,39 @@ Each arrow is either:
 
 ---
 
+## Step 1¼ — Generate and download presentation (Tax 2 - Deeper Dive, added 2026-08-06, v706)
+
+The ROI deck generator. It sits at **`task_order=2`** in **Tax 2 - Deeper Dive** (`program_client_tasks` ids **173** prog 1 Holistic / **174** prog 4 VFO Tax Planning, name "Generate and download presentation", sentinel `status_options='tax_generate_presentation'`) — inserting it pushed ids 90/124 to `task_order=3` and the "Send presentation link" step (168/169) to **4**. It replaces a human assembling the deck by hand from numbers already stored on the plan.
+
+**Handler:** [`tax_generate_presentation`](../../supabase/functions/vfo-admin-api/actions/tax/generate-presentation.ts) — **AUTH, `ADMIN_ONLY_ACTIONS`, deliberately NOT planner-callable** (the FE renderer is also hidden when `readOnly || plannerMode`). Full invariants: gotcha **#336**.
+
+**Readiness gates — the FE spells each one out rather than greying the button silently:**
+- assess form not submitted → *"Submit the assessment form first"*
+- assess form submitted **before 2026-08-06** (no `taxes_without_plan` key) → *"Re-save the Assess form — the Total Taxes field is new"*; the handler's matching 400 is *"Re-save the Assess form — it was submitted before the Total Taxes field existed"*
+- no risk grade → *"Set the Client risk profile step first"*
+- `taxes_without_plan <= 0` → 400 *"Total Taxes without a Tax Plan must be greater than zero"* (it is a divisor)
+
+**What Generate does, end to end.** Reads the plan + `assess_form` + the **plan-level** risk grade (`client_tax_progress` where `tax_specialist_id IS NULL`, task "Client risk profile complete", parsed `/Risk\s*([1-5])/`) → downloads `ROI-template-master.pptx` from the private **`presentation-templates`** bucket → substitutes **13 `{{TOKENS}}`** across slides **1/20/23/24/25/27** (XML-escaped) → repositions the slide-20 `upArrow` to the client's risk band off a hardcoded EMU table (1→801612, 2→2566499, 3→4349395, 4→6126289, 5→7900180) → re-zips with **fflate** (untouched entries **stored at level 0**, only the 6 edited slide XMLs deflated — the ~27 MB of PNGs is never recompressed) → uploads to Google Drive **multipart with metadata `mimeType='application/vnd.google-apps.presentation'`**, which is what makes Drive convert it into a **real Google Slides file**, into an **"ROI Presentations"** folder under `GOOGLE_DRIVE_FOLDER_ID` → sets sharing **role=writer type=anyone** (deliberate, user-approved over view-only after a security review) → reads `webViewLink` → stamps `client_tax_plans.generated_presentation_{drive_id,url,at,by}` → returns `{success, url, generated_at}`. Runs ~30–60s, which is why `src/lib/api.js` grants this action **90s** via `LONG_TIMEOUT_ACTIONS` (writes still never retry, #30).
+
+**Values on the deck:** `gross=Σ(gross_y1+gross_y2)`, `invest=Σ(invest_y1+invest_y2)`, `taxes_with=taxes_without−gross`, `net=gross−invest−fee`, `outlay_plus_fee=invest+fee`, `fee_half=fee/2`, `pct=round(gross/taxes_without×100)`, `year` = the **generation-time** calendar year. Money is whole-dollar with commas (`FEE_HALF` 2 dp only when fractional); negatives use accounting parentheses.
+
+**Buttons:** Generate → then **Download** (opens the Slides URL — there is no local file) and **Regenerate** (creates a **NEW** Drive file each time; the plan row points at the newest, old files are not deleted).
+
+**The step is done when `generated_presentation_at` is non-NULL** — the handler writes **NO** `client_progress` / `client_tax_progress` row, and both `actions/clients/overview-tax.ts` and the FE `isTaskStatused` read the column directly.
+
+**Deliberately NOT auto-filled:** the Tax 2 "Send presentation link" field below. An admin reviews the generated deck and pastes the link manually, so `member_presentation_link` and `presentation_link` are untouched by this step.
+
+**Template maintenance cycle** (edit a copy in Google Slides → download as .pptx → **rebuild** the tokenized master with `build_master.py` → re-upload as exactly `ROI-template-master.pptx`): see **`scripts/roi-presentation/README.md` in the EDGE repo**. The master is always rebuilt, never hand-patched — every re-export shifts the paragraph/run indices the tokenizer edits by.
+
+**Tables read:** `client_tax_plans`, `client_tax_progress`, `clients`, `program_client_tasks`.
+**Tables written:** `client_tax_plans` (`generated_presentation_drive_id`, `_url`, `_at`, `_by`).
+**Chains:** none. **No emails, no notifications.**
+
+---
+
 ## Step 1½ — Send presentation link to member before meeting (Tax 2 - Deeper Dive)
 
-A scheduled, cron-drafted step that sits right after "Tax 3 Confirmation Email" in the **Tax 2 - Deeper Dive** phase (`program_client_tasks` ids 168 prog 1 / 169 prog 4, `status_options='tax_presentation_link'`, `task_order=3`). Lets the admin queue a presentation link to go to the **member** ahead of the Tax 3 ROI meeting, sent on a chosen date.
+A scheduled, cron-drafted step that sits after "Generate and download presentation" in the **Tax 2 - Deeper Dive** phase (`program_client_tasks` ids 168 prog 1 / 169 prog 4, `status_options='tax_presentation_link'`, **`task_order=4` as of 2026-08-06** — it was 3 until the generator step was inserted at 2). Lets the admin queue a presentation link to go to the **member** ahead of the Tax 3 ROI meeting, sent on a chosen date.
 
 **Schedule handler:** [`automation_TAX_presentation_schedule`](../../supabase/functions/vfo-admin-api/actions/tax/presentation-schedule.ts) — AUTH. Admin clicks the green "Schedule email" button → pastes a link + picks a date → handler writes `member_presentation_link`, `presentation_send_date`, `presentation_scheduled_at` (and nulls `presentation_email_sent_at`). **No email here.** Uses its OWN `member_presentation_link` column — deliberately separate from the Tax 3 `presentation_link` (Step 2) so the two never overwrite each other.
 
