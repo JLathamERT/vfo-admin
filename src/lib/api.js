@@ -7,7 +7,17 @@ const REQUEST_TIMEOUT_MS = 20000
 // manual resubmit that double-sends. Reads keep the short timeout (they
 // auto-retry safely).
 const SLOW_WRITE_TIMEOUT_MS = 60000
+// Per-action overrides for the handful of calls that legitimately outrun even the
+// slow-write budget above. tax_generate_presentation renders the client ROI deck
+// and uploads ~27 MB to Google Drive — 30-60s is the normal case, so a 20s (or
+// even 60s) abort would report a failure while the deck is still being written.
+// These stay WRITES: isReadAction() does not match them, so a timeout still never
+// auto-retries.
+const LONG_TIMEOUT_ACTIONS = {
+  tax_generate_presentation: 90000,
+}
 function timeoutFor(action) {
+  if (LONG_TIMEOUT_ACTIONS[action]) return LONG_TIMEOUT_ACTIONS[action]
   return action?.startsWith('automation_') && !isReadAction(action)
     ? SLOW_WRITE_TIMEOUT_MS
     : REQUEST_TIMEOUT_MS

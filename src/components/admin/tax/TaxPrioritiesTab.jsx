@@ -786,6 +786,10 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
   const isStructured = Array.isArray(existingData?.strategies)
   const legacyAnswer = !isStructured ? (existingData?.question_1 || '') : ''
   const [fee, setFee] = useState(existingData?.fee != null ? String(existingData.fee) : '')
+  // Total Taxes – without a Tax Plan: the baseline the generated ROI deck compares
+  // the plan against. Required going forward, but submissions predating the field
+  // have no value at all — those render '—' rather than a misleading $0.00.
+  const [taxesWithoutPlan, setTaxesWithoutPlan] = useState(existingData?.taxes_without_plan != null ? String(existingData.taxes_without_plan) : '')
   const [strategies, setStrategies] = useState(() => (
     isStructured && existingData.strategies.length
       ? existingData.strategies.map(s => {
@@ -814,6 +818,10 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
   async function handleSubmit() {
     const feeNum = parseFloat(fee)
     if (!Number.isFinite(feeNum) || feeNum < 0) { setSubmitError('Fee is required'); return }
+    // Kept in lockstep with the backend's own check (gotcha #306) — same rule, same
+    // wording, so the message never changes depending on which side rejected it.
+    const twpNum = parseFloat(taxesWithoutPlan)
+    if (!Number.isFinite(twpNum) || twpNum < 0) { setSubmitError('Total Taxes without a Tax Plan is required'); return }
     // Rows the user left completely untouched are dropped rather than rejected.
     const kept = strategies.filter(s => String(s.name || '').trim() !== '' || ASSESS_AMOUNT_KEYS.some(k => String(s[k] ?? '').trim() !== ''))
     if (!kept.length) { setSubmitError('At least one strategy is required'); return }
@@ -834,7 +842,7 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
     setSubmitError('')
     setSubmitting(true)
     try {
-      await callApi('tax_save_assess_form', { tax_plan_id: plan.id, form: { fee: Math.round(feeNum * 100) / 100, strategies: payload } })
+      await callApi('tax_save_assess_form', { tax_plan_id: plan.id, form: { fee: Math.round(feeNum * 100) / 100, taxes_without_plan: Math.round(twpNum * 100) / 100, strategies: payload } })
       await saveTask(task.id, 'Completed', existingCompletedDate || null)
       if (onSubmitted) onSubmitted()
     } catch (err) {
@@ -859,9 +867,15 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
   if (isViewMode) {
     return (
       <div style={wrapStyle}>
-        <div style={{ marginBottom: '14px' }}>
-          <label style={labelStyle}>Fee</label>
-          <div style={{ ...inputStyle, opacity: 0.6 }}>{assessMoney(assessNum(existingData?.fee))}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 240px))', gap: '12px', marginBottom: '14px' }}>
+          <div>
+            <label style={labelStyle}>Fee</label>
+            <div style={{ ...inputStyle, opacity: 0.6 }}>{assessMoney(assessNum(existingData?.fee))}</div>
+          </div>
+          <div>
+            <label style={labelStyle}>Total Taxes – without a Tax Plan</label>
+            <div style={{ ...inputStyle, opacity: 0.6 }}>{existingData?.taxes_without_plan != null ? assessMoney(assessNum(existingData.taxes_without_plan)) : '—'}</div>
+          </div>
         </div>
         <div style={sectionLabelStyle}>Summary</div>
         <AssessSummaryTable rows={rows} />
@@ -877,8 +891,9 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
           <div style={{ ...inputStyle, opacity: 0.6, whiteSpace: 'pre-wrap' }}>{legacyAnswer}</div>
         </div>
       )}
-      <div style={{ marginBottom: '16px', maxWidth: '260px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 240px))', gap: '12px', marginBottom: '16px' }}>
         <AssessMoneyInput label="Fee" value={fee} onChange={setFee} inputStyle={inputStyle} labelStyle={labelStyle} />
+        <AssessMoneyInput label="Total Taxes – without a Tax Plan" value={taxesWithoutPlan} onChange={setTaxesWithoutPlan} inputStyle={inputStyle} labelStyle={labelStyle} />
       </div>
 
       <div style={sectionLabelStyle}>Strategies</div>
@@ -1264,6 +1279,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (t.status_options === 'tax_hlm_confirm') return !!livePlan?.tax4_meeting_date
     if (t.status_options === 'tax_presentation_link') return !!livePlan?.presentation_send_date
     if (t.status_options === 'tax_returns_request') return !!livePlan?.tax_returns_received_at
+    // Generating the ROI deck writes no progress row — the plan stamp is the only
+    // record, so the step reads as done exactly when a deck has been generated.
+    if (t.status_options === 'tax_generate_presentation') return !!livePlan?.generated_presentation_at
     // Green/Red light call: 'Proceed' closes the step, and so does a completed
     // refund. The refund path writes no progress status of its own.
     if (t.status_options === 'tax_refund') {
@@ -1434,6 +1452,83 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               onCancel={() => setExpanded(prev => ({ ...prev, [expandKey]: false }))}
               onSubmitted={() => refreshLivePlan()}
             />
+          )}
+        </div>
+      )
+    }
+
+    if (task.status_options === 'tax_generate_presentation' || task.name === 'Generate and download presentation') {
+      const green = '#1b9254'
+      const deckUrl = livePlan?.generated_presentation_url || ''
+      const generatedAt = livePlan?.generated_presentation_at
+      const generated = !!deckUrl
+      const locked = readOnly || plannerMode
+      const draft = declineDrafts[task.id] || {}
+      const generating = !!draft.generating
+      const genError = draft.genError || ''
+      const setDraft = (patch) => setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), ...patch } }))
+
+      // Readiness mirrors the backend's own guards so the button never fires a
+      // call that can only come back as an error string. Same data source as the
+      // Assess step above (livePlan.assess_form + its submitted stamp).
+      const assess = livePlan?.assess_form
+      const assessSubmitted = !!livePlan?.assess_form_submitted_at && Array.isArray(assess?.strategies)
+      const hasTaxesWithoutPlan = assess?.taxes_without_plan != null && Number.isFinite(Number(assess.taxes_without_plan))
+      const riskTask = allTasks.find(t => t.name === 'Client risk profile complete')
+      const riskSet = !!riskTask && String(localProgress[riskTask.id]?.status || '').includes('Risk')
+      const blockedHint = !assessSubmitted
+        ? 'Submit the assessment form first'
+        : !hasTaxesWithoutPlan
+          ? 'Re-save the Assess form — the Total Taxes field is new'
+          : !riskSet
+            ? 'Set the Client risk profile step first'
+            : ''
+      const ready = !blockedHint
+
+      const genBlue = { padding: '5px 14px', borderRadius: '6px', fontSize: '12px', cursor: generating ? 'not-allowed' : 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600 }
+      const genGreen = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: green, fontWeight: 600 }
+      const genPlain = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: generating ? 'not-allowed' : 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }
+
+      // Builds the deck server-side and uploads it to Google Drive — 30-60s is
+      // normal (api.js gives this action a 90s budget and never auto-retries it).
+      async function generatePresentation() {
+        setDraft({ generating: true, genError: '' })
+        try {
+          const res = await callApi('tax_generate_presentation', { tax_plan_id: livePlan.id })
+          if (res?.error) { setDraft({ generating: false, genError: res.error }); return }
+          await refreshLivePlan()
+          setDeclineDrafts(d => { const n = { ...d }; delete n[task.id]; return n })
+        } catch (err) {
+          console.error(err)
+          setDraft({ generating: false, genError: err?.message || 'Generation failed' })
+        }
+      }
+
+      const dimmed = !generated && !ready && !locked
+      return (
+        <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)', padding: '7px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', opacity: dimmed ? 0.45 : 1 }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: generated ? green : 'transparent', flexShrink: 0, border: `1.5px solid ${generated ? green : 'var(--vfo-border-mid)'}` }} />
+            <span style={{ fontSize: '13px', color: generated ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
+            {generated ? (
+              <>
+                <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${green}22`, color: green, fontWeight: 600, border: `1px solid ${green}44` }}>Generated — {formatStamp(generatedAt)}</span>
+                {!locked && (
+                  <>
+                    <button onClick={() => window.open(deckUrl, '_blank', 'noopener')} style={genGreen} title="Opens the generated deck in Google Slides.">Download</button>
+                    <button disabled={generating} onClick={generatePresentation} style={genPlain} title="Builds a fresh deck from the current figures and replaces the link above.">{generating ? 'Generating…' : 'Regenerate'}</button>
+                  </>
+                )}
+              </>
+            ) : locked ? null : ready ? (
+              <button disabled={generating} onClick={generatePresentation} style={genBlue} title="Builds the client ROI deck in Google Slides from the Assess form figures. Takes up to a minute.">{generating ? 'Generating…' : 'Generate presentation'}</button>
+            ) : (
+              <span style={{ fontSize: '11px', color: '#e06717', fontWeight: 600 }}>{blockedHint}</span>
+            )}
+            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{generatedAt ? formatStamp(generatedAt) : ''}</span>
+          </div>
+          {genError && !locked && (
+            <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '12px', marginTop: '6px', marginLeft: '18px' }}>{genError}</div>
           )}
         </div>
       )
