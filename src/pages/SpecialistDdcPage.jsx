@@ -258,7 +258,7 @@ function FilePicker({ token, slot, accept, multi, value, onChange }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
           {files.map((f, i) => (
             <div key={i} style={fileChip}>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {f.name}{f.size ? <span style={{ color: 'var(--vfo-muted)' }}> · {prettySize(f.size)}</span> : null}</span>
+              <span title={f.name} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {f.name}{f.size ? <span style={{ color: 'var(--vfo-muted)' }}> · {prettySize(f.size)}</span> : null}</span>
               <button onClick={() => remove(i)} style={removeBtn} title="Remove">✕</button>
             </div>
           ))}

@@ -130,7 +130,7 @@ export default function PlannerClientsList() {
       <ListHeader title="Tax Planning" count={filtered.length} />
 
       <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
-        <input placeholder="Search by client, ref, or member..." style={inputStyle} onChange={e => setSearch(e.target.value)} value={search} />
+        <input type="search" name="search" autoComplete="off" placeholder="Search by client, ref, or name..." style={inputStyle} onChange={e => setSearch(e.target.value)} value={search} />
         {others.length > 0 && (
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <button

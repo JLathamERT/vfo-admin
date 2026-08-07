@@ -266,7 +266,7 @@ function MemberSpecialists({ member, allExperts, exclusions, ecoMap = {}, onData
         <div><div style={{ fontSize: '32px', fontWeight: '700', color: 'var(--vfo-ink)' }}>{enabledCount}</div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', letterSpacing: '1px' }}>ENABLED</div></div>
         <div><div style={{ fontSize: '32px', fontWeight: '700', color: 'var(--vfo-ink)' }}>{regularExperts.length}</div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', letterSpacing: '1px' }}>TOTAL</div></div>
       </div>
-      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search specialists..." style={{ ...inputStyle, marginBottom: '12px' }} />
+      <input type="search" name="search" autoComplete="off" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search specialists..." style={{ ...inputStyle, marginBottom: '12px' }} />
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
         <button onClick={enableAll} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Enable All</button>
         <button onClick={disableAll} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Disable All</button>

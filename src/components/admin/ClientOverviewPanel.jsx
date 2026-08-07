@@ -189,7 +189,7 @@ export default function ClientOverviewPanel() {
       </div>
 
       <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <input placeholder="Search by client, ref, member #, or member name..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...sel, flex: 1, minWidth: '240px', background: 'var(--vfo-input)' }} />
+        <input type="search" name="search" autoComplete="off" placeholder="Search by client, ref, number, or name..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...sel, flex: 1, minWidth: '240px', background: 'var(--vfo-input)' }} />
         <ListFilterButton groups={filterGroups} value={listFilter} onChange={setListFilter} />
         <SortSelect value={listSort} onChange={v => { setListSort(v); resetColSort() }} options={CLIENT_SORT_OPTIONS} />
       </div>

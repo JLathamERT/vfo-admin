@@ -138,7 +138,7 @@ export default function MemberWebsitePlugin({ member, onDataChange, readOnly = f
               ))}
             </div>
             <div style={{ position: 'relative' }}>
-              <input value={fontSearch} onChange={e => handleFontSearch(e.target.value)}
+              <input type="search" name="search" autoComplete="off" value={fontSearch} onChange={e => handleFontSearch(e.target.value)}
                 placeholder="Search Google Fonts..."
                 style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }} />
               {fontResults.length > 0 && (

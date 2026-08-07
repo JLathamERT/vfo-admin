@@ -114,12 +114,12 @@ export default function VaultSections({ actions, params = {}, sections = DEFAULT
               {(data[sec.key] || []).length === 0 && <div style={{ color: 'var(--vfo-muted)', fontSize: '13px', marginBottom: '12px' }}>No documents yet.</div>}
               {(data[sec.key] || []).map(f => (
                 <div key={f.path} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', marginBottom: '8px' }}>
-                  <span>📄</span>
-                  <span style={{ fontSize: '13px', color: 'var(--vfo-ink-2)', flex: 1 }}>{f.name}</span>
-                  <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{fmtSize(f.size)}</span>
-                  <button onClick={() => view(sec, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>View</button>
+                  <span style={{ flexShrink: 0 }}>📄</span>
+                  <span title={f.name} style={{ fontSize: '13px', color: 'var(--vfo-ink-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                  <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', flexShrink: 0, whiteSpace: 'nowrap' }}>{fmtSize(f.size)}</span>
+                  <button onClick={() => view(sec, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>View</button>
                   {!sec.readOnly && (
-                    <button onClick={() => remove(sec, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer' }}>Remove</button>
+                    <button onClick={() => remove(sec, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>Remove</button>
                   )}
                 </div>
               ))}
