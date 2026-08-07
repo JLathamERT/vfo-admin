@@ -3,10 +3,10 @@ import { callApi } from '../../lib/api'
 import { Skeleton } from '../shared/Skeleton'
 import PaymentsTable from './PaymentsTable'
 
-// Admin-only GLOBAL Payments page — the top-level "Payments" tab in AdminPortal
-// (Jake-only). One place to track every DB-resident payment across all clients,
+// Admin GLOBAL Payments page — the top-level "Payments" tab in AdminPortal
+// (Accounting-tab grant). One place to track every DB-resident payment across all clients,
 // members and specialists, filterable by person type AND payment type. Backed by
-// all_payments_load (superadmin-gated). The two per-person sources that come LIVE from
+// all_payments_load (accounting-tab gated). The two per-person sources that come LIVE from
 // Stripe (specialist month-by-month license history; member rev-share payouts) are NOT
 // shown here — they live on each person's own Payments tab; this page says so.
 const wrap = { maxWidth: '1040px', margin: '0 auto', padding: '28px 24px' }

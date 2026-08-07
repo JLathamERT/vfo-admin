@@ -58,7 +58,7 @@ Each arrow is either:
 
 **Context:** standalone VFO Tax Planning clients pay a deposit BEFORE we even know they exist (typically via a public Stripe payment link, outside our system). Admin then creates the client record and binds them to the program. Holistic Tax Priorities (program_id=1) clients don't see this phase — they arrive via MAP1.
 
-**As of 2026-07-27 the Set Up phase contains exactly ONE task.** The former `tax_greenlight` ("Tax Plan Greenlight", Go/Stop) task is **deleted**, and the former "Refund Paid" task has been renamed and **relocated to the LAST step of Tax 1 - Diagnostic** as a single go/no-go decision — see [Step 0b](#step-0b--tax-plan-greenred-light-decision-last-step-of-tax-1---diagnostic) below.
+**As of 2026-07-27 the Set Up phase contains exactly ONE task.** The former `tax_greenlight` ("Tax Plan Greenlight", Go/Stop) task is **deleted**, and the former "Refund Paid" task has been renamed and **relocated into Tax 1 - Diagnostic** as a single go/no-go decision — see [Step 0b](#step-0b--tax-plan-greenred-light-decision-inside-tax-1---diagnostic) below. **It was the LAST step of Tax 1 from 2026-07-27 until the 2026-08-07 reorder; it now sits at `task_order=6` with "Client risk profile complete" (7) and "Allocate to Advanced Tax Planner" (8) after it.**
 
 | Task | status_options | What it does |
 |---|---|---|
@@ -68,9 +68,9 @@ Each arrow is either:
 
 ---
 
-## Step 0b — Tax Plan Green/Red Light decision (LAST step of Tax 1 - Diagnostic)
+## Step 0b — Tax Plan Green/Red Light decision (inside Tax 1 - Diagnostic)
 
-**Task:** "Tax Plan Green/Red Light - Refund $500 Deposit if unable to proceed based on the information provided" (`program_client_tasks` id **116**, sentinel `status_options='tax_refund'`, `phase_id=26`, `task_order=8`). It is the last VISIBLE step of Tax 1, sitting immediately below "Additional information required" (the three hidden legacy rows 120–122 occupy orders 5–7 and stay filtered out — see gotcha #271). The decision is deliberately placed at the END of the diagnostic, because that is where the information needed to make it arrives.
+**Task:** "Tax Plan Green/Red Light - Refund $500 Deposit if unable to proceed based on the information provided" (`program_client_tasks` id **116**, sentinel `status_options='tax_refund'`, `phase_id=26`, **`task_order=6` as of the 2026-08-07 reorder** — it was `task_order=8`/last from 2026-07-27 until then). It sits immediately below "Additional information required" (the three hidden legacy rows 120–122 occupy orders **3–5** and stay filtered out — see gotcha #271), and is followed by "Client risk profile complete" (117, order 7) and "Allocate to Advanced Tax Planner" (118, order 8). The decision is deliberately placed AFTER the information-gathering steps, because that is where the information needed to make it arrives — the risk profile and planner allocation now follow it, since neither is worth doing until the plan has a green light. See the [Tax 1 order](#tax-1---diagnostic-step-order-2026-08-07-reorder) section below.
 
 **Two admin buttons:**
 
@@ -92,6 +92,31 @@ Each arrow is either:
 **External calls:** Stripe `GET /v1/payment_intents/<id>`, Stripe `POST /v1/refunds`, Gmail drafts API.
 
 > **Proceed is the normal lifecycle path** — flow continues to Step 1 below. Refund closes the engagement (`overview-tax.ts` reports `"Stopped — deposit refunded"`). The whole deposit / Set Up / Green-Red-Light flow is **program_id=4 (standalone VFO Tax Planning) only**.
+
+---
+
+## Tax 1 - Diagnostic step order (2026-08-07 reorder)
+
+User-requested on 2026-08-07: **"Client risk profile complete" and "Allocate to Advanced Tax Planner" move to AFTER the Green/Red Light decision** — there is no point profiling a client's risk or burning a planner allocation on a plan that may be red-lighted. Program 1 (Holistic Tax Priorities) has **no** Green/Red Light step at all, so by explicit user choice the same two steps moved to the **END** of its Tax 1 instead, keeping the two programs' Tax 1 shape as close as the differing step sets allow.
+
+**DML only** — a `task_order` rewrite, migration `supabase/migrations/20260807100000_tax1_reorder_risk_allocation.sql`, applied live via MCP `apply_migration` and committed as a file (#196). **No task ids changed, so ZERO `client_tax_progress` selections were touched** (verified by row counts before/after: task 83 = 14, 84 = 14, 116 = 9, 117 = 17, 118 = 18).
+
+| Program 4 (VFO Tax Planning) — `phase_id=26` | | Program 1 (Holistic Tax Priorities) — `phase_id=18` | |
+|---|---|---|---|
+| 1 | 172 Request Tax Returns (`tax_returns_request`) | 1 | 85 Additional information required |
+| 2 | 119 Additional information required | 2 | 86 Email to obtain information required sent *(hidden legacy)* |
+| 3 | 120 Email to obtain information required sent *(hidden legacy)* | 3 | 87 Information received *(hidden legacy)* |
+| 4 | 121 Information received *(hidden legacy)* | 4 | 88 Information passed to VFO-L *(hidden legacy)* |
+| 5 | 122 Information passed to VFO-L *(hidden legacy)* | 5 | **83 Client risk profile complete** |
+| 6 | **116 Tax Plan Green/Red Light** (`tax_refund`) | 6 | **84 Allocate to Advanced Tax Planner** (`tax_planner_select`) |
+| 7 | **117 Client risk profile complete** | | |
+| 8 | **118 Allocate to Advanced Tax Planner** (`tax_planner_select`) | | |
+
+The hidden legacy rows (86–88 / 120–122) stay filtered out of every surface — see gotcha #271.
+
+**Accepted consequence (explicit user decision, 2026-08-07):** `computeTrack`'s skipped-step warnings are **positional**, so moving a step retroactively changes `next_action` and the warning scan on plans that already exist. Roughly **16 existing plans** gained a "skipped step" warning in Client Overview, and **every NEW Holistic plan opens with one**, because #261 auto-seeds the risk profile at plan creation and the risk step now sits last. The user reviewed this and chose to accept the new warnings rather than change the seeding. See gotcha **#339**.
+
+**Portal sessions need a page reload to see the new order** — the task template is module-cached client-side.
 
 ---
 

@@ -5,13 +5,20 @@
 > their first payment at a public link, and a daily sweep runs every charge after that.
 > Admin surface: **Accounting → Members → Advisor Membership Fees / Accountant Membership Fees**
 > (`src/components/admin/MembershipFeesPanel.jsx`; actions also under `TAB_ACTIONS.accounting`).
-> **Gating SPLIT 2026-08-04 (v700):** the two panel mounts in `AdminPortal.jsx` relaxed from
-> `session.is_superadmin` to `canSeeTab('accounting')`, and the panel now takes an `isSuperadmin`
-> prop. **Every money control — Set Up Payments / create, setup + update links, the auto-renew
-> toggle, next-year terms, Pause, Terminate, cancel, resend/reminder — renders ONLY for a
-> superadmin.** An accounting-tab admin sees the read-only cards, the schedule, the pause history
-> and the **Renewal meeting** section, which is the whole point of the change: Rachael Hopson
-> works the renewal queue and is not a superadmin (gotcha #333).
+> **Gating SPLIT 2026-08-04 (v700), then COLLAPSED to FULL PARITY 2026-08-07 (v707).** The 08-04
+> split relaxed the two `AdminPortal.jsx` mounts from `session.is_superadmin` to
+> `canSeeTab('accounting')` and put every money control behind a new `isSuperadmin` prop, so an
+> accounting-tab admin saw read-only cards, the schedule, the pause history and the **Renewal
+> meeting** section and nothing that spends money (#333). **That split is GONE.** On 2026-08-07 the
+> user decided the `accounting` grant is the WHOLE boundary — *"they should see all sections and
+> be able to do anything they want within those sections like i can"*. Both mounts now pass
+> **`isSuperadmin={canSeeTab('accounting')}`**, so the prop still exists (and still guards every
+> money control in the panel) but is fed the TAB GRANT rather than the superadmin flag: a granted
+> admin gets Set Up Payments / create, setup + update links, the auto-renew toggle, next-year
+> terms, Pause, Terminate, cancel and resend/reminder. Correspondingly **every `membership_*`
+> handler dropped its in-handler `auth.isSuperadmin` 403** — `TAB_ACTIONS.accounting` is now the
+> only gate on the whole family. Gotcha **#338** (and #333, whose "TWO deliberate exceptions"
+> framing is superseded by this).
 > Sandbox: `pipeline_sandbox_config` row `MEMBER_MEMBERSHIP`
 > (badge on both panels — **SANDBOX as of 2026-07-13**). Gotchas #215–#217.
 
@@ -285,7 +292,9 @@ fires the **action-required** bell `MEMBERSHIP_renewal_meeting_requested` (defau
 `membership_renewal_meeting_outcome` stamps `completed_at` / `outcome` / `recorded_by`;
 **`cancel` also flips `auto_renew=false` and drafts `MEMBERSHIP_cancel_confirmation` (id 213)**
 best-effort. **Both outcomes clear the bell** — nothing else does. This action is deliberately
-**accounting-tab, not superadmin**: it records a conversation, it moves no money.
+**accounting-tab, not superadmin**: it records a conversation, it moves no money. (As of the
+2026-08-07 full-parity pass that is no longer distinctive — the whole `membership_*` family is
+accounting-tab-gated with no in-handler superadmin check, #338.)
 
 **Operational cost to know about:** both templates are **Draft mode**, so a human has to send each
 renewal notice out of Gmail Drafts. And the emailed button is a live `vfoportal.com` URL — **the
@@ -302,8 +311,10 @@ needs its own decision about what "lapsed" should mean; it was named this sessio
 every remaining payment moves N months later, and the membership year ends N months later.
 **The plan stays `status='active'` throughout** — a pause is purely a schedule-shape change plus a
 `renewal_date` shift, so nothing keyed off `plan.status` (the charge pass, the notice pass,
-terminate/cancel eligibility) has to learn a new state. `membership_pause` is **superadmin-only
-in-handler**, same shape as `terminate`; months are 1–12.
+terminate/cancel eligibility) has to learn a new state. `membership_pause` **was superadmin-only
+in-handler** (same shape as `terminate`) until 2026-08-07, when both handlers dropped that check
+under the full-parity decision — the `accounting` tab grant is now the whole gate (#338); months
+are 1–12.
 
 **Mechanics, in the order they matter.** Scheduled `kind='membership'` rows shift +N months in
 **DESCENDING `due_date` order**, so the partial unique `(plan_id, due_date) WHERE
