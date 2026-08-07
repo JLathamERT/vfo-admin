@@ -57,9 +57,11 @@ const OTHER_SPEC_VALUE = '__other__'
 // A plan belongs to program (plan.program_id || 1): NULL/undefined is legacy
 // Holistic (program 1). A program view must render ONLY its own plans —
 // tax_load_plans returns every plan for the client regardless of program, so a
-// Holistic plan opened under the VFO Tax Planning view half-worked because
-// program-4-only auto-stamps (e.g. tax_returns_received_at) are hard-gated to
-// program-4 plans on the backend (gotcha #123).
+// plan opened under the wrong program view drives the wrong plan's chains
+// (gotcha #123). NOTE: the backend auto-stamps are no longer program-4-only —
+// as of 2026-08-07 tax_returns_received_at stamps BOTH programs (program 4
+// unconditionally, Holistic only when tax_returns_requested_at is set), so this
+// filter is the UI contract, not a workaround for a one-sided backend (#340).
 const plansForProgram = (plans, programId) =>
   (plans || []).filter(p => (p.program_id || 1) === (programId || 1))
 
@@ -1861,7 +1863,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         <div key={key}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, flexShrink: 0, border: `1.5px solid ${dotBorder}` }} />
-            <span style={{ fontSize: '13px', color: (done || requestedAt) ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_request_returns', when: 'Asks the client to upload tax returns via a secure link' }]} context={emailCtx} /></span>}</span>
+            <span style={{ fontSize: '13px', color: (done || requestedAt) ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: (plan.program_id || 1) === 1 ? 'TAX_request_returns|holistic' : 'TAX_request_returns', when: 'Asks the client to upload tax returns via a secure link' }]} context={emailCtx} /></span>}</span>
             {done ? (
               <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: '#1b925422', color: '#1b9254', fontWeight: 600, border: '1px solid #1b925444' }}>Returns received — {formatStamp(receivedAt)}</span>
             ) : readOnly ? (

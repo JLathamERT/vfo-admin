@@ -50,6 +50,7 @@ export const TEMPLATE_META = {
   ],
   'TAX': [
     ['TAX_request_returns', 'Request Tax Returns step (Tax Planning) — asks the client to upload their tax returns via a secure link', 'To: Client · Cc: PF + Member'],
+    ['TAX_request_returns|holistic', 'Request Tax Returns step (Holistic) — Holistic wording of the email asking the client to upload their tax returns via a secure link', 'To: Client · Cc: PF + Member'],
     ['TAX_request_additional_info', 'Request Additional Information step (Tax 1 - Diagnostic, Holistic + Tax Planning) — emails the client the additional information you request with a secure upload link', 'To: Client · Cc: PF + Member + Tax Planner'],
     ['TAX_highlevelmeeting_confirm|Yes', 'High Level Tax Planning meeting is booked — confirmation', 'To: Client · Auto-Cc: Member + PF'],
     ['TAX_presentation_link', 'Sends the member the tax presentation link ahead of the ROI meeting', 'To: Member · Auto-Cc: PF'],

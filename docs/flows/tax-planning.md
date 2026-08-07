@@ -95,21 +95,23 @@ Each arrow is either:
 
 ---
 
-## Tax 1 - Diagnostic step order (2026-08-07 reorder)
+## Tax 1 - Diagnostic step order (2026-08-07 — TWO changes that day)
 
 User-requested on 2026-08-07: **"Client risk profile complete" and "Allocate to Advanced Tax Planner" move to AFTER the Green/Red Light decision** — there is no point profiling a client's risk or burning a planner allocation on a plan that may be red-lighted. Program 1 (Holistic Tax Priorities) has **no** Green/Red Light step at all, so by explicit user choice the same two steps moved to the **END** of its Tax 1 instead, keeping the two programs' Tax 1 shape as close as the differing step sets allow.
 
 **DML only** — a `task_order` rewrite, migration `supabase/migrations/20260807100000_tax1_reorder_risk_allocation.sql`, applied live via MCP `apply_migration` and committed as a file (#196). **No task ids changed, so ZERO `client_tax_progress` selections were touched** (verified by row counts before/after: task 83 = 14, 84 = 14, 116 = 9, 117 = 17, 118 = 18).
 
+**The SECOND session that day inserted a step at the top of the Holistic column** — `program_client_tasks` **175 "Request Tax Returns"** (`task_order=1`, `status_options='tax_returns_request'`), which shifted the six rows below it down one (85→2, 86→3, 87→4, 88→5, 83→6, 84→7). Migration `supabase/migrations/20260807120000_holistic_request_tax_returns.sql`, again **DML only, no id changes, zero selections moved** (counts before/after: 83 = 14, 84 = 14, 85 = 13). The table below shows the FINAL state after both changes.
+
 | Program 4 (VFO Tax Planning) — `phase_id=26` | | Program 1 (Holistic Tax Priorities) — `phase_id=18` | |
 |---|---|---|---|
-| 1 | 172 Request Tax Returns (`tax_returns_request`) | 1 | 85 Additional information required |
-| 2 | 119 Additional information required | 2 | 86 Email to obtain information required sent *(hidden legacy)* |
-| 3 | 120 Email to obtain information required sent *(hidden legacy)* | 3 | 87 Information received *(hidden legacy)* |
-| 4 | 121 Information received *(hidden legacy)* | 4 | 88 Information passed to VFO-L *(hidden legacy)* |
-| 5 | 122 Information passed to VFO-L *(hidden legacy)* | 5 | **83 Client risk profile complete** |
-| 6 | **116 Tax Plan Green/Red Light** (`tax_refund`) | 6 | **84 Allocate to Advanced Tax Planner** (`tax_planner_select`) |
-| 7 | **117 Client risk profile complete** | | |
+| 1 | 172 Request Tax Returns (`tax_returns_request`) | 1 | **175 Request Tax Returns** (`tax_returns_request`) — **NEW**, see below |
+| 2 | 119 Additional information required | 2 | 85 Additional information required |
+| 3 | 120 Email to obtain information required sent *(hidden legacy)* | 3 | 86 Email to obtain information required sent *(hidden legacy)* |
+| 4 | 121 Information received *(hidden legacy)* | 4 | 87 Information received *(hidden legacy)* |
+| 5 | 122 Information passed to VFO-L *(hidden legacy)* | 5 | 88 Information passed to VFO-L *(hidden legacy)* |
+| 6 | **116 Tax Plan Green/Red Light** (`tax_refund`) | 6 | **83 Client risk profile complete** |
+| 7 | **117 Client risk profile complete** | 7 | **84 Allocate to Advanced Tax Planner** (`tax_planner_select`) |
 | 8 | **118 Allocate to Advanced Tax Planner** (`tax_planner_select`) | | |
 
 The hidden legacy rows (86–88 / 120–122) stay filtered out of every surface — see gotcha #271.
@@ -117,6 +119,24 @@ The hidden legacy rows (86–88 / 120–122) stay filtered out of every surface 
 **Accepted consequence (explicit user decision, 2026-08-07):** `computeTrack`'s skipped-step warnings are **positional**, so moving a step retroactively changes `next_action` and the warning scan on plans that already exist. Roughly **16 existing plans** gained a "skipped step" warning in Client Overview, and **every NEW Holistic plan opens with one**, because #261 auto-seeds the risk profile at plan creation and the risk step now sits last. The user reviewed this and chose to accept the new warnings rather than change the seeding. See gotcha **#339**.
 
 **Portal sessions need a page reload to see the new order** — the task template is module-cached client-side.
+
+---
+
+## Request Tax Returns — the same step in BOTH programs (2026-08-07)
+
+Until 2026-08-07 only **VFO Tax Planning (program 4)** had a "Request Tax Returns" step (`program_client_tasks` **172**, sentinel `tax_returns_request`, first in Tax 1 - Diagnostic). **Holistic had no step at all** — its clients were asked for returns by an "Upload Tax Documents" button inside the **MAP 1 first-payment invoice/receipt email**, which minted `clients.tax_upload_token` and linked `/tax-upload`. That worked as an email and failed as a process: no request stamp, no received stamp, no step to look at, and no phase-scoped bell — the upload landed as a generic `UPLOAD_tax_return_uploaded` FYI and the tax track never moved. Holistic now has the real step (**task 175**), the first-payment email has given the job up ([contract-and-payment.md](contract-and-payment.md) Step 12, gotcha **#341**), and the whole model is gotcha **#340**.
+
+**Handler.** `automation_TAX_request_returns` (`actions/tax/request-returns.ts`, AUTH, `ADMIN_ONLY_ACTIONS` — deliberately **not** planner-allowed, unlike the additional-info twin, #262). Unchanged in shape: mints `clients.tax_upload_token` if absent, drafts a Gmail to the client carrying the secure `/tax-upload?token=` link and an "Upload Tax Returns" button, stamps `client_tax_plans.tax_returns_requested_at`.
+
+**Per-program wording.** The plan's `program_id` is now in the handler's `.select()`, and the template is chosen `(plan.program_id || 1) === 1 ? 'TAX_request_returns|holistic' : 'TAX_request_returns'`, **falling back to the base name** when the variant row is missing or inactive. `email_templates` **214** (`TAX_request_returns|holistic`, pipeline `TAX`, **Draft mode**, To `[CLIENT]`, Cc `[ASSIGNED_PF, MEMBER, tnmiller@vfo-services.com, tvaldes@vfo-services.com]`, Bcc `[platham@elitert.com, aanderson@elitert.com]`) is a copy of row **194** differing only in its opening line ("We're now ready to begin work on the tax planning priority within your VFO Services Membership."), with #326-correct addresses. **`gmailDraftFetch` receives the template name ACTUALLY used** — that argument resolves the per-template Draft/Send toggle, so passing the hardcoded base name while drafting from 214 would silently apply the wrong row's send mode. The frontend mirrors the same ternary in the step's `StepEmailsChip` (`TaxPrioritiesTab.jsx`) and `templateMeta.js` carries the matching description.
+
+**Upload → received, and why the Holistic half is REQUEST-GATED.** `actions/vault/upload-notify.ts` runs **two independent lookups**: the newest **program-4** plan (unconditional — that step's request is implicit) and the newest **Holistic** plan, selected `.or("program_id.is.null,program_id.eq.1")` — `.eq` would exclude the NULL legacy rows — **and only when `tax_returns_requested_at` is set**. Every unstamped candidate gets `tax_returns_received_at`; the `TAX_returns_received` bell (Tracy / Tray) fires **exactly once**; a client holding plans in BOTH programs has both stamped by one upload. The request-gate is the compatibility layer, not a nicety: **`clients.tax_upload_token` is durable and per-client**, so every `/tax-upload` link sent by an older first-payment email is the SAME URL the new step mints — without the gate those old links would retro-green a step for Holistic clients who were never asked. An upload with no requested plan still falls through to the generic FYI, byte-identically to before.
+
+> **v710 exists because the first shape was wrong.** v709 made the Holistic lookup an `else` on the program-4 one, so a client holding plans in both programs had program 4 **swallow** the upload and the Holistic plan never went green. Caught in click-testing, fixed by making the lookups independent and the stamp a loop. On a two-program client, "the newest plan" is never one query.
+
+**Done-state.** Like its program-4 twin the step is **column-proven and writes NO `client_tax_progress` row** — `done = !!tax_returns_received_at`, `at = received ?? requested`. `overview-tax.ts`'s `tax_returns_request` sentinel branch (added v708, gotcha **#339**) is therefore what keeps Client Overview honest for BOTH programs.
+
+**Accepted consequence (explicit user decision).** Inserting the step at `task_order=1` means every existing Holistic plan's Tax 1 reopens as not-done until returns are requested and received, and the **12 Holistic plans already past Tax 1** gained a permanent "Request Tax Returns — not recorded" warning in Client Overview (#339's positional-warning mechanics). The user was shown this and accepted it. Portal sessions need a **page reload** to pick up the new step.
 
 ---
 
