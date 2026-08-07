@@ -130,6 +130,20 @@ function NavDropdown({ label, items, onSelect, isActive, muted = false }) {
   )
 }
 
+// Every accountingSection key the Accounting tab renders a block for. Used only by
+// the fallback card below, so a stale sessionStorage key can never blank the page.
+const ACCOUNTING_SECTIONS = [
+  'payments',
+  'specialist_revenue', 'specialist_payment_input', 'specialist_recurring', 'specialist_reconciliation',
+  'specialist_license', 'specialist_bg',
+  'holistic_revenue', 'holistic_reconciliation',
+  'tax_revenue', 'tax_reconciliation',
+  'pip_revenue', 'pip_reconciliation',
+  'advisor_onboarding_fees', 'advisor_membership_fees',
+  'accountant_onboarding_fees', 'accountant_membership_fees',
+  'gc_accounting',
+]
+
 export default function AdminPortal() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -826,10 +840,10 @@ export default function AdminPortal() {
             <NotificationEditorPanel />
           )}
 
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'payments' && (
+          {activeTab === 'accounting' && !loading && canSeeTab('accounting') && accountingSection === 'payments' && (
             <AllPaymentsTab />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && (accountingSection === 'specialist_revenue' || accountingSection === 'specialist_payment_input' || accountingSection === 'specialist_recurring' || accountingSection === 'specialist_reconciliation') && (
+          {activeTab === 'accounting' && !loading && canSeeTab('accounting') && (accountingSection === 'specialist_revenue' || accountingSection === 'specialist_payment_input' || accountingSection === 'specialist_recurring' || accountingSection === 'specialist_reconciliation') && (
             <AccountingCombinedPanel
               breadcrumb="Accounting · Specialists" title="VFO Specialist Revenue"
               maxWidth="1200px" initialKey={accountingSection === 'specialist_payment_input' ? 'specialist_revenue' : accountingSection}
@@ -841,13 +855,13 @@ export default function AdminPortal() {
               ]}
             />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'specialist_license' && (
+          {activeTab === 'accounting' && !loading && canSeeTab('accounting') && accountingSection === 'specialist_license' && (
             <SpecialistLicensePanel />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'specialist_bg' && (
+          {activeTab === 'accounting' && !loading && canSeeTab('accounting') && accountingSection === 'specialist_bg' && (
             <SpecialistBgPanel />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && (accountingSection === 'holistic_revenue' || accountingSection === 'holistic_reconciliation') && (
+          {activeTab === 'accounting' && !loading && canSeeTab('accounting') && (accountingSection === 'holistic_revenue' || accountingSection === 'holistic_reconciliation') && (
             <AccountingCombinedPanel
               breadcrumb="Accounting · VFO Services" title="Holistic Planning"
               maxWidth="1150px" initialKey={accountingSection}
@@ -858,7 +872,7 @@ export default function AdminPortal() {
               ]}
             />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && (accountingSection === 'tax_revenue' || accountingSection === 'tax_reconciliation') && (
+          {activeTab === 'accounting' && !loading && canSeeTab('accounting') && (accountingSection === 'tax_revenue' || accountingSection === 'tax_reconciliation') && (
             <AccountingCombinedPanel
               breadcrumb="Accounting · VFO Services" title="Tax Planning"
               maxWidth="1150px" initialKey={accountingSection}
@@ -869,7 +883,7 @@ export default function AdminPortal() {
               ]}
             />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && (accountingSection === 'pip_revenue' || accountingSection === 'pip_reconciliation') && (
+          {activeTab === 'accounting' && !loading && canSeeTab('accounting') && (accountingSection === 'pip_revenue' || accountingSection === 'pip_reconciliation') && (
             <AccountingCombinedPanel
               breadcrumb="Accounting · VFO Services" title="Additional PIP"
               maxWidth="1150px" initialKey={accountingSection}
@@ -879,22 +893,27 @@ export default function AdminPortal() {
               ]}
             />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'advisor_onboarding_fees' && (
+          {activeTab === 'accounting' && !loading && canSeeTab('accounting') && accountingSection === 'advisor_onboarding_fees' && (
             <MemberOnboardingPanel kind="advisor" title="Advisor Onboarding" />
           )}
           {activeTab === 'accounting' && !loading && canSeeTab('accounting') && accountingSection === 'advisor_membership_fees' && (
             <MembershipFeesPanel title="Advisor Membership Fees" category="advisor" allMembers={allMembers}
-              isSuperadmin={!!session.is_superadmin} initialMemberNumber={initialMemberNumber} />
+              isSuperadmin={canSeeTab('accounting')} initialMemberNumber={initialMemberNumber} />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'accountant_onboarding_fees' && (
+          {activeTab === 'accounting' && !loading && canSeeTab('accounting') && accountingSection === 'accountant_onboarding_fees' && (
             <MemberOnboardingPanel kind="accountant" title="Accountant Onboarding" />
           )}
           {activeTab === 'accounting' && !loading && canSeeTab('accounting') && accountingSection === 'accountant_membership_fees' && (
             <MembershipFeesPanel title="Accountant Membership Fees" category="accountant" allMembers={allMembers}
-              isSuperadmin={!!session.is_superadmin} initialMemberNumber={initialMemberNumber} />
+              isSuperadmin={canSeeTab('accounting')} initialMemberNumber={initialMemberNumber} />
           )}
-          {activeTab === 'accounting' && !loading && session.is_superadmin && accountingSection === 'gc_accounting' && (
+          {activeTab === 'accounting' && !loading && canSeeTab('accounting') && accountingSection === 'gc_accounting' && (
             <GrowthCreditsAccountingPanel />
+          )}
+          {activeTab === 'accounting' && !loading && (!canSeeTab('accounting') || !ACCOUNTING_SECTIONS.includes(accountingSection)) && (
+            <div style={{ maxWidth: '620px', margin: '40px auto', padding: '22px 24px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', color: 'var(--vfo-muted)', fontSize: '13.5px', fontFamily: 'Inter, sans-serif' }}>
+              You don't have access to this section.
+            </div>
           )}
 
           {loading && activeTab && <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px' }}><DirectoryListSkeleton /></div>}

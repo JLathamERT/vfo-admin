@@ -203,9 +203,10 @@ const ghostBtn = { padding: '8px 16px', borderRadius: '8px', border: '1px solid 
 const dangerBtn = { padding: '8px 16px', borderRadius: '8px', border: '1px solid #f3c0c0', background: 'var(--vfo-card)', color: '#b91c1c', fontWeight: 700, fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }
 
 // isSuperadmin gates every money control (create/edit plans, payment links,
-// auto-renew, terminate, reminders). A non-superadmin admin who was granted the
-// Accounting tab gets the read-only cards, the schedule, and the renewal-meeting
-// section — enough to action the renewal-meeting bell, nothing that moves money.
+// auto-renew, terminate, reminders). Full-parity decision 2026-08-07: the Accounting
+// tab mount sites pass canSeeTab('accounting'), so a granted admin works every control
+// here — the tab grant, not superadmin, is the boundary. The prop name is kept so any
+// future non-accounting mount can still pin it to the superadmin alone.
 export default function MembershipFeesPanel({ title, category, allMembers = [], isSuperadmin = false, initialMemberNumber = null }) {
   const [section, setSection] = useState('members')
   const [plans, setPlans] = useState([])
