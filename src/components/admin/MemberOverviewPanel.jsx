@@ -135,7 +135,7 @@ export default function MemberOverviewPanel({ allMembers = [], onOpenMember }) {
       </div>
 
       <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <input placeholder="Search by name or member number..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...sel, flex: 1, minWidth: '240px', background: 'var(--vfo-input)' }} />
+        <input type="search" name="search" autoComplete="off" placeholder="Search by name or number..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...sel, flex: 1, minWidth: '240px', background: 'var(--vfo-input)' }} />
         <ListFilterButton groups={filterGroups} value={listFilter} onChange={setListFilter} />
         <SortSelect value={listSort} onChange={v => { setListSort(v); resetColSort() }} options={MEMBER_SORT_OPTIONS} />
       </div>

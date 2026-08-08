@@ -1019,7 +1019,7 @@ function ClientsPanel({ enrollment, member, program }) {
             : allMemberClients.length === 0
               ? <div style={{ padding: '20px', color: 'var(--vfo-muted)', textAlign: 'center' }}>No other clients found for this member.</div>
               : <>
-                  <input value={existingSearch} onChange={e => setExistingSearch(e.target.value)} placeholder="Search by name or ref..." style={{ ...inputStyle, marginBottom: '12px' }} />
+                  <input type="search" name="search" autoComplete="off" value={existingSearch} onChange={e => setExistingSearch(e.target.value)} placeholder="Search by name or ref..." style={{ ...inputStyle, marginBottom: '12px' }} />
                   {filteredExisting.map(c => (
                     <div key={c.id} onClick={() => linkExistingClient(c.id)}
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', cursor: 'pointer' }}

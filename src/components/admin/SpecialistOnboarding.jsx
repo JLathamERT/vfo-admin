@@ -1034,8 +1034,8 @@ function OnboardingDetail({ id, onBack }) {
               <div key={'f-' + label} style={{ marginBottom: '10px' }}>
                 <div style={lblStyle}>{label}</div>
                 {files.map((f, i) => (
-                  <div key={i} style={{ fontSize: '12px', padding: '2px 0' }}>
-                    <span onClick={() => openFile(f.path)} style={{ color: '#0095ff', cursor: 'pointer', textDecoration: 'underline' }}>📄 {f.name}</span>
+                  <div key={i} style={{ fontSize: '12px', padding: '2px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span onClick={() => openFile(f.path)} title={f.name} style={{ color: '#0095ff', cursor: 'pointer', textDecoration: 'underline', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {f.name}</span>
                   </div>
                 ))}
               </div>
@@ -1331,9 +1331,9 @@ function OnboardingDetail({ id, onBack }) {
                       <div style={{ margin: '2px 0 8px 14px' }}>
                         {text && <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: files.length ? '4px' : 0 }}>{text}</div>}
                         {files.map((f, i) => (
-                          <div key={i} style={{ fontSize: '12px', padding: '2px 0' }}>
-                            <span onClick={() => openFile(f.path)} style={{ color: '#0095ff', cursor: 'pointer', textDecoration: 'underline' }}>📄 {f.name}</span>
-                            {f.size ? <span style={{ color: 'var(--vfo-muted)' }}> · {Math.max(1, Math.round(f.size / 1024))} KB</span> : null}
+                          <div key={i} style={{ fontSize: '12px', padding: '2px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span onClick={() => openFile(f.path)} title={f.name} style={{ color: '#0095ff', cursor: 'pointer', textDecoration: 'underline', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {f.name}</span>
+                            {f.size ? <span style={{ color: 'var(--vfo-muted)', flexShrink: 0, whiteSpace: 'nowrap' }}>· {Math.max(1, Math.round(f.size / 1024))} KB</span> : null}
                           </div>
                         ))}
                       </div>

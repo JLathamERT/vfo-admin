@@ -389,7 +389,7 @@ function MemberDirectoryView({
         <>
           <ListHeader title={listTitle} count={filteredMembers.length} />
           <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
-            <input placeholder="Search by name or member number..." style={inputStyle} onChange={e => setMemberSearch(e.target.value.toLowerCase())} value={memberSearch} />
+            <input type="search" name="search" autoComplete="off" placeholder="Search by name or number..." style={inputStyle} onChange={e => setMemberSearch(e.target.value.toLowerCase())} value={memberSearch} />
             <ListFilterButton groups={filterGroups} value={listFilter} onChange={setListFilter} />
             <SortSelect value={listSort} onChange={setListSort} options={MEMBER_SORT_OPTIONS} />
           </div>
@@ -557,7 +557,7 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
       {isCorporate && (
         <div style={{ marginBottom: '16px', position: 'relative' }}>
           <label style={labelStyle}>Connected Member *</label>
-          <input value={connectedSearch} onChange={e => { setConnectedSearch(e.target.value); setConnectedMember(null) }} placeholder="Search by name or number..." style={inputStyle} />
+          <input type="search" name="search" autoComplete="off" value={connectedSearch} onChange={e => { setConnectedSearch(e.target.value); setConnectedMember(null) }} placeholder="Search by name or number..." style={inputStyle} />
           {connectedSearch && !connectedMember && (
             <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-mid)', borderRadius: '8px', zIndex: 10, maxHeight: '200px', overflowY: 'auto' }}>
               {allMembers.filter(m => m.name?.toLowerCase().includes(connectedSearch.toLowerCase()) || m.plugin_member_number?.toLowerCase().includes(connectedSearch.toLowerCase())).map(m => (
@@ -1311,6 +1311,9 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
             <div style={{ marginBottom: '16px', position: 'relative' }}>
               <label style={labelStyle}>Introduced By (search member)</label>
               <input
+                type="search"
+                name="search"
+                autoComplete="off"
                 value={introducedByObj && !showIntroducedSearch ? `${introducedByObj.name} (${introducedByObj.plugin_member_number})` : introducedSearch}
                 onChange={e => { setIntroducedSearch(e.target.value); setShowIntroducedSearch(true); if (!e.target.value) update('introduced_by_member_number', null) }}
                 placeholder="Search by name or number..."
@@ -1364,6 +1367,9 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
             <div style={{ position: 'relative', marginTop: '16px' }}>
               <label style={labelStyle}>Add Connection (search member)</label>
               <input
+                type="search"
+                name="search"
+                autoComplete="off"
                 value={connectedSearch}
                 onChange={e => { setConnectedSearch(e.target.value); setShowConnectedSearch(true) }}
                 placeholder="Search by name or number..."
@@ -1471,7 +1477,7 @@ function MemberSpecialists({ member, allExperts, allExclusionMap, ecoMap = {}, o
         <div><div style={{ fontSize: '32px', fontWeight: '700', color: 'var(--vfo-ink)' }}>{enabledCount}</div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', letterSpacing: '1px' }}>ENABLED</div></div>
         <div><div style={{ fontSize: '32px', fontWeight: '700', color: 'var(--vfo-ink)' }}>{regularExperts.length}</div><div style={{ fontSize: '11px', color: 'var(--vfo-muted)', letterSpacing: '1px' }}>TOTAL</div></div>
       </div>
-      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search specialists..." style={{ ...inputStyle, marginBottom: '12px' }} />
+      <input type="search" name="search" autoComplete="off" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search specialists..." style={{ ...inputStyle, marginBottom: '12px' }} />
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
         <button onClick={enableAll} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Enable All</button>
         <button onClick={disableAll} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Disable All</button>

@@ -177,7 +177,7 @@ export default function MemberShowroom({ experts = [], exclusions = [], ecoMap =
       <div className="vfo-sr-container">
         <div className="vfo-sr-search-wrap">
           <span className="vfo-sr-search-icon">{'⌕'}</span>
-          <input type="text" className="vfo-sr-search" placeholder="Search specialists..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input type="search" name="search" autoComplete="off" className="vfo-sr-search" placeholder="Search specialists..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
         <div className="vfo-sr-filters">

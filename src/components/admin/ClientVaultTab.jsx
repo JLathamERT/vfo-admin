@@ -147,17 +147,17 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
                 return (
                   <div key={f.path} style={{ marginBottom: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: open ? '8px 8px 0 0' : '8px' }}>
-                      <span style={{ fontSize: '14px' }}>{sec.canManage ? '📄' : '🔒'}</span>
-                      <span style={{ fontSize: '13px', color: 'var(--vfo-ink-2)', flex: 1 }}>{f.name}</span>
-                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>{fmtSize(f.size)}</span>
+                      <span style={{ fontSize: '14px', flexShrink: 0 }}>{sec.canManage ? '📄' : '🔒'}</span>
+                      <span title={f.name} style={{ fontSize: '13px', color: 'var(--vfo-ink-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', flexShrink: 0, whiteSpace: 'nowrap' }}>{fmtSize(f.size)}</span>
                       {sec.canManage ? (
                         <>
-                          <button onClick={() => view(sec, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, cursor: 'pointer' }}>View</button>
-                          {!readOnly && !sec.noShare && <button onClick={() => toggleShare(sec.bucket, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(18,94,204,0.4)', background: open ? 'rgba(18,94,204,0.22)' : 'rgba(18,94,204,0.1)', color: '#125ecc', fontWeight: 600, cursor: 'pointer' }}>Share</button>}
-                          {!readOnly && <button onClick={() => remove(sec, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer' }}>Delete</button>}
+                          <button onClick={() => view(sec, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>View</button>
+                          {!readOnly && !sec.noShare && <button onClick={() => toggleShare(sec.bucket, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(18,94,204,0.4)', background: open ? 'rgba(18,94,204,0.22)' : 'rgba(18,94,204,0.1)', color: '#125ecc', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>Share</button>}
+                          {!readOnly && <button onClick={() => remove(sec, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>Delete</button>}
                         </>
                       ) : (
-                        <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontStyle: 'italic' }}>locked</span>
+                        <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontStyle: 'italic', flexShrink: 0 }}>locked</span>
                       )}
                     </div>
                     {open && (

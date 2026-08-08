@@ -1519,7 +1519,7 @@ export default function MemberCIQ({ memberNumber, memberName, ciqEnabled = true,
             : allClients.length === 0
               ? <div style={{ padding: '20px', color: 'var(--vfo-muted)', textAlign: 'center' }}>No clients found for this member.</div>
               : <>
-                  <input value={clientSearch} onChange={e => setClientSearch(e.target.value)} placeholder="Search by name or ref..." style={{ ...inputStyle, marginBottom: '12px' }} />
+                  <input type="search" name="search" autoComplete="off" value={clientSearch} onChange={e => setClientSearch(e.target.value)} placeholder="Search by name or ref..." style={{ ...inputStyle, marginBottom: '12px' }} />
                   {filteredClients.map(c => (
                     <div key={c.id} onClick={() => createForExisting(c.id)}
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', marginBottom: '4px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', cursor: 'pointer' }}

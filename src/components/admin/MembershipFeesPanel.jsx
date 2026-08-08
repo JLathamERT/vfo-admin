@@ -176,7 +176,7 @@ function SearchSelect({ options, value, onChange, placeholder }) {
       </button>
       {open && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '4px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border)', borderRadius: '10px', zIndex: 50, boxShadow: '0 14px 36px rgba(20,45,95,0.16)', overflow: 'hidden' }}>
-          <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Search…"
+          <input type="search" name="search" autoComplete="off" autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Search…"
             style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: 'none', borderBottom: '1px solid var(--vfo-tint)', fontSize: '13px', outline: 'none', fontFamily: 'Inter, sans-serif', background: 'var(--vfo-card)', color: 'var(--vfo-ink)' }} />
           <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
             {filtered.length === 0 && <div style={{ padding: '12px', fontSize: '12px', color: 'var(--vfo-faint)' }}>No matches</div>}
@@ -320,7 +320,7 @@ function MembersSection({ plans, onChanged, onEdit, isSuperadmin, focusMember, o
   return (
     <div>
       <div style={{ display: 'flex', gap: '10px', marginBottom: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search name or member number…"
+        <input type="search" name="search" autoComplete="off" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search name or number…"
           style={{ ...input, width: '260px' }} />
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...input, width: '210px' }}>
           <option value="all">All statuses</option>

@@ -401,7 +401,7 @@ export default function TaxPlannersPanel({ section }) {
           )}
           <ListHeader title="Tax Planners" count={filteredPlanners.length} />
           <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
-            <input placeholder="Search by name or member type..." style={inputStyle} onChange={e => setSearch(e.target.value.toLowerCase())} value={search} />
+            <input type="search" name="search" autoComplete="off" placeholder="Search by name or type..." style={inputStyle} onChange={e => setSearch(e.target.value.toLowerCase())} value={search} />
             <ListFilterButton groups={listFilterGroups} value={listFilter} onChange={setListFilter} />
             <SortSelect value={listSort} onChange={setListSort} />
           </div>

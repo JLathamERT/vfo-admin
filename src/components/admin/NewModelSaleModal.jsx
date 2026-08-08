@@ -162,7 +162,7 @@ export default function NewModelSaleModal({ ob, kind, submitting, onClose, onCon
             </div>
           ) : (
             <>
-              <input value={query} placeholder="Type a name or member # — leave blank for n/a"
+              <input type="search" name="search" autoComplete="off" value={query} placeholder="Type a name or number — leave blank for n/a"
                 onChange={e => { setQuery(e.target.value); setShowResults(true) }}
                 onFocus={() => setShowResults(true)}
                 style={{ ...inputStyle }} />
