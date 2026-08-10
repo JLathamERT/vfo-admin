@@ -7,6 +7,11 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://ejpsprsmhpufwogbmxjv.su
 // Generic, on-demand login-setup page (Feature B). One page for all login
 // types — the token (login_setup_tokens) carries whether the person is a member,
 // specialist, client, or tax planner, and we route them to the right portal after.
+// It also serves PASSWORD RESETS: a token minted by request_password_reset (1h,
+// created_by='self-service') is indistinguishable here from an admin-sent 14-day
+// setup token, and deliberately so. Fields carry autoComplete metadata so a
+// password manager can update the saved entry rather than re-fill the old one
+// (gotcha #354).
 const PORTAL = {
   member: { label: 'Member', login: '/member/login' },
   specialist: { label: 'Specialist', login: '/specialist/login' },
@@ -95,11 +100,11 @@ export default function SetPasswordPage() {
         <h1 style={{ ...titleStyle, fontSize: '22px', textAlign: 'center', marginBottom: '32px' }}>Set Up Your {portal.label} Portal Access</h1>
         <form onSubmit={handleSubmit} style={formStyle}>
           <label style={labelStyle}>Email</label>
-          <input value={data?.email || ''} readOnly style={{ ...inputStyle, opacity: 0.6, cursor: 'not-allowed' }} />
+          <input id="email" name="email" autoComplete="username" type="email" value={data?.email || ''} readOnly style={{ ...inputStyle, opacity: 0.6, cursor: 'not-allowed' }} />
           <label style={{ ...labelStyle, marginTop: '16px' }}>Passcode (min 6 characters)</label>
-          <input value={passcode} onChange={e => setPasscode(e.target.value)} type="password" autoComplete="new-password" required minLength={6} style={inputStyle} />
+          <input id="new-password" name="new-password" value={passcode} onChange={e => setPasscode(e.target.value)} type="password" autoComplete="new-password" required minLength={6} style={inputStyle} />
           <label style={{ ...labelStyle, marginTop: '16px' }}>Confirm Passcode</label>
-          <input value={confirm} onChange={e => setConfirm(e.target.value)} type="password" autoComplete="new-password" required minLength={6} style={inputStyle} />
+          <input id="confirm-password" name="confirm-password" value={confirm} onChange={e => setConfirm(e.target.value)} type="password" autoComplete="new-password" required minLength={6} style={inputStyle} />
           {error && <p style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginTop: '12px', marginBottom: 0 }}>{error}</p>}
           <button type="submit" disabled={submitting} style={{ ...primaryButtonStyle, marginTop: '24px', opacity: submitting ? 0.6 : 1, cursor: submitting ? 'not-allowed' : 'pointer' }}>{submitting ? 'Setting up…' : 'Set up my login'}</button>
         </form>

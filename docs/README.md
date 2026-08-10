@@ -6,7 +6,7 @@ Read-only architecture map of the VFO portal system. Documents what exists in th
 
 ## What's in this system
 
-Two repos, one Supabase project, four external integrations, one static-hosted SPA — held together by a modular `vfo-admin-api` edge function (88-line orchestrator + ~206 handler files) dispatching **457 actions** (6 logins + 451 dispatched PUBLIC/AUTH). See [architecture/01-system-map.md](architecture/01-system-map.md) for the high-level picture.
+Two repos, one Supabase project, four external integrations, one static-hosted SPA — held together by a modular `vfo-admin-api` edge function (88-line orchestrator + ~206 handler files) dispatching **458 actions** (6 logins + 452 dispatched PUBLIC/AUTH). See [architecture/01-system-map.md](architecture/01-system-map.md) for the high-level picture.
 
 The central business flow is the **MAP1 contract-and-payment chain**: PIP1 reconfirmation → PF decision → PCADMIN pricing → BoldSign agreement → CEO countersign → Stripe payment → confirmation/invoice/receipt → revenue share. State lives in a single ~80-column row of `pipeline_map1`, with each handler advancing specific columns. See [flows/contract-and-payment.md](flows/contract-and-payment.md) for the end-to-end trace.
 
@@ -30,7 +30,7 @@ docs/
 │   ├── 02-frontend-shell.md          (routes + AdminPortal/MemberPortal/ClientDetail)
 │   ├── 03-edge-functions.md          (vfo-admin-api + boldsign-webhook structure)
 │   ├── 04-auth-and-sessions.md       (token model, session storage, role gates)
-│   ├── 05-api-action-catalog.md      (all 457 actions, concise table format)
+│   ├── 05-api-action-catalog.md      (all 458 actions, concise table format)
 │   └── 06-orchestration-files.md     (file ranking by feature ownership)
 │
 ├── tables/                           (the "noun" layer — 52 public-schema tables)
