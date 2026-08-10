@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>The VFO Library — Meet the VFO Specialists</title>
+<meta name="description" content="Walk the shelves of the VFO Library — a 3D bookstore of VFO specialists. Pull a book from a shelf, flip it over, and read the story on the back." />
+<link rel="canonical" href="https://vfoportal.com/store/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="VFO Portal" />
+<meta property="og:title" content="The VFO Library — Meet the VFO Specialists" />
+<meta property="og:description" content="A walkable 3D bookstore of VFO specialists, shelved by ecosystem. Pick up a book and read the back." />
+<meta property="og:url" content="https://vfoportal.com/store/" />
+<link rel="icon" type="image/svg+xml" href="/vfo-icon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<script type="importmap">{ "imports": { "three": "./vendor/three-0.160.1.module.min.js" } }</script>
+<style>
+  :root {
+    --navy: #002973; --blue: #0b4bad; --cream: #f7f3ec; --gold: #e8dcc0;
+    --ink: #2b2a26; --orange: #fb895a;
+    --serif: "Playfair Display", Georgia, serif;
+    --sans: "DM Sans", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body { background: var(--cream); color: var(--ink); font-family: var(--sans); overflow: hidden; }
+  .vs-hidden { display: none !important; }
+
+  /* ---------- 3D canvas ---------- */
+  #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+  body.state-inspect #scene { cursor: grab; }
+
+  /* ---------- full-screen veils (loading / enter / error) ---------- */
+  .vs-veil {
+    position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; padding: 24px;
+    background: radial-gradient(120% 120% at 50% 20%, #0a3a8f 0%, var(--navy) 55%, #001845 100%);
+    color: var(--gold);
+  }
+  .vs-veil h1 { font-family: var(--serif); font-weight: 700; letter-spacing: .14em; margin: 0 0 6px; font-size: clamp(28px, 5.5vw, 52px); }
+  .vs-veil .vs-sub { font-family: var(--sans); font-weight: 500; letter-spacing: .28em; font-size: clamp(10px, 1.6vw, 13px); text-transform: uppercase; opacity: .82; margin-bottom: 34px; }
+  .vs-rule { width: 64px; height: 2px; background: var(--gold); opacity: .6; margin: 0 auto 26px; }
+
+  #load-track { width: min(320px, 70vw); height: 3px; background: rgba(232,220,192,.22); border-radius: 2px; overflow: hidden; }
+  #load-bar { display: block; width: 0%; height: 100%; background: var(--gold); border-radius: 2px; transition: width .25s ease; }
+  #load-copy { margin-top: 14px; font-size: 12px; letter-spacing: .18em; text-transform: uppercase; opacity: .75; }
+
+  .vs-btn {
+    font-family: var(--sans); font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+    font-size: 13px; color: var(--navy); background: var(--gold);
+    border: 0; border-radius: 999px; padding: 15px 34px; cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .vs-btn:hover, .vs-btn:focus-visible { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+  .vs-btn-ghost {
+    background: transparent; color: var(--gold); border: 1px solid rgba(232,220,192,.5);
+    padding: 11px 22px; font-size: 11px;
+  }
+  #enter-overlay .vs-hint-row { margin-top: 40px; display: flex; gap: 26px; flex-wrap: wrap; justify-content: center; font-size: 12px; opacity: .78; letter-spacing: .04em; }
+  #enter-overlay .vs-hint-row span b { font-weight: 700; color: #fff; }
+  #enter-actions { display: flex; flex-direction: column; gap: 16px; align-items: center; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
+  #hud .vs-brand {
+    position: absolute; top: 18px; left: 20px; pointer-events: auto; text-decoration: none;
+    color: var(--gold); background: rgba(0, 24, 69, .78); backdrop-filter: blur(6px);
+    font-family: var(--serif); font-weight: 700; letter-spacing: .12em; font-size: 15px;
+    padding: 10px 16px; border-radius: 10px; border: 1px solid rgba(232,220,192,.28);
+  }
+  #hud .vs-topright { position: absolute; top: 18px; right: 20px; display: flex; gap: 10px; }
+  .vs-chip-btn {
+    pointer-events: auto; font-family: var(--sans); font-weight: 700; font-size: 11px;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--gold);
+    background: rgba(0, 24, 69, .78); backdrop-filter: blur(6px);
+    border: 1px solid rgba(232,220,192,.28); border-radius: 999px; padding: 10px 18px; cursor: pointer;
+  }
+  .vs-chip-btn:hover, .vs-chip-btn:focus-visible { background: rgba(11, 75, 173, .85); color: #fff; }
+
+  #hint-bar {
+    position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%);
+    max-width: min(92vw, 560px); text-align: center; pointer-events: none;
+    color: var(--gold); background: rgba(0, 24, 69, .72); backdrop-filter: blur(6px);
+    border: 1px solid rgba(232,220,192,.22); border-radius: 999px;
+    font-size: 12.5px; letter-spacing: .03em; padding: 10px 20px; line-height: 1.45;
+    transition: opacity .4s ease;
+  }
+  #book-actions {
+    position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%);
+    display: flex; gap: 10px; pointer-events: auto;
+  }
+  body:not(.state-inspect) #book-actions { display: none; }
+  body.state-inspect #hint-bar { bottom: 18px; }
+
+  /* dim vignette while inspecting */
+  #inspect-dim { position: fixed; inset: 0; z-index: 10; pointer-events: none; opacity: 0; transition: opacity .35s ease;
+    background: radial-gradient(90% 90% at 50% 45%, transparent 40%, rgba(0, 18, 51, .5) 100%); }
+  body.state-inspect #inspect-dim { opacity: 1; }
+
+  /* ---------- read panel ---------- */
+  #read-panel { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  #read-scrim { position: absolute; inset: 0; background: rgba(0, 18, 51, .58); }
+  #read-card {
+    position: relative; width: min(640px, 94vw); max-height: 86vh; overflow-y: auto;
+    background: var(--cream); border-radius: 14px; padding: 34px 36px 30px;
+    box-shadow: 0 30px 80px rgba(0,0,0,.45); border-top: 6px solid var(--navy);
+  }
+  #read-card h2 { font-family: var(--serif); font-weight: 700; color: var(--navy); margin: 0 42px 4px 0; font-size: 27px; }
+  #read-tagline { font-weight: 500; color: #59544a; margin: 0 0 14px; font-size: 14.5px; }
+  #read-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+  #read-chips span { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #fff; border-radius: 999px; padding: 5px 11px; }
+  #read-divider { height: 1px; background: #ddd3c0; margin-bottom: 16px; }
+  #read-body { white-space: pre-wrap; font-size: 14.5px; line-height: 1.6; color: #4a463d; }
+  #btn-read-close {
+    position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border-radius: 50%;
+    border: 1px solid #d8cdb6; background: #fff; color: var(--navy); font-size: 17px; line-height: 1;
+    cursor: pointer; font-family: var(--sans);
+  }
+  #btn-read-close:hover { background: var(--navy); color: #fff; }
+
+  /* ---------- list view ---------- */
+  #list-view { position: fixed; inset: 0; z-index: 35; overflow-y: auto; background: var(--cream); }
+  #list-topbar { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 20px; background: rgba(247,243,236,.94); backdrop-filter: blur(6px); border-bottom: 1px solid #e3d9c4; }
+  #list-topbar .vs-brand-dark { font-family: var(--serif); font-weight: 700; letter-spacing: .12em; color: var(--navy); font-size: 16px; text-decoration: none; }
+  #btn-store { border: 1px solid var(--navy); background: var(--navy); color: var(--gold); }
+  #list-host { max-width: 1080px; margin: 0 auto; padding: 26px 20px 80px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #load-bar, .vs-btn, #hint-bar, #inspect-dim { transition: none; }
+  }
+</style>
+</head>
+<body class="state-loading">
+
+  <canvas id="scene" aria-label="The VFO Library — 3D bookstore of VFO specialists" role="img"></canvas>
+  <div id="inspect-dim"></div>
+
+  <div id="hud" class="vs-hidden">
+    <a class="vs-brand" href="https://vfoportal.com/" title="VFO Portal home">THE VFO LIBRARY</a>
+    <div class="vs-topright">
+      <button id="btn-fs" class="vs-chip-btn" type="button">Fullscreen</button>
+      <button id="btn-list" class="vs-chip-btn" type="button">Browse as a list</button>
+    </div>
+    <div id="book-actions">
+      <button id="btn-flip" class="vs-chip-btn" type="button">Flip it over</button>
+      <button id="btn-read" class="vs-chip-btn" type="button">Read profile</button>
+      <button id="btn-back" class="vs-chip-btn" type="button">Put it back</button>
+    </div>
+    <div id="hint-bar">Drag to look around &middot; Click the floor to walk &middot; Click a book to take it off the shelf</div>
+  </div>
+
+  <div id="read-panel" class="vs-hidden" role="dialog" aria-modal="true" aria-labelledby="read-title">
+    <div id="read-scrim"></div>
+    <div id="read-card">
+      <button id="btn-read-close" type="button" aria-label="Close profile">&times;</button>
+      <h2 id="read-title"></h2>
+      <p id="read-tagline"></p>
+      <div id="read-chips"></div>
+      <div id="read-divider"></div>
+      <div id="read-body"></div>
+    </div>
+  </div>
+
+  <div id="list-view" class="vs-hidden">
+    <div id="list-topbar">
+      <a class="vs-brand-dark" href="https://vfoportal.com/" title="VFO Portal home">THE VFO LIBRARY</a>
+      <button id="btn-store" class="vs-chip-btn" type="button">Enter the 3D store</button>
+    </div>
+    <div id="list-host"></div>
+  </div>
+
+  <div id="loading-screen" class="vs-veil">
+    <h1>THE VFO LIBRARY</h1>
+    <div class="vs-sub">VFO Specialists, shelved by ecosystem</div>
+    <div class="vs-rule"></div>
+    <div id="load-track"><i id="load-bar"></i></div>
+    <div id="load-copy" role="status" aria-live="polite">Opening the shop</div>
+  </div>
+
+  <div id="enter-overlay" class="vs-veil vs-hidden">
+    <h1>THE VFO LIBRARY</h1>
+    <div class="vs-sub">VFO Specialists, shelved by ecosystem</div>
+    <div class="vs-rule"></div>
+    <div id="enter-actions">
+      <button id="btn-enter" class="vs-btn" type="button">Step inside</button>
+      <button id="btn-list-from-enter" class="vs-btn vs-btn-ghost" type="button">Browse as a list instead</button>
+    </div>
+    <div class="vs-hint-row" id="enter-hints">
+      <span><b>Drag</b> to look</span>
+      <span><b>Click the floor</b> or <b>WASD</b> to walk</span>
+      <span><b>Click a book</b> to pick it up</span>
+    </div>
+  </div>
+
+  <div id="err-screen" class="vs-veil vs-hidden">
+    <h1>THE VFO LIBRARY</h1>
+    <div class="vs-sub">The door is stuck</div>
+    <div class="vs-rule"></div>
+    <p id="err-copy" style="max-width:420px; font-size:14px; line-height:1.55; opacity:.85; margin:0 0 26px;">We couldn't load the shelves. Please check your connection and try again.</p>
+    <button id="btn-retry" class="vs-btn" type="button">Try again</button>
+  </div>
+
+  <noscript>
+    <div class="vs-veil" style="z-index:100">
+      <h1>THE VFO LIBRARY</h1>
+      <p style="max-width:420px;font-size:14px;line-height:1.55;">This experience needs JavaScript. To meet the VFO specialists, visit <a href="https://vfoportal.com/" style="color:#e8dcc0">vfoportal.com</a>.</p>
+    </div>
+  </noscript>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
