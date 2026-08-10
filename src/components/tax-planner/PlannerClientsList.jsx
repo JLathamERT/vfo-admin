@@ -148,7 +148,7 @@ export default function PlannerClientsList() {
                     {others.map(g => (
                       <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0', fontSize: '13px', color: 'var(--vfo-ink)', cursor: 'pointer' }}>
                         <input type="checkbox" checked={included.includes(g.id)} onChange={() => toggleInclude(g.id)} style={{ accentColor: '#125ecc', cursor: 'pointer' }} />
-                        Include {g.name}'s clients
+                        Include {g.name}'s clients{g.planner_role === 'Team Member' ? ' — Team Member' : ''}
                       </label>
                     ))}
                   </div>

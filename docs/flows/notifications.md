@@ -136,6 +136,8 @@ Two handlers clear all unread notifications for a `client_id` after the admin co
 
 This avoids leaving the "client chose Yes" notification in the bell after the admin actually completes the pricing form.
 
+> **The narrower, and now more common, form is a TITLE-PREFIX clear.** An action-required row (`dismissible=false`) is refused by `mark_notification_read` (#179), so its completing handler must write `read=true` itself — and where several such bells can coexist for one client, the write is scoped by **pipeline + `client_id` + `dismissible=false` + `read=false` + `title ILIKE '<prefix>%'`** rather than by client alone. The tax ROI hand-off chain does this from three handlers against three fixed prefixes, which makes those titles load-bearing strings: reword one without moving its clear and the bell becomes permanent. See [tax-planning.md § In-app notification CLEARS](tax-planning.md#in-app-notification-clears-targeted-update-readtrue) and gotcha **#357**.
+
 ## Tables touched
 
 - **Read:** `notifications`.

@@ -63,6 +63,7 @@ export const TEMPLATE_META = {
     mv('TAX_decision_decline', 'Client declined tax planning — close-out', 'To: Member · Auto-Cc: Client + PF'),
     ['TAX_decision_reminder', '48-hour reminder — the tax decision email hasn’t been answered', 'To: Client'],
     mv('TAX_decision_reminder', '48-hour reminder — the tax decision email hasn’t been answered', 'To: Member · Auto-Cc: Client'),
+    ['TAX_tax3_assess_reminder', 'Assess form still missing shortly before the booked ROI meeting — reminder drafted by the nightly sweep', 'To: Allocated Tax Planner · Auto-Cc: group Team Members + PF'],
     ['TAX_agreementsent|Yes', 'Client said yes — tax agreement signing link', 'To: Client · Auto-Cc: Member + PF'],
     mv('TAX_agreementsent|Yes', 'Client said yes — tax agreement signing link', 'To: Member · Auto-Cc: Client + PF'),
     ['TAX_signing_reminder', '48-hour reminder — the tax agreement is still unsigned', 'To: Client'],
