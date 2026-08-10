@@ -56,11 +56,29 @@
   `transferLinkPulls(plan, basisDate)` in `actions/membership/shared.ts`, is the **single source**
   for all four surfaces — `setup-load` (what the page shows), `setup-checkout` (what Stripe
   charges), `activate` (what the ledger records) and `send-setup-link` (what the email quotes).
+  **But it is a function of its BASIS DATE, and the four surfaces do not pass the same one**
+  (gotcha **#349**): the admin preview uses the browser's today, `send-setup-link` uses the day
+  the email is drafted, and the three pay-time surfaces use the **actual pay date**. `remaining`
+  is frozen at plan save; `slots` shrinks as the fixed renewal approaches, so `pullsAtLink` only
+  ever **grows** with delay. Nothing is mischarged — `/membership-pay` and Checkout both
+  recompute live — but **the emailed figure is stale the moment it is sent**. Since 2026-08-10 the
+  admin preview states "Based on payment today", names the **cliff date** and the amount after it
+  (`catchUpCliff` in `MembershipFeesPanel.jsx`), and reports **"last charge <date>"** rather than
+  "until renewal" (an *ahead* transfer stops billing weeks before the renewal). The monthly
+  template warns that a later setup means a larger first payment; it still quotes a hard number.
+  **A charge date landing EXACTLY on the renewal 15th is dropped** by the `untilExclusive` cap and
+  that drop is load-bearing, not an off-by-one — see gotcha **#350** and #235.
   A **legacy pending transfer** saved before the column existed has NULL `remaining_payments` and
   falls back to `remaining = slots`, i.e. exactly the old behaviour. **Annual transfers** pay
   nothing now — the link is save-method-only; the first charge is the full annual at renewal, and
-  `prior_payments_made` stays optional for them. Fully-credited $0 plans are also save-only
-  ($0 rows show "Covered by credit" and are waived when due).
+  `prior_payments_made` stays optional for them. **Since 2026-08-10 (v714) they get their OWN
+  email**, `MEMBERSHIP_transfer_setup_link|annual` (**id 215**), because the shared monthly copy
+  told them a payment was collected at setup and fell back to "12 payments remaining" — both
+  false for annual, which has exactly ONE payment left (gotcha **#351**). `send-setup-link.ts`
+  selects it on `transfer && frequency === 'annual'`, and the button on any `saveOnly` link now
+  reads *"Save Your Payment Method"*. Fully-credited $0 plans are also save-only
+  ($0 rows show "Covered by credit" and are waived when due) — they still take the MONTHLY
+  template and render "$0.00 per month", knowingly left as-is (accurate, odd, unreachable today).
 - **Membership sandbox follows the panel's own toggle.** The `MEMBER_MEMBERSHIP` sandbox row is
   **member-keyed**, so the `constants/test-sandbox.ts` force-sandbox override for test member
   **59524** (#251) — which is client-pipeline only (TAX / MAP 1 / PIP) — **does NOT apply here**.
@@ -89,8 +107,10 @@
    renewal (must be a 15th). NO schedule yet — the ledger depends on the day they actually pay.
    Editable while `setup_pending`; a live plan only offers next-year terms / auto-renew / terminate.
 2. **Setup link** — `membership_send_setup_link`: find-or-create Stripe customer (mode-matched via
-   `plan.sandbox`), mints `setup_token`, drafts `MEMBERSHIP_setup_link` or
-   `MEMBERSHIP_transfer_setup_link` (pipeline `MEMBER_MEMBERSHIP_FEES`, Draft/Send toggle).
+   `plan.sandbox`), mints `setup_token`, drafts one of THREE templates (pipeline
+   `MEMBER_MEMBERSHIP_FEES`, Draft/Send toggle): `MEMBERSHIP_setup_link` (new plan),
+   `MEMBERSHIP_transfer_setup_link` (monthly transfer), or `MEMBERSHIP_transfer_setup_link|annual`
+   (annual transfer — id 215, added 2026-08-10, gotcha #351).
    Since 2026-07-15 the Set Up Payments form auto-chains this client-side right after a
    successful CREATE (`plan_save` returns `plan_id`; an email failure never rolls back the
    plan — it surfaces as an amber notice pointing at the card's "Send setup link" resend

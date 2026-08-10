@@ -69,6 +69,12 @@ function addMonthsIso(dateIso, months) {
   return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 }
 
+function addDaysIso(dateIso, days) {
+  const [y, m, d] = dateIso.split('-').map(Number)
+  const dt = new Date(y, m - 1, d + days)
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
+
 function addYearsIso(dateStr, years) {
   const [y, m, d] = dateStr.split('-').map(Number)
   const dim = new Date(y + years, m, 0).getDate()
@@ -97,6 +103,33 @@ function renewalPreview(payDateIso) {
   const plus = addMonthsIso(payDateIso.slice(0, 8) + Math.min(Number(payDateIso.slice(8, 10)), 15), 12)
   if (Number(payDateIso.slice(8, 10)) > 15) return plus.slice(0, 8) + '15'
   return addMonthsIso(plus.slice(0, 8) + '15', -1)
+}
+
+// Charge slots a monthly transfer has left if it pays on payDateIso: the link
+// itself plus every recurring date strictly before the fixed renewal. Mirrors
+// transferLinkPulls in the backend's actions/membership/shared.ts.
+function transferSlots(payDateIso, renewalIso) {
+  return 1 + chargeDatesAfter(payDateIso, renewalIso, 23).length
+}
+
+function pullsAtLinkOn(payDateIso, renewalIso, remaining) {
+  return 1 + Math.max(0, remaining - transferSlots(payDateIso, renewalIso))
+}
+
+// A transfer is quoted as-if-they-pay-today, but the real charge is recomputed
+// from the ACTUAL pay date — slots run out as the fixed renewal approaches, so
+// the amount at the link only grows. Finds the first future date where it does,
+// so the admin sees how long the quote holds instead of trusting a stale number.
+function catchUpCliff(fromIso, renewalIso, remaining) {
+  const base = pullsAtLinkOn(fromIso, renewalIso, remaining)
+  let d = fromIso
+  for (let i = 0; i < 400; i++) {
+    d = addDaysIso(d, 1)
+    if (d >= renewalIso) return null
+    const pulls = pullsAtLinkOn(d, renewalIso, remaining)
+    if (pulls > base) return { date: d, pullsAtLink: pulls }
+  }
+  return null
 }
 
 function parseMoney(v) {
@@ -918,7 +951,7 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
   const previewChargeDay = Number(today.slice(8, 10)) <= 15 ? Number(today.slice(8, 10)) : 1
   const previewRenewal = renewalPreview(today)
   const transferPullCount = isTransfer && transferRenewalValid && frequency === 'monthly'
-    ? 1 + chargeDatesAfter(today, transferRenewal, 23).length
+    ? transferSlots(today, transferRenewal)
     : 0
   const priorPaidFilled = String(priorPaid).trim() !== ''
   const priorPaidValid = priorPaidFilled &&
@@ -936,6 +969,21 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
       ? (priorPaidValid ? Math.max(0, roundDollar(annual / 12 - credit / remaining)) : 0)
       : Math.max(0, roundDollar(net / 12))
   const linkAmount = pullsAtLink * perPull
+
+  // The transfer quote is as-if-paid-today and only ever gets worse: slots run
+  // out as the fixed renewal approaches, so a member who sits on the email pays
+  // more at the link than the admin was shown. Surface both ends of that.
+  const transferQuoteLive = isTransfer && frequency === 'monthly' && transferRenewalValid && priorPaidValid
+  const cliff = useMemo(
+    () => (transferQuoteLive ? catchUpCliff(today, transferRenewal, remaining) : null),
+    [transferQuoteLive, today, transferRenewal, remaining],
+  )
+  // Year 1's last charge. An "ahead" transfer finishes well before the renewal,
+  // so "until renewal" would overstate how long they keep paying.
+  const lastChargeDate = transferQuoteLive
+    ? (chargeDatesAfter(today, transferRenewal, 23)
+      .slice(0, Math.max(0, remaining - pullsAtLink)).slice(-1)[0] || today)
+    : null
 
   async function save() {
     setMsg(null)
@@ -1072,10 +1120,20 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
               <div style={{ color: '#b45309' }}>Enter their existing renewal date and how many payments they've made to see the remaining schedule.</div>
             ) : (
               <div>
-                Paid {prior} of 12 — <strong>{remaining} × {money(perPull)}</strong> left: <strong>{money(linkAmount)}</strong> at the link
-                {pullsAtLink > 1 ? ` (includes ${pullsAtLink - 1}-month catch-up)` : ''}, then {remaining - pullsAtLink} monthly
-                {' '}until renewal <strong>{fmtDate(transferRenewal)}</strong>
-                {credit > 0 ? <> · credit {money(credit)}</> : null}
+                <div>
+                  Paid {prior} of 12 — <strong>{remaining} × {money(perPull)}</strong> left: <strong>{money(linkAmount)}</strong> at the link
+                  {pullsAtLink > 1 ? ` (includes ${pullsAtLink - 1}-month catch-up)` : ''}, then {remaining - pullsAtLink} monthly
+                  {', last charge '}<strong>{fmtDate(lastChargeDate)}</strong>
+                  {' · '}renewal <strong>{fmtDate(transferRenewal)}</strong>
+                  {credit > 0 ? <> · credit {money(credit)}</> : null}
+                </div>
+                {cliff && (
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: '#b45309' }}>
+                    Based on payment today. On or after <strong>{fmtDate(cliff.date)}</strong> the link collects{' '}
+                    <strong>{money(cliff.pullsAtLink * perPull)}</strong> ({cliff.pullsAtLink - 1}-month catch-up) — the same {remaining} payments
+                    still have to fit before the renewal.
+                  </div>
+                )}
               </div>
             )
           ) : !transferRenewalValid ? (

@@ -44,7 +44,7 @@ Editable subject/body for outbound automation emails. Pipeline-scoped.
 | `send_mode` | boolean | not null, default `false`. **Added 2026-07-03** (migration `email_templates_send_mode`). The per-template **Draft/Send toggle**: `false` = the email is only created as a Gmail draft (original behavior); `true` = the draft is auto-sent via Gmail `drafts.send` right after creation (`utils/email-delivery.ts`). Edited per-email or per-section ("All draft / All send") in the Email Templates tab; `automation_save_email_template` accepts `send_mode` and a bulk `{ ids: [...], send_mode }` form. See gotcha #181. **⚠️ As of 2026-08-03 exactly NINE rows are `true` and every other row in the 195-row table is Draft — see the auto-send roster below (gotcha #325).** |
 | `created_at` | timestamptz | default `now()` |
 
-**The auto-send roster — the ONLY nine rows with `send_mode=true` (2026-08-03, DML only; gotcha #325).** Every other template in the table is Draft-only, so these nine are the complete list of emails that leave without a human reading them first:
+**The auto-send roster — the ONLY ten rows with `send_mode=true` (2026-08-03, DML only; gotcha #325; id 215 added 2026-08-10).** Every other template in the table is Draft-only, so these nine are the complete list of emails that leave without a human reading them first:
 
 | id | pipeline | template_name |
 |---|---|---|
@@ -57,8 +57,9 @@ Editable subject/body for outbound automation emails. Pipeline-scoped.
 | **191** | `MEMBER_MEMBERSHIP_FEES` | `MEMBERSHIP_transfer_setup_link` |
 | **200** | `TAX` | `tax_planning_group_connect_setup` |
 | **210** | `VAULT` | `VAULT_request_documentation` — **shared by THREE entity types** (client / member / specialist) |
+| **215** | `MEMBER_MEMBERSHIP_FEES` | `MEMBERSHIP_transfer_setup_link|annual` — added 2026-08-10 (gotcha #351) |
 
-All nine are "here is your link, go do the thing" emails; **nothing carrying money, a decision, an agreement or a receipt was flipped**, including the two `CLIENT_PAYMENT_CONTINUATION` setup-link rows (ids 172/209), which stay Draft on purpose. Uniform recipient shape: **Bcc = `jlatham@elitert.com` only** (Aaron + Paul removed from these nine only) and **Cc = `tnmiller@vfo-services.com` + `tvaldes@vfo-services.com`** on all but 158. **Editing one of these nine reaches a real person on the next trigger with nobody in between**, and the two shared rows have a wider blast radius than their name suggests.
+All ten are "here is your link, go do the thing" emails; **nothing carrying money, a decision, an agreement or a receipt was flipped**, including the two `CLIENT_PAYMENT_CONTINUATION` setup-link rows (ids 172/209), which stay Draft on purpose. Uniform recipient shape: **Bcc = `jlatham@elitert.com` only** (Aaron + Paul removed from these ten only) and **Cc = `tnmiller@vfo-services.com` + `tvaldes@vfo-services.com`** on all but 158. **Editing one of these nine reaches a real person on the next trigger with nobody in between**, and the two shared rows have a wider blast radius than their name suggests.
 
 **TAX member-pays + meeting templates:** 22 member-variant rows (**ids 126–147**) were added, each = an existing TAX client template name + the suffix ` (member signing/paying on clients behalf)` — selected when `client_tax_plans.member_paying_on_behalf=true`. Plus **`TAX_highlevelmeeting_confirm|Yes`** (**id 148**, CLIENT-ONLY — no member variant; the body's planner name is the `[Planner Name]` token, de-hardcoded from "Tim Gacsy" 2026-07-22) used by `automation_TAX_highlevelmeeting_confirm`. The old `TAX_meeting_nudge|Yes` (id 42) and `TAX_implementation_announce|Yes` (id 28) orphan rows were DELETED 2026-07-03 at Jake's direction — no code referenced either (the daily nudge email was replaced by an in-app notification; the implementation announcement was never wired up).
 
