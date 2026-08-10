@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { callApi, setSession } from '../lib/api'
 import AuthShell from '../components/shared/AuthShell'
@@ -15,15 +15,19 @@ export default function TaxPlannerLogin() {
   const [passcode, setPasscode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const emailRef = useRef(null)
+  const passRef = useRef(null)
 
   async function handleLogin(e) {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      const data = await callApi('tax_planner_login', { email, passcode })
+      const emailVal = (email || emailRef.current?.value || '').trim()
+      const passVal = passcode || (passRef.current?.value ?? '')
+      const data = await callApi('tax_planner_login', { email: emailVal, passcode: passVal })
       sessionStorage.removeItem('taxPlannerActiveTab')
-      setSession({ token: data.token, email, name: data.name, role: 'tax_planner', tax_planner_id: data.tax_planner_id })
+      setSession({ token: data.token, email: emailVal, name: data.name, role: 'tax_planner', tax_planner_id: data.tax_planner_id })
       navigate('/tax-planner')
     } catch (err) {
       setError(err.message)
@@ -41,16 +45,17 @@ export default function TaxPlannerLogin() {
       <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div>
           <label style={labelStyle}>Email</label>
-          <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" type="email" required style={inputStyle} />
+          <input ref={emailRef} id="email" name="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" type="email" required style={inputStyle} />
         </div>
         <div>
           <label style={labelStyle}>Passcode</label>
-          <input value={passcode} onChange={e=>setPasscode(e.target.value)} placeholder="••••••••" type="password" required style={inputStyle} />
+          <input ref={passRef} id="password" name="password" autoComplete="current-password" value={passcode} onChange={e=>setPasscode(e.target.value)} placeholder="••••••••" type="password" required style={inputStyle} />
         </div>
         {error && <p style={{color:'#d93025', fontWeight: 500, fontSize:'13px', margin:'0'}}>{error}</p>}
         <button type="submit" disabled={loading} style={{ padding: '13px', borderRadius: '10px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 4px 14px rgba(18,94,204,0.35)', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: 'pointer', marginTop: '4px' }}>{loading ? 'Signing in...' : 'Sign In'}</button>
       </form>
-      <p style={{ color: 'var(--vfo-muted)', fontSize: '13px', marginTop: '20px', textAlign: 'center', cursor: 'pointer' }} onClick={()=>navigate('/admin/login')}>← Back to VFOS/ERT sign in</p>
+      <p style={{ color: 'var(--vfo-muted)', fontSize: '13px', marginTop: '20px', textAlign: 'center', cursor: 'pointer' }} onClick={()=>navigate('/forgot-password?type=tax_planner')}>Forgot passcode?</p>
+      <p style={{ color: 'var(--vfo-muted)', fontSize: '13px', marginTop: '10px', textAlign: 'center', cursor: 'pointer' }} onClick={()=>navigate('/admin/login')}>← Back to VFOS/ERT sign in</p>
       <p style={{ color: 'var(--vfo-muted)', fontSize: '13px', marginTop: '10px', textAlign: 'center', cursor: 'pointer' }} onClick={()=>navigate('/')}>← Back to portal selection</p>
     </AuthShell>
   )

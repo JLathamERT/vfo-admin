@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { callApi, setSession } from '../lib/api'
 import AuthShell from '../components/shared/AuthShell'
@@ -12,20 +12,24 @@ export default function AdminLogin() {
   const [passcode, setPasscode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const emailRef = useRef(null)
+  const passRef = useRef(null)
 
   async function handleLogin(e) {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      const data = await callApi('admin_login', { email, passcode })
+      const emailVal = (email || emailRef.current?.value || '').trim()
+      const passVal = passcode || (passRef.current?.value ?? '')
+      const data = await callApi('admin_login', { email: emailVal, passcode: passVal })
       sessionStorage.removeItem('adminActiveTab')
       sessionStorage.removeItem('adminAdvisorsSection')
       sessionStorage.removeItem('adminAccountantsSection')
       sessionStorage.removeItem('adminMembersSection')
       sessionStorage.removeItem('adminSelectedMember')
       sessionStorage.removeItem('adminMemberFeatureTab')
-      setSession({ token: data.token, email, name: data.name, role: 'admin', is_superadmin: data.is_superadmin, allowed_tabs: data.allowed_tabs || [] })
+      setSession({ token: data.token, email: emailVal, name: data.name, role: 'admin', is_superadmin: data.is_superadmin, allowed_tabs: data.allowed_tabs || [] })
       const next = new URLSearchParams(window.location.search).get('next')
       navigate(next && next.startsWith('/admin/') ? next : '/admin')
     } catch (err) {
@@ -43,11 +47,11 @@ export default function AdminLogin() {
       <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div>
           <label style={labelStyle}>Email</label>
-          <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@elitert.com" type="email" required style={inputStyle} />
+          <input ref={emailRef} id="email" name="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@elitert.com" type="email" required style={inputStyle} />
         </div>
         <div>
           <label style={labelStyle}>Passcode</label>
-          <input value={passcode} onChange={e=>setPasscode(e.target.value)} placeholder="••••••••" type="password" required style={inputStyle} />
+          <input ref={passRef} id="password" name="password" autoComplete="current-password" value={passcode} onChange={e=>setPasscode(e.target.value)} placeholder="••••••••" type="password" required style={inputStyle} />
         </div>
         {error && <p style={{color:'#d93025', fontWeight: 500, fontSize:'13px', margin:'0'}}>{error}</p>}
         <button type="submit" disabled={loading} style={{ padding: '13px', borderRadius: '10px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 4px 14px rgba(18,94,204,0.35)', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: 'pointer', marginTop: '4px' }}>{loading ? 'Signing in...' : 'Sign In'}</button>

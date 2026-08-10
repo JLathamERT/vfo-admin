@@ -15,6 +15,7 @@ const ROUTES = [
   'client-setup',
   'connect-card',
   'decide',
+  'forgot-password',
   'map4-form',
   'member-setup',
   'membership-meeting',

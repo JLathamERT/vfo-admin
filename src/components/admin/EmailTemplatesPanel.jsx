@@ -26,6 +26,7 @@ const SECTIONS = [
     ['TEAM', 'new_model_sale'],
     ['PAYMENTS', 'card_update'],
     ['LOGIN_SETUP', 'MANUAL_login_setup'],
+    ['LOGIN_SETUP', 'password_reset'],
     ['MEMBER_PAYOUT', 'member_connect_setup'],
     ['SPECIALIST_PAYOUT', 'specialist_connect_setup'],
     ['STRATEGIC', 'strategic_group_connect_setup'],

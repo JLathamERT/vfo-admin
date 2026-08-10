@@ -11,6 +11,7 @@ export const mv = (name, label, recip) => [name + MV, label + ' — version used
 export const TEMPLATE_META = {
   'LOGIN_SETUP': [
     ['MANUAL_login_setup', 'Manually send someone a portal login set-up link (works for members, specialists and clients)', 'To: Chosen recipient'],
+    ['password_reset', 'Password Reset (self-service)', 'To: The account holder who requested the reset (member / specialist / tax planner / client)'],
   ],
   'MAP 1': [
     ['PIP_meeting_confirm', 'PIP 1 meeting is booked — confirmation to the client', 'To: Client · Auto-Cc: Member + PF'],

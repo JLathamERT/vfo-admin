@@ -21,6 +21,7 @@ import AccountantPayPage from './pages/AccountantPayPage'
 import PipPayPage from './pages/PipPayPage'
 import MemberSetupPage from './pages/MemberSetupPage'
 import SetPasswordPage from './pages/SetPasswordPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import SpecialistSifPage from './pages/SpecialistSifPage'
 import SpecialistPayPage from './pages/SpecialistPayPage'
 import SpecialistQuestionsPage from './pages/SpecialistQuestionsPage'
@@ -76,6 +77,7 @@ export default function App() {
       <Route path="/membership-meeting" element={<MembershipMeetingPage />} />
       <Route path="/member-setup" element={<MemberSetupPage />} />
       <Route path="/set-password" element={<SetPasswordPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/specialist-sif" element={<SpecialistSifPage />} />
       <Route path="/map4-form" element={<Map4FormPage />} />
       <Route path="/specialist-pay" element={<SpecialistPayPage />} />
