@@ -27,7 +27,7 @@ The top-level picture. Two repos, one Supabase project, four external integratio
                                ▼                                  ▼
                           ┌─────────────────────────────────────────────┐
                           │   SUPABASE EDGE FUNCTION: vfo-admin-api      │
-                          │   (457 actions, 88-line orchestrator         │
+                          │   (458 actions, 88-line orchestrator         │
                           │    + ~460 handler files + 2 routers)         │
                           │                                              │
                           │   Three dispatch surfaces:                   │

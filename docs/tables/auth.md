@@ -99,12 +99,12 @@ The **fifth login type** (after admin/member/client/specialist) — per-planner 
 
 ## `login_attempts`
 
-Brute-force throttle ledger for all six login handlers (H1, added 2026-06-18; `tax_planner_login` added 2026-07-22). One row per **failed** login attempt; rows are pruned opportunistically once older than 1h (the rolling window is only 15 min). RLS enabled, **deny-all** (no policies → service-role only; only the edge function via `utils/login-throttle.ts` touches it). Migration adds indexes on `(identifier, created_at)` and `(ip, created_at)` for the windowed count queries.
+Brute-force throttle ledger for all six login handlers (H1, added 2026-06-18; `tax_planner_login` added 2026-07-22) **plus, since 2026-08-10, the self-service `request_password_reset` under its own `reset:` identifier prefix**. One row per **failed** login attempt (or, for the reset path, per **request**); rows are pruned opportunistically once older than 1h (the rolling window is only 15 min). RLS enabled, **deny-all** (no policies → service-role only; only the edge function via `utils/login-throttle.ts` touches it). Migration adds indexes on `(identifier, created_at)` and `(ip, created_at)` for the windowed count queries.
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | identity pk | |
-| `identifier` | text | The normalized (lowercased/trimmed) login email the attempt was made against. |
+| `identifier` | text | The normalized (lowercased/trimmed) login email the attempt was made against. **Since 2026-08-10 this column is a NAMESPACE, not just an email:** `request_password_reset` writes **`reset:<email>`** so self-service reset traffic is counted separately from sign-in failures (and cannot lock the same person out of signing in). Rows there are recorded on **every request**, not only on failure — the cap is 5 requests / 15 min. Any future non-login consumer of this table must take its own prefix. See gotcha **#355**. |
 | `ip` | text | Source IP (first `x-forwarded-for` entry), nullable. |
 | `created_at` | timestamptz | default `now()`. The window column. |
 
