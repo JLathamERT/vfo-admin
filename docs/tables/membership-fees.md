@@ -110,6 +110,14 @@ one. Gotcha **#332**.
   so they auto-send with no admin review** (gotcha #325); `MEMBERSHIP_payment_failed` and the
   other 8 rows in this pipeline stay Draft. The two setup-link rows also had their Tracy/Tray
   Cc moved to `@vfo-services.com` and their Bcc stripped to `jlatham@elitert.com` only.
+  **A THIRD setup-link row was added 2026-08-10 (v714):
+  `MEMBERSHIP_transfer_setup_link|annual` (id 215)** — the ANNUAL-transfer variant, seeded
+  **SEND mode** with recipients cloned from id 191 (To `["RECIPIENT"]`, Cc `tnmiller@` +
+  `tvaldes@vfo-services.com`, Bcc `jlatham@elitert.com`). Tokens: `[First Name]` `[Amount]`
+  `[Cadence]` `[Renewal Date]` `[PAYMENT_LINK]` — deliberately NOT `[Setup Amount]` /
+  `[Setup Note]` / `[Remaining Payments]`, since nothing is collected at an annual transfer's
+  link. Id 191 also gained an "assumes you set up today" paragraph the same day (gotcha #349).
+  Migration `20260810100000_membership_transfer_setup_link_annual.sql`. See gotcha #351.
   **Two rows added 2026-08-04**, both **Draft** (`send_mode=false`), To `["RECIPIENT"]`,
   Cc `tvaldes@` + `rhopson@`, Bcc `aanderson@` + `platham@`:
   **`MEMBERSHIP_renewal_notice` (id 212)** — subject *"Your ERT Membership renewal — [Renewal

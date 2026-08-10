@@ -8,6 +8,22 @@
 
 ---
 
+## Archived from SESSION_REFERENCE on 2026-08-10 (membership transfer setup-link quote decay + the annual-transfer email split; backend v714, template id 215, frontend NOT deployed)
+
+**Superseded LIVE STATE cells from that session's audit, verbatim.**
+
+- **vfo-admin-api version (superseded):** | `vfo-admin-api` version | **v713 live — NOT rebuilt and NOT redeployed by the 2026-08-09 session** (branch `claude/vfo-session-setup-935dda`; **this session is FRONTEND-ONLY, and standalone-static at that — the edge worktree carries a ZERO-file TRACKED diff … and no `supabase functions deploy` was run at any point**). **v713 re-verified ACTIVE via MCP `list_edge_functions` at this audit**, `verify_jwt=false`. **+0 actions (457)** … `boldsign-webhook` UNTOUCHED at **v40**. **The whole session is 10 files in `vfo-react`** — 8 new under `public/store/`, one `<url>` in `public/sitemap.xml`, one line in `vite.config.js` — **plus docs.** _Prior: v713 (2026-08-07 FOURTH) + v713 (2026-08-07 THIRD) + v712 (2026-08-07 SECOND) + v708 (2026-08-07 FIRST) + v706 (2026-08-06) + v704 (2026-08-05) + v703 (2026-08-04 THIRD) + v699 + v698 + v696 + v695 + v694 + v692–v693 + v688–v691 + v686–v687 + v683 + v681–v682 + v680 + v678–v679 + v677 + v673–v676 + v672._
+
+- **Action count (superseded):** | Action count | **457** in code (**6 logins** + 451 dispatched handlers) — **+0 on 2026-08-09, and +0 by construction: the session never opened a backend file.** _Prior: +0 on 2026-08-07 (FOURTH); +0 on 2026-08-07 (THIRD); +0 on 2026-08-07 (SECOND); +0 on 2026-08-07 (FIRST, gate-list ADD + MOVE only); +1 on 2026-08-06 (`tax_generate_presentation`, 456→457)._
+
+- **`deno check` baseline (superseded):** | **0** — **NOT re-run on 2026-08-09, and deliberately so: the backend was never touched.** … **This entry is a carried-forward value, not a fresh verification.** The frontend equivalents WERE run: **`npx vite build` → exit 0, 555 modules transformed**, then **`npm run build` → exit 0** (**32 route pages**), with **all 8 files under `dist/store/` byte-identical (`cmp`) to `public/store/`**. _Prior: **0** — NOT re-run on 2026-08-07 (FOURTH); **0** — RE-VERIFIED 2026-08-07 (THIRD) on `claude/roi-two-year-slides`: `deno check --no-lock … index.ts` → exit 0, zero errors; `--no-lock` is mandatory (gotcha #112)._
+
+- **DB cell (superseded):** | DB this session (2026-08-09 — The VFO Library) | **ZERO DB CHANGES. NO MIGRATION, NO DDL, NO DML — not one statement, and not one MCP `execute_sql` write.** The Supabase security advisor was therefore **correctly NOT run** … The anon key hardcoded in `data.js` is the **publishable** key … **SECURITY INVARIANTS box: re-confirmed UNCHANGED.** _Prior-session DB detail: **2026-08-07 FOURTH** — zero DB changes; **2026-08-07 THIRD** — zero DB changes; **2026-08-07 SECOND** — ONE DML-only migration + `email_templates` row 214; **2026-08-07 FIRST** — ONE DML migration; **2026-08-06** — ONE DDL migration, advisor RUN and GREEN._
+
+- **Frontend deploy state (superseded):** current tags at that audit were **`live-133-loyalty-autofill-vault-rows`** (frontend) and **`backend-good-2026-08-07-v713`** (edge); that session OWED a frontend deploy of the 10 `/store/` files, and noted that **until it ran `https://vfoportal.com/store/` did not exist**.
+
+---
+
 ## Archived from SESSION_REFERENCE on 2026-08-09 (The VFO Library — the walkable 3D specialist bookstore at `/store/`; frontend-only, a standalone static page under `public/`, ZERO `src/` files, ZERO backend, ZERO DB)
 
 **Superseded LIVE STATE cells from that session's audit, verbatim.**
