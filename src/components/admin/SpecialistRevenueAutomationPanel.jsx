@@ -49,7 +49,7 @@ export default function SpecialistRevenueAutomationPanel() {
   const stats = useMemo(() => {
     const total = requests.length
     const received = requests.filter(r => r.payment_status === 'received').length
-    const awaiting = requests.filter(r => ['requested', 'processing', 'pending'].includes(r.payment_status)).length
+    const awaiting = requests.filter(r => ['requested', 'processing', 'pending', 'awaiting_verification'].includes(r.payment_status)).length
     let pendingLines = 0
     requests.forEach(r => (r.lines || []).forEach(l => {
       if (['pending', 'awaiting_connect', 'failed'].includes(l.payout_status) && r.payment_status === 'received') pendingLines++
