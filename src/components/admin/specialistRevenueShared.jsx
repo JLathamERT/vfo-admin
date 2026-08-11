@@ -17,6 +17,9 @@ export function requestDate(r) {
 const REQ_STATUS = {
   requested: { label: 'Payment requested', color: '#0095ff' },
   pending: { label: 'Awaiting bank transfer', color: '#e06717' },
+  // Bank details submitted but hand-keyed, so Stripe is holding the payment until the
+  // specialist verifies a microdeposit. No money has moved — distinct from processing.
+  awaiting_verification: { label: 'Awaiting bank verification', color: '#e06717' },
   processing: { label: 'Payment processing', color: '#e06717' },
   received: { label: 'Payment received', color: '#16a34a' },
   failed: { label: 'Payment failed', color: '#ef4444' },

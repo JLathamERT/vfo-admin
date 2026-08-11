@@ -179,7 +179,7 @@
 | **Member updated progress** — A member updated the status of a Growth Plan priority (one bell per priority changed). | FYI | Assigned Admin | Member saves accountability progress — instant |
 | **Overdue priority** — A Growth Plan priority passed its due date with no progress. | FYI | Assigned Admin | Daily growth sweep — instant |
 
-### VFO Specialist Revenue (6)
+### VFO Specialist Revenue (9)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
@@ -189,6 +189,9 @@
 | **Checkout abandoned** (`SPECREV_checkout_abandoned_bell`, 2026-07-28) — the specialist opened the hosted payment page but never completed it, so the Stripe session expired; nothing was charged and the link they hold still works. Covers BOTH the one-off request and the recurring monthly setup. | FYI | Tracy + Jake | `checkout.session.expired` webhook — instant (gotcha #299) |
 | **Recurring setup reminder email** (`SPECREV_recurring_setup_reminder_email`, 2026-07-28) — nudges a specialist who was sent the recurring ACH setup link but never finished it; carries the amount, charge day and a fresh Complete Setup button. | Reminder email | The specialist (email) | Nightly payout sweep, Pass 3 — after **2 day(s)** (editable) |
 | **Recurring setup still not completed** (`SPECREV_recurring_setup_tracy_bell`, 2026-07-28) — the recurring plan is still `setup_pending` after the reminder window; asks Tracy to chase. | FYI | Tracy | Nightly payout sweep, Pass 3 — after **4 day(s)** (editable) |
+| **Recurring monthly payment failed (Jake + Tracy)** (`SPECREV_recurring_payment_failed_bell`) — a recurring monthly ACH payment failed; Stripe retries per its schedule and the plan stays active. *(Existed since 2026-07-09; missing from this table until the 2026-08-11 audit.)* | FYI | Jake + Tracy | Stripe webhook `invoice.payment_failed` (recurring plan) — instant |
+| **Bank verification still not completed** (`SPECREV_awaiting_verification_bell`, 2026-08-11) — a specialist entered their bank details manually and never finished Stripe's micro-deposit check, so no money has moved and Stripe will eventually cancel the payment; asks Tracy to chase (gotcha #370). | FYI | Tracy | Nightly payout sweep, Pass 2b — after **5 day(s)** (editable) |
+| **One-time payment failed or was canceled (Jake + Tracy)** (`SPECREV_payment_failed_bell`, 2026-08-11) — a one-time ACH payment failed, was canceled, or expired before the specialist verified their bank; the money did not arrive and no payout ran. Dismissible rather than action-required because nothing auto-clears a dead payment (gotcha #372). | FYI | Jake + Tracy | Stripe webhook `payment_intent.canceled` / `payment_intent.payment_failed` / `checkout.session.async_payment_failed` — instant |
 
 ### Payment Continuation (2) *(new area, 2026-07-28)*
 
