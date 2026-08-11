@@ -163,12 +163,11 @@ export default function NotificationBell() {
                 <div
                   key={n.id}
                   onClick={() => handleClick(n)}
-                  title={n.message ? `${n.title}\n\n${n.message}` : n.title}
                   style={{
                     padding: '8px 12px 8px 9px', borderBottom: '1px solid var(--vfo-tint)',
                     borderLeft: !isDismissible ? '3px solid #e06717' : isReminder ? '3px solid #7c3aed' : '3px solid transparent',
                     background: !isDismissible ? 'rgba(224,103,23,0.06)' : isReminder ? 'rgba(124,58,237,0.05)' : 'transparent',
-                    cursor: 'pointer', display: 'flex', gap: '10px', alignItems: 'center'
+                    cursor: 'pointer', display: 'flex', gap: '10px', alignItems: 'flex-start'
                   }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--vfo-tint)'}
                   onMouseLeave={e => e.currentTarget.style.background = !isDismissible ? 'rgba(224,103,23,0.06)' : isReminder ? 'rgba(124,58,237,0.05)' : 'transparent'}
@@ -177,7 +176,13 @@ export default function NotificationBell() {
                     <div style={{
                       fontSize: '12.5px', color: 'var(--vfo-ink)', fontWeight: 600, marginBottom: '3px', lineHeight: '1.35'
                     }}>{n.title}</div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    {n.message && (
+                      <div style={{
+                        fontSize: '11.5px', color: 'var(--vfo-muted)', lineHeight: '1.45',
+                        marginBottom: '5px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'
+                      }}>{n.message}</div>
+                    )}
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                       {!isDismissible && (
                         <span style={{ fontSize: '9px', color: '#fff', fontWeight: 700, padding: '1px 6px', borderRadius: '3px', background: '#e06717', letterSpacing: '0.4px' }}>ACTION</span>
                       )}

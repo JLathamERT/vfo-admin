@@ -4,13 +4,26 @@ import { TaxPlanListSkeleton } from '../../shared/Skeleton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
 import { TrackHero, PhaseBadge, ListHeader } from '../../shared/TrackKit'
 import { hasStrategicSplit, computeStrategicShares } from '../../../lib/strategicSplits'
-import StepDate from '../../shared/StepDate'
 import StepEmailsChip from '../../shared/StepEmailsChip'
 import PricingSplitCard from './PricingSplitCard'
 import { CONFIRMATION_CARD_SKIP } from '../../../lib/confirmationStatus'
 
 // Matches the backend invoice money formatting ($X,XXX.XX).
 const fmtMoney = (n) => (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+// Completion dates on the tax track are DISPLAY ONLY (both programs) — the date
+// is whatever the save recorded and is never hand-editable, so this deliberately
+// shadows the shared editable StepDate control and ignores onChange/disabled.
+// Every call site keeps the same shape as the read-only spans beside it.
+const stepDateLabel = (d) => {
+  if (!d) return ''
+  const parts = String(d).split('-')
+  return parts.length >= 3 ? `${parts[1]}/${parts[2]}` : String(d)
+}
+const STEP_DATE_STYLE = { fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }
+function StepDate({ value }) {
+  return <span style={STEP_DATE_STYLE}>{stepDateLabel(value)}</span>
+}
 
 // Tax planner display name with certifications (professional designations) appended
 // as a comma suffix: "Carson Grover, EA, CPA". DISPLAY ONLY — the value saved to the
@@ -35,6 +48,7 @@ const PLANNER_EDITABLE_TASK_NAMES = new Set([
   'Detailed tax plan presentation',
   'Client decision 1',
   'Client decision 2',
+  'Tax planner review complete',
   'VFO specialist introductions / discussions',
   'Confirm ready for implementation',
   'Implementation decision',
@@ -1289,6 +1303,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     'Proceed with Implementation': '#1b9254', 'Not Implementing': '#e74c3c',
     'Pending Completion': '#e06717',
     'Proceed': '#1b9254',
+    'Proceed with tax planning': '#1b9254', 'Stop tax planning': '#e74c3c',
   }
 
   function formatDate(d) {
@@ -2299,6 +2314,11 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       // The confirmation email names the allocated Team Member / Tax Planner, so
       // the confirm send is blocked until one is allocated (decline stays open).
       const plannerAllocated = !!(livePlan?.tax_planner_id ?? plan?.tax_planner_id)
+      // Declining here is the Holistic-only stop route (it is what retires the
+      // program-1 "Tax Planner review complete" Stop bell). VFO Tax Planning
+      // (program 4) stops via the Green/Red Light step's $500 deposit refund
+      // instead, so it gets no decline affordance.
+      const canDecline = (plan.program_id || 1) === 1
       const draft = declineDrafts[task.id] || {}
       const declineOpen = !!draft.open
       const sending = !!draft.sending
@@ -2358,7 +2378,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                     : !declineOpen && (
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                         <button disabled={sending} onClick={() => { if (!plannerAllocated) { alert('Allocate a Team Member / Tax Planner (Tax 1) before sending the confirmation email.'); return } setDraft({ dateOpen: true, tz: draft.tz || 'ET' }) }} style={tdGreen}>Send email (with date)</button>
-                        <button disabled={sending} onClick={() => setDeclineDrafts(d => ({ ...d, [task.id]: { open: true, reason: '', sending: false } }))} style={tdRed}>No - Declined email to client</button>
+                        {canDecline && <button disabled={sending} onClick={() => setDeclineDrafts(d => ({ ...d, [task.id]: { open: true, reason: '', sending: false } }))} style={tdRed}>No - Declined email to client</button>}
                       </div>
                     )
             }
@@ -2567,6 +2587,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                   {selectedIsTeamMember && <span style={teamMemberChip}>Team Member</span>}
                 </>
               : <span style={neutralChipStyle}>Not started</span>}
+            <StepDate value={isAllocated ? (p.completed_date || '') : ''} />
           </div>
         )
       }
@@ -2594,6 +2615,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               </select>
             </>
           )}
+          <StepDate value={isAllocated ? (p.completed_date || '') : ''} />
         </div>
       )
     }
