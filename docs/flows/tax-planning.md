@@ -919,7 +919,7 @@ All resolve `tax_planners.email` from the plan's `tax_planner_id` via `notifyAll
 | Rule key | Fires from | When |
 |----------|-----------|------|
 | `TAX_planner_allocated` | `allocate-planner.ts` | a genuine (re)assignment to a **Tax Planner** whose review step is already answered AND whose assess form is already submitted — the fall-through FYI. **No longer fires for a Team Member allocation at all** (that branch always raises `TAX_team_member_allocate_planner` instead) |
-| `TAX_planner_returns_uploaded` | `vault/upload-notify.ts` | client uploads a tax return (token page OR portal) → to the latest plan-with-planner's ATP |
+| ~~`TAX_planner_returns_uploaded`~~ | — **DORMANT since 2026-08-11 (v725)** | Fired on ANY sensitive-vault upload while a planner was allocated and told them to complete the Tax 2 assess step — past the Tax 1 review gate. Its condition was "a planner is allocated", not "returns were requested", so it also fired on additional-info responses; observed live raising it alongside the correct review bell, each naming a different step. Call site removed from `vault/upload-notify.ts`; the rule row is kept for rollback. The planner is told to review at allocation (`TAX_planner_review_needed`) and told the requested information arrived by `TAX_planner_additional_info_uploaded`. |
 | `TAX_planner_hlm_ready` | `invoice-receipt.ts` | after the retainer receipt completes ("send detailed tax plan meeting confirmation email") |
 | `TAX_planner_decision2_ready` | `revshare.ts` | after retainer revshare success |
 | `TAX_planner_impl_decision_ready` | `save-task.ts` | "Confirm ready for implementation" transitions to "Yes" (dedupe unread) |
