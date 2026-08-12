@@ -150,7 +150,10 @@ Per-accountant state for the Partnership Fast Track engagement track (added 2026
 | `ft_pf_notified_at` | timestamptz | 4-day PF-notice guard |
 | `accountant_onboarding_id` | bigint | fk → `accountant_onboarding(id)` `ON DELETE SET NULL`; the handoff record created on a VFO FT / VFO Associate decision |
 | `created_at` | timestamptz | default `now()` |
+| `discovery_pf_ack_at` / `ft_pf_ack_at` / `decision_pf_ack_at` | timestamptz | **2026-08-12 (v734).** "Reached out?" acknowledgements — one per stall ladder, recording that a human chased the 4-day PF notice. **ONLY writer `automation_stall_ack`** (`pipeline:'pft'`, `stall` ∈ `discovery` / `ft` / `decision`); un-ticking writes NULL. Nothing reads them. Backfilled `now()` where the PF notice had fired AND the response arrived (`decision_response` / `ft_response` non-null) — **0 rows matched on both**; `discovery` got no backfill statement. **The 2-day / 4-day rows themselves used to render ALWAYS on this surface and are now conditional on their own stamp** — and `PFTEngagementTrack.jsx` dropped its `!decResp`/`!ftResp` guards at the same time, so the chase history now SURVIVES the response instead of vanishing when the accountant replies. Gotcha **#381**. |
 
-**Touched by:** `automation_PFT_meetingemail`, `automation_PFT_decisionemail`, `automation_PFT_ftresponse`, `automation_PFT_loaddiscovery`, `automation_PFT_submitdiscovery`, `automation_PFT_sweep`, `pft_load_engagement`.
+> **The `decision_*` family is not itemised above and predates this session** — `decision_email_sent_at` / `decision_reminder_sent_at` / `decision_pf_notified_at` / `decision_response` exist and are read by `automation_PFT_sweep` and `PFTAutomationPanel.jsx`. Pre-existing doc drift, noted rather than fixed here.
+
+**Touched by:** `automation_PFT_meetingemail`, `automation_PFT_decisionemail`, `automation_PFT_ftresponse`, `automation_PFT_loaddiscovery`, `automation_PFT_submitdiscovery`, `automation_PFT_sweep`, `pft_load_engagement`, `automation_stall_ack`.
 
 > Also added 2026-06-05: `accountant_onboarding.accountant_type` (`'VFO FT'` | `'VFO Associate'` | NULL) — associates skip Stages 1-2; and `accountant_onboarding.prelim_meeting_status` gained the value `'Request no meeting'` (auto-set by the PFT FT "confirm" response).

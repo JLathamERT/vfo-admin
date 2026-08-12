@@ -56,6 +56,9 @@ The `pipeline_map1` table uses `c##_*` column prefixes for each MAP1 lifecycle s
 | `c17_client_signed` | Client signed agreement | `boldsign-webhook` |
 | `c17_followup_sent_date` | Agreement-sent timer base (also reminder ladder base for the signing stall) | `automation_CONTRACT_sendagreement` |
 | `c17_reminder_sent_at`, `c17_pf_notified_at` | Reminder-ladder idempotency guards for the 48h signing reminder + 96h PF notification | `automation_CONTRACT_revshare_sweep` |
+| `<stall>_pf_ack_at` (26 columns across 7 tables; the MAP 4 one is `map4_stall_ack_at`) | **Manual "Reached out?" acknowledgement** — records that a human chased the 96h escalation. NOT a sweep guard: nothing reads it, it gates nothing and raises no bell. Un-ticking writes NULL. Added 2026-08-12 (v734), gotcha #381 | `automation_stall_ack` **only** (admin-only; column chosen from a hardcoded `STALL_COLUMNS` whitelist, never interpolated) |
+| `c15_final_decision_at` | When the client submitted their MAP 1 decision on `/decide`. Added 2026-08-12 so the tracking row can show a date; **blank on every historic row** | `automation_PCADMIN_finaldecision` |
+| `implementation_receipt_email_sent_at` | When the Tax 5 implementation receipt email was drafted. Added 2026-08-12; written in the same update as `implementation_receipt_status='Sent'`, so a `'Sent'` row with NULL here is pre-v734, not un-sent | `automation_TAX_implementation_receipt` |
 | `c18_ceo_signed` | CEO countersigned | `boldsign-webhook` |
 | `c24_email_sent` | Tracy intro email sent (after first payment + revenue share) | `automation_CONTRACT_revshare` |
 

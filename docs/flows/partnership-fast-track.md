@@ -115,6 +115,8 @@ An **AI PC Admin** history block (rendered under the decision step, styled like 
 derives the full timeline from `pft_engagement`: undecided email sent → client's path choice → onboarding
 created → confirmation email sent → client's another-meeting response (plus reminder / PF-notified rows).
 
+**2026-08-12 (v734) — the reminder / PF-notified rows changed in two ways that matter here.** (1) They are now **conditional on their own column being stamped** (`<stall>_reminder_sent_at` / `<stall>_pf_notified_at`); they previously rendered **always**, which showed a chase history on engagements that never stalled. (2) `PFTEngagementTrack.jsx` **dropped its extra `!decResp` / `!ftResp` guards**, so the rows now **survive the client's response** instead of disappearing the moment the accountant replies — the whole point of a paper trail is that it outlives the thing it was chasing. The 96h row additionally carries an indented **"Reached out?"** checkbox saving through `automation_stall_ack` (`pipeline:'pft'`, `stall` ∈ `discovery` / `ft` / `decision` → `<stall>_pf_ack_at`), hidden in `readOnly`. Every row also shows a non-editable MM/DD date. **No live PFT data existed to click-test**, so these paths were verified by diff + build only. Gotcha **#381**.
+
 Phase 6 indicators (matching section only): **"Sent to Accountant Onboarding"** (green once
 `accountant_onboarding_id` exists) + **"Accountant onboarding progress"** (live stage from
 `pft_load_engagement` + a **View onboarding →** deep-link to that record).
