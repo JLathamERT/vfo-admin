@@ -129,7 +129,6 @@ function AccountantsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onD
       navClickCount={navClickCount}
       onOpenMember={onOpenMember}
       memberConnections={memberConnections}
-      hiddenFields={['revenue_decision']}
       growthPlan={true}
       listTitle="Accountants"
     />
@@ -143,6 +142,7 @@ function AddAccountantForm({ allMembers, onDataChange }) {
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [eliteStatus, setEliteStatus] = useState('')
+  const [revenueDecision, setRevenueDecision] = useState('')
   const [advisorModel, setAdvisorModel] = useState('')
   const [status, setStatus] = useState('')
   const [statusType, setStatusType] = useState('success')
@@ -158,6 +158,7 @@ function AddAccountantForm({ allMembers, onDataChange }) {
     if (!firstName || !lastName || !memberType) { setStatusType('error'); setStatus('First name, last name, and member type are required.'); return }
     if (!email.trim()) { setStatusType('error'); setStatus('Email is required.'); return }
     if (!eliteStatus) { setStatusType('error'); setStatus('Please pick a status.'); return }
+    if (!revenueDecision) { setStatusType('error'); setStatus('Please pick a revenue decision.'); return }
     if (!advisorModel) { setStatusType('error'); setStatus('Please pick Legacy Model or New Model.'); return }
     setLoading(true)
     try {
@@ -177,12 +178,13 @@ function AddAccountantForm({ allMembers, onDataChange }) {
         trading_name: tradingName.trim() || null,
         elite_status: eliteStatus,
         email,
+        revenue_decision: revenueDecision,
         advisor_model: advisorModel,
         member_category: 'accountant',
         connected_member_number: null,
       })
       await onDataChange()
-      setFirstName(''); setLastName(''); setEmail(''); setMemberType(''); setTradingName(''); setCustomMemberNumber(''); setAdvisorModel(''); setEliteStatus('')
+      setFirstName(''); setLastName(''); setEmail(''); setMemberType(''); setTradingName(''); setCustomMemberNumber(''); setAdvisorModel(''); setEliteStatus(''); setRevenueDecision('')
       setStatusType('success'); setStatus(`Accountant created with number ${res.member_number}`)
     } catch (err) { setStatusType('error'); setStatus(err.message) }
     finally { setLoading(false) }
@@ -212,6 +214,14 @@ function AddAccountantForm({ allMembers, onDataChange }) {
           <select value={eliteStatus} onChange={e => setEliteStatus(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
             <option value="">-- Select --</option>
             {['Active', 'Lost', 'Removed'].map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div style={{ flex: 1, minWidth: '180px' }}>
+          <label style={labelStyle}>Revenue Decision *</label>
+          <select value={revenueDecision} onChange={e => setRevenueDecision(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
+            <option value="">-- Select --</option>
+            <option value="Revenue Share">Revenue Share</option>
+            <option value="Money Mapping">Money Mapping</option>
           </select>
         </div>
       </div>

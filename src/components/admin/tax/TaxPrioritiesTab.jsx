@@ -730,9 +730,9 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
 const ASSESS_AMOUNT_KEYS = ['invest_y1', 'invest_y2', 'gross_y1', 'gross_y2']
 const ASSESS_AMOUNT_FIELDS = [
   { key: 'invest_y1', label: 'Investment Cost — Year 1' },
-  { key: 'invest_y2', label: 'Investment Cost — Year 2+' },
+  { key: 'invest_y2', label: 'Investment Cost — Year 2' },
   { key: 'gross_y1', label: 'Gross Savings — Year 1' },
-  { key: 'gross_y2', label: 'Gross Savings — Year 2+' },
+  { key: 'gross_y2', label: 'Gross Savings — Year 2' },
 ]
 const blankStrategy = () => ({ name: '', invest_y1: '', invest_y2: '', gross_y1: '', gross_y2: '' })
 const assessNum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0 }
@@ -773,7 +773,7 @@ function AssessSummaryTable({ rows }) {
             <th style={{ ...head, textAlign: 'left' }}>Strategy</th>
             <th style={head}>Total</th>
             <th style={head}>Year 1</th>
-            <th style={head}>Year 2+</th>
+            <th style={head}>Year 2</th>
           </tr>
         </thead>
         {sections.map(sec => {
@@ -952,7 +952,7 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
               ))}
             </div>
             <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '8px' }}>
-              Net: Year 1 {assessMoney(r.net.y1)} · Year 2+ {assessMoney(r.net.y2)} · Total {assessMoney(r.net.total)}
+              Net: Year 1 {assessMoney(r.net.y1)} · Year 2 {assessMoney(r.net.y2)} · Total {assessMoney(r.net.total)}
             </div>
           </div>
         )
