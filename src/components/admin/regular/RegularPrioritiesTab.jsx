@@ -21,6 +21,42 @@ const REGULAR_PRIORITIES = [
   "Intellectual Property", "Legal Focus"
 ]
 
+// MM/DD for the AI PC Admin auto rows. Plain 'YYYY-MM-DD' DATE columns are split
+// as strings (new Date() would shift them a day west of UTC); timestamptz values
+// go through Date so they read in the viewer's local time.
+const fmtMMDD = (v) => {
+  if (!v) return ''
+  const s = String(v)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const p = s.split('-'); return `${p[1]}/${p[2]}` }
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return ''
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Ack sub-row under a 96h "assigned PF notified" auto row — records that a human
+// actually chased the stall. Admin surface only.
+function StallAckRow({ pipeline, id, stall, ackAt, onAck }) {
+  const [checked, setChecked] = useState(!!ackAt)
+  const [saving, setSaving] = useState(false)
+  useEffect(() => { setChecked(!!ackAt) }, [ackAt])
+  async function toggle(next) {
+    setChecked(next)
+    setSaving(true)
+    try {
+      const res = await callApi('automation_stall_ack', { pipeline, id, stall, ack: next })
+      onAck(res?.ack_at || null)
+    } catch (err) { console.error('Stall ack error:', err); setChecked(!next) }
+    finally { setSaving(false) }
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', marginLeft: '14px' }}>
+      <input type="checkbox" checked={checked} disabled={saving} onChange={e => toggle(e.target.checked)} style={{ cursor: saving ? 'default' : 'pointer' }} />
+      <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Reached out?</span>
+      {checked && ackAt && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flexShrink: 0 }}>{fmtMMDD(ackAt)}</span>}
+    </div>
+  )
+}
+
 // MAP 4 confirmation email step — 3-button post-meeting confirm mirroring MAP 1's
 // PIP 1 Confirmation Email (PipConfirmStep): "with date" (date/time/tz), "date not
 // confirmed", and "declined". Drafts the email via the backend, then records the
@@ -89,12 +125,13 @@ function Map4ConfirmStep({ trackId, task, p, onDone, emailCtx }) {
 // Below, an "AI PC Admin"-style auto group shows the email-sent + form-completed
 // sub-steps (the client's answers reveal under a chevron), mirroring the Specialist
 // Preliminary-Meeting pattern. Completion flags are read off the track.
-function Map4FollowupStep({ trackId, task, p, track, onDone, emailCtx }) {
+function Map4FollowupStep({ trackId, task, p, track, onDone, emailCtx, readOnly = false }) {
   const [showDate, setShowDate] = useState(false)
   const [date, setDate] = useState('')
   const [enteredDate, setEnteredDate] = useState(track.map4_meeting_date || '')
   const [pending, setPending] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
+  const [stallAckAt, setStallAckAt] = useState(track.map4_stall_ack_at || null)
   const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
   const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
   const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }
@@ -134,13 +171,24 @@ function Map4FollowupStep({ trackId, task, p, track, onDone, emailCtx }) {
   const aipcDone = emailSent && formDone
   const movingForward = formData.q3_moving_forward || ''
 
-  const autoStep = (label, done) => (
+  const autoStep = (label, done, at = null) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
       <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
       <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
       <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', marginLeft: 'auto', ...(done ? { background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 } : { background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }) }}>{done ? 'Done' : 'Awaiting'}</span>
+      {done && at && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flexShrink: 0 }}>{fmtMMDD(at)}</span>}
     </div>
   )
+
+  // 48h client reminder / 96h PF notification for the stalled follow-up form.
+  // Both only exist once the cron has stamped them.
+  const reminderStep = (at) => at ? autoStep('2-day reminder email sent to client', true, at) : null
+  const pfNotifiedStep = (at) => at ? (
+    <>
+      {autoStep('4-day passed — assigned PF notified to follow up', true, at)}
+      {!readOnly && <StallAckRow pipeline="regular" id={trackId} stall="map4" ackAt={stallAckAt} onAck={setStallAckAt} />}
+    </>
+  ) : null
   const answer = (label, val) => (
     <div style={{ marginBottom: '10px' }}>
       <div style={{ fontSize: '10px', fontWeight: 700, color: '#0095ff', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{label}</div>
@@ -173,7 +221,9 @@ function Map4FollowupStep({ trackId, task, p, track, onDone, emailCtx }) {
             <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>AI PC Admin</span>
           </div>
           <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
-            {autoStep('MAP 4 follow-up email sent', emailSent)}
+            {autoStep('MAP 4 follow-up email sent', emailSent, track.map4_followup_sent_at)}
+            {reminderStep(track.map4_reminder_sent_at)}
+            {pfNotifiedStep(track.map4_stall_notified_at)}
             <div>
               <div onClick={() => formDone && setFormOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', cursor: formDone ? 'pointer' : 'default' }}>
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: formDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${formDone ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
@@ -181,6 +231,7 @@ function Map4FollowupStep({ trackId, task, p, track, onDone, emailCtx }) {
                 {formDone
                   ? <>
                       <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>
+                      {track.map4_form_submitted_at && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flexShrink: 0 }}>{fmtMMDD(track.map4_form_submitted_at)}</span>}
                       <span style={{ color: 'var(--vfo-muted)', fontSize: '9px', transform: formOpen ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
                     </>
                   : <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', marginLeft: 'auto' }}>Awaiting</span>}
@@ -420,6 +471,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                       p={p}
                       track={track}
                       emailCtx={emailCtx}
+                      readOnly={readOnly}
                       onDone={(taskId, status, date) => {
                         const updated = { task_id: taskId, status, completed_date: date }
                         setLocalProgress(pr => ({ ...pr, [taskId]: { ...pr[taskId], ...updated } }))

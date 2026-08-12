@@ -54,7 +54,18 @@ const SIF_TAX_FIELDS = [
   ['tax_worst_case', 'What are potential worst-case scenarios?'],
   ['tax_precautions', 'What precautions are in place to prevent or minimize the risks?'],
 ]
- 
+
+// Plain DATE strings are split, never fed to new Date() — that reads them as UTC
+// midnight and renders the previous day west of Greenwich. timestamptz is local.
+const fmtMMDD = (v) => {
+  if (!v) return ''
+  const s = String(v)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const p = s.split('-'); return `${p[1]}/${p[2]}` }
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return ''
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+}
+
 export default function SpecialistOnboarding() {
   const [view, setView] = useState('list')
   const [onboardings, setOnboardings] = useState([])
@@ -388,7 +399,7 @@ function OnboardingDetail({ id, onBack }) {
   // Automated (no-click) step — mirrors the MAP 1 tracker's autoStep exactly
   // (small dot, 12px label that greens when done, tiny "Done / Not completed"
   // chip) so it never reads as a clickable button.
-  function AutoStep({ done, label, detail }) {
+  function AutoStep({ done, label, detail, date }) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
@@ -397,10 +408,62 @@ function OnboardingDetail({ id, onBack }) {
           {detail && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{detail}</span>}
           <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: done ? 'rgba(27,146,84,0.15)' : 'var(--vfo-tint)', border: done ? '1px solid rgba(27,146,84,0.3)' : '1px solid var(--vfo-border-chip)', color: done ? '#1b9254' : 'var(--vfo-muted)' }}>{done ? 'Done' : 'Not completed'}</span>
         </span>
+        {done && date && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flexShrink: 0 }}>{fmtMMDD(date)}</span>}
       </div>
     )
   }
- 
+
+  // Cron-sweep paper trail for one stalled substep: the 48h chase email, then the
+  // 96h Tracy notification with a "Reached out?" acknowledgement. Each row only
+  // exists once its column is stamped, so an un-stalled step shows nothing.
+  function StallRows({ stall, noun = 'specialist' }) {
+    const reminderAt = ob[`${stall}_reminder_sent_at`]
+    const notifiedAt = ob[`${stall}_pf_notified_at`]
+    const ackAt = ob[`${stall}_pf_ack_at`]
+    const [ackBusy, setAckBusy] = useState(false)
+
+    async function toggleAck(next) {
+      const before = ackAt || null
+      setAckBusy(true)
+      setOb(o => ({ ...o, [`${stall}_pf_ack_at`]: next ? new Date().toISOString() : null }))
+      try {
+        const r = await callApi('automation_stall_ack', { pipeline: 'specialist', id: ob.id, stall, ack: next })
+        setOb(o => ({ ...o, [`${stall}_pf_ack_at`]: r?.ack_at || null }))
+      } catch (err) {
+        console.error(err)
+        setOb(o => ({ ...o, [`${stall}_pf_ack_at`]: before }))
+      }
+      finally { setAckBusy(false) }
+    }
+
+    const doneRow = (label, at) => (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1b9254', flexShrink: 0, border: '1px solid #1b9254' }} />
+        <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
+        <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', border: '1px solid rgba(27,146,84,0.3)', color: '#1b9254' }}>Done</span>
+        </span>
+        <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flexShrink: 0 }}>{fmtMMDD(at)}</span>
+      </div>
+    )
+
+    return (
+      <>
+        {reminderAt && doneRow(`2-day reminder email sent to ${noun}`, reminderAt)}
+        {notifiedAt && (
+          <>
+            {doneRow('4-day passed — Tracy notified to follow up', notifiedAt)}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)', marginLeft: '14px' }}>
+              <input type="checkbox" checked={!!ackAt} disabled={ackBusy} onChange={e => toggleAck(e.target.checked)} style={{ margin: 0, flexShrink: 0, cursor: ackBusy ? 'default' : 'pointer' }} />
+              <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>Reached out?</span>
+              {ackAt && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginLeft: 'auto', flexShrink: 0 }}>{fmtMMDD(ackAt)}</span>}
+            </div>
+          </>
+        )}
+      </>
+    )
+  }
+
   function CheckItem({ done, label, onClick, toggle }) {
     const clickable = !isStopped && (toggle || !done)
     return (
@@ -496,11 +559,12 @@ function OnboardingDetail({ id, onBack }) {
 
         {decision && decision !== 'stop' && (() => {
           const emailSent = !!getTaskStatus(1, 'email_sent')
-          const autoStep = (label, done) => (
+          const autoStep = (label, done, date) => (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
               <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
               {done && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>}
+              {done && date && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flexShrink: 0 }}>{fmtMMDD(date)}</span>}
             </div>
           )
           const sifDone = !!ob.sif_submitted_at
@@ -513,7 +577,8 @@ function OnboardingDetail({ id, onBack }) {
                 <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>AI PC Admin</span>
               </div>
               <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
-                {autoStep('Email sent to potential VFO specialist (SIF form, rev share examples, template agreement attached)', emailSent)}
+                {autoStep('Email sent to potential VFO specialist (SIF form, rev share examples, template agreement attached)', emailSent, ob.sif_email_sent_at)}
+                <StallRows stall="sif" />
                 <div>
                   <div onClick={() => sifDone && setSifOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)', cursor: sifDone ? 'pointer' : 'default' }}>
                     <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: sifDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${sifDone ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
@@ -521,6 +586,7 @@ function OnboardingDetail({ id, onBack }) {
                     {sifDone
                       ? <>
                           <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>
+                          <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flexShrink: 0 }}>{fmtMMDD(ob.sif_submitted_at)}</span>
                           <span style={{ color: 'var(--vfo-muted)', fontSize: '9px', transform: sifOpen ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
                         </>
                       : <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', marginLeft: 'auto' }}>Awaiting</span>}
@@ -856,12 +922,14 @@ function OnboardingDetail({ id, onBack }) {
               <>
                 <ExecDetailsDropdown />
                 <ExecVoteRow stage={2} round={1} options={['Approved', 'Further Questions']} myExec={myExec} />
+                <StallRows stall="vote_r1" noun="execs" />
                 {r1BothApproved && <div style={approvedBanner}>✓ Both executives approved.</div>}
                 {r1AnyFurther && (
                   <>
                     <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(251,137,90,0.3)', background: 'rgba(251,137,90,0.06)', margin: '12px 0' }}>An executive raised further questions — a second decision is needed after discussion.</div>
                     <SectionLabel>Executive decision (after discussion)</SectionLabel>
                     <ExecVoteRow stage={2} round={2} options={['Approved', 'Denied']} myExec={myExec} />
+                    <StallRows stall="vote_r2" noun="execs" />
                     {r2BothApproved && <div style={approvedBanner}>✓ Both executives approved.</div>}
                   </>
                 )}
@@ -1120,6 +1188,9 @@ function OnboardingDetail({ id, onBack }) {
     const revEmailed = !!ob.bg_receipt_email_sent_at
     const revFinalDone = revResponse === 'Approved' || revFinalized
     const revFinalDetail = revFinalDone ? (revFinalizedHow === 'edited' ? 'Edited' : 'Confirmed') : ''
+    // A straight "Approved" response finalises the proposal without an admin
+    // action, so there is no progress row to date it — fall back to the response.
+    const revFinalizedAt = progress['3-rev_share_finalized']?.completed_at || ob.rev_share_final_response_at
 
     const [showEdits, setShowEdits] = useState(false)
     const [editsReason, setEditsReason] = useState('')
@@ -1187,10 +1258,11 @@ function OnboardingDetail({ id, onBack }) {
     return (
       <>
         {/* Background-check payment flow (begins when both execs approve) */}
-        <AutoStep done={step3Sent} label={<>Stage 3 email sent to specialist (choose Core $350 / Max $950)<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Stage 3 email" context={emailCtx} templates={[
+        <AutoStep done={step3Sent} date={ob.bg_step3_email_sent_at} label={<>Stage 3 email sent to specialist (choose Core $350 / Max $950)<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Stage 3 email" context={emailCtx} templates={[
             { name: 'SPECIALIST_step3', when: 'Step 3 email' },
             { name: 'SPECIALIST_step3_proceed', when: 'Step 3 proceed / receipt email' },
           ]} /></span></>} />
+        <StallRows stall="bg_choice" />
 
         {/* Appears once the specialist asks questions, and STAYS as a paper trail:
             action buttons while unresolved, then the outcome pill once resolved. */}
@@ -1231,9 +1303,9 @@ function OnboardingDetail({ id, onBack }) {
 
         {/* Card is receipt-only — no confirmation email is ever sent for it. */}
         {(confirmSent || ob.bg_payment_method_type !== 'card') && (
-          <AutoStep done={confirmSent} label="Payment confirmation email sent" />
+          <AutoStep done={confirmSent} label="Payment confirmation email sent" date={ob.bg_confirmation_email_sent_at} />
         )}
-        <AutoStep done={bgPaid} label="Payment cleared — receipt, next steps, and DD checklist sent" />
+        <AutoStep done={bgPaid} label="Payment cleared — receipt, next steps, and DD checklist sent" date={ob.bg_payment_completed_at} />
 
         {/* ── Background Check ── */}
         <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
@@ -1282,7 +1354,8 @@ function OnboardingDetail({ id, onBack }) {
             { name: 'SPECIALIST_ddc_reminder', when: 'Automatic reminder if the checklist is not submitted (48h)' },
           ]} /></span></SectionLabel>
 
-        <AutoStep done={ddcEmailed} label="Due diligence checklist emailed to client (Along with Final Revenue Share Proposal)" />
+        <AutoStep done={ddcEmailed} label="Due diligence checklist emailed to client (Along with Final Revenue Share Proposal)" date={ob.ddc_email_sent_at} />
+        <StallRows stall="ddc" />
 
         {/* Help requested — same paper-trail format as the Core/Max questions step */}
         {helpRequested && (
@@ -1345,7 +1418,7 @@ function OnboardingDetail({ id, onBack }) {
           ))}
         </div>
 
-        <AutoStep done={ddcEverSubmitted} label="Due diligence checklist submitted" />
+        <AutoStep done={ddcEverSubmitted} label="Due diligence checklist submitted" date={ob.ddc_submitted_at} />
 
         {/* Review paper trail — every approve/deny round, oldest first */}
         {reviewLog.filter(e => e.type === 'denied' || e.type === 'approved').map((e, i) => (
@@ -1394,9 +1467,10 @@ function OnboardingDetail({ id, onBack }) {
             { name: 'SPECIALIST_revfinal_reminder', when: 'Automatic reminder if the final proposal is unanswered (48h)' },
           ]} /></span></SectionLabel>
 
-        <AutoStep done={revEmailed} label="Revenue share proposal emailed to client (Along with DD Checklist)" />
-        <AutoStep done={!!revResponse} label="Specialist response to revenue share proposal" detail={revResponse === 'Approved' ? 'Happy' : revResponse === 'Further Questions' ? 'Further questions' : ''} />
-        <AutoStep done={revFinalDone} label="Final revenue share proposal" detail={revFinalDetail} />
+        <AutoStep done={revEmailed} label="Revenue share proposal emailed to client (Along with DD Checklist)" date={ob.bg_receipt_email_sent_at} />
+        <StallRows stall="rev_share_final" />
+        <AutoStep done={!!revResponse} label="Specialist response to revenue share proposal" detail={revResponse === 'Approved' ? 'Happy' : revResponse === 'Further Questions' ? 'Further questions' : ''} date={ob.rev_share_final_response_at} />
+        <AutoStep done={revFinalDone} label="Final revenue share proposal" detail={revFinalDetail} date={revFinalizedAt} />
 
         {revResponse === 'Further Questions' && !revFinalized && (
           <div style={{ padding: '8px 0 4px 14px' }}>
@@ -1479,26 +1553,28 @@ function OnboardingDetail({ id, onBack }) {
         <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
 
         <SectionLabel>Specialist Onboarding Agreement &amp; Set up Licensing fee subscription</SectionLabel>
-        <AutoStep done={!!getTaskStatus(4, 'agreement_sent')} label={<>Agreement sent<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Onboarding agreement" context={emailCtx} templates={[
+        <AutoStep done={!!getTaskStatus(4, 'agreement_sent')} date={ob.agreement_sent_at} label={<>Engagement agreement created and sent for signing<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Onboarding agreement" context={emailCtx} templates={[
             { name: 'SPECIALIST_agreement_sent', when: 'Agreement signing link' },
             { name: 'SPECIALIST_ceo_countersign', when: 'Automatic — asks the CEO to countersign' },
             { name: 'SPECIALIST_signature_reminder', when: 'Automatic reminder if unsigned (48h)' },
           ]} /></span></>} />
-        <AutoStep done={!!getTaskStatus(4, 'agreement_signed_specialist')} label="Agreement signed by specialist" />
-        <AutoStep done={!!getTaskStatus(4, 'agreement_signed_ceo')} label="Agreement signed by CEO" />
-        <AutoStep done={!!getTaskStatus(4, 'payment_link_sent')} label={<>Payment link sent<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Licensing fee" context={emailCtx} templates={[
+        <StallRows stall="agreement_sign" />
+        <AutoStep done={!!getTaskStatus(4, 'agreement_signed_specialist')} label="Engagement agreement signed" date={ob.agreement_signed_by_specialist_at} />
+        <AutoStep done={!!getTaskStatus(4, 'agreement_signed_ceo')} label="Engagement agreement signed by CEO" date={ob.agreement_signed_by_ceo_at} />
+        <AutoStep done={!!getTaskStatus(4, 'payment_link_sent')} date={ob.lic_payment_link_sent_at} label={<>Payment link sent (ACH or Card choice)<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Licensing fee" context={emailCtx} templates={[
             { name: 'SPECIALIST_lic_payment', when: 'Automatic — monthly license payment link' },
             { name: 'SPECIALIST_lic_confirmation|card', when: 'No longer sent automatically — card gets the invoice/receipt instead' },
             { name: 'SPECIALIST_lic_confirmation|ach', when: 'If paid by bank transfer (ACH) — the only method that gets a confirmation' },
             { name: 'SPECIALIST_lic_invoicereceipt', when: 'Automatic — license invoice + receipt (monthly)' },
             { name: 'SPECIALIST_licpayment_reminder', when: 'Automatic reminder if the license payment is not made (48h)' },
           ]} /></span></>} />
-        <AutoStep done={!!getTaskStatus(4, 'payment_made')} label="Payment made" />
+        <StallRows stall="lic_payment" />
+        <AutoStep done={!!getTaskStatus(4, 'payment_made')} label="Payment collected" date={ob.lic_payment_completed_at} />
         {/* Card is receipt-only — the confirmation progress task is never stamped for it. */}
         {(!!getTaskStatus(4, 'confirmation_email_sent') || ob.lic_payment_method_type !== 'card') && (
-          <AutoStep done={!!getTaskStatus(4, 'confirmation_email_sent')} label="Confirmation email sent" />
+          <AutoStep done={!!getTaskStatus(4, 'confirmation_email_sent')} label="Confirmation email sent" date={ob.lic_confirmation_email_sent_at} />
         )}
-        <AutoStep done={!!getTaskStatus(4, 'invoice_receipt_sent')} label="Invoice/receipt sent" />
+        <AutoStep done={!!getTaskStatus(4, 'invoice_receipt_sent')} label="Invoice and receipt created and emailed to client" date={ob.lic_invoice_receipt_email_sent_at} />
       </>
     )
   }

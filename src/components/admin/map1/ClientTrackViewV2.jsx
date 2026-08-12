@@ -17,6 +17,42 @@ import StepEmailsChip from '../../shared/StepEmailsChip'
 // and only this one counts toward the phase.
 const isTrackingOwnerTask = (t) => (t?.name || '').startsWith('Who is completing the tracking')
 
+// MM/DD for the AI PC Admin auto rows. Plain 'YYYY-MM-DD' DATE columns are split
+// as strings (new Date() would shift them a day west of UTC); timestamptz values
+// go through Date so they read in the viewer's local time.
+const fmtMMDD = (v) => {
+  if (!v) return ''
+  const s = String(v)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const p = s.split('-'); return `${p[1]}/${p[2]}` }
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return ''
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Ack sub-row under a 96h "assigned PF notified" auto row — records that a human
+// actually chased the stall. Admin surface only.
+function StallAckRow({ pipeline, id, stall, ackAt, onAck }) {
+  const [checked, setChecked] = useState(!!ackAt)
+  const [saving, setSaving] = useState(false)
+  useEffect(() => { setChecked(!!ackAt) }, [ackAt])
+  async function toggle(next) {
+    setChecked(next)
+    setSaving(true)
+    try {
+      const res = await callApi('automation_stall_ack', { pipeline, id, stall, ack: next })
+      onAck(res?.ack_at || null)
+    } catch (err) { console.error('Stall ack error:', err); setChecked(!next) }
+    finally { setSaving(false) }
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', marginLeft: '14px' }}>
+      <input type="checkbox" checked={checked} disabled={saving} onChange={e => toggle(e.target.checked)} style={{ cursor: saving ? 'default' : 'pointer' }} />
+      <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Reached out?</span>
+      {checked && ackAt && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flexShrink: 0 }}>{fmtMMDD(ackAt)}</span>}
+    </div>
+  )
+}
+
 // PIP meeting confirmation step (PIP 1 / PIP Follow-up) — 3-button post-meeting
 // decision mirroring Partnership Fast Track Meeting 1: "with date" (date/time/tz),
 // "date not confirmed", and "declined". Drafts the email via the backend, then
@@ -454,7 +490,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                       { name: 'PCADMIN_followup|No', when: 'Decline email' },
                     ],
                   }
-                  const autoStep = (label, done = false, tag = null, na = false) => {
+                  const autoStep = (label, done = false, tag = null, na = false, at = null) => {
                     const emailTpls = STEP_EMAIL_TPLS[label]
                     return (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
@@ -465,9 +501,20 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                         {done && tag && !na && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{tag}</span>}
                         <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: (done || na) ? 'rgba(27,146,84,0.15)' : 'var(--vfo-tint)', border: (done || na) ? '1px solid rgba(27,146,84,0.3)' : '1px solid var(--vfo-border-chip)', color: (done || na) ? '#1b9254' : 'var(--vfo-muted)' }}>{na ? 'N/A' : (done ? 'Done' : 'Not completed')}</span>
                       </span>
+                      {done && at && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flexShrink: 0 }}>{fmtMMDD(at)}</span>}
                     </div>
                     )
                   }
+
+                  // 48h client reminder / 96h PF notification for one stalled step.
+                  // Both only exist once the cron has stamped them.
+                  const reminderStep = (at) => at ? autoStep('2-day reminder email sent to client', true, null, false, at) : null
+                  const pfNotifiedStep = (stall, at, ackAt) => at ? (
+                    <>
+                      {autoStep('4-day passed — assigned PF notified to follow up', true, null, false, at)}
+                      {!readOnly && <StallAckRow pipeline="map1" id={pipelineData?.id} stall={stall} ackAt={ackAt} onAck={v => setPipelineData(prev => prev ? { ...prev, [`${stall}_pf_ack_at`]: v } : prev)} />}
+                    </>
+                  ) : null
 
                   // Revenue share is N/A when member share is set to $0 (member gets
                   // no share). Applies to both regular + member-paid pipelines.
@@ -489,14 +536,18 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                         const pd = pd_yes
                         return (
                           <>
-                            {autoStep('Engagement agreement created and sent for signing', pd?.c16_sent === 'Yes')}
+                            {autoStep('Engagement agreement created and sent for signing', pd?.c16_sent === 'Yes', null, false, pd?.c17_followup_sent_date)}
+                            {reminderStep(pd?.c17_reminder_sent_at)}
+                            {pfNotifiedStep('c17', pd?.c17_pf_notified_at, pd?.c17_pf_ack_at)}
                             {autoStep('Engagement agreement signed', pd?.c17_client_signed === 'Yes')}
                             {autoStep('Engagement agreement signed by CEO', pd?.c18_ceo_signed === 'Yes')}
-                            {autoStep('Payment link sent (ACH or Card choice)', !!pd?.pay1_email_sent_at || !!pd?.pay1_status)}
-                            {autoStep('Payment collected', pd?.pay1_status === 'succeeded', pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null)}
-                            {autoStep('Invoice and receipt created and emailed to client', !!pd?.invoice_number)}
-                            {autoStep('Revenue share paid', ['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd?.rec1_rev_paid), null, isZeroShare(pd?.member_share))}
-                            {autoStep('Member notified of revenue share', pd?.c24_email_sent === true, null, isZeroShare(pd?.member_share))}
+                            {autoStep('Payment link sent (ACH or Card choice)', !!pd?.pay1_email_sent_at || !!pd?.pay1_status, null, false, pd?.pay1_email_sent_at)}
+                            {reminderStep(pd?.pay1_reminder_sent_at)}
+                            {pfNotifiedStep('pay1', pd?.pay1_pf_notified_at, pd?.pay1_pf_ack_at)}
+                            {autoStep('Payment collected', pd?.pay1_status === 'succeeded', pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null, false, pd?.pay1_date)}
+                            {autoStep('Invoice and receipt created and emailed to client', !!pd?.invoice_number, null, false, pd?.invoice_email_sent_at)}
+                            {autoStep('Revenue share paid', ['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd?.rec1_rev_paid), null, isZeroShare(pd?.member_share), pd?.rec1_rev_completed_at)}
+                            {autoStep('Member notified of revenue share', pd?.c24_email_sent === true, null, isZeroShare(pd?.member_share), pd?.c24_email_sent_at)}
                           </>
                         )
                       })()}
@@ -509,8 +560,10 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
 
                         return (
                           <>
-                            {autoStep('Decision email sent', emailSent)}
-                            {autoStep('Client response received', !!finalDec)}
+                            {autoStep('Decision email sent', emailSent, null, false, pd?.c14_email_sent_at)}
+                            {reminderStep(pd?.c14_reminder_sent_at)}
+                            {pfNotifiedStep('c14', pd?.c14_pf_notified_at, pd?.c14_pf_ack_at)}
+                            {autoStep('Client response received', !!finalDec, null, false, pd?.c15_final_decision_at)}
                             {finalDec && (
                               <div style={{ marginLeft: '14px', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px', borderLeft: '1px solid var(--vfo-tint-deep)' }}>
                                 <div style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', display: 'inline-block', marginBottom: '8px',
@@ -548,14 +601,18 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                                             <div style={{ display: 'flex', padding: '2px 0' }}><span style={{ fontSize: '11px', color: 'var(--vfo-muted)', width: '140px' }}>Payment plan</span><span style={{ fontSize: '11px', color: 'var(--vfo-ink-2)' }}>{pd?.payment_plan || '—'}</span></div>
                                           </div>
                                         )}
-                                        {autoStep('Engagement agreement created and sent for signing', pd?.c16_sent === 'Yes')}
+                                        {autoStep('Engagement agreement created and sent for signing', pd?.c16_sent === 'Yes', null, false, pd?.c17_followup_sent_date)}
+                                        {reminderStep(pd?.c17_reminder_sent_at)}
+                                        {pfNotifiedStep('c17', pd?.c17_pf_notified_at, pd?.c17_pf_ack_at)}
                                         {autoStep('Engagement agreement signed', pd?.c17_client_signed === 'Yes')}
                                         {autoStep('Engagement agreement signed by CEO', pd?.c18_ceo_signed === 'Yes')}
-                                        {autoStep('Payment link sent (ACH or Card choice)', !!pd?.pay1_email_sent_at || !!pd?.pay1_status)}
-                                        {autoStep('Payment collected', pd?.pay1_status === 'succeeded', pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null)}
-                                        {autoStep('Invoice and receipt created and emailed to client', !!pd?.invoice_number)}
-                                        {autoStep('Revenue share paid', ['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd?.rec1_rev_paid), null, isZeroShare(pd?.member_share))}
-                                        {autoStep('Member notified of revenue share', pd?.c24_email_sent === true, null, isZeroShare(pd?.member_share))}
+                                        {autoStep('Payment link sent (ACH or Card choice)', !!pd?.pay1_email_sent_at || !!pd?.pay1_status, null, false, pd?.pay1_email_sent_at)}
+                                        {reminderStep(pd?.pay1_reminder_sent_at)}
+                                        {pfNotifiedStep('pay1', pd?.pay1_pf_notified_at, pd?.pay1_pf_ack_at)}
+                                        {autoStep('Payment collected', pd?.pay1_status === 'succeeded', pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null, false, pd?.pay1_date)}
+                                        {autoStep('Invoice and receipt created and emailed to client', !!pd?.invoice_number, null, false, pd?.invoice_email_sent_at)}
+                                        {autoStep('Revenue share paid', ['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd?.rec1_rev_paid), null, isZeroShare(pd?.member_share), pd?.rec1_rev_completed_at)}
+                                        {autoStep('Member notified of revenue share', pd?.c24_email_sent === true, null, isZeroShare(pd?.member_share), pd?.c24_email_sent_at)}
                                       </>
                                     ) : null}
                                   </>
@@ -572,14 +629,14 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                             {!finalDec && (
                               <div style={{ marginLeft: '14px', borderLeft: '1px solid var(--vfo-tint-deep)', paddingLeft: '12px', marginTop: '4px', marginBottom: '4px' }}>
                                 <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginBottom: '6px' }}>If Yes:</div>
-                                {autoStep('Engagement agreement created and sent for signing', pd?.c16_sent === 'Yes')}
+                                {autoStep('Engagement agreement created and sent for signing', pd?.c16_sent === 'Yes', null, false, pd?.c17_followup_sent_date)}
                                 {autoStep('Engagement agreement signed', pd?.c17_client_signed === 'Yes')}
                                 {autoStep('Engagement agreement signed by CEO', pd?.c18_ceo_signed === 'Yes')}
-                                {autoStep('Payment link sent (ACH or Card choice)', !!pd?.pay1_email_sent_at || !!pd?.pay1_status)}
-                                {autoStep('Payment collected', pd?.pay1_status === 'succeeded', pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null)}
-                                {autoStep('Invoice and receipt created and emailed to client', !!pd?.invoice_number)}
+                                {autoStep('Payment link sent (ACH or Card choice)', !!pd?.pay1_email_sent_at || !!pd?.pay1_status, null, false, pd?.pay1_email_sent_at)}
+                                {autoStep('Payment collected', pd?.pay1_status === 'succeeded', pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null, false, pd?.pay1_date)}
+                                {autoStep('Invoice and receipt created and emailed to client', !!pd?.invoice_number, null, false, pd?.invoice_email_sent_at)}
                                 {autoStep('Revenue share paid', ['Yes', 'Money Mapping', 'N/A — No Share Due'].includes(pd?.rec1_rev_paid), null, isZeroShare(pd?.member_share))}
-                                {autoStep('Member notified of revenue share', pd?.c24_email_sent === true, null, isZeroShare(pd?.member_share))}
+                                {autoStep('Member notified of revenue share', pd?.c24_email_sent === true, null, isZeroShare(pd?.member_share), pd?.c24_email_sent_at)}
                                 <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginBottom: '6px', marginTop: '10px' }}>If No:</div>
                                 {autoStep('Decline email sent to client')}
                                 <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginBottom: '6px', marginTop: '10px' }}>If extra meeting:</div>
