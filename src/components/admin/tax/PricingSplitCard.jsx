@@ -146,11 +146,13 @@ export default function PricingSplitCard({ plan, plannerName = '', isSuperadmin 
   const plannerUnallocated = storedPlanner > 0 && plan?.tax_planner_id == null
 
   // A migrated plan's retainer was collected on the old system under a policy that had
-  // no tax planner share, and its legs are settled + locked. The stored split describes
-  // the implementation only, so the retainer column must not derive dollars from it.
-  // Clients who start in this system have one split across both payments, so for them
-  // both columns are genuine.
-  const retainerIsHistoric = !!plan?.legacy_source
+  // no tax planner share; when the migration SETTLED its legs (rev_paid stamped
+  // no-share-due) the stored split describes the implementation only, so the retainer
+  // column must not derive dollars from it. But a migrated retainer whose legs were left
+  // LIVE (the "revenue share not paid yet" checkbox — rev_paid NULL until Client
+  // decision 1 pays it) carries a genuine split across both payments, same as an
+  // organic client. Mirrors Map1PricingSplitCard's isHistoric rule.
+  const retainerIsHistoric = !!plan?.legacy_source && plan?.retainer_rev_paid === 'N/A — No Share Due'
 
   async function save() {
     setBusy(true)

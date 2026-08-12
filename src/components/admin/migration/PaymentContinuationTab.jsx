@@ -99,6 +99,7 @@ export default function PaymentContinuationTab({ clientId, client }) {
   const [retDate, setRetDate] = useState('')
   const [retReceipt, setRetReceipt] = useState('')
   const [retInvoice, setRetInvoice] = useState('')
+  const [retainerShareUnpaid, setRetainerShareUnpaid] = useState(false)
 
   // Stripe (existing mode)
   const [custId, setCustId] = useState('')
@@ -123,7 +124,7 @@ export default function PaymentContinuationTab({ clientId, client }) {
   const [conflict, setConflict] = useState(null)
 
   function setRow(i, patch) { setRows(rs => rs.map((r, idx) => idx === i ? { ...r, ...patch } : r)) }
-  function resetOutputs() { setPreview(null); setResult(null); setErr(''); setPreviewSig(null); setForceAck(false); setConflict(null) }
+  function resetOutputs() { setPreview(null); setResult(null); setErr(''); setPreviewSig(null); setForceAck(false); setConflict(null); setRetainerShareUnpaid(false) }
 
   async function doLookup() {
     setLookingUp(true); setLookupErr(''); setLookup(null); setChosenPm(null)
@@ -156,7 +157,7 @@ export default function PaymentContinuationTab({ clientId, client }) {
         : { paid: false, date: r.date })
       return { ...base, pricing: { net_invoice: netInvoice, member_share: memberShare, vfos_share: vfosShare, ...(isStrategic ? { strategic_partner_share: strategicShare } : {}), service_level: serviceLevel, payment_plan: 'Quarterly' }, invoice_number: invoiceNumber, payments }
     }
-    return { ...base, program_id: plan.program_id, pricing: { retainer_amount: retainerAmount, implementation_amount: implementationAmount, total_fee: taxTotal ? taxTotal.toFixed(2) : '', impl_member_share: memberShare, impl_tax_planner_share: taxPlannerShare, impl_vfos_share: vfosShare, ...(isStrategic ? { impl_strategic_share: strategicShare } : {}), split_type: splitType, atp_name: atpName }, retainer: { date: retDate, receipt_number: retReceipt, invoice_number: retInvoice } }
+    return { ...base, program_id: plan.program_id, pricing: { retainer_amount: retainerAmount, implementation_amount: implementationAmount, total_fee: taxTotal ? taxTotal.toFixed(2) : '', impl_member_share: memberShare, impl_tax_planner_share: taxPlannerShare, impl_vfos_share: vfosShare, ...(isStrategic ? { impl_strategic_share: strategicShare } : {}), split_type: splitType, atp_name: atpName }, ...(retainerShareUnpaid ? { retainer_share_unpaid: true } : {}), retainer: { date: retDate, receipt_number: retReceipt, invoice_number: retInvoice } }
   }
 
   async function run(isPreview) {
@@ -316,7 +317,7 @@ export default function PaymentContinuationTab({ clientId, client }) {
             </div>
             {implAmount > 0 && (
               <>
-                <p style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '12px', marginBottom: '10px' }}>Implementation split — what pays out when the implementation fee is charged. The retainer was settled on the old system; nothing pays out from it.</p>
+                <p style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '12px', marginBottom: '10px' }}>Implementation split — what pays out when the implementation fee is charged. {retainerShareUnpaid ? 'The retainer was collected on the old system; its member and tax planner revenue shares stay PENDING and pay when Client decision 1 is confirmed.' : 'The retainer was settled on the old system; nothing pays out from it.'}</p>
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                   <Field label="Split type">
                     {isStrategic
@@ -335,6 +336,10 @@ export default function PaymentContinuationTab({ clientId, client }) {
                 </div>
               </>
             )}
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '14px', cursor: 'pointer', fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: 600 }}>
+              <input type="checkbox" checked={retainerShareUnpaid} onChange={e => setRetainerShareUnpaid(e.target.checked)} style={{ marginTop: '2px' }} />
+              <span>Retainer revenue share NOT paid yet — leave it pending so Client decision 1 pays the member and tax planner shares when the client confirms.</span>
+            </label>
           </>
         )}
         {sharesFilled && totalAmount > 0 && (
