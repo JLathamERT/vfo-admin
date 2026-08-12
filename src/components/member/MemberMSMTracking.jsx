@@ -876,13 +876,13 @@ function MemberClientTrackView({ client, program }) {
                           <div style={{ marginLeft: '18px' }}>
                             {finalDec === 'Yes' && (
                               <>
-                                {autoStep('Agreement sent to client', pd?.c16_sent === 'Yes')}
-                                {autoStep('Client signed', pd?.c17_client_signed === 'Yes')}
-                                {autoStep('CEO signed', pd?.c18_ceo_signed === 'Yes')}
-                                {autoStep('Payment link sent', false)}
+                                {autoStep('Engagement agreement created and sent for signing', pd?.c16_sent === 'Yes')}
+                                {autoStep('Engagement agreement signed', pd?.c17_client_signed === 'Yes')}
+                                {autoStep('Engagement agreement signed by CEO', pd?.c18_ceo_signed === 'Yes')}
+                                {autoStep('Payment link sent (ACH or Card choice)', false)}
                                 {autoStep('Payment made', !!pd?.pay1_status, pd?.pay1_status && pd?.payment_method_type ? pd.payment_method_type.toUpperCase() : null)}
-                                {autoStep('Payment received', pd?.pay1_status === 'succeeded')}
-                                {autoStep('Invoice/receipt sent', !!pd?.invoice_number)}
+                                {autoStep('Payment collected', pd?.pay1_status === 'succeeded')}
+                                {autoStep('Invoice and receipt created and emailed to client', !!pd?.invoice_number)}
                                 {autoStep('Revenue share paid', !!pd?.rec1_rev_share)}
                                 {autoStep('Member notified of revenue share', pd?.c24_email_sent === 'Yes')}
                               </>

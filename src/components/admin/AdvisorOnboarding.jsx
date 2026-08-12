@@ -422,10 +422,12 @@ function OnboardingDetail({ id, onBack }) {
   const yesRows = (withTags) => (
     <>
       <AutoRow label="Engagement agreement created and sent for signing" done={!!ob.agreement_sent_at} date={ob.agreement_sent_at} emails={ADVISOR_AGREEMENT_EMAILS} pipeline={ADVISOR_PIPELINE} emailCtx={emailCtx} />
+      <StallRows ob={ob} setOb={setOb} stall="signing" />
       {emRequested && emStage === 'signing' && emCard}
       <AutoRow label="Engagement agreement signed" done={!!ob.agreement_signed_by_advisor_at} date={ob.agreement_signed_by_advisor_at} tag={withTags ? [ob.selected_vfo_ft && 'VFO FT', ob.selected_pft && 'PFT', ob.selected_corporate && 'CM'] : undefined} />
       <AutoRow label="Engagement agreement signed by CEO" done={!!ob.agreement_signed_by_ceo_at} date={ob.agreement_signed_by_ceo_at} emails={ADVISOR_CEO_EMAILS} pipeline={ADVISOR_PIPELINE} emailCtx={emailCtx} />
       <AutoRow label="Payment link sent (ACH or Card choice)" done={!!ob.payment_link_sent_at} date={ob.payment_link_sent_at} emails={ADVISOR_PAYMENT_LINK_EMAILS} pipeline={ADVISOR_PIPELINE} emailCtx={emailCtx} />
+      <StallRows ob={ob} setOb={setOb} stall="payment" />
       {emRequested && emStage === 'payment' && emCard}
       {/* The ACH confirmation email no longer gets its own row — preview it here. */}
       <AutoRow label="Payment collected" done={ob.payment_status === 'succeeded'} date={ob.payment_completed_at} tag={withTags ? (ob.payment_method_type ? ob.payment_method_type.toUpperCase() : null) : undefined} emails={ADVISOR_CONFIRMATION_EMAILS} pipeline={ADVISOR_PIPELINE} emailCtx={emailCtx} />
@@ -496,6 +498,7 @@ function OnboardingDetail({ id, onBack }) {
         {decision === 'Undecided' && (
           <>
             <AutoRow label="Decision email sent" done={!!ob.decision_email_sent_at} date={ob.decision_email_sent_at} />
+            <StallRows ob={ob} setOb={setOb} stall="decision" />
             <AutoRow label="Client response received" done={!!ob.final_decision} date={ob.final_decision_at} />
             {undecidedPending && <div style={{ marginLeft: '14px', paddingLeft: '12px', borderLeft: '1px solid var(--vfo-tint-deep)', fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '4px' }}>Awaiting client click on Yes / No button in their email…</div>}
             {finalDec && (
@@ -581,11 +584,19 @@ function StageBlock({ stage, title, state, expanded, onToggle, dimmed, children 
   )
 }
 
+// A bare 'YYYY-MM-DD' is split as a string — new Date() would read it as UTC
+// and show the previous day west of Greenwich. A timestamptz goes through Date
+// so it lands on the day the viewer actually saw.
 function formatDate(d) {
   if (!d) return ''
-  const iso = d.includes('T') ? d.split('T')[0] : d
-  const parts = iso.split('-')
-  return `${parts[1]}/${parts[2]}`
+  const s = String(d)
+  if (!s.includes('T')) {
+    const parts = s.split('-')
+    return `${parts[1]}/${parts[2]}`
+  }
+  const dt = new Date(s)
+  if (isNaN(dt.getTime())) return ''
+  return `${String(dt.getMonth() + 1).padStart(2, '0')}/${String(dt.getDate()).padStart(2, '0')}`
 }
 
 // Keep only digits and a single decimal point, capped at 2 decimals, so the
@@ -604,7 +615,7 @@ function fmtMoney(n) {
   return num.toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(num) ? 0 : 2, maximumFractionDigits: 2 })
 }
 
-const dateTextStyle = { fontSize: '11px', color: 'var(--vfo-muted)', flexShrink: 0, display: 'inline-block', width: '32px' }
+const dateTextStyle = { fontSize: '12px', color: 'var(--vfo-muted)', flexShrink: 0, display: 'inline-block', width: '38px' }
 
 function Row({ label, done, date, children, emails, pipeline, emailCtx, onDateChange, saving }) {
   return (
@@ -635,6 +646,52 @@ function AutoRow({ label, done, date, tag, emails, pipeline, emailCtx }) {
         <span style={dateTextStyle}>{done && date ? formatDate(date) : ''}</span>
       </span>
     </div>
+  )
+}
+
+// The sweep's two chase rows for one stalled step: the 48h client reminder and
+// the 96h escalation to the team member responsible. Each row only exists once
+// the sweep has stamped its column, so nothing shows on a step that never
+// stalled.
+function StallRows({ ob, setOb, stall }) {
+  const [busy, setBusy] = useState(false)
+  const reminderAt = ob[`${stall}_reminder_sent_at`]
+  const notifiedAt = ob[`${stall}_pf_notified_at`]
+  const ackKey = `${stall}_pf_ack_at`
+  const ackAt = ob[ackKey]
+  if (!reminderAt && !notifiedAt) return null
+
+  async function toggleAck(ack) {
+    const prev = ackAt || null
+    setBusy(true)
+    setOb(p => ({ ...p, [ackKey]: ack ? new Date().toISOString() : null }))
+    try {
+      const res = await callApi('automation_stall_ack', { pipeline: 'advisor', id: ob.id, stall, ack })
+      setOb(p => ({ ...p, [ackKey]: ack ? (res?.ack_at || new Date().toISOString()) : null }))
+    } catch (err) {
+      console.error(err)
+      setOb(p => ({ ...p, [ackKey]: prev }))
+      alert('Error: ' + err.message)
+    }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <>
+      {reminderAt && <AutoRow label="2-day reminder email sent to advisor" done={true} date={reminderAt} />}
+      {notifiedAt && (
+        <>
+          <AutoRow label="4-day passed — team member responsible notified to follow up" done={true} date={notifiedAt} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '14px', padding: '5px 0 5px 12px', borderLeft: '1px solid var(--vfo-tint-deep)', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+            <input type="checkbox" checked={!!ackAt} disabled={busy} onChange={e => toggleAck(e.target.checked)} style={{ margin: 0, flexShrink: 0, cursor: busy ? 'not-allowed' : 'pointer' }} />
+            <span style={{ fontSize: '12px', color: 'var(--vfo-ink)', flex: 1 }}>Reached out?</span>
+            <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={dateTextStyle}>{ackAt ? formatDate(ackAt) : ''}</span>
+            </span>
+          </div>
+        </>
+      )}
+    </>
   )
 }
 

@@ -57,8 +57,10 @@ The single most important automation table. One row per client journey through M
 | `c14_email_sent_at` | timestamptz | **Reminder-ladder timer base.** Written `now()` by `automation_PIPFU_decision` **only on the Undecided branch** (not No). Drives the 48h client reminder + 96h PF notification fired by `automation_CONTRACT_revshare_sweep`. |
 | `c14_reminder_sent_at` | timestamptz | Idempotency guard for the 48h Undecided-email reminder. Set once by the sweep; row excluded from the reminder block thereafter. |
 | `c14_pf_notified_at` | timestamptz | Idempotency guard for the 96h PF "client hasn't clicked a decision button" admin notification. |
+| `c14_pf_ack_at` | timestamptz | **2026-08-12 (v734).** Manual "Reached out?" acknowledgement on the C14 stall — the admin ticking the checkbox under the 96h row in the AI PC Admin block. ONLY writer: `automation_stall_ack` (`pipeline:'map1'`, `stall:'c14'`); un-ticking writes NULL. Purely a paper trail — no sweep, bell or gate reads it, and `pcAdminStepCounts()` deliberately does not count the row (gotcha **#381**). |
 | `c15_token` | text | One-time token embedded in the `/decide?token=...` link emailed to client. |
 | `c15_final_decision` | text | Status field. Set when client lands on `/decide` and submits via `automation_PCADMIN_finaldecision`. |
+| `c15_final_decision_at` | timestamptz | **2026-08-12 (v734).** When the client submitted the decision — added so the AI PC Admin "Client response received" row can show a date. Written `now()` by `automation_PCADMIN_finaldecision` alongside `c15_final_decision`. **Blank on every historic row** (no backfill is possible — the moment was never recorded). `overview-map1.ts` is NOT yet wired to it (gotcha **#384**). |
 | `c15_service_level` | text | One of `Lite` / `Core` / `Max` (chosen on `/decide`). |
 | `c15_via_extra_meeting` | boolean | default `false`. Flag set by `automation_PCADMIN_extrameeting`. |
 
@@ -86,7 +88,10 @@ Set by `automation_PCADMIN_pricing` ([PFPricingForm.jsx:19](src/components/admin
 | `c17_followup_sent_date` | date | **Reminder-ladder timer base.** Written by `automation_CONTRACT_sendagreement` at agreement-send time. Drives the 48h signing reminder + 96h PF notification fired by `automation_CONTRACT_revshare_sweep`. |
 | `c17_reminder_sent_at` | timestamptz | Idempotency guard for the 48h "agreement still not signed" client reminder. |
 | `c17_pf_notified_at` | timestamptz | Idempotency guard for the 96h PF "client hasn't signed the agreement" admin notification. |
+| `c17_pf_ack_at` | timestamptz | **2026-08-12 (v734).** Manual "Reached out?" acknowledgement on the C17 signing stall. ONLY writer: `automation_stall_ack` (`pipeline:'map1'`, `stall:'c17'`). Backfilled `now()` where the 96h notice had fired AND `c17_client_signed='Yes'` (**2 rows checked, 3 left unchecked**) — see gotcha **#381**. |
 | `c18_ceo_signed` | text | Status field. `'Yes'` when CEO countersigns. |
+
+> **Neither `c17_client_signed` nor `c18_ceo_signed` has a companion timestamp, and that is a known gap, not an oversight to fix locally.** `boldsign-webhook` writes both as bare `'Yes'` strings for MAP 1 (and for Tax), while its advisor/accountant branches DO stamp `agreement_signed_by_*_at` — so the AI PC Admin "Engagement agreement signed" / "signed by CEO" rows are permanently dateless here. Adding the columns requires editing the explicit-approval `boldsign-webhook`; **raised 2026-08-12 and deliberately parked by the user.** Gotcha **#384**.
 
 ### Payment block — Stripe
 | Column | Type | Status / Automation |
@@ -101,6 +106,7 @@ Set by `automation_PCADMIN_pricing` ([PFPricingForm.jsx:19](src/components/admin
 | `pay1_email_sent_at` | timestamptz | **Reminder-ladder timer base.** Written `now()` by `automation_CONTRACT_paymentemail` after the Gmail draft of the `/pay?token=...` link is queued. Drives the 48h payment reminder + 96h PF notification fired by `automation_CONTRACT_revshare_sweep`. |
 | `pay1_reminder_sent_at` | timestamptz | Idempotency guard for the 48h "payment link still not paid" client reminder. |
 | `pay1_pf_notified_at` | timestamptz | Idempotency guard for the 96h PF "client hasn't paid the first payment" admin notification. |
+| `pay1_pf_ack_at` | timestamptz | **2026-08-12 (v734).** Manual "Reached out?" acknowledgement on the payment-1 stall. ONLY writer: `automation_stall_ack` (`pipeline:'map1'`, `stall:'pay1'`). Backfilled `now()` where the 96h notice had fired AND `pay1_status='succeeded'` (**0 rows matched**). Gotcha **#381**. |
 | `pay2_reminder_sent` / `pay3_reminder_sent` / `pay4_reminder_sent` | boolean | default `false`. Written `true` by `automation_CONTRACT_checkreminder_sweep` after successful Gmail draft. Only meaningful for check clients. (Separate from the `pay1_*` reminder ladder — these are 7-day pre-due-date nudges fired by a different sweep.) |
 | `stripe_bank_token` | text | |
 | `bank_token` | text | |

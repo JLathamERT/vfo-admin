@@ -13,6 +13,17 @@ function fmtDate(d) {
   return `${m}/${day}/${y}`
 }
 
+// Plain DATE strings are split, never fed to new Date() — that reads them as UTC
+// midnight and renders the previous day west of Greenwich. timestamptz is local.
+const fmtMMDD = (v) => {
+  if (!v) return ''
+  const s = String(v)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const p = s.split('-'); return `${p[1]}/${p[2]}` }
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return ''
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+}
+
 // Replicates the backend [Scheduled Meeting Date] substitution (see
 // actions/msm/pip-meeting-confirmation-email.ts): formatLongDate ("August 18,
 // 2026", UTC) plus " at <12h time> <tz>" when a time is on the track.
@@ -236,7 +247,7 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                     const decision = purchaseStatus.startsWith('Completed - ') ? purchaseStatus.replace('Completed - ', '') : ''
                     const isShown = decision === 'Tax Planning (if not purchased already)' || decision === 'Additional PIP meeting(s)'
                     if (!isShown) return null
-                    const autoStep = (label, stepDone, tag = null, emailTpls = null) => (
+                    const autoStep = (label, stepDone, tag = null, emailTpls = null, date = null) => (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
                         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: stepDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${stepDone ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
                         <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}{!readOnly && emailTpls && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="PIP" title={label} templates={emailTpls} context={emailCtx} /></span>}</span>
@@ -244,6 +255,7 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                           {stepDone && tag && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, border: '1px solid rgba(0,149,255,0.3)' }}>{tag}</span>}
                           {stepDone && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600 }}>Done</span>}
                         </span>
+                        {stepDone && date && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flexShrink: 0 }}>{fmtMMDD(date)}</span>}
                       </div>
                     )
                     const methodTag = track.pip_payment_method_type
@@ -257,12 +269,12 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                           <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1 }}>{task.name}</span>
                         </div>
                         <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
-                          {autoStep('Payment link sent (ACH or Card choice)', !!track.pip_payment_email_sent_at, null, [{ name: 'PIP_payment', when: 'Automatic — payment link' }])}
+                          {autoStep('Payment link sent (ACH or Card choice)', !!track.pip_payment_email_sent_at, null, [{ name: 'PIP_payment', when: 'Automatic — payment link' }], track.pip_payment_email_sent_at)}
                           {/* The ACH confirmation email no longer gets its own step — the
                               step completes on the payment alone. Preview it here. */}
-                          {autoStep('Payment collected', !!track.pip_payment_completed_at, methodTag, [{ name: 'PIP_confirmation', when: 'Bank transfer (ACH) only — card gets the invoice/receipt instead' }])}
-                          {autoStep('Invoice and receipt created and emailed to client', !!track.pip_invoice_receipt_email_sent_at, null, [{ name: 'PIP_invoicereceipt_email', when: 'Automatic — invoice + receipt' }])}
-                          {autoStep('Revenue shares paid · Email member to confirm revenue share details', !!track.pip_rev_share_completed_at && !!track.pip_rev_member_email_sent_at, null, [{ name: 'PIP_member_revshare', when: 'Automatic — member revenue-share notice' }])}
+                          {autoStep('Payment collected', !!track.pip_payment_completed_at, methodTag, [{ name: 'PIP_confirmation', when: 'Bank transfer (ACH) only — card gets the invoice/receipt instead' }], track.pip_payment_completed_at)}
+                          {autoStep('Invoice and receipt created and emailed to client', !!track.pip_invoice_receipt_email_sent_at, null, [{ name: 'PIP_invoicereceipt_email', when: 'Automatic — invoice + receipt' }], track.pip_invoice_receipt_email_sent_at)}
+                          {autoStep('Revenue shares paid · Email member to confirm revenue share details', !!track.pip_rev_share_completed_at && !!track.pip_rev_member_email_sent_at, null, [{ name: 'PIP_member_revshare', when: 'Automatic — member revenue-share notice' }], track.pip_rev_share_completed_at)}
                         </div>
                       </div>
                     )

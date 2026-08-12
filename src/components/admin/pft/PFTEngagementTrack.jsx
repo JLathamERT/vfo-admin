@@ -73,6 +73,18 @@ function formatDate(d) {
   return `${parts[1]}/${parts[2]}`
 }
 
+// MM/DD for the AI PC Admin auto rows. Plain 'YYYY-MM-DD' DATE columns are split
+// as strings (new Date() would shift them a day west of UTC); timestamptz values
+// go through Date so they read in the viewer's local time.
+const fmtMMDD = (v) => {
+  if (!v) return ''
+  const s = String(v)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const p = s.split('-'); return `${p[1]}/${p[2]}` }
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return ''
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+}
+
 const DISCOVERY_FIELDS = [
   ['business_name', 'Business Name'],
   ['firm_ownership_length', 'How long have you owned your firm?'],
@@ -345,7 +357,7 @@ function DecisionStep({ task, p, readOnly, client, onChoose, onCompleteNoEmail, 
 }
 
 // One derived-history row inside the AI PC Admin cascade.
-function autoStep(label, done) {
+function autoStep(label, done, at = null) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
       <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
@@ -353,6 +365,31 @@ function autoStep(label, done) {
       {done
         ? <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, marginLeft: 'auto' }}>Done</span>
         : <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', marginLeft: 'auto' }}>Not completed</span>}
+      {done && at && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flexShrink: 0 }}>{fmtMMDD(at)}</span>}
+    </div>
+  )
+}
+
+// Ack sub-row under a 96h "assigned PF notified" auto row — records that a human
+// actually chased the stall. Admin surface only.
+function StallAckRow({ pipeline, id, stall, ackAt, onAck }) {
+  const [checked, setChecked] = useState(!!ackAt)
+  const [saving, setSaving] = useState(false)
+  useEffect(() => { setChecked(!!ackAt) }, [ackAt])
+  async function toggle(next) {
+    setChecked(next)
+    setSaving(true)
+    try {
+      const res = await callApi('automation_stall_ack', { pipeline, id, stall, ack: next })
+      onAck(res?.ack_at || null)
+    } catch (err) { console.error('Stall ack error:', err); setChecked(!next) }
+    finally { setSaving(false) }
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', marginLeft: '14px' }}>
+      <input type="checkbox" checked={checked} disabled={saving} onChange={e => toggle(e.target.checked)} style={{ cursor: saving ? 'default' : 'pointer' }} />
+      <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Reached out?</span>
+      {checked && ackAt && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flexShrink: 0 }}>{fmtMMDD(ackAt)}</span>}
     </div>
   )
 }
@@ -361,7 +398,7 @@ function autoStep(label, done) {
 // Undecided email (if the admin deferred to the client), what the client picked
 // in that email, the follow-up confirmation email, and what they clicked in its
 // "need another meeting?" choice. Mirrors the Tax 5 AI PC Admin cascade.
-function DecisionHistory({ eng, decStatus, onboarding }) {
+function DecisionHistory({ eng, decStatus, onboarding, readOnly, onAck }) {
   const decEmailSent = !!eng?.decision_email_sent_at
   const decResp = eng?.decision_response || null              // vfo_ft | vfo_associate | no (Undecided email click)
   const ftEmailSent = !!eng?.ft_email_sent_at
@@ -378,6 +415,16 @@ function DecisionHistory({ eng, decStatus, onboarding }) {
   const ftLabel = { confirm: 'Confirm onboarding — no further meeting', another_meeting: "I'd like another meeting" }
   const complete = choice === 'no' || !!ftResp
 
+  // 48h client reminder / 96h PF notification for one stalled leg. Both only
+  // exist once the cron has stamped them.
+  const reminderStep = (at) => at ? autoStep('2-day reminder email sent to client', true, at) : null
+  const pfNotifiedStep = (stall, at, ackAt) => at ? (
+    <>
+      {autoStep('4-day passed — assigned PF notified to follow up', true, at)}
+      {!readOnly && <StallAckRow pipeline="pft" id={eng?.id} stall={stall} ackAt={ackAt} onAck={v => onAck(stall, v)} />}
+    </>
+  ) : null
+
   return (
     <div style={{ padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
@@ -387,24 +434,24 @@ function DecisionHistory({ eng, decStatus, onboarding }) {
       <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
         {decEmailSent && (
           <>
-            {autoStep('Undecided — decision email sent to client (VFO FT / VFO Associate / No)', true)}
+            {autoStep('Undecided — decision email sent to client (VFO FT / VFO Associate / No)', true, eng?.decision_email_sent_at)}
+            {reminderStep(eng?.decision_reminder_sent_at)}
+            {pfNotifiedStep('decision', eng?.decision_pf_notified_at, eng?.decision_pf_ack_at)}
             {decResp
-              ? autoStep(`Client chose "${pathLabel[decResp]}" in the decision email`, true)
+              ? autoStep(`Client chose "${pathLabel[decResp]}" in the decision email`, true, eng?.decision_response_at)
               : autoStep('Waiting for client to choose a path', false)}
-            {!decResp && !!eng?.decision_reminder_sent_at && autoStep('2-day reminder email sent to client', true)}
-            {!decResp && !!eng?.decision_pf_notified_at && autoStep('4-day passed — assigned PF notified to follow up', true)}
           </>
         )}
         {choice === 'no' && autoStep('Decline email sent to client', true)}
         {(choice === 'vfo_ft' || choice === 'vfo_associate') && (
           <>
             {autoStep(`Accountant Onboarding record created (${pathLabel[choice]})`, !!onboarding)}
-            {autoStep("Confirmation email sent with the “need another meeting?” choice", ftEmailSent)}
+            {autoStep("Confirmation email sent with the “need another meeting?” choice", ftEmailSent, eng?.ft_email_sent_at)}
+            {reminderStep(eng?.ft_reminder_sent_at)}
+            {pfNotifiedStep('ft', eng?.ft_pf_notified_at, eng?.ft_pf_ack_at)}
             {ftResp
-              ? autoStep(`Client chose "${ftLabel[ftResp]}" in the follow-up email`, true)
+              ? autoStep(`Client chose "${ftLabel[ftResp]}" in the follow-up email`, true, eng?.ft_response_at)
               : (ftEmailSent && autoStep('Waiting for client to respond to the follow-up email', false))}
-            {!ftResp && ftEmailSent && !!eng?.ft_reminder_sent_at && autoStep('2-day reminder email sent to client', true)}
-            {!ftResp && ftEmailSent && !!eng?.ft_pf_notified_at && autoStep('4-day passed — assigned PF notified to follow up', true)}
           </>
         )}
       </div>
@@ -614,6 +661,10 @@ function PFTEngagementTrack({ clientId, programId, client, readOnly = false, not
     })
   }
 
+  function applyStallAck(stall, ackAt) {
+    setEngagement(prev => prev?.engagement ? { ...prev, engagement: { ...prev.engagement, [`${stall}_pf_ack_at`]: ackAt } } : prev)
+  }
+
   function openOnboarding(id) {
     sessionStorage.setItem('accountantOnboardingOpenId', String(id))
     navigate('/admin?tab=accountants&section=accountant_onboarding')
@@ -772,7 +823,7 @@ function PFTEngagementTrack({ clientId, programId, client, readOnly = false, not
       return (
         <div key={task.id}>
           <DecisionStep task={task} p={p} readOnly={readOnly} client={client} onChoose={(choice) => handleDecision(task, choice)} onCompleteNoEmail={(choice) => handleDecisionNoEmail(task, choice)} onDate={(d) => saveTask(task.id, p.status, d)} />
-          <DecisionHistory eng={eng} decStatus={p.status} onboarding={onboarding} />
+          <DecisionHistory eng={eng} decStatus={p.status} onboarding={onboarding} readOnly={readOnly} onAck={applyStallAck} />
         </div>
       )
     }
