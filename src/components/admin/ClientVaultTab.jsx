@@ -13,7 +13,12 @@ const fmtSize = (n) => n == null ? '' : n < 1024 ? `${n} B` : n < 1048576 ? `${(
 //  - General Documentation: all admins can view/add/delete/share.
 // Each manageable file can be SHARED with specialists (Feature A): the specialist
 // then sees it in their portal's "Shared with Me" tab. Revoke any time.
-export default function ClientVaultTab({ clientId, sectionStyle, specialists = [], readOnly = false, recipientName, recipientFirst }) {
+//
+// readOnly (the tax-planner portal) hides every write control. allowUpload is the
+// one exception granted to planners / Team Members: they may ADD to the two
+// client-owned sections, but still not delete, share or request documents. The
+// ERT/VFOS section stays admin-managed even then (adminOnlyUpload).
+export default function ClientVaultTab({ clientId, sectionStyle, specialists = [], readOnly = false, allowUpload = false, recipientName, recipientFirst }) {
   const [sensitive, setSensitive] = useState([])
   const [canView, setCanView] = useState(false)
   const [general, setGeneral] = useState([])
@@ -103,21 +108,29 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
     setShareBusy(false)
   }
 
+  // In the planner portal (readOnly + allowUpload) the two client-owned sections
+  // are view-and-add, so their blurbs must not promise remove/share.
+  const addOnly = readOnly && allowUpload
+
   const SECTIONS = [
     {
       key: 'sensitive', title: 'Sensitive Documents', sub: '(tax returns)', files: sensitive, canManage: canView, bucket: 'client-tax-returns', canRequestDocs: true,
-      blurb: canView
-        ? 'Stored in a private vault. You have access to view, add, remove and share these documents.'
-        : 'Stored in a private vault. You can see what has been uploaded, but only authorized tax staff can open or share these documents.',
+      blurb: !canView
+        ? 'Stored in a private vault. You can see what has been uploaded, but only authorized tax staff can open or share these documents.'
+        : addOnly
+          ? 'Stored in a private vault. You can view these documents and add new ones.'
+          : 'Stored in a private vault. You have access to view, add, remove and share these documents.',
       actions: { download: 'vault_tax_download', delete: 'vault_tax_delete', upload: 'vault_tax_admin_upload_url' },
     },
     {
       key: 'general', title: 'General Documentation', sub: '', files: general, canManage: true, bucket: 'client-documents', canRequestDocs: true,
-      blurb: 'Everyday client documents. All admins can view, add, remove and share these.',
+      blurb: addOnly
+        ? 'Everyday client documents. You can view these documents and add new ones.'
+        : 'Everyday client documents. All admins can view, add, remove and share these.',
       actions: { download: 'vault_gen_download', delete: 'vault_gen_delete', upload: 'vault_gen_upload_url' },
     },
     {
-      key: 'ert', title: 'ERT/VFOS Documentation', sub: '', files: ert, canManage: true, bucket: 'client-ert-docs', noShare: true,
+      key: 'ert', title: 'ERT/VFOS Documentation', sub: '', files: ert, canManage: true, bucket: 'client-ert-docs', noShare: true, adminOnlyUpload: true,
       blurb: 'ERT / VFO documents for this client. Only admins can add or remove; the client can only view them in their portal. Signed agreements land here automatically once paid.',
       actions: { download: 'admin_ert_download', delete: 'admin_ert_delete', upload: 'admin_ert_upload_url' },
     },
@@ -188,7 +201,7 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
                   </div>
                 )
               })}
-              {sec.canManage && !readOnly && (
+              {sec.canManage && (!readOnly || (allowUpload && !sec.adminOnlyUpload)) && (
                 <label style={{ display: 'block', textAlign: 'center', cursor: 'pointer', marginTop: '14px', padding: '18px', borderRadius: '8px', border: '1px dashed var(--vfo-border-mid)', background: 'var(--vfo-tint)' }}>
                   <input type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={e => { handleFiles(sec, e.target.files); e.target.value = '' }} />
                   <span style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>{busy === sec.key ? 'Uploading…' : '+ Add document'}</span>
