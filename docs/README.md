@@ -6,7 +6,7 @@ Read-only architecture map of the VFO portal system. Documents what exists in th
 
 ## What's in this system
 
-Two repos, one Supabase project, four external integrations, one static-hosted SPA — held together by a modular `vfo-admin-api` edge function (88-line orchestrator + ~206 handler files) dispatching **458 actions** (6 logins + 452 dispatched PUBLIC/AUTH). See [architecture/01-system-map.md](architecture/01-system-map.md) for the high-level picture.
+Two repos, one Supabase project, four external integrations, one static-hosted SPA — held together by a modular `vfo-admin-api` edge function (88-line orchestrator + ~206 handler files) dispatching **461 actions** (6 logins + 455 dispatched PUBLIC/AUTH). See [architecture/01-system-map.md](architecture/01-system-map.md) for the high-level picture.
 
 The central business flow is the **MAP1 contract-and-payment chain**: PIP1 reconfirmation → PF decision → PCADMIN pricing → BoldSign agreement → CEO countersign → Stripe payment → confirmation/invoice/receipt → revenue share. State lives in a single ~80-column row of `pipeline_map1`, with each handler advancing specific columns. See [flows/contract-and-payment.md](flows/contract-and-payment.md) for the end-to-end trace.
 
@@ -19,7 +19,7 @@ docs/
 ├── README.md                         (this file — start here)
 ├── SESSION_REFERENCE.md              (the LEAN live-state hub — read in FULL at session start)
 ├── CHANGELOG.md                      (archived session-by-session history — newest-first; read on demand)
-├── GOTCHAS.md                        (full numbered gotcha registry #1–#348 — read on demand)
+├── GOTCHAS.md                        (full numbered gotcha registry #1–#393 — read on demand)
 ├── NOTIFICATION_AUDIT.md             (every bell notification: who/type/timing, editable in Automation → Notification Editor; + gap analysis)
 ├── glossary.md                       (MAP1, PIP, PCADMIN, MSM, CIQ, etc.)
 ├── GROWTH_PLAN_HANDOFF.md            (Advisor Growth Plan — full feature build state; Phases 1–8 + custom priorities/sub-tasks)
@@ -30,7 +30,7 @@ docs/
 │   ├── 02-frontend-shell.md          (routes + AdminPortal/MemberPortal/ClientDetail)
 │   ├── 03-edge-functions.md          (vfo-admin-api + boldsign-webhook structure)
 │   ├── 04-auth-and-sessions.md       (token model, session storage, role gates)
-│   ├── 05-api-action-catalog.md      (all 458 actions, concise table format)
+│   ├── 05-api-action-catalog.md      (all 461 actions, concise table format)
 │   └── 06-orchestration-files.md     (file ranking by feature ownership)
 │
 ├── tables/                           (the "noun" layer — 52 public-schema tables)
@@ -123,9 +123,9 @@ These items are flagged across multiple docs and remain unresolved without exter
 This doc map can be audited against the source:
 
 - Every `file:line` citation should resolve to the claimed handler — try opening any link.
-- The action catalog count (319 in [05-api-action-catalog.md](architecture/05-api-action-catalog.md)) is the sum of the 5 logins in `index.ts` + the 314 dispatch entries (`(c) =>`) in `router/dispatch.ts`.
+- The action catalog count (**461** in [05-api-action-catalog.md](architecture/05-api-action-catalog.md)) is the sum of the **6** logins in `index.ts` + the **455** dispatch entries (132 PUBLIC + 323 AUTH) (`(c) =>`) in `router/dispatch.ts`.
 - The 51-table inventory in [tables/README.md](tables/README.md) should match `SELECT count(*) FROM information_schema.tables WHERE table_schema='public'`.
-- The 15-migration list in [integrations/supabase.md](integrations/supabase.md) should match Supabase's migration registry.
+- The 15-migration list in [integrations/supabase.md](integrations/supabase.md) is a **2026-05-05 snapshot and is long out of date** — `vfo-edge-functions/supabase/migrations/` now holds ~110 git-tracked migration files. Every migration applied live via MCP must also be committed there (#196).
 - Pick any flow doc and trace a "Trigger → Step-by-step → Tables touched → Chains" sequence; every code reference should resolve.
 
 ## What this doc explicitly does NOT cover

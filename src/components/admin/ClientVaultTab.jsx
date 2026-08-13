@@ -4,6 +4,18 @@ import { fileSizeError } from '../../lib/fileUpload'
 import { VaultRowsSkeleton } from '../shared/Skeleton'
 import RequestDocsButton from '../shared/RequestDocsButton'
 
+// Deliberately duplicated from TaxPrioritiesTab's LockedIcon rather than shared:
+// that file is under active end-to-end test and must not be touched, and a nine
+// line SVG does not earn a shared module.
+function LockedIcon({ size = 13 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ opacity: 0.75, flexShrink: 0 }}>
+      <circle cx="8" cy="8" r="6.5" stroke="#e74c3c" strokeWidth="1.6" fill="none" />
+      <line x1="3.9" y1="12.1" x2="12.1" y2="3.9" stroke="#e74c3c" strokeWidth="1.6" />
+    </svg>
+  )
+}
+
 const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/*,application/pdf'
 const fmtSize = (n) => n == null ? '' : n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1048576).toFixed(1)} MB`
 
@@ -31,6 +43,28 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+
+  // Asking for tax returns belongs to the Tax Priorities "Request Tax Returns"
+  // step: that step mints the tracked /tax-upload token and is what stamps
+  // tax_returns_received_at. While a live plan is still waiting on returns, the
+  // generic vault request must not offer a second, untracked route to the same
+  // documents. Read fresh (not loadCachedAction) so the block clears as soon as
+  // the returns land rather than persisting for the whole app session.
+  const [returnsPending, setReturnsPending] = useState(false)
+  useEffect(() => {
+    if (readOnly || !clientId) return
+    let cancelled = false
+    callApi('tax_load_plans', { client_id: clientId })
+      .then(res => {
+        if (cancelled) return
+        setReturnsPending((res?.plans || []).some(p =>
+          String(p?.status || '').toLowerCase() === 'live' && !p?.tax_returns_received_at))
+      })
+      // Fail-soft: a client with no tax plan, or a load that errors, is never
+      // gated - the button must not break for non-tax clients.
+      .catch(() => { if (!cancelled) setReturnsPending(false) })
+    return () => { cancelled = true }
+  }, [clientId, readOnly])
 
   // Drag-to-move between sections (ERT managers only). dragItem holds the row
   // being dragged; dragOverKey highlights the section currently under the cursor.
@@ -232,7 +266,14 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
           <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '16px' }}>{sec.blurb}</p>
 
           {sec.canRequestDocs && sec.canManage && !readOnly && (
-            <RequestDocsButton entityType="client" entityKey={clientId} section={sec.key} recipientName={recipientName} recipientFirst={recipientFirst} />
+            sec.key === 'sensitive' && returnsPending ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
+                <LockedIcon />
+                <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontWeight: 500 }}>Please request tax returns from the Request Tax Returns step</span>
+              </div>
+            ) : (
+              <RequestDocsButton entityType="client" entityKey={clientId} section={sec.key} recipientName={recipientName} recipientFirst={recipientFirst} />
+            )
           )}
 
           {loading ? <VaultRowsSkeleton rows={2} /> : (

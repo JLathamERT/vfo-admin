@@ -58,6 +58,69 @@ Each arrow is either:
 
 ---
 
+## STEP PREREQUISITE GATING — "natural barriers" (2026-08-13, frontend-only, gotcha #390)
+
+Until this shipped, every step on the tax track was independently clickable in any order. The process existed only in whoever remembered it — an admin could send a presentation link before the returns arrived, allocate a Team Member and then complete a review only a Tax Planner may run, or record a client decision that nothing had led up to. **`TaxPrioritiesTab.jsx` now enforces the order in the UI.**
+
+### The mechanism
+
+`stepGate(task, phase)` returns `{ locked, hint }`, or `null` when a step is unrestricted. `renderTask` consults it **before** `renderTaskInner` and before the plannerMode wrapper. A locked step renders an **inert row** — full brightness (not dimmed), hollow dot, task name in normal ink, a red circle-slash `LockedIcon` where the control would sit, a gray 11px hint naming the blocking step, and an em-dash in the date column.
+
+Steps are matched **sentinel-first, exact-name-as-fallback** (the file's convention). Each gate names only its **DIRECT** prerequisites — the chain is transitively safe without recursion, because an earlier lock keeps the earlier step unanswered.
+
+> **This is choreography, not authorization.** There is **no backend enforcement**: `tax_save_task` will still accept a write to a locked step from any caller entitled to call it. Never cite this as a security control. Same class as #353.
+
+### The three safety rules
+
+1. **`isTaskStatused` remains the single owner of every done-signal**, including the sentinels whose truth lives on `client_tax_plans` rather than in `client_tax_progress` (`tax_hlm_confirm`→`tax4_meeting_date`, `tax_returns_request`→`tax_returns_received_at`, `tax_planner_select`→`tax_planner_id`, `tax_generate_presentation`→`generated_presentation_at`, `tax_presentation_link`→`presentation_send_date`, `tax_refund`→Proceed-or-refunded, and *"Additional information required"*'s status-plus-received-stamp rule). Every predicate reads through it, so a gate can never disagree with the green dot beside it.
+2. **`alreadyDone` short-circuits the gate**, so a step that has ever been answered always renders its normal editable control — history stays visible and correctable even if a prerequisite is later un-set. Per-specialist steps key on the composite `${task.id}_${spec.id}` progress key (which `isTaskStatused` does **not** handle), and `tax_implement_decision` additionally accepts the plan column, because legacy plans carry `implementation_decision` with no progress row.
+3. **An absent task is vacuously satisfied.** `prereqDone` returns true on a lookup miss — Holistic (program 1) genuinely lacks the deposit and Green/Red Light steps, and gating on a task that does not exist would lock everything downstream forever.
+
+### The chain
+
+| Step | Locked until | Hint |
+|------|--------------|------|
+| `Request Tax Returns` | (P4) deposit `pi_` entered | `Enter the Stripe deposit payment (Set Up) first` |
+| `Allocate Team Member / Tax Planner` | returns received (P4 also deposit) | `Waiting for tax returns to be received` |
+| `Additional information required?` | returns received **and a Tax Planner allocated** | three-way: returns / planner / both |
+| `Tax planner review complete` | *Additional information* done **and** a Tax Planner allocated | `Complete "Additional information required" first` |
+| `ROI Meeting booked` (`tax_3_decision`) | review = **Proceed** (or, **Holistic only**, review = Stop) | `Complete "Tax planner review complete" first` |
+| `Assess tax planning opportunities` | review = **Proceed** | same |
+| `Generate and download presentation` | review = **Proceed**; then its own bespoke hint takes over | chain hint, then `Submit the tax planning opportunities form first` |
+| `Send presentation link` | ROI meeting booked **and** deck generated | `Book the ROI meeting and generate the presentation first` |
+| `ROI Presentation` | **every** Tax 1 + Tax 2 step, incl. Green/Red resolved (P4) | `Complete every Tax 1 and Tax 2 step first` |
+| `Client tax planning decision` | `ROI Presentation` answered | `Complete the "ROI Presentation" step first` |
+| `Detailed tax plan meeting confirmation email` | the Tax 3 AI PC Admin cascade completed | `Waiting for the Tax 3 AI PC Admin steps to complete` |
+| `Detailed tax plan presentation` | that confirmation email sent (`tax4_meeting_date`) | `Send the detailed tax plan meeting confirmation email first` |
+| `Client decision 1` | confirmation email **and** detailed presentation | `Complete the confirmation email and detailed tax plan presentation first` |
+| `Client decision 2` | the above **and Client decision 1** | `Complete "Client decision 1" first` |
+| Tax 5a per-specialist steps | `Client decision 1` | `Waiting for Client decision 1` |
+| Tax 5b *Post Allocation* | unchanged `tax5bUnlocked` rule | `Unlocks when "Confirm ready for implementation" is Yes or Undecided on any specialist` |
+| Tax 6 (all four, per specialist) | Implementation decision **and** its AI PC Admin cascade — **or** any Tax 6 work already started (`tax6Started`) | `Locked until Implementation decision + AI PC Admin complete` |
+
+**Never gated:** `Deposit Paid`, `Client risk profile complete`, `Allocate to VFO Specialist` / adding specialists, every `AI PC Admin` row, `auto` steps, and the steps `renderTaskInner` hides outright.
+
+### The escape hatches (deliberate — do not "tidy" them away)
+
+A gate that locks a stop path makes a bell un-performable (#365/#367), so the stop routes stay walkable:
+
+- **The Green/Red Light row is NEVER row-locked.** Its **Refund** button appears as soon as a `deposit_payment_intent_id` exists — that is the program-4 stop route, and it must stay reachable for a client who never provides information, i.e. exactly when the chain can never complete. Only its **Proceed** button is gated (`canProceed = diagnosticChain`).
+- **`reviewStop` unlocks `ROI Meeting booked` on Holistic ONLY.** Program 1 has no Green/Red step, and its Stop bell names that step's decline button as the stop route (#367). On program 4 the stop route is the Refund, so the unlock is not needed and is not granted.
+- **`tax6Started`** keeps Tax 6 editable on any plan where per-specialist work already exists, so the gate cannot strand historic rows.
+
+### "Answered" is not "Proceed" (#391 — this shipped as a bug and was caught in testing)
+
+The first build treated *"Tax planner review complete"* as a boolean. Choosing **Stop tax planning** therefore unlocked the whole forward half of the track — Assess, ROI-booked, the deck, and a **Proceed** button on Green/Red, i.e. precisely the decision the Stop had just refused. The predicate is now **`reviewProceed`** (status exactly `'Proceed with tax planning'`) and the old any-answer `reviewDone` was deleted so it cannot be reused. **An override after a Stop is done by flipping the review answer back to Proceed** — the step stays editable once answered.
+
+### Surfaces
+
+- **Member portal (`readOnly`): fully exempt.** Members see zero lock rows and zero hints.
+- **Tax-planner portal (`plannerMode`): sees the locks**, on top of the existing per-step whitelist inert-wrapper.
+- **Display-only renames (#392):** `TASK_DISPLAY_LABELS` / `TASK_SUB_LABELS` shorten three step names in the UI — the Green/Red Light step (with its refund clause demoted to a gray sub-line), the Assess step (parenthetical dropped) and *"Additional information required?"* (question mark added). **Stored `program_client_tasks.name` values are untouched and remain the cross-repo lookup keys**; bells and email chips still speak the long names.
+- **One deliberate member-visible change:** Tax 5 *Post Allocation* stopped being a full block-out and became ordinary locked rows with the `PhasePill` always shown, so members now see those rows where they previously saw an empty section.
+
+---
+
 ## Step 0 — Set Up phase (VFO Tax Planning program_id=4 only)
 
 **Context:** standalone VFO Tax Planning clients pay a deposit BEFORE we even know they exist (typically via a public Stripe payment link, outside our system). Admin then creates the client record and binds them to the program. Holistic Tax Priorities (program_id=1) clients don't see this phase — they arrive via MAP1.

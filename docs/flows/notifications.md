@@ -4,7 +4,7 @@ The portal's bell-icon notification feed. A small, simple flow: handlers insert 
 
 > **2026-07-10 additions (see [tables/notifications.md](../tables/notifications.md) for full detail):** the bell now has a **View all** link to a full-page Notifications view (`NotificationsPage.jsx`, `/admin?tab=notifications`, every admin) with **Current** (unread) / **Archive** (read) scopes, All/Action/FYI/**Reminders** kind filters, pagination, and bulk clear (`load_notifications_page` / `mark_notifications_read`). Read rows are hard-deleted after 90 days by the daily `automation_NOTIFICATIONS_purge` cron (jobid 15) — so the old "rows accumulate forever / hard LIMIT 20" caveats below are bounded now. Admins can also self-schedule **personal reminders** (`personal_reminders` table; delivered every 5 minutes by `automation_REMINDER_sweep`, cron jobid 14, via a DIRECT insert — the one documented exception to the notifyByRule rule; pipeline `REMINDER`, violet styling). Gotchas #212–#213.
 
-> Pipelines that emit notifications: `MAP 1`, `TAX`, `ADVISOR_ONBOARDING`, `ACCOUNTANT_ONBOARDING`, `PIP`. Each pipeline uses a distinct `link` value pointing back at the relevant admin section so a click lands the admin on the right page (e.g. accountant onboarding notifications link to `/admin?tab=accountants&section=accountant_onboarding&onboarding=<id>`, opening that record directly).
+> Pipelines that emit notifications: `MAP 1`, `TAX`, `ADVISOR_ONBOARDING`, `ACCOUNTANT_ONBOARDING`, `PIP`. Each pipeline uses a distinct `link` value pointing back at the relevant admin section so a click lands the admin on the right page (e.g. accountant onboarding notifications link to `/admin?tab=accountants&section=accountant_onboarding&onboarding=<id>`, opening that record directly). **CORRECTED 2026-08-13 — the list above is incomplete:** `VAULT` (two rules), `REMINDER`, `SPECIALIST` and `MIGRATION` also emit.
 >
 > **Advisor/Accountant onboarding route to the chosen "Team Member Responsible," not the shared `admin` bell** (2026-06-15). Each onboarding now carries an `onboarding_team_member` name (Stage-1 dropdown). `constants/onboarding-team.ts::teamMemberRecipient(name)` maps that name → the person's `@elitert.com` login email (the bell filters on `session.email`), falling back to `'admin'` when unset/unmapped. See the dedicated subsection below.
 
@@ -116,6 +116,20 @@ Mirrors MAP 1's extra-meeting flow, on BOTH onboarding pipelines. The original U
 ### Cross-pipeline: Tracy "client has paid" FYI (repurposed 2026-06-30; sheet check removed 2026-07-01)
 
 [`utils/revshare-tracy-notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/revshare-tracy-notify.ts) `notifyTracyClientPaid()` — an FYI (dismissable, deduped once per payment) to **Tracy** (`tnmiller@`) that a client has paid and the case is cleared to proceed, fired once per payment from MAP 1 (`contract-revshare.ts`, with the client's chosen priorities) and Tax (`revshare.ts`), **independent of any rev-share sheet**. The old `notifyTracyRevShareNeeded()` ("enter the split into the VFO Services - Private Info sheet", fired on the Tracy-sheet `pending` branch) was repurposed to this — the Tracy Revenue-Master cross-check that produced the `pending` branch was removed (gotcha #164). No auto-clear.
+
+### Cross-pipeline: Tracy planner-vault-drop FYI (2026-08-13, v738)
+
+[`utils/vault-planner-notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/vault-planner-notify.ts) `notifyPlannerVaultDrop()` — rule **`VAULT_planner_document_added`**, pipeline **`VAULT`**, recipient `tnmiller@elitert.com` (Tracy), `dismissible: true`, link `/admin/client/<client_id>?tab=vault`. Fired from **both** planner-reachable signed-upload-url minters: `actions/vault/tax-admin-upload-url.ts` (Sensitive Documents) and `actions/vault/gen-upload-url.ts` (General Documentation).
+
+Title: `<Planner Full Name> dropped a document in <Client First Last>'s vault`. Message adds the filename and the section label.
+
+**Three properties differ from every other bell in this doc and are the reason it has its own section:**
+
+1. **It fires at signed-URL MINT time, not on the upload.** The browser PUTs the file straight to storage, so the minter is the only backend touchpoint — a PUT that then fails leaves one slightly early bell. Accepted deliberately for an FYI; the alternative is no signal at all.
+2. **No dedupe.** Every document drop is its own bell (contrast the Tracy "client has paid" and Jake failure FYIs, which dedupe).
+3. **Admin uploads are excluded in CODE, not by a rule setting.** `resolveCallerPlanner` checks `allowed_admins` **before** `tax_planner_logins`, so an admin who also holds a planner login resolves to `null` and fires nothing — mirroring `middleware/auth.ts`'s role precedence.
+
+FYI only: **no clear site, and its title is NOT load-bearing** — it sits outside the tax-track title-prefix clearing chain described above. Live-tested three ways on v738: Team Member → General fires, Tax Planner → Sensitive fires, admin → silent. Gotcha **#393**.
 
 ### Cross-pipeline: Jake payment/transfer-failure alerts (2026-06-09)
 
