@@ -27,13 +27,24 @@ export function ertReadOnlySection() {
   }
 }
 
-// Admin view — full manage, routed through admin_ert_* with { entity, key }.
-export function ertAdminSection(entity, key, ownerNoun = 'person') {
+// Admin view — routed through admin_ert_* with { entity, key }.
+//
+// canManage (2026-08-13) narrows ADD/REMOVE to the ERT-manager allowlist (Jake
+// and Tray — constants/ert-access.ts, surfaced to the frontend as the login's
+// is_ert_manager flag). Every other admin still gets the section and the View
+// button; they just lose Remove and "+ Add document". Passing readOnly here is
+// what does that, because VaultSections renders View unconditionally and gates
+// only Remove + upload on readOnly. The server enforces this independently in
+// admin_ert_upload_url / admin_ert_delete — this is UI, not the boundary.
+export function ertAdminSection(entity, key, ownerNoun = 'person', canManage = true) {
   return {
     key: 'ert',
     title: ERT_TITLE,
-    hint: `ERT / VFO documents for this ${ownerNoun}. Only admins can add or remove; the ${ownerNoun} can only view them.`,
+    hint: canManage
+      ? `ERT / VFO documents for this ${ownerNoun}. Only admins can add or remove; the ${ownerNoun} can only view them.`
+      : `ERT / VFO documents for this ${ownerNoun}. You can view these; only authorized VFO staff can add or remove them.`,
     actions: ERT_ADMIN_ACTIONS,
     params: { entity, key },
+    readOnly: !canManage,
   }
 }
