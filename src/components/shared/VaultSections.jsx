@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { callApi } from '../../lib/api'
+import { callApi, getSession } from '../../lib/api'
 import { fileSizeError } from '../../lib/fileUpload'
 import { VaultRowsSkeleton } from './Skeleton'
 import RequestDocsButton from './RequestDocsButton'
@@ -32,12 +32,43 @@ export const DEFAULT_VAULT_SECTIONS = [
 //   • requestDocs: { entityType, entityKey, recipientName, recipientFirst } →
 //     renders the admin-only "Request documentation" compose card in the section
 //     header. Only the admin surfaces pass it; portals leave it undefined.
-export default function VaultSections({ actions, params = {}, sections = DEFAULT_VAULT_SECTIONS }) {
+//   • moveContext: { entity, key } → enables drag-to-move between sections for
+//     ERT-manager admins (Jake / Tray). ONLY the admin surfaces pass it; the
+//     member / client / specialist portals leave it undefined, and the session
+//     flag is a second independent guard, so a portal session can never drag.
+export default function VaultSections({ actions, params = {}, sections = DEFAULT_VAULT_SECTIONS, moveContext = null }) {
   const [data, setData] = useState(() => Object.fromEntries(sections.map(s => [s.key, []])))
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const [dragItem, setDragItem] = useState(null)
+  const [dragOverKey, setDragOverKey] = useState(null)
+  const [moving, setMoving] = useState(false)
   const paramsKey = JSON.stringify(params)
+  const canMove = !!moveContext && !!getSession()?.is_ert_manager
+
+  const SECTION_LABELS = { sensitive: 'Tax Documents', general: 'General Documentation', ert: 'ERT/VFOS Documentation' }
+
+  function moveWarning(from, to) {
+    if (from === 'sensitive') return `"%s" will move out of Tax Documents into ${SECTION_LABELS[to] || to}.`
+    if (to === 'ert') return `"%s" will move into ERT/VFOS Documentation, which this person can see in their own portal.`
+    return null
+  }
+
+  async function moveDoc(fromKey, toKey, file) {
+    if (fromKey === toKey) return
+    const warn = moveWarning(fromKey, toKey)
+    if (warn && !window.confirm(warn.replace('%s', file.name) + '\n\nMove it?')) return
+    setMoving(true); setError('')
+    try {
+      const d = await callApi('vault_move_document', {
+        entity: moveContext.entity, key: moveContext.key,
+        from_section: fromKey, to_section: toKey, path: file.path,
+      })
+      if (d.warning) setError(d.warning)
+    } catch (e) { setError(e.message || 'Could not move document') }
+    setMoving(false); load()
+  }
 
   const actionFor = (sec, op) => (sec.actions && sec.actions[op]) || actions[op]
   const paramsFor = (sec) => sec.params || params
@@ -92,8 +123,25 @@ export default function VaultSections({ actions, params = {}, sections = DEFAULT
   return (
     <div>
       {error && <div style={{ color: '#d93025', fontWeight: 500, fontSize: '13px', marginBottom: '14px' }}>{error}</div>}
+      {moving && <div style={{ color: '#0095ff', fontWeight: 500, fontSize: '13px', marginBottom: '14px' }}>Moving document…</div>}
+      {canMove && !loading && (
+        <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '14px' }}>
+          Drag a document by its <span style={{ userSelect: 'none' }}>⠿</span> handle onto another section to move it there.
+        </div>
+      )}
       {sections.map(sec => (
-        <div key={sec.key} style={{ background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '12px', padding: '22px', marginBottom: '20px' }}>
+        <div
+          key={sec.key}
+          style={{ background: dragOverKey === sec.key && dragItem?.section !== sec.key ? 'rgba(0,149,255,0.06)' : 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '12px', padding: '22px', marginBottom: '20px', outline: dragOverKey === sec.key && dragItem?.section !== sec.key ? '2px dashed #0095ff' : 'none', outlineOffset: '-4px' }}
+          onDragOver={canMove && dragItem && dragItem.section !== sec.key ? (e => { e.preventDefault(); setDragOverKey(sec.key) }) : undefined}
+          onDragLeave={canMove ? (() => setDragOverKey(k => k === sec.key ? null : k)) : undefined}
+          onDrop={canMove && dragItem ? (e => {
+            e.preventDefault()
+            const item = dragItem
+            setDragOverKey(null); setDragItem(null)
+            if (item && item.section !== sec.key) moveDoc(item.section, sec.key, item.file)
+          }) : undefined}
+        >
           <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>{sec.title}</div>
           <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '16px' }}>{sec.hint}</p>
 
@@ -113,7 +161,16 @@ export default function VaultSections({ actions, params = {}, sections = DEFAULT
             <>
               {(data[sec.key] || []).length === 0 && <div style={{ color: 'var(--vfo-muted)', fontSize: '13px', marginBottom: '12px' }}>No documents yet.</div>}
               {(data[sec.key] || []).map(f => (
-                <div key={f.path} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', marginBottom: '8px' }}>
+                <div
+                  key={f.path}
+                  draggable={canMove}
+                  onDragStart={canMove ? (e => { e.dataTransfer.effectAllowed = 'move'; setDragItem({ section: sec.key, file: f }) }) : undefined}
+                  onDragEnd={canMove ? (() => { setDragItem(null); setDragOverKey(null) }) : undefined}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', marginBottom: '8px', opacity: dragItem?.file?.path === f.path ? 0.45 : 1 }}
+                >
+                  {canMove && (
+                    <span title="Drag to move this document to another section" style={{ fontSize: '14px', color: 'var(--vfo-muted)', cursor: 'grab', flexShrink: 0, lineHeight: 1, userSelect: 'none' }}>⠿</span>
+                  )}
                   <span style={{ flexShrink: 0 }}>📄</span>
                   <span title={f.name} style={{ fontSize: '13px', color: 'var(--vfo-ink-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
                   <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', flexShrink: 0, whiteSpace: 'nowrap' }}>{fmtSize(f.size)}</span>

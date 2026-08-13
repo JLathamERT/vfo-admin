@@ -29,7 +29,10 @@ export default function AdminLogin() {
       sessionStorage.removeItem('adminMembersSection')
       sessionStorage.removeItem('adminSelectedMember')
       sessionStorage.removeItem('adminMemberFeatureTab')
-      setSession({ token: data.token, email: emailVal, name: data.name, role: 'admin', is_superadmin: data.is_superadmin, allowed_tabs: data.allowed_tabs || [] })
+      // NOTE: this object is an explicit WHITELIST, not a copy of the login
+      // response — a new server-side session field is invisible to the app until
+      // it is added here by name. is_ert_manager was added 2026-08-13.
+      setSession({ token: data.token, email: emailVal, name: data.name, role: 'admin', is_superadmin: data.is_superadmin, is_ert_manager: data.is_ert_manager, allowed_tabs: data.allowed_tabs || [] })
       const next = new URLSearchParams(window.location.search).get('next')
       navigate(next && next.startsWith('/admin/') ? next : '/admin')
     } catch (err) {

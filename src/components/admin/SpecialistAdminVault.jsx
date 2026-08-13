@@ -1,5 +1,6 @@
 import VaultSections from '../shared/VaultSections'
 import { ertAdminSection } from '../shared/ertVaultSection'
+import { getSession } from '../../lib/api'
 
 // Admin view of a specialist's vault (both sections), shown on the Vault tab of
 // the Search Specialists detail. Same layout as every other vault; admins can
@@ -20,7 +21,7 @@ export default function SpecialistAdminVault({ expertId, recipientName, recipien
   if (!expertId) return null
   const sections = [
     ...SPECIALIST_ADMIN_SECTIONS.map(s => ({ ...s, requestDocs: { entityType: 'specialist', entityKey: expertId, recipientName, recipientFirst } })),
-    ertAdminSection('specialist', expertId, 'specialist'),
+    ertAdminSection('specialist', expertId, 'specialist', !!getSession()?.is_ert_manager),
   ]
-  return <VaultSections actions={SPECIALIST_ADMIN_VAULT_ACTIONS} params={{ expert_id: expertId }} sections={sections} />
+  return <VaultSections actions={SPECIALIST_ADMIN_VAULT_ACTIONS} params={{ expert_id: expertId }} sections={sections} moveContext={{ entity: 'specialist', key: expertId }} />
 }
