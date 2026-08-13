@@ -74,11 +74,13 @@ Each member enrolls into a program (`member_enrollments`), then training-progres
 | `name` | text | not null |
 | `task_type` | text | default `'dropdown'` |
 | `task_order` | integer | not null |
-| `status_options` | text | Allowed `status` values for downstream progress tables. |
+| `status_options` | text | Allowed `status` values for downstream progress tables. | **Pipe-delimited (`A\|B\|C`)** for `program_client_tasks` — note the `member_training_progress` entry above says "Comma/JSON-encoded", which does NOT describe this table. Certain values are sentinels the frontend switches on rather than dropdown options (e.g. `tax_refund`, `assess_form`, `tax_hlm_confirm`).
 
 **Referenced by:** `client_progress.task_id`, `client_tax_progress.task_id`, `priority_progress.task_id` — all `NO ACTION`.
 
 > **Tax 4 task this session:** ids **153 + 154** (the Tax 4 `task_order=0` task in both tax programs) were renamed to **"High Level Meeting Confirmation Email"** and their `status_options` changed `tax_meeting_date` → **`tax_hlm_confirm`** (date-picker task replaced by the `automation_TAX_highlevelmeeting_confirm` send-email button).
+
+> **2026-08-13 (DML, `20260813233634_intro_cancelled_option_and_deck_stamp_backfill.sql`):** the **"VFO specialist introductions / discussions"** task on **both** tax programs had `status_options` changed from `'Introductions Completed'` to **`'Introductions Completed|Introductions cancelled'`**. Resolved **by name, not by id** (`WHERE name = '…' AND status_options = 'Introductions Completed'`), unlike the id-based note above. **The companion frontend change is mandatory, not optional:** `TaxPrioritiesTab.jsx`'s `statusColors` gained `'Introductions cancelled': '#e74c3c'` — a new option with no `statusColors` entry renders unstyled. **Operational note: open portals must be RELOADED** before a `status_options` change appears in the dropdown.
 
 ---
 

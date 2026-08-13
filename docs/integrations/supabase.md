@@ -77,7 +77,7 @@ Therefore: every authorization decision is enforced in the edge-function dispatc
 
 > **This list is a 2026-05-05 snapshot and is no longer complete** — many migrations have been applied since (MAP 1 reminder ladder, unique-client-id, advisor/accountant onboarding, PIP, etc.). Run the Supabase MCP `list_migrations` for the authoritative current list. Notably for auth: the `hash_passcodes_and_cleanup_sessions` unsalted-SHA-256 scheme above was **superseded on 2026-05-29** by salted PBKDF2 (`passcode_hash`) via migrations `add_passcode_hash_columns`, `passcode_drop_not_null`, and `drop_legacy_passcode_column` (the unsalted `passcode` column no longer exists).
 
-Local `supabase/migrations/` directory does **not exist** — migrations live remotely only. Schema changes are presumably authored via Supabase Studio or applied directly.
+**CORRECTED 2026-08-13 — the following was false.** `vfo-edge-functions/supabase/migrations/` **does exist** and holds ~110 git-tracked migration files. Migrations are authored as committed files **and** applied live via the Supabase MCP (`apply_migration`); every MCP-applied migration MUST also be committed in the same session (#196), or a rebuilt environment silently lacks it.
 
 ### Auto-cleanup of expired sessions
 
@@ -149,7 +149,7 @@ Set on every response. Adding a new frontend host (e.g., a custom domain) requir
 
 ## Migration practices
 
-- On `main`, the `vfo-edge-functions` repo has no `supabase/migrations/` directory — migrations are authored remotely.
+- **CORRECTED 2026-08-13:** the `vfo-edge-functions` repo **does** have a `supabase/migrations/` directory (~110 tracked files). The 15-migration list above is a 2026-05-05 snapshot, retained for history only. The 2026-08-13 FOURTH session added **8 DML-only migrations, zero DDL**.
 - The `vfo-react` repo has no migrations of its own.
 - New schema changes must be tracked via the remote migration registry (visible via the MCP `list_migrations` call).
 
