@@ -1,4 +1,4 @@
-# VFO Session-Learned Gotchas — full registry (#1–#380)
+# VFO Session-Learned Gotchas — full registry (#1–#386)
 
 > Split out of `SESSION_REFERENCE.md` on 2026-06-19 to keep the live hub lean. This is the **complete** numbered list; the hub keeps only a curated ALWAYS-APPLIES subset.
 >
@@ -828,6 +828,14 @@ Cross-ref **#239** (schedule uniqueness is per `kind='membership'`, which is why
 - and the email tokens **`[Remaining Payments]` / `[X]` / `[Y]`**.
 
 **The unit of truth is `monthsCoveredByRow(row, grossMonthly)` in `actions/membership/shared.ts`** = `max(1, round((amount_due + credit_applied) / grossMonthly))`, with `grossMonthly = roundDollar(annual_amount / 12)`. It derives a row's span **from the row's own money**, which is why it stays correct under a credit spread: the plan's credit note is spread across the remaining pulls, so `amount_due` alone is short by the credit, but **net + credit = one gross month** always. An ordinary row therefore always evaluates to 1, and **every non-catch-up document this session is byte-identical to before** — that is the regression proof, not a claim.
+
+**385. Adding an action to a role allowlist does NOT widen a handler that carries its OWN in-handler allowlist gate — you must open both, and the second one is invisible from `role-gates.ts` (2026-08-13, v735). ALWAYS-APPLIES (any role-gate widening).**
+
+`TAX_PLANNER_ALLOWED_ACTIONS` is the boundary for a `tax_planner` caller — `middleware/auth.ts` exempts the role from the tab and `ADMIN_ONLY_ACTIONS` gates precisely so an action can be dual-listed (the #273 pattern). That makes it easy to believe the allowlist entry IS the grant. For `vault_tax_admin_upload_url` it was not: the handler opened with an unconditional `if (!isTaxAdmin(auth.session.email)) return 403`, so a planner who passed the middleware gate cleanly would still have been refused **inside** the handler, by a constant (`constants/tax-access.ts`) that names three humans and has nothing to do with roles. The fix is the branch `vault_tax_download` had already established — `callerRole === "tax_planner"` → group guard, `else` → `isTaxAdmin` — and the tell that it was needed is that the read twin was already shaped that way. **Before widening any allowlist, grep the target handler for a second gate**: `isTaxAdmin`, `isSuperadmin`, a `TAX_VIEWERS`-style constant, or a bare `auth.session.email` comparison. A green `deno check` and a passing 5-pipeline smoke gate prove neither — smoke fires read-only loaders as an ADMIN, so it never touches the branch. Sibling of #309 (deny-by-omission), inverted: there, an action in no list was accidentally open; here, an action in the right list was still shut.
+
+**386. A `readOnly` prop conflates "cannot write" with "cannot add", and portal roles usually want exactly one of those (2026-08-13, v735). ALWAYS-APPLIES (any shared admin component reused by a portal).**
+
+`ClientVaultTab` is one component serving both the admin client page and the tax-planner portal, switched by a single `readOnly={isPlanner}`. That one boolean gated four unrelated things — Delete, Share, Request-documentation, and the `+ Add document` dropzone — so granting planners upload by relaxing `readOnly` would have silently handed them delete and share as well. The fix is a **second, additive** prop (`allowUpload`) rather than a weaker `readOnly`, plus a per-section `adminOnlyUpload` flag so the ERT/VFOS section stays admin-managed even when uploads are on. **Two things travel with this pattern and are easy to miss:** the section *blurbs* are prose that asserts the permission set ("view, add, remove and share these documents") and goes false the moment the props diverge — they need their own branch; and the backend must be widened in lockstep, because the dropzone renders off frontend props while the upload 403s off the server allowlist, so a frontend-only deploy ships a visible button that always fails. Same failure shape as any `disabled`/`readOnly` flag that has quietly accumulated more than one meaning: when a new role needs a subset, split the flag, don't loosen it.
 
 Two consequences to preserve:
 

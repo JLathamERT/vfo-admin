@@ -291,10 +291,10 @@ Admin-facing handlers over the private client buckets. The `vault_tax_*` set gua
 |---|---|---|---|---|
 | `vault_tax_list` | `actions/vault/tax-list.ts` | storage `client-tax-returns` (list by `client_id`) | — | Any admin. Lists tax-return titles for a `client_id` + returns `can_view` (= `isTaxAdmin`). |
 | `vault_tax_download` | `actions/vault/tax-download.ts` | storage `client-tax-returns` | — | `isTaxAdmin` ONLY. 300s signed view URL. |
-| `vault_tax_admin_upload_url` | `actions/vault/tax-admin-upload-url.ts` | storage `client-tax-returns` | — | `isTaxAdmin` ONLY. Signed upload URL. |
+| `vault_tax_admin_upload_url` | `actions/vault/tax-admin-upload-url.ts` | storage `client-tax-returns` | — | Signed upload URL. `isTaxAdmin` for admin callers; **also in `TAX_PLANNER_ALLOWED_ACTIONS` (2026-08-13, v735)** — a `tax_planner` caller branches to `denyIfNotPlannerClient` group scope instead of the allowlist, mirroring `vault_tax_download`. Path built server-side from `client_id`. |
 | `vault_tax_delete` | `actions/vault/tax-delete.ts` | — | storage `client-tax-returns` (delete) | `isTaxAdmin` ONLY. Removes a file. |
 | `vault_gen_list` | `actions/vault/gen-list.ts` | storage `client-documents` (list) | — | Any admin. General Documentation section (private `client-documents` bucket). |
-| `vault_gen_upload_url` | `actions/vault/gen-upload-url.ts` | storage `client-documents` | — | Any admin. Signed upload URL. |
+| `vault_gen_upload_url` | `actions/vault/gen-upload-url.ts` | storage `client-documents` | — | Any admin. Signed upload URL. **Also in `TAX_PLANNER_ALLOWED_ACTIONS` (2026-08-13, v735)** with a `denyIfNotPlannerClient` group guard — the same guard `vault_gen_download` already carried. Path built server-side from `client_id`. |
 | `vault_gen_download` | `actions/vault/gen-download.ts` | storage `client-documents` | — | Any admin. Signed download URL. |
 | `vault_gen_delete` | `actions/vault/gen-delete.ts` | — | storage `client-documents` (delete) | Any admin. Removes a file. |
 
