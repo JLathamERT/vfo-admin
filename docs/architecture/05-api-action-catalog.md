@@ -294,6 +294,7 @@ Admin-facing handlers over the private client buckets. The `vault_tax_*` set gua
 | `vault_tax_admin_upload_url` | `actions/vault/tax-admin-upload-url.ts` | storage `client-tax-returns` | — | Signed upload URL. `isTaxAdmin` for admin callers; **also in `TAX_PLANNER_ALLOWED_ACTIONS` (2026-08-13, v735)** — a `tax_planner` caller branches to `denyIfNotPlannerClient` group scope instead of the allowlist, mirroring `vault_tax_download`. Path built server-side from `client_id`. |
 | `vault_tax_delete` | `actions/vault/tax-delete.ts` | — | storage `client-tax-returns` (delete) | `isTaxAdmin` ONLY. Removes a file. |
 | `vault_gen_list` | `actions/vault/gen-list.ts` | storage `client-documents` (list) | — | Any admin. General Documentation section (private `client-documents` bucket). |
+| `vault_move_document` | `actions/vault/move-document.ts` | storage — all 9 section buckets | — | **NEW 2026-08-13 (v737).** Moves ONE file between the three sections of a SINGLE person's vault (`{entity, key, from_section, to_section, path}`). Sections are separate buckets, so this is a cross-bucket **copy → verify → delete** (never delete-first, #389); falls back to download+upload where `.copy()` has no `destinationBucket`. `ADMIN_ONLY` **and** narrowed in-handler to `isErtManager` (Jake/Tray). Source and destination paths are both built from the same server-side `key`, so it can never cross people. Same-section = 400. |
 | `vault_gen_upload_url` | `actions/vault/gen-upload-url.ts` | storage `client-documents` | — | Any admin. Signed upload URL. **Also in `TAX_PLANNER_ALLOWED_ACTIONS` (2026-08-13, v735)** with a `denyIfNotPlannerClient` group guard — the same guard `vault_gen_download` already carried. Path built server-side from `client_id`. |
 | `vault_gen_download` | `actions/vault/gen-download.ts` | storage `client-documents` | — | Any admin. Signed download URL. |
 | `vault_gen_delete` | `actions/vault/gen-delete.ts` | — | storage `client-documents` (delete) | Any admin. Removes a file. |
@@ -315,9 +316,9 @@ The read-only-for-owner third vault section. ONE unified admin-only set covers a
 | Action | File | Reads | Writes | Notes |
 |---|---|---|---|---|
 | `admin_ert_list` | `actions/vault/admin-ert.ts` | storage `{entity}-ert-docs` (list by `key`) | — | Any admin. Returns `{ ert: [...] }`. |
-| `admin_ert_upload_url` | `actions/vault/admin-ert.ts` | — | storage `{entity}-ert-docs` (upload) | Any admin. Signed upload URL. |
+| `admin_ert_upload_url` | `actions/vault/admin-ert.ts` | — | storage `{entity}-ert-docs` (upload) | **NARROWED 2026-08-13 (v736): `isErtManager` ONLY** (Jake/Tray — `constants/ert-access.ts`). Every other admin keeps list + download and gets 403 here. Being in `ADMIN_ONLY_ACTIONS` is no longer sufficient (#385's shape). Signed upload URL. |
 | `admin_ert_download` | `actions/vault/admin-ert.ts` | storage `{entity}-ert-docs` | — | Any admin. 300s signed download (path prefix-checked). |
-| `admin_ert_delete` | `actions/vault/admin-ert.ts` | — | storage `{entity}-ert-docs` (delete) | Any admin. Removes a file. |
+| `admin_ert_delete` | `actions/vault/admin-ert.ts` | — | storage `{entity}-ert-docs` (delete) | **NARROWED 2026-08-13 (v736): `isErtManager` ONLY** (Jake/Tray). The sharper half — signed agreements land in this section automatically and Storage records **no** deleter identity (`owner` is NULL; every write is service-role), so deletion here has no audit trail. 15 admins could reach it before; 2 can now. |
 
 Signed BoldSign agreements are copied into these buckets automatically on sign+pay by `utils/ert-agreement-copy.ts` (hooked into the specialist/advisor/accountant create handlers + the MAP 1 / Tax confirmation-email handlers), named `<VFO-…-Agreement>-First-Last.pdf` via the helper's `name` param. See gotchas #204–#205, #221.
 
