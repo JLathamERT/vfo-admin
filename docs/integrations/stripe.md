@@ -266,7 +266,7 @@ This requires:
 The handler **only transfers** if:
 - `members.revenue_decision !== "Money Mapping"` (else: marked `"Money Mapping"`, no transfer)
 - `shareAmount > 0` (else: marked `"N/A — No Share Due"`)
-- `members.stripe_account_id` is set (else: skipped silently)
+- `members.stripe_account_id` is set — **and a missing one is NOT "skipped silently" any more (2026-07-29, gotcha #303).** It writes the **non-terminal** `'Awaiting Connect Setup'` (`AWAITING_CONNECT`, `utils/member-share-held.ts`) and raises an action-required bell naming the held dollars, whose title is reconstructable so it self-clears when the share finally pays. The daily sweeps enumerate that value alongside `Pending` / `Failed`, and no `*_rev_completed_at` is stamped until a terminal outcome
 
 > **Proportional split (2026-07-21, gotcha #252):** a `share` value is ALWAYS a dollar amount of the TOTAL engagement; the portion transferred on any one installment is `portion = (share / totalGross) × paymentReceived`. The legacy ">100 → dollars else percent-of-payment" heuristic was removed from every leg (MAP1 member + strategic, tax member + strategic, tax planner) AND from the Payments-tab display math (`actions/payments/normalize.ts`) so the transfer and the displayed split always agree.
 

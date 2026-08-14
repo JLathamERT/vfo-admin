@@ -23,7 +23,7 @@ Registry of pipeline kinds. The frontend [AutomationPanel.jsx:290](src/component
 
 ## `pipeline_map1`
 
-The single most important automation table. One row per client journey through MAP1. ~80 columns. Column families:
+The single most important automation table. One row per client journey through MAP1. **143 columns as of 2026-08-14** (an older "~80" here was long stale) — derive it rather than trusting the number: `select count(*) from information_schema.columns where table_name='pipeline_map1';`. Column families:
 
 > **DB invariant**: `UNIQUE (client_id)` since 2026-05-21. The constraint prevents the historical drift where stale handler-INSERT branches silently created duplicate rows for the same client (which then broke downstream `.maybeSingle()` lookups). Any code path that tries to insert a second row for an existing client_id now hard-fails with Postgres `23505 unique_violation`.
 

@@ -1,6 +1,6 @@
 # Supabase integration
 
-Supabase hosts the Postgres database, the two edge functions, and two storage buckets. The frontend talks to the edge function (not directly to the DB). The edge function uses the **service-role key**, which bypasses RLS — so all access control is application-level.
+Supabase hosts the Postgres database, the two edge functions, and **20 storage buckets** (derive: `select id, public from storage.buckets;` — an older "two" here was long stale). The frontend talks to the edge function (not directly to the DB). The edge function uses the **service-role key**, which bypasses RLS — so all access control is application-level.
 
 Project: `ejpsprsmhpufwogbmxjv` ("VFO Showroom"), region `us-east-2`, Postgres 17.
 
@@ -85,7 +85,7 @@ Migration `auto_cleanup_expired_sessions` (2026-04-28) presumably installs a per
 
 ## Storage
 
-Seven storage buckets in use:
+**20 buckets exist** (`select id, public from storage.buckets;`). The nine with per-bucket notes are tabled below; the other eleven are listed under it. The old "Seven" on this line was wrong even for the table beneath it.
 
 | Bucket | Visibility | Used by | Notes |
 |---|---|---|---|
@@ -98,6 +98,22 @@ Seven storage buckets in use:
 | `advisor-onboarding-agreements` | public | `actions/advisor/decision.ts` (Undecided branch) | Holds the static **Advisor Onboarding Agreement** PDF (`Advisor_Implementation_Agreement.pdf`, uploaded 2026-06-01). Fetched no-auth at email-draft time and attached via multipart/mixed. Graceful fallback to plain HTML email if the PDF is missing. Created 2026-05-26; filename rename + made `advisor_address` required field on 2026-05-28. **Regenerated 2026-06-15 without the effective date** (matching the `[EFFECTIVE_DATE]` removal from the advisor agreement template). |
 | `accountant-onboarding-agreements` | public | `actions/accountant/decision.ts` (Undecided branch) | Holds **TWO** partnership-branched PDFs (uploaded 2026-06-01): `Accountant_Implementation_Agreement_Partnership.pdf` and `Accountant_Implementation_Agreement_No_Partnership.pdf`. The handler picks one by `ob.accountant_partnership` (=== `'Accountant Partnership'` → Partnership PDF, else No-Partnership — same dropdown the Yes-path send-agreement uses to pick the BoldSign template). Same fetch-and-attach pattern + graceful fallback as advisor. Created 2026-05-28; branched 2026-06-01 (v349, gotcha #58). **Both regenerated 2026-06-15 without the effective date** (matching the `[EFFECTIVE_DATE]` removal from the accountant agreement templates). |
 | `specialist-onboarding-assets` | public | `actions/onboarding/prelim-email.ts` (Stage 1 email) | Holds `onboarding-process.png` (inline image embedded in the Stage 1 + Stage 2 emails via `<img>`), `VFO-Specialist-Agreement.pdf` + `revenue_share_examples.pdf` (both attached to the Stage 1 yes/continue email). Created 2026-06-02 (gotcha #59). |
+
+**The other eleven buckets, not tabled above** (verified against `storage.buckets` 2026-08-14):
+
+| Bucket | Visibility | What it holds |
+|---|---|---|
+| `client-documents` | private | **General Documentation** section of the CLIENT vault (`vault_gen_*`) |
+| `client-tax-returns` | private | **Sensitive Documents** section of the client vault (`vault_tax_*`, incl. `vault_tax_admin_upload_url`) |
+| `client-ert-docs` | private | **ERT/VFOS Documentation** — admin-write / owner-read, `admin_ert_*`, locked to two admins (#387) |
+| `member-ert-docs` | private | ERT/VFOS section of the MEMBER vault |
+| `specialist-ert-docs` | private | ERT/VFOS section of the SPECIALIST vault |
+| `specialist-documents` | private | **General** section of the specialist vault (Tax Documents live in `specialist-tax-returns` above) |
+| `specialist-dd-materials` | private | Due Diligence Checklist materials in specialist onboarding |
+| `tax-planner-documents` | private | Tax-planner-facing documents |
+| `presentation-templates` | private | `ROI-template-master*.pptx` — read by `tax_generate_presentation`; a token-free deck change ships by replacing the same object, a token/slide-count change needs a NEW versioned name + lockstep deploy (#336/#342) |
+| `map1-assets` | public | Static MAP 1 email/page assets |
+| `vfo-widget` | public | The out-of-repo public website widget bundle (reads specialists via anon — see #201) |
 
 ### `headshots`
 

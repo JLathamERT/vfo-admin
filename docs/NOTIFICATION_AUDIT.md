@@ -8,6 +8,7 @@
 > to him was rerouted (gotcha #291). The tax client-decision bells and the Tax 4 meeting nudge now
 > resolve **assigned PF + allocated tax planner** (+ Tracy on the nudge, and as the universal
 > fallback); the specialist tax-risk-notes prompts go to Tracy. Rows below reflect that.
+> **(The Tax 4 meeting nudge itself went dormant on 2026-08-11 — see its row under Tax.)**
 
 ## How to read this
 
@@ -41,7 +42,35 @@
 > silent" gap (gotchas #296 / #299 / #300): three under **VFO Specialist Revenue** and two under a
 > **NEW area, Payment Continuation**. Both areas are listed below.
 
-## Every notification in the system (128 rules, 11 areas)
+## Every notification in the system
+
+> **⚠️ THE TABLES BELOW ARE A SNAPSHOT, NOT AN INVENTORY — the DB is the source of truth.**
+> They were written when there were 128 rules in 11 areas. As of **2026-08-14 there are 183 rules in
+> 16 areas**, so roughly a third of the live rules are NOT listed here. Derive the current picture
+> instead of trusting a count on this page:
+> `select area, count(*) from notification_rules group by area order by area;`
+>
+> | Area | Live rules | Listed below |
+> |---|---|---|
+> | 90 Day Plan | 2 | ✗ no section |
+> | Accountant Onboarding | 12 | 11 |
+> | Advisor Onboarding | 12 | 11 |
+> | Growth Credits | 2 | ✗ no section |
+> | Growth Plan | 4 | 2 |
+> | MAP 1 | 17 | 14 |
+> | Membership Fees | 2 | ✗ no section |
+> | Partnership Fast Track | 10 | 8 |
+> | Payment Continuation | 2 | 2 ✓ |
+> | Payment Failure Alerts | 17 | 16 |
+> | Regular Priorities (MAP 4) | 4 | 4 ✓ |
+> | Specialist Onboarding | 35 | 34 |
+> | Tax | 36 | 21 |
+> | **Tax Planners** | **14** | ✗ no section — see [flows/tax-planning.md](flows/tax-planning.md#thirteen-planner-notification-bells-six-new-2026-07-22-a-seventh-2026-07-23-an-eighth-2026-07-23-evening-a-ninth-and-tenth-2026-08-10-an-eleventh-and-twelfth-2026-08-11-a-thirteenth-later-the-same-day) |
+> | Uploads | 5 | ✗ no section |
+> | VFO Specialist Revenue | 9 | 9 ✓ |
+>
+> Each section heading's own count is likewise the snapshot number, kept so the tables and the
+> counts stay self-consistent. **Do not add a new total here** — it will be wrong within a week.
 
 ### MAP 1 (14)
 
@@ -87,7 +116,7 @@
 | **Agreement signing stalled (PF bell)** — Client still has not signed the agreement - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 business day(s)** (editable) |
 | **Retainer payment reminder email** — Client has not paid the Tax Planning retainer - reminder email with a fresh /tax-pay link drafted to the client. | Reminder email | The client (email) | Daily tax sweep — after **2 business day(s)** (editable) |
 | **Retainer payment stalled (PF bell)** — Client still has not paid the retainer - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 business day(s)** (editable) |
-| **Client decision 1 needed** — The Tax 4 meeting date has passed with no Client decision 1 recorded - persistent bell until the decision is recorded. | **Action required** | Assigned PF + Allocated Tax Planner + Tracy | Daily tax sweep (meeting date passed) — instant |
+| ~~**Client decision 1 needed**~~ (`TAX_tax4_decision_needed`) — **DORMANT since 2026-08-11 (#170): no call site.** Superseded by the **Tax Planners** rule `TAX_planner_tax4_steps_needed`, which asks the ALLOCATED PLANNER ALONE for BOTH Tax 4 steps ("Detailed tax plan presentation" + "Client decision 1") instead of asking three people for one of them. The row stays enabled for rollback; its clear stays in `postreview-decision.ts` for unread bells already in production. | ~~Action required~~ | ~~Assigned PF + Allocated Tax Planner + Tracy~~ | — (trigger unchanged, now on the new rule: daily tax sweep, meeting date passed; still a deliberate CALENDAR comparison) |
 
 ### Regular Priorities (MAP 4) (4)
 
@@ -262,16 +291,16 @@ bell via the 2026-06-15 failure-alert work). What genuinely has no notification 
 | 2 | **Client uploads a tax return** (public `/tax-upload` token page or client Vault -> Sensitive) | **RESOLVED — no longer silent.** `actions/vault/upload-notify.ts` stamps `tax_returns_received_at` on every waiting plan and raises the **action-required** `TAX_returns_allocate_team_member` ("Allocate a team member for X") to Tracy + Tray, cleared only when a planner is allocated; an upload with no requested plan still falls through to the generic `UPLOAD_tax_return_uploaded` FYI | — |
 | 3 | **Payment method updated** (Phase D `/connect-card` setup completes via Stripe webhook) | New default card/bank saved — silent | FYI to Jake: "X updated their payment method" — audit trail + confirms a failed-installment recovery is ready to retry |
 | 4 | **Member/specialist Stripe Connect onboarding completes** (payout account becomes active) | Nothing observes this; the next transfer just succeeds | FYI to Jake/Tracy: "X's payout account is active" — today you only find out when a transfer stops failing |
-| 5 | **BoldSign document Declined or Expired** | Event not handled at all — the pipeline just stalls until the signing-stall sweep notices | Action-required to the assigned PF / team member: "X declined the agreement" — a decline is a decision, not a stall, and deserves an immediate bell (the 2/4-business-day ladder is the wrong tool) |
-| 6 | **Check payment claimed but never clears** (MAP 1 / tax "paid by check" with no `checkcleared` after N days) | No sweep watches this — silent forever | Bell to Tracy + Jake after e.g. 14 days: "X's check has not been marked cleared" |
+| ~~5~~ | **BoldSign document Declined or Expired** | **BUILT 2026-07-03 (see the update note above) — this row is stale.** Five action-required rules exist and are enabled: `MAP1_`/`TAX_`/`ADVISOR_`/`ACCOUNTANT_`/`SPECIALIST_agreement_declined`, raised by `automation_AGREEMENT_declined` chained from BOTH BoldSign webhook handlers | — |
+| ~~6~~ | **Check payment claimed but never clears** (MAP 1 / tax "paid by check" with no `checkcleared` after N days) | **BUILT 2026-07-03 (see the update note above) — this row is stale.** `MAP1_check_uncleared_bell` + `TAX_check_uncleared_bell`, both enabled, ride the daily check-reminder sweep at an editable **14 business day** tier (business days since 2026-08-14) and cover P1, overdue quarterly P2–P4 and the Tax Planning retainer | — |
 | 7 | **Advisor/accountant 6-month renewal approaching** (`renewal_date` on advisor/accountant onboarding) | Column is written on payment, nothing reads it | Reminder ladder: FYI to team member 14 days before renewal; escalate if lapsed |
 | 8 | **14-day auto-decline fired** (advisor/accountant implicit No) | Decline email drafts; no bell | FYI to the team member: "X was auto-declined after 14 days" — otherwise a prospect silently disappears from the pipeline |
 | 9 | **New member/advisor/accountant goes live** (create-member runs) | The action-required "Ready to create" bell clears — nothing confirms | Optional FYI to the team member: "X is live, setup link sent" |
 | 10 | **PIP payment chain stalls** (PIP has no cron and no reminder ladder) | Failed/stalled PIP chains need manual re-fire; only the Jake transfer-failure alert exists | Low priority (purchases are admin-driven), but a "PIP purchase pending >2 days" bell would close the loop |
 
-None of these are built yet — each is a small, independent add now that the rule layer exists (a new
+**#5 and #6 have since been built** (struck through above; verified live 2026-08-14). The rest are not built — each is a small, independent add now that the rule layer exists (a new
 rule row + one `notifyByRule` call at the right spot; #5-#7 also need a small webhook branch or sweep
-query). Priority suggestion: #5 and #6 first (money/decision events that currently vanish), then #2.
+query). Priority suggestion, of what remains: #3 and #4 (the success side of payment-method / Connect setup), then #7.
 
 ## Architecture (for future sessions)
 

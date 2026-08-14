@@ -14,6 +14,8 @@ Ordered by complexity (highest first). Highest-complexity flow drives the rest o
 | [boldsign-webhook.md](boldsign-webhook.md) | What happens when BoldSign tells us a document was signed |
 | [stripe-webhook.md](stripe-webhook.md) | What happens when Stripe tells us a payment occurred (handles both MAP1 payments and GC credit purchases) |
 | [payment-method-change.md](payment-method-change.md) | Admin-initiated (Jake-only) card/bank change (Phase D): a `/update-card?token=` email → Stripe `mode:'setup'` Checkout (no charge) → webhook saves the engagement's default payment method → the next off-session charge (MAP1 sweep / Tax implementation / Specialist license) uses it. First SetupIntent flow; per-engagement, person-keyed token. |
+| [membership-fees.md](membership-fees.md) | Member annual/monthly membership fee billing: plan setup → Stripe charge → invoice/receipt → the 30-day renewal notice (a deliberate CALENDAR tier) → renewal meeting / pause / cancel. |
+| [partnership-fast-track.md](partnership-fast-track.md) | PFT: accountant prospect discovery form → VFO Fast Track decision email → Associate confirmation or hand-off into Accountant Onboarding, with its own 2-/4-business-day stall ladder. |
 | [ciq.md](ciq.md) | Client Intake Questionnaire — create, fill, complete, prioritize, snapshot |
 | [specialist-onboarding.md](specialist-onboarding.md) | Multi-stage workflow for vetting a new specialist |
 | [msm-tracking.md](msm-tracking.md) | Member-Servicing-Manager tracking — enrollments, training, clients, priorities |
