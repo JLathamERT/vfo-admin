@@ -1,9 +1,33 @@
 // Shared helper for Accounting > VFO Services > Additional PIP views. Flattens enriched
 // client_priority_tracks PIP-purchase rows into cleared payments. PIP stores its split
 // directly (member_share / vfos_share / amount), so no recompute is needed.
+//
+// Each emitted purchase also carries memberState — the payout state of the member share
+// — plus a paymentNote for a payment still in flight. VFOS has no payout leg of its own,
+// but a payment that is still clearing has not landed as VFOS income either, so the
+// purchase carries a vfosState for that case. PIP has no per-leg *_rev_paid columns: the
+// whole engagement carries one pip_rev_share_status, written by
+// actions/msm/pip-revshare.ts.
 import { parseNum } from './holisticShared'
+import { paymentNoteFor } from './shareLegState'
 
 const PAID = new Set(['succeeded', 'processing'])
+
+// The VFOS slice has no leg to pay out, but a payment still in flight has not become VFOS
+// income yet either. PAID above admits only 'processing' as in-flight here.
+function vfosStateFor(status) {
+  return paymentNoteFor(status) ? { note: 'payment clearing', tone: 'pending' } : null
+}
+
+function pipMemberState(r) {
+  const s = r.pip_rev_share_status
+  if (s === 'Completed - Revenue Share') return { note: 'paid', tone: 'done' }
+  if (s === 'Completed - Money Mapping') return { note: 'money mapping', tone: 'done' }
+  if (s === 'Completed - No Share Due') return { note: 'no share due', tone: null }
+  if (s === 'Pending') return { note: 'in progress', tone: 'pending' }
+  if (s) return { note: String(s).toLowerCase(), tone: 'pending' }
+  return { note: r.pip_payment_status === 'processing' ? 'payment clearing' : 'not yet paid', tone: 'pending' }
+}
 
 export function pipKindLabel(r) {
   if (r.pip_purchase_kind === 'tax_planning') return 'Tax Planning'
@@ -32,6 +56,9 @@ export function clearedPipPurchases(rows) {
       decision: r.member_revenue_decision || null,
       kindLabel: pipKindLabel(r),
       status: r.pip_payment_status,
+      memberState: pipMemberState(r),
+      vfosState: vfosStateFor(r.pip_payment_status),
+      paymentNote: paymentNoteFor(r.pip_payment_status),
     })
   }
   return out

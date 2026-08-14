@@ -1,8 +1,22 @@
 // Shared helpers for the Accounting > VFO Services > Holistic Planning views.
 // Flattens enriched pipeline_map1 rows into per-installment CLEARED payments (money
 // that actually hit the bank) with each payment split into member vs VFOS revenue.
+//
+// Each emitted installment also carries the payout state of its member and strategic
+// legs (memberState, strategicState) plus a paymentNote for a payment still in flight.
+// VFOS has no payout leg of its own, but a payment that is still clearing has not landed
+// as VFOS income either, so the installment carries a vfosState for that case. The
+// dollars are unchanged — the panels use those states purely to mark which slices have
+// not actually left the VFO balance yet.
+import { legState, paymentNoteFor } from './shareLegState'
 
 const PAID = new Set(['succeeded', 'processing', 'check_pending'])
+
+// The VFOS slice has no leg to pay out, but a payment still in flight has not become VFOS
+// income yet either — same in-flight statuses that give the payment its own note.
+function vfosStateFor(status) {
+  return paymentNoteFor(status) ? { note: 'payment clearing', tone: 'pending' } : null
+}
 
 export function parseNum(v) {
   return parseFloat(String(v ?? '0').replace(/[,$]/g, '')) || 0
@@ -33,6 +47,12 @@ export function clearedPayments(rows) {
       if (!PAID.has(status)) continue
       const clearedAt = i === 1 ? (r.invoice_email_sent_at || r.pay1_date) : (r[`pay${i}_paid_at`] || r[`pay${i}_date`])
       if (!clearedAt) continue
+      const revPaid = r[`rec${i}_rev_paid`]
+      // A migrated installment settled on the old system pays nothing here and never
+      // will, so it must not read as an unpaid share. Mirrors Map1PricingSplitCard.
+      const memberState = r.legacy_source && revPaid === 'N/A — No Share Due'
+        ? { note: 'settled on old system', tone: null }
+        : legState(revPaid, { revShare: r[`rec${i}_rev_share`], paymentStatus: status })
       out.push({
         id: `${r.id}-${i}`,
         installment: i,
@@ -42,6 +62,10 @@ export function clearedPayments(rows) {
         member: memberPortion,
         strategic: stratPortion,
         vfos: Math.max(amount - memberPortion - stratPortion, 0),
+        memberState,
+        strategicState: stratPortion > 0 ? legState(r[`rec${i}_strat_paid`], { paymentStatus: status }) : null,
+        vfosState: vfosStateFor(status),
+        paymentNote: paymentNoteFor(status),
         clientName: r.client_name || `Client #${r.client_id}`,
         clientId: r.client_id,
         memberNumber: r.member_number || null,
