@@ -97,26 +97,27 @@ The original MAP 1 insertion example, `automation_PCADMIN_finaldecision` ([admin
 
 Beyond this MAP1 example, the TAX / Advisor / Accountant / PFT pipelines also insert notifications. Recipient routing varies: TAX routes per-person via `utils/tax-notify.ts`; **Advisor/Accountant onboarding route to the chosen Team Member** (see subsection below); the rest use `recipient='admin'` (plus, for the Tax 4 reminder below, specific staff emails). Status changes elsewhere in the system (CIQ, MSM, contracts) do **not** generate notifications.
 
-### Tax 4 "Client decision 1 needed" reminder (action-required, in-app)
+### Tax 4 meeting-passed reminder (action-required, in-app)
 
-Replaced the old daily nudge email. The `tax-revshare-sweep-daily` cron (02:30 UTC) raises **ONE persistent action-required in-app notification** (`dismissible:false`, rule `TAX_tax4_decision_needed`) per plan when `tax4_meeting_date < today` AND `post_review_decision IS NULL`. **Recipients as of 2026-07-27 (v664): the client's assigned PF + the plan's allocated tax planner + Tracy** `tnmiller@elitert.com`, deduped, Tracy always present so the list is never empty (it previously went to departed Tim Gacsy + Tracy — gotcha #291):
+**Rule `TAX_tax4_decision_needed` — the three-recipient "Client decision 1 needed — \<client\>" bell — is DORMANT since 2026-08-11 (#170).** Its call site is gone; the rule row stays enabled for rollback + Editor visibility, and its clear stays in `actions/tax/postreview-decision.ts` (`.ilike("title","Client decision 1 needed%")`) because unread rows of that shape survive in production. Per gotcha #178, removing the call site — not deleting the rule — is what stopped the bell. The planner FYI `TAX_planner_post_meeting` went dormant in the same change.
+
+What fires now, on the same trigger: the `tax-revshare-sweep-daily` cron (02:30 UTC) raises **ONE persistent action-required in-app notification to the ALLOCATED PLANNER ALONE** — rule **`TAX_planner_tax4_steps_needed`** — when `tax4_meeting_date < today` and a planner is allocated:
 
 ```
-recipient: <assigned PF login> / <allocated planner email> / 'tnmiller@elitert.com'
-           (one row each)
+recipient: <allocated planner email>          (one row)
 pipeline:  'TAX'
-title:     "Client decision 1 needed — <client>"
-link:      "/admin/client/<id>?tab=tax&program=<program_id>"
-           ...except the PLANNER's row, link-overridden via the `links` map to
-           "/tax-planner/client/<id>?program=<program_id||1>"   (gotcha #292)
+title:     "Complete the tax plan review steps for <client>"
+message:   asks for BOTH steps the meeting produces —
+           "Detailed tax plan presentation" AND "Client decision 1"
+link:      "/tax-planner/client/<id>?program=<program_id||1>"   (gotcha #292)
 dismissible: false
 ```
 
-Fired once per plan (guarded by `client_tax_plans.tax4_meeting_reminder_last_sent_at`). **Cleared** by `actions/tax/postreview-decision.ts` (`.ilike("title","Client decision 1 needed%")`) when any Tax 4 `Client decision 1` is recorded.
+Fired once per plan (same guard column, `client_tax_plans.tax4_meeting_reminder_last_sent_at`, which `automation_TAX_highlevelmeeting_confirm` nulls on every re-confirm), and **skipped outright when both steps are already done** — an already-satisfied action-required bell would be unretirable. **Cleared** when BOTH halves land, whichever is second: `save-task.ts` (the presentation dropdown) and `postreview-decision.ts` (Client decision 1, every branch) both call `clearTax4StepBellsWhenBothDone`.
 
 ### TAX pipeline — no shared `admin` bell (rerouted 2026-06-09; recipients re-cut 2026-07-27)
 
-Every TAX notification routes to a specific person via [`utils/tax-notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/tax-notify.ts) — none use `recipient:'admin'`. Tax 3 / Setup-phase → **assigned PF** (`taxPfRecipients`, **Tracy** fallback — `TAX_OWNERS` is `[TRACY_EMAIL]` alone since Tim Gacsy left); Tax 4/5 client-decision FYIs → **assigned PF + the allocated tax planner** (`taxDecisionRecipients`, Tracy fallback, planner row link-overridden into the planner portal); the meeting nudge → **PF + planner + Tracy** (its own trigger is the CALENDAR meeting date, not a business-day ladder); the Tax 4/5 stall "reach out" escalations (default **4 business days**) → **assigned PF**. Gotchas #291 (the four-layer departed-staffer checklist) + #292 (the per-recipient `links` map). Full per-notification inventory: [tax-planning.md § Notification inventory](tax-planning.md#notification-inventory-tax-pipeline--audit-2026-06-09).
+Every TAX notification routes to a specific person via [`utils/tax-notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/tax-notify.ts) — none use `recipient:'admin'`. Tax 3 / Setup-phase → **assigned PF** (`taxPfRecipients`, **Tracy** fallback — `TAX_OWNERS` is `[TRACY_EMAIL]` alone since Tim Gacsy left); Tax 4/5 client-decision FYIs → **assigned PF + the allocated tax planner** (`taxDecisionRecipients`, Tracy fallback, planner row link-overridden into the planner portal); the Tax 4 meeting-passed bell → **the allocated planner alone** since #170 (its own trigger is the CALENDAR meeting date, not a business-day ladder; the old PF + planner + Tracy tier is dormant); the Tax 4/5 stall "reach out" escalations (default **4 business days**) → **assigned PF**. Gotchas #291 (the four-layer departed-staffer checklist) + #292 (the per-recipient `links` map). Full per-notification inventory: [tax-planning.md § Notification inventory](tax-planning.md#notification-inventory-tax-pipeline--audit-2026-06-09).
 
 ### Advisor / Accountant onboarding — route to the "Team Member Responsible" (2026-06-15)
 
@@ -174,7 +175,7 @@ Two handlers clear all unread notifications for a `client_id` after the admin co
 
 This avoids leaving the "client chose Yes" notification in the bell after the admin actually completes the pricing form.
 
-> **The narrower, and now more common, form is a TITLE-PREFIX clear.** An action-required row (`dismissible=false`) is refused by `mark_notification_read` (#179), so its completing handler must write `read=true` itself — and where several such bells can coexist for one client, the write is scoped by **pipeline + `client_id` + `dismissible=false` + `read=false` + `title ILIKE '<prefix>%'`** rather than by client alone. The **tax-track hand-off chain** is the largest instance: **seven fixed prefixes cleared from seven handlers** (`allocate-planner`, `save-task`, `ready-for-tax3`, `deposit-refund`, `save-assess-form`, `presentation-sweep`, plus the two vault fire sites' shared prefix), which makes those titles load-bearing strings — reword one without moving its clear and the bell becomes permanent. **The authoritative prefix → clear-site map lives in [`utils/tax-review-bell.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/tax-review-bell.ts)'s header**, which also owns the clear helpers every one of those handlers calls. Two consequences worth internalising: **a bell whose instruction is already satisfied is never minted** (nothing would clear it), and **a rule row's `action_required` column does not create or remove this behaviour** — only the call site's `dismissible:false` does. See [tax-planning.md § In-app notification CLEARS](tax-planning.md#in-app-notification-clears-targeted-update-readtrue) and gotcha **#357**.
+> **The narrower, and now more common, form is a TITLE-PREFIX clear.** An action-required row (`dismissible=false`) is refused by `mark_notification_read` (#179), so its completing handler must write `read=true` itself — and where several such bells can coexist for one client, the write is scoped by **pipeline + `client_id` + `dismissible=false` + `read=false` + `title ILIKE '<prefix>%'`** rather than by client alone. The **tax-track hand-off chain** is the largest instance: **eleven fixed prefixes** cleared from `allocate-planner`, `save-task`, `ready-for-tax3`, `deposit-refund`, `save-assess-form`, `presentation-schedule`, `presentation-sweep`, `highlevel-meeting-confirm` and `postreview-decision` (the two vault fire sites share one prefix; the Tax 4 extension of #170 added three more; the #400 vault hand-off added an eleventh, the only one not registered in `tax-review-bell.ts`) — which makes those titles load-bearing strings — reword one without moving its clear and the bell becomes permanent. **The authoritative prefix → clear-site map lives in [`utils/tax-review-bell.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/tax-review-bell.ts)'s header**, which also owns the clear helpers every one of those handlers calls. Two consequences worth internalising: **a bell whose instruction is already satisfied is never minted** (nothing would clear it), and **a rule row's `action_required` column does not create or remove this behaviour** — only the call site's `dismissible:false` does. See [tax-planning.md § In-app notification CLEARS](tax-planning.md#in-app-notification-clears-targeted-update-readtrue) and gotcha **#357**.
 
 ## Tables touched
 
@@ -201,7 +202,7 @@ This avoids leaving the "client chose Yes" notification in the bell after the ad
 ## Open questions
 
 1. **Member notifications** — the schema and `load_notifications` filter both contemplate per-email recipients, but no insertion path uses that. Was member-side notification a planned feature?
-2. **Cleanup** — read notifications are never deleted. The table will grow indefinitely. No retention policy observed.
+2. ~~**Cleanup** — read notifications are never deleted. The table will grow indefinitely. No retention policy observed.~~ **ANSWERED (2026-07-10):** read rows are hard-deleted after 90 days by the daily `automation_NOTIFICATIONS_purge` cron (`notifications-purge-daily`, jobid 15, 10:30 UTC). See the banner at the top of this file.
 
 ## Cross-references
 

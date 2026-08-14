@@ -405,9 +405,10 @@ For each payment cycle (P1 for one-time, P1+P2+P3+P4 for quarterly), the row sho
 1. Validates `pipeline_map1.rec{N}_number` exists. **Duplicate guard:** skips only if `rev_share` is set non-`Pending` AND `rev_paid` is in `Yes`/`Money Mapping`/`N/A — No Share Due`. `Failed` and `Pending` re-attempt on next call.
 2. Sets `rec{N}_rev_share='Pending'`.
 3. Refreshes Google access token (covers Sheets + Gmail + Drive).
-4. Reads Google Sheet `MASTER_SHEET_ID` (`Home Page!A1:I200`), finds `client_ref` in col A, extracts batch sheet ID from the col-I hyperlink. If not found: returns `pending: true, reason: "Client ref not found in Revenue Master"` and exits.
-5. Reads batch sheet metadata, finds tab matching `client_ref` + 4-digit number. If none: returns `pending: true`.
-6. Reads `<tab>!G7:O200`. Finds row matching receipt number AND verifies col J = expected payment AND verifies K+L+M+N+O = J. If verification fails: returns `pending: true, reason: "Tracy's numbers not yet verified"`.
+4. ~~Reads Google Sheet `MASTER_SHEET_ID` (`Home Page!A1:I200`), finds `client_ref` in col A, extracts batch sheet ID from the col-I hyperlink. If not found: returns `pending: true, reason: "Client ref not found in Revenue Master"` and exits.~~
+5. ~~Reads batch sheet metadata, finds tab matching `client_ref` + 4-digit number. If none: returns `pending: true`.~~
+6. ~~Reads `<tab>!G7:O200`. Finds row matching receipt number AND verifies col J = expected payment AND verifies K+L+M+N+O = J. If verification fails: returns `pending: true, reason: "Tracy's numbers not yet verified"`.~~
+   > **Steps 4–6 no longer happen (2026-07-01, #164).** `contract-revshare.ts` contains **zero** Sheets references and never returns `pending` — verified by grep. They are kept struck-through only so the historical shape is legible.
 7. Calculates this installment's share amount. **CORRECTED 2026-08-14 — the two bullets that used to sit here described code deleted on 2026-07-29 (v673–v675) and must not be reinstated.** The share is **always dollars of the TOTAL engagement**, never a percentage of the payment (#252); there is no `> 100` heuristic. Installment `i` gets the **cumulative difference** `cumShare(i) − cumShare(i−1)` where `cumShare(k) = round2(member_share × k / totalPayments)`, so the parts sum to the entered share to the cent and **the member is paid the entered amount IN FULL**. It is **never scaled by net/gross**: the entered share is already net of `member_contribution`, and the engine's own comment says such a row "must not shrink a second time" (#304). The old **`member_contribution` deduction step was DELETED as dead code** — nothing has ever written `member_contrib_status='Pending'`, and it carried a latent overpay-on-retry bug (the status flipped to `'Applied'` *before* the transfer, so a retry recomputed without the deduction). Note the two legs this handler does **not** pay the same way: **strategic** is gross-prorated, and **VFOS is never transferred at all** — a display surface must treat it as the residual of the net installment (#394).
 8. **Stripe Transfer**, decided by an **EXHAUSTIVE branch chain** rather than a terminal default (#303 — never initialize `revPaidValue` to a terminal string with the transfer behind a condition):
    - Money Mapping → `'Money Mapping'`; zero share → `'N/A — No Share Due'`; **no `stripe_account_id` → `AWAITING_CONNECT` (`'Awaiting Connect Setup'`)**, a **NON-terminal** held state that also raises an action-required bell (`utils/member-share-held.ts`, title reconstructable so it self-clears); missing `STRIPE_KEY` → `'Failed'`.
@@ -420,7 +421,7 @@ For each payment cycle (P1 for one-time, P1+P2+P3+P4 for quarterly), the row sho
 
 **Tables read:** `pipeline_map1`, `clients`, `members`, `pipeline_sandbox_config`.
 **Tables written:** `pipeline_map1` (rec{N}_rev_share, _rev_paid, _rev_email_sent, member_contrib_status, c24_email_sent).
-**External calls:** Google OAuth, Sheets ×2 (master + batch), optionally Stripe transfers, Gmail drafts ×1-2.
+**External calls:** Google OAuth, optionally Stripe transfers, Gmail drafts ×1-2. (**No Sheets calls** since the Revenue-Master cross-check was removed — #164.)
 
 ---
 
@@ -451,9 +452,11 @@ The MAP 1 reminder ladder mirrors the tax-planning sweep's stall-handling patter
 
 ## Notification touch-points
 
-`automation_PCADMIN_finaldecision` is the **only** automation that inserts a `notifications` row. It does so for:
+`automation_PCADMIN_finaldecision` is the **client-decision** insert point:
 - Decision = Yes (with chosen service level): "X chose Y"
 - Decision = ExtraMeeting: "X requested extra meeting"
+
+> **It is NOT the only MAP 1 notification insert** (an older claim here said so). The daily `automation_CONTRACT_revshare_sweep` inserts the three PF stall bells in the reminder ladder above; `contract-check-reminder-sweep.ts` inserts the uncleared-check bells and the migration setup-link ladder; `contract-revshare.ts` fires Tracy's "client has paid" FYI, the held-share bell and the Jake transfer-failure alert; `contract-chargescheduled-sweep.ts` fires the Jake failed-charge alert. Search `pipeline: "MAP 1"` under `actions/pipeline/` for the current set.
 
 Two follow-up actions clear all unread notifications for a client_id:
 - `automation_PCADMIN_pricing` (when admin completes pricing)
@@ -493,7 +496,7 @@ The `pipeline_map1` row evolves through these column writes, in order:
 4. **Wrong BoldSign webhook URL** → `c17/c18` flip but no chain. CEO countersign + payment email never get created. Stalls until manual intervention.
 5. **`document_numbers` race** → two concurrent `_invoicereceipt` calls could allocate the same number. Not protected by DB unique constraint or transaction.
 6. **Drive folder name change** → if client is renamed, prior PDFs orphan in the old folder.
-7. **Sheets verification stuck** → `_revshare` returns `pending: true`. The daily `_revshare_sweep` cron auto-retries every 24h until Tracy's sheet matches.
+7. ~~**Sheets verification stuck** → `_revshare` returns `pending: true`. The daily `_revshare_sweep` cron auto-retries every 24h until Tracy's sheet matches.~~ **Gone since 2026-07-01 (#164)** — there is no sheet lookup and no `pending` return; the share pays when the payment clears. The daily sweep still auto-retries `Pending` / `Failed` / `Awaiting Connect Setup` legs.
 8. **Stripe Transfer fails** → `rec{N}_rev_paid='Failed'`. Member email + Tracy email are **NOT** drafted on Failed (gated on `rev_paid === "Yes"` at [contract-revshare.ts:347](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/contract-revshare.ts)). The daily sweep auto-retries Failed transfers, so once the Stripe Connect account is fixed (typically a missing `transfers` capability) the next sweep run completes the flow.
 9. **Idempotency**: the rev-share duplicate guard skips only when `rev_paid` is in `Yes`/`Money Mapping`/`N/A — No Share Due` — `Pending` and `Failed` retry on next call. Other handlers check single columns: `c16_sent === 'Yes'`, `confirmation_status === 'Sent'`. The dual `Signed` + `Completed` BoldSign events are explicitly idempotent. Stripe webhook checks `pay1_status` empty.
 

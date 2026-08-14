@@ -6,9 +6,9 @@ Read-only architecture map of the VFO portal system. Documents what exists in th
 
 ## What's in this system
 
-Two repos, one Supabase project, four external integrations, one static-hosted SPA — held together by a modular `vfo-admin-api` edge function (88-line orchestrator + ~206 handler files) dispatching **461 actions** (6 logins + 455 dispatched PUBLIC/AUTH). See [architecture/01-system-map.md](architecture/01-system-map.md) for the high-level picture.
+Two repos, one Supabase project, four external integrations, one static-hosted SPA — held together by a modular `vfo-admin-api` edge function (88-line orchestrator + ~470 handler files under `actions/`) dispatching **461 actions** (6 logins + 455 dispatched: 132 PUBLIC + 323 AUTH). See [architecture/01-system-map.md](architecture/01-system-map.md) for the high-level picture.
 
-The central business flow is the **MAP1 contract-and-payment chain**: PIP1 reconfirmation → PF decision → PCADMIN pricing → BoldSign agreement → CEO countersign → Stripe payment → confirmation/invoice/receipt → revenue share. State lives in a single ~80-column row of `pipeline_map1`, with each handler advancing specific columns. See [flows/contract-and-payment.md](flows/contract-and-payment.md) for the end-to-end trace.
+The central business flow is the **MAP1 contract-and-payment chain**: PIP1 reconfirmation → PF decision → PCADMIN pricing → BoldSign agreement → CEO countersign → Stripe payment → confirmation/invoice/receipt → revenue share. State lives in a single 143-column row of `pipeline_map1`, with each handler advancing specific columns. See [flows/contract-and-payment.md](flows/contract-and-payment.md) for the end-to-end trace.
 
 Four parallel automation chains follow the same pattern: **Tax Planning** ([flows/tax-planning.md](flows/tax-planning.md) — on `client_tax_plans`), **Advisor Onboarding** (`ADVISOR_ONBOARDING_RESUMPTION.md` at repo root — on `advisor_onboarding`), **Accountant Onboarding** (`ACCOUNTANT_ONBOARDING_RESUMPTION.md` at repo root — on `accountant_onboarding`; mirrors advisor with a new Partnership? step gating pricing $4,000/$2,000 + dual agreement_templates rows; **since 2026-08-12 / v730 it also mirrors advisor on `revenue_decision`, writing `'Money Mapping'` rather than omitting the field** — gotcha #375), and **PIP Meetings** ([flows/pip-meetings.md](flows/pip-meetings.md) — on `client_priority_tracks` rows with `track_type='pip'`; mirrors MAP1 payment + invoice/receipt + revshare but without BoldSign + with 1-time payment only).
 
@@ -19,7 +19,7 @@ docs/
 ├── README.md                         (this file — start here)
 ├── SESSION_REFERENCE.md              (the LEAN live-state hub — read in FULL at session start)
 ├── CHANGELOG.md                      (archived session-by-session history — newest-first; read on demand)
-├── GOTCHAS.md                        (full numbered gotcha registry #1–#395 — read on demand)
+├── GOTCHAS.md                        (full numbered gotcha registry, #1 upward — read on demand; append-only, never renumbered, so the top number moves every session — #400 as of 2026-08-14)
 ├── NOTIFICATION_AUDIT.md             (every bell notification: who/type/timing, editable in Automation → Notification Editor; + gap analysis)
 ├── glossary.md                       (MAP1, PIP, PCADMIN, MSM, CIQ, etc.)
 ├── GROWTH_PLAN_HANDOFF.md            (Advisor Growth Plan — full feature build state; Phases 1–8 + custom priorities/sub-tasks)
@@ -33,10 +33,11 @@ docs/
 │   ├── 05-api-action-catalog.md      (all 461 actions, concise table format)
 │   └── 06-orchestration-files.md     (file ranking by feature ownership)
 │
-├── tables/                           (the "noun" layer — 52 public-schema tables)
-│   ├── README.md                     (52-table index by group)
+├── tables/                           (the "noun" layer — 87 public-schema tables as of 2026-08-14; derive with MCP list_tables, never from this line)
+│   ├── README.md                     (table index by group)
 │   ├── auth.md                       (admin_sessions, allowed_admins, member_logins)
-│   ├── pipeline.md                   (pipeline_map1 — ~80 columns documented)
+│   ├── pipeline.md                   (pipeline_map1 — 143 columns)
+│   ├── membership-fees.md            (member_payment_plans/schedule/pauses + renewal meetings)
 │   ├── members.md                    (members + plugin settings + history)
 │   ├── clients.md                    (clients + contacts + notes + progress)
 │   ├── ciq.md                        (client_ciqs + answers + priorities + snapshots)
@@ -62,7 +63,12 @@ docs/
 │   ├── gift-credits.md               (GC marketplace buy/redeem)
 │   ├── pip-meetings.md               (PIP Meetings purchase + payment + invoice/receipt + revshare + unlock)
 │   ├── partnership-fast-track.md     (PFT accountant engagement track + meeting emails + discovery form + onboarding handoff)
+│   ├── membership-fees.md            (member annual/monthly membership fee billing + renewal / pause / cancel)
+│   ├── payment-method-change.md      (Phase D admin-initiated card/bank change — the only mode:'setup' flow)
 │   └── notifications.md              (in-portal bell feed)
+│
+├── operations/                       (runbooks)
+│   └── test-client-reset.md          (which tables to wipe per pipeline to re-run a test client)
 │
 └── integrations/                     (the "external" layer — APIs and secrets)
     ├── stripe.md                     (Customer/Checkout/PaymentIntent/Transfer/webhook)
@@ -124,8 +130,8 @@ This doc map can be audited against the source:
 
 - Every `file:line` citation should resolve to the claimed handler — try opening any link.
 - The action catalog count (**461** in [05-api-action-catalog.md](architecture/05-api-action-catalog.md)) is the sum of the **6** logins in `index.ts` + the **455** dispatch entries (132 PUBLIC + 323 AUTH) (`(c) =>`) in `router/dispatch.ts`.
-- The 51-table inventory in [tables/README.md](tables/README.md) should match `SELECT count(*) FROM information_schema.tables WHERE table_schema='public'`.
-- The 15-migration list in [integrations/supabase.md](integrations/supabase.md) is a **2026-05-05 snapshot and is long out of date** — `vfo-edge-functions/supabase/migrations/` now holds ~110 git-tracked migration files. Every migration applied live via MCP must also be committed there (#196).
+- The table inventory in [tables/README.md](tables/README.md) is a grouped index, **not a count** — `SELECT count(*) FROM information_schema.tables WHERE table_schema='public'` returns **87** as of 2026-08-14, and several of those have no per-column doc (notably `advisor_onboarding` / `accountant_onboarding`). Always derive; a hard number on this page will be wrong within a week.
+- The 15-migration list in [integrations/supabase.md](integrations/supabase.md) is a **2026-05-05 snapshot and is long out of date** — `vfo-edge-functions/supabase/migrations/` now holds **114** git-tracked migration files (2026-08-14). Every migration applied live via MCP must also be committed there (#196).
 - Pick any flow doc and trace a "Trigger → Step-by-step → Tables touched → Chains" sequence; every code reference should resolve.
 
 ## What this doc explicitly does NOT cover
