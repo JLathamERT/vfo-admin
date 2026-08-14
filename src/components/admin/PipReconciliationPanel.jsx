@@ -3,6 +3,7 @@ import { callApi } from '../../lib/api'
 import { NAVY, money } from './specialistRevenueShared'
 import { inPeriod } from './holisticShared'
 import { clearedPipPurchases } from './pipShared'
+import { PendingNote } from './shareLegState'
 import { AccountingTableSkeleton } from '../shared/Skeleton'
 import { ClientNameLink } from '../shared/personLinks'
 
@@ -10,6 +11,11 @@ import { ClientNameLink } from '../shared/personLinks'
 // CLIENT: each client with additional-PIP activity that year and the revenue split from
 // purchases that cleared in the year (member share for revenue-share members, money-
 // mapping share, Elite VFO Income).
+//
+// A cleared purchase does not mean its member share was paid out, so each aggregate also
+// carries the portion whose payout has not fired yet and shows it as a pending sub-note.
+// Elite VFO Income has no payout of its own, but it counts as pending while the payment
+// itself is still clearing. The aggregates themselves are the full split, unchanged.
 
 export default function PipReconciliationPanel({ embedded = false }) {
   const [rows, setRows] = useState([])
@@ -47,16 +53,26 @@ export default function PipReconciliationPanel({ embedded = false }) {
     for (const p of payments) {
       if (!inPeriod(p.clearedAt, year, -1)) continue
       const k = p.clientId
-      const t = map[k] || (map[k] = { clientId: k, clientName: p.clientName, memberName: p.memberName || '—', member: 0, mm: 0, vfos: 0 })
+      const t = map[k] || (map[k] = { clientId: k, clientName: p.clientName, memberName: p.memberName || '—', member: 0, mm: 0, vfos: 0, memberPending: 0, mmPending: 0, vfosPending: 0 })
       if (!t.memberName && p.memberName) t.memberName = p.memberName
-      if ((p.decision || '') === 'Money Mapping') t.mm += p.member
-      else t.member += p.member
+      const pending = p.memberState?.tone === 'pending'
+      if ((p.decision || '') === 'Money Mapping') {
+        t.mm += p.member
+        if (pending) t.mmPending += p.member
+      } else {
+        t.member += p.member
+        if (pending) t.memberPending += p.member
+      }
       t.vfos += p.vfos
+      if (p.vfosState?.tone === 'pending') t.vfosPending += p.vfos
     }
     return Object.values(map).sort((a, b) => String(a.clientName).localeCompare(String(b.clientName)))
   }, [payments, year])
 
-  const tot = clients.reduce((s, c) => ({ member: s.member + c.member, mm: s.mm + c.mm, vfos: s.vfos + c.vfos }), { member: 0, mm: 0, vfos: 0 })
+  const tot = clients.reduce((s, c) => ({
+    member: s.member + c.member, mm: s.mm + c.mm, vfos: s.vfos + c.vfos,
+    memberPending: s.memberPending + c.memberPending, mmPending: s.mmPending + c.mmPending, vfosPending: s.vfosPending + c.vfosPending,
+  }), { member: 0, mm: 0, vfos: 0, memberPending: 0, mmPending: 0, vfosPending: 0 })
 
   const wrap = embedded ? { fontFamily: 'Inter, sans-serif' } : { padding: '24px', maxWidth: '1150px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
   const sel = { padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', fontSize: '13px', fontFamily: 'Inter, sans-serif', color: 'var(--vfo-ink)', cursor: 'pointer' }
@@ -84,22 +100,22 @@ export default function PipReconciliationPanel({ embedded = false }) {
       {!loading && !error && (
         <div style={{ border: '1px solid var(--vfo-border-soft)', borderRadius: '14px', overflow: 'hidden', background: 'var(--vfo-card)', boxShadow: 'var(--vfo-shadow-card)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', background: 'var(--vfo-input)', borderBottom: '1px solid var(--vfo-border-soft)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--vfo-muted)' }}>
-            <span>Client</span><span>Connected Member</span><span style={{ textAlign: 'right' }}>Member Share</span><span style={{ textAlign: 'right' }}>Money Mapping</span><span style={{ textAlign: 'right' }}>Elite VFO Income</span>
+            <span>Client</span><span>Connected Member</span><span style={{ textAlign: 'right' }}>Member Revenue Share</span><span style={{ textAlign: 'right' }}>Member Money Mapping</span><span style={{ textAlign: 'right' }}>Elite VFO Income</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '11px 18px', borderBottom: '2px solid var(--vfo-border)', background: 'var(--vfo-input)', alignItems: 'center', fontSize: '13px', fontWeight: 800, color: 'var(--vfo-heading)' }}>
             <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--vfo-muted)' }}>Totals</span>
             <span />
-            <span style={{ textAlign: 'right' }}>{money(tot.member)}</span>
-            <span style={{ textAlign: 'right' }}>{money(tot.mm)}</span>
-            <span style={{ textAlign: 'right' }}>{money(tot.vfos)}</span>
+            <span style={{ textAlign: 'right' }}>{tot.member ? money(tot.member) : '—'}<PendingNote amount={tot.memberPending} money={money} /></span>
+            <span style={{ textAlign: 'right' }}>{tot.mm ? money(tot.mm) : '—'}<PendingNote amount={tot.mmPending} money={money} /></span>
+            <span style={{ textAlign: 'right' }}>{money(tot.vfos)}<PendingNote amount={tot.vfosPending} money={money} /></span>
           </div>
           {clients.map(c => (
             <div key={c.clientId} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)' }}>
               <span><ClientNameLink clientId={c.clientId} tab="pip" style={{ fontWeight: 600 }}>{c.clientName}</ClientNameLink></span>
               <span style={{ color: 'var(--vfo-muted)' }}>{c.memberName}</span>
-              <span style={{ textAlign: 'right', fontWeight: c.member ? 700 : 400, color: c.member ? '#16a34a' : 'var(--vfo-faint)' }}>{money(c.member)}</span>
-              <span style={{ textAlign: 'right', fontWeight: c.mm ? 700 : 400, color: c.mm ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{money(c.mm)}</span>
-              <span style={{ textAlign: 'right', fontWeight: c.vfos ? 700 : 400, color: c.vfos ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{money(c.vfos)}</span>
+              <span style={{ textAlign: 'right', fontWeight: c.member ? 700 : 400, color: c.member ? '#16a34a' : 'var(--vfo-faint)' }}>{c.member ? money(c.member) : '—'}{c.member ? <PendingNote amount={c.memberPending} money={money} /> : null}</span>
+              <span style={{ textAlign: 'right', fontWeight: c.mm ? 700 : 400, color: c.mm ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{c.mm ? money(c.mm) : '—'}{c.mm ? <PendingNote amount={c.mmPending} money={money} /> : null}</span>
+              <span style={{ textAlign: 'right', fontWeight: c.vfos ? 700 : 400, color: c.vfos ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{money(c.vfos)}{c.vfos ? <PendingNote amount={c.vfosPending} money={money} /> : null}</span>
             </div>
           ))}
           {clients.length === 0 && <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>No additional-PIP client activity for this year.</div>}

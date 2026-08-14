@@ -3,13 +3,25 @@ import { callApi } from '../../lib/api'
 import { NAVY, money } from './specialistRevenueShared'
 import { inPeriod } from './holisticShared'
 import { clearedTaxPayments } from './taxShared'
+import { ShareCell, PendingNote, SubNote } from './shareLegState'
 import { AccountingTableSkeleton } from '../shared/Skeleton'
 import { ClientNameLink, MemberNameLink } from '../shared/personLinks'
 
 // Accounting > VFO Services > Tax Planning Revenue. Each tax payment (retainer or
 // implementation) that cleared in the chosen month/year — connected member, program
-// (Tax Priorities / Tax Planning), and the member vs VFOS revenue split. No scheduled
-// payments, no outbound revenue-share payouts.
+// (Tax Priorities / Tax Planning), and the member vs tax planner vs VFOS revenue split.
+// No scheduled payments, no outbound revenue-share payouts.
+//
+// A split slice is money owed, not money moved: each of the three payout legs carries a
+// tiny note saying whether it has actually paid out, and an unpaid one renders dimmed.
+// Elite VFO Income has no payout leg, but it is marked the same way while the payment
+// itself is still clearing. The amounts and the totals are the full split either way —
+// the pending sub-note under each total says how much of it is still sitting in the VFO
+// balance.
+//
+// The member's slice lands in one of two columns depending on the member's revenue
+// decision, because a Money Mapping member is credited growth credits rather than paid
+// cash. Same routing the Reconciliation panel uses; the other column shows a dash.
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -17,6 +29,14 @@ function fmtDate(s) {
   if (!s) return '—'
   try { return new Date(s).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) } catch { return String(s) }
 }
+
+const isMoneyMapping = p => (p.decision || '') === 'Money Mapping'
+
+// Inside the Money Mapping column the leg's own 'money mapping' note only repeats the
+// column header, so it reads as 'credited' there. Every other note is left alone.
+const creditedNote = st => (st?.note === 'money mapping' ? { ...st, note: 'credited' } : st)
+
+const dashCell = { textAlign: 'right', color: '#c7d0de' }
 
 function ProgramTag({ label }) {
   const planning = label === 'Tax Planning'
@@ -61,14 +81,22 @@ export default function TaxRevenuePanel({ embedded = false }) {
     [payments, year, month])
 
   const totGross = filtered.reduce((s, p) => s + p.amount, 0)
-  const totMember = filtered.reduce((s, p) => s + p.member, 0)
+  const totMemberRev = filtered.reduce((s, p) => s + (isMoneyMapping(p) ? 0 : p.member), 0)
+  const totMM = filtered.reduce((s, p) => s + (isMoneyMapping(p) ? p.member : 0), 0)
   const totVfos = filtered.reduce((s, p) => s + p.vfos, 0)
+  const totPlanner = filtered.reduce((s, p) => s + (p.planner || 0), 0)
   const totStrategic = filtered.reduce((s, p) => s + (p.strategic || 0), 0)
+  const pend = st => st?.tone === 'pending'
+  const pendMemberRev = filtered.reduce((s, p) => s + (!isMoneyMapping(p) && pend(p.memberState) ? p.member : 0), 0)
+  const pendMM = filtered.reduce((s, p) => s + (isMoneyMapping(p) && pend(p.memberState) ? p.member : 0), 0)
+  const pendPlanner = filtered.reduce((s, p) => s + (pend(p.plannerState) ? (p.planner || 0) : 0), 0)
+  const pendStrategic = filtered.reduce((s, p) => s + (pend(p.strategicState) ? (p.strategic || 0) : 0), 0)
+  const pendVfos = filtered.reduce((s, p) => s + (pend(p.vfosState) ? p.vfos : 0), 0)
   const periodLabel = month >= 0 ? `${MONTHS[month]} ${year}` : `${year}`
 
   const wrap = embedded ? { fontFamily: 'Inter, sans-serif' } : { padding: '24px', maxWidth: '1100px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
   const sel = { padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', fontSize: '13px', fontFamily: 'Inter, sans-serif', color: 'var(--vfo-ink)', cursor: 'pointer' }
-  const grid = '120px 1.2fr 1.1fr 120px 110px 110px 120px 110px'
+  const grid = '92px 1.2fr 1.1fr 92px 96px 96px 96px 92px 100px 88px'
 
   return (
     <div style={wrap}>
@@ -90,21 +118,23 @@ export default function TaxRevenuePanel({ embedded = false }) {
         <button onClick={load} style={{ ...sel, color: '#125ecc', fontWeight: 600 }}>Refresh</button>
       </div>
 
-      {loading && <AccountingTableSkeleton cols={8} />}
+      {loading && <AccountingTableSkeleton cols={10} />}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>{error}</div>}
 
       {!loading && !error && (
         <div style={{ border: '1px solid var(--vfo-border-soft)', borderRadius: '14px', overflow: 'hidden', background: 'var(--vfo-card)', boxShadow: 'var(--vfo-shadow-card)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', background: 'var(--vfo-input)', borderBottom: '1px solid var(--vfo-border-soft)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--vfo-muted)' }}>
-            <span>Cleared</span><span>Client</span><span>Connected Member</span><span>Program</span><span style={{ textAlign: 'right', borderRight: '1px solid var(--vfo-border-strong)', paddingRight: '12px' }}>Received</span><span style={{ textAlign: 'right' }}>Member</span><span style={{ textAlign: 'right' }}>Elite VFO Income</span><span style={{ textAlign: 'right' }}>Strategic</span>
+            <span>Cleared</span><span>Client</span><span>Connected Member</span><span>Program</span><span style={{ textAlign: 'right', borderRight: '1px solid var(--vfo-border-strong)', paddingRight: '12px' }}>Received</span><span style={{ textAlign: 'right' }}>Member Revenue Share</span><span style={{ textAlign: 'right' }}>Member Money Mapping</span><span style={{ textAlign: 'right' }}>Tax Planner</span><span style={{ textAlign: 'right' }}>Elite VFO Income</span><span style={{ textAlign: 'right' }}>Strategic Partner Revenue Share</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '11px 18px', borderBottom: '2px solid var(--vfo-border)', background: 'var(--vfo-input)', alignItems: 'center', fontSize: '13px', fontWeight: 800, color: 'var(--vfo-heading)' }}>
             <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--vfo-muted)' }}>Totals</span>
             <span /><span /><span />
             <span style={{ textAlign: 'right', borderRight: '1px solid var(--vfo-border-strong)', paddingRight: '12px' }}>{money(totGross)}</span>
-            <span style={{ textAlign: 'right' }}>{money(totMember)}</span>
-            <span style={{ textAlign: 'right' }}>{money(totVfos)}</span>
-            <span style={{ textAlign: 'right' }}>{totStrategic ? money(totStrategic) : '—'}</span>
+            <span style={{ textAlign: 'right' }}>{totMemberRev ? money(totMemberRev) : '—'}<PendingNote amount={pendMemberRev} money={money} /></span>
+            <span style={{ textAlign: 'right' }}>{totMM ? money(totMM) : '—'}<PendingNote amount={pendMM} money={money} /></span>
+            <span style={{ textAlign: 'right' }}>{totPlanner ? money(totPlanner) : '—'}<PendingNote amount={pendPlanner} money={money} /></span>
+            <span style={{ textAlign: 'right' }}>{money(totVfos)}<PendingNote amount={pendVfos} money={money} /></span>
+            <span style={{ textAlign: 'right' }}>{totStrategic ? money(totStrategic) : '—'}<PendingNote amount={pendStrategic} money={money} /></span>
           </div>
           {filtered.length === 0 && (
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>No Tax payments cleared in this period.</div>
@@ -115,10 +145,21 @@ export default function TaxRevenuePanel({ embedded = false }) {
               <span style={{ fontWeight: 600 }}><ClientNameLink clientId={p.clientId} tab="tax">{p.clientName}</ClientNameLink><span style={{ color: 'var(--vfo-faint)', fontWeight: 400 }}> · {p.kind}</span></span>
               <span>{p.memberName ? <MemberNameLink memberNumber={p.memberNumber}>{p.memberName}</MemberNameLink> : '—'}{p.memberNumber && <span style={{ color: 'var(--vfo-faint)' }}> · {p.memberNumber}</span>}</span>
               <span><ProgramTag label={p.tier} /></span>
-              <span style={{ textAlign: 'right', fontWeight: 700, borderRight: '1px solid var(--vfo-tint)', paddingRight: '12px' }}>{money(p.amount)}</span>
-              <span style={{ textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>{money(p.member)}</span>
-              <span style={{ textAlign: 'right' }}>{money(p.vfos)}</span>
-              <span style={{ textAlign: 'right', color: p.strategic > 0 ? '#8b5cf6' : '#c7d0de' }}>{p.strategic > 0 ? money(p.strategic) : '—'}</span>
+              <span style={{ textAlign: 'right', fontWeight: 700, borderRight: '1px solid var(--vfo-tint)', paddingRight: '12px' }}>{money(p.amount)}<SubNote text={p.paymentNote} /></span>
+              {isMoneyMapping(p) ? (
+                <>
+                  <span style={dashCell}>—</span>
+                  <ShareCell value={p.member} state={creditedNote(p.memberState)} money={money} color={p.member > 0 ? 'var(--vfo-ink)' : '#c7d0de'} fontWeight={p.member > 0 ? 600 : 400} dash="—" />
+                </>
+              ) : (
+                <>
+                  <ShareCell value={p.member} state={p.memberState} money={money} color={p.member > 0 ? '#16a34a' : '#c7d0de'} fontWeight={p.member > 0 ? 600 : 400} dash="—" />
+                  <span style={dashCell}>—</span>
+                </>
+              )}
+              <ShareCell value={p.planner} state={p.plannerState} money={money} color={p.planner > 0 ? 'var(--vfo-ink)' : '#c7d0de'} fontWeight={p.planner > 0 ? 600 : 400} dash="—" />
+              <ShareCell value={p.vfos} state={p.vfosState} money={money} />
+              <ShareCell value={p.strategic} state={p.strategicState} money={money} color={p.strategic > 0 ? '#8b5cf6' : '#c7d0de'} dash="—" />
             </div>
           ))}
         </div>

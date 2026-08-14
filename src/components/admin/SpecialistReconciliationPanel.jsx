@@ -1,12 +1,19 @@
 import { useState, useEffect, useMemo } from 'react'
 import { callApi } from '../../lib/api'
 import { NAVY, money, requestDate } from './specialistRevenueShared'
+import { PendingNote } from './shareLegState'
 import { AccountingTableSkeleton } from '../shared/Skeleton'
 
 // Accounting > Specialists > VFO Specialist Member Reconciliation. Pick a year → every
 // member with their yearly totals from specialist revenue: member share (revenue share
 // payouts), VFOS share, money-mapping share. Accreditation rebate + credit note are
 // placeholders (not built yet → blank).
+//
+// A received request does not mean its member payouts went out — each line carries its
+// own payout_status, so the totals also track the portion still awaiting a transfer and
+// show it as a pending sub-note. The totals themselves are the full share, unchanged.
+
+const PENDING_PAYOUT = new Set(['pending', 'awaiting_connect', 'failed'])
 
 function memberName(m) {
   return m.name || `${m.first_name || ''} ${m.last_name || ''}`.trim() || '—'
@@ -67,17 +74,25 @@ export default function SpecialistReconciliationPanel({ allMembers = [], embedde
     return Array.from(set).sort((a, b) => b - a)
   }, [memberLines])
 
-  // member_number -> { member, vfos, mm } for the selected year.
+  // member_number -> { member, vfos, mm } plus the not-yet-paid portion of each, for the
+  // selected year. A line is settled at revenue_share_sent (transferred) or money_mapping
+  // (credited); pending/awaiting_connect/failed are still owed — payout-sweep.ts.
   const totalsByMember = useMemo(() => {
     const map = {}
     for (const l of memberLines) {
       if (l.year !== year) continue
       const k = l.member_number
-      const t = map[k] || (map[k] = { member: 0, vfos: 0, mm: 0 })
+      const t = map[k] || (map[k] = { member: 0, vfos: 0, mm: 0, memberPending: 0, mmPending: 0 })
       const isMM = (l.revenue_decision || '') === 'Money Mapping'
       const ms = Number(l.member_share) || 0
-      if (isMM) t.mm += ms
-      else t.member += ms
+      const pending = PENDING_PAYOUT.has(l.payout_status)
+      if (isMM) {
+        t.mm += ms
+        if (pending) t.mmPending += ms
+      } else {
+        t.member += ms
+        if (pending) t.memberPending += ms
+      }
       t.vfos += Number(l.vfos_share) || 0
     }
     return map
@@ -99,7 +114,10 @@ export default function SpecialistReconciliationPanel({ allMembers = [], embedde
       .sort((a, b) => String(a.mn).localeCompare(String(b.mn), undefined, { numeric: true }))
   }, [totalsByMember, memberByNo])
 
-  const tot = rows.reduce((s, r) => ({ member: s.member + r.t.member, vfos: s.vfos + r.t.vfos, mm: s.mm + r.t.mm, cn: s.cn + (r.cn || 0) }), { member: 0, vfos: 0, mm: 0, cn: 0 })
+  const tot = rows.reduce((s, r) => ({
+    member: s.member + r.t.member, vfos: s.vfos + r.t.vfos, mm: s.mm + r.t.mm, cn: s.cn + (r.cn || 0),
+    memberPending: s.memberPending + r.t.memberPending, mmPending: s.mmPending + r.t.mmPending,
+  }), { member: 0, vfos: 0, mm: 0, cn: 0, memberPending: 0, mmPending: 0 })
 
   const wrap = embedded ? { fontFamily: 'Inter, sans-serif' } : { padding: '24px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
   const sel = { padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', fontSize: '13px', fontFamily: 'Inter, sans-serif', color: 'var(--vfo-ink)', cursor: 'pointer' }
@@ -128,13 +146,13 @@ export default function SpecialistReconciliationPanel({ allMembers = [], embedde
       {!loading && !error && (
         <div style={{ border: '1px solid var(--vfo-border-soft)', borderRadius: '14px', overflow: 'hidden', background: 'var(--vfo-card)', boxShadow: 'var(--vfo-shadow-card)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', background: 'var(--vfo-input)', borderBottom: '1px solid var(--vfo-border-soft)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--vfo-muted)' }}>
-            <span>Member #</span><span>Member Name</span><span style={{ textAlign: 'right' }}>Member Share</span><span style={{ textAlign: 'right' }}>Money Mapping</span><span style={{ textAlign: 'right' }}>Elite VFO Income</span><span style={{ textAlign: 'right' }}>Accred. Rebate</span><span style={{ textAlign: 'right' }}>Accred. Credit Note</span>
+            <span>Member #</span><span>Member Name</span><span style={{ textAlign: 'right' }}>Member Revenue Share</span><span style={{ textAlign: 'right' }}>Member Money Mapping</span><span style={{ textAlign: 'right' }}>Elite VFO Income</span><span style={{ textAlign: 'right' }}>Accred. Rebate</span><span style={{ textAlign: 'right' }}>Accred. Credit Note</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '11px 18px', borderBottom: '2px solid var(--vfo-border)', background: 'var(--vfo-input)', alignItems: 'center', fontSize: '13px', fontWeight: 800, color: 'var(--vfo-heading)' }}>
             <span />
             <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--vfo-muted)' }}>Totals</span>
-            <span style={{ textAlign: 'right' }}>{money(tot.member)}</span>
-            <span style={{ textAlign: 'right' }}>{money(tot.mm)}</span>
+            <span style={{ textAlign: 'right', ...(tot.member ? {} : muted) }}>{tot.member ? money(tot.member) : '—'}<PendingNote amount={tot.memberPending} money={money} /></span>
+            <span style={{ textAlign: 'right', ...(tot.mm ? {} : muted) }}>{tot.mm ? money(tot.mm) : '—'}<PendingNote amount={tot.mmPending} money={money} /></span>
             <span style={{ textAlign: 'right' }}>{money(tot.vfos)}</span>
             <span style={{ textAlign: 'right', ...muted }}>—</span>
             <span style={{ textAlign: 'right' }}>{tot.cn ? money(tot.cn) : '—'}</span>
@@ -144,8 +162,8 @@ export default function SpecialistReconciliationPanel({ allMembers = [], embedde
               <div key={mn} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '11px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)' }}>
                 <span style={{ color: 'var(--vfo-muted)' }}>{mn || '—'}</span>
                 <span style={{ fontWeight: 600 }}>{m ? memberName(m) : '—'}</span>
-                <span style={{ textAlign: 'right', fontWeight: t.member ? 700 : 400, color: t.member ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{money(t.member)}</span>
-                <span style={{ textAlign: 'right', fontWeight: t.mm ? 700 : 400, color: t.mm ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{money(t.mm)}</span>
+                <span style={{ textAlign: 'right', fontWeight: t.member ? 700 : 400, color: t.member ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{t.member ? money(t.member) : '—'}{t.member ? <PendingNote amount={t.memberPending} money={money} /> : null}</span>
+                <span style={{ textAlign: 'right', fontWeight: t.mm ? 700 : 400, color: t.mm ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{t.mm ? money(t.mm) : '—'}{t.mm ? <PendingNote amount={t.mmPending} money={money} /> : null}</span>
                 <span style={{ textAlign: 'right', fontWeight: t.vfos ? 700 : 400, color: t.vfos ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{money(t.vfos)}</span>
                 <span style={{ textAlign: 'right', ...muted }}>—</span>
                 <span style={{ textAlign: 'right', fontWeight: cn ? 700 : 400, color: cn ? '#7c3aed' : 'var(--vfo-faint)' }}>{cn ? money(cn) : '—'}</span>

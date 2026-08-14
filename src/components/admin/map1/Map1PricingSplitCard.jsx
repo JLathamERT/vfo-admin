@@ -11,11 +11,17 @@
 // Admin surface only; the caller gates it out of the member view. Tax planners never
 // reach the MAP 1 tab at all.
 //
-// UNITS: member_share / vfos_share are dollars of the WHOLE engagement. The MEMBER leg
-// pays its entered share IN FULL, split across the installments by cumulative difference
-// so the parts sum exactly to the share. The strategic-partner and VFOS legs are still
-// gross-prorated (share ÷ gross × installment). Both match the payout engine
-// (contract-revshare.ts). The table shows the per-installment dollars.
+// UNITS: member_share / vfos_share / strategic_partner_share are dollars of the WHOLE
+// engagement, and the three legs are NOT treated the same way — matching the payout
+// engine (contract-revshare.ts):
+//   - MEMBER pays its entered share IN FULL, split across the installments by cumulative
+//     difference so the parts sum exactly to the share. Never scaled by net/gross: the
+//     entered share is already net of any member contribution.
+//   - STRATEGIC is gross-prorated (share ÷ gross × installment).
+//   - VFO SERVICES is never transferred anywhere, so it is not prorated at all: it is the
+//     RESIDUAL of the net installment once the legs that do pay out are taken off. On a
+//     member-contribution row (net < gross) that leaves MORE with VFO, not less.
+// The table shows the per-installment dollars.
 
 const money = v => parseFloat(String(v ?? '0').replace(/[,$]/g, '')) || 0
 const round2 = x => Math.round(x * 100) / 100
@@ -53,6 +59,7 @@ export default function Map1PricingSplitCard({ plan, expanded, onToggle }) {
   const net = money(plan?.net_invoice)
   const grossRaw = money(plan?.gross_fee)
   const gross = grossRaw > 0 ? grossRaw : net
+  const contribution = money(plan?.member_contribution)
   const hasPricing = net > 0
 
   const isQuarterly = plan?.payment_plan === 'Quarterly'
@@ -63,7 +70,7 @@ export default function Map1PricingSplitCard({ plan, expanded, onToggle }) {
   const vfosRaw = plan?.vfos_share == null || plan?.vfos_share === '' ? null : money(plan.vfos_share)
   const stratRaw = plan?.strategic_partner_share == null || plan?.strategic_partner_share === '' ? null : money(plan.strategic_partner_share)
 
-  // Gross proration — still what the strategic-partner and VFOS legs get.
+  // Gross proration — what the strategic-partner leg gets.
   const portion = raw => (raw == null ? null : (gross > 0 ? round2((raw / gross) * perInstalment) : round2(raw / n)))
 
   // The member leg pays the entered share IN FULL. Installment k gets the difference
@@ -76,12 +83,25 @@ export default function Map1PricingSplitCard({ plan, expanded, onToggle }) {
     return round2(cum(k) - cum(k - 1))
   }
 
+  // VFO Services is the residual of THIS installment, not a proration of vfos_share:
+  // nothing is ever transferred out for it, so it is simply whatever the net installment
+  // still holds once the member and strategic legs are paid. (Prorating vfos_share
+  // against the gross understated it on member-contribution rows, where net < gross.)
+  // A row with no split entered on any leg has nothing to say, and keeps its dash.
+  const hasAnySplit = memberRaw != null || vfosRaw != null || stratRaw != null
+  const vfosPortion = k => {
+    if (!hasAnySplit) return null
+    const m = memberPortion(memberRaw, k) || 0
+    const s = stratRaw ? portion(stratRaw) : 0
+    return Math.max(round2(perInstalment - m - s), 0)
+  }
+
   const isHistoric = !!plan?.legacy_source
 
   const rows = [
     { key: 'member', name: 'Member', per: k => memberPortion(memberRaw, k) },
     ...(stratRaw ? [{ key: 'strat', name: 'Strategic partner', per: () => portion(stratRaw) }] : []),
-    { key: 'vfos', name: 'VFO Services', per: () => portion(vfosRaw) },
+    { key: 'vfos', name: 'VFO Services', per: k => vfosPortion(k) },
   ]
 
   const instalments = Array.from({ length: n }, (_, i) => i + 1)
@@ -118,7 +138,14 @@ export default function Map1PricingSplitCard({ plan, expanded, onToggle }) {
               <div>
                 <div style={label}>Gross fee</div>
                 <div style={value}>{fmt(grossRaw)}</div>
-                <div style={{ fontSize: '10px', color: 'var(--vfo-muted)' }}>shares are dollars of this</div>
+                <div style={{ fontSize: '10px', color: 'var(--vfo-muted)' }}>{contribution > 0 ? 'before member contribution' : 'shares are dollars of this'}</div>
+              </div>
+            )}
+            {contribution > 0 && (
+              <div>
+                <div style={label}>Member contribution</div>
+                <div style={value}>{fmt(contribution)}</div>
+                <div style={{ fontSize: '10px', color: 'var(--vfo-muted)' }}>reduces the net invoice</div>
               </div>
             )}
             <div>
