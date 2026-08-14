@@ -21,11 +21,11 @@ const PFT_MEETING23_EMAILS = [
   { name: 'PFT_meeting_ert_declined', when: 'If we declined (ERT/VFOS)' },
 ]
 const PFT_DISCOVERY_EMAILS = [
-  { name: 'PFT_discovery_reminder', when: 'Automatic reminder if the discovery form is not submitted (48h)' },
+  { name: 'PFT_discovery_reminder', when: 'Automatic reminder if the discovery form is not submitted (2 business days)' },
 ]
 const PFT_DECISION_EMAILS = [
   { name: 'PFT_decision_vfo_ft', when: 'If VFO Fast Track' },
-  { name: 'PFT_decision_vfo_ft_reminder', when: 'Automatic reminder on the Fast Track follow-up (48h)' },
+  { name: 'PFT_decision_vfo_ft_reminder', when: 'Automatic reminder on the Fast Track follow-up (2 business days)' },
   { name: 'PFT_decision_vfo_associate', when: 'If VFO Associate' },
   { name: 'PFT_decision_no', when: 'If No' },
   { name: 'PFT_decision_undecided', when: 'If Undecided — three path buttons (re-sent automatically as the reminder)' },
@@ -417,10 +417,10 @@ function DecisionHistory({ eng, decStatus, onboarding, readOnly, onAck }) {
 
   // 48h client reminder / 96h PF notification for one stalled leg. Both only
   // exist once the cron has stamped them.
-  const reminderStep = (at) => at ? autoStep('2-day reminder email sent to client', true, at) : null
+  const reminderStep = (at) => at ? autoStep('2-business-day reminder email sent to client', true, at) : null
   const pfNotifiedStep = (stall, at, ackAt) => at ? (
     <>
-      {autoStep('4-day passed — assigned PF notified to follow up', true, at)}
+      {autoStep('4-business-day mark passed — assigned PF notified to follow up', true, at)}
       {!readOnly && <StallAckRow pipeline="pft" id={eng?.id} stall={stall} ackAt={ackAt} onAck={v => onAck(stall, v)} />}
     </>
   ) : null

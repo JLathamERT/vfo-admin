@@ -15,19 +15,19 @@ const STAGE_NAMES = ['', 'Preliminary Meeting', 'PC Admin', 'Add New Advisor']
 const ADVISOR_PIPELINE = 'ADVISOR_ONBOARDING'
 const ADVISOR_DECISION_EMAILS = [
   { name: 'ADVISOR_undecided', when: 'If Undecided — decision email with buttons' },
-  { name: 'ADVISOR_undecided_reminder', when: 'Automatic reminder if no response (48h); auto-declines after 14 days' },
+  { name: 'ADVISOR_undecided_reminder', when: 'Automatic reminder if no response (2 business days); auto-declines after 14 days' },
   { name: 'ADVISOR_decline', when: 'If No — decline email (also sent on 14-day auto-decline)' },
 ]
 const ADVISOR_AGREEMENT_EMAILS = [
   { name: 'ADVISOR_agreement_sent', when: 'Automatic — agreement signing link (sent on Yes)' },
-  { name: 'ADVISOR_signing_reminder', when: 'Automatic reminder if unsigned (48h)' },
+  { name: 'ADVISOR_signing_reminder', when: 'Automatic reminder if unsigned (2 business days)' },
 ]
 const ADVISOR_CEO_EMAILS = [
   { name: 'ADVISOR_ceo_countersign', when: 'Automatic — asks the CEO to countersign' },
 ]
 const ADVISOR_PAYMENT_LINK_EMAILS = [
   { name: 'ADVISOR_payment_link', when: 'Automatic — onboarding payment link' },
-  { name: 'ADVISOR_payment_reminder', when: 'Automatic reminder if unpaid (48h)' },
+  { name: 'ADVISOR_payment_reminder', when: 'Automatic reminder if unpaid (2 business days)' },
 ]
 const ADVISOR_CONFIRMATION_EMAILS = [
   { name: 'ADVISOR_payment_confirmation|card', when: 'No longer sent automatically — card gets the invoice/receipt instead' },
@@ -678,10 +678,10 @@ function StallRows({ ob, setOb, stall }) {
 
   return (
     <>
-      {reminderAt && <AutoRow label="2-day reminder email sent to advisor" done={true} date={reminderAt} />}
+      {reminderAt && <AutoRow label="2-business-day reminder email sent to advisor" done={true} date={reminderAt} />}
       {notifiedAt && (
         <>
-          <AutoRow label="4-day passed — team member responsible notified to follow up" done={true} date={notifiedAt} />
+          <AutoRow label="4-business-day mark passed — team member responsible notified to follow up" done={true} date={notifiedAt} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '14px', padding: '5px 0 5px 12px', borderLeft: '1px solid var(--vfo-tint-deep)', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
             <input type="checkbox" checked={!!ackAt} disabled={busy} onChange={e => toggleAck(e.target.checked)} style={{ margin: 0, flexShrink: 0, cursor: busy ? 'not-allowed' : 'pointer' }} />
             <span style={{ fontSize: '12px', color: 'var(--vfo-ink)', flex: 1 }}>Reached out?</span>

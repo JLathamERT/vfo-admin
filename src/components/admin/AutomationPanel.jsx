@@ -231,8 +231,8 @@ function ExpandedRow({ row, onRefresh }) {
         {c14Sent ? (
           <>
             <Detail l="Undecided email" v={fmtDate(row.c14_email_sent_at) || 'Sent'} />
-            <Detail l="48h reminder sent" v={fmtDate(row.c14_reminder_sent_at)} />
-            <Detail l="96h PF notified" v={fmtDate(row.c14_pf_notified_at)} />
+            <Detail l="2-business-day reminder sent" v={fmtDate(row.c14_reminder_sent_at)} />
+            <Detail l="4-business-day PF notified" v={fmtDate(row.c14_pf_notified_at)} />
             {!row.c15_final_decision && <Detail l="Client reply" v="Awaiting client" showEmpty />}
           </>
         ) : <Pending text="Not applicable / not sent yet" />}
@@ -255,8 +255,8 @@ function ExpandedRow({ row, onRefresh }) {
           <>
             <Detail l="Agreement sent" v={fmtDate(row.c16_sent)} showEmpty />
             <Detail l="Signing follow-up" v={fmtDate(row.c17_followup_sent_date)} />
-            <Detail l="48h reminder sent" v={fmtDate(row.c17_reminder_sent_at)} />
-            <Detail l="96h PF notified" v={fmtDate(row.c17_pf_notified_at)} />
+            <Detail l="2-business-day reminder sent" v={fmtDate(row.c17_reminder_sent_at)} />
+            <Detail l="4-business-day PF notified" v={fmtDate(row.c17_pf_notified_at)} />
             <Detail l="Client signed" v={fmtDate(row.c17_client_signed)} showEmpty />
             <Detail l="CEO countersigned" v={fmtDate(row.c18_ceo_signed)} showEmpty />
           </>
@@ -268,8 +268,8 @@ function ExpandedRow({ row, onRefresh }) {
         {payStarted ? (
           <>
             <Detail l="Payment link emailed" v={fmtDate(row.pay1_email_sent_at)} />
-            <Detail l="48h reminder sent" v={fmtDate(row.pay1_reminder_sent_at)} />
-            <Detail l="96h PF notified" v={fmtDate(row.pay1_pf_notified_at)} />
+            <Detail l="2-business-day reminder sent" v={fmtDate(row.pay1_reminder_sent_at)} />
+            <Detail l="4-business-day PF notified" v={fmtDate(row.pay1_pf_notified_at)} />
             <Detail l="Method" v={row.payment_method_type} />
             <Detail l="Account" v={row.acct_last4 ? `****${row.acct_last4}` : null} />
             <Detail l="Payment amount" v={fmtMoney(perPaymentAmount)} />

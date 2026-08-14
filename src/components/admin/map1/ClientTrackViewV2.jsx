@@ -455,21 +455,21 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                   const STEP_EMAIL_TPLS = {
                     'Engagement agreement created and sent for signing': [
                       { name: 'CONTRACT_agreementsent|Yes', when: 'Sent automatically when the decision is Yes' },
-                      { name: 'CONTRACT_signing_reminder', when: 'Automatic reminder if unsigned (48h)' },
+                      { name: 'CONTRACT_signing_reminder', when: 'Automatic reminder if unsigned (2 business days)' },
                     ],
                     'Engagement agreement signed by CEO': [
                       { name: 'CONTRACT_ceocountersign|Yes', when: 'Automatic — asks the CEO to countersign' },
                     ],
                     'Payment link sent (ACH or Card choice)': [
                       { name: 'CONTRACT_paymentemail|Yes', when: 'Automatic — first payment link' },
-                      { name: 'CONTRACT_payment_reminder', when: 'Automatic reminder if unpaid (48h)' },
+                      { name: 'CONTRACT_payment_reminder', when: 'Automatic reminder if unpaid (2 business days)' },
                     ],
                     'Payment collected': [
                       { name: 'CONTRACT_confirmationemail|card', when: 'No longer sent automatically — card gets the invoice/receipt instead' },
                       { name: 'CONTRACT_confirmationemail|ach', when: 'If paid by bank transfer (ACH) — the only method that gets a confirmation' },
                       { name: 'CONTRACT_confirmationemail|check', when: 'If paid by check' },
                       { name: 'CONTRACT_paidbycheck|check', when: 'When admin records a check is on the way' },
-                      { name: 'CONTRACT_checkreminder|check', when: 'Automatic reminder 7 days before a check payment is due' },
+                      { name: 'CONTRACT_checkreminder|check', when: 'Automatic reminder 7 business days before a check payment is due' },
                       { name: 'CONTRACT_installment_charge_failed', when: 'Automatic — if a quarterly auto-charge (payments 2-4) fails' },
                       { name: 'CONTRACT_tracy_newcase', when: 'Internal — new-case notice to Tracy (first payment only)' },
                     ],
@@ -508,10 +508,10 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
 
                   // 48h client reminder / 96h PF notification for one stalled step.
                   // Both only exist once the cron has stamped them.
-                  const reminderStep = (at) => at ? autoStep('2-day reminder email sent to client', true, null, false, at) : null
+                  const reminderStep = (at) => at ? autoStep('2-business-day reminder email sent to client', true, null, false, at) : null
                   const pfNotifiedStep = (stall, at, ackAt) => at ? (
                     <>
-                      {autoStep('4-day passed — assigned PF notified to follow up', true, null, false, at)}
+                      {autoStep('4-business-day mark passed — assigned PF notified to follow up', true, null, false, at)}
                       {!readOnly && <StallAckRow pipeline="map1" id={pipelineData?.id} stall={stall} ackAt={ackAt} onAck={v => setPipelineData(prev => prev ? { ...prev, [`${stall}_pf_ack_at`]: v } : prev)} />}
                     </>
                   ) : null
@@ -793,7 +793,7 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
                             { name: 'PCADMIN_followup|Undecided', when: 'If Undecided — options email to the client' },
                             { name: 'PCADMIN_followup|No', when: 'If No — decline email' },
                             { name: 'PIP1_reconfirmation|No', when: 'If the client later clicks No on the email (automatic)' },
-                            { name: 'CONTRACT_pcadmin_undecided_reminder', when: 'Automatic reminder if the Undecided email gets no response (48h)' },
+                            { name: 'CONTRACT_pcadmin_undecided_reminder', when: 'Automatic reminder if the Undecided email gets no response (2 business days)' },
                           ]} context={emailCtx} /></span>}</span>
                           {isDone && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${dc}22`, color: dc, border: `1px solid ${dc}44` }}>{dl}</span>}
                           <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>
