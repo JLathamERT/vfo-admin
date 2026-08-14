@@ -148,8 +148,8 @@ Triggered by the standalone `boldsign-webhook` after client signs. [Lines 745-85
 - `boldsign_doc_id` — set by `_sendagreement`
 - `c16_sent` — set by `_sendagreement` (`'Yes'`)
 - `c17_client_signed`, `c18_ceo_signed` — set by webhook
-- `c17_followup_sent_date` — set by `_sendagreement`. Also serves as the timer base for the signing-stall reminder ladder in `automation_CONTRACT_revshare_sweep` (48h client reminder via `CONTRACT_signing_reminder` template — BoldSign embedded sign link re-fetched with 3 retries — plus 96h PF "client hasn't signed" admin notification).
-- `c17_reminder_sent_at`, `c17_pf_notified_at` — set by `automation_CONTRACT_revshare_sweep` as idempotency guards for the 48h reminder + 96h PF notification respectively. See [flows/contract-and-payment.md](../flows/contract-and-payment.md#reminder-ladder-48h-client-reminder--96h-pf-notification).
+- `c17_followup_sent_date` — set by `_sendagreement`. Also serves as the timer base for the signing-stall reminder ladder in `automation_CONTRACT_revshare_sweep` (**2-business-day** client reminder via `CONTRACT_signing_reminder` template — BoldSign embedded sign link re-fetched with 3 retries — plus a **4-business-day** PF "client hasn't signed" admin notification; both tiers count Mon–Fri only as of 2026-08-14, #396).
+- `c17_reminder_sent_at`, `c17_pf_notified_at` — set by `automation_CONTRACT_revshare_sweep` as idempotency guards for the 2-business-day reminder + 4-business-day PF notification respectively. See [flows/contract-and-payment.md](../flows/contract-and-payment.md#reminder-ladder-48h-client-reminder--96h-pf-notification).
 
 ## Frontend touch-points
 

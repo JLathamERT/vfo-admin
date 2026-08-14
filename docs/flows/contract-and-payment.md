@@ -330,9 +330,11 @@ For each payment cycle (P1 for one-time, P1+P2+P3+P4 for quarterly), the row sho
 **What it does:**
 1. Loads sandbox config + the `CONTRACT_checkreminder|check` email template (returns 500 if template missing).
 2. Selects `pipeline_map1` rows where `payment_method_type='check'` AND `payment_plan='Quarterly'` AND `pay1_status='succeeded'`.
-3. For each row and each N in [2, 3, 4]: emits a candidate if `payN_date IN [today, today+7]` AND `payN_status != 'succeeded'` AND `payN_reminder_sent=false`.
+3. For each row and each N in [2, 3, 4]: emits a candidate if `payN_date IN [today, <horizon>]` AND `payN_status != 'succeeded'` AND `payN_reminder_sent=false`. **The horizon is a 7 BUSINESS DAY forward walk as of 2026-08-14** — `businessDayHorizonDateOnly(today, delay_days)` (`utils/notify.ts`), Mon–Fri UTC with no holiday calendar — not `today+7` calendar days, so a due date the far side of a weekend still gets its full week of warning. The 7 is the rule's editable `delay_days`; only the unit changed.
 4. For each candidate: drafts Gmail to client (`sandbox_email` redirected target when sandbox_mode is true) including the check mailing address (`12636 High Bluff Drive, Suite 400, San Diego, CA 92130`).
 5. On successful draft: `pay{N}_reminder_sent=true` (so we don't re-send tomorrow). On Gmail failure: `reminder_sent` stays false, next day's cron retries.
+
+**Two other passes ride this same sweep, and both are business-day as of 2026-08-14.** (a) The **uncleared-check bells** (`MAP1_check_uncleared_bell` / `TAX_check_uncleared_bell`) — a check recorded but never marked cleared after **14 business days** (editable `delay_days`, `businessDelayCutoffIso`) raises a bell whose body reads *"…has not been marked cleared after N business days"*; it covers P1, overdue quarterly P2–P4 and the Tax Planning retainer. (b) The **Payment Continuation / migration setup-link ladder** (2 tiers, now **2 and 4 business days**) — see [payment-method-change.md](payment-method-change.md#step-5--stripe-webhook-applies-the-new-method). Note the contrast with the sibling `automation_CONTRACT_chargescheduled_sweep`, which is **deliberately still CALENDAR** — a scheduled installment is charged on its real due date, weekend or not.
 
 **v1 limitation:** the reminder email is text-only — does NOT include a "pay this cycle by card/ACH" link. If a check client wants to switch to Stripe for a single cycle, admin manually issues them a fresh `/pay` link (or extends them a different option). Flagged for follow-up.
 
@@ -426,13 +428,15 @@ For each payment cycle (P1 for one-time, P1+P2+P3+P4 for quarterly), the row sho
 
 The MAP 1 reminder ladder mirrors the tax-planning sweep's stall-handling pattern. It rides on the existing `automation_CONTRACT_revshare_sweep` daily job at 02:00 UTC — no separate cron. Three stalls, two tiers each (six independent checks total). All emails are **To-client-only** (matching `actions/tax/revshare-sweep.ts`'s `sendReminderEmailUnified`). All PF notifications are admin-bell rows with `pipeline='MAP 1'`, `link='/admin/client/<id>?tab=map1'`.
 
-| Stall | Timer base column | Stall condition | 48h reminder | 96h PF notification |
+> **All six tiers count BUSINESS DAYS as of 2026-08-14** — defaults **2 business days** (client reminder) and **4 business days** (PF bell), read from `notification_rules.delay_days` and resolved through `businessDelayCutoffIso()` in `utils/notify.ts` (Mon–Fri UTC, **no holiday calendar**). The stored numbers did not change; only the unit did, so a stall entered on a Friday is chased the following week rather than over the weekend. The bell bodies interpolate their own delay and read *"N business day(s) have passed"*. **The "48h / 96h" in this section's heading is legacy shorthand kept only so existing deep-links to the anchor keep working** — read it as the 2-/4-business-day ladder. The calendar helper `delayCutoffIso` still exists but has no callers.
+
+| Stall | Timer base column | Stall condition | Client reminder (2 business days) | PF notification (4 business days) |
 |---|---|---|---|---|
 | **PCADMIN Undecided email** | `c14_email_sent_at` (written only on Undecided branch — see Step 2) | `c13_decision = 'Undecided'` | Gmail draft using `CONTRACT_pcadmin_undecided_reminder` template. Buttons rebuilt from `c15_token` + `client_ref` + Max-availability check (`max_membership != 'N/A'`). Idempotency: `c14_reminder_sent_at`. | "X hasn't responded to the MAP 1 decision email" admin notification. Idempotency: `c14_pf_notified_at`. |
 | **Agreement signing** | `c17_followup_sent_date` (DATE; written by `automation_CONTRACT_sendagreement` at send time) | `c17_client_signed != 'Yes'` | Gmail draft using `CONTRACT_signing_reminder`. BoldSign embedded sign link re-fetched with 3 retries. Idempotency: `c17_reminder_sent_at`. | "X hasn't signed the MAP 1 agreement" admin notification. Idempotency: `c17_pf_notified_at`. |
 | **Pay1 payment link** | `pay1_email_sent_at` (written by `automation_CONTRACT_paymentemail` after Gmail draft) | `pay1_status IS NULL` | Gmail draft using `CONTRACT_payment_reminder`. `/pay?token=<checkout_token>` button. Template body uses `[PAYMENT_LABEL]` substitution: `"first payment"` for Quarterly plans, `"payment"` for one-time. Idempotency: `pay1_reminder_sent_at`. | "X hasn't paid the MAP 1 first payment" admin notification. Idempotency: `pay1_pf_notified_at`. |
 
-**Tier semantics:** the 48h and 96h queries are independent — a row at 96h+ with neither tier fired will get BOTH on the same sweep run. Once each `_sent_at` / `_notified_at` guard is set, the row is filtered out of that block on subsequent runs.
+**Tier semantics:** the two tiers' queries are independent — a row already past the 4-business-day cutoff with neither tier fired will get BOTH on the same sweep run. Once each `_sent_at` / `_notified_at` guard is set, the row is filtered out of that block on subsequent runs.
 
 **Templates** (inserted in `email_templates` with `pipeline='MAP 1'`, `active=true`):
 - `CONTRACT_pcadmin_undecided_reminder`

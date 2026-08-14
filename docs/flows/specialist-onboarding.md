@@ -57,7 +57,7 @@ All of the above are `ADMIN_ONLY_ACTIONS`.
 | `automation_SPECIALIST_questionsrequest` | PUBLIC (token) | `/specialist-questions` | Records request + non-dismissible Tracy notif |
 | `automation_SPECIALIST_questionsresolve` | AUTH (admin) | Tracy's Proceed/Stop buttons | Proceed → `SPECIALIST_step3_proceed`; Stop → `SPECIALIST_no` + stop; clears Tracy's notif |
 | `automation_load_specialist_pipelines` | AUTH (admin) | Automation tab loader | All rows + votes + meetings + final-proposal + sandbox config |
-| `automation_SPECIALIST_sweep` | PUBLIC (svc-role) | cron `specialist-sweep-daily` 07:00 UTC | 48h reminder / 96h Tracy FYI for **7 stalls** (gotcha #66) |
+| `automation_SPECIALIST_sweep` | PUBLIC (svc-role) | cron `specialist-sweep-daily` 07:00 UTC | 2-business-day reminder / 4-business-day Tracy FYI for **7 stalls** (gotcha #66) |
 | `automation_SPECIALIST_sendagreement` | PUBLIC (svc-role/admin gate) | Auto-chained from `exec-vote` on Stage-4 both-approved | Renders agreement HTML→PDF (`[PROPOSED_REVENUE_SHARE]` + `[STRATEGY_EXPERTISE]` ← `sif_data.strategy_expertise` filled), coordinate-based BoldSign send (signer 1 specialist, 2 Anton), drafts `SPECIALIST_agreement_sent`; idempotent on `agreement_sent_at` |
 | `automation_SPECIALIST_ceocountersign` | PUBLIC (svc-role/admin) | BoldSign webhook (specialist signed) | Fetches Anton's embedded countersign link, drafts `SPECIALIST_ceo_countersign` |
 | `automation_SPECIALIST_licstripecustomer` | PUBLIC (svc-role) | BoldSign webhook (Completed) | Reuses `bg_stripe_customer_id`, mints `lic_checkout_token`, chains `licpaymentemail` |
@@ -171,11 +171,13 @@ Stage-5 progress task_keys: `skool_invite`, `intro_post`, `team_members_added`, 
 
 ## Reminder sweep (`specialist-sweep-daily`, 07:00 UTC)
 
-`automation_SPECIALIST_sweep` fires a **48h reminder email** then a **96h Tracy FYI** for **7 stalls**: SIF not submitted, exec hasn't voted R1/R2 (emails only the missing exec(s)), Core/Max/Questions not chosen, **DD checklist not submitted**, **final rev-share unanswered**, **agreement not signed** (signature reminder fetches a fresh BoldSign link), **license payment not made**. (The old per-meeting rev-share stall was removed.) Timer-guard columns + bases: gotcha #66. NO 14-day auto-decline.
+`automation_SPECIALIST_sweep` fires a **2-business-day reminder email** then a **4-business-day Tracy FYI** for **7 stalls**: SIF not submitted, exec hasn't voted R1/R2 (emails only the missing exec(s)), Core/Max/Questions not chosen, **DD checklist not submitted**, **final rev-share unanswered**, **agreement not signed** (signature reminder fetches a fresh BoldSign link), **license payment not made**. (The old per-meeting rev-share stall was removed.) Timer-guard columns + bases: gotcha #66. NO 14-day auto-decline.
+
+**Every tier counts BUSINESS DAYS as of 2026-08-14** (Mon–Fri UTC, **no holiday calendar**). The configured `notification_rules.delay_days` are unchanged as numbers — 2 and 4 here — but the sweep resolves each cutoff through `businessDelayCutoffIso()` in [`utils/notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/notify.ts), so a specialist who goes quiet on a Thursday is chased the following week rather than over the weekend. The 14 tiers all run through one shared wrapper, and the `daysTxt` helper that renders the delay into the email/bell body now emits *"N business day(s)"*.
 
 ## Notifications
 
-To **Tracy** (`tnmiller@elitert.com` — who owns BOTH note prompts since 2026-07-27), and **Anton/Paul** for their specific steps; `pipeline='SPECIALIST_ONBOARDING'`, link `/admin?tab=specialists&section=specialist_onboarding&onboarding=<id>` (gotcha #61). **Action-required (non-dismissible, clear on the action):** reviewer-notes-needed (Tracy ×2 — general + tax-risk, cleared by exact title), vote-needed (Anton/Paul R1), second-decision-needed (R2), re-vote (split), further-questions (Tracy). **FYI (dismissible):** SIF submitted, rev-share response, voting completed (R1/R2), payment cleared, payment failed, all 96h reminder escalations. (Full map: see the session notes.)
+To **Tracy** (`tnmiller@elitert.com` — who owns BOTH note prompts since 2026-07-27), and **Anton/Paul** for their specific steps; `pipeline='SPECIALIST_ONBOARDING'`, link `/admin?tab=specialists&section=specialist_onboarding&onboarding=<id>` (gotcha #61). **Action-required (non-dismissible, clear on the action):** reviewer-notes-needed (Tracy ×2 — general + tax-risk, cleared by exact title), vote-needed (Anton/Paul R1), second-decision-needed (R2), re-vote (split), further-questions (Tracy). **FYI (dismissible):** SIF submitted, rev-share response, voting completed (R1/R2), payment cleared, payment failed, all 4-business-day reminder escalations. (Full map: see the session notes.)
 
 ## Templates & assets
 

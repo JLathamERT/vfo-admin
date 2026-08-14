@@ -98,8 +98,8 @@ function PftPipelineRow({ row, expanded, onToggle, navigate }) {
               <SubBlock label="Discovery form">
                 <Detail l="Form emailed" v={fmtDate(eng.discovery_email_sent_at)} />
                 <Detail l="Client submitted" v={fmtDate(eng.discovery_submitted_at)} showEmpty />
-                <Detail l="2-day reminder sent" v={fmtDate(eng.discovery_reminder_sent_at)} />
-                <Detail l="4-day PF notified" v={fmtDate(eng.discovery_pf_notified_at)} />
+                <Detail l="2-business-day reminder sent" v={fmtDate(eng.discovery_reminder_sent_at)} />
+                <Detail l="4-business-day PF notified" v={fmtDate(eng.discovery_pf_notified_at)} />
               </SubBlock>
             )}
           </StepCard>
@@ -118,8 +118,8 @@ function PftPipelineRow({ row, expanded, onToggle, navigate }) {
                     <Detail l="Email sent" v={fmtDate(eng.decision_email_sent_at)} />
                     <Detail l="Button clicked" v={decResp ? <Badge text={DECISION_RESPONSE[decResp] || decResp} color={decResp === 'no' ? '#e74c3c' : '#16a34a'} /> : null} />
                     <Detail l="Clicked at" v={fmtDate(eng.decision_response_at)} />
-                    <Detail l="2-day reminder sent" v={fmtDate(eng.decision_reminder_sent_at)} />
-                    <Detail l="4-day PF notified" v={fmtDate(eng.decision_pf_notified_at)} />
+                    <Detail l="2-business-day reminder sent" v={fmtDate(eng.decision_reminder_sent_at)} />
+                    <Detail l="4-business-day PF notified" v={fmtDate(eng.decision_pf_notified_at)} />
                   </SubBlock>
                 )}
               </>
@@ -132,8 +132,8 @@ function PftPipelineRow({ row, expanded, onToggle, navigate }) {
                 <Detail l="Email sent" v={fmtDate(eng.ft_email_sent_at)} />
                 <Detail l="Button clicked" v={ftResp ? <Badge text={FT_RESPONSE[ftResp] || ftResp} color={ftResp === 'confirm' ? '#16a34a' : '#0095ff'} /> : null} />
                 <Detail l="Clicked at" v={fmtDate(eng.ft_response_at)} />
-                <Detail l="2-day reminder sent" v={fmtDate(eng.ft_reminder_sent_at)} />
-                <Detail l="4-day PF notified" v={fmtDate(eng.ft_pf_notified_at)} />
+                <Detail l="2-business-day reminder sent" v={fmtDate(eng.ft_reminder_sent_at)} />
+                <Detail l="4-business-day PF notified" v={fmtDate(eng.ft_pf_notified_at)} />
               </SubBlock>
             ) : <Pending />}
           </StepCard>

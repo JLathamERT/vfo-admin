@@ -1369,8 +1369,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     const pfNotifiedAt = livePlan?.[`${stall}_pf_notified_at`]
     return (
       <>
-        {reminderAt && step('2-day reminder email sent to client', true, reminderAt)}
-        {pfNotifiedAt && step('4-day passed — assigned PF notified to follow up', true, pfNotifiedAt)}
+        {reminderAt && step('2-business-day reminder email sent to client', true, reminderAt)}
+        {pfNotifiedAt && step('4-business-day mark passed — assigned PF notified to follow up', true, pfNotifiedAt)}
         {pfNotifiedAt && stallAckRow(stall)}
       </>
     )
@@ -1905,7 +1905,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)', padding: '7px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: isDone ? 'pointer' : 'default', flexWrap: 'wrap' }} onClick={() => isDone && setExpanded(prev => ({ ...prev, [formExpandKey]: !prev[formExpandKey] }))}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? decisionColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? decisionColor : 'var(--vfo-border-mid)'}` }} />
-              <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{taskLabel(task)}<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_agreementsent|Yes', when: 'If Yes — congratulations + agreement signing link' }, { name: 'TAX_decision_undecided', when: 'If Undecided — options email to the client' }, { name: 'TAX_decision_decline', when: 'If Decline' }, { name: 'TAX_decision_reminder', when: 'Automatic reminder if the Undecided email gets no response (48h)' }]} context={emailCtx} /></span></span>
+              <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{taskLabel(task)}<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_agreementsent|Yes', when: 'If Yes — congratulations + agreement signing link' }, { name: 'TAX_decision_undecided', when: 'If Undecided — options email to the client' }, { name: 'TAX_decision_decline', when: 'If Decline' }, { name: 'TAX_decision_reminder', when: 'Automatic reminder if the Undecided email gets no response (2 business days)' }]} context={emailCtx} /></span></span>
               {isDone && <span style={chipStyle(decisionColor)}>{decisionLabel}</span>}
               {isDone && !readOnly ? <StepDate value={p.completed_date || ''} onChange={d => saveTask(task.id, p.status, d, taxSpecialistId)} disabled={saving[key]} /> : <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? formatDate(p.completed_date) : ''}</span>}
               {isDone && <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: isFormShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>}
@@ -1960,8 +1960,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const sharedSteps = [
         { label: 'Engagement agreement created and sent for signing', done: !!livePlan?.boldsign_doc_id, at: livePlan?.agreement_sent_at, stall: 'signed' },
         { label: 'Engagement agreement signed',                       done: livePlan?.client_signed === 'Yes' },
-        { label: 'Engagement agreement signed by CEO',                done: livePlan?.ceo_signed === 'Yes', chip: (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Engagement agreement signed by CEO" templates={[{ name: 'TAX_ceocountersign|Yes', when: 'Automatic — asks the CEO to countersign' }, { name: 'TAX_signing_reminder', when: 'Automatic reminder if unsigned (48h)' }]} context={emailCtx} /> },
-        { label: 'Payment link sent (ACH or Card choice)',            done: !!livePlan?.checkout_token, at: livePlan?.payment_email_sent_at, stall: 'payment', chip: (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Payment link sent (ACH or Card choice)" templates={[{ name: 'TAX_paymentemail|Yes', when: 'Automatic — retainer payment link' }, { name: 'TAX_payment_reminder', when: 'Automatic reminder if unpaid (48h)' }]} context={emailCtx} /> },
+        { label: 'Engagement agreement signed by CEO',                done: livePlan?.ceo_signed === 'Yes', chip: (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Engagement agreement signed by CEO" templates={[{ name: 'TAX_ceocountersign|Yes', when: 'Automatic — asks the CEO to countersign' }, { name: 'TAX_signing_reminder', when: 'Automatic reminder if unsigned (2 business days)' }]} context={emailCtx} /> },
+        { label: 'Payment link sent (ACH or Card choice)',            done: !!livePlan?.checkout_token, at: livePlan?.payment_email_sent_at, stall: 'payment', chip: (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Payment link sent (ACH or Card choice)" templates={[{ name: 'TAX_paymentemail|Yes', when: 'Automatic — retainer payment link' }, { name: 'TAX_payment_reminder', when: 'Automatic reminder if unpaid (2 business days)' }]} context={emailCtx} /> },
         { label: 'Payment collected',                                 done: livePlan?.retainer_confirmation_status === 'Sent' || livePlan?.retainer_confirmation_status === CONFIRMATION_CARD_SKIP, at: livePlan?.retainer_date, chip: (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Payment collected" templates={[{ name: 'TAX_confirmationemail|card', when: 'No longer sent automatically — card gets the invoice/receipt instead' }, { name: 'TAX_confirmationemail|ach', when: 'If paid by bank transfer (ACH) — the only method that gets a confirmation' }, { name: 'TAX_confirmationemail|check', when: 'If paid by check' }, { name: 'TAX_paidbycheck|check', when: 'When admin records a check is on the way' }]} context={emailCtx} /> },
         { label: 'Invoice and receipt created and emailed to client', done: livePlan?.retainer_invoice_email_sent === true, at: livePlan?.retainer_invoice_email_sent_at, chip: (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Invoice and receipt created and emailed to client" templates={[{ name: 'TAX_invoicereceipt_email|retainer', when: 'Retainer invoice + receipt' }]} context={emailCtx} /> },
       ]
@@ -2271,7 +2271,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const decisionLabel = implDecision === 'Undecided' ? 'Email sent - awaiting client decision' : implDecision === 'Proceed' ? 'Proceed with Implementation' : implDecision || ''
 
       async function handleSend() {
-        if (!confirm("Send the client the implementation decision email?\n\nThey'll get two buttons:\n  Yes - Proceed: the implementation fee is charged immediately to their saved payment method.\n  No - Do not proceed: the engagement closes, no charge.\n\nIf they don't respond, a reminder is sent at 48h and you're notified at 96h.")) return
+        if (!confirm("Send the client the implementation decision email?\n\nThey'll get two buttons:\n  Yes - Proceed: the implementation fee is charged immediately to their saved payment method.\n  No - Do not proceed: the engagement closes, no charge.\n\nIf they don't respond, a reminder is sent after 2 business days and you're notified after 4 business days.")) return
         await saveTask(task.id, 'Undecided', new Date().toISOString().slice(0, 10))
         const res = await callApi('automation_TAX_implementdecision', { tax_plan_id: plan.id, decision: 'Undecided' })
         if (res?.error) alert(`Error: ${res.error}`)
@@ -2281,7 +2281,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       return (
         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: implDecision ? decisionColor : 'transparent', flexShrink: 0, border: `1.5px solid ${implDecision ? decisionColor : 'var(--vfo-border-mid)'}` }} />
-          <span style={{ fontSize: '13px', color: implDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{taskLabel(task)}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_implementdecision|Undecided', when: 'Sent when you click "Send implementation decision email" — Proceed / Do not proceed buttons' }, { name: 'TAX_implementdecision|Not Implementing', when: 'Sent if the client clicks "No - Do not proceed"' }, { name: 'TAX_implementdecision|Reminder', when: 'Automatic reminder if no response (48h)' }]} context={emailCtx} /></span>}</span>
+          <span style={{ fontSize: '13px', color: implDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{taskLabel(task)}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_implementdecision|Undecided', when: 'Sent when you click "Send implementation decision email" — Proceed / Do not proceed buttons' }, { name: 'TAX_implementdecision|Not Implementing', when: 'Sent if the client clicks "No - Do not proceed"' }, { name: 'TAX_implementdecision|Reminder', when: 'Automatic reminder if no response (2 business days)' }]} context={emailCtx} /></span>}</span>
           {implDecision ? (
             <span style={chipStyle(decisionColor)}>{decisionLabel}</span>
           ) : (
@@ -2336,7 +2336,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
 
       const chargeCascade = (
         <>
-          {autoStep('Implementation fee auto-charged using saved payment method', chargeStatus === 'succeeded', (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Implementation fee auto-charged using saved payment method" templates={[{ name: 'TAX_implementdecision|Proceeding', when: 'Automatic — drafted when the client clicks Proceed on the implementation decision email' }, { name: 'TAX_invoicereceipt_email|implementation', when: 'Automatic — implementation invoice + receipt' }, { name: 'TAX_implementation_charge_failed', when: 'Automatic — if the implementation charge fails' }]} context={emailCtx} />, livePlan?.implementation_charge_date)}
+          {autoStep('Implementation fee charged to saved payment method', chargeStatus === 'succeeded', (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Implementation fee auto-charged using saved payment method" templates={[{ name: 'TAX_implementdecision|Proceeding', when: 'Automatic — drafted when the client clicks Proceed on the implementation decision email' }, { name: 'TAX_invoicereceipt_email|implementation', when: 'Automatic — implementation invoice + receipt' }, { name: 'TAX_implementation_charge_failed', when: 'Automatic — if the implementation charge fails' }]} context={emailCtx} />, livePlan?.implementation_charge_date)}
           {autoStep('Implementation fee receipt created and emailed to client', recStatus === 'Sent', null, livePlan?.implementation_receipt_email_sent_at)}
           {autoStep('Implementation fee revenue share verified, member paid, member emailed', revEmailSent === true, (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Implementation fee revenue share verified, member paid, member emailed" templates={[{ name: 'TAX_member_revshare|retainer', when: 'Automatic — member revenue-share notice (retainer)' }, { name: 'TAX_member_revshare|implementation', when: 'Automatic — member revenue-share notice (implementation)' }, { name: 'TAX_planner_revshare|retainer', when: 'Automatic — tax planner revenue-share notice (retainer)' }, { name: 'TAX_planner_revshare|implementation', when: 'Automatic — tax planner revenue-share notice (implementation)' }]} context={emailCtx} />, livePlan?.implementation_rev_email_sent_at || livePlan?.implementation_rev_completed_at)}
         </>
@@ -2353,17 +2353,18 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
 
             {implDecision === 'Proceed' && (
               <>
-                {autoStep('Email sent to client with decline button + 24h window', !!emailSentAt, null, emailSentAt)}
-                {!implFinal && autoStep('Waiting for client (auto-charges after 24h)', false)}
+                {autoStep('Email sent to client with "Proceed now" + "Decline implementation" buttons', !!emailSentAt, null, emailSentAt)}
+                {stallRows('implementation')}
+                {!implFinal && !reminderSentAt && autoStep('Waiting for client to confirm (no auto-charge)', false)}
                 {implFinal === 'Decline' && (
                   <>
-                    {autoStep('Client clicked Decline within 24h', true)}
+                    {autoStep('Client clicked Decline', true)}
                     {autoStep('Decline email sent to client', true)}
                   </>
                 )}
                 {implFinal === 'Auto-Locked' && (
                   <>
-                    {autoStep('24h passed — decision locked in', true)}
+                    {autoStep('Auto-locked (legacy 24h flow)', true)}
                     {chargeCascade}
                   </>
                 )}
@@ -2723,9 +2724,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
 
       async function handlePick(value) {
         if (!value) return
-        if (value === 'Continue - Revenue Share' && !confirm("Mark client as Continue?\n\nThis sends them an email with a green Confirm button and a red Refund button. The revenue share fires ONLY when they click Confirm. After 48h with no click they get a reminder email, after 96h the PF is notified to reach out.")) return
+        if (value === 'Continue - Revenue Share' && !confirm("Mark client as Continue?\n\nThis sends them an email with a green Confirm button and a red Refund button. The revenue share fires ONLY when they click Confirm. After 2 business days with no click they get a reminder email, after 4 business days the PF is notified to reach out.")) return
         if (value === 'Stop - Refund' && !confirm("Stop - Refund? This will IMMEDIATELY fire a Stripe refund of the retainer and draft a refund confirmation email to the client.")) return
-        if (value === 'Undecided' && !confirm("Mark client as Undecided?\n\nThey'll get an email with two buttons (Proceed / Refund). After 48h with no click we send a reminder, after 96h we notify you to call the client.")) return
+        if (value === 'Undecided' && !confirm("Mark client as Undecided?\n\nThey'll get an email with two buttons (Proceed / Refund). After 2 business days with no click we send a reminder, after 4 business days we notify you to call the client.")) return
         await saveTask(task.id, value, new Date().toISOString().slice(0, 10))
         let res
         try {
@@ -2759,7 +2760,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: adminDecision ? decisionColor : 'transparent', flexShrink: 0, border: `1.5px solid ${adminDecision ? decisionColor : 'var(--vfo-border-mid)'}` }} />
-            <span style={{ fontSize: '13px', color: adminDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{taskLabel(task)}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_postreview|Continue', when: 'If Continue — green Confirm / red Refund buttons (client must click Confirm)' }, { name: 'TAX_postreview|Undecided', when: 'If Undecided — Proceed / Refund buttons' }, { name: 'TAX_postreview|Reminder', when: 'Automatic reminder if no response (48h)' }]} context={emailCtx} /></span>}</span>
+            <span style={{ fontSize: '13px', color: adminDecision ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{taskLabel(task)}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_postreview|Continue', when: 'If Continue — green Confirm / red Refund buttons (client must click Confirm)' }, { name: 'TAX_postreview|Undecided', when: 'If Undecided — Proceed / Refund buttons' }, { name: 'TAX_postreview|Reminder', when: 'Automatic reminder if no response (2 business days)' }]} context={emailCtx} /></span>}</span>
             {adminDecision ? (
               <span style={chipStyle(decisionColor)}>{adminDecision}</span>
             ) : (
@@ -2793,7 +2794,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                   )}
                   {clientDecision === 'Auto-Locked' && (
                     <>
-                      {autoStep('24h passed — decision locked in', true)}
+                      {autoStep('Auto-locked (legacy 24h flow)', true)}
                       {autoStep('Revenue share verified, member paid, member emailed', revPaid === 'Yes', { na: zeroShare, chip: revshareChip, at: livePlan?.retainer_rev_email_sent_at || livePlan?.retainer_rev_completed_at })}
                     </>
                   )}
@@ -2809,7 +2810,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 <>
                   {autoStep('Email sent to client with two decision buttons', !!emailSentAt, { at: emailSentAt })}
                   {stallRows('post_review')}
-                  {!clientDecision && !reminderSentAt && autoStep('Waiting for client (48h before reminder)', false)}
+                  {!clientDecision && !reminderSentAt && autoStep('Waiting for client (2 business days before reminder)', false)}
                   {clientDecision === 'Proceed' && (
                     <>
                       {autoStep('Client clicked Proceed', true)}

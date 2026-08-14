@@ -449,10 +449,10 @@ function OnboardingDetail({ id, onBack }) {
 
     return (
       <>
-        {reminderAt && doneRow(`2-day reminder email sent to ${noun}`, reminderAt)}
+        {reminderAt && doneRow(`2-business-day reminder email sent to ${noun}`, reminderAt)}
         {notifiedAt && (
           <>
-            {doneRow('4-day passed — Tracy notified to follow up', notifiedAt)}
+            {doneRow('4-business-day mark passed — Tracy notified to follow up', notifiedAt)}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid var(--vfo-border-soft)', marginLeft: '14px' }}>
               <input type="checkbox" checked={!!ackAt} disabled={ackBusy} onChange={e => toggleAck(e.target.checked)} style={{ margin: 0, flexShrink: 0, cursor: ackBusy ? 'default' : 'pointer' }} />
               <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>Reached out?</span>
@@ -530,7 +530,7 @@ function OnboardingDetail({ id, onBack }) {
           <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>Post-meeting decision<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Post-meeting decision" context={emailCtx} templates={[
             { name: 'SPECIALIST_yes', when: 'If Yes — continue email with agreement + presentation attachments' },
             { name: 'SPECIALIST_no', when: 'If No' },
-            { name: 'SPECIALIST_sif_reminder', when: 'Automatic reminder if the intake form is not submitted (48h)' },
+            { name: 'SPECIALIST_sif_reminder', when: 'Automatic reminder if the intake form is not submitted (2 business days)' },
           ]} /></span></span>
           {isDone
             ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{statusLabel}</span>
@@ -865,7 +865,7 @@ function OnboardingDetail({ id, onBack }) {
           <>
             <SectionLabel>{meetingCount === 0 ? 'Stage 2 Checklist' : `Meeting ${meetingCount + 1} — Remaining Items`}<span style={{ marginLeft: '8px', textTransform: 'none' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Stage 2 progress" context={emailCtx} templates={[
                 { name: 'SPECIALIST_step2_progress', when: 'Stage 2 progress update' },
-                { name: 'SPECIALIST_choice_reminder', when: 'Automatic reminder if Core/Max/Questions not chosen (48h)' },
+                { name: 'SPECIALIST_choice_reminder', when: 'Automatic reminder if Core/Max/Questions not chosen (2 business days)' },
               ]} /></span></SectionLabel>
             {remainingItems.map(({ item, index }) => (
               <CheckItem key={index} done={!!getTaskStatus(2, `checklist_${index}`)} label={item} toggle onClick={() => toggleChecklist(index)} />
@@ -912,7 +912,7 @@ function OnboardingDetail({ id, onBack }) {
         <>
             <SectionLabel>Initial executive approval<span style={{ marginLeft: '8px', textTransform: 'none' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Initial executive approval" context={emailCtx} templates={[
                 { name: 'SPECIALIST_denied', when: 'If the executive vote denies' },
-                { name: 'SPECIALIST_vote_reminder', when: 'Automatic reminder to executives who have not voted (48h)' },
+                { name: 'SPECIALIST_vote_reminder', when: 'Automatic reminder to executives who have not voted (2 business days)' },
               ]} /></span></SectionLabel>
             {!votingOpen ? (
               <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--vfo-border-chip)', background: 'var(--vfo-tint)', marginBottom: '12px' }}>
@@ -1351,7 +1351,7 @@ function OnboardingDetail({ id, onBack }) {
         <SectionLabel>Due Diligence Checklist<span style={{ marginLeft: '8px', textTransform: 'none' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Due Diligence Checklist" context={emailCtx} templates={[
             { name: 'SPECIALIST_ddc_approved', when: 'If approved' },
             { name: 'SPECIALIST_ddc_edits', when: 'If edits are requested' },
-            { name: 'SPECIALIST_ddc_reminder', when: 'Automatic reminder if the checklist is not submitted (48h)' },
+            { name: 'SPECIALIST_ddc_reminder', when: 'Automatic reminder if the checklist is not submitted (2 business days)' },
           ]} /></span></SectionLabel>
 
         <AutoStep done={ddcEmailed} label="Due diligence checklist emailed to client (Along with Final Revenue Share Proposal)" date={ob.ddc_email_sent_at} />
@@ -1464,7 +1464,7 @@ function OnboardingDetail({ id, onBack }) {
         <div style={{ borderTop: '1px solid var(--vfo-border)', margin: '16px 0' }} />
         <SectionLabel>Final revenue share proposal<span style={{ marginLeft: '8px', textTransform: 'none' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Final revenue share proposal" context={emailCtx} templates={[
             { name: 'SPECIALIST_revshare_complete', when: 'Revenue-share proposal complete' },
-            { name: 'SPECIALIST_revfinal_reminder', when: 'Automatic reminder if the final proposal is unanswered (48h)' },
+            { name: 'SPECIALIST_revfinal_reminder', when: 'Automatic reminder if the final proposal is unanswered (2 business days)' },
           ]} /></span></SectionLabel>
 
         <AutoStep done={revEmailed} label="Revenue share proposal emailed to client (Along with DD Checklist)" date={ob.bg_receipt_email_sent_at} />
@@ -1556,7 +1556,7 @@ function OnboardingDetail({ id, onBack }) {
         <AutoStep done={!!getTaskStatus(4, 'agreement_sent')} date={ob.agreement_sent_at} label={<>Engagement agreement created and sent for signing<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="SPECIALIST_ONBOARDING" title="Onboarding agreement" context={emailCtx} templates={[
             { name: 'SPECIALIST_agreement_sent', when: 'Agreement signing link' },
             { name: 'SPECIALIST_ceo_countersign', when: 'Automatic — asks the CEO to countersign' },
-            { name: 'SPECIALIST_signature_reminder', when: 'Automatic reminder if unsigned (48h)' },
+            { name: 'SPECIALIST_signature_reminder', when: 'Automatic reminder if unsigned (2 business days)' },
           ]} /></span></>} />
         <StallRows stall="agreement_sign" />
         <AutoStep done={!!getTaskStatus(4, 'agreement_signed_specialist')} label="Engagement agreement signed" date={ob.agreement_signed_by_specialist_at} />
@@ -1566,7 +1566,7 @@ function OnboardingDetail({ id, onBack }) {
             { name: 'SPECIALIST_lic_confirmation|card', when: 'No longer sent automatically — card gets the invoice/receipt instead' },
             { name: 'SPECIALIST_lic_confirmation|ach', when: 'If paid by bank transfer (ACH) — the only method that gets a confirmation' },
             { name: 'SPECIALIST_lic_invoicereceipt', when: 'Automatic — license invoice + receipt (monthly)' },
-            { name: 'SPECIALIST_licpayment_reminder', when: 'Automatic reminder if the license payment is not made (48h)' },
+            { name: 'SPECIALIST_licpayment_reminder', when: 'Automatic reminder if the license payment is not made (2 business days)' },
           ]} /></span></>} />
         <StallRows stall="lic_payment" />
         <AutoStep done={!!getTaskStatus(4, 'payment_made')} label="Payment collected" date={ob.lic_payment_completed_at} />

@@ -68,7 +68,7 @@ One warm template `PFT_meeting_confirm` for all three, parameterised by `automat
   **except "How long have you owned your firm?"**). Loads/saves via `automation_PFT_loaddiscovery` /
   `automation_PFT_submitdiscovery` (store into `pft_engagement.discovery_data`).
 - Admin sees a **"View discovery form"** collapsible under the Meeting 2 step once submitted.
-- On submit → notify the **assigned PF**. If not completed after **4 days** (sweep) → notify PF.
+- On submit → notify the **assigned PF**. If not completed after **4 business days** (sweep) → notify PF.
 
 ## Decision step + handoff
 The tracker's **Accountant decision confirmation email** step shows four buttons: **Email confirming VFO FT**,
@@ -115,7 +115,7 @@ An **AI PC Admin** history block (rendered under the decision step, styled like 
 derives the full timeline from `pft_engagement`: undecided email sent → client's path choice → onboarding
 created → confirmation email sent → client's another-meeting response (plus reminder / PF-notified rows).
 
-**2026-08-12 (v734) — the reminder / PF-notified rows changed in two ways that matter here.** (1) They are now **conditional on their own column being stamped** (`<stall>_reminder_sent_at` / `<stall>_pf_notified_at`); they previously rendered **always**, which showed a chase history on engagements that never stalled. (2) `PFTEngagementTrack.jsx` **dropped its extra `!decResp` / `!ftResp` guards**, so the rows now **survive the client's response** instead of disappearing the moment the accountant replies — the whole point of a paper trail is that it outlives the thing it was chasing. The 96h row additionally carries an indented **"Reached out?"** checkbox saving through `automation_stall_ack` (`pipeline:'pft'`, `stall` ∈ `discovery` / `ft` / `decision` → `<stall>_pf_ack_at`), hidden in `readOnly`. Every row also shows a non-editable MM/DD date. **No live PFT data existed to click-test**, so these paths were verified by diff + build only. Gotcha **#381**.
+**2026-08-12 (v734) — the reminder / PF-notified rows changed in two ways that matter here.** (1) They are now **conditional on their own column being stamped** (`<stall>_reminder_sent_at` / `<stall>_pf_notified_at`); they previously rendered **always**, which showed a chase history on engagements that never stalled. (2) `PFTEngagementTrack.jsx` **dropped its extra `!decResp` / `!ftResp` guards**, so the rows now **survive the client's response** instead of disappearing the moment the accountant replies — the whole point of a paper trail is that it outlives the thing it was chasing. The PF-notified row (the 4-business-day tier) additionally carries an indented **"Reached out?"** checkbox saving through `automation_stall_ack` (`pipeline:'pft'`, `stall` ∈ `discovery` / `ft` / `decision` → `<stall>_pf_ack_at`), hidden in `readOnly`. Every row also shows a non-editable MM/DD date. **No live PFT data existed to click-test**, so these paths were verified by diff + build only. Gotcha **#381**.
 
 Phase 6 indicators (matching section only): **"Sent to Accountant Onboarding"** (green once
 `accountant_onboarding_id` exists) + **"Accountant onboarding progress"** (live stage from
@@ -128,15 +128,15 @@ of 2026-07-13) the VFO Associate confirmation email; the notification wording is
 - **confirm** → notify **PF only** (`notifyPf`; Rachael dropped 2026-07-14); auto-set the linked Accountant
   Onboarding **Preliminary Meeting = "Request no meeting"** (only if still null).
 - **another_meeting** → notify **PF only**.
-If unanswered: **2-day** reminder email to the accountant (`PFT_decision_vfo_ft_reminder`), **4-day** PF notice
-(both via the sweep).
+If unanswered: **2-business-day** reminder email to the accountant (`PFT_decision_vfo_ft_reminder`),
+**4-business-day** PF notice (both via the sweep — see Cron).
 
 ## Notifications (who gets what)
 PF routing via `actions/pft/_shared.ts` `PF_EMAILS` (Evan `eanderson@`, Bridger `bsilvester@`, Ian
 `iwelham@`) → falls back to all-admins if the client has no Assigned PF (set in the Profile tab) or the name
 isn't mapped. As of 2026-07-14 `notifyPfAndRachael` was renamed **`notifyPf`** and no longer CCs Rachael (the
 `RACHAEL_EMAIL` export was removed) — so FT-response (either button), VFO-Associate pick, discovery-complete,
-discovery-4-day, and FT-4-day **all notify the assigned PF only**. All notification links deep-link to the
+and the discovery + FT stall bells (4 business days) **all notify the assigned PF only**. All notification links deep-link to the
 specific record (`?onboarding=<id>` for the handoff record, `/admin/client/<id>?tab=pft` for the PFT track).
 
 On handoff into Accountant Onboarding (FT confirm / VFO-Associate pick, in both `decision-email.ts` and the
@@ -145,10 +145,19 @@ On handoff into Accountant Onboarding (FT confirm / VFO-Associate pick, in both 
 Team-Member-Responsible notifications route to that PF from the start.
 
 ## Cron
-`pft-sweep-daily` 08:00 UTC → `automation_PFT_sweep` (PUBLIC, service-role): discovery 2-day reminder email +
-4-day PF notice; FT 2-day reminder email + 4-day PF notice; **undecided-decision 2-day reminder email
-(re-sends `PFT_decision_undecided`) + 4-day PF notice** (rules `PFT_undecided_reminder_email` /
+`pft-sweep-daily` 08:00 UTC → `automation_PFT_sweep` (PUBLIC, service-role): discovery 2-business-day reminder
+email + 4-business-day PF notice; FT 2-business-day reminder email + 4-business-day PF notice;
+**undecided-decision 2-business-day reminder email
+(re-sends `PFT_decision_undecided`) + 4-business-day PF notice** (rules `PFT_undecided_reminder_email` /
 `PFT_undecided_stall_bell`, guards `decision_reminder_sent_at` / `decision_pf_notified_at`). No auto-decline.
+
+**All six tiers count BUSINESS DAYS as of 2026-08-14.** The configured `notification_rules.delay_days` are
+unchanged as numbers (2 and 4); the sweep resolves each cutoff through `businessDelayCutoffIso()` in
+[`utils/notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/notify.ts), a backward walk
+over weekdays only (Mon–Fri UTC, **no holiday calendar**) — so an accountant who goes quiet on a Thursday is
+reminded the following Monday rather than over the weekend. The three PF bell bodies interpolate their own
+delay and now read *"N business day(s) have passed since …"*. PFT has no auto-decline, so it has no calendar
+survivor of the advisor/accountant 14-day kind.
 
 ## Accountant Onboarding handoff differences
 - New `accountant_onboarding.accountant_type` (`'VFO FT'` | `'VFO Associate'`). "+ New Onboarding" requires it.

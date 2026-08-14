@@ -182,10 +182,10 @@ function Map4FollowupStep({ trackId, task, p, track, onDone, emailCtx, readOnly 
 
   // 48h client reminder / 96h PF notification for the stalled follow-up form.
   // Both only exist once the cron has stamped them.
-  const reminderStep = (at) => at ? autoStep('2-day reminder email sent to client', true, at) : null
+  const reminderStep = (at) => at ? autoStep('2-business-day reminder email sent to client', true, at) : null
   const pfNotifiedStep = (at) => at ? (
     <>
-      {autoStep('4-day passed — assigned PF notified to follow up', true, at)}
+      {autoStep('4-business-day mark passed — assigned PF notified to follow up', true, at)}
       {!readOnly && <StallAckRow pipeline="regular" id={trackId} stall="map4" ackAt={stallAckAt} onAck={setStallAckAt} />}
     </>
   ) : null

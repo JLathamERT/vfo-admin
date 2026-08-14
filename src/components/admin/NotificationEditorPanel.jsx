@@ -121,7 +121,7 @@ function RuleCard({ rule, admins, adminsByEmail, onSaved }) {
           {disabled && <span style={{ fontSize: '9px', fontWeight: 700, color: '#d93025', letterSpacing: '0.4px', whiteSpace: 'nowrap' }}>OFF</span>}
         </div>
         <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '38%' }}>
-          {(rule.delay_days ?? rule.default_delay_days) != null && `${rule.delay_days ?? rule.default_delay_days}d · `}
+          {(rule.delay_days ?? rule.default_delay_days) != null && `${rule.delay_days ?? rule.default_delay_days} bus. day${Number(rule.delay_days ?? rule.default_delay_days) === 1 ? '' : 's'} · `}
           {effective.map(r => recipientLabel(r, adminsByEmail).split(' (')[0]).join(', ')}
           {isOverridden && <span style={{ color: '#e06717', fontWeight: 700 }}> · edited</span>}
         </div>
@@ -180,7 +180,7 @@ function RuleCard({ rule, admins, adminsByEmail, onSaved }) {
                 <input type="number" min="0" max="365" step="0.5" value={delay}
                   onChange={e => setDelay(e.target.value)}
                   style={{ width: '64px', padding: '5px 8px', borderRadius: '6px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px' }} />
-                day(s) <span style={{ color: 'var(--vfo-faint)', fontSize: '11px' }}>(default {rule.default_delay_days})</span>
+                business day(s) <span style={{ color: 'var(--vfo-faint)', fontSize: '11px' }}>(default {rule.default_delay_days})</span>
               </label>
             )}
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--vfo-ink)', cursor: 'pointer' }}>

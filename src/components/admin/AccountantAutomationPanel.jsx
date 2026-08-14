@@ -110,8 +110,8 @@ function AccountantPipelineRow({ row, expanded, onToggle, onReload }) {
             <Detail l="Direct/Advisor" v={row.accountant_partnership === 'Accountant Partnership' ? 'Advisor' : row.accountant_partnership === 'No accountant partnership' ? 'Direct' : row.accountant_partnership} />
             {row.accountant_partnership === 'Accountant Partnership' && <Detail l="CC Connected Advisor" v={row.cc_advisor_name ? `${row.cc_advisor_name} · ${row.cc_advisor_email}` : null} />}
             <Detail l="Undecided email sent" v={fmtDate(row.decision_email_sent_at)} />
-            <Detail l="48h reminder sent" v={fmtDate(row.decision_reminder_sent_at)} />
-            <Detail l="96h PF notified" v={fmtDate(row.decision_pf_notified_at)} />
+            <Detail l="2-business-day reminder sent" v={fmtDate(row.decision_reminder_sent_at)} />
+            <Detail l="4-business-day PF notified" v={fmtDate(row.decision_pf_notified_at)} />
           </StepCard>
 
           {emStage === 'decision' && extraCard}
@@ -120,8 +120,8 @@ function AccountantPipelineRow({ row, expanded, onToggle, onReload }) {
             {row.boldsign_document_id ? (
               <>
                 <Detail l="Agreement sent" v={fmtDate(row.agreement_sent_at)} showEmpty />
-                <Detail l="48h reminder sent" v={fmtDate(row.signing_reminder_sent_at)} />
-                <Detail l="96h PF notified" v={fmtDate(row.signing_pf_notified_at)} />
+                <Detail l="2-business-day reminder sent" v={fmtDate(row.signing_reminder_sent_at)} />
+                <Detail l="4-business-day PF notified" v={fmtDate(row.signing_pf_notified_at)} />
                 <Detail l="Signed by accountant" v={fmtDate(row.agreement_signed_by_accountant_at)} showEmpty />
                 <Detail l="CEO countersigned" v={fmtDate(row.agreement_signed_by_ceo_at)} showEmpty />
                 <Detail l="Selected plans" v={plans} />
@@ -137,8 +137,8 @@ function AccountantPipelineRow({ row, expanded, onToggle, onReload }) {
             {row.stripe_customer_id || row.payment_link_sent_at ? (
               <>
                 <Detail l="Payment link emailed" v={fmtDate(row.payment_link_sent_at)} />
-                <Detail l="48h reminder sent" v={fmtDate(row.payment_reminder_sent_at)} />
-                <Detail l="96h PF notified" v={fmtDate(row.payment_pf_notified_at)} />
+                <Detail l="2-business-day reminder sent" v={fmtDate(row.payment_reminder_sent_at)} />
+                <Detail l="4-business-day PF notified" v={fmtDate(row.payment_pf_notified_at)} />
                 <Detail l="Method" v={row.payment_method_type} />
                 <Detail l="Account" v={row.acct_last4 ? `****${row.acct_last4}` : null} />
                 <Detail l="Payment amount" v={fmtMoney(row.payment_amount)} />
