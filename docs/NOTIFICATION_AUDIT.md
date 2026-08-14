@@ -24,8 +24,18 @@
   *Onboarding Team Member* = the Stage-1 team member (falls back to the shared bell); *Assigned Admin* =
   the growth plan's assigned admin.
 - **Editable days** — sweep ladders fire N days after the prior step; N is now editable per rule.
-  The 24h Tax 4/5 auto-locks and the 14-day advisor/accountant auto-decline are business actions,
-  not notifications, and are deliberately NOT editable here.
+  **Since 2026-08-14 every `delay_days` below is counted in BUSINESS DAYS (Mon–Fri UTC, no holiday
+  calendar).** The stored numbers did NOT change — only the unit the sweeps count them in
+  (`businessDelayCutoffIso` / `businessDayHorizonDateOnly` in `utils/notify.ts`), so a step that stalls
+  on a Friday is chased the following week instead of over the weekend. The `Growth Plan` overdue sweep
+  has no delay offset, so it instead early-returns on Saturday and Sunday UTC ticks.
+  **Deliberate CALENDAR survivors — do not read the business-day rule as global:** the 14-day
+  advisor/accountant auto-decline, the Tax 4 "meeting has passed" nudge, the membership 30-day renewal
+  notice (and membership charging generally), the scheduled-charge sweep (charges land on their real due
+  dates, weekends included), the notifications purge, personal reminders, and every token / session
+  expiry window. The 14-day advisor/accountant auto-decline is a business action, not a notification, and
+  is deliberately NOT editable here. (The old 24h Tax 4/5 auto-locks are GONE — nothing auto-locks or
+  auto-charges any more; Tax 5 implementation is confirm-only.)
 
 > **Additions 2026-07-28 (v667–v669).** Five rules were seeded to close the "stalled setup is completely
 > silent" gap (gotchas #296 / #299 / #300): three under **VFO Specialist Revenue** and two under a
@@ -44,13 +54,13 @@
 | **Agreement email draft failed** — The Gmail draft of the agreement-signing email could not be created; needs manual attention. | **Action required** | All Admins (shared bell) | Gmail draft failure while sending agreement — instant |
 | **Installment auto-charge failed** — A quarterly installment (P2-P4) could not be auto-charged; the client was emailed a fresh /pay link. | FYI | All Admins (shared bell) | Daily charge-scheduled sweep — instant |
 | **Tracy: client paid, cleared to proceed** — A client's MAP 1 payment cleared (includes chosen priorities) - green light for Tracy to move forward. Fires once per payment P1-P4. | FYI | Tracy | Revshare chain after payment clears — instant |
-| **Undecided decision reminder email** — Reminder email (fresh decision buttons) to a client who has not clicked any decision button. | Reminder email | The client (email) | Daily MAP 1 sweep — after **2 day(s)** (editable) |
-| **Undecided decision stalled (PF bell)** — The client still has not responded to the MAP 1 decision email - asks the PF to reach out. | FYI | Assigned PF | Daily MAP 1 sweep — after **4 day(s)** (editable) |
-| **Agreement signing reminder email** — Reminder email (fresh BoldSign link) to a client who has not signed the agreement. | Reminder email | The client (email) | Daily MAP 1 sweep — after **2 day(s)** (editable) |
-| **Agreement signing stalled (PF bell)** — The client still has not signed the MAP 1 agreement - asks the PF to reach out. | FYI | Assigned PF | Daily MAP 1 sweep — after **4 day(s)** (editable) |
-| **First payment reminder email** — Reminder email (/pay link) to a client who has not completed the first payment. | Reminder email | The client (email) | Daily MAP 1 sweep — after **2 day(s)** (editable) |
-| **First payment stalled (PF bell)** — The client still has not paid the MAP 1 first payment - asks the PF to reach out. | FYI | Assigned PF | Daily MAP 1 sweep — after **4 day(s)** (editable) |
-| **Check payment due reminder email** — Reminder email to check-paying quarterly clients whose next installment is due soon. The delay is a LOOK-AHEAD (days before the due date). | Reminder email | The client (email) | Daily check-reminder sweep — after **7 day(s)** (editable) |
+| **Undecided decision reminder email** — Reminder email (fresh decision buttons) to a client who has not clicked any decision button. | Reminder email | The client (email) | Daily MAP 1 sweep — after **2 business day(s)** (editable) |
+| **Undecided decision stalled (PF bell)** — The client still has not responded to the MAP 1 decision email - asks the PF to reach out. | FYI | Assigned PF | Daily MAP 1 sweep — after **4 business day(s)** (editable) |
+| **Agreement signing reminder email** — Reminder email (fresh BoldSign link) to a client who has not signed the agreement. | Reminder email | The client (email) | Daily MAP 1 sweep — after **2 business day(s)** (editable) |
+| **Agreement signing stalled (PF bell)** — The client still has not signed the MAP 1 agreement - asks the PF to reach out. | FYI | Assigned PF | Daily MAP 1 sweep — after **4 business day(s)** (editable) |
+| **First payment reminder email** — Reminder email (/pay link) to a client who has not completed the first payment. | Reminder email | The client (email) | Daily MAP 1 sweep — after **2 business day(s)** (editable) |
+| **First payment stalled (PF bell)** — The client still has not paid the MAP 1 first payment - asks the PF to reach out. | FYI | Assigned PF | Daily MAP 1 sweep — after **4 business day(s)** (editable) |
+| **Check payment due reminder email** — Reminder email to check-paying quarterly clients whose next installment is due soon. The delay is a LOOK-AHEAD (business days before the due date, walked forward by `businessDayHorizonDateOnly`). | Reminder email | The client (email) | Daily check-reminder sweep — after **7 business day(s)** (editable) |
 
 ### Tax (21)
 
@@ -67,16 +77,16 @@
 | **Client clicked Proceed (Decision 1)** — Client clicked Proceed / Continue now on the Tax 4 Client Decision 1 email; retainer revshare fired. | FYI | Assigned PF + Allocated Tax Planner (fallback Tracy) | Client click on Tax 4 email — instant |
 | **Implementation charge failed** — Off-session implementation charge declined or needs authentication; fresh /tax-pay link drafted to the client. | FYI | Jake (`TAX_impl_charge_failed`) | Implementation charge failure — instant |
 | **Tracy: client paid, cleared to proceed** — Client's tax retainer or implementation payment cleared - green light for Tracy to move forward. Fires once per payment. | FYI | Tracy | Payment cleared (revshare chain) — instant |
-| **Tax 4 Undecided reminder email** — Client has not clicked Proceed/Refund after the Tax 4 Undecided email - reminder email drafted to the client. | Reminder email | The client (email) | Daily tax sweep — after **2 day(s)** (editable) |
-| **Tax 4 Undecided stalled (PF bell)** — Client still has not responded to the Tax 4 Undecided email - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 day(s)** (editable) |
-| **Tax 5 Undecided reminder email** — Client has not clicked Proceed/Decline after the Tax 5 Undecided email - reminder email drafted to the client. | Reminder email | The client (email) | Daily tax sweep — after **2 day(s)** (editable) |
-| **Tax 5 Undecided stalled (PF bell)** — Client still has not responded to the Tax 5 Undecided email - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 day(s)** (editable) |
-| **Tax 3 decision reminder email** — Client has not clicked a /tax-decide button after the Tax 3 Undecided email - reminder email drafted to the client. | Reminder email | The client (email) | Daily tax sweep — after **2 day(s)** (editable) |
-| **Tax 3 decision stalled (PF bell)** — Client still has not clicked a decision button after the Tax 3 Undecided email - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 day(s)** (editable) |
-| **Agreement signing reminder email** — Client has not signed the Tax Planning agreement - reminder email with a fresh sign link drafted to the client. | Reminder email | The client (email) | Daily tax sweep — after **2 day(s)** (editable) |
-| **Agreement signing stalled (PF bell)** — Client still has not signed the agreement - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 day(s)** (editable) |
-| **Retainer payment reminder email** — Client has not paid the Tax Planning retainer - reminder email with a fresh /tax-pay link drafted to the client. | Reminder email | The client (email) | Daily tax sweep — after **2 day(s)** (editable) |
-| **Retainer payment stalled (PF bell)** — Client still has not paid the retainer - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 day(s)** (editable) |
+| **Tax 4 Undecided reminder email** — Client has not clicked Proceed/Refund after the Tax 4 Undecided email - reminder email drafted to the client. | Reminder email | The client (email) | Daily tax sweep — after **2 business day(s)** (editable) |
+| **Tax 4 Undecided stalled (PF bell)** — Client still has not responded to the Tax 4 Undecided email - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 business day(s)** (editable) |
+| **Tax 5 Undecided reminder email** — Client has not clicked Proceed/Decline after the Tax 5 Undecided email - reminder email drafted to the client. | Reminder email | The client (email) | Daily tax sweep — after **2 business day(s)** (editable) |
+| **Tax 5 Undecided stalled (PF bell)** — Client still has not responded to the Tax 5 Undecided email - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 business day(s)** (editable) |
+| **Tax 3 decision reminder email** — Client has not clicked a /tax-decide button after the Tax 3 Undecided email - reminder email drafted to the client. | Reminder email | The client (email) | Daily tax sweep — after **2 business day(s)** (editable) |
+| **Tax 3 decision stalled (PF bell)** — Client still has not clicked a decision button after the Tax 3 Undecided email - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 business day(s)** (editable) |
+| **Agreement signing reminder email** — Client has not signed the Tax Planning agreement - reminder email with a fresh sign link drafted to the client. | Reminder email | The client (email) | Daily tax sweep — after **2 business day(s)** (editable) |
+| **Agreement signing stalled (PF bell)** — Client still has not signed the agreement - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 business day(s)** (editable) |
+| **Retainer payment reminder email** — Client has not paid the Tax Planning retainer - reminder email with a fresh /tax-pay link drafted to the client. | Reminder email | The client (email) | Daily tax sweep — after **2 business day(s)** (editable) |
+| **Retainer payment stalled (PF bell)** — Client still has not paid the retainer - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 business day(s)** (editable) |
 | **Client decision 1 needed** — The Tax 4 meeting date has passed with no Client decision 1 recorded - persistent bell until the decision is recorded. | **Action required** | Assigned PF + Allocated Tax Planner + Tracy | Daily tax sweep (meeting date passed) — instant |
 
 ### Regular Priorities (MAP 4) (4)
@@ -84,9 +94,9 @@
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
 | **MAP 4 form submitted** — A client submitted the MAP 4 Meeting Follow-Up form. | FYI | Tracy + Assigned PF | Public /map4-form submit — instant |
-| **MAP 4 follow-up email** — The MAP 4 follow-up email (form link) drafted to the client after the meeting. | Reminder email | The client (email) | Daily MAP 4 sweep (after meeting date) — after **2 day(s)** (editable) |
-| **MAP 4 reminder email** — Reminder email to the client to complete the MAP 4 form. | Reminder email | The client (email) | Daily MAP 4 sweep (after follow-up) — after **2 day(s)** (editable) |
-| **MAP 4 form stalled** — The client still has not submitted the MAP 4 form after the follow-up and reminder emails. | FYI | Tracy + Assigned PF | Daily MAP 4 sweep (after reminder) — after **2 day(s)** (editable) |
+| **MAP 4 follow-up email** — The MAP 4 follow-up email (form link) drafted to the client after the meeting. | Reminder email | The client (email) | Daily MAP 4 sweep (after meeting date) — after **2 business day(s)** (editable) |
+| **MAP 4 reminder email** — Reminder email to the client to complete the MAP 4 form. | Reminder email | The client (email) | Daily MAP 4 sweep (after follow-up) — after **2 business day(s)** (editable) |
+| **MAP 4 form stalled** — The client still has not submitted the MAP 4 form after the follow-up and reminder emails. | FYI | Tracy + Assigned PF | Daily MAP 4 sweep (after reminder) — after **2 business day(s)** (editable) |
 
 ### Advisor Onboarding (11)
 
@@ -97,12 +107,12 @@
 | **Advisor clicked No** — The advisor clicked No on the onboarding decision email; the decline email chain ran. | FYI | Onboarding Team Member | Advisor click on decision email — instant |
 | **Extra meeting requested** (`ADVISOR_extra_meeting_requested`) — The advisor clicked Request Additional Meeting; the admin must book/hold the meeting and record its outcome. | **Action required** | Onboarding Team Member | Advisor click on decision/reminder email — instant |
 | **Ready to create advisor** — Payment succeeded and invoice/receipt drafted - the Create Advisor and Send Setup Link step is now available. | **Action required** | Onboarding Team Member | Invoice/receipt chain after payment — instant |
-| **Decision reminder email** — Reminder email (Yes/No buttons) to the advisor who has not clicked a decision. | Reminder email | The advisor (email) | Daily advisor sweep — after **2 day(s)** (editable) |
-| **Decision stalled (bell)** — The advisor still has not responded to the decision email. | FYI | Onboarding Team Member | Daily advisor sweep — after **4 day(s)** (editable) |
-| **Signing reminder email** — Reminder email (fresh sign link) to the advisor who has not signed the agreement. | Reminder email | The advisor (email) | Daily advisor sweep — after **2 day(s)** (editable) |
-| **Signing stalled (bell)** — The advisor still has not signed the onboarding agreement. | FYI | Onboarding Team Member | Daily advisor sweep — after **4 day(s)** (editable) |
-| **Payment reminder email** — Reminder email (checkout button) to the advisor who has not paid the onboarding fee. | Reminder email | The advisor (email) | Daily advisor sweep — after **2 day(s)** (editable) |
-| **Payment stalled (bell)** — The advisor still has not paid the onboarding fee. | FYI | Onboarding Team Member | Daily advisor sweep — after **4 day(s)** (editable) |
+| **Decision reminder email** — Reminder email (Yes/No buttons) to the advisor who has not clicked a decision. | Reminder email | The advisor (email) | Daily advisor sweep — after **2 business day(s)** (editable) |
+| **Decision stalled (bell)** — The advisor still has not responded to the decision email. | FYI | Onboarding Team Member | Daily advisor sweep — after **4 business day(s)** (editable) |
+| **Signing reminder email** — Reminder email (fresh sign link) to the advisor who has not signed the agreement. | Reminder email | The advisor (email) | Daily advisor sweep — after **2 business day(s)** (editable) |
+| **Signing stalled (bell)** — The advisor still has not signed the onboarding agreement. | FYI | Onboarding Team Member | Daily advisor sweep — after **4 business day(s)** (editable) |
+| **Payment reminder email** — Reminder email (checkout button) to the advisor who has not paid the onboarding fee. | Reminder email | The advisor (email) | Daily advisor sweep — after **2 business day(s)** (editable) |
+| **Payment stalled (bell)** — The advisor still has not paid the onboarding fee. | FYI | Onboarding Team Member | Daily advisor sweep — after **4 business day(s)** (editable) |
 
 ### Accountant Onboarding (11)
 
@@ -113,12 +123,12 @@
 | **Accountant clicked No** — The accountant clicked No on the onboarding decision email; the decline email chain ran. | FYI | Onboarding Team Member | Accountant click on decision email — instant |
 | **Extra meeting requested** (`ACCOUNTANT_extra_meeting_requested`) — The accountant clicked Request Additional Meeting; the admin must book/hold the meeting and record its outcome. | **Action required** | Onboarding Team Member | Accountant click on decision/reminder email — instant |
 | **Ready to create accountant** — Payment succeeded and invoice/receipt drafted - the Create Accountant and Send Setup Link step is now available. | **Action required** | Onboarding Team Member | Invoice/receipt chain after payment — instant |
-| **Decision reminder email** — Reminder email (Yes/No buttons) to the accountant who has not clicked a decision. | Reminder email | The accountant (email) | Daily accountant sweep — after **2 day(s)** (editable) |
-| **Decision stalled (bell)** — The accountant still has not responded to the decision email. | FYI | Onboarding Team Member | Daily accountant sweep — after **4 day(s)** (editable) |
-| **Signing reminder email** — Reminder email (fresh sign link) to the accountant who has not signed the agreement. | Reminder email | The accountant (email) | Daily accountant sweep — after **2 day(s)** (editable) |
-| **Signing stalled (bell)** — The accountant still has not signed the onboarding agreement. | FYI | Onboarding Team Member | Daily accountant sweep — after **4 day(s)** (editable) |
-| **Payment reminder email** — Reminder email (checkout button) to the accountant who has not paid the onboarding fee. | Reminder email | The accountant (email) | Daily accountant sweep — after **2 day(s)** (editable) |
-| **Payment stalled (bell)** — The accountant still has not paid the onboarding fee. | FYI | Onboarding Team Member | Daily accountant sweep — after **4 day(s)** (editable) |
+| **Decision reminder email** — Reminder email (Yes/No buttons) to the accountant who has not clicked a decision. | Reminder email | The accountant (email) | Daily accountant sweep — after **2 business day(s)** (editable) |
+| **Decision stalled (bell)** — The accountant still has not responded to the decision email. | FYI | Onboarding Team Member | Daily accountant sweep — after **4 business day(s)** (editable) |
+| **Signing reminder email** — Reminder email (fresh sign link) to the accountant who has not signed the agreement. | Reminder email | The accountant (email) | Daily accountant sweep — after **2 business day(s)** (editable) |
+| **Signing stalled (bell)** — The accountant still has not signed the onboarding agreement. | FYI | Onboarding Team Member | Daily accountant sweep — after **4 business day(s)** (editable) |
+| **Payment reminder email** — Reminder email (checkout button) to the accountant who has not paid the onboarding fee. | Reminder email | The accountant (email) | Daily accountant sweep — after **2 business day(s)** (editable) |
+| **Payment stalled (bell)** — The accountant still has not paid the onboarding fee. | FYI | Onboarding Team Member | Daily accountant sweep — after **4 business day(s)** (editable) |
 
 ### Specialist Onboarding (34)
 
@@ -142,20 +152,20 @@
 | **Send VFO Skool invite** — First license payment received (Stage 4 complete) - time to send the VFO Skool invite; clears when sent. | **Action required** | Tracy | First license invoice paid — instant |
 | **Create the VFO Specialist and send login** — Specialist reached Stage 5 - add them to the Showroom and send their portal login; clears when created. | **Action required** | Tracy | First license invoice paid — instant |
 | **Add specialist headshot** — The Showroom profile was auto-created; add the specialist's headshot. Clears when its checkbox is ticked. | **Action required** | Tracy | Create Specialist button — instant |
-| **SIF stall reminder email** — Reminder email to the specialist when the SIF form is unsubmitted. | Reminder email | The specialist (email) | Daily specialist sweep — after **2 day(s)** (editable) |
-| **SIF stalled (Tracy bell)** — The SIF form is still unsubmitted after the reminder window. | FYI | Tracy | Daily specialist sweep — after **4 day(s)** (editable) |
-| **Exec vote stall reminder email** — Reminder email to whichever executive(s) have not voted in an open voting round. | Reminder email | Anton + Paul | Daily specialist sweep — after **2 day(s)** (editable) |
-| **Exec vote stalled (Tracy bell)** — The executives still have not finished a voting round. | FYI | Tracy | Daily specialist sweep — after **4 day(s)** (editable) |
-| **Background-check choice reminder email** — Reminder email when no Core/Max selection has been made after the Step 3 email. | Reminder email | The specialist (email) | Daily specialist sweep — after **2 day(s)** (editable) |
-| **Background-check choice stalled (Tracy bell)** — The specialist still has not chosen a background check. | FYI | Tracy | Daily specialist sweep — after **4 day(s)** (editable) |
-| **DDC stall reminder email** — Reminder email when the Due Diligence Checklist is unsubmitted (paused while a help request is open). | Reminder email | The specialist (email) | Daily specialist sweep — after **2 day(s)** (editable) |
-| **DDC stalled (Tracy bell)** — The Due Diligence Checklist is still unsubmitted after the reminder window. | FYI | Tracy | Daily specialist sweep — after **4 day(s)** (editable) |
-| **Final rev-share stall reminder email** — Reminder email when the final revenue share proposal is unanswered. | Reminder email | The specialist (email) | Daily specialist sweep — after **2 day(s)** (editable) |
-| **Final rev-share stalled (Tracy bell)** — Still no response to the final revenue share proposal after the reminder window. | FYI | Tracy | Daily specialist sweep — after **4 day(s)** (editable) |
-| **Agreement signature reminder email** — Reminder email (fresh BoldSign link) when the Specialist Agreement is unsigned. | Reminder email | The specialist (email) | Daily specialist sweep — after **2 day(s)** (editable) |
-| **Agreement signature stalled (Tracy bell)** — The Specialist Agreement is still unsigned after the reminder window. | FYI | Tracy | Daily specialist sweep — after **4 day(s)** (editable) |
-| **License payment reminder email** — Reminder email when the monthly license payment has not been set up. | Reminder email | The specialist (email) | Daily specialist sweep — after **2 day(s)** (editable) |
-| **License payment stalled (Tracy bell)** — The monthly license payment still has not been completed after the reminder window. | FYI | Tracy | Daily specialist sweep — after **4 day(s)** (editable) |
+| **SIF stall reminder email** — Reminder email to the specialist when the SIF form is unsubmitted. | Reminder email | The specialist (email) | Daily specialist sweep — after **2 business day(s)** (editable) |
+| **SIF stalled (Tracy bell)** — The SIF form is still unsubmitted after the reminder window. | FYI | Tracy | Daily specialist sweep — after **4 business day(s)** (editable) |
+| **Exec vote stall reminder email** — Reminder email to whichever executive(s) have not voted in an open voting round. | Reminder email | Anton + Paul | Daily specialist sweep — after **2 business day(s)** (editable) |
+| **Exec vote stalled (Tracy bell)** — The executives still have not finished a voting round. | FYI | Tracy | Daily specialist sweep — after **4 business day(s)** (editable) |
+| **Background-check choice reminder email** — Reminder email when no Core/Max selection has been made after the Step 3 email. | Reminder email | The specialist (email) | Daily specialist sweep — after **2 business day(s)** (editable) |
+| **Background-check choice stalled (Tracy bell)** — The specialist still has not chosen a background check. | FYI | Tracy | Daily specialist sweep — after **4 business day(s)** (editable) |
+| **DDC stall reminder email** — Reminder email when the Due Diligence Checklist is unsubmitted (paused while a help request is open). | Reminder email | The specialist (email) | Daily specialist sweep — after **2 business day(s)** (editable) |
+| **DDC stalled (Tracy bell)** — The Due Diligence Checklist is still unsubmitted after the reminder window. | FYI | Tracy | Daily specialist sweep — after **4 business day(s)** (editable) |
+| **Final rev-share stall reminder email** — Reminder email when the final revenue share proposal is unanswered. | Reminder email | The specialist (email) | Daily specialist sweep — after **2 business day(s)** (editable) |
+| **Final rev-share stalled (Tracy bell)** — Still no response to the final revenue share proposal after the reminder window. | FYI | Tracy | Daily specialist sweep — after **4 business day(s)** (editable) |
+| **Agreement signature reminder email** — Reminder email (fresh BoldSign link) when the Specialist Agreement is unsigned. | Reminder email | The specialist (email) | Daily specialist sweep — after **2 business day(s)** (editable) |
+| **Agreement signature stalled (Tracy bell)** — The Specialist Agreement is still unsigned after the reminder window. | FYI | Tracy | Daily specialist sweep — after **4 business day(s)** (editable) |
+| **License payment reminder email** — Reminder email when the monthly license payment has not been set up. | Reminder email | The specialist (email) | Daily specialist sweep — after **2 business day(s)** (editable) |
+| **License payment stalled (Tracy bell)** — The monthly license payment still has not been completed after the reminder window. | FYI | Tracy | Daily specialist sweep — after **4 business day(s)** (editable) |
 | **Background-check payment failed (Tracy)** — A specialist's background-check payment failed; they may need a fresh payment link. | FYI | Tracy | Stripe webhook: payment_intent.payment_failed — instant |
 | **License payment failed (Tracy)** — A specialist's monthly license payment failed; their card/bank may need updating. | FYI | Tracy | Stripe webhook: invoice.payment_failed — instant |
 
@@ -164,10 +174,10 @@
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
 | **Discovery form submitted** — An accountant prospect submitted the PFT discovery form. | FYI | Assigned PF | Public /pft-discovery form submit — instant |
-| **Discovery form reminder email** — Reminder email to the accountant prospect to complete the discovery form. | Reminder email | The accountant (email) | Daily PFT sweep — after **2 day(s)** (editable) |
-| **Discovery form stalled** — The discovery form is still incomplete after the reminder window - asks the PF to follow up. | FYI | Assigned PF | Daily PFT sweep — after **4 day(s)** (editable) |
-| **Fast Track decision reminder email** — Reminder email re-sending the two VFO Fast Track decision buttons to the accountant prospect. | Reminder email | The accountant (email) | Daily PFT sweep — after **2 day(s)** (editable) |
-| **Fast Track decision stalled** — The accountant has not clicked a VFO Fast Track decision button - asks the PF to follow up. | FYI | Assigned PF | Daily PFT sweep — after **4 day(s)** (editable) |
+| **Discovery form reminder email** — Reminder email to the accountant prospect to complete the discovery form. | Reminder email | The accountant (email) | Daily PFT sweep — after **2 business day(s)** (editable) |
+| **Discovery form stalled** — The discovery form is still incomplete after the reminder window - asks the PF to follow up. | FYI | Assigned PF | Daily PFT sweep — after **4 business day(s)** (editable) |
+| **Fast Track decision reminder email** — Reminder email re-sending the two VFO Fast Track decision buttons to the accountant prospect. | Reminder email | The accountant (email) | Daily PFT sweep — after **2 business day(s)** (editable) |
+| **Fast Track decision stalled** — The accountant has not clicked a VFO Fast Track decision button - asks the PF to follow up. | FYI | Assigned PF | Daily PFT sweep — after **4 business day(s)** (editable) |
 | **VFO Associate confirmed** — An admin confirmed the prospect as a VFO Associate and handed off to Accountant Onboarding. | FYI | Assigned PF | Admin PFT decision step — instant |
 | **Fast Track onboarding confirmed** — The accountant clicked Confirm Onboarding in the Fast Track email. | FYI | Assigned PF | Client click on Fast Track email — instant |
 | **Fast Track: another meeting requested** — The accountant clicked I'd Like Another Meeting in the Fast Track email. | FYI | Assigned PF | Client click on Fast Track email — instant |
@@ -177,28 +187,28 @@
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
 | **Member updated progress** — A member updated the status of a Growth Plan priority (one bell per priority changed). | FYI | Assigned Admin | Member saves accountability progress — instant |
-| **Overdue priority** — A Growth Plan priority passed its due date with no progress. | FYI | Assigned Admin | Daily growth sweep — instant |
+| **Overdue priority** — A Growth Plan priority passed its due date with no progress. | FYI | Assigned Admin | Daily growth sweep — instant, **weekday ticks only** (no `delay_days` to convert, so the sweep early-returns on Saturday/Sunday UTC) |
 
 ### VFO Specialist Revenue (9)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
-| **Payment reminder email** — Reminder email to the specialist to pay their VFO Specialist Revenue request. | Reminder email | The specialist (email) | Nightly payout sweep — after **2 day(s)** (editable) |
-| **Specialist still has not paid** — A specialist's revenue payment is still unpaid after the reminder window - asks Tracy to chase. | FYI | Tracy | Nightly payout sweep — after **4 day(s)** (editable) |
+| **Payment reminder email** — Reminder email to the specialist to pay their VFO Specialist Revenue request. | Reminder email | The specialist (email) | Nightly payout sweep — after **2 business day(s)** (editable) |
+| **Specialist still has not paid** — A specialist's revenue payment is still unpaid after the reminder window - asks Tracy to chase. | FYI | Tracy | Nightly payout sweep — after **4 business day(s)** (editable) |
 | **Revenue transfer failed (Jake)** — A revenue-share transfer to a member failed; the nightly sweep will retry; auto-clears on success. | **Action required** | Jake | Payout engine transfer failure — instant |
 | **Checkout abandoned** (`SPECREV_checkout_abandoned_bell`, 2026-07-28) — the specialist opened the hosted payment page but never completed it, so the Stripe session expired; nothing was charged and the link they hold still works. Covers BOTH the one-off request and the recurring monthly setup. | FYI | Tracy + Jake | `checkout.session.expired` webhook — instant (gotcha #299) |
-| **Recurring setup reminder email** (`SPECREV_recurring_setup_reminder_email`, 2026-07-28) — nudges a specialist who was sent the recurring ACH setup link but never finished it; carries the amount, charge day and a fresh Complete Setup button. | Reminder email | The specialist (email) | Nightly payout sweep, Pass 3 — after **2 day(s)** (editable) |
-| **Recurring setup still not completed** (`SPECREV_recurring_setup_tracy_bell`, 2026-07-28) — the recurring plan is still `setup_pending` after the reminder window; asks Tracy to chase. | FYI | Tracy | Nightly payout sweep, Pass 3 — after **4 day(s)** (editable) |
+| **Recurring setup reminder email** (`SPECREV_recurring_setup_reminder_email`, 2026-07-28) — nudges a specialist who was sent the recurring ACH setup link but never finished it; carries the amount, charge day and a fresh Complete Setup button. | Reminder email | The specialist (email) | Nightly payout sweep, Pass 3 — after **2 business day(s)** (editable) |
+| **Recurring setup still not completed** (`SPECREV_recurring_setup_tracy_bell`, 2026-07-28) — the recurring plan is still `setup_pending` after the reminder window; asks Tracy to chase. | FYI | Tracy | Nightly payout sweep, Pass 3 — after **4 business day(s)** (editable) |
 | **Recurring monthly payment failed (Jake + Tracy)** (`SPECREV_recurring_payment_failed_bell`) — a recurring monthly ACH payment failed; Stripe retries per its schedule and the plan stays active. *(Existed since 2026-07-09; missing from this table until the 2026-08-11 audit.)* | FYI | Jake + Tracy | Stripe webhook `invoice.payment_failed` (recurring plan) — instant |
-| **Bank verification still not completed** (`SPECREV_awaiting_verification_bell`, 2026-08-11) — a specialist entered their bank details manually and never finished Stripe's micro-deposit check, so no money has moved and Stripe will eventually cancel the payment; asks Tracy to chase (gotcha #370). | FYI | Tracy | Nightly payout sweep, Pass 2b — after **5 day(s)** (editable) |
+| **Bank verification still not completed** (`SPECREV_awaiting_verification_bell`, 2026-08-11) — a specialist entered their bank details manually and never finished Stripe's micro-deposit check, so no money has moved and Stripe will eventually cancel the payment; asks Tracy to chase (gotcha #370). | FYI | Tracy | Nightly payout sweep, Pass 2b — after **5 business day(s)** (editable) |
 | **One-time payment failed or was canceled (Jake + Tracy)** (`SPECREV_payment_failed_bell`, 2026-08-11) — a one-time ACH payment failed, was canceled, or expired before the specialist verified their bank; the money did not arrive and no payout ran. Dismissible rather than action-required because nothing auto-clears a dead payment (gotcha #372). | FYI | Jake + Tracy | Stripe webhook `payment_intent.canceled` / `payment_intent.payment_failed` / `checkout.session.async_payment_failed` — instant |
 
 ### Payment Continuation (2) *(new area, 2026-07-28)*
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
-| **Setup-link reminder email** (`MIGRATION_setup_link_reminder_email`) — nudges a migrated client who was emailed the `/connect-card` link but never saved a card or bank; includes the same `[PAYMENT_SCHEDULE]` block as the original setup email — **a "Your upcoming payments:" table for MAP 1, but since v715 (2026-08-10) NO figure at all for TAX**, just the fixed "set up proactively … to collect any future payments" sentence (#352). **If the link has EXPIRED the sweep mints a fresh 7-day one and emails that instead** (capped at 3 automatic re-sends per row). | Reminder email | The client (email) | Nightly check-reminder sweep — after **2 day(s)** (editable) — gotcha #300 |
-| **Client hasn't set up their payment method** (`MIGRATION_setup_link_stall_bell`) — their remaining scheduled payments cannot run. Wording is four-way truthful: reach out / a fresh link was automatically emailed / re-send manually / automatic re-sends exhausted. | FYI | Tracy + Jake | Nightly check-reminder sweep — after **4 day(s)** (editable) |
+| **Setup-link reminder email** (`MIGRATION_setup_link_reminder_email`) — nudges a migrated client who was emailed the `/connect-card` link but never saved a card or bank; includes the same `[PAYMENT_SCHEDULE]` block as the original setup email — **a "Your upcoming payments:" table for MAP 1, but since v715 (2026-08-10) NO figure at all for TAX**, just the fixed "set up proactively … to collect any future payments" sentence (#352). **If the link has EXPIRED the sweep mints a fresh 7-day one and emails that instead** (capped at 3 automatic re-sends per row). | Reminder email | The client (email) | Nightly check-reminder sweep — after **2 business day(s)** (editable) — gotcha #300 |
+| **Client hasn't set up their payment method** (`MIGRATION_setup_link_stall_bell`) — their remaining scheduled payments cannot run. Wording is four-way truthful: reach out / a fresh link was automatically emailed / re-send manually / automatic re-sends exhausted. | FYI | Tracy + Jake | Nightly check-reminder sweep — after **4 business day(s)** (editable) |
 
 ### Payment Failure Alerts (16)
 
@@ -252,7 +262,7 @@ bell via the 2026-06-15 failure-alert work). What genuinely has no notification 
 | 2 | **Client uploads a tax return** (public `/tax-upload` token page or client Vault -> Sensitive) | **RESOLVED — no longer silent.** `actions/vault/upload-notify.ts` stamps `tax_returns_received_at` on every waiting plan and raises the **action-required** `TAX_returns_allocate_team_member` ("Allocate a team member for X") to Tracy + Tray, cleared only when a planner is allocated; an upload with no requested plan still falls through to the generic `UPLOAD_tax_return_uploaded` FYI | — |
 | 3 | **Payment method updated** (Phase D `/connect-card` setup completes via Stripe webhook) | New default card/bank saved — silent | FYI to Jake: "X updated their payment method" — audit trail + confirms a failed-installment recovery is ready to retry |
 | 4 | **Member/specialist Stripe Connect onboarding completes** (payout account becomes active) | Nothing observes this; the next transfer just succeeds | FYI to Jake/Tracy: "X's payout account is active" — today you only find out when a transfer stops failing |
-| 5 | **BoldSign document Declined or Expired** | Event not handled at all — the pipeline just stalls until the signing-stall sweep notices | Action-required to the assigned PF / team member: "X declined the agreement" — a decline is a decision, not a stall, and deserves an immediate bell (the 48h/96h ladder is the wrong tool) |
+| 5 | **BoldSign document Declined or Expired** | Event not handled at all — the pipeline just stalls until the signing-stall sweep notices | Action-required to the assigned PF / team member: "X declined the agreement" — a decline is a decision, not a stall, and deserves an immediate bell (the 2/4-business-day ladder is the wrong tool) |
 | 6 | **Check payment claimed but never clears** (MAP 1 / tax "paid by check" with no `checkcleared` after N days) | No sweep watches this — silent forever | Bell to Tracy + Jake after e.g. 14 days: "X's check has not been marked cleared" |
 | 7 | **Advisor/accountant 6-month renewal approaching** (`renewal_date` on advisor/accountant onboarding) | Column is written on payment, nothing reads it | Reminder ladder: FYI to team member 14 days before renewal; escalate if lapsed |
 | 8 | **14-day auto-decline fired** (advisor/accountant implicit No) | Decline email drafts; no bell | FYI to the team member: "X was auto-declined after 14 days" — otherwise a prospect silently disappears from the pipeline |
@@ -268,13 +278,15 @@ query). Priority suggestion: #5 and #6 first (money/decision events that current
 - `utils/notify.ts` — `notifyByRule(supabase, key, {...})` is the ONLY way notifications are inserted.
   A rule row can override recipients (`recipients` jsonb; dynamic tokens `ASSIGNED_PF` / `TEAM_MEMBER` /
   `ASSIGNED_ADMIN` resolve per event), disable the notification (`enabled=false`), and — for sweep
-  tiers — change the days (`delay_days`). `recipients=null` = code default, so an unedited system
+  tiers — change the days (`delay_days`, counted in BUSINESS days since 2026-08-14). `recipients=null` = code default, so an unedited system
   behaves exactly as before this refactor.
 - Sweeps read `getRuleConfig(supabase, keys)` once per run; a disabled tier is skipped BEFORE its
   idempotency guard is stamped, so re-enabling a tier later still fires for rows that stalled while off.
 - `notification_rules` table: deny-all RLS; served only through `notification_rules_load` /
   `notification_rules_save` (both gated behind the Automation tab grant, gotcha #167).
-- Known cosmetic quirk: some sweep bell MESSAGES hardcode "4 days" in their body text even when the
-  configured delay differs (the timing is honored; only the wording is stale).
+- Known cosmetic quirk, **FIXED 2026-08-14**: sweep bell MESSAGES used to hardcode "4 days" in their body
+  text even when the configured delay differed (the timing was honored; only the wording was stale). Every
+  such message now interpolates its own `delay_days` and reads "N business day(s) have passed" — 23 strings
+  across 7 sweep files. A new bell message must do the same rather than write a literal number.
 - Jake's failure-alert auto-clears (`clearJakeFailure`) now match on title for ANY recipient, so
   re-routing a failure alert in the editor does not break its auto-clear.

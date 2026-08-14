@@ -149,7 +149,7 @@ Writes `pip_rev_share_amount`, `pip_rev_share_completed_at`. Drafts inline-HTML 
 | Tracy's-sheet verification | Required before revshare succeeds | Not used (form-supplied splits trusted) |
 | Sandbox config | `pipeline='MAP 1'` | Reuses `pipeline='MAP 1'` (no separate row needed) |
 | Tracy intro email | Yes (after first payment) | None |
-| Reminder cron | MAP1 sweep (3 stalls × 48h+96h) | None — PIP purchases are admin-driven, no client-side waits worth chasing |
+| Reminder cron | MAP1 sweep (3 stalls × 2-business-day reminder + 4-business-day PF bell, #396) | None — PIP purchases are admin-driven, no client-side waits worth chasing |
 
 ## Failure modes
 

@@ -8,6 +8,30 @@ The portal's bell-icon notification feed. A small, simple flow: handlers insert 
 >
 > **Advisor/Accountant onboarding route to the chosen "Team Member Responsible," not the shared `admin` bell** (2026-06-15). Each onboarding now carries an `onboarding_team_member` name (Stage-1 dropdown). `constants/onboarding-team.ts::teamMemberRecipient(name)` maps that name → the person's `@elitert.com` login email (the bell filters on `session.email`), falling back to `'admin'` when unset/unmapped. See the dedicated subsection below.
 
+> **EVERY sweep reminder / stall ladder counts BUSINESS DAYS (2026-08-14).** A tier's configured
+> `notification_rules.delay_days` is unchanged as a number, but the sweeps now walk backward over weekdays
+> only (Mon–Fri UTC, **no holiday calendar**) via `businessDelayCutoffIso(days)` in
+> [`utils/notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/notify.ts); forward
+> horizons (countdowns / look-aheads) use its sibling `businessDayHorizonDateOnly(fromDateOnly, days)`. So
+> "2 days" now means **2 business days** — a step that stalls on a Friday is chased the following week, not
+> over the weekend. The old calendar helper `delayCutoffIso` still exists but has **zero callers**; a new
+> ladder that reaches for it is a bug. Converted sweeps: `pipeline/contract-revshare-sweep` (MAP 1, 6 tiers),
+> `pipeline/contract-check-reminder-sweep` (uncleared-check bells + the Payment Continuation setup-link
+> ladder, plus its forward payment look-ahead), `advisor/sweep` and `accountant/sweep` (6 tiers each),
+> `onboarding/sweep` (14 tiers through a shared wrapper), `pft/sweep` (6), `specialist-revenue/payout-sweep`
+> (5, including the bank-verification bell), `regular/map4-followup-sweep` (3 chained tiers) and
+> `tax/revshare-sweep` (Tax 3 / Tax 4 / Tax 5). `growth/overdue-sweep` has no delay offset to convert, so it
+> instead **early-returns on Saturday and Sunday UTC ticks**. Bell bodies interpolate their own delay and
+> now read *"N business day(s) have passed"*.
+>
+> **Deliberate CALENDAR survivors — the unit is NOT global, and these must stay calendar:** the advisor +
+> accountant **14-day auto-decline** (an owner decision, and a business action rather than a notification),
+> the **Tax 4 "meeting has passed" nudge**, the **membership 30-day renewal notice** and membership charging
+> generally (that sweep was not touched), the **`chargescheduled` sweep** (charges land on their real due
+> dates, weekends included — owner decision), the **notifications purge**, **personal reminders**, and every
+> **token / session expiry window**. ACH settlement prose ("2-4 business days") was already correct and is
+> unrelated to this rule.
+
 > **TAX notification links carry program context** (added this session). All 12 tax notification `link`s append `&program=${plan.program_id}` to the `/admin/client/<id>?tab=tax` deep-link. Without it, a client enrolled in BOTH VFO Holistic (program 1) and VFO Tax Planning (program 4) opened their DEFAULT enrollment (Holistic) instead of the program the notification was about. `ClientDetail.jsx` reads `?program=` and passes it to `msm_load_client_home`, which resolves the matching enrollment before falling back to `clients.enrollment_id`. MAP1/PFT/Advisor/Accountant links are unaffected (single default program).
 
 ## Data model
@@ -92,7 +116,7 @@ Fired once per plan (guarded by `client_tax_plans.tax4_meeting_reminder_last_sen
 
 ### TAX pipeline — no shared `admin` bell (rerouted 2026-06-09; recipients re-cut 2026-07-27)
 
-Every TAX notification routes to a specific person via [`utils/tax-notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/tax-notify.ts) — none use `recipient:'admin'`. Tax 3 / Setup-phase → **assigned PF** (`taxPfRecipients`, **Tracy** fallback — `TAX_OWNERS` is `[TRACY_EMAIL]` alone since Tim Gacsy left); Tax 4/5 client-decision FYIs → **assigned PF + the allocated tax planner** (`taxDecisionRecipients`, Tracy fallback, planner row link-overridden into the planner portal); the meeting nudge → **PF + planner + Tracy**; the Tax 4/5 96h "reach out" escalations → **assigned PF**. Gotchas #291 (the four-layer departed-staffer checklist) + #292 (the per-recipient `links` map). Full per-notification inventory: [tax-planning.md § Notification inventory](tax-planning.md#notification-inventory-tax-pipeline--audit-2026-06-09).
+Every TAX notification routes to a specific person via [`utils/tax-notify.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/tax-notify.ts) — none use `recipient:'admin'`. Tax 3 / Setup-phase → **assigned PF** (`taxPfRecipients`, **Tracy** fallback — `TAX_OWNERS` is `[TRACY_EMAIL]` alone since Tim Gacsy left); Tax 4/5 client-decision FYIs → **assigned PF + the allocated tax planner** (`taxDecisionRecipients`, Tracy fallback, planner row link-overridden into the planner portal); the meeting nudge → **PF + planner + Tracy** (its own trigger is the CALENDAR meeting date, not a business-day ladder); the Tax 4/5 stall "reach out" escalations (default **4 business days**) → **assigned PF**. Gotchas #291 (the four-layer departed-staffer checklist) + #292 (the per-recipient `links` map). Full per-notification inventory: [tax-planning.md § Notification inventory](tax-planning.md#notification-inventory-tax-pipeline--audit-2026-06-09).
 
 ### Advisor / Accountant onboarding — route to the "Team Member Responsible" (2026-06-15)
 
@@ -103,11 +127,11 @@ Each `advisor_onboarding` / `accountant_onboarding` row carries an `onboarding_t
 | Client clicked **Yes** (`*/client-decision.ts`) | **team member** | "<name> clicked Yes on the advisor/accountant-onboarding email" |
 | Client clicked **No** (`*/client-decision.ts`) | **team member** | "<name> clicked No on the …-onboarding email" — rerouted alongside the Yes click (2026-06-15) |
 | Client clicked **Request Additional Meeting** (`*/client-decision.ts`, `decision='ExtraMeeting'`) | **team member** | **action-required** (`dismissible:false`), rules `ADVISOR_extra_meeting_requested` / `ACCOUNTANT_extra_meeting_requested` (recipient token `TEAM_MEMBER`; added 2026-07-14). Title "Extra meeting requested…"; link deep-links to the onboarding record. **Cleared** by the extra-meeting outcome handler (see the extra-meeting subsection below). |
-| 96h stall escalations (`*/sweep.ts`, `addAdvisorNotif`/`addAccountantNotif`) | **team member** | the three-stall 96h notices (Undecided / agreement / payment) — formerly `admin` |
+| Stall escalations (`*/sweep.ts`, `addAdvisorNotif`/`addAccountantNotif`) | **team member** | the three stall notices (Undecided / agreement / payment), default **4 business days** each — formerly `admin` |
 | **NEW** "Ready to create" action-required (`*/invoice-receipt.ts`) | **team member** | `dismissible:false`; `title: "Ready to create <name> — onboarding complete"`. Fired when payment + invoice/receipt are done so the Stage-3 "Create Advisor/Accountant" button is available. **Cleared** by `*/create-member.ts` (`.like("title","Ready to create%")`) once the member is created. |
 | CEO-countersign FYI (`*/ceo-countersign.ts`) | `admin` (unchanged) | not rerouted this session |
 
-(The sweep's 14-day implicit-No auto-decline updates the row + chains the decline email but inserts **no** notification. A `final_decision='ExtraMeeting'` parked at the decision stage suppresses both that auto-decline and the decision-stall reminders.)
+(The sweep's 14-day implicit-No auto-decline updates the row + chains the decline email but inserts **no** notification. **Its 14 days stay CALENDAR days** — a deliberate survivor of the 2026-08-14 business-day conversion, because it is an owner decision about how long a prospect gets, not a chase cadence. A `final_decision='ExtraMeeting'` parked at the decision stage suppresses both that auto-decline and the decision-stall reminders.)
 
 ### Advisor / Accountant onboarding — extra-meeting mechanism (2026-07-14)
 

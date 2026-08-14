@@ -28,7 +28,7 @@ State machine for the tax-planning engagement. **85 columns total** (4 original 
 | `tax3_meeting_date` | date | **NEW 2026-08-10** (migration `20260810130000_tax3_roi_meeting_columns.sql`). The booked ROI meeting date. **REQUIRED on a confirm send** — `automation_TAX_readyfortax3` 400s `"A meeting date is required"` without a `^\d{4}-\d{2}-\d{2}$` value, and the `confirm_no_date` decision it replaced is now a 400 as well. Written ONLY on the confirm path (a decline never touches it). It is the sole source for the step's "Meeting booked for …" pill and for the nightly sweep's assess-reminder window. Legacy rows confirmed before v717 are NULL and fall back to displaying their `client_tax_progress` status. |
 | `tax3_meeting_time` | text | **NEW 2026-08-10.** `HH:MM` 24h as typed; rendered 12h (`formatTime12`) in the pill and the reminder email. Optional — a date-only booking drops the whole "at \<time\> \<tz\>" clause from the reminder body so the sentence stays grammatical. |
 | `tax3_meeting_timezone` | text | **NEW 2026-08-10.** Free text as picked (e.g. `EST`). Optional; same clause-dropping behaviour. |
-| `tax3_assess_reminder_sent_at` | timestamptz | **NEW 2026-08-10.** One-shot guard for the sweep's `TAX_tax3_assess_reminder_email` block (rule `delay_days` = days **BEFORE** `tax3_meeting_date`, default 2 — the only countdown delay in the system). **Stamped ONLY after a successful Gmail draft**: a missing planner email or a failed Gmail auth skips without stamping, so the row retries the next night. Gotcha #359. |
+| `tax3_assess_reminder_sent_at` | timestamptz | **NEW 2026-08-10.** One-shot guard for the sweep's `TAX_tax3_assess_reminder_email` block (rule `delay_days` = **BUSINESS** days **BEFORE** `tax3_meeting_date`, default 2 — the only countdown delay in the system, and since 2026-08-14 one of only two delays walked FORWARD over weekdays, by `businessDayHorizonDateOnly`). **Stamped ONLY after a successful Gmail draft**: a missing planner email or a failed Gmail auth skips without stamping, so the row retries the next night. Gotcha #359. |
 
 ### Tax 3 — Decision form + Undecided sub-flow
 | Column | Type | Notes |
@@ -122,25 +122,27 @@ Backs the **"Assess tax planning opportunities (and enter presentation details)"
 | `assess_form_submitted_by` | text | Session email of the submitter — likewise overwritten by a later edit. |
 
 ### Tax 3 — reminder timers (Phase post-Tax-5 polish)
-The Tax 3 cascade is gated by client action at 3 different points (Undecided email click, agreement signing, payment). Each has a 48h reminder + 96h PF-notification timer driven by `tax-revshare-sweep-daily` cron.
+The Tax 3 cascade is gated by client action at 3 different points (Undecided email click, agreement signing, payment). Each has a **2-business-day** reminder + **4-business-day** PF-notification timer driven by `tax-revshare-sweep-daily` cron.
+
+> **The unit is BUSINESS days as of 2026-08-14 — Mon–Fri UTC, no holiday calendar.** The tiers used to be 48h / 96h of wall-clock. **The stored `notification_rules.delay_days` values did NOT change** (still 2 and 4); only the counting did, via `businessDelayCutoffIso` in `utils/notify.ts` (a backward weekday walk). Every ladder column in this section, in the Tax 4 post-review block and in the Tax 5 implementation block is measured that way, and the bell messages read literally *"N business day(s) have passed"*. Nothing else on `client_tax_plans` changed unit: `tax4_meeting_date`, the deposit/refund dates and every `*_date` column are still plain calendar dates.
 
 | Column | Type | Notes |
 |---|---|---|
-| `tax_decision_email_sent_at` | timestamptz | When the Undecided email was drafted. Sweep base for 48h/96h. |
-| `tax_decision_reminder_sent_at` | timestamptz | When the 48h reminder Gmail draft was created. Idempotency for sweep. |
-| `tax_decision_pf_notified_at` | timestamptz | When the 96h admin notification was inserted. |
-| `signed_reminder_sent_at` | timestamptz | 48h post-`signed_followup_sent_date` reminder. |
-| `signed_pf_notified_at` | timestamptz | 96h post-`signed_followup_sent_date` PF notification. |
+| `tax_decision_email_sent_at` | timestamptz | When the Undecided email was drafted. Sweep base for the 2/4-business-day tiers. |
+| `tax_decision_reminder_sent_at` | timestamptz | When the 2-business-day reminder Gmail draft was created. Idempotency for sweep. |
+| `tax_decision_pf_notified_at` | timestamptz | When the 4-business-day admin notification was inserted. |
+| `signed_reminder_sent_at` | timestamptz | 2-business-day post-`signed_followup_sent_date` reminder. |
+| `signed_pf_notified_at` | timestamptz | 4-business-day post-`signed_followup_sent_date` PF notification. |
 | `payment_email_sent_at` | timestamptz | When the `/tax-pay` email was drafted (used as sweep base). |
-| `payment_reminder_sent_at` | timestamptz | 48h reminder timestamp. |
-| `payment_pf_notified_at` | timestamptz | 96h PF notification timestamp. |
+| `payment_reminder_sent_at` | timestamptz | 2-business-day reminder timestamp. |
+| `payment_pf_notified_at` | timestamptz | 4-business-day PF notification timestamp. |
 
 #### "Reached out?" acknowledgements (added 2026-08-12, v734)
-One per stall ladder, recording that a human actually chased the 96h escalation. **ONLY writer: `automation_stall_ack`** (`pipeline:'tax'`, `stall` ∈ `tax_decision` / `signed` / `payment` / `post_review` / `implementation`); un-ticking the checkbox writes NULL. Nothing else reads them — no sweep, no bell, no gate — they exist so the AI PC Admin block can show whether the chase happened. The 48h and 96h rows themselves now render **only** when their own column is stamped (Tax 5's used to render always). Gotcha **#381**.
+One per stall ladder, recording that a human actually chased the tier-2 escalation (4 business days by default). **ONLY writer: `automation_stall_ack`** (`pipeline:'tax'`, `stall` ∈ `tax_decision` / `signed` / `payment` / `post_review` / `implementation`); un-ticking the checkbox writes NULL. Nothing else reads them — no sweep, no bell, no gate — they exist so the AI PC Admin block can show whether the chase happened. The reminder and PF-notice rows themselves now render **only** when their own column is stamped (Tax 5's used to render always). Gotcha **#381**.
 
 | Column | Type | Notes |
 |---|---|---|
-| `tax_decision_pf_ack_at` | timestamptz | Tax 3 Undecided-decision stall. Backfilled `now()` where the 96h notice had fired AND `tax_final_decision IS NOT NULL` — **1 row checked** (plan 78). |
+| `tax_decision_pf_ack_at` | timestamptz | Tax 3 Undecided-decision stall. Backfilled `now()` where the PF notice had fired AND `tax_final_decision IS NOT NULL` — **1 row checked** (plan 78). |
 | `signed_pf_ack_at` | timestamptz | Agreement-signing stall. Backfilled where the notice had fired AND `client_signed='Yes'` — **1 row checked** (plan 79). |
 | `payment_pf_ack_at` | timestamptz | Retainer-payment stall. Backfilled where the notice had fired AND `retainer_date IS NOT NULL` — **0 rows matched**. |
 | `post_review_pf_ack_at` | timestamptz | Post-review stall (shares the `post_review_*` guard pair below). **No backfill statement was written for this ladder** — every row starts NULL. |
@@ -173,7 +175,7 @@ The **"Send presentation link to member before meeting"** step (`program_client_
 | `presentation_email_sent_at` | timestamptz | Stamped when the sweep drafts the email; its NULL-ness is the sweep's not-yet-sent guard. |
 
 ### Tax 4 — Continue / Stop + refund (Phase 6 — BUILT) + post-review client-email redesign
-The Tax 4 flow no longer fires money movement on admin click. Admin picks a 3-option dropdown (Continue - Revenue Share / Undecided / Stop - Refund); for Continue + Undecided, a client email goes out with timer-based fallback.
+The Tax 4 flow no longer fires money movement on admin click. Admin picks a 3-option dropdown (Continue - Revenue Share / Undecided / Stop - Refund); for Continue + Undecided a client email goes out and the sweep then nags on a business-day ladder until the client clicks — **there is no timer-based fallback on either pick, and has not been since #264**.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -190,10 +192,10 @@ The Tax 4 flow no longer fires money movement on admin click. Admin picks a 3-op
 | `tax4_planner_nudge_sent_at` | timestamptz | **NEW 2026-07-22** (migration `20260722130000`). One-shot guard for the day-after-meeting PLANNER bell `TAX_planner_post_meeting` ("Confirm detailed tax plan presentation completion and client decision 1"), fired by `revshare-sweep.ts` when `tax4_meeting_date < today` + a planner is set + NOT(presentation done AND `post_review_decision` set). |
 | `post_review_decision` | text | Admin's pick: `Continue - Revenue Share` / `Undecided` / `Stop - Refund`. |
 | `post_review_decision_token` | text | 32-byte hex for `/tax-postreview-decide?token=`. Indexed. Generated on Continue + Undecided. |
-| `post_review_decision_email_sent_at` | timestamptz | When client email was drafted — sweep base for the 48h reminder / 96h PF ladder (as of 2026-07-22 BOTH the Continue and Undecided picks use it; the Continue 24h auto-lock is REMOVED, gotcha #264). |
-| `post_review_client_decision` | text | Client's click on the email button: `Proceed` (Undecided→Proceed → fires revshare) / `Confirmed` (Continue-email green "Continue now" click → fires revshare) / `Refund` (fires refund). **`Auto-Locked` is NO LONGER written by Tax 4 as of 2026-07-22 (gotcha #264)** — Continue is now click-only; the value survives only as historical data + the Tax 5 implementation twin. |
-| `post_review_reminder_sent_at` | timestamptz | 48h reminder timestamp — shared by BOTH the Undecided AND (as of 2026-07-22) the Continue reminder ladder (safe: mutually exclusive per plan). |
-| `post_review_pf_notified_at` | timestamptz | 96h PF notification timestamp — shared by BOTH the Undecided AND (as of 2026-07-22) the Continue-stalled bell. |
+| `post_review_decision_email_sent_at` | timestamptz | When client email was drafted — sweep base for the **2-business-day** reminder / **4-business-day** PF ladder (as of 2026-07-22 BOTH the Continue and Undecided picks use it; the Continue 24h auto-lock is REMOVED, gotcha #264). |
+| `post_review_client_decision` | text | Client's click on the email button: `Proceed` (Undecided→Proceed → fires revshare) / `Confirmed` (Continue-email green "Continue now" click → fires revshare) / `Refund` (fires refund). **`Auto-Locked` is NO LONGER written by Tax 4 as of 2026-07-22 (gotcha #264)** — Continue is click-only. **As of 2026-08-14 the Tax 5 twin stopped writing it too, so NOTHING in the codebase writes this value on either column** — it is historical data that `overview-tax.ts` still reads so old rows keep rendering. **The `window_expired` flag that `postreview-client-decision.ts` returns is NOT a grace-period expiry** — it is the money-moved backstop (retainer revenue share already transferred → a Refund click is refused) and keeps its old key only because `TaxPostReviewDecidePage` reads it. |
+| `post_review_reminder_sent_at` | timestamptz | **2-business-day** reminder timestamp — shared by BOTH the Undecided AND (as of 2026-07-22) the Continue reminder ladder (safe: mutually exclusive per plan). |
+| `post_review_pf_notified_at` | timestamptz | **4-business-day** PF notification timestamp — shared by BOTH the Undecided AND (as of 2026-07-22) the Continue-stalled bell. |
 | `refund_status` | text | `succeeded` / `failed`. Set by `automation_TAX_refund` (PUBLIC, accepts service-role bearer OR admin session token). |
 | `refund_id` | text | Stripe refund object id. |
 | `refund_amount` | numeric | What was actually refunded (BASE amount only — no card-fee gross-up). |
@@ -213,17 +215,19 @@ Tax Planning (program_id=4) starts with a **Set Up** phase containing exactly ON
 | `deposit_refund_email_sent` | boolean | default false. Idempotency on confirmation Gmail draft to client. |
 
 ### Tax 5 — Implementation flow (Phase 7 — BUILT) + client-email redesign
-Tax 5b "Implementation decision" mirrors Tax 4's 3-option pattern: Proceed picks DON'T charge immediately — they send a 24h grace email with a Decline button; Undecided sends 2 buttons + 48h/96h reminders; Not Implementing sends decline email only, no money movement.
+Tax 5b "Implementation decision" mirrors Tax 4's 3-option pattern: Proceed and Undecided both send a buttons email and then wait; Not Implementing sends a decline email only, no money movement.
+
+> **CONFIRM-ONLY as of 2026-08-14 — nothing here auto-charges, ever.** The sweep tier that wrote `implementation_final_decision='Auto-Locked'` 24 hours after a silent Proceed and fired the off-session charge is **deleted**. `automation_TAX_charge_implementation` now has exactly **ONE runtime call site** — `actions/tax/implement-final-decision.ts`, the client's own click on `/tax-implement-decide` (verified by grep). Both admin picks now run a reminder ladder instead: **2 business days** → reminder email, **4 business days** → PF bell, sharing the guard columns below. A silent plan waits indefinitely.
 
 | Column | Type | Notes |
 |---|---|---|
 | `implementation_decision` | text | Admin's Tax 5b pick: `Proceed` / `Undecided` / `Not Implementing`. |
 | `implementation_token` | text | 32-byte hex for `/tax-implement-decide?token=`. Indexed. Generated on Proceed + Undecided. |
 | `implementation_decision_email_sent` | text | Stores the decision name (`Proceed`/`Undecided`/`Not Implementing`) once the matching email is drafted. Per-decision idempotency so admin re-picks re-send the right email. |
-| `implementation_decision_email_sent_at` | timestamptz | When email was drafted — sweep base for 24h Proceed lock-in / 48h Undecided reminder / 96h Undecided PF. |
-| `implementation_final_decision` | text | Client's click result: `Proceed` (Undecided→Proceed → fires off-session charge directly) / `Confirmed` (Proceed-email green "Proceed now" click → fires off-session charge immediately, skipping the 24h grace) / `Decline` (drafts decline email, no charge) / `Auto-Locked` (sweep at 24h on Proceed pick with no client click, fires charge). **Since 2026-08-03 (v694, gotcha #321) the three CLICK values (`Proceed`/`Confirmed`/legacy `Yes`) also draft the client acknowledgment email `TAX_implementdecision\|Proceeding` (`email_templates` id 211) BEFORE the charge chain — `Auto-Locked` deliberately sends nothing, and `Decline` is unchanged.** |
-| `implementation_reminder_sent_at` | timestamptz | Undecided 48h reminder timestamp. |
-| `implementation_pf_notified_at` | timestamptz | Undecided 96h PF notification timestamp. |
+| `implementation_decision_email_sent_at` | timestamptz | When email was drafted — sweep base for **all four** ladder tiers: the Proceed and Undecided reminder emails (**2 business days**) and their PF bells (**4 business days**). The old "24h Proceed lock-in" tier that also read this column is **gone** (2026-08-14). |
+| `implementation_final_decision` | text | Client's click result: `Proceed` (Undecided-email green button → fires the off-session charge) / `Confirmed` (Proceed-email green "Proceed now" click → same) / `Decline` (drafts decline email, no charge). **Every value is written by a client click and nothing else.** **`Auto-Locked` is LEGACY-ONLY as of 2026-08-14 — no writer exists anywhere in the codebase**; the sweep tier that set it is deleted, and the string survives only because `actions/clients/overview-tax.ts` still READS it (mapping `Proceed`/`Confirmed`/`Auto-Locked` alike to "continue") so plans locked by the retired mechanism keep rendering. Do not treat a NULL here as "the sweep will handle it". **Since 2026-08-03 (v694, gotcha #321) the three CLICK values (`Proceed`/`Confirmed`/legacy `Yes`) also draft the client acknowledgment email `TAX_implementdecision\|Proceeding` (`email_templates` id 211) BEFORE the charge chain**; `Decline` is unchanged. The handler's dead `Auto-Locked && Decline` rejection was removed with the tier — **the only rejection left is "the charge already succeeded → Decline refused", whose JSON flag was renamed `window_expired` → `already_charged`** (the Tax 4 twin keeps the old key, which its page reads). |
+| `implementation_reminder_sent_at` | timestamptz | **2-business-day** reminder timestamp — shared by BOTH the Undecided AND (as of 2026-08-14) the **Proceed** reminder ladder, rule `TAX_impl_proceed_reminder_email`. Safe for the same reason the Tax 4 pair is: `implementation_decision` is single-valued, so only one ladder can ever match a row. |
+| `implementation_pf_notified_at` | timestamptz | **4-business-day** PF notification timestamp — likewise shared by the Undecided bell AND (2026-08-14) the Proceed-stalled bell `TAX_impl_proceed_stalled`. |
 | `implementation_charge_status` | text | `succeeded` / `processing` / `declined` / `auth_required` / `manual_required` (no PI on retainer, e.g. check). |
 | `implementation_payment_intent_id` | text | Off-session PaymentIntent created by `automation_TAX_charge_implementation`. |
 | `default_payment_method_id` | text | **Phase D (admin card-update).** Stripe PM id the implementation off-session charge prefers when set by the admin-initiated payment-method change (`/update-card` page, see `card_update_tokens` in [pipeline.md](pipeline.md)). |
