@@ -1431,6 +1431,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     // Generating the ROI deck writes no progress row — the plan stamp is the only
     // record, so the step reads as done exactly when a deck has been generated.
     if (t.status_options === 'tax_generate_presentation') return !!livePlan?.generated_presentation_at
+    // Assess step: submitting the form stamps assess_form_submitted_at, which is
+    // what the row renderer reads, so the step must read done from that column too
+    // and not from a progress row alone.
+    if (t.status_options === 'assess_form' || t.name === 'Assess tax planning opportunities (and enter presentation details)') {
+      return !!localProgress[t.id]?.status || !!livePlan?.assess_form_submitted_at
+    }
     // Green/Red light call: 'Proceed' closes the step, and so does a completed
     // refund. The refund path writes no progress status of its own.
     if (t.status_options === 'tax_refund') {
@@ -1489,6 +1495,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const reviewProceed = !reviewTask || reviewStatus === 'Proceed with tax planning'
   const reviewStop = !!reviewTask && reviewStatus === 'Stop tax planning'
   const roiBooked = prereqDone('tax_3_decision', null)
+  // Column-proven as well as progress-proven — isTaskStatused above reads the
+  // submitted-form stamp, which is the only thing that completes this step.
   const assessDone = prereqDone('assess_form', 'Assess tax planning opportunities (and enter presentation details)')
   const deckGenerated = prereqDone('tax_generate_presentation', 'Generate and download presentation')
   const sendLinkDone = prereqDone('tax_presentation_link', null)
@@ -1768,6 +1776,13 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         )
       }
 
+      // A vault drop is a HAND-OFF, not a completion: the groups that deliver a Tax
+      // Assessment PDF (backend constants/vault-assess-groups.ts) still need an
+      // admin to key its numbers into this form, which is what completes the step
+      // for every group alike. So this is a source-document note, not a done-state.
+      const vaultDropAt = livePlan?.assess_vault_uploaded_at
+      const vaultDropBy = String(livePlan?.assess_vault_uploaded_by || '').trim()
+
       const formOpen = expanded[expandKey]
       return (
         <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)', padding: '7px 0' }}>
@@ -1777,6 +1792,11 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             <button onClick={() => setExpanded(prev => ({ ...prev, [expandKey]: !prev[expandKey] }))} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600 }}>Enter Details</button>
             <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}></span>
           </div>
+          {vaultDropAt && (
+            <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '4px', marginLeft: '18px' }}>
+              Tax Assessment PDF in vault — uploaded by {vaultDropBy || 'the tax planner'} on {formatStamp(vaultDropAt)}. Enter its information here.
+            </div>
+          )}
           {formOpen && (
             <AssessTaxForm
               task={task}
