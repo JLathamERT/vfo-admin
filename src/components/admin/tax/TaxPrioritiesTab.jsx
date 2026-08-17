@@ -1421,6 +1421,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     return st === 'Yes' || st === 'Undecided'
   })) || decision2Status === 'Move to Implementation'
 
+  // Skipping the ROI meeting (automation_TAX_skiproimeeting) is FINAL: the Tax 2
+  // work and Tax 3's "ROI Presentation" never happen, and "Client tax planning
+  // decision" unlocks in their place. Declared ahead of isTaskStatused because
+  // that function reads it (the booking step is closed BY the skip).
+  const roiSkipped = !!livePlan?.roi_meeting_skipped_at
+
   // A task counts as statused for display when its progress is recorded in
   // client_tax_progress — or, for the two steps that write to client_tax_plans
   // instead, when the corresponding plan column is set.
@@ -1457,6 +1463,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const st = localProgress[t.id]?.status
       return !!st && (st !== 'Additional info required' || !!livePlan?.additional_info_received_at)
     }
+    // Booking the ROI meeting is RESOLVED by skipping it — the answer is "there
+    // will be no meeting", which is a real outcome, not an outstanding step. So it
+    // counts as done everywhere done is counted (phase pills, hero totals, step
+    // gates), while the other four steps the skip removes drop out of the counts
+    // entirely (isSkippedAway).
+    if (t.status_options === 'tax_3_decision') return !!localProgress[t.id]?.status || roiSkipped
     return !!localProgress[t.id]?.status
   }
 
@@ -1494,7 +1506,24 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const reviewStatus = reviewTask ? localProgress[reviewTask.id]?.status : null
   const reviewProceed = !reviewTask || reviewStatus === 'Proceed with tax planning'
   const reviewStop = !!reviewTask && reviewStatus === 'Stop tax planning'
+  // True once the meeting is booked OR the skip closed the step (isTaskStatused).
   const roiBooked = prereqDone('tax_3_decision', null)
+  // The five steps that skip takes off the board (for ROW RENDERING — all five
+  // render as inert skip rows). Sentinels first; the two whose sentinel isn't
+  // guaranteed on every program row also match by name.
+  const isRoiSkipSetTask = (t) => !!t && (
+    ['tax_3_decision', 'assess_form', 'tax_generate_presentation', 'tax_presentation_link'].includes(t.status_options)
+    || t.name === 'Assess tax planning opportunities (and enter presentation details)'
+    || t.name === 'Generate and download presentation'
+    || t.name === 'ROI Presentation'
+  )
+  // The done-math sees only FOUR of them: the booking step stays in the counts
+  // because the skip answers it (isTaskStatused), which is what leaves Tax 2 at a
+  // green 1/1 rather than an empty phase. Of those four, only the UNANSWERED ones
+  // drop out — a step actioned before the skip still counts, because that work
+  // actually happened.
+  const isSkippedAway = (t) => roiSkipped && isRoiSkipSetTask(t)
+    && t?.status_options !== 'tax_3_decision' && !isTaskStatused(t)
   // Column-proven as well as progress-proven — isTaskStatused above reads the
   // submitted-form stamp, which is the only thing that completes this step.
   const assessDone = prereqDone('assess_form', 'Assess tax planning opportunities (and enter presentation details)')
@@ -1600,9 +1629,17 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       return { locked: !ready, hint: 'Complete every Tax 1 and Tax 2 step first' }
     }
     if (nm === 'Client tax planning decision' && so === 'enter_details' && phase?.name === 'Tax 3 - ROI Meeting') {
-      return { locked: !roiPresentationDone, hint: 'Complete the "ROI Presentation" step first' }
+      // A skipped ROI meeting is the other way in: the presentation step it
+      // waits on is one of the steps skip removes.
+      return { locked: !roiPresentationDone && !roiSkipped, hint: 'Complete the "ROI Presentation" step first' }
     }
     if (so === 'tax_hlm_confirm') {
+      // A decline closes the engagement, so there is no meeting to confirm. Must
+      // come first: a 'No' also satisfies tax3AipcDone (the cascade ends there),
+      // which would otherwise read as "cleared to send".
+      if (livePlan?.tax_decision === 'No' || livePlan?.tax_final_decision === 'No') {
+        return { locked: true, hint: 'Tax planning was declined' }
+      }
       return { locked: !tax3AipcDone, hint: 'Waiting for the Tax 3 AI PC Admin steps to complete' }
     }
     if (nm === 'Detailed tax plan presentation') {
@@ -1628,6 +1665,13 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (phase.name === 'Tax 1 - Diagnostic') {
       tasks = tasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
     }
+    // Filtered ahead of every branch below, not just the generic tail: Tax 3
+    // carries "ROI Presentation", so leaving it in would keep that phase off
+    // Done forever on a skipped plan.
+    tasks = tasks.filter(t => !isSkippedAway(t))
+    // Tax 2 needs no special case: the skip leaves exactly the booking step
+    // standing, and the skip answers it, so the generic tail below reads the
+    // phase as Done (1/1).
 
     // Phases that contain an AI-PC-Admin cascade aren't really "done" just
     // because the decision form was submitted — the cascade has to finish.
@@ -1694,6 +1738,31 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     const alreadyDone = taxSpecialistId
       ? !!localProgress[key]?.status
       : isTaskStatused(task) || (task.status_options === 'tax_implement_decision' && !!livePlan?.implementation_decision)
+    // A skipped step renders inert on EVERY surface — admin, member (readOnly)
+    // and planner alike — so the history reads the same to everyone. Ahead of the
+    // lock gate: skipped outranks locked, and skip is final so no hint applies.
+    // The booking step is the exception to `alreadyDone`: the skip makes it read
+    // done (that is what greens Tax 2), but done-ness sourced from the skip must
+    // still render as the inert skip row, never as live Send/Decline buttons. A
+    // plan carrying a real progress answer keeps its normal rendering — booked is
+    // impossible alongside a skip (the backend refuses it), declined is not.
+    const roiSkipRow = roiSkipped && isRoiSkipSetTask(task) && (
+      task.status_options === 'tax_3_decision' ? !localProgress[task.id]?.status : !alreadyDone
+    )
+    if (roiSkipRow) {
+      const isRoiBookingStep = task.status_options === 'tax_3_decision'
+      const skipChip = isRoiBookingStep ? 'ROI meeting skipped' : 'Skipped'
+      return (
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isRoiBookingStep ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${isRoiBookingStep ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+          <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: '1 1 auto', minWidth: '140px' }}>{taskLabel(task)}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '0 1 auto', minWidth: '150px', justifyContent: 'flex-end', textAlign: 'right' }}>
+            <span style={chipStyle(isRoiBookingStep ? '#1b9254' : 'var(--vfo-muted)')}>{skipChip}</span>
+          </span>
+          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isRoiBookingStep ? formatStamp(livePlan.roi_meeting_skipped_at) : '—'}</span>
+        </div>
+      )
+    }
     if (!readOnly && !alreadyDone) {
       const gate = stepGate(task, phase)
       if (gate?.locked) {
@@ -2194,6 +2263,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const dotColor = done ? '#1b9254' : requestedAt ? '#0095ff' : 'transparent'
       const dotBorder = done ? '#1b9254' : requestedAt ? '#0095ff' : 'var(--vfo-border-mid)'
       const tdGreen = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600 }
+      const tdSecondary = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(0,149,255,0.25)', background: 'rgba(0,149,255,0.06)', color: '#0095ff', fontWeight: 600 }
       async function sendRequest() {
         setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), sending: true } }))
         try {
@@ -2203,6 +2273,18 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           setDeclineDrafts(d => { const n = { ...d }; delete n[task.id]; return n })
         } catch (err) {
           alert('Failed to send email: ' + (err?.message || 'unknown error'))
+          setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), sending: false } }))
+        }
+      }
+      async function markAlreadyHave() {
+        setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), sending: true } }))
+        try {
+          const res = await callApi('automation_TAX_returns_already_have', { tax_plan_id: plan.id })
+          if (res?.error) { alert('Error: ' + res.error); setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), sending: false } })); return }
+          await refreshLivePlan()
+          setDeclineDrafts(d => { const n = { ...d }; delete n[task.id]; return n })
+        } catch (err) {
+          alert('Failed to mark tax returns as received: ' + (err?.message || 'unknown error'))
           setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), sending: false } }))
         }
       }
@@ -2220,13 +2302,16 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, flexShrink: 0, border: `1.5px solid ${dotBorder}` }} />
             <span style={{ fontSize: '13px', color: (done || requestedAt) ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{taskLabel(task)}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: (plan.program_id || 1) === 1 ? 'TAX_request_returns|holistic' : 'TAX_request_returns', when: 'Asks the client to upload tax returns via a secure link' }]} context={emailCtx} /></span>}</span>
             {done ? (
-              <span style={chipStyle('#1b9254')}>Returns received — {formatStamp(receivedAt)}</span>
+              <span style={chipStyle('#1b9254')}>{requestedAt ? `Returns received — ${formatStamp(receivedAt)}` : 'Returns on file'}</span>
             ) : readOnly ? (
               requestedAt ? <span style={chipStyle('#0095ff')}>Email sent — {formatStamp(requestedAt)}</span> : null
             ) : (
-              <button disabled={sending} onClick={sendRequest} style={tdGreen} title="Drafts a Gmail to the client with a secure link to upload their tax returns.">{sending ? 'Sending…' : (requestedAt ? 'Resend request email' : 'Send email to request tax returns')}</button>
+              <>
+                <button disabled={sending} onClick={sendRequest} style={tdGreen} title="Drafts a Gmail to the client with a secure link to upload their tax returns.">{sending ? 'Sending…' : (requestedAt ? 'Resend request email' : 'Send email to request tax returns')}</button>
+                <button disabled={sending} onClick={markAlreadyHave} style={tdSecondary} title="Marks the tax returns as received without emailing the client.">Already have tax returns</button>
+              </>
             )}
-            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{requestedAt ? formatStamp(requestedAt) : ''}</span>
+            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{requestedAt ? formatStamp(requestedAt) : (receivedAt ? formatStamp(receivedAt) : '')}</span>
           </div>
           {requestedAt && (
             <div style={{ padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
@@ -2256,12 +2341,24 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const confirmedLabel = savedDate
         ? `${savedDate}${livePlan?.tax4_meeting_time ? ' ' + livePlan.tax4_meeting_time : ''}${livePlan?.tax4_meeting_timezone ? ' ' + livePlan.tax4_meeting_timezone : ''}`
         : ''
+      // Reschedule reopens this same form pre-filled. The confirm action overwrites
+      // all four columns and re-arms the day-after decision reminder, so re-sending
+      // with a new date is the whole move — no separate endpoint.
+      const openDateForm = () => setDraft({
+        dateOpen: true,
+        date: savedDate,
+        time: String(livePlan?.tax4_meeting_time || '').slice(0, 5),
+        tz: livePlan?.tax4_meeting_timezone || 'ET',
+      })
       return (
         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: savedDate ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${savedDate ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
           <span style={{ fontSize: '13px', color: savedDate ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{taskLabel(task)}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_highlevelmeeting_confirm|Yes', when: 'High-level meeting confirmation' }]} context={emailCtx} /></span>}</span>
-          {savedDate ? (
-            <span style={chipStyle('#1b9254')}>Confirmation sent — {confirmedLabel}</span>
+          {savedDate && !formOpen ? (
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={chipStyle('#1b9254')}>Confirmation sent — {confirmedLabel}</span>
+              {!readOnly && <button disabled={sending} onClick={openDateForm} style={tdCancel} title="Pick a new date/time and re-send the same confirmation email.">Reschedule</button>}
+            </div>
           ) : readOnly ? null : formOpen ? (
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
               <input type="date" value={draft.date || ''} onChange={e => setDraft({ date: e.target.value })} style={tdInput} />
@@ -2278,7 +2375,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               <button disabled={sending} onClick={() => setDeclineDrafts(d => { const next = { ...d }; delete next[task.id]; return next })} style={tdCancel}>Cancel</button>
             </div>
           ) : (
-            <button disabled={sending} onClick={() => setDraft({ dateOpen: true, tz: draft.tz || 'ET' })} style={tdGreen} title="Enter the High Level Meeting date/time/timezone and send the confirmation email. The day after this date, Tim and Tracy get an action-required reminder to record the Client decision 1.">Send email (with date)</button>
+            <button disabled={sending} onClick={openDateForm} style={tdGreen} title="Enter the High Level Meeting date/time/timezone and send the confirmation email. The day after this date, Tim and Tracy get an action-required reminder to record the Client decision 1.">Send email (with date)</button>
           )}
           <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{savedDate ? formatDate(savedDate) : ''}</span>
         </div>
@@ -2662,36 +2759,61 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const tdCancel = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }
       const dateOpen = !!draft.dateOpen
       const setDraft = (patch) => setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), ...patch } }))
+      // A booked meeting can be moved: reopen this same form pre-filled and re-send
+      // the confirmation. Legacy rows booked before the date columns existed have
+      // nothing to pre-fill, so they reschedule from an empty form.
+      const isBooked = !!bookedLabel || p.status === 'Yes - Confirmation email to client'
+      const openDateForm = () => setDraft({
+        dateOpen: true,
+        date: livePlan?.tax3_meeting_date || '',
+        time: String(livePlan?.tax3_meeting_time || '').slice(0, 5),
+        tz: livePlan?.tax3_meeting_timezone || 'ET',
+      })
+      const rescheduleBtn = !readOnly && <button disabled={sending} onClick={openDateForm} style={tdCancel} title="Pick a new date/time and re-send the same confirmation email.">Reschedule</button>
       return (
         <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
             <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{taskLabel(task)}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_readyfortax3|Yes', when: 'If the meeting is booked' }, { name: 'TAX_readyfortax3|No', when: 'If declined' }]} context={emailCtx} /></span>}</span>
-            {bookedLabel
-              ? <span style={chipStyle('#1b9254')}>{bookedLabel}</span>
-              : isDone
-                ? <span style={chipStyle(statusColor)}>{p.status}</span>
-                : readOnly
-                  ? <span style={neutralChipStyle}>Not started</span>
-                  : dateOpen
-                    ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <input type="date" value={draft.date || ''} onChange={e => setDraft({ date: e.target.value })} style={tdInput} />
-                        <input type="time" value={draft.time || ''} onChange={e => setDraft({ time: e.target.value })} style={tdInput} />
-                        <select value={draft.tz || 'ET'} onChange={e => setDraft({ tz: e.target.value })} style={{ ...tdInput, background: 'var(--vfo-card)' }}>
-                          <option value="ET">Eastern (ET)</option>
-                          <option value="CT">Central (CT)</option>
-                          <option value="MT">Mountain (MT)</option>
-                          <option value="PT">Pacific (PT)</option>
-                          <option value="AKT">Alaska (AKT)</option>
-                          <option value="HT">Hawaii (HT)</option>
-                        </select>
-                        <button disabled={sending || !draft.date} onClick={() => fireReadyForTax3(task.id, 'confirm_date', { date: draft.date, time: draft.time, tz: draft.tz || 'ET', existingDate: p.completed_date })} style={{ ...tdGreen, opacity: (sending || !draft.date) ? 0.6 : 1 }}>{sending ? 'Sending...' : 'Send'}</button>
-                        <button disabled={sending} onClick={() => setDeclineDrafts(d => { const next = { ...d }; delete next[task.id]; return next })} style={tdCancel}>Cancel</button>
-                      </div>
+            {dateOpen && !readOnly
+              ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input type="date" value={draft.date || ''} onChange={e => setDraft({ date: e.target.value })} style={tdInput} />
+                  <input type="time" value={draft.time || ''} onChange={e => setDraft({ time: e.target.value })} style={tdInput} />
+                  <select value={draft.tz || 'ET'} onChange={e => setDraft({ tz: e.target.value })} style={{ ...tdInput, background: 'var(--vfo-card)' }}>
+                    <option value="ET">Eastern (ET)</option>
+                    <option value="CT">Central (CT)</option>
+                    <option value="MT">Mountain (MT)</option>
+                    <option value="PT">Pacific (PT)</option>
+                    <option value="AKT">Alaska (AKT)</option>
+                    <option value="HT">Hawaii (HT)</option>
+                  </select>
+                  <button disabled={sending || !draft.date} onClick={() => fireReadyForTax3(task.id, 'confirm_date', { date: draft.date, time: draft.time, tz: draft.tz || 'ET', existingDate: p.completed_date })} style={{ ...tdGreen, opacity: (sending || !draft.date) ? 0.6 : 1 }}>{sending ? 'Sending...' : 'Send'}</button>
+                  <button disabled={sending} onClick={() => setDeclineDrafts(d => { const next = { ...d }; delete next[task.id]; return next })} style={tdCancel}>Cancel</button>
+                </div>
+              : bookedLabel
+                ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={chipStyle('#1b9254')}>{bookedLabel}</span>
+                    {rescheduleBtn}
+                  </div>
+                : isDone
+                  ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={chipStyle(statusColor)}>{p.status}</span>
+                      {isBooked && rescheduleBtn}
+                    </div>
+                  : readOnly
+                    ? <span style={neutralChipStyle}>Not started</span>
                     : !declineOpen && (
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        <button disabled={sending} onClick={() => { if (!plannerAllocated) { alert('Allocate a Team Member / Tax Planner (Tax 1) before sending the confirmation email.'); return } setDraft({ dateOpen: true, tz: draft.tz || 'ET' }) }} style={tdGreen}>Send email (with date)</button>
+                        <button disabled={sending} onClick={() => { if (!plannerAllocated) { alert('Allocate a Team Member / Tax Planner (Tax 1) before sending the confirmation email.'); return } openDateForm() }} style={tdGreen}>Send email (with date)</button>
                         {canDecline && <button disabled={sending} onClick={() => setDeclineDrafts(d => ({ ...d, [task.id]: { open: true, reason: '', sending: false } }))} style={tdRed}>No - Declined email to client</button>}
+                        {/* Both programs. Irreversible, so the confirm stays: a
+                            skipped plan can never book the meeting afterwards. */}
+                        <button disabled={sending} onClick={async () => {
+                          if (!window.confirm('Skip the ROI meeting? This is final — the client moves straight to the detailed tax plan meeting.')) return
+                          const res = await callApi('automation_TAX_skiproimeeting', { tax_plan_id: plan.id })
+                          if (res?.error) { alert(`Error: ${res.error}`); return }
+                          await refreshLivePlan()
+                        }} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(27,146,84,0.25)', background: 'rgba(27,146,84,0.06)', color: '#1b9254', fontWeight: 600 }}>Skip ROI meeting</button>
                       </div>
                     )
             }
@@ -3115,7 +3237,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (phase.name === 'Tax 1 - Diagnostic') {
       tasks = tasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
     }
-    return tasks
+    return tasks.filter(t => !isSkippedAway(t))
   }
   const tax5aSpecTasks = tax5aTasks.filter(t => t.status_options !== 'specialist_select')
   const tax5bCounted = tax5bPhase ? (tax5bPhase.program_client_tasks || []).filter(t => t.status_options !== 'auto') : []
@@ -3184,6 +3306,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         if (phase.name === 'Tax 1 - Diagnostic') {
           nonAutoTasks = nonAutoTasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
         }
+        nonAutoTasks = nonAutoTasks.filter(t => !isSkippedAway(t))
         // Same rule as the hero count and the phase pills — isTaskStatused owns every
         // "this step doesn't live in client_tax_progress" special case in one place.
         const doneTasks = nonAutoTasks.filter(isTaskStatused).length

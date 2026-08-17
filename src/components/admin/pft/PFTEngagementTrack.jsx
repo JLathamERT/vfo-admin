@@ -73,6 +73,24 @@ function formatDate(d) {
   return `${parts[1]}/${parts[2]}`
 }
 
+const PFT_TZ_CODES = ['ET', 'CT', 'MT', 'PT', 'AKT', 'HT']
+// The confirmed meeting slot is only ever stored as the space-joined
+// "YYYY-MM-DD HH:MM TZ" string in client_progress.notes (see handleMeetingSend),
+// so a reschedule has to read it back token by token. Best effort: any piece
+// that is missing just leaves its input blank.
+function parseSlotNotes(notes) {
+  const parts = String(notes || '').trim().split(/\s+/).filter(Boolean)
+  return {
+    date: parts.find(x => /^\d{4}-\d{2}-\d{2}$/.test(x)) || '',
+    time: parts.find(x => /^\d{2}:\d{2}$/.test(x)) || '',
+    tz: parts.find(x => PFT_TZ_CODES.includes(x)) || 'ET',
+  }
+}
+
+// Statuses the two confirm paths write. Only these can be rescheduled — a
+// declined meeting or a no-email backfill has no slot to move.
+const PFT_CONFIRM_STATUSES = ['Confirmation email sent', 'Email sent - date not yet arranged']
+
 // MM/DD for the AI PC Admin auto rows. Plain 'YYYY-MM-DD' DATE columns are split
 // as strings (new Date() would shift them a day west of UTC); timestamptz values
 // go through Date so they read in the viewer's local time.
@@ -189,8 +207,13 @@ function MeetingStep({ task, meeting, p, readOnly, client, onSend, onCompleteNoE
   const [pending, setPending] = useState(null)
   const [declineOpen, setDeclineOpen] = useState(false)
   const [reason, setReason] = useState('')
+  // Reschedule = the same confirmation email re-sent with a new slot, after the
+  // step is already done. It reuses the date form below; the flag rides to the
+  // backend so the discovery reminder ladder is not re-armed.
+  const [resched, setResched] = useState(false)
   const isDone = !!p.status
   const statusColor = pftStatusColors[p.status] || 'var(--vfo-muted)'
+  const canReschedule = isDone && !readOnly && PFT_CONFIRM_STATUSES.includes(p.status)
   const usDecline = US_DECLINE[meeting] || US_DECLINE[2]
   const clientFirst = client?.first_name || '[Client First]'
   const clientFull = client ? `${client.first_name || ''} ${client.last_name || ''}`.trim() : ''
@@ -198,9 +221,15 @@ function MeetingStep({ task, meeting, p, readOnly, client, onSend, onCompleteNoE
   async function fire(decision, d, t, z, r) {
     if (pending) return
     setPending(decision)
-    try { await onSend(decision, d, t, z, r); setShowDate(false); setDeclineOpen(false); setReason('') }
+    try { await onSend(decision, d, t, z, r, resched); setShowDate(false); setResched(false); setDeclineOpen(false); setReason('') }
     catch (err) { console.error(err) }
     finally { setPending(null) }
+  }
+
+  function openReschedule() {
+    const slot = parseSlotNotes(p.notes)
+    setDate(slot.date); setTime(slot.time); setTz(slot.tz)
+    setResched(true); setShowDate(true)
   }
 
   async function fireNoEmail() {
@@ -214,25 +243,28 @@ function MeetingStep({ task, meeting, p, readOnly, client, onSend, onCompleteNoE
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
         <Dot done={isDone} color={statusColor} />
         <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline={PFT_PIPELINE} title={task.name} templates={meeting === 1 ? PFT_MEETING1_EMAILS : PFT_MEETING23_EMAILS} context={pftMeetingCtx(client, meeting)} /></span>}</span>
-        {isDone
-          ? <StatusPill status={p.status} color={statusColor} />
-          : readOnly
-            ? <NotStarted />
-            : showDate
-              ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle }} />
-                  <input type="time" value={time} onChange={e => setTime(e.target.value)} style={{ ...inputStyle }} />
-                  <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
-                    <option value="ET">Eastern (ET)</option>
-                    <option value="CT">Central (CT)</option>
-                    <option value="MT">Mountain (MT)</option>
-                    <option value="PT">Pacific (PT)</option>
-                    <option value="AKT">Alaska (AKT)</option>
-                    <option value="HT">Hawaii (HT)</option>
-                  </select>
-                  <button onClick={() => date && fire('confirm_date', date, time, tz)} disabled={!date || !!pending} style={{ ...greenBtn, opacity: (!date || pending) ? 0.6 : 1, cursor: (!date || pending) ? 'not-allowed' : 'pointer' }}>{pending === 'confirm_date' ? 'Sending…' : 'Send'}</button>
-                  <button onClick={() => !pending && setShowDate(false)} disabled={!!pending} style={cancelBtn}>Cancel</button>
-                </div>
+        {showDate && !readOnly
+          ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle }} />
+              <input type="time" value={time} onChange={e => setTime(e.target.value)} style={{ ...inputStyle }} />
+              <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
+                <option value="ET">Eastern (ET)</option>
+                <option value="CT">Central (CT)</option>
+                <option value="MT">Mountain (MT)</option>
+                <option value="PT">Pacific (PT)</option>
+                <option value="AKT">Alaska (AKT)</option>
+                <option value="HT">Hawaii (HT)</option>
+              </select>
+              <button onClick={() => date && fire('confirm_date', date, time, tz)} disabled={!date || !!pending} style={{ ...greenBtn, opacity: (!date || pending) ? 0.6 : 1, cursor: (!date || pending) ? 'not-allowed' : 'pointer' }}>{pending === 'confirm_date' ? 'Sending…' : resched ? 'Re-send' : 'Send'}</button>
+              <button onClick={() => { if (pending) return; setShowDate(false); setResched(false) }} disabled={!!pending} style={cancelBtn}>Cancel</button>
+            </div>
+          : isDone
+            ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <StatusPill status={p.status} color={statusColor} />
+                {canReschedule && <button onClick={openReschedule} disabled={!!pending} style={blueBtn}>Reschedule</button>}
+              </div>
+            : readOnly
+              ? <NotStarted />
               : declineOpen
                 ? null
                 : <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'flex-end' }}>
@@ -609,10 +641,11 @@ function PFTEngagementTrack({ clientId, programId, client, readOnly = false, not
     finally { setSaving(p => ({ ...p, [taskId]: false })) }
   }
 
-  async function handleMeetingSend(task, meeting, decision, date, time, tz, reason) {
+  async function handleMeetingSend(task, meeting, decision, date, time, tz, reason, reschedule = false) {
     await callApi('automation_PFT_meetingemail', {
       client_id: clientId, task_id: task.id, meeting,
       decision, decline_reason: reason || null, meeting_date: date || null, meeting_time: time || null, meeting_tz: tz || null,
+      reschedule: !!reschedule,
     })
     const status = decision === 'declined' ? 'Meeting declined'
       : decision === 'us_declined' ? (meeting === 1 ? 'Declined by Member' : 'Declined by ERT/VFOS')
@@ -804,7 +837,7 @@ function PFTEngagementTrack({ clientId, programId, client, readOnly = false, not
     const mNum = meetingNumber(task.name)
     if (mNum) {
       if (mNum === 3 && gateStatus !== 'Yes') return null
-      const step = <MeetingStep task={task} meeting={mNum} p={p} readOnly={readOnly} client={client} onSend={(decision, d, t, z, r) => handleMeetingSend(task, mNum, decision, d, t, z, r)} onCompleteNoEmail={() => saveTask(task.id, 'Complete', p.completed_date)} onDate={(d) => saveTask(task.id, p.status, d)} />
+      const step = <MeetingStep task={task} meeting={mNum} p={p} readOnly={readOnly} client={client} onSend={(decision, d, t, z, r, resched) => handleMeetingSend(task, mNum, decision, d, t, z, r, resched)} onCompleteNoEmail={() => saveTask(task.id, 'Complete', p.completed_date)} onDate={(d) => saveTask(task.id, p.status, d)} />
       if (mNum === 2) {
         return <div key={task.id}>{step}<DiscoveryViewer eng={eng} readOnly={readOnly} client={client} /></div>
       }

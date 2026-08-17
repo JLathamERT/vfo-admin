@@ -57,16 +57,33 @@ function StallAckRow({ pipeline, id, stall, ackAt, onAck }) {
   )
 }
 
+// The confirmed slot is stored in the task notes as a space-joined
+// "YYYY-MM-DD HH:MM TZ" string (see fire() below). Best-effort parse for the
+// reschedule pre-fill — anything that doesn't match comes back empty.
+const TZ_CODES = ['ET', 'CT', 'MT', 'PT', 'AKT', 'HT']
+const parseSlotNotes = (s) => {
+  const parts = String(s || '').trim().split(/\s+/)
+  return {
+    date: /^\d{4}-\d{2}-\d{2}$/.test(parts[0] || '') ? parts[0] : '',
+    time: /^\d{2}:\d{2}$/.test(parts[1] || '') ? parts[1] : '',
+    tz: TZ_CODES.includes(parts[2]) ? parts[2] : 'ET',
+  }
+}
+
 // MAP 4 confirmation email step — 3-button post-meeting confirm mirroring MAP 1's
 // PIP 1 Confirmation Email (PipConfirmStep): "with date" (date/time/tz), "date not
 // confirmed", and "declined". Drafts the email via the backend, then records the
 // task status. Self-contained so its date/time inputs survive parent re-renders.
 function Map4ConfirmStep({ trackId, task, p, onDone, emailCtx }) {
   const [showDate, setShowDate] = useState(false)
+  const [rescheduling, setRescheduling] = useState(false)
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const [tz, setTz] = useState('ET')
   const [pending, setPending] = useState(null)
+  // Last slot written to the task notes — kept locally so a reschedule right after
+  // a send pre-fills from what was just saved, not the stale parent copy.
+  const [slot, setSlot] = useState(p.notes || '')
   const isDone = !!p.status
   const statusColor = isDone ? '#1b9254' : 'var(--vfo-muted)'
   const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
@@ -81,34 +98,54 @@ function Map4ConfirmStep({ trackId, task, p, onDone, emailCtx }) {
       await callApi('automation_REGULAR_map4confirmemail', { priority_track_id: trackId, decision, meeting_date: d || null, meeting_time: t || null, meeting_tz: z || null })
       const status = decision === 'declined' ? 'Sent declined email' : decision === 'confirm_no_date' ? 'Email sent - date not arranged' : 'Confirmation email sent'
       const today = new Date().toISOString().split('T')[0]
-      await callApi('msm_save_priority_task', { priority_track_id: trackId, task_id: task.id, status, completed_date: today })
+      // Persist the slot in the task notes so a later reschedule can pre-fill it.
+      const notes = decision === 'confirm_date' ? [d, t, z].filter(Boolean).join(' ') : null
+      await callApi('msm_save_priority_task', { priority_track_id: trackId, task_id: task.id, status, completed_date: today, notes })
       onDone(task.id, status, today)
-      setShowDate(false); setDate(''); setTime('')
+      if (decision === 'confirm_date') setSlot(notes || '')
+      setShowDate(false); setRescheduling(false); setDate(''); setTime('')
     } catch (err) { console.error('MAP 4 confirm error:', err) }
     finally { setPending(null) }
   }
+
+  // Reschedule reopens the same form pre-filled with the stored slot and re-sends
+  // the same confirmation email (the backend builder has no guards or side effects).
+  function openReschedule() {
+    const s = parseSlotNotes(slot)
+    setDate(s.date); setTime(s.time); setTz(s.tz)
+    setRescheduling(true)
+  }
+
+  const dateForm = (onCancel) => (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+      <input type="time" value={time} onChange={e => setTime(e.target.value)} style={inputStyle} />
+      <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
+        <option value="ET">Eastern (ET)</option>
+        <option value="CT">Central (CT)</option>
+        <option value="MT">Mountain (MT)</option>
+        <option value="PT">Pacific (PT)</option>
+        <option value="AKT">Alaska (AKT)</option>
+        <option value="HT">Hawaii (HT)</option>
+      </select>
+      <button onClick={() => date && fire('confirm_date', date, time, tz)} disabled={!date || !!pending} style={{ ...greenBtn, opacity: (!date || pending) ? 0.6 : 1 }}>{pending === 'confirm_date' ? 'Sending…' : 'Send'}</button>
+      <button onClick={() => !pending && onCancel()} disabled={!!pending} style={cancelBtn}>Cancel</button>
+    </div>
+  )
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
       <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="REGULAR" title={task.name} templates={[{ name: 'REGULAR_map4confirm', when: 'If date confirmed / not confirmed' }, { name: 'REGULAR_map4declined', when: 'If the client declined' }]} context={emailCtx} /></span></span>
       {isDone
-        ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
-        : showDate
-          ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
-              <input type="time" value={time} onChange={e => setTime(e.target.value)} style={inputStyle} />
-              <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
-                <option value="ET">Eastern (ET)</option>
-                <option value="CT">Central (CT)</option>
-                <option value="MT">Mountain (MT)</option>
-                <option value="PT">Pacific (PT)</option>
-                <option value="AKT">Alaska (AKT)</option>
-                <option value="HT">Hawaii (HT)</option>
-              </select>
-              <button onClick={() => date && fire('confirm_date', date, time, tz)} disabled={!date || !!pending} style={{ ...greenBtn, opacity: (!date || pending) ? 0.6 : 1 }}>{pending === 'confirm_date' ? 'Sending…' : 'Send'}</button>
-              <button onClick={() => !pending && setShowDate(false)} disabled={!!pending} style={cancelBtn}>Cancel</button>
+        ? rescheduling
+          ? dateForm(() => setRescheduling(false))
+          : <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
+              <button onClick={openReschedule} style={cancelBtn}>Reschedule</button>
             </div>
+        : showDate
+          ? dateForm(() => setShowDate(false))
           : <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               <button onClick={() => setShowDate(true)} disabled={!!pending} style={greenBtn}>Send email (with date)</button>
               <button onClick={() => fire('confirm_no_date')} disabled={!!pending} style={{ ...greenBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'confirm_no_date' ? 'Sending…' : 'Send email - date not confirmed'}</button>
@@ -132,7 +169,10 @@ function Map4FollowupStep({ trackId, task, p, track, onDone, emailCtx, readOnly 
   const [pending, setPending] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [stallAckAt, setStallAckAt] = useState(track.map4_stall_ack_at || null)
-  const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
+  // Saving a NEW meeting date clears the follow-up/reminder/stall stamps server-side;
+  // mirror that here so the auto rows below stop claiming the old sends until reload.
+  const [ladderCleared, setLadderCleared] = useState(false)
+  const inputStyle ={ padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
   const greenBtn = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
   const cancelBtn = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }
   function fmtLong(d) { if (!d) return ''; const dt = new Date(d + 'T00:00:00'); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }
@@ -145,6 +185,7 @@ function Map4FollowupStep({ trackId, task, p, track, onDone, emailCtx, readOnly 
       await callApi('automation_REGULAR_map4_setmeetingdate', { priority_track_id: trackId, meeting_date: date })
       const today = new Date().toISOString().split('T')[0]
       await callApi('msm_save_priority_task', { priority_track_id: trackId, task_id: task.id, status: 'Follow-up scheduled', completed_date: today })
+      if (enteredDate && date !== enteredDate) setLadderCleared(true)
       setEnteredDate(date)
       setShowDate(false)
       onDone(task.id, 'Follow-up scheduled', today)
@@ -165,7 +206,10 @@ function Map4FollowupStep({ trackId, task, p, track, onDone, emailCtx, readOnly 
     return md ? { ...(emailCtx || {}), 'Meeting Date': md } : emailCtx
   })()
 
-  const emailSent = !!track.map4_followup_sent_at
+  const followupSentAt = ladderCleared ? null : track.map4_followup_sent_at
+  const reminderSentAt = ladderCleared ? null : track.map4_reminder_sent_at
+  const stallNotifiedAt = ladderCleared ? null : track.map4_stall_notified_at
+  const emailSent = !!followupSentAt
   const formDone = !!track.map4_form_submitted_at
   const formData = track.map4_form_data || {}
   const aipcDone = emailSent && formDone
@@ -201,13 +245,18 @@ function Map4FollowupStep({ trackId, task, p, track, onDone, emailCtx, readOnly 
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: enteredDate ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${enteredDate ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
         <span style={{ fontSize: '13px', color: enteredDate ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="REGULAR" title={task.name} templates={[{ name: 'REGULAR_map4followup', when: 'Automatic — follow-up with the form link, 2 days after the meeting' }, { name: 'REGULAR_map4reminder', when: 'Automatic reminder if the form is not completed' }]} context={followupCtx} /></span></span>
-        {enteredDate
-          ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', border: '1px solid rgba(27,146,84,0.3)' }}>MAP 4 meeting: {fmtLong(enteredDate)}</span>
-          : showDate
+        {showDate
+          ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+              <button onClick={saveDate} disabled={!date || pending} style={{ ...greenBtn, opacity: (!date || pending) ? 0.6 : 1 }}>{pending ? 'Saving…' : 'Save'}</button>
+              <button onClick={() => !pending && setShowDate(false)} disabled={pending} style={cancelBtn}>Cancel</button>
+            </div>
+          : enteredDate
             ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
-                <button onClick={saveDate} disabled={!date || pending} style={{ ...greenBtn, opacity: (!date || pending) ? 0.6 : 1 }}>{pending ? 'Saving…' : 'Save'}</button>
-                <button onClick={() => !pending && setShowDate(false)} disabled={pending} style={cancelBtn}>Cancel</button>
+                <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', border: '1px solid rgba(27,146,84,0.3)' }}>MAP 4 meeting: {fmtLong(enteredDate)}</span>
+                {/* Saving a different date re-arms the follow-up ladder (the backend
+                    clears the sent/reminder/stall stamps), so it re-drafts. */}
+                <button onClick={() => { setDate(enteredDate); setShowDate(true) }} style={cancelBtn}>Edit date</button>
               </div>
             : <button onClick={() => setShowDate(true)} style={greenBtn}>Enter date of MAP 4 meeting</button>
         }
@@ -221,9 +270,9 @@ function Map4FollowupStep({ trackId, task, p, track, onDone, emailCtx, readOnly 
             <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>AI PC Admin</span>
           </div>
           <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
-            {autoStep('MAP 4 follow-up email sent', emailSent, track.map4_followup_sent_at)}
-            {reminderStep(track.map4_reminder_sent_at)}
-            {pfNotifiedStep(track.map4_stall_notified_at)}
+            {autoStep('MAP 4 follow-up email sent', emailSent, followupSentAt)}
+            {reminderStep(reminderSentAt)}
+            {pfNotifiedStep(stallNotifiedAt)}
             <div>
               <div onClick={() => formDone && setFormOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', cursor: formDone ? 'pointer' : 'default' }}>
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: formDone ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${formDone ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />

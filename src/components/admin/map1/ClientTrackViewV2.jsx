@@ -53,6 +53,19 @@ function StallAckRow({ pipeline, id, stall, ackAt, onAck }) {
   )
 }
 
+// The confirmed slot is stored in the task notes as a space-joined
+// "YYYY-MM-DD HH:MM TZ" string (see fire() below). Best-effort parse for the
+// reschedule pre-fill — anything that doesn't match comes back empty.
+const TZ_CODES = ['ET', 'CT', 'MT', 'PT', 'AKT', 'HT']
+const parseSlotNotes = (s) => {
+  const parts = String(s || '').trim().split(/\s+/)
+  return {
+    date: /^\d{4}-\d{2}-\d{2}$/.test(parts[0] || '') ? parts[0] : '',
+    time: /^\d{2}:\d{2}$/.test(parts[1] || '') ? parts[1] : '',
+    tz: TZ_CODES.includes(parts[2]) ? parts[2] : 'ET',
+  }
+}
+
 // PIP meeting confirmation step (PIP 1 / PIP Follow-up) — 3-button post-meeting
 // decision mirroring Partnership Fast Track Meeting 1: "with date" (date/time/tz),
 // "date not confirmed", and "declined". Drafts the email via the backend, then
@@ -60,10 +73,14 @@ function StallAckRow({ pipeline, id, stall, ackAt, onAck }) {
 // its date/time inputs keep state across parent re-renders.
 function PipConfirmStep({ clientId, task, p, meeting, readOnly, onDone, emailCtx }) {
   const [showDate, setShowDate] = useState(false)
+  const [rescheduling, setRescheduling] = useState(false)
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const [tz, setTz] = useState('ET')
   const [pending, setPending] = useState(null)
+  // Last slot written to the task notes — kept locally so a reschedule right after
+  // a send pre-fills from what was just saved, not the stale parent copy.
+  const [slot, setSlot] = useState(p.notes || '')
   const isDone = !!p.status
   const statusColor = isDone ? '#1b9254' : 'var(--vfo-muted)'
   const inputStyle = { padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif' }
@@ -81,34 +98,52 @@ function PipConfirmStep({ clientId, task, p, meeting, readOnly, onDone, emailCtx
       const notes = decision === 'confirm_date' ? [d, t, z].filter(Boolean).join(' ') : null
       await callApi('msm_save_client_task', { client_id: clientId, task_id: task.id, status, completed_date: today, completed_by: null, notes })
       onDone(task.id, status, today)
-      setShowDate(false); setDate(''); setTime('')
+      if (decision === 'confirm_date') setSlot(notes || '')
+      setShowDate(false); setRescheduling(false); setDate(''); setTime('')
     } catch (err) { console.error('PIP confirm error:', err) }
     finally { setPending(null) }
   }
+
+  // Reschedule reopens the same form pre-filled with the stored slot and re-sends
+  // the same confirmation email (the backend builder has no guards or side effects).
+  function openReschedule() {
+    const s = parseSlotNotes(slot)
+    setDate(s.date); setTime(s.time); setTz(s.tz)
+    setRescheduling(true)
+  }
+
+  const dateForm = (onCancel) => (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+      <input type="time" value={time} onChange={e => setTime(e.target.value)} style={inputStyle} />
+      <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
+        <option value="ET">Eastern (ET)</option>
+        <option value="CT">Central (CT)</option>
+        <option value="MT">Mountain (MT)</option>
+        <option value="PT">Pacific (PT)</option>
+        <option value="AKT">Alaska (AKT)</option>
+        <option value="HT">Hawaii (HT)</option>
+      </select>
+      <button onClick={() => date && fire('confirm_date', date, time, tz)} disabled={!date || !!pending} style={{ ...greenBtn, opacity: (!date || pending) ? 0.6 : 1 }}>{pending === 'confirm_date' ? 'Sending…' : 'Send'}</button>
+      <button onClick={() => !pending && onCancel()} disabled={!!pending} style={cancelBtn}>Cancel</button>
+    </div>
+  )
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
       <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="MAP 1" display="modal" title={task.name} templates={[{ name: 'PIP_meeting_confirm', when: 'If date confirmed / not confirmed' }, { name: 'PIP_meeting_declined', when: 'If the client declined the meeting' }]} context={emailCtx} /></span>}</span>
       {isDone
-        ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
+        ? rescheduling
+          ? dateForm(() => setRescheduling(false))
+          : <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{p.status}</span>
+              {!readOnly && <button onClick={openReschedule} style={cancelBtn}>Reschedule</button>}
+            </div>
         : readOnly
           ? <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>Not started</span>
           : showDate
-            ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
-                <input type="time" value={time} onChange={e => setTime(e.target.value)} style={inputStyle} />
-                <select value={tz} onChange={e => setTz(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
-                  <option value="ET">Eastern (ET)</option>
-                  <option value="CT">Central (CT)</option>
-                  <option value="MT">Mountain (MT)</option>
-                  <option value="PT">Pacific (PT)</option>
-                  <option value="AKT">Alaska (AKT)</option>
-                  <option value="HT">Hawaii (HT)</option>
-                </select>
-                <button onClick={() => date && fire('confirm_date', date, time, tz)} disabled={!date || !!pending} style={{ ...greenBtn, opacity: (!date || pending) ? 0.6 : 1 }}>{pending === 'confirm_date' ? 'Sending…' : 'Send'}</button>
-                <button onClick={() => !pending && setShowDate(false)} disabled={!!pending} style={cancelBtn}>Cancel</button>
-              </div>
+            ? dateForm(() => setShowDate(false))
             : <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 <button onClick={() => setShowDate(true)} disabled={!!pending} style={greenBtn}>Send email (with date)</button>
                 <button onClick={() => fire('confirm_no_date')} disabled={!!pending} style={{ ...greenBtn, opacity: pending ? 0.6 : 1 }}>{pending === 'confirm_no_date' ? 'Sending…' : 'Send email - date not confirmed'}</button>
