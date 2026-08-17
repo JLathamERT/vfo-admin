@@ -1,5 +1,5 @@
 <!-- CANONICAL COPY of the VFO session wrap-up prompt. The owner pastes this file's
-     contents once when the work is SHIPPING (not at the end of every chat). Edit here, then re-copy. Last updated: 2026-08-17 (b). -->
+     contents once when the work is SHIPPING (not at the end of every chat). Edit here, then re-copy. Last updated: 2026-08-17 (c). -->
 
 # SESSION WRAP-UP — HUB UPDATE + STALENESS AUDIT + COMMIT (run once at session end)
 
@@ -97,7 +97,8 @@ DO NOT create/push any tag here — the tag is stamped LAST in Part 4.
 - Backend deployed? tag the merged main commit: backend-good-YYYY-MM-DD-v<Supabase version>; push it.
 - Frontend deployed? tag the merged main commit: live-N-<short> (N = current max +1 via git tag -l); push it.
 - Confirm rollback: "If anything's wrong later, say: restore to <previous tag>."
-- No deploy this session? Skip 4D.
+- **Then go BACK to the hub and re-stamp the three lines you could not know in Part 1A** — the live function versions and the two deploy-tag lines in `DERIVE AT SESSION START`. They were written before this deploy existed, so following this prompt correctly still leaves them dated today with yesterday's values, which falsifies the one drift signal a new session reads first (#408). Commit that as a one-line docs follow-up; every OTHER derive expectation (action count, route pages, crons, advisor baseline) is knowable in Part 1 and needs no revisit.
+- No deploy this session? Skip 4D — including the re-stamp, since nothing moved.
 
 ## SAFETY GUARDRAILS
 - Never git add -A/. (stage by path) - Never --amend a pushed commit (new commit instead)
