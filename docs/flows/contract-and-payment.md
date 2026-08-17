@@ -31,6 +31,8 @@ Each arrow is implemented either as:
 
 **Trigger:** Admin opens the MAP 1 automation track ([ClientTrackViewV2.jsx](src/components/admin/map1/ClientTrackViewV2.jsx)). Two track steps use this handler: **PIP 1 Confirmation Email** (in the Initial Contact phase, after "Call outcome") and **PIP Follow-up Confirmation Email** (in the PIP 1 phase, renamed from the old "PIP Follow-up meeting re-confirmation/declined email"). Each is the reusable `PipConfirmStep` component with **3 buttons**: *Send email (with date)* → date/time/timezone inputs (`confirm_date`); *Send email – date not confirmed* (`confirm_no_date`); *Meeting declined – email client* (`declined`).
 
+> **RESCHEDULE (2026-08-16, v747) — frontend-only.** A sent step now offers **Reschedule**, reopening the same date/time/timezone form pre-filled and re-sending the SAME template. The slot lives in the task's **notes string**, so rescheduling **re-writes that notes slot** and `parseSlotNotes` is what pre-fills the form (the component also keeps the last-sent slot in local state so a second reschedule in the same session pre-fills without a reload). **No backend change and no ladder to re-arm here** — this handler owns nothing but the email. Note the accepted consequence shared by all nine reschedule sites (#404): rescheduling a send originally made as *"date not confirmed"* **upgrades that record to confirmed**.
+
 **Handler:** `automation_PIP1_reconfirmationemail` ([actions/pipeline/pip1-reconfirmation-email.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/pipeline/pip1-reconfirmation-email.ts)) — AUTH handler, fired from `PipConfirmStep`.
 
 **What it does:**

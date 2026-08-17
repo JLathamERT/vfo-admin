@@ -60,6 +60,10 @@ function meetingLabelColor(track) {
 function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChange, onTrackUpdate, readOnly, notes, onNotesChange, clientId, client }) {
   const [localProgress, setLocalProgress] = useState(progress)
   const [scheduledDate, setScheduledDate] = useState(track.pip_scheduled_date || '')
+  // Time/tz mirrors of the track columns the confirmation email writes back, so a
+  // second reschedule in the same session pre-fills from the last slot sent.
+  const [scheduledTime, setScheduledTime] = useState(track.pip_scheduled_time || '')
+  const [scheduledTz, setScheduledTz] = useState(track.pip_scheduled_timezone || '')
   const [savingDate, setSavingDate] = useState(false)
   const [saving, setSaving] = useState({})
   const [expanded, setExpanded] = useState({})
@@ -115,6 +119,15 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
     finally { setSaving(s => ({ ...s, [taskId]: false })) }
   }
 
+  // Opens the confirmation form pre-filled with the slot currently on the track —
+  // used both for the first send and for a reschedule.
+  function openReconfirm() {
+    setReconfirmDate(scheduledDate || '')
+    setReconfirmTime(scheduledTime || '')
+    setReconfirmTz(scheduledTz || 'ET')
+    setReconfirmShowDate(true)
+  }
+
   async function sendReconfirm(taskId) {
     if (!reconfirmDate) return
     setReconfirmSending(true)
@@ -130,6 +143,8 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
       setLocalProgress(p => ({ ...p, [taskId]: updated }))
       onProgressChange(taskId, updated)
       if (reconfirmDate !== scheduledDate) setScheduledDate(reconfirmDate)
+      setScheduledTime(reconfirmTime || '')
+      setScheduledTz(reconfirmTz || '')
       setReconfirmShowDate(false)
       setReconfirmDate('')
     } catch (err) {
@@ -153,8 +168,8 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
     if (member) { ctx['Member Name'] = member; ctx['Member First'] = member.split(/\s+/)[0] }
     const dateStr = fmtLongDateUTC(scheduledDate || track.pip_scheduled_date || '')
     if (dateStr) {
-      const timeStr = fmtTime12(track.pip_scheduled_time || '')
-      const tz = track.pip_scheduled_timezone || ''
+      const timeStr = fmtTime12(scheduledTime || '')
+      const tz = scheduledTz || ''
       ctx['Scheduled Meeting Date'] = timeStr ? `${dateStr} at ${timeStr}${tz ? ` ${tz}` : ''}` : dateStr
     }
     return ctx
@@ -342,8 +357,13 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                       <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? doneColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? doneColor : 'var(--vfo-border-mid)'}` }} />
                         <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="PIP" title={task.name} templates={[{ name: 'PIP_meeting_confirmation', when: 'Meeting confirmation to the client' }]} context={emailCtx} /></span>}</span>
-                        {isDone
-                          ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${doneColor}22`, color: doneColor, border: `1px solid ${doneColor}44` }}>{p.status}</span>
+                        {isDone && !reconfirmShowDate
+                          ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${doneColor}22`, color: doneColor, border: `1px solid ${doneColor}44` }}>{p.status}</span>
+                              {/* Reschedule reopens the same form (pre-filled from the track) and
+                                  re-sends the same confirmation email with the new slot. */}
+                              {!readOnly && <button onClick={openReconfirm} style={{ padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }}>Reschedule</button>}
+                            </div>
                           : readOnly
                             ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)' }}>Not started</span>
                             : reconfirmShowDate
@@ -361,7 +381,7 @@ function PipMeetingDetailView({ track, phases, progress, onBack, onProgressChang
                                   <button onClick={() => sendReconfirm(task.id)} disabled={reconfirmSending || !reconfirmDate} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }}>{reconfirmSending ? '...' : 'Send'}</button>
                                   <button onClick={() => setReconfirmShowDate(false)} style={{ padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }}>Cancel</button>
                                 </div>
-                              : <button onClick={() => { setReconfirmDate(scheduledDate || ''); setReconfirmTime(track.pip_scheduled_time || ''); setReconfirmTz(track.pip_scheduled_timezone || 'ET'); setReconfirmShowDate(true) }} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }}>Send confirmation email to client</button>
+                              : <button onClick={openReconfirm} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }}>Send confirmation email to client</button>
                         }
                         <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isDone && p.completed_date ? fmtDate(p.completed_date) : ''}</span>
                       </div>

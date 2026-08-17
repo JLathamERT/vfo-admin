@@ -66,6 +66,24 @@ const fmtMMDD = (v) => {
   return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
 }
 
+const TZ_CODES = ['ET', 'CT', 'MT', 'PT', 'AKT', 'HT']
+// Meeting slots are only ever stored as a space-joined "YYYY-MM-DD HH:MM TZ"
+// string (Stage 1: the decision progress notes; Stage 2: "Next meeting: <slot>"
+// in the meeting row's notes), so a reschedule has to read them back token by
+// token. Best effort — a missing piece just leaves its input blank.
+function parseSlotNotes(notes) {
+  const parts = String(notes || '').trim().split(/\s+/).filter(Boolean)
+  return {
+    date: parts.find(x => /^\d{4}-\d{2}-\d{2}$/.test(x)) || '',
+    time: parts.find(x => /^\d{2}:\d{2}$/.test(x)) || '',
+    tz: parts.find(x => TZ_CODES.includes(x)) || 'ET',
+  }
+}
+
+function slotString(date, time, tz) {
+  return [date, time, time && tz ? tz : null].filter(Boolean).join(' ')
+}
+
 export default function SpecialistOnboarding() {
   const [view, setView] = useState('list')
   const [onboardings, setOnboardings] = useState([])
@@ -226,9 +244,11 @@ function OnboardingDetail({ id, onBack }) {
     finally { setSaving(p => ({ ...p, [key]: false })) }
   }
  
-  async function sendPrelimEmail(decision, date, time, tz) {
+  // reschedule = the same email re-sent with a new meeting slot after the first
+  // send; the flag tells the backend not to re-arm the SIF reminder ladder.
+  async function sendPrelimEmail(decision, date, time, tz, reschedule = false) {
     try {
-      await callApi('automation_SPECIALIST_prelimemail', { onboarding_id: id, decision, meeting_date: date || null, meeting_time: time || null, meeting_tz: tz || null })
+      await callApi('automation_SPECIALIST_prelimemail', { onboarding_id: id, decision, meeting_date: date || null, meeting_time: time || null, meeting_tz: tz || null, reschedule: !!reschedule })
     } catch (err) { console.error(err) }
   }
 
@@ -508,8 +528,11 @@ function OnboardingDetail({ id, onBack }) {
     const [meetingTz, setMeetingTz] = useState('ET')
     const [sifOpen, setSifOpen] = useState(false)
     const [pending, setPending] = useState(null)
+    const [resched, setResched] = useState(false)
 
     const isDone = !!decision
+    // Only the continue paths can be rescheduled — a stop has no next meeting.
+    const canReschedule = isDone && decision !== 'stop' && !isStopped
     const statusColor = decision === 'stop' ? '#e74c3c' : '#1b9254'
     const statusLabel = decision === 'continue'
       ? `Continuing - next meeting ${progress['1-decision']?.notes || ''}`
@@ -532,8 +555,11 @@ function OnboardingDetail({ id, onBack }) {
             { name: 'SPECIALIST_no', when: 'If No' },
             { name: 'SPECIALIST_sif_reminder', when: 'Automatic reminder if the intake form is not submitted (2 business days)' },
           ]} /></span></span>
-          {isDone
-            ? <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{statusLabel}</span>
+          {isDone && !showDate
+            ? <span style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{statusLabel}</span>
+                {canReschedule && <button onClick={() => { const s = parseSlotNotes(progress['1-decision']?.notes); setMeetingDate(s.date); setMeetingTime(s.time); setMeetingTz(s.tz); setResched(true); setShowDate(true) }} disabled={!!pending} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600 }}>Reschedule</button>}
+              </span>
             : showDate
               ? <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '11px' }} />
@@ -546,8 +572,24 @@ function OnboardingDetail({ id, onBack }) {
                     <option value="AKT">Alaska (AKT)</option>
                     <option value="HT">Hawaii (HT)</option>
                   </select>
-                  <button onClick={async () => { if (!meetingDate || pending) return; setPending('continue'); await sendPrelimEmail('continue', meetingDate, meetingTime, meetingTz); saveProgress(1, 'decision', 'continue', meetingDate + (meetingTime ? ' ' + meetingTime : '') + (meetingTime && meetingTz ? ' ' + meetingTz : '')); saveProgress(1, 'email_sent', 'completed'); advanceStage() }} disabled={!meetingDate || !!pending} style={{ ...greenBtn, opacity: (!meetingDate || pending) ? 0.6 : 1, cursor: (!meetingDate || pending) ? 'not-allowed' : 'pointer' }}>{pending === 'continue' ? 'Sending…' : 'Send'}</button>
-                  <button onClick={() => !pending && setShowDate(false)} disabled={!!pending} style={cancelBtn}>Cancel</button>
+                  <button onClick={async () => {
+                    if (!meetingDate || pending) return
+                    setPending('continue')
+                    // Reschedule: re-send the same email with the new slot and
+                    // re-write the decision notes. No advanceStage() — the stage
+                    // was already advanced by the original send.
+                    if (resched) {
+                      await sendPrelimEmail('continue', meetingDate, meetingTime, meetingTz, true)
+                      await saveProgress(1, 'decision', 'continue', slotString(meetingDate, meetingTime, meetingTz))
+                      setResched(false); setShowDate(false); setPending(null)
+                      return
+                    }
+                    await sendPrelimEmail('continue', meetingDate, meetingTime, meetingTz)
+                    saveProgress(1, 'decision', 'continue', slotString(meetingDate, meetingTime, meetingTz))
+                    saveProgress(1, 'email_sent', 'completed')
+                    advanceStage()
+                  }} disabled={!meetingDate || !!pending} style={{ ...greenBtn, opacity: (!meetingDate || pending) ? 0.6 : 1, cursor: (!meetingDate || pending) ? 'not-allowed' : 'pointer' }}>{pending === 'continue' ? 'Sending…' : resched ? 'Re-send' : 'Send'}</button>
+                  <button onClick={() => { if (pending) return; setShowDate(false); setResched(false) }} disabled={!!pending} style={cancelBtn}>Cancel</button>
                 </div>
               : <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   <button onClick={() => setShowDate(true)} disabled={isStopped || !!pending} style={{ ...greenBtn, opacity: pending ? 0.6 : 1, cursor: pending ? 'not-allowed' : 'pointer' }}>Continue - Send email (with date)</button>
@@ -713,6 +755,13 @@ function OnboardingDetail({ id, onBack }) {
   function Stage2Content() {
     // Build meeting history from progress keys
     const meetingCount = meetings.length
+    // Post-send reschedule of the most recent logged meeting: which row's form
+    // is open, and the new slot being typed into it.
+    const [resendId, setResendId] = useState(null)
+    const [rsDate, setRsDate] = useState('')
+    const [rsTime, setRsTime] = useState('')
+    const [rsTz, setRsTz] = useState('ET')
+    const [rsSending, setRsSending] = useState(false)
     
     // Figure out which items have been locked by previous meetings
     const lockedItems = new Set()
@@ -781,6 +830,27 @@ function OnboardingDetail({ id, onBack }) {
       } catch (err) { console.error(err) }
     }
 
+    // Re-send the Stage 2 progress email for an already-logged meeting with a new
+    // next-meeting slot. The checklist context is rebuilt exactly the way
+    // logMeeting() built it, but from the items that row recorded as covered —
+    // so the re-sent email's Completed / Remaining lists match the original. The
+    // meeting row is edited in place (meeting_id) rather than logged again.
+    async function resendMeeting(meeting, date, time, tz) {
+      const completedIdx = (meeting.items_discussed || []).map(String)
+      const completedLabels = STAGE2_CHECKLIST.filter((_, i) => completedIdx.includes(String(i)))
+      const pendingLabels = STAGE2_CHECKLIST.filter((_, i) => !completedIdx.includes(String(i)))
+      const noteParts = [date, time, tz].filter(Boolean)
+      const notes = noteParts.length ? `Next meeting: ${noteParts.join(' ')}` : 'Next meeting date not yet arranged'
+      try {
+        const result = await callApi('save_onboarding_meeting', { onboarding_id: id, meeting_id: meeting.id, notes })
+        setMeetings(prev => prev.map(m => (m.id === meeting.id ? (result.meeting || { ...m, notes }) : m)))
+      } catch (err) { console.error(err) }
+
+      try {
+        await callApi('automation_SPECIALIST_stage2email', { onboarding_id: id, meeting_id: meeting.id, completed: completedLabels, pending: pendingLabels, meeting_date: date || null, meeting_time: time || null, meeting_tz: tz || null, reschedule: true })
+      } catch (err) { console.error(err) }
+    }
+
     async function logStop() {
       // Send the decline (No) email — same as the Stage 1 Stop email
       try { await sendPrelimEmail('stop') } catch (err) { console.error(err) }
@@ -820,7 +890,11 @@ function OnboardingDetail({ id, onBack }) {
           const previousItems = new Set()
           previousMeetings.forEach(pm => (pm.items_discussed || []).forEach(item => previousItems.add(item)))
           const newInThisMeeting = discussed.filter(idx => !previousItems.has(idx))
-          
+          // Only the latest logged meeting can be rescheduled — earlier rows are
+          // settled history, and their "next meeting" already happened.
+          const isMostRecent = mi === meetings.length - 1
+          const rsInStyle = { padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '11px', fontFamily: 'Inter, sans-serif' }
+
           return (
             <div key={meeting.id} style={{ marginBottom: '16px', padding: '12px', borderRadius: '8px', border: '1px solid var(--vfo-tint-deep)', background: 'var(--vfo-tint)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -850,8 +924,34 @@ function OnboardingDetail({ id, onBack }) {
               )}
               {meeting.outcome === 'interested' && (
                 <div style={{ fontSize: '12px', color: 'var(--vfo-ink)', fontWeight: 600, marginTop: '6px' }}>
-                  ✓ Still interested — email sent
-                  {meeting.notes && <span style={{ color: 'var(--vfo-muted)', marginLeft: '8px' }}>({meeting.notes})</span>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span>✓ Still interested — email sent</span>
+                    {meeting.notes && <span style={{ color: 'var(--vfo-muted)', fontWeight: 400 }}>({meeting.notes})</span>}
+                    {isMostRecent && !isStopped && resendId !== meeting.id && (
+                      <button onClick={() => { const s = parseSlotNotes(meeting.notes); setRsDate(s.date); setRsTime(s.time); setRsTz(s.tz); setResendId(meeting.id) }} style={{ padding: '2px 8px', borderRadius: '5px', fontSize: '10px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600 }}>Resend with new date</button>
+                    )}
+                  </div>
+                  {resendId === meeting.id && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '8px', fontWeight: 400 }}>
+                      <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>New next meeting:</span>
+                      <input type="date" value={rsDate} onChange={e => setRsDate(e.target.value)} style={rsInStyle} />
+                      <input type="time" value={rsTime} onChange={e => setRsTime(e.target.value)} style={rsInStyle} />
+                      <select value={rsTz} onChange={e => setRsTz(e.target.value)} style={rsInStyle}>
+                        <option value="ET">Eastern (ET)</option>
+                        <option value="CT">Central (CT)</option>
+                        <option value="MT">Mountain (MT)</option>
+                        <option value="PT">Pacific (PT)</option>
+                        <option value="AKT">Alaska (AKT)</option>
+                        <option value="HT">Hawaii (HT)</option>
+                      </select>
+                      <ActionButton label={rsSending ? 'Sending…' : 'Re-send email'} color="#1b9254" disabled={!rsDate || rsSending} onClick={async () => {
+                        if (!rsDate || rsSending) return
+                        setRsSending(true)
+                        try { await resendMeeting(meeting, rsDate, rsTime, rsTz) } finally { setRsSending(false); setResendId(null) }
+                      }} />
+                      <ActionButton label="Cancel" color="#0095ff" disabled={rsSending} onClick={() => setResendId(null)} />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

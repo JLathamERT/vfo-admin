@@ -6,7 +6,7 @@ Read-only architecture map of the VFO portal system. Documents what exists in th
 
 ## What's in this system
 
-Two repos, one Supabase project, four external integrations, one static-hosted SPA — held together by a modular `vfo-admin-api` edge function (88-line orchestrator + ~470 handler files under `actions/`) dispatching **461 actions** (6 logins + 455 dispatched: 132 PUBLIC + 323 AUTH). See [architecture/01-system-map.md](architecture/01-system-map.md) for the high-level picture.
+Two repos, one Supabase project, four external integrations, one static-hosted SPA — held together by a modular `vfo-admin-api` edge function (123-line orchestrator + ~474 handler files under `actions/`) dispatching **463 actions** (6 logins + 457 dispatched: 132 PUBLIC + 325 AUTH) *(v: 2026-08-16 — derive it, do not trust it: see the hub's DERIVE block)*. See [architecture/01-system-map.md](architecture/01-system-map.md) for the high-level picture.
 
 The central business flow is the **MAP1 contract-and-payment chain**: PIP1 reconfirmation → PF decision → PCADMIN pricing → BoldSign agreement → CEO countersign → Stripe payment → confirmation/invoice/receipt → revenue share. State lives in a single 143-column row of `pipeline_map1`, with each handler advancing specific columns. See [flows/contract-and-payment.md](flows/contract-and-payment.md) for the end-to-end trace.
 
@@ -19,7 +19,7 @@ docs/
 ├── README.md                         (this file — start here)
 ├── SESSION_REFERENCE.md              (the LEAN live-state hub — read in FULL at session start)
 ├── CHANGELOG.md                      (archived session-by-session history — newest-first; read on demand)
-├── GOTCHAS.md                        (full numbered gotcha registry, #1 upward — read on demand; append-only, never renumbered, so the top number moves every session — #400 as of 2026-08-14)
+├── GOTCHAS.md                        (full numbered gotcha registry, #1 upward — read on demand; append-only, never renumbered, so the top number moves every session — #405 as of 2026-08-16)
 ├── NOTIFICATION_AUDIT.md             (every bell notification: who/type/timing, editable in Automation → Notification Editor; + gap analysis)
 ├── glossary.md                       (MAP1, PIP, PCADMIN, MSM, CIQ, etc.)
 ├── GROWTH_PLAN_HANDOFF.md            (Advisor Growth Plan — full feature build state; Phases 1–8 + custom priorities/sub-tasks)
@@ -30,7 +30,7 @@ docs/
 │   ├── 02-frontend-shell.md          (routes + AdminPortal/MemberPortal/ClientDetail)
 │   ├── 03-edge-functions.md          (vfo-admin-api + boldsign-webhook structure)
 │   ├── 04-auth-and-sessions.md       (token model, session storage, role gates)
-│   ├── 05-api-action-catalog.md      (all 461 actions, concise table format)
+│   ├── 05-api-action-catalog.md      (every dispatched action, concise table format)
 │   └── 06-orchestration-files.md     (file ranking by feature ownership)
 │
 ├── tables/                           (the "noun" layer — 87 public-schema tables as of 2026-08-14; derive with MCP list_tables, never from this line)
@@ -129,7 +129,7 @@ These items are flagged across multiple docs and remain unresolved without exter
 This doc map can be audited against the source:
 
 - Every `file:line` citation should resolve to the claimed handler — try opening any link.
-- The action catalog count (**461** in [05-api-action-catalog.md](architecture/05-api-action-catalog.md)) is the sum of the **6** logins in `index.ts` + the **455** dispatch entries (132 PUBLIC + 323 AUTH) (`(c) =>`) in `router/dispatch.ts`.
+- The action catalog count (**463** in [05-api-action-catalog.md](architecture/05-api-action-catalog.md), *v: 2026-08-16*) is the sum of the **6** logins in `index.ts` + the **457** dispatch entries (132 PUBLIC + 325 AUTH) (`(c) =>`) in `router/dispatch.ts`. **Derive it rather than trusting it** — the anchored greps live in the hub's DERIVE block (#402).
 - The table inventory in [tables/README.md](tables/README.md) is a grouped index, **not a count** — `SELECT count(*) FROM information_schema.tables WHERE table_schema='public'` returns **87** as of 2026-08-14, and several of those have no per-column doc (notably `advisor_onboarding` / `accountant_onboarding`). Always derive; a hard number on this page will be wrong within a week.
 - The 15-migration list in [integrations/supabase.md](integrations/supabase.md) is a **2026-05-05 snapshot and is long out of date** — `vfo-edge-functions/supabase/migrations/` now holds **114** git-tracked migration files (2026-08-14). Every migration applied live via MCP must also be committed there (#196).
 - Pick any flow doc and trace a "Trigger → Step-by-step → Tables touched → Chains" sequence; every code reference should resolve.

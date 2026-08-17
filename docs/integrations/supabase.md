@@ -18,7 +18,7 @@ The frontend never has access to the service-role key.
 
 | Function | Slug | `verify_jwt` (config + registry) | Source |
 |---|---|---|---|
-| Admin / dispatcher (modularized) | `vfo-admin-api` | `false` (matched) | `vfo-edge-functions/supabase/functions/vfo-admin-api/` (88-line `index.ts` + ~150 modular .ts files) |
+| Admin / dispatcher (modularized) | `vfo-admin-api` | `false` (matched) | `vfo-edge-functions/supabase/functions/vfo-admin-api/` (123-line `index.ts` + ~474 modular handler files under `actions/`) |
 | BoldSign webhook | `boldsign-webhook` | `false` (registry); `true` (config — pre-existing mismatch, untouched) | `vfo-edge-functions/supabase/functions/boldsign-webhook/index.ts` (95 lines) |
 
 > Live versions increment per deploy; see Supabase Dashboard → Edge Functions for the current version of each function.

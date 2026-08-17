@@ -45,7 +45,7 @@
 ## Every notification in the system
 
 > **⚠️ THE TABLES BELOW ARE A SNAPSHOT, NOT AN INVENTORY — the DB is the source of truth.**
-> They were written when there were 128 rules in 11 areas. As of **2026-08-14 there are 183 rules in
+> They were written when there were 128 rules in 11 areas. As of **2026-08-16 there are 184 rules in
 > 16 areas**, so roughly a third of the live rules are NOT listed here. Derive the current picture
 > instead of trusting a count on this page:
 > `select area, count(*) from notification_rules group by area order by area;`
@@ -64,7 +64,7 @@
 > | Payment Failure Alerts | 17 | 16 |
 > | Regular Priorities (MAP 4) | 4 | 4 ✓ |
 > | Specialist Onboarding | 35 | 34 |
-> | Tax | 36 | 21 |
+> | Tax | 37 | 22 |
 > | **Tax Planners** | **14** | ✗ no section — see [flows/tax-planning.md](flows/tax-planning.md#thirteen-planner-notification-bells-six-new-2026-07-22-a-seventh-2026-07-23-an-eighth-2026-07-23-evening-a-ninth-and-tenth-2026-08-10-an-eleventh-and-twelfth-2026-08-11-a-thirteenth-later-the-same-day) |
 > | Uploads | 5 | ✗ no section |
 > | VFO Specialist Revenue | 9 | 9 ✓ |
@@ -91,10 +91,11 @@
 | **First payment stalled (PF bell)** — The client still has not paid the MAP 1 first payment - asks the PF to reach out. | FYI | Assigned PF | Daily MAP 1 sweep — after **4 business day(s)** (editable) |
 | **Check payment due reminder email** — Reminder email to check-paying quarterly clients whose next installment is due soon. The delay is a LOOK-AHEAD (business days before the due date, walked forward by `businessDayHorizonDateOnly`). | Reminder email | The client (email) | Daily check-reminder sweep — after **7 business day(s)** (editable) |
 
-### Tax (21)
+### Tax (22)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
+| **ROI meeting skipped — complete the Client tax planning decision** (`TAX_roi_skipped_decision_needed`, NEW 2026-08-16) — the ROI meeting was skipped on a tax plan (either program), so the client is going straight to the detailed tax plan meeting and the assigned PF must complete the "Client tax planning decision" step. Persistent until **any** decision is recorded (`automation_TAX_decision`). **Not fired when a decision already exists.** | **Action required** | Assigned PF (fallback Tracy) | Admin clicks **Skip ROI meeting** (`automation_TAX_skiproimeeting`) — instant |
 | **Client chose Yes (Tax 3)** — Client clicked Yes on the /tax-decide page - pricing form needs to be completed to send the engagement agreement. | **Action required** | Assigned PF | Client click on /tax-decide — instant |
 | **Client requested extra meeting** — Client clicked Request Extra Meeting on the /tax-decide page instead of Yes/No. | **Action required** | Assigned PF | Client click on /tax-decide — instant |
 | **Deposit refund issued** — the deposit was refunded via Stripe after the admin picked **Refund** on the "Tax Plan Green/Red Light" step (inside Tax 1 - Diagnostic, `task_order=8`); the confirmation email drafted to the client carries the admin-typed reason. **The same handler also retires Tray's action-required `Tax Planner review complete for%` bell** — on a program-4 Stop the refund IS that bell's instruction (2026-08-11). | FYI | Assigned PF | Admin Send Refund button — instant |
