@@ -28,7 +28,7 @@ Run these instead of believing any version/tag/count written anywhere. Expected 
 ```powershell
 # 1. Live function versions — MCP list_edge_functions { project_id: "ejpsprsmhpufwogbmxjv" }
 #    Expect: vfo-admin-api ACTIVE + boldsign-webhook ACTIVE, verify_jwt=false on BOTH.
-#    Plus helper draft-agreement-pdfs v1 (no business logic). (v: 2026-08-17 — v750 / v40)
+#    Plus helper draft-agreement-pdfs v1 (no business logic). (v: 2026-08-17 — v751 / v40)
 
 # 2. Deploy tags — git is the source of truth, these lines are not (#222, #376).
 #    Re-stamp these THREE lines AFTER wrap-up Part 4D, not during Part 1: the
@@ -69,6 +69,7 @@ select pipeline, sandbox_mode from pipeline_sandbox_config order by pipeline;
 Nothing here can be produced by a command. Everything else was deleted from this section on purpose — derive it above.
 
 **OPEN / OWED**
+- **Test fixtures are still live on Test Client 62 from the four-total assess build:** `client_tax_plans` **138** + its 4 `client_tax_progress` rows, one unread action-required bell (*"Download the ROI presentation for Test Client"*), and **six** generated decks in the Drive *"ROI Presentations"* folder named `ROI Presentation - Test Client - 2026-08-17`. Plan **136** on the same client is a PRIOR session's ROI-skip fixture and must be left alone. The DB rows are a scripted delete; the Drive files must be removed by hand. *(v: 2026-08-17)*
 - **The Outstanding Payment Links "Resend email" buttons have still never been clicked by anyone** — shipped 2026-08-04, live since, zero human exercise. *(v: 2026-08-14)*
 - **Aug 6 specialist payouts fired twice (~$1,382).** Legacy platform is still live on the same Stripe account and still reacts to migrated clients' payments (#361). Reconciliation not closed. *(v: 2026-08-14 — UNVERIFIED, carried from prior doc; not re-checked against Stripe this session)*
 - **`NOTIFICATION_AUDIT.md` needs REGENERATION, not patching** — ~57 live rules (a third) have no entry and five whole areas are missing, incl. Tax Planners (16). It carries a live per-area table and a derive-don't-count caveat, so it is honest but incomplete. Per-area table re-derived 2026-08-17. *(v: 2026-08-17)*
@@ -119,6 +120,7 @@ Money, auth/security, data-loss and cross-repo contracts only. **Everything narr
 - **#10** — `boldsign-webhook` deploys need `--no-verify-jwt` every time. **#74/#112** — use `deno check --no-lock`; a v5 `deno.lock` breaks the bundler. **#134** — one angle bracket of JSX makes it a `.jsx` file, or the rollup build fails.
 - **#401 / #402** — this hub is hard-capped at 250 lines and DERIVES volatile facts; every edit is declared ADD/UPDATE/DELETE/NOOP and superseded values move to CHANGELOG the same pass. **Never write a COUNT into prose** (rules, tables, columns, buckets) — write the query; a file contradicting itself on a quantity means nobody has read it end to end.
 - **#399** — when a doc and a code comment disagree about sweep behaviour, the **handler wins**; deleting a timed automation means grepping the docs tree for its interval AND vocabulary (`24h`, `auto-lock`, `auto-charge`) in the same commit.
+- **#410** — a generated artifact (a Drive deck, a bucket object) is **shared-writable and may have been hand-edited since**, so it is never evidence of what the code emits: generate a fresh one or read the handler. Two agreeing samples from one sitting are ONE event — the code wins until three disagree with it.
 
 **Auth / security**
 - **#141 / #142 / #143** — see the SECURITY INVARIANTS box above; they are the same four rules.
