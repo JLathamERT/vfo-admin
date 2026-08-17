@@ -111,7 +111,15 @@ function taxSpecialistOptions(specialists, ecosystems, plannerMode) {
   const taxIds = new Set((Array.isArray(ecosystems) ? ecosystems : []).filter(a => a?.name === TAX_ECOSYSTEM_NAME).map(a => a.expert_id))
   // Defensive: if the assignment rows never arrived, show the whole roster
   // rather than an empty picker.
-  const scoped = taxIds.size ? list.filter(s => taxIds.has(s.id)) : list
+  // Admin sessions get the RAW load_data roster — every status, Lost and Removed
+  // included — so the picker strips it to Active here. Defensive: a row with no
+  // status counts as Active (load_data's non-admin path already ships Active
+  // only, and planner rows carry no status at all). This narrows the OPTIONS
+  // only; expertBios upstream is still built off the full roster, so a
+  // specialist already allocated before they went Lost keeps rendering their
+  // "bio - name" on the plan.
+  const active = list.filter(s => (s?.status ? String(s.status).toLowerCase() === 'active' : true))
+  const scoped = taxIds.size ? active.filter(s => taxIds.has(s.id)) : active
   return withPickerLabels(scoped.map(s => { const bio = taxShortBio(s); return { ...s, label: bio ? `${bio} - ${s.name}` : s.name } }))
 }
 
