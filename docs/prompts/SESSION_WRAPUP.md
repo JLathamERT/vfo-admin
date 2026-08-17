@@ -1,9 +1,11 @@
 <!-- CANONICAL COPY of the VFO session wrap-up prompt. The owner pastes this file's
-     contents once at the end of every AI chat. Edit here, then re-copy. Last updated: 2026-08-14. -->
+     contents once at the end of every AI chat. Edit here, then re-copy. Last updated: 2026-08-16. -->
 
 # SESSION WRAP-UP — HUB UPDATE + STALENESS AUDIT + COMMIT (run once at session end)
 
 Does the hub update, doc audit, verification gate, commit, push, and save-point tag in ONE pass, ordered so the tag is stamped LAST and never goes stale.
+
+**RUN THIS ONLY WHEN THE WORK IS SHIPPING.** This is the ship ritual, not the end-of-chat ritual — it belongs to the CHANGE, not the conversation, and one shipping unit may span several chats. If the work is unfinished and I am simply closing a long chat, this is the wrong prompt: produce the handoff from `docs/prompts/SESSION_HANDOFF.md` instead, which ships nothing and leaves the branch, worktrees and commits untouched. If you are unsure which I want, ask in one line before doing either.
 
 ## PART 1 — HUB UPDATE + STALENESS AUDIT (docs first, BEFORE committing)
 
@@ -35,7 +37,7 @@ What counts as drift: file paths/line refs moved · action names added/removed �
 Rules: surgical edits for moved refs; section rewrites for structural changes; **a new end-to-end flow gets a new `docs/flows/<x>.md` AND a new DOC MAP row in the hub** (a doc nobody is told to read does not exist). Describe CURRENT state only — no dual-track. If a doc is genuinely unaffected, skip it — otherwise update it NOW. There is NO "follow-up session" option for doc updates.
 
 ### 1D. Prompt maintenance
-If this session changed how sessions should START or END — a new required startup command, a new gate, a changed hub rule, a renamed doc the starter points at — update `docs/prompts/SESSION_STARTER.md` and/or `docs/prompts/SESSION_WRAPUP.md` (bump the last-updated date in the header comment) and **tell me explicitly to re-copy the changed prompt**, since I paste them by hand.
+If this session changed how sessions should START, HAND OFF or END — a new required startup command, a new gate, a changed hub rule, a renamed doc a prompt points at — update `docs/prompts/SESSION_STARTER.md`, `docs/prompts/SESSION_HANDOFF.md` and/or `docs/prompts/SESSION_WRAPUP.md` (bump the last-updated date in the header comment) and **tell me explicitly to re-copy the changed prompt**, since I paste them by hand.
 
 ## PART 2 — VERIFICATION GATE
 - git rev-parse --abbrev-ref HEAD — NOT main

@@ -1,5 +1,5 @@
 <!-- CANONICAL COPY of the VFO session starter prompt. The owner pastes this file's
-     contents at the top of every AI chat. Edit here, then re-copy. Last updated: 2026-08-14. -->
+     contents at the top of every AI chat. Edit here, then re-copy. Last updated: 2026-08-16. -->
 
 # VFO SESSION STARTER
 
@@ -138,6 +138,8 @@ Never branch from local `main` without fetching first — local `main` is not au
 Branch name must be specific to this chat (e.g. `claude/<descriptor>` matching the chat's purpose). Both repos use the same branch name so they can be tracked together. Never reuse an existing worktree from a prior chat. If the chat opens inside a pre-existing worktree from a prior session, STOP and propose creating new ones — do not edit in the old worktree.
 git worktree add .claude/worktrees/<chat-branch> -b <chat-branch> main
 
+**EXCEPTION — a CONTINUING chat.** If my task text below starts with `CONTINUING` (a handoff from an earlier chat on the same piece of work), do the OPPOSITE: do **not** create anything. Reuse the exact branch and worktree paths the handoff names, confirm they exist via `git worktree list`, run the 2b freshness check on them, and say which paths you are continuing in. Creating a second branch for work that already has one splits the change across two PRs — that is the failure this exception exists to prevent. Everything else in this prompt applies unchanged.
+
 ### 2b. Verify worktree freshness (auto-created worktrees especially)
 If the chat opened inside worktrees that already exist (the app sometimes creates them before the chat starts, cut from LOCAL main which may be stale), run in EACH worktree:
 git fetch origin && git rev-list --count HEAD..origin/main
@@ -151,6 +153,17 @@ Run `git worktree list` in each repo and explicitly state the worktree path you 
 cd C:\vfo-react\.claude\worktrees\<chat-branch>; npm run dev
 
 NO `VITE_API_URL` override. This hits the real Supabase project (`ejpsprsmhpufwogbmxjv`), real database, real Gmail drafts, real Stripe sandbox — and the user logs in with THEIR real credentials. Never run `supabase functions serve`, never run `supabase start` (local Docker Postgres), never set `$env:VITE_API_URL=http://127.0.0.1:...`. There is no "test login" — `dev@local.test` / `dev2026` is a seeded local-only fake and must not be offered.
+
+---
+
+## ENDING A CHAT — TWO DIFFERENT THINGS
+
+A chat ending and the work shipping are **not** the same event, and conflating them is what produces six-hour chats with a bloated context.
+
+- **HAND OFF** (`docs/prompts/SESSION_HANDOFF.md`) — the work is unfinished but this chat is long, or the next piece of work is a different shape. Nothing ships. The branch, the worktrees and every commit stay exactly where they are; only the conversation is discarded. A fresh chat picks up from a short handoff note. **No wrap-up, no merge, no tag.**
+- **WRAP UP** (`docs/prompts/SESSION_WRAPUP.md`) — the work is ready to ship. Docs audit, gates, commits, push, merge, deploy, tag. Run this **once per shipping unit**, which may span several chats.
+
+**Proactively offer the handoff** when a chat has run long, when a phase completes and the next one is unrelated, or when I say I want a fresh chat: produce the handoff block without being asked for the file by name. Never suggest a wrap-up as a way to end a chat that is not ready to merge.
 
 ---
 
