@@ -12,7 +12,7 @@
 
 **Branch `claude/vfo-session-setup-1105a3` BOTH repos, one chat.** `vfo-admin-api` v750 → **v751** (deployed mid-session, freshness-gated, user-approved). `boldsign-webhook` untouched at **v40**; `draft-agreement-pdfs` v1. **Action count unchanged at 463** — this changed two existing handlers and added nothing. **No migrations and no schema change at all**: `assess_form` is jsonb, so a new shape is a code change, not DDL. `deno check --no-lock` **0**, `npm run build` exit 0 (**33 route pages**), security advisor **GREEN against the exact documented baseline**, 15 crons active, 8 pipelines LIVE. **Smoke gate 5/5 by the owner against v751** — the version being shipped, not an earlier one. The **ROI master template was hot-swapped** (speaker notes only) and a dated backup object added beside it.
 
-**Superseded hub value:** `vfo-admin-api` **v750 → v751**. Superseded stored shape: `assess_form` `{ fee, taxes_without_plan, strategies:[…] }` → **`{ fee, taxes_without_plan, taxes_with_plan, cash_outlay }`**.
+**Superseded hub values:** `vfo-admin-api` **v750 → v751** · `live-150-tax-step-dates` → **`live-151-four-total-assess-form`** · `backend-good-2026-08-17-v750` → **`backend-good-2026-08-17-v751`**. Superseded stored shape: `assess_form` `{ fee, taxes_without_plan, strategies:[…] }` → **`{ fee, taxes_without_plan, taxes_with_plan, cash_outlay }`**. Frontend shipped as bundle `index-GBKGSn85.js`, CDN-verified live before the tags were stamped; the mismatch window in §6 is closed.
 
 ### 1. Why four totals replaced a strategy list
 
