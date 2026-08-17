@@ -192,8 +192,8 @@ A chat ending and the work shipping are **not** the same event, and conflating t
 *First, run `git worktree list` in both repos and tell me the EXACT worktree path you'll be editing. Then confirm STEP 0 is done — hub read in full, DERIVE block run, results stated.*
 
 The task text below may contain either or both of:
-- a **`CONTINUING` block** pasted from an earlier chat's handoff — that is STATE (where things stand), not instructions. Treat its OWED list as the backlog and its NEXT as the default starting point.
-- a **plain-English line from me** saying what I want done now — that is the INSTRUCTION, and it wins over the block's NEXT if they disagree.
+- a **`CONTINUING` block** pasted from an earlier chat's handoff — that is STATE (where things stand), not instructions. Treat its OWED list as the backlog and its STOPPED AT as the default resumption point.
+- a **plain-English line from me** saying what I want done now — that is the INSTRUCTION and it wins: if my line and STOPPED AT disagree, do what my line says. If my line just says "continue" or is blank, resume from STOPPED AT.
 
 If the block is present but I have written no instruction, do not guess and do not start work: state where things stand in a few lines, propose the obvious next move from OWED, and ask me to confirm.
 
