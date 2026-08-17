@@ -111,6 +111,28 @@ export default function PlannerClientsList() {
     )
   }, [visible, search])
 
+  // Three sections, in the order a planner works them: what is open, what is
+  // finished, what was stopped. Stopped wins over completion — a stopped plan is
+  // Stopped even if every step happened to be ticked before it stopped (the
+  // backend applies the same precedence when it sets is_complete's siblings).
+  // Search and the planner filter have already been applied, so a section that
+  // matches nothing simply disappears.
+  const sections = useMemo(() => {
+    const active = []
+    const complete = []
+    const stopped = []
+    for (const r of filtered) {
+      if (r.plan_status === 'stopped') stopped.push(r)
+      else if (r.is_complete) complete.push(r)
+      else active.push(r)
+    }
+    return [
+      { key: 'active', label: 'Active', rows: active, showNextStep: true },
+      { key: 'complete', label: 'Complete', rows: complete, showNextStep: false },
+      { key: 'stopped', label: 'Stopped', rows: stopped, showNextStep: false },
+    ]
+  }, [filtered])
+
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
 
   if (loading && rows.length === 0) {
@@ -160,16 +182,29 @@ export default function PlannerClientsList() {
       </div>
 
       <div>
-        {filtered.map(row => (
-          <div key={row.tax_plan_id}
-            onClick={() => navigate(`/tax-planner/client/${row.client_id}?program=${row.program_id}`)}
-            style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 16px', marginBottom: '6px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '12px', boxShadow: '0 2px 8px rgba(20,45,95,0.04)', cursor: 'pointer' }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,149,255,0.4)'}
-            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--vfo-border-soft)'}>
-            <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '12.5px', color: 'var(--vfo-muted)', width: '90px', flexShrink: 0 }}>{row.client_ref}</span>
-            <span style={{ fontSize: '14px', color: 'var(--vfo-ink)', fontWeight: 600, flexShrink: 0 }}>{row.client_name || '—'}</span>
-            <span style={{ fontSize: '12.5px', color: 'var(--vfo-muted)' }}>{row.member_name || '—'}</span>
-            <span style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '12px', color: 'var(--vfo-faint)', whiteSpace: 'nowrap' }}>{row.planner_name || '—'}</span>
+        {sections.filter(s => s.rows.length > 0).map(section => (
+          <div key={section.key} style={{ marginBottom: '18px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 8px 4px' }}>
+              {section.label} ({section.rows.length})
+            </div>
+            {section.rows.map(row => (
+              <div key={row.tax_plan_id}
+                onClick={() => navigate(`/tax-planner/client/${row.client_id}?program=${row.program_id}`)}
+                style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 16px', marginBottom: '6px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '12px', boxShadow: '0 2px 8px rgba(20,45,95,0.04)', cursor: 'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,149,255,0.4)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--vfo-border-soft)'}>
+                <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '12.5px', color: 'var(--vfo-muted)', width: '90px', flexShrink: 0 }}>{row.client_ref}</span>
+                <span style={{ fontSize: '14px', color: 'var(--vfo-ink)', fontWeight: 600, flexShrink: 0 }}>{row.client_name || '—'}</span>
+                <span style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', flexShrink: 0 }}>{row.member_name || '—'}</span>
+                {/* Next step is an Active-only column: on a finished or stopped
+                    plan there is nothing owed, so the slot collapses rather than
+                    printing a stale instruction. */}
+                {section.showNextStep && (
+                  <span title={row.next_step || ''} style={{ marginLeft: 'auto', minWidth: 0, fontSize: '12px', color: row.next_step ? 'var(--vfo-muted)' : 'var(--vfo-faint)', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.next_step || '—'}</span>
+                )}
+                <span style={{ marginLeft: section.showNextStep ? 0 : 'auto', flexShrink: 0, fontSize: '12px', color: 'var(--vfo-faint)', whiteSpace: 'nowrap' }}>{row.planner_name || '—'}</span>
+              </div>
+            ))}
           </div>
         ))}
         {filtered.length === 0 && !loadError && (
