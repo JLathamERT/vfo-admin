@@ -22,6 +22,8 @@
 
 **Nothing was discharged from OWED this pass** — this is a net +3, which is what an audit that finds real gaps looks like. The prompt's own rule ("an OWED list that only grows is a broken list") is about sessions that never close items, not about the audit that opens them honestly.
 
+**Discharged the same day:** the owner ran `scripts/smoke-pipelines.ps1` as superadmin against **v750** and reported **5/5 PASS**, so that OWED item was removed from the hub in a follow-up commit. It stood for about an hour. The two UNTESTED entries remain open — a smoke gate is a wiring check and proves nothing about the `retainer_first` route, the `meeting_first` decline path, or the Client Overview reorder.
+
 ---
 
 ## 2026-08-17 — A second way to skip the ROI meeting, and completion dates that showed the future
