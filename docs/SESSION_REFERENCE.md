@@ -28,11 +28,11 @@ Run these instead of believing any version/tag/count written anywhere. Expected 
 ```powershell
 # 1. Live function versions — MCP list_edge_functions { project_id: "ejpsprsmhpufwogbmxjv" }
 #    Expect: vfo-admin-api ACTIVE + boldsign-webhook ACTIVE, verify_jwt=false on BOTH.
-#    Plus helper draft-agreement-pdfs v1 (no business logic). (v: 2026-08-17 — v749 / v40)
+#    Plus helper draft-agreement-pdfs v1 (no business logic). (v: 2026-08-17 — v750 / v40)
 
 # 2. Deploy tags — git is the source of truth, these lines are not (#222, #376)
-cd C:\vfo-react;          git tag -l 'live-*'         --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-17 → live-149-roi-skip-reschedule)
-cd C:\vfo-edge-functions; git tag -l 'backend-good-*' --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-17 → backend-good-2026-08-16-v748)
+cd C:\vfo-react;          git tag -l 'live-*'         --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-17 → live-150-tax-step-dates)
+cd C:\vfo-edge-functions; git tag -l 'backend-good-*' --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-17 → backend-good-2026-08-17-v750)
 
 # 3. Action-count parity — the ANCHORED patterns are required; a raw unanchored
 #    grep on index.ts returns 7 (the 7th is a comment on line 3). (v: 2026-08-17 → 6 + 457 = 463)
