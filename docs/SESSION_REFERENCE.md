@@ -28,11 +28,13 @@ Run these instead of believing any version/tag/count written anywhere. Expected 
 ```powershell
 # 1. Live function versions — MCP list_edge_functions { project_id: "ejpsprsmhpufwogbmxjv" }
 #    Expect: vfo-admin-api ACTIVE + boldsign-webhook ACTIVE, verify_jwt=false on BOTH.
-#    Plus helper draft-agreement-pdfs v1 (no business logic). (v: 2026-08-17 — v749 / v40)
+#    Plus helper draft-agreement-pdfs v1 (no business logic). (v: 2026-08-17 — v750 / v40)
 
-# 2. Deploy tags — git is the source of truth, these lines are not (#222, #376)
-cd C:\vfo-react;          git tag -l 'live-*'         --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-17 → live-149-roi-skip-reschedule)
-cd C:\vfo-edge-functions; git tag -l 'backend-good-*' --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-17 → backend-good-2026-08-16-v748)
+# 2. Deploy tags — git is the source of truth, these lines are not (#222, #376).
+#    Re-stamp these THREE lines AFTER wrap-up Part 4D, not during Part 1: the
+#    version and tag do not exist yet when the hub is written (#408).
+cd C:\vfo-react;          git tag -l 'live-*'         --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-17 → live-150-tax-step-dates)
+cd C:\vfo-edge-functions; git tag -l 'backend-good-*' --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-17 → backend-good-2026-08-17-v750)
 
 # 3. Action-count parity — the ANCHORED patterns are required; a raw unanchored
 #    grep on index.ts returns 7 (the 7th is a comment on line 3). (v: 2026-08-17 → 6 + 457 = 463)
@@ -73,6 +75,8 @@ Nothing here can be produced by a command. Everything else was deleted from this
 - **Flagged, not built:** a `payout_status` column on `specialist_revenue_recurring_lines` (the one Accounting panel that cannot be annotated) and persisting `pip_rev_share_status`'s richer `revPaidValue`. *(v: 2026-08-14 — column confirmed still absent via `information_schema`)*
 - **Flagged, not built (2026-08-16):** `actions/tax/decision.ts` writes `tax_decision` unconditionally, so re-submitting the Tax 3 decision as **No** on a plan whose retainer is already paid would strand that plan's live action-required bells with no clear site left. Still unguarded — the 2026-08-17 addition there is a `meeting_first`-only presentation check, not this. No click-path found that reaches it accidentally. *(v: 2026-08-17)*
 - **Flagged, not built (2026-08-17):** **13 tax plans carry `tax4_meeting_date` with no `tax4_meeting_confirm_email_sent_at`** and so render a BLANK completion date on that step (deliberate — blank beats a wrong date, #406). They were dated through **`automation_TAX_save_meeting_date`, which is dispatched and role-gated but has ZERO frontend callers** — apparent dead code, left in place. Either backfilling the stamps or retiring the action needs a decision. *(v: 2026-08-17)*
+- **The 5-pipeline smoke gate has NOT been run against v750.** It was last green against **v749**; v750 (the Client Overview completion-date mirror) shipped without it. Doc-only and FE-only work does not need it, but the next `vfo-admin-api` deploy must run it, and a failure then is as likely to be v750's as that deploy's. *(v: 2026-08-17)*
+- **Three UNTESTED items from the 2026-08-17 ROI-skip branch, still unexercised** — they were carried on a handoff block, and reached `main` with no landing place until #238 gave rule 5 one: (1) the **`retainer_first` skip route was click-tested BEFORE** the later `save-task` / `invoice-receipt` / `revshare-sweep` / `confirmation-email` edits landed, so that route has no post-change run; (2) the **decline path on a `meeting_first` plan** was never walked; (3) `overview-tax.ts`'s **positional reorder was never viewed in Client Overview**. The CHANGELOG's "click-tested end to end, 9/9 bells" covers `meeting_first` only. *(v: 2026-08-17)*
 - **Known-unbuilt, each with a live consequence:** #327 webhook event-id dedupe (only the MAP 1 P2–P4 branch is latched; every other branch is exposed) · #333 an `auto_renew`-off membership plan **lapses DARK** · #335 force-overwriting an ORGANIC MAP 1 row leaves stale `rec{i}_strat_paid` (a stale `'Yes'` suppresses a real payout) · #318 every "connected" pill except the member-profile dot still infers from `stripe_account_id` presence (known false-green). *(v: 2026-08-14)*
 
 **WATCH**

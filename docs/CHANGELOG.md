@@ -8,6 +8,22 @@
 
 ---
 
+## 2026-08-17 (2nd) — Post-ship reconcile: the hub's version stamps, and three UNTESTED items that reached main with nowhere to land
+
+**Doc-only, branch `docs/post-ship-reconcile`, BOTH repos.** No code, no migrations, no deploy. Opened by auditing the ROI-skip branch *after* it merged — the audit found three defects that a correct-looking wrap-up had left behind, none of which the shipping session did anything wrong to cause.
+
+**Superseded hub values** (all three were stamped `(v: 2026-08-17)` while carrying pre-deploy values): `vfo-admin-api` **v749 → v750** · `live-149-roi-skip-reschedule` → **`live-150-tax-step-dates`** · `backend-good-2026-08-16-v748` → **`backend-good-2026-08-17-v750`**. Re-derived and unchanged: action count 463, `deno check` 0, 15 crons all active, 8 pipelines LIVE, 186 notification rules, 162 `client_tax_plans` columns, security advisor GREEN against the documented baseline, hub 214 lines before this pass.
+
+**1. The stamps were stale by construction, not by carelessness (#408).** `SESSION_WRAPUP.md` puts the save-point tag LAST *so it cannot go stale* — but the hub's DERIVE expectations are written in Part 1A, three parts before the deploy happens and the tag exists. Following the prompt exactly therefore stamps today's date against the version and tag you arrived with. That is worse than an old date: the hub's own preamble makes a stamp mean "confirmed on this date", so the single signal a reader has for spotting drift is the one that gets falsified — on the three lines a new session reads first. Fixed by ordering: those three lines now carry an inline instruction to re-stamp after Part 4D. Every other DERIVE expectation is knowable in Part 1 and stays there.
+
+**2. Three UNTESTED items reached `main` with no landing place.** The first chat's handoff carried them; `grep` on the shipped docs returned zero hits for all three. The wrap-up's rule 5 reconciled OWED/WATCH/PARKED and never mentioned UNTESTED, so a field designed to survive a handoff had nowhere to go at the far end. **The prompt was already fixed in [#238](docs/prompts/SESSION_WRAPUP.md)**; this entry records the *data* half — all three are now OWED: the `retainer_first` route was click-tested BEFORE the later `save-task` / `invoice-receipt` / `revshare-sweep` / `confirmation-email` edits landed and has had no run since, the decline path on a `meeting_first` plan was never walked, and `overview-tax.ts`'s positional reorder has never been viewed in Client Overview. The earlier entry's *"click-tested end to end, 9/9 bells"* is true of `meeting_first` only.
+
+**3. The smoke gate was green against v749 while v750 shipped.** Recorded nowhere, now OWED. It is a wiring check, so the exposure is narrow — but v750 touched `overview-tax.ts`, and if the next deploy's gate fails, the cause is as likely to be v750's change as that deploy's.
+
+**Nothing was discharged from OWED this pass** — this is a net +3, which is what an audit that finds real gaps looks like. The prompt's own rule ("an OWED list that only grows is a broken list") is about sessions that never close items, not about the audit that opens them honestly.
+
+---
+
 ## 2026-08-17 — A second way to skip the ROI meeting, and completion dates that showed the future
 
 **Branch `claude/vfo-session-setup-3f44e2` BOTH repos, across two chats.** `vfo-admin-api` v748 → **v749** (the meeting-first backend, deployed mid-branch) → **v750 pending** (the Client Overview date mirror, committed but not yet deployed at the time of writing). `boldsign-webhook` untouched at **v40**; `draft-agreement-pdfs` v1. **Action count unchanged at 463** — both halves changed existing handlers only. Three migrations, all applied via MCP **and** committed as files (#196). `deno check --no-lock` **0**, `npm run build` exit 0 (33 route pages), security advisor **GREEN against the exact documented baseline**.
