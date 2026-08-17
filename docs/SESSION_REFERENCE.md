@@ -28,14 +28,14 @@ Run these instead of believing any version/tag/count written anywhere. Expected 
 ```powershell
 # 1. Live function versions — MCP list_edge_functions { project_id: "ejpsprsmhpufwogbmxjv" }
 #    Expect: vfo-admin-api ACTIVE + boldsign-webhook ACTIVE, verify_jwt=false on BOTH.
-#    Plus helper draft-agreement-pdfs v1 (no business logic). (v: 2026-08-16 — v748 / v40)
+#    Plus helper draft-agreement-pdfs v1 (no business logic). (v: 2026-08-17 — v749 / v40)
 
 # 2. Deploy tags — git is the source of truth, these lines are not (#222, #376)
-cd C:\vfo-react;          git tag -l 'live-*'         --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-14 → live-148-icg-vault-assess)
-cd C:\vfo-edge-functions; git tag -l 'backend-good-*' --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-14 → backend-good-2026-08-14-v744)
+cd C:\vfo-react;          git tag -l 'live-*'         --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-17 → live-149-roi-skip-reschedule)
+cd C:\vfo-edge-functions; git tag -l 'backend-good-*' --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-17 → backend-good-2026-08-16-v748)
 
 # 3. Action-count parity — the ANCHORED patterns are required; a raw unanchored
-#    grep on index.ts returns 7 (the 7th is a comment on line 3). (v: 2026-08-16 → 6 + 457 = 463)
+#    grep on index.ts returns 7 (the 7th is a comment on line 3). (v: 2026-08-17 → 6 + 457 = 463)
 cd C:\vfo-edge-functions   # or the worktree
 $logins   = (Select-String -Path supabase/functions/vfo-admin-api/index.ts          -Pattern '^\s*if \(action === '            -AllMatches).Matches.Count
 $dispatch = (Select-String -Path supabase/functions/vfo-admin-api/router/dispatch.ts -Pattern '^\s*"([a-zA-Z0-9_]+)":\s*\(c\)'  -AllMatches).Matches.Count
@@ -44,7 +44,7 @@ $dispatch = (Select-String -Path supabase/functions/vfo-admin-api/router/dispatc
 # 4. Type-check baseline — must be 0; --no-lock avoids the v5 deno.lock the bundler rejects (#112)
 & C:\Users\jakel_fjetgbx\.deno\bin\deno.exe check --no-lock supabase/functions/vfo-admin-api/index.ts
 
-# 5. Frontend build — expect exit 0. (v: 2026-08-16 → 33 route pages)
+# 5. Frontend build — expect exit 0. (v: 2026-08-17 → 33 route pages)
 cd C:\vfo-react; npm run build
 
 # 6. Pipeline smoke gate — hand it to Jake in EXACTLY this form (literal <password>, never a token, never Read-Host)
@@ -52,13 +52,13 @@ cd C:\vfo-react; npm run build
 ```
 
 ```sql
--- 7. Cron inventory (MCP execute_sql).  (v: 2026-08-16 → 15 jobs, all active)
+-- 7. Cron inventory (MCP execute_sql).  (v: 2026-08-17 → 15 jobs, all active)
 select jobname, schedule from cron.job order by jobid;
--- 8. Sandbox posture — every row should read false.  (v: 2026-08-16 → all 8 pipelines LIVE)
+-- 8. Sandbox posture — every row should read false.  (v: 2026-08-17 → all 8 pipelines LIVE)
 select pipeline, sandbox_mode from pipeline_sandbox_config order by pipeline;
 ```
 
-**9. Security advisor** — MCP `get_advisors { project_id: "ejpsprsmhpufwogbmxjv", type: "security" }`. **GREEN baseline = deny-all `rls_enabled_no_policy` INFO ×5 + the `pg_net` `extension_in_public` WARN, and nothing else.** Any `rls_disabled_in_public` / `sensitive_columns_exposed` ERROR or `rls_policy_always_true` WARN = a table regressed to anon-reachable → STOP. *(v: 2026-08-16 — exact baseline confirmed after that day's DDL)*
+**9. Security advisor** — MCP `get_advisors { project_id: "ejpsprsmhpufwogbmxjv", type: "security" }`. **GREEN baseline = deny-all `rls_enabled_no_policy` INFO ×5 + the `pg_net` `extension_in_public` WARN, and nothing else.** Any `rls_disabled_in_public` / `sensitive_columns_exposed` ERROR or `rls_policy_always_true` WARN = a table regressed to anon-reachable → STOP. *(v: 2026-08-17 — exact baseline re-confirmed)*
 
 ---
 
@@ -69,9 +69,10 @@ Nothing here can be produced by a command. Everything else was deleted from this
 **OPEN / OWED**
 - **The Outstanding Payment Links "Resend email" buttons have still never been clicked by anyone** — shipped 2026-08-04, live since, zero human exercise. *(v: 2026-08-14)*
 - **Aug 6 specialist payouts fired twice (~$1,382).** Legacy platform is still live on the same Stripe account and still reacts to migrated clients' payments (#361). Reconciliation not closed. *(v: 2026-08-14 — UNVERIFIED, carried from prior doc; not re-checked against Stripe this session)*
-- **`NOTIFICATION_AUDIT.md` needs REGENERATION, not patching** — ~55 live rules (a third) have no entry and five whole areas are missing, incl. Tax Planners (14). It now carries a live per-area table and a derive-don't-count caveat, so it is honest but incomplete. *(v: 2026-08-14)*
+- **`NOTIFICATION_AUDIT.md` needs REGENERATION, not patching** — ~57 live rules (a third) have no entry and five whole areas are missing, incl. Tax Planners (16). It carries a live per-area table and a derive-don't-count caveat, so it is honest but incomplete. Per-area table re-derived 2026-08-17. *(v: 2026-08-17)*
 - **Flagged, not built:** a `payout_status` column on `specialist_revenue_recurring_lines` (the one Accounting panel that cannot be annotated) and persisting `pip_rev_share_status`'s richer `revPaidValue`. *(v: 2026-08-14 — column confirmed still absent via `information_schema`)*
-- **Flagged, not built (2026-08-16):** `actions/tax/decision.ts` writes `tax_decision` unconditionally, so re-submitting the Tax 3 decision as **No** on a plan whose retainer is already paid would strand that plan's live action-required bells with no clear site left. No guard, no click-path found that reaches it accidentally. *(v: 2026-08-16)*
+- **Flagged, not built (2026-08-16):** `actions/tax/decision.ts` writes `tax_decision` unconditionally, so re-submitting the Tax 3 decision as **No** on a plan whose retainer is already paid would strand that plan's live action-required bells with no clear site left. Still unguarded — the 2026-08-17 addition there is a `meeting_first`-only presentation check, not this. No click-path found that reaches it accidentally. *(v: 2026-08-17)*
+- **Flagged, not built (2026-08-17):** **13 tax plans carry `tax4_meeting_date` with no `tax4_meeting_confirm_email_sent_at`** and so render a BLANK completion date on that step (deliberate — blank beats a wrong date, #406). They were dated through **`automation_TAX_save_meeting_date`, which is dispatched and role-gated but has ZERO frontend callers** — apparent dead code, left in place. Either backfilling the stamps or retiring the action needs a decision. *(v: 2026-08-17)*
 - **Known-unbuilt, each with a live consequence:** #327 webhook event-id dedupe (only the MAP 1 P2–P4 branch is latched; every other branch is exposed) · #333 an `auto_renew`-off membership plan **lapses DARK** · #335 force-overwriting an ORGANIC MAP 1 row leaves stale `rec{i}_strat_paid` (a stale `'Yes'` suppresses a real payout) · #318 every "connected" pill except the member-profile dot still infers from `stripe_account_id` presence (known false-green). *(v: 2026-08-14)*
 
 **WATCH**
@@ -155,6 +156,8 @@ Money, auth/security, data-loss and cross-repo contracts only. **Everything narr
 - **#356** — a template's Draft/Send mode is keyed by `(pipeline, template_name)` in TWO places per consumer; a mismatch looks exactly like a deliberately-Draft row and the mail sits in Drafts forever with no error. **#325** — exactly ELEVEN rows are `send_mode=true`; editing one reaches a real person with nobody in between.
 - **#382 / #392 / #323** — a user-visible LABEL can be a lookup key, a DISPLAYED name can diverge from the STORED name, and a task NAME can be exact-matched across both repos with no compile-time protection. Grep both repos before renaming anything.
 - **#342** — an external asset the code reads BY NAME is coupled to the deploy: content-only assets hot-swap, structure-bearing ones need a NEW versioned name + a lockstep deploy, uploaded FIRST.
+- **#406** — a "completed on" cell fed by a scheduling field (`_send_date`, `_meeting_date`) displays a FUTURE date and reads as fact, not bug; a step whose work is *scheduling* dates from when it was scheduled and must not move later. Fix the FE and its `overview-tax.ts` mirror in the SAME change — they disagree silently, both dates being plausible.
+- **#407** — two asks answered at DIFFERENT times need DIFFERENT bell titles (one prefix = one clear contract); two keys may share a title only when the instruction is identical. To add a second ordering to a one-way flag, put a DISCRIMINATOR beside it (NULL = original) so everything keyed on the flag stays route-blind.
 
 ---
 

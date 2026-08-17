@@ -46,6 +46,16 @@ The specialist picker's permanent trailing option is **"Custom"** (module sentin
 
 Every step's completion date in `TaxPrioritiesTab.jsx` is read-only: the date is whatever the save recorded and cannot be hand-edited. The mechanism is a **module-level `StepDate` component that SHADOWS the shared editable control** in `components/shared/StepDate` — the import was removed, and the local version renders a muted span, ignoring the `onChange`/`disabled` props the call sites still pass. Every other tracking track (MAP 1, onboarding, PFT, PIP, Regular) still imports and uses the **editable** shared control, so do not "fix" the tax call sites by re-adding the import. "Allocate Team Member / Tax Planner" now shows its completion date too.
 
+**Which column feeds that cell (2026-08-17).** Ordinary steps read `client_tax_progress.completed_date`. The three steps with **bespoke renderers** have no progress row and must name their stamp explicitly — and each had been reading a field that is not a completion date at all (gotcha **#406**):
+
+| Step (`status_options`) | Completion cell reads | Never |
+|---|---|---|
+| `tax_hlm_confirm` | `tax4_meeting_confirm_email_sent_at` | `tax4_meeting_date` — that is the **future** meeting being booked |
+| `tax_presentation_link` | `presentation_scheduled_at`, falling back to `presentation_email_sent_at` | `presentation_send_date` — the **scheduled** send day, which can be in the future |
+| `tax_returns_request` | `tax_returns_received_at`, falling back to `tax_returns_requested_at` | requested-before-received: the step completes on **receipt** |
+
+`tax_presentation_link` **pins to the scheduled stamp and does not move when the sweep sends**, because scheduling is the human's work on that step and the send that follows is the system's. That is **deliberately the inverse** of `overview-tax.ts`, which was flipped to match in the same change — keep the two in step (#339). The two fallbacks exist only for rows predating their column; a `tax_hlm_confirm` plan dated through the retired `automation_TAX_save_meeting_date` has no stamp at all and correctly shows **blank** rather than a wrong date.
+
 ### Risk profile seeding (Holistic only, 2026-07-22)
 
 On a **Holistic** plan, `tax_start_plan` copies the client's MAP 1 "Priorities Decided / Risk Profile" answer onto the new plan's Tax 1 "Client risk profile complete" task (`Completed + Risk N` → `Yes — Risk N — <Mindset>`). Creation-time only, never re-synced; `Completed + N/A` seeds nothing; program 4 clients are excluded (no MAP 1 track). Expect a new Holistic plan to open at `1 / N` with Tax 1 reading "In progress". See gotcha #261.
@@ -89,10 +99,10 @@ Steps are matched **sentinel-first, exact-name-as-fallback** (the file's convent
 | `Generate and download presentation` | review = **Proceed**; then its own bespoke hint takes over | chain hint, then `Submit the tax planning opportunities form first` |
 | `Send presentation link` | ROI meeting booked **and** deck generated | `Book the ROI meeting and generate the presentation first` |
 | `ROI Presentation` | **every** Tax 1 + Tax 2 step, incl. Green/Red resolved (P4) | `Complete every Tax 1 and Tax 2 step first` |
-| `Client tax planning decision` | `ROI Presentation` answered **— or the ROI meeting skipped** (`!roiPresentationDone && !roiSkipped`) | `Complete the "ROI Presentation" step first` |
-| `Detailed tax plan meeting confirmation email` | **not declined** (tested FIRST), then the Tax 3 AI PC Admin cascade completed | `Tax planning was declined` / `Waiting for the Tax 3 AI PC Admin steps to complete` |
-| `Detailed tax plan presentation` | that confirmation email sent (`tax4_meeting_date`) | `Send the detailed tax plan meeting confirmation email first` |
-| `Client decision 1` | confirmation email **and** detailed presentation | `Complete the confirmation email and detailed tax plan presentation first` |
+| `Client tax planning decision` | `ROI Presentation` answered **— or the ROI meeting skipped** (`!roiPresentationDone && !roiSkipped`). **`meeting_first`: instead waits on `Detailed tax plan presentation`** | `Complete the "ROI Presentation" step first` / (mf) `Complete the "Detailed tax plan presentation" step first` |
+| `Detailed tax plan meeting confirmation email` | **not declined** (tested FIRST), then the Tax 3 AI PC Admin cascade completed. **`meeting_first`: unlocked outright** — the skip itself is the unlock, since this meeting precedes the decision and the money | `Tax planning was declined` / `Waiting for the Tax 3 AI PC Admin steps to complete` |
+| `Detailed tax plan presentation` | that confirmation email sent (`tax4_meeting_date`) — **same on both routes** | `Send the detailed tax plan meeting confirmation email first` |
+| `Client decision 1` | confirmation email **and** detailed presentation. **`meeting_first` adds the retainer**: once both meeting steps are done it stays locked until `tax3AipcDone` | `Complete the confirmation email and detailed tax plan presentation first` / (mf) `Waiting for the client to complete signing and payment` |
 | `Client decision 2` | the above **and Client decision 1** | `Complete "Client decision 1" first` |
 | Tax 5a per-specialist steps | `Client decision 1` | `Waiting for Client decision 1` |
 | Tax 5b *Post Allocation* | unchanged `tax5bUnlocked` rule | `Unlocks when "Confirm ready for implementation" is Yes or Undecided on any specialist` |
@@ -257,41 +267,68 @@ Until 2026-08-07 only **VFO Tax Planning (program 4)** had a "Request Tax Return
 
 ---
 
-## Step 1b — Skip the ROI meeting (both programs, 2026-08-16, v746)
+## Step 1b — Skip the ROI meeting: TWO routes (both programs, 2026-08-16 v746; second route 2026-08-17)
 
-Some clients go **straight to the detailed tax plan meeting**: there is no ROI meeting, so the whole `Tax 2 - Deeper Dive` phase and Tax 3's `ROI Presentation` step never happen, and `Client tax planning decision` is the next thing owed. **Skipping is FINAL** — there is no un-skip and no booking afterwards. Full trap inventory: gotcha **#405**.
+Some clients go **straight to the detailed tax plan meeting**: there is no ROI meeting, so the whole `Tax 2 - Deeper Dive` phase and Tax 3's `ROI Presentation` step never happen. **Skipping is FINAL** — there is no un-skip and no booking afterwards. Full trap inventory: gotchas **#405** (the done-math split) and **#407** (the two routes).
 
-**Column.** `client_tax_plans.roi_meeting_skipped_at timestamptz` (migration `20260816230000_tax_roi_skip_column.sql`). Nothing ever clears it; the stamp is the entire state.
+**What differs between the routes is ORDER, and nothing else.** Both stamp `roi_meeting_skipped_at`, so every mechanism keyed on *"was it skipped?"* — the skipped-away rows, Tax 2's green Done 1/1, the `ready-for-tax3.ts` refusal, the `|skipped` email axis, the `overview-tax.ts` mirror — is **route-blind** and was not touched when the second route shipped. Only four FE step gates and the bell sequence read the mode.
 
-**Button.** A light-green **Skip ROI meeting** button on the `ROI Meeting booked - Send Confirmation Email` step, beside Send / Decline. It **keeps its `confirm()`** — deliberately, because the action is irreversible (contrast the one-click "Already have tax returns" button, which is not).
+| | `retainer_first` (the original; also **NULL**) | `meeting_first` |
+|---|---|---|
+| Order | decision → sign → pay → detailed meeting | detailed meeting → confirm it happened → decision → sign → pay |
+| Asked first, by the skip | **PF**: `Complete the Client tax planning decision for` | **Planner**: `Send the detailed tax plan meeting confirmation email for` |
+| `Client tax planning decision` unlocks | at the skip | once `Detailed tax plan presentation` is answered |
+| `Client decision 1` also waits on | — | the retainer being paid |
 
-**Handler:** [`automation_TAX_skiproimeeting`](../../supabase/functions/vfo-admin-api/actions/tax/skip-roi-meeting.ts) — AUTH, `ADMIN_ONLY_ACTIONS`, `denyIfNotPlannerPlan`-guarded.
+**Columns.** `roi_meeting_skipped_at timestamptz` (`20260816230000_tax_roi_skip_column.sql`) — the one-way "was it skipped" stamp, nothing ever clears it. `roi_skip_mode text` (`20260817100000_tax_roi_skip_mode_column.sql`) — the discriminator, **NULL reads as `retainer_first` everywhere**, so a plan skipped before the column existed keeps the behaviour it was created under. **No backfill was needed or performed:** at the time of writing no live plan had been skipped. **No CHECK constraint** — no column on this table has one; `skip-roi-meeting.ts` is the only writer and validates the value, so widening the set later is a deploy, not a migration.
+
+**Buttons.** TWO light-green buttons on the `ROI Meeting booked - Send Confirmation Email` step, beside Send / Decline: **Skip ROI — retainer first** and **Skip ROI — meeting first**. Both keep their `confirm()`, whose text spells out the ordering, because the action *and the route* are irreversible.
+
+**Handler:** [`automation_TAX_skiproimeeting`](../../supabase/functions/vfo-admin-api/actions/tax/skip-roi-meeting.ts) — AUTH, `ADMIN_ONLY_ACTIONS`, `denyIfNotPlannerPlan`-guarded. One action for both routes; `mode` is the only difference.
 
 **Guards, then the stamp:**
-- already skipped → `{success:true}`, **no re-stamp** (a repeat click must not move the date shown on the step);
+- `mode` absent/empty → `retainer_first`; any other unrecognised value → **400** listing the accepted set;
+- already skipped **on the same mode** → `{success:true}`, **no re-stamp** (a repeat click must not move the date shown on the step);
+- already skipped **on the OTHER mode** → **400** naming the route it actually took. Deliberately a refusal rather than a silent no-op: the two routes unlock different steps and have already asked different people for different things, so nobody may believe they changed it;
 - `tax3_meeting_date` set **or** `ready_for_tax3_decision === 'Yes'` → **400 `"The ROI meeting is already booked for this plan"`**;
 - no `tax_planner_id` → **400 `"Allocate a Team Member / Tax Planner before skipping the ROI meeting"`** (same ownership rule as the confirm send);
-- then `roi_meeting_skipped_at = now()`.
+- then `roi_meeting_skipped_at = now()` **and** `roi_skip_mode = mode`.
 
-**No email.** Skipping is an internal routing decision, not something the client is told at this step.
+**No email** on either route. Skipping is an internal routing decision, not something the client is told at this step.
 
-**Bell hand-off — everything after the stamp is fail-soft in one try/catch** (a bell must never fail a skip that is already written). In order: (a) clears legacy `Book the ROI meeting for%` rows; (b) runs the **review-outcome matrix exactly as booking does** — a recorded `Proceed` clears `Tax Planner review complete for%` (program 4 only once Green/Red also reads `Proceed`; the `save-task.ts` branch finishes the job if the skip lands first), and a recorded `Stop` also clears, because skipping and carrying on overrides the recommendation just as booking anyway does; (c) clears the planner's `Enter the tax planning opportunities for%` and the PF's `Download the ROI presentation for%` (`clearPresentationDownloadBells`) — both point at Tax 2; (d) fires the **new** action-required bell below.
+**Bell hand-off — everything after the stamp is fail-soft in one try/catch** (a bell must never fail a skip that is already written). Shared by both routes: (a) clears legacy `Book the ROI meeting for%` rows; (b) runs the **review-outcome matrix exactly as booking does** — a recorded `Proceed` clears `Tax Planner review complete for%` (program 4 only once Green/Red also reads `Proceed`; the `save-task.ts` branch finishes the job if the skip lands first), and a recorded `Stop` also clears, because skipping and carrying on overrides the recommendation just as booking anyway does; (c) clears the planner's `Enter the tax planning opportunities for%` and the PF's `Download the ROI presentation for%` (`clearPresentationDownloadBells`) — both point at Tax 2. Then (d) **asks whoever owns the next step on the chosen route**, each mint carrying its own satisfied-on-fire guard (#365).
 
-**NEW rule `TAX_roi_skipped_decision_needed`** (migration `20260816230100_…`, `sort=222`, `ASSIGNED_PF`, `action_required`) → the assigned PF (fallback Tracy), routed on the PF's **portal login** address via `taxPfLoginEmail`. Title prefix **`Complete the Client tax planning decision for`** — **LOAD-BEARING**, registered in the `utils/tax-review-bell.ts` header map, exported as `ROI_SKIPPED_DECISION_PREFIX`, cleared by `clearRoiSkippedDecisionBells`. **Satisfied-on-fire guard:** a plan that already carries a `tax_decision` gets **no** bell, because the only clear site has already run and the bell would be unretirable (#365). **Cleared ONLY by [`decision.ts`](../../supabase/functions/vfo-admin-api/actions/tax/decision.ts)**, on **any** decision (Yes / Undecided / No), immediately after the common UPDATE every branch passes through.
+**The full bell sequence per route** — mapped in the `utils/tax-review-bell.ts` header, which is the source of truth:
 
-**Downstream refusals and re-reads:**
-- `ready-for-tax3.ts` **400s BOTH decisions** on a skipped plan — that one-way-ness is what makes the rest safe.
-- `save-task.ts`: the review-Proceed bell's `roiBooked` became **`roiSettled`** (booked **OR** skipped) in both the `alreadySatisfied` guard and the Green/Red clear. Tray's Proceed bell messages now end *"…or skip the ROI meeting if the client is moving straight to the detailed tax plan meeting."* on both programs.
-- `overview-tax.ts`: the four Tax 2 steps **and** a newly-named `ROI Presentation` branch (it previously fell through to the generic `else`) carry `applicable: reach && !roiSkipped` — the **#339** backend mirror of the FE.
+| # | `retainer_first` | `meeting_first` |
+|---|---|---|
+| 1 | `skip-roi-meeting.ts` → PF, `Complete the Client tax planning decision for` | `skip-roi-meeting.ts` → planner, `Send the detailed tax plan meeting confirmation email for` (**`TAX_roi_skipped_hlm_ready`**) |
+| 2 | `invoice-receipt.ts` → planner, `Send the detailed tax plan meeting confirmation email for` (`TAX_planner_hlm_ready`) | `revshare-sweep.ts` → planner, `Complete the tax plan review steps for` — **the presentation ONLY** |
+| 3 | `revshare-sweep.ts` → planner, `Complete the tax plan review steps for` — presentation **AND** Client decision 1 | `save-task.ts` → PF, `Complete the Client tax planning decision for`, once the presentation confirms the meeting happened |
+| 4 | — | `invoice-receipt.ts` → planner, `Complete Client decision 1 for` (**`TAX_roi_skipped_decision1_ready`**) |
+
+**Two rules added for the second route** (`20260817100100_…` sort 31, `20260817100200_…` sort 32; both `ALLOCATED_TAX_PLANNER`, `action_required`):
+- **`TAX_roi_skipped_hlm_ready`** deliberately **shares its title** with `TAX_planner_hlm_ready`, so `highlevel-meeting-confirm.ts`'s existing `clearHlmConfirmBells` retires it with no change there. Two keys, one title: the key controls routing and Editor enable-ability, the **title** controls clearing — the same precedent as `Complete the tax planner review for`.
+- **`TAX_roi_skipped_decision1_ready`** needed its **OWN** title, `Complete Client decision 1 for`. Reusing `Complete the tax plan review steps for` would have been fatal: on this route that prefix is satisfied by the presentation **alone**, so the second ask would have been cleared by the next clear-site run before anyone read it. **Two asks separated in time need two titles.** Cleared by `postreview-decision.ts` on **every** branch, `Stop - Refund` included. The `1` keeps it non-overlapping with `Complete Client decision 2 for` under `ILIKE`.
+
+`TAX_roi_skipped_decision_needed` (the PF's decision ask, `sort=222`, routed on the PF's **portal login** address via `taxPfLoginEmail`, prefix exported as `ROI_SKIPPED_DECISION_PREFIX`) is now fired from **two** sites depending on the mode — `skip-roi-meeting.ts` on `retainer_first`, `save-task.ts` on `meeting_first`. Cleared **only** by [`decision.ts`](../../supabase/functions/vfo-admin-api/actions/tax/decision.ts), on **any** decision (Yes / Undecided / No).
+
+**Backend refusals behind the FE locks (#403 — a lock is choreography, never a boundary):**
+- `ready-for-tax3.ts` **400s BOTH decisions** on a skipped plan, either route — that one-way-ness is what makes the rest safe.
+- `decision.ts` 400s on a `meeting_first` plan whose `Detailed tax plan presentation` is unanswered.
+- `postreview-decision.ts` 400s on a `meeting_first` plan whose `retainer_invoice_email_sent !== true`. The **idempotent already-decided return stays FIRST**, so a double-submit that in fact succeeded can never fall into this gate and 400.
+- `save-task.ts`: the review-Proceed bell's `roiBooked` became **`roiSettled`** (booked **OR** skipped) in both the `alreadySatisfied` guard and the Green/Red clear.
+- `overview-tax.ts`: the four Tax 2 steps **and** a newly-named `ROI Presentation` branch carry `applicable: reach && !roiSkipped` (the **#339** mirror). On `meeting_first` it additionally **reorders** the two Tax 4 meeting steps ahead of the Tax 3 decision and widens their `applicable` from `yesReach` to `afterSetup` — `computeTrack` is strictly positional, so without the move the whole pre-payment window reports the wrong `next_action` and then raises a false skipped-step warning. The move is a no-op if the list is already ordered.
+- `confirmation-email.ts` and `revshare-sweep.ts` carry **route-dependent wording** — see #406.
 
 **Display rules — the split is the part that is easy to get wrong (#405).**
 - **`tax_3_decision` counts as DONE when skipped** (`isTaskStatused: … || roiSkipped`), because "there will be no meeting" is a real answer to it. That is what makes **Tax 2 render a green Done 1/1** on the phase card and in the hero rather than an empty phase.
 - The other four (`assess_form`, `tax_generate_presentation`, `tax_presentation_link`, `ROI Presentation`) are **excluded from the counts** and render grey **`Skipped`** rows — but **only when unanswered**: a step actioned before the skip keeps its normal row and stays counted, because that work really happened (`isSkippedAway` tests `!isTaskStatused(t)`).
-- The booking row renders a **green dot + green `ROI meeting skipped` chip** with `roi_meeting_skipped_at` in the date column.
+- The booking row renders a **green dot + green chip naming the ROUTE** — `ROI meeting skipped — retainer first` / `— meeting first` — with `roi_meeting_skipped_at` in the date column. The route is on the chip because the two orderings are otherwise indistinguishable on that row, and which one a plan took decides what everyone downstream is waiting for.
 - Skipped rows render on **every** surface — admin, member (`readOnly`) and planner — so the history reads identically to everyone. Skip outranks the lock gate, and no hint is shown (there is nothing to wait for).
 
 **Tables read:** `client_tax_plans`, `client_tax_progress` (review + Green/Red status), `clients`, `notification_rules`.
-**Tables written:** `client_tax_plans` (`roi_meeting_skipped_at`), `notifications` (four clears + one insert).
+**Tables written:** `client_tax_plans` (`roi_meeting_skipped_at`, `roi_skip_mode`), `notifications` (four clears + one insert).
 **External calls:** none. **Chains:** none.
 
 ---

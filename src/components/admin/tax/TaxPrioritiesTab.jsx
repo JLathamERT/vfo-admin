@@ -1426,6 +1426,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   // decision" unlocks in their place. Declared ahead of isTaskStatused because
   // that function reads it (the booking step is closed BY the skip).
   const roiSkipped = !!livePlan?.roi_meeting_skipped_at
+  // TWO skip routes, both stamping roi_meeting_skipped_at — everything above and
+  // below that reads "was it skipped?" is route-blind, and only the four gates
+  // marked roiSkipMeetingFirst below differ:
+  //   retainer first  decision -> sign -> pay -> detailed meeting  (roi_skip_mode
+  //                   null on plans skipped before the column existed)
+  //   meeting first   detailed meeting -> confirm it happened -> decision -> sign
+  //                   -> pay, and Client decision 1 waits on the retainer too
+  const roiSkipMeetingFirst = roiSkipped && livePlan?.roi_skip_mode === 'meeting_first'
 
   // A task counts as statused for display when its progress is recorded in
   // client_tax_progress — or, for the two steps that write to client_tax_plans
@@ -1629,6 +1637,11 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       return { locked: !ready, hint: 'Complete every Tax 1 and Tax 2 step first' }
     }
     if (nm === 'Client tax planning decision' && so === 'enter_details' && phase?.name === 'Tax 3 - ROI Meeting') {
+      // Meeting first inverts this: the decision is owed only once the detailed
+      // tax plan meeting is confirmed as held, which is what asks the PF for it.
+      if (roiSkipMeetingFirst) {
+        return { locked: !detailedPresDone, hint: 'Complete the "Detailed tax plan presentation" step first' }
+      }
       // A skipped ROI meeting is the other way in: the presentation step it
       // waits on is one of the steps skip removes.
       return { locked: !roiPresentationDone && !roiSkipped, hint: 'Complete the "ROI Presentation" step first' }
@@ -1636,16 +1649,29 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (so === 'tax_hlm_confirm') {
       // A decline closes the engagement, so there is no meeting to confirm. Must
       // come first: a 'No' also satisfies tax3AipcDone (the cascade ends there),
-      // which would otherwise read as "cleared to send".
+      // which would otherwise read as "cleared to send". It stays first on the
+      // meeting-first route too — a plan can only be declined there after the
+      // meeting, and a declined plan must never re-offer the step.
       if (livePlan?.tax_decision === 'No' || livePlan?.tax_final_decision === 'No') {
         return { locked: true, hint: 'Tax planning was declined' }
       }
+      // Meeting first books this meeting BEFORE the client decides, signs or pays,
+      // so there is nothing left to wait for — the skip itself is the unlock.
+      if (roiSkipMeetingFirst) return null
       return { locked: !tax3AipcDone, hint: 'Waiting for the Tax 3 AI PC Admin steps to complete' }
     }
     if (nm === 'Detailed tax plan presentation') {
+      // Same on both routes — this step confirms the meeting the step above booked.
       return { locked: !hlmConfirmDone, hint: 'Send the detailed tax plan meeting confirmation email first' }
     }
     if (so === 'tax_continue_stop' || nm === 'Client decision 1') {
+      // Meeting first adds the retainer to this step's prerequisites: the meeting
+      // happened before the money, and Client decision 1 decides what happens to
+      // money that has to be in first. Tested only once the two meeting steps are
+      // done, so the hint always names the nearest outstanding thing.
+      if (roiSkipMeetingFirst && hlmConfirmDone && detailedPresDone && !tax3AipcDone) {
+        return { locked: true, hint: 'Waiting for the client to complete signing and payment' }
+      }
       return { locked: !(hlmConfirmDone && detailedPresDone), hint: 'Complete the detailed tax plan presentation first' }
     }
     if (nm === 'Client decision 2') {
@@ -1751,7 +1777,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     )
     if (roiSkipRow) {
       const isRoiBookingStep = task.status_options === 'tax_3_decision'
-      const skipChip = isRoiBookingStep ? 'ROI meeting skipped' : 'Skipped'
+      // The route is named on the chip: the two orderings look identical on this
+      // row otherwise, and which one a plan took decides what everybody downstream
+      // is waiting for.
+      const skipChip = isRoiBookingStep
+        ? (roiSkipMeetingFirst ? 'ROI meeting skipped — meeting first' : 'ROI meeting skipped — retainer first')
+        : 'Skipped'
       return (
         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isRoiBookingStep ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${isRoiBookingStep ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
@@ -2249,7 +2280,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           ) : (
             <button disabled={sending} onClick={() => setDraft({ pOpen: true, link: '', date: '' })} style={tdGreen} title="Paste the presentation link and choose the date to send it. A cron job drafts the email to the member (Cc the assigned PF) early that morning.">Schedule email</button>
           )}
-          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{sendDate ? formatDate(sendDate) : ''}</span>
+          {/* presentation_send_date is the SCHEDULED send day and can be in the
+              FUTURE, so it never belongs in the completion column. Scheduling IS
+              the human's work on this step — the later sweep send is the system's
+              — so the date pins to presentation_scheduled_at and does not move when
+              the email goes out. DELIBERATELY the inverse of overview-tax.ts, which
+              prefers the sent stamp. sentAt is the fallback only for the plans
+              scheduled before presentation_scheduled_at existed. */}
+          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{formatStamp(livePlan?.presentation_scheduled_at || sentAt)}</span>
         </div>
       )
     }
@@ -2311,7 +2349,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 <button disabled={sending} onClick={markAlreadyHave} style={tdSecondary} title="Marks the tax returns as received without emailing the client.">Already have tax returns</button>
               </>
             )}
-            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{requestedAt ? formatStamp(requestedAt) : (receivedAt ? formatStamp(receivedAt) : '')}</span>
+            {/* The step completes on RECEIPT, so received wins over requested;
+                requested is the in-flight (blue) fallback. Same precedence as
+                overview-tax.ts. */}
+            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{formatStamp(receivedAt || requestedAt)}</span>
           </div>
           {requestedAt && (
             <div style={{ padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
@@ -2375,9 +2416,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               <button disabled={sending} onClick={() => setDeclineDrafts(d => { const next = { ...d }; delete next[task.id]; return next })} style={tdCancel}>Cancel</button>
             </div>
           ) : (
-            <button disabled={sending} onClick={openDateForm} style={tdGreen} title="Enter the High Level Meeting date/time/timezone and send the confirmation email. The day after this date, Tim and Tracy get an action-required reminder to record the Client decision 1.">Send email (with date)</button>
+            <button disabled={sending} onClick={openDateForm} style={tdGreen} title={`Enter the detailed tax plan meeting date/time/timezone and send the confirmation email. The day after this date, the allocated Tax Planner gets an action-required reminder to complete ${roiSkipMeetingFirst ? 'the "Detailed tax plan presentation" step (Client decision 1 comes later, once the client has signed and paid).' : 'the "Detailed tax plan presentation" and "Client decision 1" steps.'}`}>Send email (with date)</button>
           )}
-          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{savedDate ? formatDate(savedDate) : ''}</span>
+          {/* Completion column = when the confirmation email went out, NOT the
+              meeting it books (tax4_meeting_date is in the FUTURE). Mirrors
+              overview-tax.ts's `at` for this step. Legacy plans dated through the
+              retired automation_TAX_save_meeting_date carry no stamp — blank, as
+              the backend already shows. */}
+          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{formatStamp(livePlan?.tax4_meeting_confirm_email_sent_at)}</span>
         </div>
       )
     }
@@ -2757,6 +2803,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const tdGreen = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
       const tdRed = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600 }
       const tdCancel = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }
+      // Lighter than tdGreen: the two skip routes are alternatives to Send, not
+      // the expected action, and they read as a pair.
+      const tdSkip = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(27,146,84,0.25)', background: 'rgba(27,146,84,0.06)', color: '#1b9254', fontWeight: 600 }
       const dateOpen = !!draft.dateOpen
       const setDraft = (patch) => setDeclineDrafts(d => ({ ...d, [task.id]: { ...(d[task.id] || {}), ...patch } }))
       // A booked meeting can be moved: reopen this same form pre-filled and re-send
@@ -2770,6 +2819,16 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         tz: livePlan?.tax3_meeting_timezone || 'ET',
       })
       const rescheduleBtn = !readOnly && <button disabled={sending} onClick={openDateForm} style={tdCancel} title="Pick a new date/time and re-send the same confirmation email.">Reschedule</button>
+      // Both skip routes go through one action; `mode` is the only difference.
+      // The backend validates it, re-checks the planner allocation and refuses a
+      // second skip on the other route, so every refusal surfaces as its own
+      // message rather than being pre-guessed here.
+      const fireSkipRoi = async (mode, confirmText) => {
+        if (!window.confirm(confirmText)) return
+        const res = await callApi('automation_TAX_skiproimeeting', { tax_plan_id: plan.id, mode })
+        if (res?.error) { alert(`Error: ${res.error}`); return }
+        await refreshLivePlan()
+      }
       return (
         <div key={key} style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }}>
@@ -2806,14 +2865,13 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                         <button disabled={sending} onClick={() => { if (!plannerAllocated) { alert('Allocate a Team Member / Tax Planner (Tax 1) before sending the confirmation email.'); return } openDateForm() }} style={tdGreen}>Send email (with date)</button>
                         {canDecline && <button disabled={sending} onClick={() => setDeclineDrafts(d => ({ ...d, [task.id]: { open: true, reason: '', sending: false } }))} style={tdRed}>No - Declined email to client</button>}
-                        {/* Both programs. Irreversible, so the confirm stays: a
-                            skipped plan can never book the meeting afterwards. */}
-                        <button disabled={sending} onClick={async () => {
-                          if (!window.confirm('Skip the ROI meeting? This is final — the client moves straight to the detailed tax plan meeting.')) return
-                          const res = await callApi('automation_TAX_skiproimeeting', { tax_plan_id: plan.id })
-                          if (res?.error) { alert(`Error: ${res.error}`); return }
-                          await refreshLivePlan()
-                        }} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: sending ? 'not-allowed' : 'pointer', border: '1px solid rgba(27,146,84,0.25)', background: 'rgba(27,146,84,0.06)', color: '#1b9254', fontWeight: 600 }}>Skip ROI meeting</button>
+                        {/* Both programs, both routes. Irreversible, so the confirm
+                            stays: a skipped plan can never book the ROI meeting
+                            afterwards, and the ROUTE is equally one-way — the two
+                            unlock different steps and raise different bells, so the
+                            backend refuses a later click on the other button. */}
+                        <button disabled={sending} onClick={() => fireSkipRoi('retainer_first', 'Skip the ROI meeting, retainer first?\n\nThis is final. The client completes the tax planning decision, signs and pays BEFORE the detailed tax plan meeting is booked.')} style={tdSkip} title="No ROI meeting. The client decides, signs and pays first; the detailed tax plan meeting is booked after that.">Skip ROI — retainer first</button>
+                        <button disabled={sending} onClick={() => fireSkipRoi('meeting_first', 'Skip the ROI meeting, meeting first?\n\nThis is final. The detailed tax plan meeting is booked and held BEFORE the client decides, signs and pays.')} style={tdSkip} title="No ROI meeting. The detailed tax plan meeting is booked and held first; the decision, signing and payment follow it.">Skip ROI — meeting first</button>
                       </div>
                     )
             }

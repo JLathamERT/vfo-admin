@@ -45,7 +45,7 @@
 ## Every notification in the system
 
 > **⚠️ THE TABLES BELOW ARE A SNAPSHOT, NOT AN INVENTORY — the DB is the source of truth.**
-> They were written when there were 128 rules in 11 areas. As of **2026-08-16 there are 184 rules in
+> They were written when there were 128 rules in 11 areas. As of **2026-08-17 there are 186 rules in
 > 16 areas**, so roughly a third of the live rules are NOT listed here. Derive the current picture
 > instead of trusting a count on this page:
 > `select area, count(*) from notification_rules group by area order by area;`
@@ -65,7 +65,7 @@
 > | Regular Priorities (MAP 4) | 4 | 4 ✓ |
 > | Specialist Onboarding | 35 | 34 |
 > | Tax | 37 | 22 |
-> | **Tax Planners** | **14** | ✗ no section — see [flows/tax-planning.md](flows/tax-planning.md#thirteen-planner-notification-bells-six-new-2026-07-22-a-seventh-2026-07-23-an-eighth-2026-07-23-evening-a-ninth-and-tenth-2026-08-10-an-eleventh-and-twelfth-2026-08-11-a-thirteenth-later-the-same-day) |
+> | **Tax Planners** | **16** | ✗ no section — see [flows/tax-planning.md](flows/tax-planning.md#thirteen-planner-notification-bells-six-new-2026-07-22-a-seventh-2026-07-23-an-eighth-2026-07-23-evening-a-ninth-and-tenth-2026-08-10-an-eleventh-and-twelfth-2026-08-11-a-thirteenth-later-the-same-day) |
 > | Uploads | 5 | ✗ no section |
 > | VFO Specialist Revenue | 9 | 9 ✓ |
 >
@@ -95,7 +95,9 @@
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
-| **ROI meeting skipped — complete the Client tax planning decision** (`TAX_roi_skipped_decision_needed`, NEW 2026-08-16) — the ROI meeting was skipped on a tax plan (either program), so the client is going straight to the detailed tax plan meeting and the assigned PF must complete the "Client tax planning decision" step. Persistent until **any** decision is recorded (`automation_TAX_decision`). **Not fired when a decision already exists.** | **Action required** | Assigned PF (fallback Tracy) | Admin clicks **Skip ROI meeting** (`automation_TAX_skiproimeeting`) — instant |
+| **ROI meeting skipped — complete the Client tax planning decision** (`TAX_roi_skipped_decision_needed`, NEW 2026-08-16) — the ROI meeting was skipped on a tax plan (either program), so the client is going straight to the detailed tax plan meeting and the assigned PF must complete the "Client tax planning decision" step. Persistent until **any** decision is recorded (`automation_TAX_decision`). **Not fired when a decision already exists.** | **Action required** | Assigned PF (fallback Tracy) | **TWO sites since 2026-08-17, by `roi_skip_mode`:** `retainer_first` → admin clicks **Skip ROI — retainer first** (`automation_TAX_skiproimeeting`), instant · `meeting_first` → later, when `tax_save_task` records the "Detailed tax plan presentation" step confirming the meeting was held |
+| **ROI meeting skipped, meeting first — send the meeting confirmation email** (`TAX_roi_skipped_hlm_ready`, NEW 2026-08-17, Tax Planners area, sort 31) — on the meeting-first route the detailed tax plan meeting precedes signing and paying, so its confirmation email is owed immediately. **Shares its title with `TAX_planner_hlm_ready` deliberately** (same instruction, same person, different route), so the same clear site retires it. Persistent until the email goes out; not fired when it already has. | **Action required** | Allocated Tax Planner | Admin clicks **Skip ROI — meeting first** (`automation_TAX_skiproimeeting`) — instant |
+| **ROI meeting skipped, meeting first — retainer paid, complete Client decision 1** (`TAX_roi_skipped_decision1_ready`, NEW 2026-08-17, Tax Planners area, sort 32) — the meeting already happened, so once the retainer paperwork completes the only Tax 4 step still owed is Client decision 1. **Has its OWN title** (`Complete Client decision 1 for`) rather than reusing the two-step Tax 4 prefix, which on this route is already satisfied by the presentation alone and would self-clear it (#407). Cleared by `automation_TAX_postreviewdecision` on **every** branch, `Stop - Refund` included. | **Action required** | Allocated Tax Planner | Retainer invoice/receipt completes on a `roi_skip_mode='meeting_first'` plan (`actions/tax/invoice-receipt.ts`) |
 | **Client chose Yes (Tax 3)** — Client clicked Yes on the /tax-decide page - pricing form needs to be completed to send the engagement agreement. | **Action required** | Assigned PF | Client click on /tax-decide — instant |
 | **Client requested extra meeting** — Client clicked Request Extra Meeting on the /tax-decide page instead of Yes/No. | **Action required** | Assigned PF | Client click on /tax-decide — instant |
 | **Deposit refund issued** — the deposit was refunded via Stripe after the admin picked **Refund** on the "Tax Plan Green/Red Light" step (inside Tax 1 - Diagnostic, `task_order=8`); the confirmation email drafted to the client carries the admin-typed reason. **The same handler also retires Tray's action-required `Tax Planner review complete for%` bell** — on a program-4 Stop the refund IS that bell's instruction (2026-08-11). | FYI | Assigned PF | Admin Send Refund button — instant |
