@@ -755,6 +755,10 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
   )
 }
 
+// LEGACY SHAPE ONLY. The per-strategy amounts stopped being collected when the
+// assess form became four flat totals (#306) — these keys, the summary table
+// below and its two helpers now serve exactly one thing: rendering an old
+// strategy-format row read-only. Nothing writes them any more.
 const ASSESS_AMOUNT_KEYS = ['invest_y1', 'invest_y2', 'gross_y1', 'gross_y2']
 const ASSESS_AMOUNT_FIELDS = [
   { key: 'invest_y1', label: 'Investment Cost — Year 1' },
@@ -762,7 +766,6 @@ const ASSESS_AMOUNT_FIELDS = [
   { key: 'gross_y1', label: 'Gross Savings — Year 1' },
   { key: 'gross_y2', label: 'Gross Savings — Year 2' },
 ]
-const blankStrategy = () => ({ name: '', invest_y1: '', invest_y2: '', gross_y1: '', gross_y2: '' })
 const assessNum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0 }
 const assessMoney = (n) => `${n < 0 ? '-' : ''}$${fmtMoney(Math.abs(n || 0))}`
 
@@ -845,24 +848,58 @@ function AssessMoneyInput({ label, value, onChange, inputStyle, labelStyle }) {
   )
 }
 
+// The four totals that ARE the assess form, in entry order. The labels are part
+// of the FE/BE validation contract — the required-field messages name them
+// verbatim on both sides (#306).
+const ASSESS_TOTAL_FIELDS = [
+  { key: 'taxes_without_plan', label: 'Total Tax without the Plan' },
+  { key: 'taxes_with_plan', label: 'Total Tax with the Plan' },
+  { key: 'cash_outlay', label: 'Total Cash Outlay for the Strategies' },
+  { key: 'fee', label: 'VFO Services Tax Planning Fee' },
+]
+
+// Mirrors the deck generator's math (actions/tax/generate-presentation.ts):
+// gross = without − with is DERIVED, never entered. Returns null until BOTH tax
+// totals are real numbers, so a half-typed form shows '—' rather than a figure
+// that is wrong. The outlay and fee coerce blank→0 while typing (submit is what
+// enforces required), exactly as the old live summary did.
+function assessSummary(values) {
+  const w = parseFloat(values?.taxes_without_plan)
+  const t = parseFloat(values?.taxes_with_plan)
+  if (!Number.isFinite(w) || !Number.isFinite(t) || w <= 0) return null
+  const gross = w - t
+  return {
+    gross,
+    net: gross - assessNum(values?.cash_outlay) - assessNum(values?.fee),
+    pct: Math.round((gross / w) * 100),
+  }
+}
+
+function AssessSummaryLine({ values, style }) {
+  const s = assessSummary(values)
+  return (
+    <div style={style}>
+      Gross Tax Benefit: {s ? assessMoney(s.gross) : '—'} · Net Benefit: {s ? assessMoney(s.net) : '—'} · Tax Reduced: {s ? `${s.pct}%` : '—'}
+    </div>
+  )
+}
+
 function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCancel, editing = false, existingCompletedDate = null }) {
   const isViewMode = !!existingData && !editing
+  // THREE historical shapes live in `assess_form` and all three must render:
+  // the current four totals, the 2026-07→08 strategy list, and the original
+  // single-question placeholder. Only the first is ever written now.
+  const isNewShape = existingData?.taxes_with_plan != null
   const isStructured = Array.isArray(existingData?.strategies)
-  const legacyAnswer = !isStructured ? (existingData?.question_1 || '') : ''
-  const [fee, setFee] = useState(existingData?.fee != null ? String(existingData.fee) : '')
-  // Total Taxes – without a Tax Plan: the baseline the generated ROI deck compares
-  // the plan against. Required going forward, but submissions predating the field
-  // have no value at all — those render '—' rather than a misleading $0.00.
-  const [taxesWithoutPlan, setTaxesWithoutPlan] = useState(existingData?.taxes_without_plan != null ? String(existingData.taxes_without_plan) : '')
-  const [strategies, setStrategies] = useState(() => (
-    isStructured && existingData.strategies.length
-      ? existingData.strategies.map(s => {
-        const row = { name: s?.name || '' }
-        ASSESS_AMOUNT_KEYS.forEach(k => { row[k] = s?.[k] != null ? String(s[k]) : '' })
-        return row
-      })
-      : [blankStrategy()]
-  ))
+  const legacyAnswer = (!isNewShape && !isStructured) ? (existingData?.question_1 || '') : ''
+  // Editing over an older row prefills whatever it legitimately carries (fee and
+  // taxes_without_plan existed in the strategy shape too); the two newer fields
+  // start blank because nothing in the old row can supply them.
+  const [totals, setTotals] = useState(() => {
+    const init = {}
+    ASSESS_TOTAL_FIELDS.forEach(f => { init[f.key] = existingData?.[f.key] != null ? String(existingData[f.key]) : '' })
+    return init
+  })
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
@@ -870,43 +907,43 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
   const labelStyle = { fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }
   const wrapStyle = { marginLeft: '18px', padding: '16px', background: 'var(--vfo-tint)', borderRadius: '10px', border: '1px solid var(--vfo-tint-deep)', marginTop: '4px', marginBottom: '8px' }
   const sectionLabelStyle = { fontSize: '11px', color: 'var(--vfo-ink)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }
+  const mutedLineStyle = { fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '8px' }
+  const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 240px))', gap: '12px' }
 
-  const rows = assessComputeRows(strategies)
-
-  function updateStrategy(idx, field, value) {
-    setStrategies(prev => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s))
-  }
-  function addStrategy() { setStrategies(prev => [...prev, blankStrategy()]) }
-  function removeStrategy(idx) { setStrategies(prev => prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)) }
+  const setTotal = (key, value) => setTotals(prev => ({ ...prev, [key]: value }))
 
   async function handleSubmit() {
-    const feeNum = parseFloat(fee)
-    if (!Number.isFinite(feeNum) || feeNum < 0) { setSubmitError('Fee is required'); return }
-    // Kept in lockstep with the backend's own check (gotcha #306) — same rule, same
-    // wording, so the message never changes depending on which side rejected it.
-    const twpNum = parseFloat(taxesWithoutPlan)
-    if (!Number.isFinite(twpNum) || twpNum < 0) { setSubmitError('Total Taxes without a Tax Plan is required'); return }
-    // Rows the user left completely untouched are dropped rather than rejected.
-    const kept = strategies.filter(s => String(s.name || '').trim() !== '' || ASSESS_AMOUNT_KEYS.some(k => String(s[k] ?? '').trim() !== ''))
-    if (!kept.length) { setSubmitError('At least one strategy is required'); return }
-    const payload = []
-    for (const s of kept) {
-      const name = String(s.name || '').trim()
-      if (!name) { setSubmitError('Each strategy needs a name'); return }
-      const row = { name }
-      for (const k of ASSESS_AMOUNT_KEYS) {
-        const raw = String(s[k] ?? '').trim()
-        if (raw === '') { setSubmitError('All amount fields are required'); return }
-        const n = Number(raw)
-        if (!Number.isFinite(n) || n < 0) { setSubmitError('Amounts must be non-negative numbers'); return }
-        row[k] = Math.round(n * 100) / 100
+    // Kept in EXACT lockstep with actions/tax/save-assess-form.ts (gotcha #306) —
+    // same rules in the same order, same wording, so the message never changes
+    // depending on which side rejected it.
+    // Field ORDER here is the backend's, not the display order, so two blanks
+    // always produce the same message on both sides.
+    const VALIDATE_ORDER = ['fee', 'taxes_without_plan', 'taxes_with_plan', 'cash_outlay']
+    const nums = {}
+    for (const key of VALIDATE_ORDER) {
+      const n = parseFloat(totals[key])
+      if (!Number.isFinite(n) || n < 0) {
+        setSubmitError(`${ASSESS_TOTAL_FIELDS.find(f => f.key === key).label} is required`)
+        return
       }
-      payload.push(row)
+      nums[key] = Math.round(n * 100) / 100
+    }
+    if (nums.taxes_with_plan >= nums.taxes_without_plan) {
+      setSubmitError('Total Tax with the Plan must be less than Total Tax without the Plan')
+      return
     }
     setSubmitError('')
     setSubmitting(true)
     try {
-      await callApi('tax_save_assess_form', { tax_plan_id: plan.id, form: { fee: Math.round(feeNum * 100) / 100, taxes_without_plan: Math.round(twpNum * 100) / 100, strategies: payload } })
+      await callApi('tax_save_assess_form', {
+        tax_plan_id: plan.id,
+        form: {
+          fee: nums.fee,
+          taxes_without_plan: nums.taxes_without_plan,
+          taxes_with_plan: nums.taxes_with_plan,
+          cash_outlay: nums.cash_outlay,
+        },
+      })
       await saveTask(task.id, 'Completed', existingCompletedDate || null)
       if (onSubmitted) onSubmitted()
     } catch (err) {
@@ -917,7 +954,8 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
     }
   }
 
-  if (isViewMode && !isStructured) {
+  // View branch 1 — the original single-question placeholder shape.
+  if (isViewMode && !isNewShape && !isStructured) {
     return (
       <div style={wrapStyle}>
         <div style={{ marginBottom: '16px' }}>
@@ -928,10 +966,12 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
     )
   }
 
-  if (isViewMode) {
+  // View branch 2 — the old strategy-list shape, rendered exactly as it always
+  // was. Nothing writes this shape any more; editing the step replaces it.
+  if (isViewMode && !isNewShape) {
     return (
       <div style={wrapStyle}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 240px))', gap: '12px', marginBottom: '14px' }}>
+        <div style={{ ...gridStyle, marginBottom: '14px' }}>
           <div>
             <label style={labelStyle}>Fee</label>
             <div style={{ ...inputStyle, opacity: 0.6 }}>{assessMoney(assessNum(existingData?.fee))}</div>
@@ -942,7 +982,24 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
           </div>
         </div>
         <div style={sectionLabelStyle}>Summary</div>
-        <AssessSummaryTable rows={rows} />
+        <AssessSummaryTable rows={assessComputeRows(existingData?.strategies)} />
+      </div>
+    )
+  }
+
+  // View branch 3 — the current four-total shape.
+  if (isViewMode) {
+    return (
+      <div style={wrapStyle}>
+        <div style={gridStyle}>
+          {ASSESS_TOTAL_FIELDS.map(f => (
+            <div key={f.key}>
+              <label style={labelStyle}>{f.label}</label>
+              <div style={{ ...inputStyle, opacity: 0.6 }}>{existingData?.[f.key] != null ? assessMoney(assessNum(existingData[f.key])) : '—'}</div>
+            </div>
+          ))}
+        </div>
+        <AssessSummaryLine values={existingData || {}} style={mutedLineStyle} />
       </div>
     )
   }
@@ -955,42 +1012,20 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
           <div style={{ ...inputStyle, opacity: 0.6, whiteSpace: 'pre-wrap' }}>{legacyAnswer}</div>
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 240px))', gap: '12px', marginBottom: '16px' }}>
-        <AssessMoneyInput label="Fee" value={fee} onChange={setFee} inputStyle={inputStyle} labelStyle={labelStyle} />
-        <AssessMoneyInput label="Total Taxes – without a Tax Plan" value={taxesWithoutPlan} onChange={setTaxesWithoutPlan} inputStyle={inputStyle} labelStyle={labelStyle} />
-      </div>
-
-      <div style={sectionLabelStyle}>Strategies</div>
-      {strategies.map((s, idx) => {
-        const r = rows[idx]
-        return (
-          <div key={idx} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)', background: 'var(--vfo-card)', marginBottom: '10px' }}>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', marginBottom: '10px' }}>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Strategy Name</label>
-                <input value={s.name} onChange={e => updateStrategy(idx, 'name', e.target.value)} placeholder="e.g. Cost Segregation" style={inputStyle} />
-              </div>
-              {strategies.length > 1 && (
-                <button onClick={() => removeStrategy(idx)} title="Remove strategy" style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '14px', lineHeight: 1, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>×</button>
-              )}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-              {ASSESS_AMOUNT_FIELDS.map(f => (
-                <AssessMoneyInput key={f.key} label={f.label} value={s[f.key]} onChange={v => updateStrategy(idx, f.key, v)} inputStyle={inputStyle} labelStyle={labelStyle} />
-              ))}
-            </div>
-            <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '8px' }}>
-              Net: Year 1 {assessMoney(r.net.y1)} · Year 2 {assessMoney(r.net.y2)} · Total {assessMoney(r.net.total)}
-            </div>
+      {editing && isStructured && (
+        <div style={{ marginBottom: '16px' }}>
+          <label style={labelStyle}>Previous answer — will be replaced when you save</label>
+          <div style={{ ...inputStyle, opacity: 0.6 }}>
+            Old strategy-format entry ({existingData.strategies.length} {existingData.strategies.length === 1 ? 'strategy' : 'strategies'}) — saving the four totals below replaces it.
           </div>
-        )
-      })}
-      <button onClick={addStrategy} style={{ padding: '7px 14px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: '16px' }}>+ Add strategy</button>
-
-      <div style={sectionLabelStyle}>Summary</div>
-      <div style={{ marginBottom: '16px' }}>
-        <AssessSummaryTable rows={rows} />
+        </div>
+      )}
+      <div style={gridStyle}>
+        {ASSESS_TOTAL_FIELDS.map(f => (
+          <AssessMoneyInput key={f.key} label={f.label} value={totals[f.key]} onChange={v => setTotal(f.key, v)} inputStyle={inputStyle} labelStyle={labelStyle} />
+        ))}
       </div>
+      <AssessSummaryLine values={totals} style={{ ...mutedLineStyle, marginBottom: '16px' }} />
 
       {submitError && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginBottom: '8px' }}>{submitError}</div>}
       <div style={{ display: 'flex', gap: '8px' }}>
@@ -1925,14 +1960,20 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       // call that can only come back as an error string. Same data source as the
       // Assess step above (livePlan.assess_form + its submitted stamp).
       const assess = livePlan?.assess_form
-      const assessSubmitted = !!livePlan?.assess_form_submitted_at && Array.isArray(assess?.strategies)
-      const hasTaxesWithoutPlan = assess?.taxes_without_plan != null && Number.isFinite(Number(assess.taxes_without_plan))
+      const assessStamped = !!livePlan?.assess_form_submitted_at
+      // The generator is strict new-shape-only: an old strategy-format row (or
+      // one missing any of the four totals) has to be re-entered, so the gate
+      // tests the shape rather than just the stamp.
+      const assessTotal = (v) => v != null && v !== '' && Number.isFinite(Number(v))
+      const assessNewShape = !!assess && assessTotal(assess.fee) && assessTotal(assess.taxes_without_plan) &&
+        assessTotal(assess.taxes_with_plan) && assessTotal(assess.cash_outlay)
+      const assessSubmitted = assessStamped && assessNewShape
       const riskTask = allTasks.find(t => t.name === 'Client risk profile complete')
       const riskSet = !!riskTask && String(localProgress[riskTask.id]?.status || '').includes('Risk')
-      const blockedHint = !assessSubmitted
+      const blockedHint = !assessStamped
         ? 'Submit the tax planning opportunities form first'
-        : !hasTaxesWithoutPlan
-          ? 'Re-save the Assess form — the Total Taxes field is new'
+        : !assessSubmitted
+          ? 'Re-save the Assess form — it uses the old strategy format'
           : !riskSet
             ? 'Set the Client risk profile step first'
             : ''

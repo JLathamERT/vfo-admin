@@ -111,7 +111,7 @@ Migration `auto_cleanup_expired_sessions` (2026-04-28) presumably installs a per
 | `specialist-documents` | private | **General** section of the specialist vault (Tax Documents live in `specialist-tax-returns` above) |
 | `specialist-dd-materials` | private | Due Diligence Checklist materials in specialist onboarding |
 | `tax-planner-documents` | private | Tax-planner-facing documents |
-| `presentation-templates` | private | `ROI-template-master*.pptx` — read by `tax_generate_presentation`; a token-free deck change ships by replacing the same object, a token/slide-count change needs a NEW versioned name + lockstep deploy (#336/#342) |
+| `presentation-templates` | private | `ROI-template-master*.pptx` — read by `tax_generate_presentation`; a token-free deck change (styling, **speaker notes**) ships by replacing the same object **after uploading a dated pre-edit backup**, a token/slide-count change needs a NEW versioned name + lockstep deploy (#336/#342). `supabase storage cp` cannot overwrite an existing key — use the Dashboard or the Storage API upsert (#409) |
 | `map1-assets` | public | Static MAP 1 email/page assets |
 | `vfo-widget` | public | The out-of-repo public website widget bundle (reads specialists via anon — see #201) |
 

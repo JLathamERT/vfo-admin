@@ -8,6 +8,53 @@
 
 ---
 
+## 2026-08-17 (3rd) — The assess form becomes four totals, and the ROI deck loses its per-year slides
+
+**Branch `claude/vfo-session-setup-1105a3` BOTH repos, one chat.** `vfo-admin-api` v750 → **v751** (deployed mid-session, freshness-gated, user-approved). `boldsign-webhook` untouched at **v40**; `draft-agreement-pdfs` v1. **Action count unchanged at 463** — this changed two existing handlers and added nothing. **No migrations and no schema change at all**: `assess_form` is jsonb, so a new shape is a code change, not DDL. `deno check --no-lock` **0**, `npm run build` exit 0 (**33 route pages**), security advisor **GREEN against the exact documented baseline**, 15 crons active, 8 pipelines LIVE. **Smoke gate 5/5 by the owner against v751** — the version being shipped, not an earlier one. The **ROI master template was hot-swapped** (speaker notes only) and a dated backup object added beside it.
+
+**Superseded hub value:** `vfo-admin-api` **v750 → v751**. Superseded stored shape: `assess_form` `{ fee, taxes_without_plan, strategies:[…] }` → **`{ fee, taxes_without_plan, taxes_with_plan, cash_outlay }`**.
+
+### 1. Why four totals replaced a strategy list
+
+The Tax 2 *"Assess tax planning opportunities"* step collected a fee, a baseline tax figure, and an unbounded list of strategies each carrying four dollar amounts (investment and gross savings, year 1 and year 2). The ROI deck consumed only the **sums**. Everything the presentation shows could therefore be produced from four numbers, and the owner asked for exactly those: **Total Tax without the Plan (W)**, **Total Tax with the Plan (T)**, **Total Cash Outlay for the Strategies (C)**, **VFO Services Tax Planning Fee (F)**.
+
+**The arithmetic INVERTS at the top, and that is the whole change.** Before, the gross benefit was summed from the strategies and the ending tax figure fell out of it (`taxes_with = taxes_without − gross`). Now the ending figure is **entered** and the gross benefit is **derived** (`gross = W − T`). Everything downstream is untouched: `net = gross − C − F`, `outlay_plus_fee = C + F`, `fee_half = F/2`, `pct = round(gross / W × 100)`. Strategy names were never on a slide, so nothing user-visible was lost — only the admin-side per-strategy summary table, which was render-only.
+
+**Validation is five messages mirrored verbatim FE/BE** in the order the backend checks them: the four `"<label> is required"` strings, then the cross-field **`"Total Tax with the Plan must be less than Total Tax without the Plan"`**. That last rule is **strictly** less, and because `T ≥ 0` it also guarantees `W > 0` for the deck's division — so the save path needs no separate greater-than-zero rule.
+
+### 2. The deck is now always single-year, always 27 slides
+
+With no per-year inputs there is no per-year split to show, so the conditional `singleYear` computation is gone: `INVEST_YEARS` is unconditionally the generation-time year, and **both** year-appendix parts (`slide28.xml` year 1, `slide29.xml` year 2) are dropped from every package. The owner chose to drop the year-1 slide too rather than let it repeat the combined view — a decision independently validated later when two production decks turned out to have had that very slide deleted by hand (see §4).
+
+**The trap in dropping two slides instead of one** is that both removals edit the **same three shared parts** — `presentation.xml`, its rels, and `[Content_Types].xml`. Each is read out of the zip **once** and the progressively-patched string threaded through both iterations; re-reading `entries` for the second slide would silently discard the first removal and ship a deck referencing a part that is not in the package, passing every assertion on the way out. `SLIDE_PARTS` still lists 28 and 29 so their tokens are substituted before they are dropped, which keeps the leftover-token guard uniform. `TEMPLATE_OBJECT` stayed at `ROI-template-master-v3.pptx`: no token was added, renamed or dropped, so this did **not** take the versioned-object path. Recorded in **#374** (amended in place) and **#336**.
+
+### 3. Strict new-shape-only, by explicit request
+
+The generator refuses any row still carrying `strategies`, or missing any of the three newer totals, with *"Re-save the Assess form — it uses the old strategy format; re-enter the four totals"*. Backward compatibility was offered and **declined** — the owner wanted every future presentation built from the new form. There is no backfill; a re-save is the upgrade path, exactly as when `taxes_without_plan` was introduced. The FE Generate button mirrors the guard so the button is never offered for a call that can only fail. Three historical shapes now exist in the column and **all three still render read-only** (`question_1` placeholder, strategy list, four totals), which is why `assessComputeRows` / `AssessSummaryTable` / `ASSESS_AMOUNT_*` survive in `TaxPrioritiesTab.jsx` with no writer.
+
+### 4. The evidence: two real client decks reproduced exactly
+
+Verification went well past a click-through. The new deck was generated, downloaded through Google's `/export/pptx` and checked mechanically — 27 slides, zero occurrences of "2027", zero unreplaced tokens, the risk arrow at the exact Risk-4 EMU coordinate. Then two **real historical plans** whose decks had been built by the old code were reproduced from equivalent four-total inputs:
+
+| | plan 98 | plan 91 |
+|---|---|---|
+| old deck | 204,066 / 91,435 / 112,631 / 68,750 / 6,000 / 37,881 / 74,750 / 3,000 / **55%** | 554,026 / 170,244 / 383,782 / 189,644 / 9,775 / 184,363 / 199,419 / **4,887.50** / **69%** |
+| new deck | **identical, in the same order** | **identical, in the same order** |
+
+Down to the only cents-bearing token (`FEE_HALF` at `$4,887.50`). That is the proof the inversion is lossless for everything the deck displays.
+
+**A verification mistake worth recording, now #410.** Two *other* old single-year decks (plans 91 and 98) exported at 27 slides with no year-1 appendix, contradicting the old code's documented 28. Two agreeing samples produced a confident, wrong conclusion — *"the old code had a latent bug and the doc is stale"* — stated in chat before a third sample (plan 83, same code, same mode) came back at **28 with** the appendix and overturned it. The decks are shared `role=writer, type=anyone` **by design**, so any of them may have been edited by a human; those two almost certainly had the redundant slide deleted by hand. The code and #374 were correct throughout.
+
+### 5. Speaker notes de-numbered — a hot-swap, not a deploy
+
+The notes on the ROI and "Choose Who You Pay" slides carried hard-typed example figures ($310,000, 51%, $142,000 …) that read as if they were the client's numbers. They were replaced with `$xxx,xxx` / `$xx,xxx` / `xx%`. Notes live in their own `ppt/notesSlides/*` parts, are never opened by the handler and carry no tokens, so this took the **hot-swap** path: same object name, no code change, no deploy, live on the next generation. The repacked master was verified byte-structurally intact (570 entries, 29 slides, 27 notes parts, all 40 tokens) before upload, and **`ROI-template-master-v3-pre-notes-2026-08-17.pptx`** was uploaded first as the rollback — hot-swaps destroy the only copy of what they replace, which the versioned-retention rule does not cover. Getting the file into the bucket surfaced three CLI traps now recorded as **#409** (`cp` cannot overwrite; `rm`-then-`cp` opens a live hole; `--workdir` moves the *local* path root); the owner uploaded through the dashboard.
+
+### 6. The deliberate mismatch window
+
+Because the frontend and backend validations are a matched pair, deploying the backend before the frontend meant live `vfoportal.com` briefly ran the new backend against the old form — assess-form submissions there would error, and deck generation would refuse existing plans. This was **flagged and accepted before the deploy**, not discovered after: the backend had to be live to test the deck at all, and the frontend could not honestly ship before that test passed. It closes when `npm run deploy` runs.
+
+---
+
 ## 2026-08-17 (2nd) — Post-ship reconcile: the hub's version stamps, and three UNTESTED items that reached main with nowhere to land
 
 **Doc-only, branch `docs/post-ship-reconcile`, BOTH repos.** No code, no migrations, no deploy. Opened by auditing the ROI-skip branch *after* it merged — the audit found three defects that a correct-looking wrap-up had left behind, none of which the shipping session did anything wrong to cause.
