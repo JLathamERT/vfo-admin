@@ -1,5 +1,5 @@
 <!-- CANONICAL COPY of the VFO mid-session handoff prompt. Paste this at the END of a chat
-     that is getting long but is NOT ready to ship. Edit here, then re-copy. Last updated: 2026-08-16. -->
+     that is getting long but is NOT ready to ship. Edit here, then re-copy. Last updated: 2026-08-17. -->
 
 # MID-SESSION HANDOFF — close this chat without shipping
 
@@ -28,6 +28,7 @@ Last commit:     <sha> <subject>          Uncommitted: <none | list the files>
 
 DONE:      <bullet or two — what is finished and verified>
 NEXT:      <the single next action, concretely>
+OWED:      <EVERY remaining job, one per line — see the rule below. "none" only if truly none>
 UNTESTED:  <anything built but not click-tested, or explicitly deferred>
 DECIDED:   <decisions the next chat must NOT re-open, with the reason in a few words>
 GOTCHA:    <anything discovered this chat that is not yet written in the docs>
@@ -35,6 +36,7 @@ GOTCHA:    <anything discovered this chat that is not yet written in the docs>
 
 Rules for the block:
 - **NEXT is one concrete action**, not a phase name — "add the reschedule button to PFTEngagementTrack.jsx meeting 2" beats "continue phase D".
+- **OWED is the checklist NEXT is not.** NEXT is the single next move; OWED is everything else still outstanding, and it is the field most easily under-filled — a job you do not write here is a job that gets lost. Walk these five categories explicitly and write a line for each that applies, or state that it does not: (1) **gates not yet run** — smoke gate, `deno check`, `npm run build`, security advisor; (2) **code committed but NOT deployed** — say which change and that it must fold into the eventual deploy, never a version number; (3) **the other repo** — a frontend or backend half not yet built, tested or deployed; (4) **docs owed** — hub, CHANGELOG, GOTCHAS entries named in GOTCHA above, flow docs; (5) **anything I asked for this chat that has not been delivered.** If the DONE line says something is "NOT deployed" or "not started", it belongs in OWED too — DONE records what is finished, so a negative in DONE is a job that still needs a home here.
 - **DECIDED exists to stop re-litigation.** If I ruled something out, record it and why, or the next chat will helpfully propose it again.
 - **GOTCHA is the one that gets lost.** Anything you learned the hard way this chat that is not yet in `GOTCHAS.md` goes here, or it dies with this conversation.
 - Deploy state is NOT carried in this block — the next chat derives it from the hub's DERIVE block. Never write a version number or tag here.
