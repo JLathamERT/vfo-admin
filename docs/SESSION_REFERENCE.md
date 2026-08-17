@@ -28,14 +28,14 @@ Run these instead of believing any version/tag/count written anywhere. Expected 
 ```powershell
 # 1. Live function versions — MCP list_edge_functions { project_id: "ejpsprsmhpufwogbmxjv" }
 #    Expect: vfo-admin-api ACTIVE + boldsign-webhook ACTIVE, verify_jwt=false on BOTH.
-#    Plus helper draft-agreement-pdfs v1 (no business logic). (v: 2026-08-14 — v744 / v40)
+#    Plus helper draft-agreement-pdfs v1 (no business logic). (v: 2026-08-16 — v748 / v40)
 
 # 2. Deploy tags — git is the source of truth, these lines are not (#222, #376)
 cd C:\vfo-react;          git tag -l 'live-*'         --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-14 → live-148-icg-vault-assess)
 cd C:\vfo-edge-functions; git tag -l 'backend-good-*' --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-14 → backend-good-2026-08-14-v744)
 
 # 3. Action-count parity — the ANCHORED patterns are required; a raw unanchored
-#    grep on index.ts returns 7 (the 7th is a comment on line 3). (v: 2026-08-14 → 6 + 455 = 461)
+#    grep on index.ts returns 7 (the 7th is a comment on line 3). (v: 2026-08-16 → 6 + 457 = 463)
 cd C:\vfo-edge-functions   # or the worktree
 $logins   = (Select-String -Path supabase/functions/vfo-admin-api/index.ts          -Pattern '^\s*if \(action === '            -AllMatches).Matches.Count
 $dispatch = (Select-String -Path supabase/functions/vfo-admin-api/router/dispatch.ts -Pattern '^\s*"([a-zA-Z0-9_]+)":\s*\(c\)'  -AllMatches).Matches.Count
@@ -44,7 +44,7 @@ $dispatch = (Select-String -Path supabase/functions/vfo-admin-api/router/dispatc
 # 4. Type-check baseline — must be 0; --no-lock avoids the v5 deno.lock the bundler rejects (#112)
 & C:\Users\jakel_fjetgbx\.deno\bin\deno.exe check --no-lock supabase/functions/vfo-admin-api/index.ts
 
-# 5. Frontend build — expect exit 0. (v: 2026-08-14 → 33 route pages)
+# 5. Frontend build — expect exit 0. (v: 2026-08-16 → 33 route pages)
 cd C:\vfo-react; npm run build
 
 # 6. Pipeline smoke gate — hand it to Jake in EXACTLY this form (literal <password>, never a token, never Read-Host)
@@ -52,13 +52,13 @@ cd C:\vfo-react; npm run build
 ```
 
 ```sql
--- 7. Cron inventory (MCP execute_sql).  (v: 2026-08-14 → 15 jobs, all active)
+-- 7. Cron inventory (MCP execute_sql).  (v: 2026-08-16 → 15 jobs, all active)
 select jobname, schedule from cron.job order by jobid;
--- 8. Sandbox posture — every row should read false.  (v: 2026-08-14 → all 8 pipelines LIVE)
+-- 8. Sandbox posture — every row should read false.  (v: 2026-08-16 → all 8 pipelines LIVE)
 select pipeline, sandbox_mode from pipeline_sandbox_config order by pipeline;
 ```
 
-**9. Security advisor** — MCP `get_advisors { project_id: "ejpsprsmhpufwogbmxjv", type: "security" }`. **GREEN baseline = deny-all `rls_enabled_no_policy` INFO ×5 + the `pg_net` `extension_in_public` WARN, and nothing else.** Any `rls_disabled_in_public` / `sensitive_columns_exposed` ERROR or `rls_policy_always_true` WARN = a table regressed to anon-reachable → STOP. *(v: 2026-08-14 — exact baseline confirmed)*
+**9. Security advisor** — MCP `get_advisors { project_id: "ejpsprsmhpufwogbmxjv", type: "security" }`. **GREEN baseline = deny-all `rls_enabled_no_policy` INFO ×5 + the `pg_net` `extension_in_public` WARN, and nothing else.** Any `rls_disabled_in_public` / `sensitive_columns_exposed` ERROR or `rls_policy_always_true` WARN = a table regressed to anon-reachable → STOP. *(v: 2026-08-16 — exact baseline confirmed after that day's DDL)*
 
 ---
 
@@ -71,6 +71,7 @@ Nothing here can be produced by a command. Everything else was deleted from this
 - **Aug 6 specialist payouts fired twice (~$1,382).** Legacy platform is still live on the same Stripe account and still reacts to migrated clients' payments (#361). Reconciliation not closed. *(v: 2026-08-14 — UNVERIFIED, carried from prior doc; not re-checked against Stripe this session)*
 - **`NOTIFICATION_AUDIT.md` needs REGENERATION, not patching** — ~55 live rules (a third) have no entry and five whole areas are missing, incl. Tax Planners (14). It now carries a live per-area table and a derive-don't-count caveat, so it is honest but incomplete. *(v: 2026-08-14)*
 - **Flagged, not built:** a `payout_status` column on `specialist_revenue_recurring_lines` (the one Accounting panel that cannot be annotated) and persisting `pip_rev_share_status`'s richer `revPaidValue`. *(v: 2026-08-14 — column confirmed still absent via `information_schema`)*
+- **Flagged, not built (2026-08-16):** `actions/tax/decision.ts` writes `tax_decision` unconditionally, so re-submitting the Tax 3 decision as **No** on a plan whose retainer is already paid would strand that plan's live action-required bells with no clear site left. No guard, no click-path found that reaches it accidentally. *(v: 2026-08-16)*
 - **Known-unbuilt, each with a live consequence:** #327 webhook event-id dedupe (only the MAP 1 P2–P4 branch is latched; every other branch is exposed) · #333 an `auto_renew`-off membership plan **lapses DARK** · #335 force-overwriting an ORGANIC MAP 1 row leaves stale `rec{i}_strat_paid` (a stale `'Yes'` suppresses a real payout) · #318 every "connected" pill except the member-profile dot still infers from `stripe_account_id` presence (known false-green). *(v: 2026-08-14)*
 
 **WATCH**
@@ -92,7 +93,7 @@ Nothing here can be produced by a command. Everything else was deleted from this
 - **Frontend** `vfo-react` — `github.com/JLathamERT/vfo-portal`, local `C:\vfo-react`, live **https://vfoportal.com/**. Vite + React 18 + react-router-dom v6, `gh-pages` deploy. No backend code, no tests, no CI.
 - **Backend** `vfo-edge-functions` — `github.com/JLathamERT/vfo-edge-functions`, local `C:\vfo-edge-functions`. Deno 2 / Supabase Edge Runtime.
 - **Supabase** project `ejpsprsmhpufwogbmxjv` ("VFO Showroom"), us-east-2, Postgres 17.
-- **`vfo-admin-api`** — `index.ts` orchestrator + ~470 modular handler files in `actions/<group>/*.ts` + `router/dispatch.ts` + `router/webhooks.ts` + `middleware/auth.ts` + `utils/` + `constants/` + `integrations/`. Serves all 461 actions. *(v: 2026-08-14)*
+- **`vfo-admin-api`** — `index.ts` orchestrator + ~470 modular handler files in `actions/<group>/*.ts` + `router/dispatch.ts` + `router/webhooks.ts` + `middleware/auth.ts` + `utils/` + `constants/` + `integrations/`. Serves all 463 actions. *(v: 2026-08-16)*
 - **`boldsign-webhook`** — standalone. **Deploy with `--no-verify-jwt` (mandatory)** and **only with explicit approval** (#10, #180).
 - **Helper functions** — `draft-agreement-pdfs` (v1, on-demand Gmail drafts, no business logic). `boldsign-template-fields` **is GONE** — deleted without a doc update; re-deploy a throwaway if you need template-field coordinates. *(v: 2026-08-14)*
 - **Key entry points** — `index.ts` (logins) · `router/dispatch.ts` (PUBLIC_HANDLERS + AUTH_HANDLERS) · `router/webhooks.ts` (Stripe + BoldSign by shape) · `middleware/auth.ts` (six login types, role precedence) · `constants/role-gates.ts` (every gate list) · `utils/notify.ts` (all bells + the business-day helpers).
@@ -147,6 +148,8 @@ Money, auth/security, data-loss and cross-repo contracts only. **Everything narr
 
 **Cross-repo contracts**
 - **#339** — `overview-tax.ts` is the BACKEND MIRROR of the FE `isTaskStatused`; add both branches in the same change, and remember `computeTrack` warnings are POSITIONAL.
+- **#403** — a **terminal/negative** outcome can SATISFY a "cascade complete" predicate, so `locked: !cascadeDone` unlocks exactly the closed records. Test the decline/refund/stop state FIRST, and back the UI lock with a handler 400 — the lock alone is choreography (#353).
+- **#404** — re-invoking a confirmation-email handler to RESEND re-arms every reminder ladder it stamps. A reschedule must pass an explicit `reschedule` flag and every ladder-arming side effect must sit behind `!reschedule`; the failure is silent (a chase restarts on a form the recipient already has).
 - **#365 / #179** — an action-required bell (`dismissible:false`) is a CONTRACT: a clear site for every satisfying path, a satisfied-on-fire guard, and a title nobody edits. Only the completing handler can clear it. **#176** — every bell goes through `notifyByRule` + a `notification_rules` seed. **#313** — one event serving two audiences needs TWO rule keys.
 - **#324** — a recipient ROLE TOKEN in a template does NOTHING unless the HANDLER passes it in ctx, and it is dropped SILENTLY. **To know who receives a templated email, read the handler's ctx, not the template row.**
 - **#356** — a template's Draft/Send mode is keyed by `(pipeline, template_name)` in TWO places per consumer; a mismatch looks exactly like a deliberately-Draft row and the mail sits in Drafts forever with no error. **#325** — exactly ELEVEN rows are `send_mode=true`; editing one reaches a real person with nobody in between.

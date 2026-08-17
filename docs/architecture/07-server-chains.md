@@ -173,6 +173,18 @@ One additive isolated block, **two SPECREV pipelines only**, branching on `sessi
 
 `notification_rules.delay_days` was **not** renumbered — only the unit moved, so a rule row read in isolation no longer tells you which calendar it counts against; the caller does (**#396**). The calendar helper `delayCutoffIso` survives with **zero callers**, kept so a future tier can opt back in deliberately.
 
+### What ARMS a ladder — and why a resend must not (2026-08-16, #404)
+
+A ladder's clock is a `*_sent_at` / `*_notified_at` column stamped by the handler that sent the thing being chased. **That makes every "resend" button a live re-arm hazard**: calling the send handler again re-stamps the clock and the chase restarts from zero, silently, for a form the recipient has had all along. The nine reschedule affordances added on 2026-08-16 therefore pass an explicit **`reschedule: true`** and each ladder write sits behind `!reschedule`:
+
+| Handler | Ladder column(s) skipped on `reschedule` | Sweep that reads them |
+|---|---|---|
+| `pft/meeting-email.ts` | `discovery_email_sent_at`, `discovery_pf_notified_at` (token preserved) | `pft/sweep.ts` |
+| `onboarding/prelim-email.ts` | `sif_email_sent_at` | `onboarding/sweep.ts` |
+| `onboarding/stage2-email.ts` | Tracy's `allDone` revenue-share bell (not a column) | — |
+
+**Three sites deliberately DO re-arm, and the difference is the direction the delay is counted.** `tax/ready-for-tax3.ts` nulls `tax3_assess_reminder_sent_at` when the booked date genuinely moves, because that reminder **counts down to the meeting** (#359) and a moved meeting invalidates it. `regular/map4-set-meeting-date.ts` nulls all three of `map4_followup_sent_at` / `map4_reminder_sent_at` / `map4_stall_notified_at` on a genuine date change — a user-approved decision to re-draft the MAP 4 follow-up ladder against the new date. `tax/highlevel-meeting-confirm.ts` needed no change at all: it already nulls `tax4_meeting_reminder_last_sent_at` on every confirm. **Forward-counted ladders must not re-arm; backward-counted (countdown) ones must.**
+
 **Deliberate calendar survivors — owner decisions, do not "finish the job":** advisor + accountant 14-day auto-decline, the Tax 4 meeting-passed nudge, the membership 30-day renewal notice, the chargescheduled sweep, the notifications purge, personal reminders, and every token/session expiry window.
 
 ### `tax-revshare-sweep` — the six blocks
