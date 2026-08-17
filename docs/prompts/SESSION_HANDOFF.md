@@ -32,6 +32,9 @@ OWED:      <EVERY remaining job, one per line — see the rule below. "none" onl
 UNTESTED:  <anything built but not click-tested, or explicitly deferred>
 DECIDED:   <decisions the next chat must NOT re-open, with the reason in a few words>
 GOTCHA:    <anything discovered this chat that is not yet written in the docs>
+
+WHAT I WANT NEXT:
+<leave this line EMPTY — Jake types it in the new chat>
 ```
 
 Rules for the block:
@@ -43,7 +46,7 @@ Rules for the block:
 
 ## 3. Tell me exactly what to paste next
 
-One line: paste `SESSION_STARTER.md`, then this block as the task text. The starter's CONTINUING exception makes the new chat reuse this branch and these worktrees instead of creating new ones.
+One line: paste `SESSION_STARTER.md`, then this block as the task text, and type what I want into the empty `WHAT I WANT NEXT:` line. The starter's CONTINUING exception makes the new chat reuse this branch and these worktrees instead of creating new ones, and its STANDING PREFERENCES section already carries the delegation model and the never-deploy-unasked rules — I do not retype those.
 
 ---
 
