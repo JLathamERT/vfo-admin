@@ -2280,7 +2280,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           ) : (
             <button disabled={sending} onClick={() => setDraft({ pOpen: true, link: '', date: '' })} style={tdGreen} title="Paste the presentation link and choose the date to send it. A cron job drafts the email to the member (Cc the assigned PF) early that morning.">Schedule email</button>
           )}
-          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{sendDate ? formatDate(sendDate) : ''}</span>
+          {/* presentation_send_date is the SCHEDULED send day and can be in the
+              FUTURE, so it never belongs in the completion column. Scheduling IS
+              the human's work on this step — the later sweep send is the system's
+              — so the date pins to presentation_scheduled_at and does not move when
+              the email goes out. DELIBERATELY the inverse of overview-tax.ts, which
+              prefers the sent stamp. sentAt is the fallback only for the plans
+              scheduled before presentation_scheduled_at existed. */}
+          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{formatStamp(livePlan?.presentation_scheduled_at || sentAt)}</span>
         </div>
       )
     }
@@ -2342,7 +2349,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 <button disabled={sending} onClick={markAlreadyHave} style={tdSecondary} title="Marks the tax returns as received without emailing the client.">Already have tax returns</button>
               </>
             )}
-            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{requestedAt ? formatStamp(requestedAt) : (receivedAt ? formatStamp(receivedAt) : '')}</span>
+            {/* The step completes on RECEIPT, so received wins over requested;
+                requested is the in-flight (blue) fallback. Same precedence as
+                overview-tax.ts. */}
+            <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{formatStamp(receivedAt || requestedAt)}</span>
           </div>
           {requestedAt && (
             <div style={{ padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
@@ -2408,7 +2418,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           ) : (
             <button disabled={sending} onClick={openDateForm} style={tdGreen} title={`Enter the detailed tax plan meeting date/time/timezone and send the confirmation email. The day after this date, the allocated Tax Planner gets an action-required reminder to complete ${roiSkipMeetingFirst ? 'the "Detailed tax plan presentation" step (Client decision 1 comes later, once the client has signed and paid).' : 'the "Detailed tax plan presentation" and "Client decision 1" steps.'}`}>Send email (with date)</button>
           )}
-          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{savedDate ? formatDate(savedDate) : ''}</span>
+          {/* Completion column = when the confirmation email went out, NOT the
+              meeting it books (tax4_meeting_date is in the FUTURE). Mirrors
+              overview-tax.ts's `at` for this step. Legacy plans dated through the
+              retired automation_TAX_save_meeting_date carry no stamp — blank, as
+              the backend already shows. */}
+          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{formatStamp(livePlan?.tax4_meeting_confirm_email_sent_at)}</span>
         </div>
       )
     }
