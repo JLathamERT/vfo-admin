@@ -46,8 +46,10 @@ const plannerDisplayName = (pl) => [plannerPlainName(pl), ...plannerCerts(pl)].f
 // endpoint rather than tax_save_task, so the real boundary is the edge repo's
 // constants/role-gates.ts, which no longer lists
 // automation_TAX_highlevelmeeting_confirm for planners — a planner call 403s.
-// This row also gets an explicit red circle-slash lock (see renderTask), because
-// the generic planner wrapper only makes a row inert.
+// Dropping the name is the ONLY frontend change needed: the row then falls to the
+// standard plannerMode wrapper at the end of renderTask like every other
+// non-whitelisted step — fully visible, cursor:not-allowed, pointerEvents:'none'
+// (#262/#263) — which takes the Reschedule button with it.
 const PLANNER_EDITABLE_TASK_NAMES = new Set([
   'Additional information required',
   'Allocate Team Member / Tax Planner',
@@ -65,12 +67,6 @@ const PLANNER_EDITABLE_TASK_NAMES = new Set([
   'PC confirms receipt of VFOS Gross Rev',
 ])
 const isPlannerEditable = (task) => PLANNER_EDITABLE_TASK_NAMES.has(task?.name)
-
-// The VFO-team-only step, matched by SENTINEL first with the name as fallback (the
-// file's convention — prose names get edited, status_options sentinels do not).
-const HLM_CONFIRM_SENTINEL = 'tax_hlm_confirm'
-const HLM_CONFIRM_TASK_NAME = 'Detailed tax plan meeting confirmation email'
-const isHlmConfirmTask = (task) => task?.status_options === HLM_CONFIRM_SENTINEL || task?.name === HLM_CONFIRM_TASK_NAME
 
 // Diron Insley — his clients get a display-only invoice discount (mirrors
 // backend constants/tax-discount.ts; delete both to retire the special case).
@@ -1905,38 +1901,6 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             <span style={chipStyle(isRoiBookingStep ? '#1b9254' : 'var(--vfo-muted)')}>{skipChip}</span>
           </span>
           <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{isRoiBookingStep ? formatStamp(livePlan.roi_meeting_skipped_at) : '—'}</span>
-        </div>
-      )
-    }
-    // VFO-team-only step (2026-08-18): the "Detailed tax plan meeting confirmation
-    // email" belongs to Tray, the action-required bell that asks for it goes to
-    // Tray, and the edge gate 403s a planner call (automation_TAX_highlevelmeeting_
-    // confirm is no longer in TAX_PLANNER_ALLOWED_ACTIONS). The generic planner
-    // wrapper at the bottom of this function only makes a row inert, which reads as
-    // a broken control rather than a boundary, so this row gets the SAME red
-    // circle-slash lock every stepGate-locked row uses.
-    //
-    // Deliberately AHEAD of the alreadyDone escape below: once the email has gone
-    // out the row grows a Reschedule button that RE-SENDS it, so that button has to
-    // sit inside the lock too. The confirmed-meeting chip and the completion stamp
-    // stay visible — a planner still needs to see the meeting they are running; only
-    // the controls go. Admin (no flags) and member (readOnly) are untouched.
-    if (plannerMode && isHlmConfirmTask(task)) {
-      const hlmDate = livePlan?.tax4_meeting_date || ''
-      const hlmLabel = hlmDate
-        ? `${hlmDate}${livePlan?.tax4_meeting_time ? ' ' + livePlan.tax4_meeting_time : ''}${livePlan?.tax4_meeting_timezone ? ' ' + livePlan.tax4_meeting_timezone : ''}`
-        : ''
-      const hlmHint = 'Completed by the VFO team'
-      return (
-        <div key={key} title={hlmHint} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid var(--vfo-border-mid)' }} />
-          <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: '1 1 auto', minWidth: '140px' }}>{taskLabel(task)}</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '0 1 auto', minWidth: '150px', justifyContent: 'flex-end', textAlign: 'right' }}>
-            {hlmLabel ? <span style={chipStyle('#1b9254')}>Confirmation sent — {hlmLabel}</span> : null}
-            <LockedIcon />
-            <span style={lockedHintStyle}>{hlmHint}</span>
-          </span>
-          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{formatStamp(livePlan?.tax4_meeting_confirm_email_sent_at) || '—'}</span>
         </div>
       )
     }
