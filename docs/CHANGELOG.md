@@ -22,7 +22,9 @@
 
 **Nothing was discharged from OWED this pass** — this is a net +3, which is what an audit that finds real gaps looks like. The prompt's own rule ("an OWED list that only grows is a broken list") is about sessions that never close items, not about the audit that opens them honestly.
 
-**Discharged the same day:** the owner ran `scripts/smoke-pipelines.ps1` as superadmin against **v750** and reported **5/5 PASS**, so that OWED item was removed from the hub in a follow-up commit. It stood for about an hour. The two UNTESTED entries remain open — a smoke gate is a wiring check and proves nothing about the `retainer_first` route, the `meeting_first` decline path, or the Client Overview reorder.
+**Discharged the same day:** the owner ran `scripts/smoke-pipelines.ps1` as superadmin against **v750** and reported **5/5 PASS**, so that OWED item was removed from the hub in a follow-up commit. It stood for about an hour.
+
+**Correction, same day — one of the three UNTESTED items was never true.** The audit claimed the `retainer_first` route needed re-running because it was tested "before the later `save-task` / `invoice-receipt` / `revshare-sweep` / `confirmation-email` edits landed". **It was not.** v749 was deployed carrying every one of those files *before* the owner clicked either route, so both routes were exercised against finished code. The single file that changed afterwards is `confirmation-email.ts`, whose edit added a `meeting_first` branch *above* an untouched `retainer_first` string — it cannot regress the route it does not touch. The claim came from a handoff line written defensively and then repeated through the audit and into the hub without anyone checking the deploy order against it. **Both skip routes are tested and pass.** Two genuine UNTESTED items remain: the `meeting_first` decline path, and the Client Overview reorder. **The lesson worth keeping: an UNTESTED line inherited from a handoff is a claim, not a fact, and re-stating it in a permanent doc is exactly where it stops being questioned** — the audit that caught two real gaps also promoted one phantom, and the phantom is the one that cost the owner time.
 
 ---
 
