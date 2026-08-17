@@ -8,6 +8,20 @@
 
 ---
 
+## 2026-08-17 (4th) — Slide 24 loses its year header; the ROI deck is now year-free
+
+**Template-only, no repo code, no deploy, no tag.** Two same-name hot-swaps of `ROI-template-master-v3.pptx` after the (3rd) entry's branch had already merged, deployed and been tagged — which is exactly what the hot-swap path is for (#336). Both were verified against a regenerated deck through Google's `/export/pptx`.
+
+**1. Speaker notes de-numbered.** The notes on file `slide24.xml` (Return On Investment) and `slide25.xml` (Choose Who You Pay) carried hard-typed example figures — $310,000, $19,875, $185k, $105,000, 51%, $142,000, $21,300, $120,700 — that read as if they were the client's own numbers. All replaced with `$xxx,xxx` / `$xx,xxx` / `xx%`, wording otherwise untouched. Notes live in their own `ppt/notesSlides/*` parts, are never opened by the handler and carry no tokens, so this could not affect substitution.
+
+**2. The `Your investment: {{INVEST_YEARS}}` header deleted, left column shifted up.** The year read as noise once the deck stopped showing a per-year breakdown, so the whole text box went and the **twelve** left-column shapes below it moved **up 539650 EMU (0.59in)** — top-of-removed-line to top-of-blue-bar, so the "Estimated Tax Savings" bar now begins where the header did and the gap under the title is unchanged. The right-hand "Net Tax Savings" panel starts at y=1085760, *above* the deleted line, so it correctly did not move. The shape's id (1516) was checked for animation/timing references first: none. Verified after: 570 zip entries, 29 slides, 27 notes parts, token count 40 → **39**, and the regenerated deck kept all nine figures byte-identical while losing only the year line.
+
+**Why no deploy, despite removing a token.** Substitution is `split`/`join`, so a token with no site is a silent no-op, and the leftover-token guard fires only on a token left **un**replaced — never on a value computed but unused. **Token REMOVAL is therefore the safe exception to the versioned-object rule; adding or renaming is not.** `INVEST_YEARS` is now **computed but dead** in `generate-presentation.ts` — left in place rather than spending a deploy on zero behavioural gain, and documented as dead so nobody reads its presence in `values` as proof it renders. **A generated deck now contains no year anywhere**, though the handler still calls `new Date().getFullYear()`.
+
+**Bucket now holds FIVE objects** — v1, v2, the live v3, and two dated rollbacks: `-pre-notes-` and `-pre-shift-`. The second was created by **renaming the live object** rather than uploading a copy, which frees the name and preserves the rollback in one step; that is now the recommended move, being both fewer clicks and safer than delete-then-upload (#409 covers why `supabase storage cp` cannot simply overwrite).
+
+---
+
 ## 2026-08-17 (3rd) — The assess form becomes four totals, and the ROI deck loses its per-year slides
 
 **Branch `claude/vfo-session-setup-1105a3` BOTH repos, one chat.** `vfo-admin-api` v750 → **v751** (deployed mid-session, freshness-gated, user-approved). `boldsign-webhook` untouched at **v40**; `draft-agreement-pdfs` v1. **Action count unchanged at 463** — this changed two existing handlers and added nothing. **No migrations and no schema change at all**: `assess_form` is jsonb, so a new shape is a code change, not DDL. `deno check --no-lock` **0**, `npm run build` exit 0 (**33 route pages**), security advisor **GREEN against the exact documented baseline**, 15 crons active, 8 pipelines LIVE. **Smoke gate 5/5 by the owner against v751** — the version being shipped, not an earlier one. The **ROI master template was hot-swapped** (speaker notes only) and a dated backup object added beside it.
