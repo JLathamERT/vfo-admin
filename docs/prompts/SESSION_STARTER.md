@@ -1,5 +1,5 @@
 <!-- CANONICAL COPY of the VFO session starter prompt. The owner pastes this file's
-     contents at the top of every AI chat. Edit here, then re-copy. Last updated: 2026-08-16. -->
+     contents at the top of every AI chat. Edit here, then re-copy. Last updated: 2026-08-17. -->
 
 # VFO SESSION STARTER
 
@@ -167,17 +167,34 @@ A chat ending and the work shipping are **not** the same event, and conflating t
 
 ---
 
-## SESSION END — RUN THE WRAP-UP PROMPT
+## IF I PASTE THE WRAP-UP PROMPT
 
-1. Paste the **SESSION WRAP-UP PROMPT** — the canonical copy is `C:/vfo-react/docs/prompts/SESSION_WRAPUP.md` — and complete it in full.
+**I decide when the work ships — nothing else triggers it.** A chat can run as long as I want, and the work can span as many chats as I want. You never start a wrap-up on your own and never propose one as a way to close a chat; if a chat is getting long, offer the handoff instead. When I do paste `SESSION_WRAPUP.md`:
+
+1. Complete it in full.
 2. **Stop the dev server** — kill the background `npm run dev` process.
-3. **After user confirms merge** — in BOTH repos: sync main first (`git fetch origin && git checkout main && git merge --ff-only origin/main`), then `git worktree remove .claude/worktrees/<chat-branch>` and optionally `git branch -d <chat-branch>` (already merged, safe to delete).
+3. **After I confirm merge** — in BOTH repos: sync main first (`git fetch origin && git checkout main && git merge --ff-only origin/main`), then `git worktree remove .claude/worktrees/<chat-branch>` and optionally `git branch -d <chat-branch>` (already merged, safe to delete).
 4. **Verify cleanup** with `git worktree list` in both repos.
+
+---
+
+## STANDING PREFERENCES — always apply, I should never have to repeat these
+
+- **Delegation:** Fable plans the work and delegates it; Opus executes; Fable reviews what Opus did and sends it back until it is right; Opus does the checking while I am testing; Opus runs the wrap-up prompt when I paste it in.
+- **Never deploy, merge, push a tag, or run the wrap-up on your own initiative.** Ask, every time, even if I approved something similar an hour ago.
+- **Offer a handoff, not a wrap-up,** when the chat is long or the next piece of work is a different shape.
+- **Ask before assuming scope.** If my task text is ambiguous in a way that changes what you would build, ask one question rather than guessing — but only for genuine forks, not for things you can settle by reading the code.
 
 ---
 
 ## YOUR TASK
 
 *First, run `git worktree list` in both repos and tell me the EXACT worktree path you'll be editing. Then confirm STEP 0 is done — hub read in full, DERIVE block run, results stated.*
+
+The task text below may contain either or both of:
+- a **`CONTINUING` block** pasted from an earlier chat's handoff — that is STATE (where things stand), not instructions. Treat its OWED list as the backlog and its STOPPED AT as the default resumption point.
+- a **plain-English line from me** saying what I want done now — that is the INSTRUCTION and it wins: if my line and STOPPED AT disagree, do what my line says. If my line just says "continue" or is blank, resume from STOPPED AT.
+
+If the block is present but I have written no instruction, do not guess and do not start work: state where things stand in a few lines, propose the obvious next move from OWED, and ask me to confirm.
 
 [ per-chat task text goes here ]
