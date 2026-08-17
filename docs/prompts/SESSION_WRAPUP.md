@@ -1,5 +1,5 @@
 <!-- CANONICAL COPY of the VFO session wrap-up prompt. The owner pastes this file's
-     contents once at the end of every AI chat. Edit here, then re-copy. Last updated: 2026-08-16. -->
+     contents once when the work is SHIPPING (not at the end of every chat). Edit here, then re-copy. Last updated: 2026-08-17. -->
 
 # SESSION WRAP-UP — HUB UPDATE + STALENESS AUDIT + COMMIT (run once at session end)
 
@@ -16,7 +16,7 @@ The hub is a LEAN always-loaded file with hard rules. Follow all of them:
 1. **Declare every edit.** For each fact you change, say which it is against the existing line: **ADD** (fact that did not exist) / **UPDATE** (existing line, new value) / **DELETE** (line no longer true or no longer earns its place) / **NOOP** (checked, still correct, unchanged). No blind appends — if you cannot name which of the four an edit is, you do not understand the change yet.
 2. **Superseded facts move out immediately.** When a value changes, the old value goes to `docs/CHANGELOG.md` in the same pass — it never lingers in the hub as a `Prior: ...` tail, a parenthetical, or a struck line. The hub holds CURRENT state only.
 3. **Stamp freshness.** Every fact you touched or re-verified gets a fresh `(v: YYYY-MM-DD)` stamp. A stamp means "confirmed on this date", so only stamp what you actually checked this session.
-4. **Narrative goes straight to CHANGELOG.** This session's full story — what was built, why, what broke, what was decided — is written DIRECTLY to `docs/CHANGELOG.md`, newest-first. **The hub never holds narrative**, not even for the current session. Do not write it in the hub and migrate it later.
+4. **Narrative goes straight to CHANGELOG.** The story of **the whole change** — every chat that worked this branch, not just this one — is written DIRECTLY to `docs/CHANGELOG.md`, newest-first: what was built, why, what broke, what was decided. If the change spanned handoffs, reconstruct the earlier chats from the branch's commits and the handoff blocks' DECIDED / GOTCHA lines; one change gets ONE entry, because it becomes one squashed commit on `main`. **The hub never holds narrative**, not even for the current session. Do not write it in the hub and migrate it later.
 5. **Reconcile OWED / WATCH / PARKED.** Discharge every item this session settled (delete it, and note the discharge in CHANGELOG). Add every item this session created. An OWED list that only grows is a broken list.
 6. **Re-run the DERIVE block and reconcile expectations.** Run the hub's `DERIVE-AT-START` commands again and confirm the hub's expected values still match — action count, advisor (security) baseline, route-page count, deno check baseline count + kinds, live versions. If the session legitimately changed one, UPDATE the expectation. If it changed one you did not intend to change, STOP and investigate before committing.
 7. **Count the hub's lines. `wc -l docs/SESSION_REFERENCE.md` > 250 is a FAILURE.** Cut before committing — remove, compress, or push detail down into the referenced doc; do not "temporarily" exceed. Any net line growth at all must be justified in ONE sentence in the doc commit body (e.g. "hub +4: new 07-server-chains DOC MAP row + Tax payout invariant").
@@ -29,7 +29,16 @@ Also confirm, as part of the hub pass: live `vfo-admin-api` + `boldsign-webhook`
 - If it's an always-applies invariant, ALSO add a one-line entry (with its number) to the curated ALWAYS-APPLIES list in the hub.
 - **Then run a prune pass over that curated list.** Any entry that no longer earns always-loaded status — superseded, area deleted, now enforced by code, or narrow enough to only matter in one flow — gets DEMOTED: removed from the hub, kept in `docs/GOTCHAS.md` (the registry is permanent; only the curated surface is pruned). Declare each demotion.
 
-### 1C. Ripple — update every OTHER doc surface this session touched
+### 1C. Ripple — update every OTHER doc surface THE BRANCH touched
+
+**Scope is the BRANCH, not this chat.** A change can span several chats via `SESSION_HANDOFF.md`, and this chat only witnessed the last slice of it. Start this section by running, in BOTH repos:
+
+```
+git fetch origin && git diff --stat origin/main...HEAD && git log --oneline origin/main..HEAD
+```
+
+That file list — every file the whole branch changed, across every chat that worked on it — is the input to this audit, not your own memory of this conversation. Read the diff of anything you did not personally change before deciding it needs no doc update; "an earlier chat probably handled it" is not a check. Also fold in any doc debt the handoff blocks carried forward (their OWED and GOTCHA lines) — a GOTCHA recorded three chats ago is still un-written until someone writes it.
+
 Surfaces: `docs/CHANGELOG.md` · `docs/GOTCHAS.md` · `docs/README.md` · `architecture/*` (including `architecture/07-server-chains.md`) · `flows/*` · `integrations/*` · `tables/*` · `docs/NOTIFICATION_AUDIT.md` · `glossary.md` · `vfo-react/README.md` · `vfo-edge-functions/.refactor-resume.md` · inline comments/headers in any file you touched.
 
 What counts as drift: file paths/line refs moved · action names added/removed · action count · response shapes · DB tables/columns/status fields · env vars · webhook (Stripe/BoldSign) semantics · auth/role-gate behavior (ADMIN_ONLY_ACTIONS / MEMBER_SCOPED_ACTIONS) · chain semantics (Authorization forwarding, service-role chains — these belong in `07-server-chains.md`) · verify_jwt/Kong · frontend↔backend contract (VITE_API_URL, ANON_KEY, base path) · version numbers · deferred items resolved · "What's NOT in the system" claims · new gotchas.
@@ -50,7 +59,7 @@ If this session changed how sessions should START, HAND OFF or END — a new req
 
 ## PART 3 — SUMMARIES + COMMIT
 
-### 3A. Three concise summaries: Code changes · Doc updates · Remaining risks/open questions
+### 3A. Three concise summaries — covering the BRANCH, not just this chat: Code changes · Doc updates · Remaining risks/open questions
 
 ### 3B. Inspection (read-only): in each changed worktree — git rev-parse --abbrev-ref HEAD; git status --short; git diff --stat; git log --oneline -5
 
