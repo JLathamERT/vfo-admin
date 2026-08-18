@@ -909,35 +909,65 @@ function AssessMoneyInput({ label, value, onChange, inputStyle, labelStyle }) {
   )
 }
 
-// The four totals that ARE the assess form, in entry order. The labels are part
-// of the FE/BE validation contract — the required-field messages name them
-// verbatim on both sides (#306).
-const ASSESS_TOTAL_FIELDS = [
+// The THREE per-year totals, in entry order. The labels are part of the FE/BE
+// validation contract — the required-field messages name them verbatim on both
+// sides, with the year suffixed (#306).
+const ASSESS_YEAR_FIELDS = [
   { key: 'taxes_without_plan', label: 'Total Tax without the Plan' },
   { key: 'taxes_with_plan', label: 'Total Tax with the Plan' },
   { key: 'cash_outlay', label: 'Total Cash Outlay for the Strategies' },
-  { key: 'fee', label: 'VFO Services Tax Planning Fee' },
 ]
+// The fee is a SINGLE ENGAGEMENT-LEVEL figure, not a per-year one: entered once
+// at the top of the form, stored flat, and attributed entirely to year 1 by the
+// deck. Its message carries NO year suffix.
+const ASSESS_FEE_LABEL = 'VFO Services Tax Planning Fee'
+// Appended to every per-year label AND to every per-year validation message. The
+// BE builds its strings by concatenating the identical suffix — change one side
+// and you must change the other.
+const ASSESS_Y1_SUFFIX = ' — Year 1'
+const ASSESS_Y2_SUFFIX = ' — Year 2'
+const ASSESS_NOTES_MAX = 5000
 
 // Mirrors the deck generator's math (actions/tax/generate-presentation.ts):
-// gross = without − with is DERIVED, never entered. Returns null until BOTH tax
-// totals are real numbers, so a half-typed form shows '—' rather than a figure
-// that is wrong. The outlay and fee coerce blank→0 while typing (submit is what
-// enforces required), exactly as the old live summary did.
-function assessSummary(values) {
+// gross = without − with is DERIVED, never entered. `fee` is passed separately
+// because only YEAR 1 carries it — year 2's net subtracts outlay alone. Returns
+// null until BOTH tax totals of the group are real numbers, so a half-typed form
+// shows '—' rather than a figure that is wrong. The outlay and fee coerce
+// blank→0 while typing (submit is what enforces required), exactly as the old
+// live summary did.
+function assessGroupSummary(values, fee) {
   const w = parseFloat(values?.taxes_without_plan)
   const t = parseFloat(values?.taxes_with_plan)
   if (!Number.isFinite(w) || !Number.isFinite(t) || w <= 0) return null
   const gross = w - t
-  return {
-    gross,
-    net: gross - assessNum(values?.cash_outlay) - assessNum(values?.fee),
-    pct: Math.round((gross / w) * 100),
-  }
+  return { w, gross, net: gross - assessNum(values?.cash_outlay) - assessNum(fee) }
 }
 
-function AssessSummaryLine({ values, style }) {
-  const s = assessSummary(values)
+function assessSummary(values, fee) {
+  const s = assessGroupSummary(values, fee)
+  return s ? { gross: s.gross, net: s.net, pct: Math.round((s.gross / s.w) * 100) } : null
+}
+
+// One line, two shapes. With a usable year-2 group it reads per-year AND
+// combined; without one it is byte-for-byte the single-year line it always was.
+// Year 1's net carries the WHOLE fee and year 2's carries none, matching the
+// deck; the combined figures are the SUMS of the per-year ones and the
+// percentage divides by W1+W2 — the same construction the backend uses, so the
+// line can never disagree with the deck.
+function AssessSummaryLine({ values, values2, fee, style }) {
+  const s1 = assessGroupSummary(values, fee)
+  const s2 = values2 ? assessGroupSummary(values2, 0) : null
+  if (s1 && s2) {
+    const gross = s1.gross + s2.gross
+    const net = s1.net + s2.net
+    const pct = Math.round((gross / (s1.w + s2.w)) * 100)
+    return (
+      <div style={style}>
+        Year 1: gross {assessMoney(s1.gross)} · net {assessMoney(s1.net)} · Year 2: gross {assessMoney(s2.gross)} · net {assessMoney(s2.net)} · Combined: gross {assessMoney(gross)} · net {assessMoney(net)} · {pct}%
+      </div>
+    )
+  }
+  const s = assessSummary(values, fee)
   return (
     <div style={style}>
       Gross Tax Benefit: {s ? assessMoney(s.gross) : '—'} · Net Benefit: {s ? assessMoney(s.net) : '—'} · Tax Reduced: {s ? `${s.pct}%` : '—'}
@@ -956,11 +986,25 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
   // Editing over an older row prefills whatever it legitimately carries (fee and
   // taxes_without_plan existed in the strategy shape too); the two newer fields
   // start blank because nothing in the old row can supply them.
+  const [fee, setFee] = useState(() => (existingData?.fee != null ? String(existingData.fee) : ''))
   const [totals, setTotals] = useState(() => {
     const init = {}
-    ASSESS_TOTAL_FIELDS.forEach(f => { init[f.key] = existingData?.[f.key] != null ? String(existingData[f.key]) : '' })
+    ASSESS_YEAR_FIELDS.forEach(f => { init[f.key] = existingData?.[f.key] != null ? String(existingData[f.key]) : '' })
     return init
   })
+  // Year 2 is stored NESTED and OPTIONAL — a row without it is a valid one-year
+  // plan, not a broken one — and it carries THREE fields, never a fee. The toggle
+  // starts on only when the row already carries the group.
+  const existingY2 = (existingData?.year2 && typeof existingData.year2 === 'object' && !Array.isArray(existingData.year2))
+    ? existingData.year2
+    : null
+  const [year2On, setYear2On] = useState(!!existingY2)
+  const [totals2, setTotals2] = useState(() => {
+    const init = {}
+    ASSESS_YEAR_FIELDS.forEach(f => { init[f.key] = existingY2?.[f.key] != null ? String(existingY2[f.key]) : '' })
+    return init
+  })
+  const [notes, setNotes] = useState(() => (typeof existingData?.notes === 'string' ? existingData.notes : ''))
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
@@ -970,39 +1014,74 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
   const sectionLabelStyle = { fontSize: '11px', color: 'var(--vfo-ink)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }
   const mutedLineStyle = { fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '8px' }
   const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 240px))', gap: '12px' }
+  // Year groups: all three inputs on ONE row, and the label boxes get a fixed
+  // two-line height so an input whose label wraps to two lines does not sit
+  // lower than its one-line neighbours.
+  const yearGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 240px))', gap: '12px' }
+  const yearLabelStyle = { ...labelStyle, minHeight: '28px' }
 
   const setTotal = (key, value) => setTotals(prev => ({ ...prev, [key]: value }))
+  const setTotal2 = (key, value) => setTotals2(prev => ({ ...prev, [key]: value }))
+
+  // A year-2 group with nothing in it counts as toggle-OFF even while it is on
+  // screen — flipping the toggle on and then leaving it empty must never block
+  // the save. The backend applies the identical test to the posted object.
+  const y2HasAny = year2On && ASSESS_YEAR_FIELDS.some(f => String(totals2[f.key] ?? '').trim() !== '')
 
   async function handleSubmit() {
     // Kept in EXACT lockstep with actions/tax/save-assess-form.ts (gotcha #306) —
     // same rules in the same order, same wording, so the message never changes
-    // depending on which side rejected it.
-    // Field ORDER here is the backend's, not the display order, so two blanks
-    // always produce the same message on both sides.
-    const VALIDATE_ORDER = ['fee', 'taxes_without_plan', 'taxes_with_plan', 'cash_outlay']
-    const nums = {}
-    for (const key of VALIDATE_ORDER) {
-      const n = parseFloat(totals[key])
-      if (!Number.isFinite(n) || n < 0) {
-        setSubmitError(`${ASSESS_TOTAL_FIELDS.find(f => f.key === key).label} is required`)
-        return
-      }
-      nums[key] = Math.round(n * 100) / 100
-    }
-    if (nums.taxes_with_plan >= nums.taxes_without_plan) {
-      setSubmitError('Total Tax with the Plan must be less than Total Tax without the Plan')
+    // depending on which side rejected it. Fee first (engagement-level, no year
+    // suffix), then year 1, then year 2 (only when its group is non-blank), then
+    // the notes length.
+    const feeNum = parseFloat(fee)
+    if (!Number.isFinite(feeNum) || feeNum < 0) {
+      setSubmitError(`${ASSESS_FEE_LABEL} is required`)
       return
     }
+    const readGroup = (src, suffix) => {
+      const nums = {}
+      for (const f of ASSESS_YEAR_FIELDS) {
+        const n = parseFloat(src[f.key])
+        if (!Number.isFinite(n) || n < 0) {
+          return { error: `${f.label}${suffix} is required` }
+        }
+        nums[f.key] = Math.round(n * 100) / 100
+      }
+      if (nums.taxes_with_plan >= nums.taxes_without_plan) {
+        return { error: `Total Tax with the Plan must be less than Total Tax without the Plan${suffix}` }
+      }
+      return { nums }
+    }
+
+    const y1 = readGroup(totals, ASSESS_Y1_SUFFIX)
+    if (y1.error) { setSubmitError(y1.error); return }
+    let y2nums = null
+    if (y2HasAny) {
+      const y2 = readGroup(totals2, ASSESS_Y2_SUFFIX)
+      if (y2.error) { setSubmitError(y2.error); return }
+      y2nums = y2.nums
+    }
+    const trimmedNotes = notes.trim()
+    if (trimmedNotes.length > ASSESS_NOTES_MAX) {
+      setSubmitError(`Notes must be ${ASSESS_NOTES_MAX} characters or fewer`)
+      return
+    }
+    const nums = y1.nums
     setSubmitError('')
     setSubmitting(true)
     try {
       await callApi('tax_save_assess_form', {
         tax_plan_id: plan.id,
         form: {
-          fee: nums.fee,
+          // The fee and the year-1 keys stay FLAT and unchanged — that is what
+          // lets an old deployed frontend keep posting successfully here.
+          fee: Math.round(feeNum * 100) / 100,
           taxes_without_plan: nums.taxes_without_plan,
           taxes_with_plan: nums.taxes_with_plan,
           cash_outlay: nums.cash_outlay,
+          ...(y2nums ? { year2: y2nums } : {}),
+          ...(trimmedNotes ? { notes: trimmedNotes } : {}),
         },
       })
       await saveTask(task.id, 'Completed', existingCompletedDate || null)
@@ -1048,19 +1127,42 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
     )
   }
 
-  // View branch 3 — the current four-total shape.
+  // View branch 3 — the current shape: the flat year-1 totals, plus the optional
+  // nested year-2 group and the optional notes when the row carries them.
   if (isViewMode) {
+    const readOnlyGroup = (src, suffix) => (
+      <div style={yearGridStyle}>
+        {ASSESS_YEAR_FIELDS.map(f => (
+          <div key={f.key}>
+            <label style={yearLabelStyle}>{f.label}{suffix}</label>
+            <div style={{ ...inputStyle, opacity: 0.6 }}>{src?.[f.key] != null ? assessMoney(assessNum(src[f.key])) : '—'}</div>
+          </div>
+        ))}
+      </div>
+    )
     return (
       <div style={wrapStyle}>
-        <div style={gridStyle}>
-          {ASSESS_TOTAL_FIELDS.map(f => (
-            <div key={f.key}>
-              <label style={labelStyle}>{f.label}</label>
-              <div style={{ ...inputStyle, opacity: 0.6 }}>{existingData?.[f.key] != null ? assessMoney(assessNum(existingData[f.key])) : '—'}</div>
-            </div>
-          ))}
+        <div style={{ ...gridStyle, marginBottom: '14px' }}>
+          <div>
+            <label style={labelStyle}>{ASSESS_FEE_LABEL}</label>
+            <div style={{ ...inputStyle, opacity: 0.6 }}>{existingData?.fee != null ? assessMoney(assessNum(existingData.fee)) : '—'}</div>
+          </div>
         </div>
-        <AssessSummaryLine values={existingData || {}} style={mutedLineStyle} />
+        <div style={sectionLabelStyle}>Year 1</div>
+        {readOnlyGroup(existingData, ASSESS_Y1_SUFFIX)}
+        {existingY2 && (
+          <>
+            <div style={{ ...sectionLabelStyle, marginTop: '14px' }}>Year 2</div>
+            {readOnlyGroup(existingY2, ASSESS_Y2_SUFFIX)}
+          </>
+        )}
+        <AssessSummaryLine values={existingData || {}} values2={existingY2} fee={existingData?.fee} style={mutedLineStyle} />
+        {typeof existingData?.notes === 'string' && existingData.notes.trim() && (
+          <div style={{ marginTop: '14px' }}>
+            <label style={labelStyle}>Notes</label>
+            <div style={{ ...inputStyle, opacity: 0.6, whiteSpace: 'pre-wrap' }}>{existingData.notes}</div>
+          </div>
+        )}
       </div>
     )
   }
@@ -1081,12 +1183,45 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
           </div>
         </div>
       )}
-      <div style={gridStyle}>
-        {ASSESS_TOTAL_FIELDS.map(f => (
-          <AssessMoneyInput key={f.key} label={f.label} value={totals[f.key]} onChange={v => setTotal(f.key, v)} inputStyle={inputStyle} labelStyle={labelStyle} />
+      {/* The fee is entered ONCE for the whole engagement — it sits above both
+          year groups and its label carries no year suffix. */}
+      <div style={{ ...gridStyle, marginBottom: '16px' }}>
+        <AssessMoneyInput label={ASSESS_FEE_LABEL} value={fee} onChange={setFee} inputStyle={inputStyle} labelStyle={labelStyle} />
+      </div>
+
+      <div style={sectionLabelStyle}>Year 1</div>
+      <div style={yearGridStyle}>
+        {ASSESS_YEAR_FIELDS.map(f => (
+          <AssessMoneyInput key={f.key} label={`${f.label}${ASSESS_Y1_SUFFIX}`} value={totals[f.key]} onChange={v => setTotal(f.key, v)} inputStyle={inputStyle} labelStyle={yearLabelStyle} />
         ))}
       </div>
-      <AssessSummaryLine values={totals} style={{ ...mutedLineStyle, marginBottom: '16px' }} />
+
+      {/* Year 2 is OPTIONAL. Toggling it off excludes the group from the payload
+          entirely (the save handler rebuilds the whole jsonb, so that is also how
+          an existing year-2 group is removed); the typed values are kept in state
+          so a mis-click does not destroy them. */}
+      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '14px', cursor: 'pointer', fontSize: '13px', color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif' }}>
+        <input type="checkbox" checked={year2On} onChange={e => setYear2On(e.target.checked)} style={{ width: '15px', height: '15px', accentColor: '#125ecc', cursor: 'pointer' }} />
+        Add Year 2
+      </label>
+
+      {year2On && (
+        <div style={{ marginTop: '12px' }}>
+          <div style={sectionLabelStyle}>Year 2</div>
+          <div style={yearGridStyle}>
+            {ASSESS_YEAR_FIELDS.map(f => (
+              <AssessMoneyInput key={f.key} label={`${f.label}${ASSESS_Y2_SUFFIX}`} value={totals2[f.key]} onChange={v => setTotal2(f.key, v)} inputStyle={inputStyle} labelStyle={yearLabelStyle} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginTop: '14px' }}>
+        <label style={labelStyle}>Notes (optional)</label>
+        <textarea rows={4} value={notes} onChange={e => setNotes(e.target.value)} maxLength={ASSESS_NOTES_MAX} placeholder="Anything worth recording alongside these figures." style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
+      </div>
+
+      <AssessSummaryLine values={totals} values2={y2HasAny ? totals2 : null} fee={fee} style={{ ...mutedLineStyle, marginBottom: '16px' }} />
 
       {submitError && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginBottom: '8px' }}>{submitError}</div>}
       <div style={{ display: 'flex', gap: '8px' }}>
@@ -2042,16 +2177,26 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const assessTotal = (v) => v != null && v !== '' && Number.isFinite(Number(v))
       const assessNewShape = !!assess && assessTotal(assess.fee) && assessTotal(assess.taxes_without_plan) &&
         assessTotal(assess.taxes_with_plan) && assessTotal(assess.cash_outlay)
+      // Year 2 carries THREE totals, never a fee.
       const assessSubmitted = assessStamped && assessNewShape
+      // Year 2 is optional, but a PRESENT group with a hole in it 400s the
+      // generator — the gate mirrors that so the button never fires a call that
+      // can only come back as an error string.
+      const assessY2 = assess?.year2
+      const assessY2Broken = !!assessY2 && typeof assessY2 === 'object' && !Array.isArray(assessY2) &&
+        !(assessTotal(assessY2.taxes_without_plan) &&
+          assessTotal(assessY2.taxes_with_plan) && assessTotal(assessY2.cash_outlay))
       const riskTask = allTasks.find(t => t.name === 'Client risk profile complete')
       const riskSet = !!riskTask && String(localProgress[riskTask.id]?.status || '').includes('Risk')
       const blockedHint = !assessStamped
         ? 'Submit the tax planning opportunities form first'
         : !assessSubmitted
           ? 'Re-save the Assess form — it uses the old strategy format'
-          : !riskSet
-            ? 'Set the Client risk profile step first'
-            : ''
+          : assessY2Broken
+            ? 'Re-save the Assess form — the Year 2 totals are incomplete'
+            : !riskSet
+              ? 'Set the Client risk profile step first'
+              : ''
       const ready = !blockedHint
 
       const genBlue = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: generating ? 'not-allowed' : 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600 }
