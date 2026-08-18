@@ -76,16 +76,16 @@ export function MemberOverviewSkeleton({ rows = 3 }) {
   )
 }
 
-// Client Overview: sub-tab pills + toolbar, then wide grid rows with an expand
-// caret, client ref, name, member #/name, status pill and PF.
+// Client Overview: four sub-tab pills + toolbar, then a flat track table
+// (client, plan/track, member name, status pill, PF, next action, owner).
 export function ClientOverviewSkeleton({ rows = 3 }) {
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-        {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} width={110} height={30} style={{ borderRadius: '999px' }} />)}
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} width={110} height={30} style={{ borderRadius: '999px' }} />)}
       </div>
       <SearchFilterSkeleton />
-      <TableSkeleton cols={[0.4, 1, 1.6, 0.8, 1.4, 1, 1.2]} rows={rows} />
+      <TableSkeleton cols={[1.4, 1.7, 1.3, 0.7, 0.9, 1.9, 1.1]} rows={rows} />
     </div>
   )
 }
