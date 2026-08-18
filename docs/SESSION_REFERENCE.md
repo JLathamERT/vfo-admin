@@ -33,8 +33,8 @@ Run these instead of believing any version/tag/count written anywhere. Expected 
 # 2. Deploy tags — git is the source of truth, these lines are not (#222, #376).
 #    Re-stamp these THREE lines AFTER wrap-up Part 4D, not during Part 1: the
 #    version and tag do not exist yet when the hub is written (#408).
-cd C:\vfo-react;          git tag -l 'live-*'         --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-18 → live-153-client-overview-owners)
-cd C:\vfo-edge-functions; git tag -l 'backend-good-*' --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-18 → backend-good-2026-08-18-v758)
+cd C:\vfo-react;          git tag -l 'live-*'         --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-18 → live-154-two-year-roi-return)
+cd C:\vfo-edge-functions; git tag -l 'backend-good-*' --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-18 → backend-good-2026-08-18-v759)
 
 # 3. Action-count parity — the ANCHORED patterns are required; a raw unanchored
 #    grep on index.ts returns 7 (the 7th is a comment on line 3). (v: 2026-08-18 → 6 + 457 = 463)
