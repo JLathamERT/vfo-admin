@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, cloneElement } from 'react'
+import { useState, useEffect, useRef, useMemo, cloneElement } from 'react'
 import { callApi, loadCachedAction, getSession } from '../../../lib/api'
 import { TaxPlanListSkeleton } from '../../shared/Skeleton'
 import { PhaseNotesButton, PhaseNotesPanel } from '../../shared/PhaseNotes'
@@ -34,17 +34,26 @@ const plannerCerts = (pl) => Array.isArray(pl?.certifications) ? pl.certificatio
 const plannerDisplayName = (pl) => [plannerPlainName(pl), ...plannerCerts(pl)].filter(Boolean).join(', ')
 
 // Tax-planner portal: the ONLY steps a planner may interact with. Mirrors the
-// backend tax_save_task whitelist (PLANNER_EDITABLE_TASK_NAMES) plus the High
-// Level Meeting confirm, which saves through its own automation endpoint, and
-// the allocation step, which also calls tax_allocate_planner (a Team Member
-// hands the plan to the Tax Planner who will run it). Every other step stays
-// fully visible but locked (non-clickable) for planners. Names match
-// program_client_tasks.name verbatim, identical across programs 1 and 4.
+// backend tax_save_task whitelist (PLANNER_EDITABLE_TASK_NAMES) plus the
+// allocation step, which also calls tax_allocate_planner (a Team Member hands the
+// plan to the Tax Planner who will run it). Every other step stays fully visible
+// but locked (non-clickable) for planners. Names match program_client_tasks.name
+// verbatim, identical across programs 1 and 4.
+//
+// 'Detailed tax plan meeting confirmation email' was on this list until
+// 2026-08-18 and is REMOVED: that step became a VFO-team (Tray) step, and its
+// action-required bell now goes to Tray. It saved through its own automation
+// endpoint rather than tax_save_task, so the real boundary is the edge repo's
+// constants/role-gates.ts, which no longer lists
+// automation_TAX_highlevelmeeting_confirm for planners — a planner call 403s.
+// Dropping the name is the ONLY frontend change needed: the row then falls to the
+// standard plannerMode wrapper at the end of renderTask like every other
+// non-whitelisted step — fully visible, cursor:not-allowed, pointerEvents:'none'
+// (#262/#263) — which takes the Reschedule button with it.
 const PLANNER_EDITABLE_TASK_NAMES = new Set([
   'Additional information required',
   'Allocate Team Member / Tax Planner',
   'Assess tax planning opportunities (and enter presentation details)',
-  'Detailed tax plan meeting confirmation email',
   'Detailed tax plan presentation',
   'Client decision 1',
   'Client decision 2',
@@ -70,6 +79,58 @@ const DISCOUNT_MEMBER_NUMBER = '59073'
 // deliberately exempt from the already-allocated dedupe: one plan may carry
 // several custom rows. Legacy rows named "Other #N (See notes)" still render.
 const OTHER_SPEC_VALUE = '__other__'
+
+// Tax 5 "+ Add Specialist" picker roster + labels.
+// Roster: ONLY specialists assigned to the Tax Planning ecosystem (membership
+// lives in vfo_ecosystem_assignments, delivered as load_data's `ecosystems`).
+// Label: "<tax short bio> - <name>". Bio rule — `ecosystem_content` is the NEW
+// array shape ({ ecosystem, short_bio, ... }) and the same ecosystem may repeat,
+// so every Tax Planning entry with a non-empty short_bio contributes, in array
+// order, joined with " / "; LEGACY rows (null / old object shape) have no
+// per-ecosystem bio and fall back to the flat `experts.short_bio`.
+// This label rule is MIRRORED server-side in the edge repo's
+// actions/tax-planners/portal-experts.ts (which precomputes `tax_bio` for the
+// planner portal, where load_data is never called) — change both together.
+const TAX_ECOSYSTEM_NAME = 'Tax Planning'
+
+function taxShortBio(e) {
+  const stored = e?.ecosystem_content
+  if (Array.isArray(stored)) {
+    const bios = stored
+      .filter(it => it && it.ecosystem === TAX_ECOSYSTEM_NAME && String(it.short_bio ?? '').trim())
+      .map(it => String(it.short_bio).trim())
+    if (bios.length) return bios.join(' / ')
+  }
+  return String(e?.short_bio ?? '').trim()
+}
+
+function withPickerLabels(rows) {
+  return rows
+    .map(s => ({ ...s, label: s.label || s.name }))
+    .sort((a, b) => String(a.label).toLowerCase().localeCompare(String(b.label).toLowerCase()))
+}
+
+function taxSpecialistOptions(specialists, ecosystems, plannerMode) {
+  const list = Array.isArray(specialists) ? specialists : []
+  if (plannerMode) {
+    // The planner roster arrives already ecosystem-filtered with a server-side
+    // `tax_bio` — no ecosystem_content is (or should be) in that payload.
+    return withPickerLabels(list.map(s => ({ ...s, label: s.tax_bio ? `${s.tax_bio} - ${s.name}` : s.name })))
+  }
+  const taxIds = new Set((Array.isArray(ecosystems) ? ecosystems : []).filter(a => a?.name === TAX_ECOSYSTEM_NAME).map(a => a.expert_id))
+  // Defensive: if the assignment rows never arrived, show the whole roster
+  // rather than an empty picker.
+  // Admin sessions get the RAW load_data roster — every status, Lost and Removed
+  // included — so the picker strips it to Active here. Defensive: a row with no
+  // status counts as Active (load_data's non-admin path already ships Active
+  // only, and planner rows carry no status at all). This narrows the OPTIONS
+  // only; expertBios upstream is still built off the full roster, so a
+  // specialist already allocated before they went Lost keeps rendering their
+  // "bio - name" on the plan.
+  const active = list.filter(s => (s?.status ? String(s.status).toLowerCase() === 'active' : true))
+  const scoped = taxIds.size ? active.filter(s => taxIds.has(s.id)) : active
+  return withPickerLabels(scoped.map(s => { const bio = taxShortBio(s); return { ...s, label: bio ? `${bio} - ${s.name}` : s.name } }))
+}
 
 // A plan belongs to program (plan.program_id || 1): NULL/undefined is legacy
 // Holistic (program 1). A program view must render ONLY its own plans —
@@ -1040,7 +1101,7 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
   )
 }
 
-function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists, onBack, readOnly = false, plannerMode = false, notes = [], onNotesChange, clientId, programName, client }) {
+function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists, expertBios = {}, onBack, readOnly = false, plannerMode = false, notes = [], onNotesChange, clientId, programName, client }) {
   const [localProgress, setLocalProgress] = useState(initialProgress)
   const [saving, setSaving] = useState({})
   const [expanded, setExpanded] = useState({})
@@ -1204,6 +1265,20 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   // share it and the note surfaces on the client profile like any other phase note.
   const specPhaseName = (spec) => 'Specialist - ' + spec.specialist_name
   const specNotesCount = (spec) => (notes || []).filter(n => n.phase_name === specPhaseName(spec) && n.tab_name === 'Tax Priorities').length
+
+  // DISPLAY ONLY — the Tax 5 / Tax 6 card headers show "<tax short bio> - <name>"
+  // for an allocated specialist, matching the "+ Add Specialist" picker labels.
+  // The bio is resolved from `expertBios` (built off the FULL roster upstream) so
+  // legacy allocations outside the Tax Planning ecosystem, and specialists no
+  // longer Active in the planner roster, simply fall back to the bare stored name;
+  // Custom rows (expert_id null) always keep theirs, which already reads
+  // "Custom - <what was typed>". NEVER feed this string into specPhaseName (the
+  // per-specialist notes threads key on the STORED specialist_name — gotchas
+  // #360/#311), the remove confirm, or any save/API payload.
+  const specDisplayName = (spec) => {
+    const bio = spec?.expert_id != null ? expertBios[spec.expert_id] : ''
+    return bio ? `${bio} - ${spec.specialist_name}` : spec.specialist_name
+  }
 
   // Free-text Strategy on the Tax 5 card, mirrored read-only on Tax 6. Admin-only.
   const strategyInputStyle = { padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '11.5px', fontFamily: 'Inter, sans-serif', width: '200px' }
@@ -3370,8 +3445,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         action={!readOnly && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: '600' }}>{trackStatus === 'live' ? 'Live' : 'Stopped'}</span>
-            <div onClick={() => { if (plannerMode) return; if (!togglingStatus) toggleTrackStatus() }}
-              style={{ width: '44px', height: '24px', borderRadius: '12px', background: trackStatus === 'live' ? '#1b9254' : '#e74c3c', cursor: plannerMode ? 'not-allowed' : 'pointer', position: 'relative', opacity: togglingStatus ? 0.5 : 1 }}>
+            <div onClick={() => { if (!togglingStatus) toggleTrackStatus() }}
+              style={{ width: '44px', height: '24px', borderRadius: '12px', background: trackStatus === 'live' ? '#1b9254' : '#e74c3c', cursor: 'pointer', position: 'relative', opacity: togglingStatus ? 0.5 : 1 }}>
               <div style={{ position: 'absolute', top: '2px', left: trackStatus === 'live' ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'var(--vfo-card)', transition: 'left 0.2s' }} />
             </div>
           </div>
@@ -3480,7 +3555,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
               <div style={{ padding: '12px', background: 'var(--vfo-tint)', borderRadius: '8px', marginBottom: '12px' }}>
                 <select value={newSpecId} onChange={e => setNewSpecId(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)', width: '100%', marginBottom: '8px', padding: '8px 12px' }}>
                   <option value="">-- Select Specialist --</option>
-                  {specialists.filter(s => !taxSpecialists.some(ts => ts.expert_id === s.id)).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  {/* `specialists` is the Tax-Planning-ecosystem roster carrying
+                      the display `label` ("<tax short bio> - <name>"); see
+                      taxSpecialistOptions. Option value stays the expert id. */}
+                  {specialists.filter(s => !taxSpecialists.some(ts => ts.expert_id === s.id)).map(s => <option key={s.id} value={s.id}>{s.label || s.name}</option>)}
                   {/* Permanent trailing entry, after every real specialist and
                       outside the dedupe filter — `specialists` is already the
                       effective list (admin roster or planner roster), so this
@@ -3488,7 +3566,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                   <option value={OTHER_SPEC_VALUE}>Custom</option>
                 </select>
                 {newSpecId === OTHER_SPEC_VALUE && (
-                  <input value={newCustomName} onChange={e => setNewCustomName(e.target.value)} maxLength={80} placeholder={'Specialist name — saved as "Custom - Name"'} style={{ ...inputStyle, background: 'var(--vfo-card)', width: '100%', marginBottom: '8px', padding: '8px 12px', boxSizing: 'border-box' }} />
+                  <input value={newCustomName} onChange={e => setNewCustomName(e.target.value)} maxLength={80} placeholder={'Strategy - Name — saved as "Custom - Strategy - Name"'} style={{ ...inputStyle, background: 'var(--vfo-card)', width: '100%', marginBottom: '8px', padding: '8px 12px', boxSizing: 'border-box' }} />
                 )}
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {(() => { const blocked = newSpecId === OTHER_SPEC_VALUE && !newCustomName.trim(); return (
@@ -3520,7 +3598,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 <div key={spec.id} style={{ background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', marginBottom: '8px', overflow: 'hidden' }}>
                   <div onClick={() => setExpanded(p => ({ ...p, [specExpKey]: !isSpecExpanded }))} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--vfo-ink)' }}>{spec.specialist_name}</span>
+                      <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--vfo-ink)' }}>{specDisplayName(spec)}</span>
                       {!readOnly && !plannerMode ? (
                         <span onClick={e => e.stopPropagation()} style={{ display: 'inline-flex' }}>
                           <input
@@ -3632,7 +3710,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                     <div key={spec.id} style={{ background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: '8px', marginBottom: '8px', overflow: 'hidden' }}>
                       <div onClick={() => setExpanded(p => ({ ...p, [specExpKey]: !isSpecExpanded }))} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', cursor: 'pointer' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--vfo-ink)' }}>{spec.specialist_name}</span>
+                          <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--vfo-ink)' }}>{specDisplayName(spec)}</span>
                           {spec.strategy && <span style={strategyTextStyle}>{spec.strategy}</span>}
                           {specStopped && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600, border: '1px solid rgba(231,76,60,0.3)' }}>Stopped</span>}
                           {!specStopped && allSpecDone && <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'rgba(27,146,84,0.15)', color: '#1b9254', fontWeight: 600, border: '1px solid rgba(27,146,84,0.3)' }}>Done</span>}
@@ -3662,7 +3740,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   )
 }
 
-function TaxPrioritiesTab({ clientId, programId, programName, client, specialists, readOnly = false, notes = [], onNotesChange, initialPlanId = null, plannerMode = false }) {
+function TaxPrioritiesTab({ clientId, programId, programName, client, specialists, ecosystems = [], readOnly = false, notes = [], onNotesChange, initialPlanId = null, plannerMode = false }) {
   const [taxPlans, setTaxPlans] = useState([])
   const [phases, setPhases] = useState([])
   const [loading, setLoading] = useState(true)
@@ -3672,8 +3750,28 @@ function TaxPrioritiesTab({ clientId, programId, programName, client, specialist
   const [plannerExperts, setPlannerExperts] = useState([])
   const autoSelectedRef = useRef(false)
   // Planners never receive load_data, so the Tax 5 "+ Add Specialist" picker
-  // gets its Active-specialist names from the planner-scoped roster instead.
-  const effectiveSpecialists = plannerMode ? plannerExperts : specialists
+  // gets its Active-specialist roster from the planner-scoped action instead
+  // (already Tax-Planning-only, with a server-computed tax_bio). Admin mode
+  // filters/labels the load_data roster here — see taxSpecialistOptions.
+  const effectiveSpecialists = useMemo(
+    () => taxSpecialistOptions(plannerMode ? plannerExperts : specialists, ecosystems, plannerMode),
+    [plannerMode, plannerExperts, specialists, ecosystems],
+  )
+
+  // expert_id -> tax short bio, off the FULL roster (NOT effectiveSpecialists,
+  // which is ecosystem-filtered): an allocation made before the ecosystem existed
+  // still resolves. Same bio rule as the picker labels — admin reads the raw
+  // load_data roster through taxShortBio, planner mode reads the server-computed
+  // tax_bio. Feeds specDisplayName in TaxPlanTrackView; DISPLAY ONLY.
+  const expertBios = useMemo(() => {
+    const roster = plannerMode ? plannerExperts : specialists
+    const map = {}
+    ;(Array.isArray(roster) ? roster : []).forEach(s => {
+      const bio = plannerMode ? String(s?.tax_bio ?? '').trim() : taxShortBio(s)
+      if (s?.id != null && bio) map[s.id] = bio
+    })
+    return map
+  }, [plannerMode, plannerExperts, specialists])
 
   useEffect(() => { loadData() }, [clientId])
 
@@ -3753,6 +3851,7 @@ function TaxPrioritiesTab({ clientId, programId, programName, client, specialist
         phases={phases}
         progress={allProgress[selectedPlan.id] || {}}
         specialists={effectiveSpecialists}
+        expertBios={expertBios}
         onBack={() => { setSelectedPlan(null); loadData() }}
         readOnly={readOnly}
         plannerMode={plannerMode}

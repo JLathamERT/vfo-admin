@@ -13,7 +13,7 @@ State machine for the tax-planning engagement. **161 columns as of 2026-08-16 �
 |---|---|---|
 | `id` | integer | pk |
 | `client_id` | integer | not null. fk → `clients.id` (CASCADE). |
-| `status` | text | not null, default `'live'`. Plan status (live / stopped). |
+| `status` | text | not null, default `'live'`. Plan status (live / stopped). Drives the planner portal's **Stopped** section and the Live/Stopped badge. **Two writer families as of 2026-08-17:** (1) `msm_update_tax_status` — the switch on the plan header, **now planner-callable** (in `TAX_PLANNER_ALLOWED_ACTIONS`, fenced in-handler by `denyIfNotPlannerPlan`, value validated to `live\|stopped`); (2) **five handlers auto-write `'stopped'`** on the terminal negative outcome, on the same UPDATE that records it — `actions/tax/decision.ts` (No), `final-decision.ts` (client Stop), `extra-meeting.ts` (No), `deposit-refund.ts` and `refund.ts` (either refund succeeding). The switch is **no longer the only writer**. **No sweep, payout or email path reads this column** — it is grouping and display only. |
 | `created_at` | timestamptz | not null, default `now()`. |
 | `program_id` | integer | fk → `programs.id`. Distinguishes Holistic Planning (1) vs standalone Tax Planning (4). NULL on rows pre-dating migration. |
 | `atp_name` | text | Advanced Tax Planner allocated — legacy free-text (Tim Gacsy / Steven Cox per the old task option). **Superseded 2026-07-21 by the `tax_planner_id` fk** (the allocation step is now a dropdown of `tax_planners`); kept for historical rows. |

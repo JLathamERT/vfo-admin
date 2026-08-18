@@ -68,6 +68,9 @@ export default function ClientDetail() {
   const [program, setProgram] = useState(null)
   const [contacts, setContacts] = useState([])
   const [specialists, setSpecialists] = useState([])
+  // vfo_ecosystem_assignments rows ({ expert_id, name }) from the same cached
+  // load_data payload — the Tax 5 picker scopes its roster to Tax Planning.
+  const [ecosystems, setEcosystems] = useState([])
   const [loading, setLoading] = useState(true)
   const [clientNotes, setClientNotes] = useState([])
 
@@ -128,12 +131,13 @@ export default function ClientDetail() {
       // the specialists list it feeds is only used by admin-only surfaces.
       const [data, expertsData] = await Promise.all([
         callApi('msm_load_client_home', { client_id: parseInt(clientId), enrollment_id: passedEnrollmentId, program_id: passedProgramId }),
-        isPlanner ? Promise.resolve({ experts: [] }) : loadCachedData(),
+        isPlanner ? Promise.resolve({ experts: [], ecosystems: [] }) : loadCachedData(),
       ])
       setClient(data.client)
       setProgram(data.program)
       setContacts(data.contacts || [])
       setSpecialists(expertsData.experts || [])
+      setEcosystems(expertsData.ecosystems || [])
       if (!isMember) {
         const notesData = await callApi('load_client_notes', { client_id: parseInt(clientId) })
         setClientNotes(notesData.notes || [])
@@ -333,7 +337,7 @@ export default function ClientDetail() {
             {activeTab === 'map1' && program && !pfLocked && !isPlanner && <ClientTrackViewV2 clientId={parseInt(clientId)} programId={program.id} client={client} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
             {activeTab === 'pft' && program && !pfLocked && !isPlanner && <PFTEngagementTrack clientId={parseInt(clientId)} programId={program.id} client={client} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
             {activeTab === 'regular' && program && !pfLocked && !isPlanner && <RegularPrioritiesTab clientId={parseInt(clientId)} programId={program.id} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} initialTrackId={initialTrackId} />}
-            {activeTab === 'tax' && program && !pfLocked && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} programName={program.name} client={client} specialists={specialists} readOnly={isMember} plannerMode={isPlanner} notes={clientNotes} onNotesChange={setClientNotes} initialPlanId={initialPlanId} />}
+            {activeTab === 'tax' && program && !pfLocked && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} programName={program.name} client={client} specialists={specialists} ecosystems={ecosystems} readOnly={isMember} plannerMode={isPlanner} notes={clientNotes} onNotesChange={setClientNotes} initialPlanId={initialPlanId} />}
             {activeTab === 'pip' && program && !pfLocked && !isPlanner && <PipMeetingsTab clientId={parseInt(clientId)} programId={program.id} client={client} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
             {activeTab === 'vault' && (isAdmin || isPlanner) && <ClientVaultTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} specialists={specialists} readOnly={isPlanner} allowUpload={isPlanner} recipientName={`${client?.first_name || ''} ${client?.last_name || ''}`.trim() || undefined} recipientFirst={client?.first_name || undefined} />}
             {activeTab === 'payments' && isAdmin && <ClientPaymentsTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} />}
