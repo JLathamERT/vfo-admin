@@ -2203,6 +2203,21 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const genGreen = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: green, fontWeight: 600 }
       const genPlain = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: generating ? 'not-allowed' : 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }
 
+      // The Download button is a plain window.open, so this call is the only
+      // signal the backend gets that the PF actually took the deck — it retires
+      // their action-required "Download the ROI presentation for <client>" bell.
+      // Strictly fire-and-forget: the window.open runs FIRST and synchronously
+      // (so the popup blocker still sees a user gesture) and every failure here
+      // is swallowed, because a bell must never cost the PF their download.
+      // Generation deliberately does not do this — building the deck is not the
+      // same as taking it, and is often done by someone else entirely.
+      function markPresentationDownloaded() {
+        try {
+          const p = callApi('tax_presentation_downloaded', { tax_plan_id: livePlan.id })
+          if (p && typeof p.catch === 'function') p.catch(() => {})
+        } catch { /* ignore — the download already happened */ }
+      }
+
       // Builds the deck server-side and uploads it to Google Drive — 30-60s is
       // normal (api.js gives this action a 90s budget and never auto-retries it).
       async function generatePresentation() {
@@ -2228,7 +2243,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 <span style={chipStyle(green)}>Generated — {formatStamp(generatedAt)}</span>
                 {!locked && (
                   <>
-                    <button onClick={() => window.open(deckUrl, '_blank', 'noopener')} style={genGreen} title="Opens the generated deck in Google Slides.">Download</button>
+                    <button onClick={() => { window.open(deckUrl, '_blank', 'noopener'); markPresentationDownloaded() }} style={genGreen} title="Opens the generated deck in Google Slides.">Download</button>
                     <button disabled={generating} onClick={generatePresentation} style={genPlain} title="Builds a fresh deck from the current figures and replaces the link above.">{generating ? 'Generating…' : 'Regenerate'}</button>
                   </>
                 )}

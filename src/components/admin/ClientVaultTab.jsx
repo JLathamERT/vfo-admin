@@ -20,8 +20,10 @@ const ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,image/*,application/p
 const fmtSize = (n) => n == null ? '' : n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1048576).toFixed(1)} MB`
 
 // Admin Vault tab. Two sections:
-//  - Sensitive (tax returns): every admin sees titles; only allowlisted admins
-//    (canView) can open/add/delete/SHARE (server-gated).
+//  - Sensitive (tax returns): every admin sees titles; canView admins can OPEN
+//    them (the allowlist plus this client's own assigned PF), and the narrower
+//    canManageTax admins (the allowlist only) can add/delete/SHARE. Both flags
+//    come from the server on vault_tax_list — never re-derive either here.
 //  - General Documentation: all admins can view/add/delete/share.
 // Each manageable file can be SHARED with specialists (Feature A): the specialist
 // then sees it in their portal's "Shared with Me" tab. Revoke any time.
@@ -33,6 +35,9 @@ const fmtSize = (n) => n == null ? '' : n < 1024 ? `${n} B` : n < 1048576 ? `${(
 export default function ClientVaultTab({ clientId, sectionStyle, specialists = [], readOnly = false, allowUpload = false, recipientName, recipientFirst }) {
   const [sensitive, setSensitive] = useState([])
   const [canView, setCanView] = useState(false)
+  // Strictly narrower than canView: an assigned PF may OPEN this client's tax
+  // returns but not add/remove/share them, so the write controls key on this.
+  const [canManageTax, setCanManageTax] = useState(false)
   const [general, setGeneral] = useState([])
   const [ert, setErt] = useState([])
   // Default false so the pre-load render is unchanged; only a SETTLED rejection
@@ -93,6 +98,9 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
     ])
     setSensitive(tax.status === 'fulfilled' ? (tax.value.files || []) : [])
     setCanView(tax.status === 'fulfilled' && !!tax.value.can_view)
+    // Fails CLOSED on a pre-deploy backend that returns no can_manage: the flag
+    // reads undefined -> false -> View only, never a button that 403s.
+    setCanManageTax(tax.status === 'fulfilled' && !!tax.value.can_manage)
     setTaxDenied(tax.status === 'rejected')
     setGeneral(gen.status === 'fulfilled' ? (gen.value.files || []) : [])
     setGenDenied(gen.status === 'rejected')
@@ -203,13 +211,20 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
 
   const SECTIONS = [
     {
-      key: 'sensitive', title: 'Sensitive Documents', sub: '(tax returns)', files: sensitive, canManage: canView, bucket: 'client-tax-returns', canRequestDocs: true,
+      // canManage = may OPEN (the View button + the unlocked row chrome);
+      // canWrite = may CHANGE (Add / Delete / Share). Same seam the ERT section
+      // below established, now load-bearing here too: an assigned PF is
+      // canManage-yes / canWrite-no, and gating a write control on canManage
+      // would render a button that 403s.
+      key: 'sensitive', title: 'Sensitive Documents', sub: '(tax returns)', files: sensitive, canManage: canView, canWrite: canManageTax, bucket: 'client-tax-returns', canRequestDocs: true,
       blurb: taxDenied
         ? 'Stored in a private vault. You do not have access to this client.'
         : !canView
           ? 'Stored in a private vault. You can see what has been uploaded, but only authorized tax staff can open or share these documents.'
           : addOnly
           ? 'Stored in a private vault. You can view these documents and add new ones.'
+          : !canManageTax
+          ? 'Stored in a private vault. You can view these documents; only authorized tax staff can add, remove or share them.'
           : 'Stored in a private vault. You have access to view, add, remove and share these documents.',
       actions: { download: 'vault_tax_download', delete: 'vault_tax_delete', upload: 'vault_tax_admin_upload_url' },
     },
@@ -226,6 +241,9 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
       // canWrite is SEPARATE from canManage on purpose: canManage still governs
       // the View button, and a non-ERT-manager admin keeps View. Only Add and
       // Delete are withdrawn. (2026-08-13 — constants/ert-access.ts server-side.)
+      // This seam is now shared with the sensitive section above (2026-08-18),
+      // so EVERY write affordance — Add, Delete, Share, drag-to-move — keys on
+      // canWrite, and only View / the unlocked row chrome keys on canManage.
       key: 'ert', title: 'ERT/VFOS Documentation', sub: '', files: ert, canManage: !ertDenied, canWrite: isErtManager, bucket: 'client-ert-docs', noShare: true, adminOnlyUpload: true,
       blurb: ertDenied
         ? 'ERT / VFO documents for this client. You do not have access to this client.'
@@ -286,12 +304,12 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
                 return (
                   <div key={f.path} style={{ marginBottom: '8px' }}>
                     <div
-                      draggable={canMove && sec.canManage}
-                      onDragStart={canMove && sec.canManage ? (e => { e.dataTransfer.effectAllowed = 'move'; setDragItem({ section: sec.key, file: f }) }) : undefined}
+                      draggable={canMove && sec.canWrite !== false}
+                      onDragStart={canMove && sec.canWrite !== false ? (e => { e.dataTransfer.effectAllowed = 'move'; setDragItem({ section: sec.key, file: f }) }) : undefined}
                       onDragEnd={canMove ? (() => { setDragItem(null); setDragOverKey(null) }) : undefined}
                       style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)', borderRadius: open ? '8px 8px 0 0' : '8px', opacity: dragItem?.file?.path === f.path ? 0.45 : 1 }}
                     >
-                      {canMove && sec.canManage && (
+                      {canMove && sec.canWrite !== false && (
                         <span title="Drag to move this document to another section" style={{ fontSize: '14px', color: 'var(--vfo-muted)', cursor: 'grab', flexShrink: 0, lineHeight: 1, userSelect: 'none' }}>⠿</span>
                       )}
                       <span style={{ fontSize: '14px', flexShrink: 0 }}>{sec.canManage ? '📄' : '🔒'}</span>
@@ -300,7 +318,7 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
                       {sec.canManage ? (
                         <>
                           <button onClick={() => view(sec, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>View</button>
-                          {!readOnly && !sec.noShare && <button onClick={() => toggleShare(sec.bucket, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(18,94,204,0.4)', background: open ? 'rgba(18,94,204,0.22)' : 'rgba(18,94,204,0.1)', color: '#125ecc', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>Share</button>}
+                          {!readOnly && !sec.noShare && sec.canWrite !== false && <button onClick={() => toggleShare(sec.bucket, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(18,94,204,0.4)', background: open ? 'rgba(18,94,204,0.22)' : 'rgba(18,94,204,0.1)', color: '#125ecc', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>Share</button>}
                           {!readOnly && sec.canWrite !== false && <button onClick={() => remove(sec, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>Delete</button>}
                         </>
                       ) : (

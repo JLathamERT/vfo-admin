@@ -169,6 +169,9 @@ function Map4FollowupStep({ trackId, task, p, track, onDone, emailCtx, readOnly 
   const [pending, setPending] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [stallAckAt, setStallAckAt] = useState(track.map4_stall_ack_at || null)
+  // useState only seeds on mount — without this the checkbox keeps its stale
+  // value after the parent reloads the tracks (every other stall copy re-syncs).
+  useEffect(() => { setStallAckAt(track.map4_stall_ack_at || null) }, [track.map4_stall_ack_at])
   // Saving a NEW meeting date clears the follow-up/reminder/stall stamps server-side;
   // mirror that here so the auto rows below stop claiming the old sends until reload.
   const [ladderCleared, setLadderCleared] = useState(false)

@@ -543,20 +543,32 @@ function Phase6Indicators({ onboarding, onOpen, readOnly }) {
 }
 
 // Collapsible viewer of the submitted discovery form, shown below the Meeting 2 step.
-function DiscoveryViewer({ eng, readOnly, client }) {
+function DiscoveryViewer({ eng, readOnly, client, onAck }) {
   const [open, setOpen] = useState(false)
   const submitted = !!eng?.discovery_submitted_at
   const data = eng?.discovery_data || {}
+  // Same 96h escalation + "Reached out?" ack the decision / FT stalls carry
+  // (see pfNotifiedStep in DecisionHistory). Only exists once the cron stamped it.
+  const stallRows = eng?.discovery_pf_notified_at ? (
+    <div style={{ paddingLeft: '18px' }}>
+      {autoStep('4-business-day mark passed — assigned PF notified to follow up', true, eng.discovery_pf_notified_at)}
+      {!readOnly && <StallAckRow pipeline="pft" id={eng?.id} stall="discovery" ackAt={eng?.discovery_pf_ack_at} onAck={v => onAck?.('discovery', v)} />}
+    </div>
+  ) : null
   if (!submitted) {
     if (!eng?.discovery_email_sent_at) return null
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0 5px 18px', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
-        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'transparent', border: '1px solid var(--vfo-border-mid)', flexShrink: 0 }} />
-        <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flex: 1 }}>Discovery form — awaiting completion{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline={PFT_PIPELINE} title="Discovery form" templates={PFT_DISCOVERY_EMAILS} context={pftNameCtx(client)} /></span>}</span>
-      </div>
+      <>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0 5px 18px', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'transparent', border: '1px solid var(--vfo-border-mid)', flexShrink: 0 }} />
+          <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flex: 1 }}>Discovery form — awaiting completion{!readOnly && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline={PFT_PIPELINE} title="Discovery form" templates={PFT_DISCOVERY_EMAILS} context={pftNameCtx(client)} /></span>}</span>
+        </div>
+        {stallRows}
+      </>
     )
   }
   return (
+    <>
     <div style={{ borderBottom: '1px solid var(--vfo-border-soft)', padding: '5px 0 5px 18px' }}>
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1b9254', flexShrink: 0 }} />
@@ -575,6 +587,8 @@ function DiscoveryViewer({ eng, readOnly, client }) {
         </div>
       )}
     </div>
+    {stallRows}
+    </>
   )
 }
 
@@ -839,7 +853,7 @@ function PFTEngagementTrack({ clientId, programId, client, readOnly = false, not
       if (mNum === 3 && gateStatus !== 'Yes') return null
       const step = <MeetingStep task={task} meeting={mNum} p={p} readOnly={readOnly} client={client} onSend={(decision, d, t, z, r, resched) => handleMeetingSend(task, mNum, decision, d, t, z, r, resched)} onCompleteNoEmail={() => saveTask(task.id, 'Complete', p.completed_date)} onDate={(d) => saveTask(task.id, p.status, d)} />
       if (mNum === 2) {
-        return <div key={task.id}>{step}<DiscoveryViewer eng={eng} readOnly={readOnly} client={client} /></div>
+        return <div key={task.id}>{step}<DiscoveryViewer eng={eng} readOnly={readOnly} client={client} onAck={applyStallAck} /></div>
       }
       return <div key={task.id}>{step}</div>
     }
