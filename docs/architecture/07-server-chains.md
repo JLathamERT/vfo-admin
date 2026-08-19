@@ -185,6 +185,21 @@ A ladder's clock is a `*_sent_at` / `*_notified_at` column stamped by the handle
 
 **Three sites deliberately DO re-arm, and the difference is the direction the delay is counted.** `tax/ready-for-tax3.ts` nulls `tax3_assess_reminder_sent_at` when the booked date genuinely moves, because that reminder **counts down to the meeting** (#359) and a moved meeting invalidates it. `regular/map4-set-meeting-date.ts` nulls all three of `map4_followup_sent_at` / `map4_reminder_sent_at` / `map4_stall_notified_at` on a genuine date change — a user-approved decision to re-draft the MAP 4 follow-up ladder against the new date. `tax/highlevel-meeting-confirm.ts` needed no change at all: it already nulls `tax4_meeting_reminder_last_sent_at` on every confirm. **Forward-counted ladders must not re-arm; backward-counted (countdown) ones must.**
 
+### What STOPS a stall ladder — the ack refire guard (2026-08-19, v760)
+
+Until v760 a stall ladder had **no off switch**: the 4-business-day PF bell was minted whenever the stall's own guard column said the tier had not fired, and the "Reached out?" acknowledgement (`<stall>_pf_ack_at`, #381) was written by nobody's reader. Ticking the box therefore did not stop the chase — it recorded that someone had chased, and the next nightly tick minted again over the top of it. **Every sweep that mints a stall bell now filters `.is("<stall>_pf_ack_at", null)`:**
+
+| Sweep | Pipeline |
+|---|---|
+| `pipeline/contract-revshare-sweep.ts` | MAP 1 |
+| `tax/revshare-sweep.ts` | TAX |
+| `advisor/sweep.ts` · `accountant/sweep.ts` | advisor / accountant onboarding |
+| `onboarding/sweep.ts` | specialist onboarding |
+| `pft/sweep.ts` | Partnership Fast Track |
+| `regular/map4-followup-sweep.ts` | Regular Priorities (MAP 4) |
+
+So the ack is now a genuine **satisfied-on-fire guard** in the #365 sense, and the same tick also clears the step's existing unread bells (see [../flows/notifications.md](../flows/notifications.md)). **Two consequences for a sweep author.** (1) A new stall ladder must add the column, the UI checkbox **and** this guard — a column without a guard is the old inert shape and reads as done while the chase continues. (2) The guard stops a re-*mint*, not a re-*arm*: `pft/meeting-email.ts` still **nulls `discovery_pf_notified_at`** on a plain (non-`reschedule`) send, which resets the tier the guard was protecting, so the two mechanisms can still disagree on that one path. Verification is owed against the first cron run after 2026-08-19.
+
 **Deliberate calendar survivors — owner decisions, do not "finish the job":** advisor + accountant 14-day auto-decline, the Tax 4 meeting-passed nudge, the membership 30-day renewal notice, the chargescheduled sweep, the notifications purge, personal reminders, and every token/session expiry window.
 
 ### `tax-revshare-sweep` — the six blocks
