@@ -74,9 +74,19 @@ export default function ConnectCardPage() {
   )
 
   const done = justDone || data?.done
+  // Past-due installments the nightly sweep will collect as soon as a method is
+  // saved — the breakdown becomes one row per installment instead of a single
+  // "per quarterly payment" line, so the total on the headline is accounted for.
+  const dueNowRows = Array.isArray(data?.due_now_rows) ? data.due_now_rows : []
   const amountRow = data?.amount != null
     ? [
-        { label: `VFO Services payment${data?.amount_label ? ` (${data.amount_label})` : ''}`, value: `$${formatMoney(data.amount)}`, valueColor: 'var(--vfo-ink-2)' },
+        ...(dueNowRows.length > 0
+          ? dueNowRows.map((r) => ({
+              label: `VFO Services payment (due ${formatDate(r.date)})`,
+              value: `$${formatMoney(r.amount)}`,
+              valueColor: 'var(--vfo-ink-2)',
+            }))
+          : [{ label: `VFO Services payment${data?.amount_label ? ` (${data.amount_label})` : ''}`, value: `$${formatMoney(data.amount)}`, valueColor: 'var(--vfo-ink-2)' }]),
         { label: 'Processing Fee', value: '$0.00', valueColor: '#16a34a' },
       ]
     : []
@@ -97,7 +107,9 @@ export default function ConnectCardPage() {
           <>
             <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '12px' }}>Choose your preferred payment method</p>
             <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '20px', fontSize: '13px', color: 'var(--vfo-muted)' }}>
-              Add the card or bank account for your VFO Services payments. There is no charge for setting this up.
+              {dueNowRows.length > 0
+                ? `Saving your payment method is free. Once it's saved, your ${dueNowRows.length} past-due payment${dueNowRows.length === 1 ? '' : 's'} totaling $${formatMoney(data.amount)} will be collected automatically.`
+                : 'Add the card or bank account for your VFO Services payments. There is no charge for setting this up.'}
             </p>
 
             <OptionCard
@@ -175,6 +187,11 @@ function OptionCard({ isHovered, onHover, onLeave, onClick, title, badgeText, ba
 
 function formatMoney(n) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// Same UTC formatting the schedule email uses, so the dates on the page match it exactly.
+function formatDate(d) {
+  return new Date(`${d}T00:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 }
 
 const centerMuted = { color: 'var(--vfo-muted)', fontSize: '15px', textAlign: 'center', margin: 0 }
