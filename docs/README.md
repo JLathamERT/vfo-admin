@@ -129,7 +129,7 @@ These items are flagged across multiple docs and remain unresolved without exter
 This doc map can be audited against the source:
 
 - Every `file:line` citation should resolve to the claimed handler — try opening any link.
-- The action catalog count (**463** in [05-api-action-catalog.md](architecture/05-api-action-catalog.md), *v: 2026-08-16*) is the sum of the **6** logins in `index.ts` + the **457** dispatch entries (132 PUBLIC + 325 AUTH) (`(c) =>`) in `router/dispatch.ts`. **Derive it rather than trusting it** — the anchored greps live in the hub's DERIVE block (#402).
+- The action catalog count (**464** in [05-api-action-catalog.md](architecture/05-api-action-catalog.md), *v: 2026-08-19*) is the sum of the **6** logins in `index.ts` + the **458** dispatch entries (132 PUBLIC + 326 AUTH) (`(c) =>`) in `router/dispatch.ts`. **Derive it rather than trusting it** — the anchored greps live in the hub's DERIVE block (#402).
 - The table inventory in [tables/README.md](tables/README.md) is a grouped index, **not a count** — `SELECT count(*) FROM information_schema.tables WHERE table_schema='public'` returns **87** as of 2026-08-14, and several of those have no per-column doc (notably `advisor_onboarding` / `accountant_onboarding`). Always derive; a hard number on this page will be wrong within a week.
 - The 15-migration list in [integrations/supabase.md](integrations/supabase.md) is a **2026-05-05 snapshot and is long out of date** — `vfo-edge-functions/supabase/migrations/` now holds **114** git-tracked migration files (2026-08-14). Every migration applied live via MCP must also be committed there (#196).
 - Pick any flow doc and trace a "Trigger → Step-by-step → Tables touched → Chains" sequence; every code reference should resolve.
