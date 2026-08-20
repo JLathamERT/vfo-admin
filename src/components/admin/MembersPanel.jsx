@@ -208,7 +208,7 @@ function AddAccountantForm({ allMembers, onDataChange }) {
         <input value={tradingName} onChange={e => setTradingName(e.target.value)} placeholder="Company name (optional)" style={inputStyle} />
       </div>
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
+        <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Work Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
         <div style={{ flex: 1, minWidth: '160px' }}>
           <label style={labelStyle}>Status *</label>
           <select value={eliteStatus} onChange={e => setEliteStatus(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
@@ -583,7 +583,7 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
         </div>
       )}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
+        <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Work Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
         <div style={{ flex: 1, minWidth: '160px' }}>
           <label style={labelStyle}>Status *</label>
           <select value={eliteStatus} onChange={e => setEliteStatus(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
@@ -754,7 +754,7 @@ function AddStrategicMemberForm({ groupNames, allMembers, onDataChange }) {
         </div>
       </div>
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
+        <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Work Email *</label><input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} /></div>
         <div style={{ flex: 1, minWidth: '160px' }}>
           <label style={labelStyle}>Status *</label>
           <select value={eliteStatus} onChange={e => setEliteStatus(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)' }}>
@@ -1029,7 +1029,8 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '18px 24px' }}>
                     <div><div style={fieldLabel}>Join Date</div><div style={fieldValue}>{profile.join_date ? profile.join_date.split('T')[0] : '—'}</div></div>
                     {(profile.elite_status === 'Lost' || profile.elite_status === 'Removed') && <div><div style={fieldLabel}>Leave Date</div><div style={fieldValue}>{profile.leave_date ? profile.leave_date.split('T')[0] : '—'}</div></div>}
-                    <div><div style={fieldLabel}>Email</div><div style={{ ...fieldValue, wordBreak: 'break-word' }}>{profile.email || '—'}</div></div>
+                    <div><div style={fieldLabel}>Work email</div><div style={{ ...fieldValue, wordBreak: 'break-word' }}>{profile.email || '—'}</div></div>
+                    <div><div style={fieldLabel}>Personal email</div><div style={{ ...fieldValue, wordBreak: 'break-word' }}>{profile.personal_email || '—'}</div></div>
                     {(isAccountant || isAdvisor) && <div><div style={fieldLabel}>Company Name</div><div style={fieldValue}>{profile.trading_name || '—'}</div></div>}
                     {!hiddenFields.includes('revenue_decision') && (
                       <div><div style={fieldLabel}>Revenue Decision</div><div style={fieldValue}>{profile.revenue_decision || '—'}</div></div>
@@ -1244,7 +1245,8 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
             <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>First Name</label><input value={profile.first_name || ''} onChange={e => update('first_name', e.target.value)} style={inputStyle} /></div>
               <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>Last Name</label><input value={profile.last_name || ''} onChange={e => update('last_name', e.target.value)} style={inputStyle} /></div>
-              <div style={{ flex: 2, minWidth: '200px' }}><label style={labelStyle}>Email</label><input value={profile.email || ''} onChange={e => update('email', e.target.value)} type="email" style={inputStyle} /></div>
+              <div style={{ flex: 2, minWidth: '200px' }}><label style={labelStyle}>Work email (emails sent here)</label><input value={profile.email || ''} onChange={e => update('email', e.target.value)} type="email" style={inputStyle} /></div>
+              <div style={{ flex: 2, minWidth: '200px' }}><label style={labelStyle}>Personal email (not emailed)</label><input value={profile.personal_email || ''} onChange={e => update('personal_email', e.target.value)} type="email" style={inputStyle} /></div>
             </div>
             {(isAccountant || isAdvisor) && (
               <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>

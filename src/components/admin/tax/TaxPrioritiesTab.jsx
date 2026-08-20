@@ -2538,7 +2538,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, flexShrink: 0, border: `1.5px solid ${dotBorder}` }} />
           <span style={{ fontSize: '13px', color: (done || scheduled) ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{taskLabel(task)}{!(readOnly || plannerMode) && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="TAX" title={task.name} templates={[{ name: 'TAX_presentation_link', when: 'Automatic — ROI meeting email drafted on the scheduled date' }]} context={emailCtx} /></span>}</span>
           {done ? (
-            <span style={chipStyle('#1b9254')}>Email drafted — {formatDate(sendDate)}</span>
+            <span style={chipStyle('#1b9254')}>Email drafted for {formatDate(sendDate)}</span>
           ) : readOnly ? (
             scheduled ? <span style={chipStyle('#0095ff')}>Scheduled — {formatDate(sendDate)}</span> : null
           ) : formOpen ? (
