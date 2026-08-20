@@ -28,7 +28,7 @@ Run these instead of believing any version/tag/count written anywhere. Expected 
 ```powershell
 # 1. Live function versions — MCP list_edge_functions { project_id: "ejpsprsmhpufwogbmxjv" }
 #    Expect: vfo-admin-api ACTIVE + boldsign-webhook ACTIVE, verify_jwt=false on BOTH.
-#    Plus helper draft-agreement-pdfs v1 (no business logic). (v: 2026-08-19 — v762 / v40)
+#    Plus helper draft-agreement-pdfs v1 (no business logic). (v: 2026-08-20 — v764 / v40)
 
 # 2. Deploy tags — git is the source of truth, these lines are not (#222, #376).
 #    Re-stamp these THREE lines AFTER wrap-up Part 4D, not during Part 1: the
@@ -37,7 +37,7 @@ cd C:\vfo-react;          git tag -l 'live-*'         --sort=v:refname | Select-
 cd C:\vfo-edge-functions; git tag -l 'backend-good-*' --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-19 → backend-good-2026-08-19-v762)
 
 # 3. Action-count parity — the ANCHORED patterns are required; a raw unanchored
-#    grep on index.ts returns 7 (the 7th is a comment on line 3). (v: 2026-08-19 → 6 + 458 = 464)
+#    grep on index.ts returns 7 (the 7th is a comment on line 3). (v: 2026-08-20 → 6 + 458 = 464)
 cd C:\vfo-edge-functions   # or the worktree
 $logins   = (Select-String -Path supabase/functions/vfo-admin-api/index.ts          -Pattern '^\s*if \(action === '            -AllMatches).Matches.Count
 $dispatch = (Select-String -Path supabase/functions/vfo-admin-api/router/dispatch.ts -Pattern '^\s*"([a-zA-Z0-9_]+)":\s*\(c\)'  -AllMatches).Matches.Count
@@ -46,7 +46,7 @@ $dispatch = (Select-String -Path supabase/functions/vfo-admin-api/router/dispatc
 # 4. Type-check baseline — must be 0; --no-lock avoids the v5 deno.lock the bundler rejects (#112)
 & C:\Users\jakel_fjetgbx\.deno\bin\deno.exe check --no-lock supabase/functions/vfo-admin-api/index.ts
 
-# 5. Frontend build — expect exit 0. (v: 2026-08-19 → 33 route pages)
+# 5. Frontend build — expect exit 0. (v: 2026-08-20 → 33 route pages)
 cd C:\vfo-react; npm run build
 
 # 6. Pipeline smoke gate — hand it to Jake in EXACTLY this form (literal <password>, never a token, never Read-Host)
@@ -60,7 +60,7 @@ select jobname, schedule from cron.job order by jobid;
 select pipeline, sandbox_mode from pipeline_sandbox_config order by pipeline;
 ```
 
-**9. Security advisor** — MCP `get_advisors { project_id: "ejpsprsmhpufwogbmxjv", type: "security" }`. **GREEN baseline = deny-all `rls_enabled_no_policy` INFO ×5 + the `pg_net` `extension_in_public` WARN, and nothing else.** Any `rls_disabled_in_public` / `sensitive_columns_exposed` ERROR or `rls_policy_always_true` WARN = a table regressed to anon-reachable → STOP. *(v: 2026-08-19 — exact baseline re-confirmed, unchanged)*
+**9. Security advisor** — MCP `get_advisors { project_id: "ejpsprsmhpufwogbmxjv", type: "security" }`. **GREEN baseline = deny-all `rls_enabled_no_policy` INFO ×5 + the `pg_net` `extension_in_public` WARN, and nothing else.** Any `rls_disabled_in_public` / `sensitive_columns_exposed` ERROR or `rls_policy_always_true` WARN = a table regressed to anon-reachable → STOP. *(v: 2026-08-20 — exact baseline re-confirmed after the `gc_service_allocation` DDL, unchanged)*
 
 ---
 
@@ -69,6 +69,8 @@ select pipeline, sandbox_mode from pipeline_sandbox_config order by pipeline;
 Nothing here can be produced by a command. Everything else was deleted from this section on purpose — derive it above.
 
 **OPEN / OWED**
+- **The Growth Credit allocation backend is LIVE (v764) while the frontend is NOT published — and in that window a save from the OLD panel WIPES an allocation.** `gc_manage_service`'s UPDATE writes `allocated_admin_email` + `scheduling_link` on **every** save and a body omitting them cleans to `null`; the published panel does not send them. Any admin saving a service from the live Automation & Config page before `npm run deploy` silently clears that row's team member and link, and the seeds must be re-run. **The new panel always sends current values, so publishing the frontend closes this** — until then it is the most urgent item on this list. *(v: 2026-08-20)*
+- **Three UNTESTED paths from the 2026-08-20 Growth Credit allocation branch (v763/v764).** (1) **No redemption email has been drafted since the template body was RESTORED** — a user edit had added a stray `<br><br>`, the body was put back, and both drafts actually inspected (the unallocated *"Our team"* no-Cc variant and the allocated + meeting-link variant) rendered the **pre-restore** body, so **the next real redemption draft is the spacing fix's first verification**. (2) The **zero-credit `[Credits Spent]` wording** *"0 Growth Credits (free of charge)"* has never rendered in a real draft — service **13** *"Website Exploratory Meeting"* (cost 0, allocated to Lindsay, HubSpot link) is the row that exercises it, and it also covers the #423 fix and the meeting-link branch in one redemption. (3) The **Menu sub-tab's single-grid alignment rebuild** was the session's last change: build-green and code-reviewed, **never eyeballed**. Everything else on that branch WAS click-tested live — both bell routes, Remove, the slider, name/description/category edits, a zero-cost save, the sub-tabs, and the member marketplace unchanged; all test data wiped after. *(v: 2026-08-20)*
 - **Test Client 62 fixtures — RE-DERIVED 2026-08-19 after the ROI-notes session; the "0 plans" state is GONE and that is deliberate.** SQL now returns **plan 148** (program 4, `live`, created `15:39Z`) plus **FIVE `client_tax_progress` rows** (ids 1042–1046, tasks 119/177/116/117/123, all dated today) — the fixture this session's deck testing needed, left in place rather than wiped. **FIVE notifications, and only two are fixtures:** 1347/1348 *"Test Client hasn't set up their payment method"* (cron-minted `04:00Z`, 1347 **still unread**) again prove a live sweep re-mints on this client after any wipe, so "clean" here means *no plan rows*, never *no bells*; 1359/1360 are the vault-drop test bells (both read); and **1361 *"Download the ROI presentation for Test Client"*** (`dismissible:false`, **UNREAD**) was minted by this session's assess-form save and clears on download. **Owed by hand:** the Drive *"ROI Presentations"* decks — the **TEN** carried from 2026-08-17/18 **plus at least THREE more** generated on plan 148 today, one per template stage (every regenerate creates a NEW Drive file and only the newest is in `generated_presentation_url`, stamped `15:51:13Z`), **unless hand-deleted since**; and the test file **`client-tax-returns/62/340ccd1c5f481b5c_ERT_Zoom_Background.png`** (the **Sensitive Documents** vault), **confirmed still present** by a bucket listing and deletable only through the **UI/Storage API** — SQL cannot touch it (#206). Newly observed alongside it: two test agreements at `client-ert-docs/62/*_VFO-Tax-Agreement-Test-Client.pdf`. *(v: 2026-08-19)*
 - **Two untested paths from the 2026-08-18 two-year ROI branch:** the generator's 400 on a **hand-corrupted `year2` group** (*"Re-save the Assess form — the Year 2 totals are incomplete"*) and the **notes 5000-character cap**. Both are code-reviewed with their FE mirrors in place; neither has been exercised. Everything else on that branch — single-year save + 27-slide deck, two-year save + 29-slide deck, and the Add-Year-2 **toggle-off round trip** (group dropped from storage, notes survived, 27-slide regen) — was owner-tested against v759. *(v: 2026-08-18)*
 - **Two untested paths from the 2026-08-19 ROI-titles / planner-notes branch (v761, template v5).** (a) The **EMPTY-notes live path** — an assess form carrying no `notes` should leave slide 23's speaker-notes paragraph as one empty invisible run with **no *"TAX PLANNER NOTES:"* label**; that is the ordinary code path, not a branch, but it was only ever simulated. (b) A **TWO-YEAR (29-slide) deck against template v5** — v5 touched slides 7–13 and one notes part and nothing else, so slides 24/28/29 and the whole drop block are provably unchanged from v4, but no two-year deck has been generated since the bump. What WAS exercised live: a **single-year** deck on plan 148 with a **two-line** note, regenerated and `/export/pptx`-verified after **each of the three template stages** (8 slides reading *"VFO Tax Planning Process"*, zero *"Proactive Planning"*, 27 slides, no leftover tokens), and the pipeline smoke gate at **5/5 PASS against v761**. *(v: 2026-08-19)*
@@ -105,7 +107,7 @@ Nothing here can be produced by a command. Everything else was deleted from this
 - **Frontend** `vfo-react` — `github.com/JLathamERT/vfo-portal`, local `C:\vfo-react`, live **https://vfoportal.com/**. Vite + React 18 + react-router-dom v6, `gh-pages` deploy. No backend code, no tests, no CI.
 - **Backend** `vfo-edge-functions` — `github.com/JLathamERT/vfo-edge-functions`, local `C:\vfo-edge-functions`. Deno 2 / Supabase Edge Runtime.
 - **Supabase** project `ejpsprsmhpufwogbmxjv` ("VFO Showroom"), us-east-2, Postgres 17.
-- **`vfo-admin-api`** — `index.ts` orchestrator + ~470 modular handler files in `actions/<group>/*.ts` + `router/dispatch.ts` + `router/webhooks.ts` + `middleware/auth.ts` + `utils/` + `constants/` + `integrations/`. Serves all 464 actions. *(v: 2026-08-19)*
+- **`vfo-admin-api`** — `index.ts` orchestrator + ~470 modular handler files in `actions/<group>/*.ts` + `router/dispatch.ts` + `router/webhooks.ts` + `middleware/auth.ts` + `utils/` + `constants/` + `integrations/`. Serves all 464 actions. *(v: 2026-08-20)*
 - **`boldsign-webhook`** — standalone. **Deploy with `--no-verify-jwt` (mandatory)** and **only with explicit approval** (#10, #180).
 - **Helper functions** — `draft-agreement-pdfs` (v1, on-demand Gmail drafts, no business logic). `boldsign-template-fields` **is GONE** — deleted without a doc update; re-deploy a throwaway if you need template-field coordinates. *(v: 2026-08-14)*
 - **Key entry points** — `index.ts` (logins) · `router/dispatch.ts` (PUBLIC_HANDLERS + AUTH_HANDLERS) · `router/webhooks.ts` (Stripe + BoldSign by shape) · `middleware/auth.ts` (six login types, role precedence) · `constants/role-gates.ts` (every gate list) · `utils/notify.ts` (all bells + the business-day helpers).
