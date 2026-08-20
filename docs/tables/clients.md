@@ -103,7 +103,7 @@ Each client can have multiple "priority tracks" — e.g., a regular priority and
 | `client_id` | integer | fk → `clients.id` (CASCADE) |
 | `priority_name` | text | |
 | `track_type` | text | default `'regular'`. Distinguishes track types (e.g., `'regular'`, `'partnership_fast_track'`). |
-| `specialist_name` | text | |
+| `specialist_name` | text | Normally the name of a directory specialist, stored as free text (no FK). **Since 2026-08-20 it may also hold `"Custom - <name>"`** — an off-directory specialist typed into the Add Regular Priority form's trailing **"Custom"** picker option. **The server owns the prefix:** `msm_add_priority_track` takes `custom: true` + `custom_name`, strips any user-supplied `custom -` lead-in, collapses whitespace, caps at 80 chars and prepends `"Custom - "` itself, using the same sanitizer shape as tax add-specialist — so a client can never choose the stored format. Anything reading this column must treat it as free text and must not assume it matches a specialists row. |
 | `status` | text | default `'live'`. Status field. |
 | `created_at` | timestamptz | default `now()` |
 

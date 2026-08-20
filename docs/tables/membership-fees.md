@@ -124,7 +124,8 @@ one. Gotcha **#332**.
   Date]"*, tokens `[First Name]` `[Renewal Date]` `[Renewal Terms]` `[MEETING_LINK]`; and
   **`MEMBERSHIP_cancel_confirmation` (id 213)** — subject *"Your ERT Membership — Cancellation
   Confirmation"*. Bodies end *"Kind regards,"* with **no team name** — `VFO_SIGNATURE` appends the
-  AI-PC block. **Draft mode means a human still has to send the renewal notice out of Gmail
+  team line (*"VFO Services - Proactive Coordinator Team"* since 2026-08-20; it was the two-paragraph
+  AI-PC block before that). **Draft mode means a human still has to send the renewal notice out of Gmail
   Drafts every night the sweep drafts one** — that is the standing operational cost of this
   feature until someone flips it (gotcha #333, and #325 on the blast radius of flipping).
 - `notification_rules` keys `MEMBERSHIP_charge_failed` and — **added 2026-08-04** —

@@ -21,7 +21,9 @@ the "Partnership Fast Track" program (program_id=2) under a Testing/real member,
   `accountant_onboarding_id`. **Undecided-decision columns** (2026-07-13): `decision_token`,
   `decision_email_sent_at`, `decision_task_id`, `decision_response` (`vfo_ft`|`vfo_associate`|`no`),
   `decision_response_at`, `decision_reminder_sent_at`, `decision_pf_notified_at`.
-- **Emails**: `email_templates` pipeline `PARTNERSHIP_FAST_TRACK` (9 rows — incl. `PFT_decision_undecided`). **Sandbox**:
+- **Emails**: `email_templates` pipeline `PARTNERSHIP_FAST_TRACK` (incl. `PFT_decision_undecided`; derive the set with
+  `select id, template_name, to_list, cc_list from email_templates where pipeline='PARTNERSHIP_FAST_TRACK' order by id`
+  — never trust a count written here, #402). **Sandbox**:
   `pipeline_sandbox_config` row `PARTNERSHIP_FAST_TRACK` (`sandbox_mode=true`, `sandbox_email=jlatham@elitert.com`) —
   all PFT emails are **Gmail drafts**. Flip to live before real accountants.
 
@@ -36,6 +38,31 @@ the "Partnership Fast Track" program (program_id=2) under a Testing/real member,
 5. **VFO-Associate New Member Setup** / **VFO-FT Accountant New Member Setup** — task-less; rendered as 2
    dynamic progress indicators. Before the decision: both show greyed. After a decision: only the matching
    section shows.
+
+## Email recipients — who is actually on a PFT email
+
+**Read the HANDLER, not the template row (#324/#413).** Every PFT send builds a ctx and hands it to
+`resolveTemplateRecipients`; a role token in `to_list`/`cc_list` that the ctx does not supply is dropped
+**silently**, with no error and no empty-recipient guard tripping (the `to` list is always non-empty here).
+
+The four ctx-building call sites are `pft/decision-email.ts` (shared ctx), `pft/meeting-email.ts`, and
+`pft/sweep.ts`'s `sendDiscoveryReminder` + `sendFtReminder`. Each supplies `RECIPIENT` / `CLIENT` (the
+accountant's `clients.email`), `ASSIGNED_PF` (via `getPfEmail`), and — **as of 2026-08-20 (v766)** —
+**`MEMBER`**, resolved by the new `memberEmailForClient` helper in `pft/_shared.ts`
+(`clients.member_number` → `members.email`; returns `null` for a client with no member and **swallows
+lookup errors**, since a failed lookup must never break a send).
+
+**Before that fix the connected member was never CC'd on any PFT email, ever.** The templates that carry
+`MEMBER` in `cc_list` — every meeting-confirm, meeting-declined, decision and reminder row in the pipeline —
+had listed it since they were seeded, but no handler resolved it, so it was dropped on every send for the
+pipeline's whole life with nothing to notice. Do not read the template rows as a statement of current
+behaviour for any pipeline you have not checked this way. Gotcha **#424**.
+
+**`PFT_decision_undecided` (id 193) is the deliberate exception and must stay one.** It carries **no `MEMBER`
+token at all** — its `to_list` is empty and its `cc_list` is two literal staff addresses — so
+`undecided-email.ts` and `sweep.ts`'s `sendUndecidedReminder` were left untouched. Adding `MEMBER` to their
+ctx would do nothing; adding the token to the template would change who gets the client's own decision
+email and needs a decision, not a patch.
 
 ## Meeting confirmation emails (Meeting 1/2/3)
 One warm template `PFT_meeting_confirm` for all three, parameterised by `automation_PFT_meetingemail`:

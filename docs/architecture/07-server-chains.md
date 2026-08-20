@@ -169,7 +169,7 @@ One additive isolated block, **two SPECREV pipelines only**, branching on `sessi
 
 ### Reminder-ladder time unit — read before touching any tier
 
-**Every reminder / stall ladder counts BUSINESS DAYS (Mon–Fri, UTC), not calendar days.** The mechanism is `utils/notify.ts` `businessDelayCutoffIso(days)` — a backward whole-weekday walk, with any fractional part subtracted as plain hours **AFTER** the walk. **That order is load-bearing**: reverse it and a fractional delay goes non-monotonic across a weekend, so a "4 day" PF bell fires before its "2 day" reminder (**#397**). The forward counterpart `businessDayHorizonDateOnly` serves the two **countdown** horizons (Tax 2 assess-form reminder, MAP 1 check lookahead).
+**Every reminder / stall ladder counts BUSINESS DAYS (Mon–Fri, UTC), not calendar days.** The mechanism is `utils/notify.ts` `businessDelayCutoffIso(days)` — a backward whole-weekday walk, with any fractional part subtracted as plain hours **AFTER** the walk. **That order is load-bearing**: reverse it and a fractional delay goes non-monotonic across a weekend, so a "4 day" PF bell fires before its "2 day" reminder (**#397**). The forward counterpart `businessDayHorizonDateOnly` serves the **countdown** horizons — the Tax 2 assess-form reminder (**two tiers since 2026-08-20**: early at 5 business days, last-call at 2) and the MAP 1 check lookahead.
 
 `notification_rules.delay_days` was **not** renumbered — only the unit moved, so a rule row read in isolation no longer tells you which calendar it counts against; the caller does (**#396**). The calendar helper `delayCutoffIso` survives with **zero callers**, kept so a future tier can opt back in deliberately.
 
@@ -183,7 +183,7 @@ A ladder's clock is a `*_sent_at` / `*_notified_at` column stamped by the handle
 | `onboarding/prelim-email.ts` | `sif_email_sent_at` | `onboarding/sweep.ts` |
 | `onboarding/stage2-email.ts` | Tracy's `allDone` revenue-share bell (not a column) | — |
 
-**Three sites deliberately DO re-arm, and the difference is the direction the delay is counted.** `tax/ready-for-tax3.ts` nulls `tax3_assess_reminder_sent_at` when the booked date genuinely moves, because that reminder **counts down to the meeting** (#359) and a moved meeting invalidates it. `regular/map4-set-meeting-date.ts` nulls all three of `map4_followup_sent_at` / `map4_reminder_sent_at` / `map4_stall_notified_at` on a genuine date change — a user-approved decision to re-draft the MAP 4 follow-up ladder against the new date. `tax/highlevel-meeting-confirm.ts` needed no change at all: it already nulls `tax4_meeting_reminder_last_sent_at` on every confirm. **Forward-counted ladders must not re-arm; backward-counted (countdown) ones must.**
+**Three sites deliberately DO re-arm, and the difference is the direction the delay is counted.** `tax/ready-for-tax3.ts` nulls `tax3_assess_reminder_sent_at` **and, since 2026-08-20, `tax3_assess_reminder_early_sent_at`** when the booked date genuinely moves, because that reminder **counts down to the meeting** (#359) and a moved meeting invalidates it — the guard is an OR over the two stamps and the clear covers both, so a new countdown tier must be added in both places or it silently survives a reschedule. `regular/map4-set-meeting-date.ts` nulls all three of `map4_followup_sent_at` / `map4_reminder_sent_at` / `map4_stall_notified_at` on a genuine date change — a user-approved decision to re-draft the MAP 4 follow-up ladder against the new date. `tax/highlevel-meeting-confirm.ts` needed no change at all: it already nulls `tax4_meeting_reminder_last_sent_at` on every confirm. **Forward-counted ladders must not re-arm; backward-counted (countdown) ones must.**
 
 ### What STOPS a stall ladder — the ack refire guard (2026-08-19, v760)
 
@@ -202,14 +202,15 @@ So the ack is now a genuine **satisfied-on-fire guard** in the #365 sense, and t
 
 **Deliberate calendar survivors — owner decisions, do not "finish the job":** advisor + accountant 14-day auto-decline, the Tax 4 meeting-passed nudge, the membership 30-day renewal notice, the chargescheduled sweep, the notifications purge, personal reminders, and every token/session expiry window.
 
-### `tax-revshare-sweep` — the six blocks
+### `tax-revshare-sweep` — the seven blocks
 
 1. **Retries only** — failed tax revshare (retainer + implementation) and stranded strategic transfers. It does **not** auto-start revshare on a plan that has not reached an explicit client click.
 2. Tax 4 post-review timers — 2-business-day reminder + 4-business-day PF bell on **both** the Continue and Undecided picks (shared guard columns, **#264**).
 3. Tax 5 implementation timers — **four tiers, no charge among them** (**#398**). Proceed and Undecided ladders share `implementation_reminder_sent_at` / `implementation_pf_notified_at`; safe only because `implementation_decision` is single-valued.
 4. Tax 3 reminder timers — 2/4 on three stalls.
 5. Tax 4 meeting-date nudge — **one persistent action-required bell** per plan (`dismissible:false`), not an email, not a daily repeat. Recipients: assigned PF + allocated planner + Tracy, with a per-recipient planner link override (**#292**).
-6. Tax 2 assess-form reminder — **the only rule that counts DOWN** (business days *before* `tax3_meeting_date`, via `businessDayHorizonDateOnly`). Forks to `TAX_tax3_assess_reminder|vault` for vault-assess groups, and **that chosen name must be passed to both the template lookup and `gmailDraftFetch`** or the Draft/Send toggle silently resolves against nothing (**#356**, **#400**). Stamps its guard column **only after a successful draft**.
+6. Tax 2 assess-form reminder, **last-call tier** (2 business days) — **one of the only rules that count DOWN** (business days *before* `tax3_meeting_date`, via `businessDayHorizonDateOnly`). Forks to `TAX_tax3_assess_reminder|vault` for vault-assess groups, and **that chosen name must be passed to both the template lookup and `gmailDraftFetch`** or the Draft/Send toggle silently resolves against nothing (**#356**, **#400**). Stamps its guard column **only after a successful draft**.
+7. Tax 2 assess-form reminder, **early tier** (2026-08-20, rule `TAX_tax3_assess_reminder_early_email`, default 5 business days) — block 6 repeated a working week out, on its own guard column `tax3_assess_reminder_early_sent_at` and its own `…_early` / `…_early|vault` template pair. **Its window is the half-open range past block 6's horizon** (`> assessHorizon` and `<= assessEarlyHorizon`), which is what keeps the two tiers off the same night and makes the block self-empty if the early delay is ever configured at or below 2. Same fork discipline, same stamp-only-on-success semantics.
 
 ### Admin-driven paths (no webhook involved)
 
