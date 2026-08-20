@@ -20,6 +20,7 @@ const SECTIONS = [
   { key: 'client_continuation', label: 'Client Payment Continuation', pipeline: 'CLIENT_PAYMENT_CONTINUATION' },
   { key: 'member_membership', label: 'Member Membership Fees', pipeline: 'MEMBER_MEMBERSHIP_FEES' },
   { key: 'pft', label: 'Partnership Fast Track', pipeline: 'PARTNERSHIP_FAST_TRACK' },
+  { key: 'growth_credits', label: 'Growth Credits', pipeline: 'GROWTH_CREDITS' },
   // Miscellaneous — standalone, non-pipeline emails grouped together (each row
   // is an explicit [pipeline, template_name] ref rather than a whole pipeline).
   { key: 'misc', label: 'Miscellaneous', items: [
