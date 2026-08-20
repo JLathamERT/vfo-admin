@@ -21,6 +21,11 @@ const REGULAR_PRIORITIES = [
   "Intellectual Property", "Legal Focus"
 ]
 
+// "Custom" — a permanent trailing entry in the Add Regular Priority specialist
+// picker that stores a typed name instead of a directory specialist. The backend
+// owns the "Custom - " prefix; the sentinel can never collide with a real name.
+const OTHER_SPEC_VALUE = '__other__'
+
 // MM/DD for the AI PC Admin auto rows. Plain 'YYYY-MM-DD' DATE columns are split
 // as strings (new Date() would shift them a day west of UTC); timestamptz values
 // go through Date so they read in the viewer's local time.
@@ -605,6 +610,7 @@ function RegularPrioritiesTab({ clientId, programId, client, specialists, readOn
   const [showAdd, setShowAdd] = useState(false)
   const [newPriority, setNewPriority] = useState('')
   const [newSpecialist, setNewSpecialist] = useState('')
+  const [newCustomName, setNewCustomName] = useState('')
   const [addStatus, setAddStatus] = useState('')
   const [regularEnabled, setRegularEnabled] = useState(false)
   const autoSelectedRef = useRef(false)
@@ -649,9 +655,19 @@ function RegularPrioritiesTab({ clientId, programId, client, specialists, readOn
   async function addPriority() {
     if (!newPriority) { setAddStatus('Select a priority.'); return }
     if (!newSpecialist) { setAddStatus('Select a specialist.'); return }
+    const isCustom = newSpecialist === OTHER_SPEC_VALUE
+    const customName = newCustomName.trim()
+    if (isCustom && !customName) { setAddStatus('Enter the specialist name.'); return }
     try {
-      await callApi('msm_add_priority_track', { client_id: clientId, priority_name: newPriority, track_type: 'regular', specialist_name: newSpecialist })
-      setNewPriority(''); setNewSpecialist(''); setShowAdd(false); setAddStatus('')
+      // specialist_name rides along on the custom path purely for the deploy
+      // window: the old handler ignores custom/custom_name and would store null,
+      // so it gets the already-prefixed name. The new handler ignores this field
+      // when custom is true and re-derives the identical value via its sanitizer.
+      const payload = isCustom
+        ? { client_id: clientId, priority_name: newPriority, track_type: 'regular', custom: true, custom_name: customName, specialist_name: `Custom - ${customName}` }
+        : { client_id: clientId, priority_name: newPriority, track_type: 'regular', specialist_name: newSpecialist }
+      await callApi('msm_add_priority_track', payload)
+      setNewPriority(''); setNewSpecialist(''); setNewCustomName(''); setShowAdd(false); setAddStatus('')
       loadData()
     } catch (err) { setAddStatus(err.message) }
   }
@@ -731,7 +747,11 @@ function RegularPrioritiesTab({ clientId, programId, client, specialists, readOn
               <select value={newSpecialist} onChange={e => setNewSpecialist(e.target.value)} style={{ ...inputStyle, background: 'var(--vfo-card)', marginBottom: '12px' }}>
                 <option value="">-- Select Specialist --</option>
                 {specialists.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                <option value={OTHER_SPEC_VALUE}>Custom</option>
               </select>
+              {newSpecialist === OTHER_SPEC_VALUE && (
+                <input value={newCustomName} onChange={e => setNewCustomName(e.target.value)} maxLength={80} placeholder={'Name — saved as "Custom - Name"'} style={{ ...inputStyle, background: 'var(--vfo-card)', marginBottom: '12px' }} />
+              )}
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={addPriority} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Add</button>
                 <button onClick={() => setShowAdd(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
