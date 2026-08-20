@@ -69,7 +69,7 @@ Set by `automation_PCADMIN_pricing` ([PFPricingForm.jsx:19](src/components/admin
 | Column | Type | Notes |
 |---|---|---|
 | `lite_membership` / `core_membership` / `max_membership` | text | Pricing snapshot for each tier. |
-| `extra_cc` | text | Comma-separated extra CC emails from the PIP decision form (normalized from the form's array by `pipfu-decision.ts`; read via `utils/extra-cc.ts extraCcList()` — gotcha #244). |
+| `extra_cc` | text | **DORMANT since 2026-08-20 — nothing reads it, nothing writes it.** Historical comma-separated extra CC emails from the PIP decision form. `pipfu-decision.ts` wrote it and — the bug that started the replacement — **its own Undecided/No email never read it back**; portal-wide only 5 of ~114 sender files ever did. Superseded by Additional Contacts ([flows/additional-contacts.md](../flows/additional-contacts.md)); `utils/extra-cc.ts` was deleted. Kept so past submissions stay auditable (AutomationPanel still displays it read-only — history, not routing). Legacy values backfilled into `client_contacts` with Cc on / greeting off. |
 | `service_level` | text | Final service tier locked in. |
 | `pip_meeting_count` | text | Number of PIP meetings included. |
 | `gross_fee` | text | Full engagement fee **before** any member contribution. **This is the basis every `*_share` column is denominated in** — shares are dollars of THIS number, not of `net_invoice` and not of an installment (#252). Falls back to `net_invoice` when unset. |

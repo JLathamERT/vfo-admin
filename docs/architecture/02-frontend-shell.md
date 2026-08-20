@@ -239,7 +239,7 @@ A **multi-mode** page rendered by `/admin/client/:clientId`, `/member/client/:cl
 |  | • else (Holistic Planning) → MAP 1 / Regular Priorities / Tax Priorities / **PIP Meetings** (4 tabs) — see [../flows/pip-meetings.md](../flows/pip-meetings.md) |
 | Profile dropdown | admin: `ClientTabDropdown` with Profile + Edit Profile + **Vault** + **CIQ** + Payments + Settings (+ Payment Continuation for superadmins); member: Profile only. **`'ciq'` is a NAVIGATION action, not a tab (2026-08-03)** — it is rendered only when `client.member_number` exists, and `onSelect` is `handleTabSelect`, which intercepts the key *before* `setActiveTab` and navigates to `/admin?member=<member_number>&feature=ciq&ciqclient=<client_id>&_n=<Date.now()>`. `validTabsForProgram` was deliberately left untouched. The dropdown itself only renders in the `!isPlanner && !isMember` branch, so this is admin-only by construction. See [../flows/ciq.md](../flows/ciq.md) and gotcha #323. |
 | Mutations from ClientHome | `update_client_note`, `delete_client_note`, `msm_update_client` (status, PF assignment) (lines 169, 177, 185, 198) |
-| Mutations from ClientDetails | `msm_update_client` (name/email/phone), `msm_add_client_contact`, `msm_delete_client_contact` (lines 306, 316, 325) |
+| Mutations from ClientDetails | `msm_update_client` (name/email/phone), `msm_add_client_contact` (**email now required**), `msm_update_client_contact` (2026-08-20 — inline name/email edit + the admin-only **Cc on all client emails** / **Include in the greeting** toggles, staged and committed by a per-row Save; see [flows/additional-contacts.md](../flows/additional-contacts.md)), `msm_delete_client_contact` |
 
 #### ClientDetail child components
 

@@ -18,7 +18,7 @@ State machine for the tax-planning engagement. **161 columns as of 2026-08-16 �
 | `program_id` | integer | fk → `programs.id`. Distinguishes Holistic Planning (1) vs standalone Tax Planning (4). NULL on rows pre-dating migration. |
 | `atp_name` | text | Advanced Tax Planner allocated — legacy free-text (Tim Gacsy / Steven Cox per the old task option). **Superseded 2026-07-21 by the `tax_planner_id` fk** (the allocation step is now a dropdown of `tax_planners`); kept for historical rows. |
 | `sandbox` | boolean | default false. Snapshot of sandbox_mode at row creation. |
-| `extra_cc` | text | Comma-separated extra CC emails captured from `TaxDecisionForm` (read via `utils/extra-cc.ts extraCcList()`, which also tolerates legacy JSON-array strings — gotcha #244). |
+| `extra_cc` | text | **DORMANT since 2026-08-20 — nothing reads it, nothing writes it.** Historical comma-separated extra CC emails captured from `TaxDecisionForm`. The form field, the write and every read were removed when Additional Contacts replaced the mechanism ([flows/additional-contacts.md](../flows/additional-contacts.md)); `utils/extra-cc.ts` was deleted. Kept so past submissions stay auditable — the AutomationPanel still *displays* it read-only, which is history, not routing. Legacy values were backfilled into `client_contacts` with Cc on / greeting off. |
 
 ### Tax 2 — "ROI Meeting booked - Send Confirmation Email" *(renamed from "Ready for Tax 3 email" 2026-08-10, v717 — gotcha #358)*
 | Column | Type | Notes |

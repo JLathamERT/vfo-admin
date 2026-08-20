@@ -210,6 +210,10 @@ This avoids leaving the "client chose Yes" notification in the bell after the ad
 1. **Member notifications** — the schema and `load_notifications` filter both contemplate per-email recipients, but no insertion path uses that. Was member-side notification a planned feature?
 2. ~~**Cleanup** — read notifications are never deleted. The table will grow indefinitely. No retention policy observed.~~ **ANSWERED (2026-07-10):** read rows are hard-deleted after 90 days by the daily `automation_NOTIFICATIONS_purge` cron (`notifications-purge-daily`, jobid 15, 10:30 UTC). See the banner at the top of this file.
 
+## Not here: per-client email Cc
+
+**In-app bell recipients and email recipients are different mechanisms and this doc covers only the first.** Since 2026-08-20 a client's **Additional Contacts** (`client_contacts.cc_on_emails`) add a **per-client leg to EMAIL recipient resolution** — `loadAdditionalContacts` → `resolveTemplateRecipients`'s `extraCc` parameter — and can be folded into the `[Client First]` body salutation. **No bell recipient is affected**: a contact never receives a notification, never appears in `notification_rules.default_recipients`, and never clears an action-required bell. Login-setup / password-reset emails and the planner-facing assess reminders are deliberately excluded; the `send_mode=true` vault documentation request is wired and **real-sends**. Full mechanism → [additional-contacts.md](additional-contacts.md).
+
 ## Cross-references
 
 - Notifications table: [../tables/notifications.md](../tables/notifications.md)

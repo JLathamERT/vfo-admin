@@ -54,7 +54,8 @@ The 32 `msm_*` actions fall into 5 subsystems. Each is a small CRUD island — n
 | `msm_add_client` | inserts `clients` + optional `client_contacts` + `client_enrollments` | Creates a new client tied to an enrollment. |
 | `msm_link_existing_client` | inserts `client_enrollments` | Links existing client to a new enrollment. |
 | `msm_update_client` | updates `clients` | Defined twice in source — line 3079 wins, line 3216 is dead code. |
-| `msm_add_client_contact` | inserts `client_contacts` | |
+| `msm_add_client_contact` | inserts `client_contacts` | `email` REQUIRED since 2026-08-20. |
+| `msm_update_client_contact` | updates `client_contacts` | New 2026-08-20. Name/email for any permitted caller; the `cc_on_emails` / `use_in_greeting` toggles are **admin-only**. See [additional-contacts.md](additional-contacts.md). |
 | `msm_delete_client_contact` | deletes `client_contacts` | |
 
 ### E — Client tracks & priorities (per-client)

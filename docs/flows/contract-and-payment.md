@@ -62,12 +62,12 @@ Each arrow is implemented either as:
 
 ### Decision = "Yes" (with grossServiceValue)
 
-1. UPDATEs the existing `pipeline_map1` row (creating one if none yet via fallback at [admin-api:4087-4113](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) with all pricing fields: `c13_decision`, `current_priorities`, `parked_priorities`, `service_level`, `gross_fee`, `member_contribution`, `net_invoice`, `member_share`, `vfos_share`, `payment_plan`, `pip_meeting_count`, `extra_cc`.
+1. UPDATEs the existing `pipeline_map1` row (creating one if none yet via fallback at [admin-api:4087-4113](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) with all pricing fields: `c13_decision`, `current_priorities`, `parked_priorities`, `service_level`, `gross_fee`, `member_contribution`, `net_invoice`, `member_share`, `vfos_share`, `payment_plan`, `pip_meeting_count`. *(`extra_cc` is no longer written — the form field is gone; see the Additional Contacts note below.)*
 2. **Chains** `automation_CONTRACT_sendagreement` — server-to-server.
 
 ### Decision = "Undecided"
 
-1. UPDATEs `pipeline_map1` with priorities, undecided reasons, lite/core/max costs, extra_cc.
+1. UPDATEs `pipeline_map1` with priorities, undecided reasons, lite/core/max costs. *(no `extra_cc` — see below.)*
 2. Generates a fresh `c15_token` (32-byte hex) and saves to row.
 3. Loads `email_templates` row `'PCADMIN_followup|Undecided'`.
 4. Builds HTML buttons that link to `https://vfoportal.com/decide?token=<c15_token>&clientRef=...&decision=Yes&serviceLevel=<Lite|Core|Max>` (and a No, and an ExtraMeeting button). Max button is suppressed when `form_data.maxNA === true`.
@@ -76,7 +76,9 @@ Each arrow is implemented either as:
 
 ### Decision = "No"
 
-1. UPDATEs `pipeline_map1` with `c13_decision='No'` and `extra_cc`.
+1. UPDATEs `pipeline_map1` with `c13_decision='No'`. *(no `extra_cc` — see below.)*
+
+> **Extra Cc left this form on 2026-08-20 (v771), and this is where the bug was.** `PIPDecisionForm`'s "Additional CC recipients" chip list wrote `pipeline_map1.extra_cc` — and **`pipfu-decision.ts`'s own Undecided/No email never read it back**, so an address entered here was silently ignored on the very email it was entered for (Veronica Esmero on Dane Rogol, client 163, 2026-08-17 `PCADMIN_followup|Undecided`). Portal-wide only 5 of ~114 sender files ever read the column. The form field, the write and every read are gone; every MAP 1 / contract handler now reads the client's **Additional Contacts** (`client_contacts.cc_on_emails`, set on the client profile). `contract-send-agreement.ts`'s legacy read was **REPLACED, not merged**, and `utils/extra-cc.ts` was deleted. The column is dormant, kept only so past submissions stay auditable. Full mechanism → [additional-contacts.md](additional-contacts.md).
 2. Loads template `'PCADMIN_followup|No'`.
 3. Plain `text/html` Gmail draft (no PDFs attached on the No branch).
 4. Marks `c14_email_sent='Yes'`. **Does NOT write `c14_email_sent_at`** — the reminder ladder fires only for Undecided rows; a "No" client doesn't need nudging.
@@ -150,7 +152,7 @@ Each arrow is implemented either as:
 6. Polls `getEmbeddedSignLink` for the client signer (5 retries × 5s waits).
 7. UPDATEs `pipeline_map1`: `c16_sent='Yes'`, `boldsign_doc_id`, `c17_client_signed='No'`, `c18_ceo_signed='No'`, `c17_followup_sent_date=<today>`.
 8. Loads template `'CONTRACT_agreementsent|Yes'`, substitutes `[ENGAGEMENT]` with the embedded sign link `<a>` tag.
-9. Creates Gmail draft to client (`From: VFO Services <aipc@vfo-services.com>`). CC member + PF + `pipeline_map1.extra_cc` (parsed). BCC `aanderson` + `platham`.
+9. Creates Gmail draft to client (`From: VFO Services <aipc@vfo-services.com>`). CC member + PF + the client's **Additional Contact** Cc list (2026-08-20 — replaced the `pipeline_map1.extra_cc` read). BCC `aanderson` + `platham`.
 
 **Tables read:** `pipeline_map1`, `clients`, `client_enrollments`, `members`, `agreement_templates`, `pipeline_sandbox_config`, `email_templates`.
 **Tables written:** `pipeline_map1` (c16_sent, boldsign_doc_id, c17/c18, c17_followup_sent_date).
@@ -475,7 +477,7 @@ The `pipeline_map1` row evolves through these column writes, in order:
 | Step | Columns written |
 |---|---|
 | 1 | `client_id`, `client_ref`, `pf`, `c81_decision`, `c81_email_sent`, `followup_meeting_date`, `sandbox` |
-| 2 | `c13_decision`, `current_priorities`, `parked_priorities`, pricing fields (Yes), undecided fields, `extra_cc`, `c14_email_sent`, `c14_email_sent_at` (Undecided branch only — reminder-ladder timer base), `c15_token` |
+| 2 | `c13_decision`, `current_priorities`, `parked_priorities`, pricing fields (Yes), undecided fields, `c14_email_sent`, `c14_email_sent_at` (Undecided branch only — reminder-ladder timer base), `c15_token` |
 | 3a | `c15_final_decision`, `c15_service_level` |
 | 3b/3c | pricing fields, `c15_via_extra_meeting` |
 | 4 | `c16_sent`, `boldsign_doc_id`, `c17_client_signed`, `c18_ceo_signed` (initial 'No'/'No'), `c17_followup_sent_date` |

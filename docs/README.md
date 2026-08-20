@@ -65,7 +65,8 @@ docs/
 │   ├── partnership-fast-track.md     (PFT accountant engagement track + meeting emails + discovery form + onboarding handoff)
 │   ├── membership-fees.md            (member annual/monthly membership fee billing + renewal / pause / cancel)
 │   ├── payment-method-change.md      (Phase D admin-initiated card/bank change — the only mode:'setup' flow)
-│   └── notifications.md              (in-portal bell feed)
+│   ├── notifications.md              (in-portal bell feed)
+│   └── additional-contacts.md        (per-client email Cc + greeting — replaces the old per-form extra_cc)
 │
 ├── operations/                       (runbooks)
 │   └── test-client-reset.md          (which tables to wipe per pipeline to re-run a test client)
@@ -106,6 +107,7 @@ docs/
 | Member buys credits | [flows/gift-credits.md](flows/gift-credits.md) → [flows/stripe-webhook.md](flows/stripe-webhook.md#sub-branch-a1--gc-credit-purchase) |
 | Admin logs in | [architecture/04-auth-and-sessions.md](architecture/04-auth-and-sessions.md) |
 | Member fills out a CIQ | [flows/ciq.md](flows/ciq.md) → [tables/ciq.md](tables/ciq.md) |
+| A second person on the client's side gets Cc'd (or named in the greeting) | [flows/additional-contacts.md](flows/additional-contacts.md) → [integrations/gmail.md](integrations/gmail.md) → [tables/clients.md](tables/clients.md) |
 | Admin reviews the pipeline state | [architecture/02-frontend-shell.md](architecture/02-frontend-shell.md#what-automationpanel-shows) → [tables/pipeline.md](tables/pipeline.md) |
 
 ### "I want to find a specific file"
@@ -129,7 +131,7 @@ These items are flagged across multiple docs and remain unresolved without exter
 This doc map can be audited against the source:
 
 - Every `file:line` citation should resolve to the claimed handler — try opening any link.
-- The action catalog count (**464** in [05-api-action-catalog.md](architecture/05-api-action-catalog.md), *v: 2026-08-19*) is the sum of the **6** logins in `index.ts` + the **458** dispatch entries (132 PUBLIC + 326 AUTH) (`(c) =>`) in `router/dispatch.ts`. **Derive it rather than trusting it** — the anchored greps live in the hub's DERIVE block (#402).
+- The action catalog count (**465** in [05-api-action-catalog.md](architecture/05-api-action-catalog.md), *v: 2026-08-20*) is the sum of the **6** logins in `index.ts` + the **459** dispatch entries (`(c) =>`) in `router/dispatch.ts`. **Derive it rather than trusting it** — the anchored greps live in the hub's DERIVE block (#402).
 - The table inventory in [tables/README.md](tables/README.md) is a grouped index, **not a count** — `SELECT count(*) FROM information_schema.tables WHERE table_schema='public'` returns **87** as of 2026-08-14, and several of those have no per-column doc (notably `advisor_onboarding` / `accountant_onboarding`). Always derive; a hard number on this page will be wrong within a week.
 - The 15-migration list in [integrations/supabase.md](integrations/supabase.md) is a **2026-05-05 snapshot and is long out of date** — `vfo-edge-functions/supabase/migrations/` now holds **114** git-tracked migration files (2026-08-14). Every migration applied live via MCP must also be committed there (#196).
 - Pick any flow doc and trace a "Trigger → Step-by-step → Tables touched → Chains" sequence; every code reference should resolve.
