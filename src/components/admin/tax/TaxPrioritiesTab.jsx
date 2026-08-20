@@ -238,8 +238,6 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   const [strategicPartnerShare, setStrategicPartnerShare] = useState(existing.strategicPartnerShare || '')
   const [potentialTaxSavings, setPotentialTaxSavings] = useState(existing.potentialTaxSavings || '')
   const [initialRetainer, setInitialRetainer] = useState(existing.initialRetainer || '')
-  const [ccRecipients, setCcRecipients] = useState(existing.ccRecipients || [])
-  const [ccInput, setCcInput] = useState('')
   const [presentationLink, setPresentationLink] = useState(existing.presentationLink || '')
   const [discountToggle, setDiscountToggle] = useState((existing.discountApplied != null && existing.discountApplied !== '') ? 'Yes' : 'No')
   const [discountApplied, setDiscountApplied] = useState((existing.discountApplied != null && existing.discountApplied !== '') ? String(existing.discountApplied) : '')
@@ -285,14 +283,6 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   const sectionStyle = { background: 'var(--vfo-tint)', borderRadius: '8px', padding: '16px', marginBottom: '12px', border: '1px solid var(--vfo-border-chip)' }
   const readOnlyInput = { ...inputStyle, opacity: 0.6, pointerEvents: 'none' }
 
-  function addCc() {
-    if (ccInput && ccInput.includes('@')) { setCcRecipients([...ccRecipients, ccInput]); setCcInput('') }
-  }
-  function removeCc(i) {
-    if (isViewMode) return
-    setCcRecipients(ccRecipients.filter((_, idx) => idx !== i))
-  }
-
   async function handleSubmit() {
     if (!decision) return
     if (decision === 'Yes' && isDironInsley && discountToggle === 'Yes') {
@@ -304,7 +294,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
       if (Math.abs(splitTotal - totalFee) > 0.01) return
     }
     setSubmitting(true)
-    const formData = { decision, presentationLink, ccRecipients, memberPayingOnBehalf }
+    const formData = { decision, presentationLink, memberPayingOnBehalf }
     if (decision === 'Yes') {
       formData.taxRiskMindset = taxRiskMindset
       formData.retainerPayment = retainerPayment
@@ -542,21 +532,8 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
 
       {decision && (
         <>
-          <div style={{ marginBottom: '12px' }}>
-            <label style={labelStyle}>Additional CC recipients <span style={{ textTransform: 'none', opacity: 0.6 }}>(optional)</span></label>
-            {!isViewMode && (
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
-                <input value={ccInput} onChange={e => setCcInput(e.target.value)} placeholder="email@example.com" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCc())} style={{ ...inputStyle, flex: 1 }} />
-                <button onClick={addCc} style={{ padding: '8px 16px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Add</button>
-              </div>
-            )}
-            {ccRecipients.length === 0 && isViewMode && <div style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>None</div>}
-            {ccRecipients.map((email, i) => (
-              <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, fontSize: '12px', marginRight: '6px', marginBottom: '4px' }}>
-                {email}
-                {!isViewMode && <span onClick={() => removeCc(i)} style={{ cursor: 'pointer', color: '#e74c3c', fontWeight: 500, fontSize: '14px' }}>×</span>}
-              </div>
-            ))}
+          <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '12px' }}>
+            Extra Cc is now managed on the client profile (Additional Contacts).
           </div>
 
           <div style={{ marginBottom: '12px' }}>

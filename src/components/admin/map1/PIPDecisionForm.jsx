@@ -49,8 +49,6 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted, 
   const [coreCost, setCoreCost] = useState(existing.coreCost || '')
   const [maxCost, setMaxCost] = useState(existing.maxCost || '')
   const [maxNA, setMaxNA] = useState(existing.maxNA || false)
-  const [ccRecipients, setCcRecipients] = useState(existing.ccRecipients || [])
-  const [ccInput, setCcInput] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
@@ -58,10 +56,6 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted, 
   const sectionStyle = { background: 'var(--vfo-tint)', borderRadius: '8px', padding: '16px', marginBottom: '12px', border: '1px solid var(--vfo-border-chip)' }
   const readOnlyInput = { ...inputStyle, opacity: 0.6, pointerEvents: 'none' }
 
-  function addCc() {
-    if (ccInput && ccInput.includes('@')) { setCcRecipients([...ccRecipients, ccInput]); setCcInput('') }
-  }
-  function removeCc(i) { if (!isViewMode) setCcRecipients(ccRecipients.filter((_, idx) => idx !== i)) }
   function addCurrentPriority() {
     if (currentPriorityInput && !currentPriorities.includes(currentPriorityInput)) { setCurrentPriorities([...currentPriorities, currentPriorityInput]); setCurrentPriorityInput('') }
   }
@@ -99,7 +93,7 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted, 
     }
     setSubmitError('')
     setSubmitting(true)
-    const formData = { decision, ccRecipients, memberPayingOnBehalf }
+    const formData = { decision, memberPayingOnBehalf }
     if (decision === 'Yes') {
       formData.currentPriorities = currentPriorities
       formData.parkedPriorities = parkedPriorities
@@ -375,21 +369,8 @@ function PIPDecisionForm({ task, clientId, saveTask, existingData, onSubmitted, 
       {/* === SHARED FIELDS (all decisions) === */}
       {decision && (
         <>
-          <div style={{ marginBottom: '12px' }}>
-            <label style={labelStyle}>Additional CC recipients <span style={{ textTransform: 'none', opacity: 0.6 }}>(optional — these email addresses will be CC'd on all client emails)</span></label>
-            {!isViewMode && (
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
-                <input value={ccInput} onChange={e => setCcInput(e.target.value)} placeholder="Enter email address" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCc())} style={{ ...inputStyle, flex: 1 }} />
-                <button onClick={addCc} style={{ padding: '8px 16px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Add</button>
-              </div>
-            )}
-            {ccRecipients.length === 0 && isViewMode && <div style={{ fontSize: '13px', color: 'var(--vfo-muted)' }}>None</div>}
-            {ccRecipients.map((email, i) => (
-              <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', borderRadius: '4px', background: 'rgba(0,149,255,0.15)', color: '#0095ff', fontWeight: 600, fontSize: '12px', marginRight: '6px', marginBottom: '4px' }}>
-                {email}
-                {!isViewMode && <span onClick={() => removeCc(i)} style={{ cursor: 'pointer', color: '#e74c3c', fontWeight: 500, fontSize: '14px' }}>×</span>}
-              </div>
-            ))}
+          <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '12px' }}>
+            Extra Cc is now managed on the client profile (Additional Contacts).
           </div>
 
           {!isViewMode && (
