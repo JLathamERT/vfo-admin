@@ -35,6 +35,7 @@ export default function MemberPortal() {
   const [exclusions, setExclusions] = useState([])
   const [ecoMap, setEcoMap] = useState({})
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [enabledPrograms, setEnabledPrograms] = useState([])
   const [allPrograms, setAllPrograms] = useState([])
 
@@ -50,6 +51,8 @@ export default function MemberPortal() {
 
   async function loadData() {
     try {
+      // loadData re-runs after saves (onDataChange) — clear any prior banner first.
+      setLoadError(null)
       const [data, progData, enabledData] = await Promise.all([
         loadCachedData(),
         loadCachedAction('msm_load_programs'),
@@ -72,6 +75,7 @@ export default function MemberPortal() {
       setEnabledPrograms(enabledData.enabled || [])
     } catch (err) {
       console.error('Load error:', err)
+      setLoadError(err.message || 'Something went wrong')
     } finally {
       setLoading(false)
     }
@@ -138,6 +142,16 @@ export default function MemberPortal() {
               </button>
             ))}
           </div>
+
+          {loadError && (
+            <div style={{ maxWidth: '980px', margin: '20px auto 0', padding: '0 24px' }}>
+              <div style={{ background: 'rgba(217,48,37,0.10)', border: '1px solid rgba(217,48,37,0.32)', borderRadius: '12px', padding: '14px 16px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#d93025', marginBottom: '6px' }}>We couldn't load your portal</div>
+                <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', wordBreak: 'break-word' }}>{loadError}</div>
+                <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '6px' }}>Please refresh the page — if this keeps happening, contact your VFO team.</div>
+              </div>
+            </div>
+          )}
 
           <div style={{ flex: 1, overflow: 'auto' }}>
           {loading && activeTab && <MemberProfileSkeleton />}

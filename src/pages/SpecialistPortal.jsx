@@ -19,6 +19,7 @@ export default function SpecialistPortal() {
   const [tab, setTab] = useState(() => sessionStorage.getItem('specialistActiveTab') || 'showroom')
   const [unread, setUnread] = useState(0)
   const [showroom, setShowroom] = useState(null)
+  const [loadError, setLoadError] = useState(null)
 
   useEffect(() => {
     if (!session || session.role !== 'specialist') { navigate('/specialist/login'); return }
@@ -35,11 +36,16 @@ export default function SpecialistPortal() {
 
   async function loadShowroom() {
     try {
+      setLoadError(null)
       const d = await callApi('specialist_showroom_load', {})
       const eco = {}
       ;(d.ecosystems || []).forEach(e => { if (!eco[e.expert_id]) eco[e.expert_id] = []; eco[e.expert_id].push(e.name) })
       setShowroom({ experts: d.experts || [], ecoMap: eco })
-    } catch { setShowroom({ experts: [], ecoMap: {} }) }
+    } catch (err) {
+      console.error('Showroom load error:', err)
+      setLoadError(err.message || 'Something went wrong')
+      setShowroom({ experts: [], ecoMap: {} })
+    }
   }
 
   if (!session || session.role !== 'specialist') return null
@@ -69,6 +75,16 @@ export default function SpecialistPortal() {
               )}
             </button>
           ))}
+        </div>
+      )}
+
+      {loadError && (
+        <div style={{ maxWidth: '880px', margin: '20px auto 0', padding: '0 24px' }}>
+          <div style={{ background: 'rgba(217,48,37,0.10)', border: '1px solid rgba(217,48,37,0.32)', borderRadius: '12px', padding: '14px 16px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: '#d93025', marginBottom: '6px' }}>We couldn't load your portal</div>
+            <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', wordBreak: 'break-word' }}>{loadError}</div>
+            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '6px' }}>Please refresh the page — if this keeps happening, contact your VFO team.</div>
+          </div>
         </div>
       )}
 

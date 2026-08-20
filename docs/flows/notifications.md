@@ -154,7 +154,7 @@ Title: `<Planner Full Name> dropped a document in <Client First Last>'s vault`. 
 
 1. **It fires at signed-URL MINT time, not on the upload.** The browser PUTs the file straight to storage, so the minter is the only backend touchpoint — a PUT that then fails leaves one slightly early bell. Accepted deliberately for an FYI; the alternative is no signal at all.
 2. **No dedupe.** Every document drop is its own bell (contrast the Tracy "client has paid" and Jake failure FYIs, which dedupe).
-3. **Admin uploads are excluded in CODE, not by a rule setting.** `resolveCallerPlanner` checks `allowed_admins` **before** `tax_planner_logins`, so an admin who also holds a planner login resolves to `null` and fires nothing — mirroring `middleware/auth.ts`'s role precedence.
+3. **Admin uploads are excluded in CODE, not by a rule setting.** `resolveCallerPlanner` gates on `isPlannerSession()`, so an admin who also holds a planner login resolves to `null` and fires nothing — mirroring however `middleware/auth.ts` decides the caller's role. **Updated 2026-08-20 (v772):** that decision is now `admin_sessions.login_type`-first — a session minted at the admin portal is silent and one minted at the planner portal fires, *even for the same email*; the old `allowed_admins`-before-`tax_planner_logins` email probe remains only as the fallback for legacy NULL-`login_type` sessions. Gotcha #425.
 
 FYI only: **no clear site, and its title is NOT load-bearing** — it sits outside the tax-track title-prefix clearing chain described above. Live-tested three ways on v738: Team Member → General fires, Tax Planner → Sensitive fires, admin → silent. Gotcha **#393**.
 

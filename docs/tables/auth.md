@@ -12,8 +12,11 @@ Stores live admin tokens. Cleaned up by the `auto_cleanup_expired_sessions` migr
 | `email` | text | not null. Admin's email; joined to `allowed_admins`. |
 | `expires_at` | timestamptz | not null. |
 | `created_at` | timestamptz | default `now()`. |
+| `login_type` | text | **Added 2026-08-20** (migration `20260820210000_add_login_type_to_admin_sessions.sql`). Nullable, CHECK `admin\|member\|client\|specialist\|tax_planner`. **The portal the session was actually minted from** — stamped by all six login actions. `middleware/auth.ts` resolves the caller's role from this column *first* (re-verified against the matching `*_logins` table; 401 rather than fall-through when that identity row is gone), so an email holding two portal identities acts as the one it logged in with. The old `allowed_admins → client → specialist → tax_planner → member` email probe survives only as the fallback for legacy NULL rows, which age out within the 8h TTL. See [../architecture/04-auth-and-sessions.md](../architecture/04-auth-and-sessions.md) and gotcha #425. |
 
-**Touched by:** `admin_login`, every authenticated `vfo-admin-api` action (token validation), `update_my_passcode`.
+**Touched by:** `admin_login`, `member_login`, `login`, `client_login`, `specialist_login`, `tax_planner_login` (all six stamp `login_type`), every authenticated `vfo-admin-api` action (token validation), `update_my_passcode`.
+
+> Despite the name, this one table holds tokens for **all six** login types — not just admins.
 
 ---
 

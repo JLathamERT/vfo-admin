@@ -16,6 +16,7 @@ export default function ClientPortal() {
   const [tab, setTab] = useState(sessionStorage.getItem('clientActiveTab') || 'showroom')
   const [showroom, setShowroom] = useState(null)
   const [showroomLoading, setShowroomLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
 
   useEffect(() => {
     if (!session || session.role !== 'client') navigate('/client/login')
@@ -28,6 +29,7 @@ export default function ClientPortal() {
     let cancelled = false
     ;(async () => {
       try {
+        setLoadError(null)
         const data = await callApi('client_showroom_load', {})
         const eco = {}
         ;(data.ecosystems || []).forEach(e => {
@@ -37,7 +39,9 @@ export default function ClientPortal() {
         if (!cancelled) setShowroom({ experts: data.experts || [], exclusions: data.exclusions || [], ecoMap: eco })
       } catch (err) {
         console.error('Showroom load error:', err)
-        if (!cancelled) setShowroom({ experts: [], exclusions: [], ecoMap: {} })
+        // Keep the empty substitute: the render below reads showroom.experts
+        // unguarded once loading flips false. The banner above says WHY it's empty.
+        if (!cancelled) { setLoadError(err.message || 'Something went wrong'); setShowroom({ experts: [], exclusions: [], ecoMap: {} }) }
       } finally {
         if (!cancelled) setShowroomLoading(false)
       }
@@ -65,6 +69,16 @@ export default function ClientPortal() {
           {[['showroom', 'Showroom'], ['vault', 'Vault']].map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)} style={{ padding: '14px 20px', background: 'transparent', border: 'none', borderBottom: tab === key ? '2px solid #125ecc' : '2px solid transparent', color: tab === key ? '#125ecc' : 'var(--vfo-muted)', fontSize: '14px', fontWeight: tab === key ? '600' : '400', cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>{label}</button>
           ))}
+        </div>
+      )}
+
+      {loadError && (
+        <div style={{ maxWidth: '880px', margin: '20px auto 0', padding: '0 24px' }}>
+          <div style={{ background: 'rgba(217,48,37,0.10)', border: '1px solid rgba(217,48,37,0.32)', borderRadius: '12px', padding: '14px 16px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: '#d93025', marginBottom: '6px' }}>We couldn't load your portal</div>
+            <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', wordBreak: 'break-word' }}>{loadError}</div>
+            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '6px' }}>Please refresh the page — if this keeps happening, contact your VFO team.</div>
+          </div>
         </div>
       )}
 

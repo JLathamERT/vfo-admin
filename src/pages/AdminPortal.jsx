@@ -183,6 +183,7 @@ export default function AdminPortal() {
   const [allExclusionMap, setAllExclusionMap] = useState({})
   const [ecoMap, setEcoMap] = useState({})
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
 
   useEffect(() => {
     if (!session || session.role !== 'admin') { navigate('/admin/login?next=' + encodeURIComponent(location.pathname + location.search)); return }
@@ -266,6 +267,8 @@ export default function AdminPortal() {
 
   async function loadAllData() {
     try {
+      // loadAllData re-runs as panels' onDataChange — clear any prior banner first.
+      setLoadError(null)
       const data = await callApi('load_data')
       setAllExperts(data.experts || [])
       setAllMembers(data.members || [])
@@ -284,6 +287,7 @@ export default function AdminPortal() {
       setEcoMap(eco)
     } catch (err) {
       console.error('Load error:', err)
+      setLoadError(err.message || 'Something went wrong')
     } finally {
       setLoading(false)
     }
@@ -719,6 +723,16 @@ export default function AdminPortal() {
           </div>
 
           <div style={{ flex: 1 }}>
+          {loadError && (
+            <div style={{ maxWidth: '980px', margin: '20px auto 0', padding: '0 24px' }}>
+              <div style={{ background: 'rgba(217,48,37,0.10)', border: '1px solid rgba(217,48,37,0.32)', borderRadius: '12px', padding: '14px 16px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#d93025', marginBottom: '6px' }}>We couldn't load your portal</div>
+                <div style={{ fontSize: '13px', color: 'var(--vfo-ink)', wordBreak: 'break-word' }}>{loadError}</div>
+                <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', marginTop: '6px' }}>Please refresh the page — if this keeps happening, contact your VFO team.</div>
+              </div>
+            </div>
+          )}
+
           {!activeTab && (
             <div style={{ textAlign: 'center', padding: '60px 24px 0' }}>
               <p style={{ fontSize: '12px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2.5px', marginBottom: '10px' }}>Welcome back</p>

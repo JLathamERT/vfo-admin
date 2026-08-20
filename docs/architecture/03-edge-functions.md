@@ -169,7 +169,7 @@ Below the public dispatch step, every action does:
 
 1. Reads `body.token`. Returns 401 if missing.
 2. Looks up `admin_sessions` row by token. Returns 401 if missing or `expires_at` is past (and deletes the expired row).
-3. Detects role via `allowed_admins` row (admin), `member_logins.member_number` (member), the `client` role, the `specialist` role, or — added 2026-07-22 — the `tax_planner` role (client/specialist/tax_planner are all deny-by-default gates; see [04-auth-and-sessions.md](04-auth-and-sessions.md)).
+3. Detects role via `allowed_admins` row (admin), `member_logins.member_number` (member), the `client` role, the `specialist` role, or — added 2026-07-22 — the `tax_planner` role (client/specialist/tax_planner are all deny-by-default gates; see [04-auth-and-sessions.md](04-auth-and-sessions.md)). **Since 2026-08-20 (v772) role resolution is `login_type`-first — `admin_sessions.login_type` records the minting portal and decides the role; this email-precedence chain is now only the legacy fallback for NULL sessions. Full detail in [04-auth-and-sessions.md](04-auth-and-sessions.md); gotcha #425.**
 4. Applies `SUPERADMIN_ONLY_ACTIONS` (NEW 2026-06-16 — 14 actions: 12 Automation-panel + the global Payments page `all_payments_load` + the Phase D card-change send `payments_send_card_update` → 403 for any non-superadmin incl. regular admins; runs first) THEN `ADMIN_ONLY_ACTIONS` (constants/role-gates.ts) — 403 for member callers on listed actions.
 5. Applies `MEMBER_SCOPED_ACTIONS` (constants/role-gates.ts) — overwrites `body.member_number` with caller's for scoped reads/writes.
 6. For the `client` role, allows only `CLIENT_ALLOWED_ACTIONS` (deny-by-default) and scopes client-vault handlers to `auth.callerClientId`.
