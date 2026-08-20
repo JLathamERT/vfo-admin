@@ -466,12 +466,12 @@ A scheduled, cron-drafted step that sits after "Generate and download presentati
 
 ### Decision = `Yes`
 
-1. UPDATEs plan with pricing fields: `tax_decision`, `risk_mindset`, `retainer_amount`, `implementation_amount`, `total_fee`, `split_type`, `member_share`, `tax_planner_share`, `vfos_share`, `discount_applied` (Diron clients only, see note above), `presentation_link`, `meeting_notes`, `extra_cc`, `sandbox`.
+1. UPDATEs plan with pricing fields: `tax_decision`, `risk_mindset`, `retainer_amount`, `implementation_amount`, `total_fee`, `split_type`, `member_share`, `tax_planner_share`, `vfos_share`, `discount_applied` (Diron clients only, see note above), `presentation_link`, `meeting_notes`, `sandbox`. *(`extra_cc` is no longer written — the form field is gone; see the Additional Contacts note below.)*
 2. **Chains** `automation_TAX_sendagreement` — server-to-server via HTTP fetch + **admin auth token forwarded in body.token** (critical — see Step 4 chain auth note).
 
 ### Decision = `Undecided`
 
-1. UPDATEs plan with: `tax_decision='Undecided'`, `potential_tax_savings`, `initial_retainer_quoted`, `tax_token` (32-byte hex generated if not already present), `presentation_link`, `meeting_notes`, `extra_cc`, `sandbox`.
+1. UPDATEs plan with: `tax_decision='Undecided'`, `potential_tax_savings`, `initial_retainer_quoted`, `tax_token` (32-byte hex generated if not already present), `presentation_link`, `meeting_notes`, `sandbox`. *(no `extra_cc` — see below.)*
 2. Fetches the static **Tax Planning Engagement Agreement PDF** from Supabase Storage public URL `https://ejpsprsmhpufwogbmxjv.supabase.co/storage/v1/object/public/tax-agreements/tax-planning.pdf` (no auth required). When `member_paying_on_behalf=true` it instead uses the member-paid variant `tax-agreements/tax-planning-member.pdf` (not yet uploaded by the user → code falls back to `tax-planning.pdf` if missing).
 3. Loads `email_templates` row `'TAX_decision_undecided'`.
 4. Builds `[BUTTONS]` HTML — 3 buttons (Yes / No / Extra Meeting) pointing to `https://vfoportal.com/tax-decide?token=<tax_token>&decision=<choice>`. Same green/red/blue styling as MAP1's `[BUTTONS]`.
@@ -482,7 +482,9 @@ A scheduled, cron-drafted step that sits after "Generate and download presentati
 
 ### Decision = `No`
 
-1. UPDATEs plan with `tax_decision='No'`, `presentation_link`, `meeting_notes`, `extra_cc`, `sandbox`.
+1. UPDATEs plan with `tax_decision='No'`, `presentation_link`, `meeting_notes`, `sandbox`. *(no `extra_cc` — see below.)*
+
+> **Extra Cc left this form on 2026-08-20 (v771).** `TaxDecisionForm`'s "Additional CC recipients" chip list is gone, `tax/decision.ts` no longer writes `client_tax_plans.extra_cc`, and every TAX handler that used to read it now reads the client's **Additional Contacts** instead (`client_contacts.cc_on_emails`, set on the client profile). The reads were **REPLACED, not merged** — merging would have double-Cc'd every backfilled address — and `utils/extra-cc.ts` was deleted. The column is dormant, kept only so past submissions stay auditable. Handlers also fold greeting-flagged contacts into the `[Client First]` **body** token, with an explicit subject-guard in `request-returns` / `request-additional-info`. The planner-facing **assess-reminder** tiers in `revshare-sweep.ts` are deliberately NOT wired — those emails go to the planner, not the client. Full mechanism → [additional-contacts.md](additional-contacts.md).
 2. Loads template `'TAX_decision_decline'`.
 3. Substitutes `[Client Name]`, `[Client First]`, `[Meeting Attendees]` (= "[PF Name] and [Member Name]"), `[Member Name]`, `[PF Name]`, `[PRESENTATION_LINK]` (clickable anchor, or "(no link provided)").
 4. Creates Gmail draft to client.
@@ -565,7 +567,7 @@ A scheduled, cron-drafted step that sits after "Generate and download presentati
 6. Polls `getEmbeddedSignLink` for client signer (5 retries × 5s).
 7. UPDATEs plan: `agreement_sent='Yes'`, `boldsign_doc_id`, `client_signed='No'`, `ceo_signed='No'`, `signed_followup_sent_date=<today>`.
 8. Loads template `'TAX_agreementsent|Yes'`, substitutes `[ENGAGEMENT]` with embedded sign-link `<a>` tag.
-9. Creates Gmail draft to client (`From: VFO Services <aipc@vfo-services.com>`). CC member + PF + parsed `extra_cc`. BCC `aanderson` + `platham`.
+9. Creates Gmail draft to client (`From: VFO Services <aipc@vfo-services.com>`). CC member + PF + the client's **Additional Contact** Cc list (2026-08-20 — replaced the parsed `extra_cc` read). BCC `aanderson` + `platham`.
 
 **Tables read:** `client_tax_plans`, `clients`, `members`, `agreement_templates`, `pipeline_sandbox_config`, `email_templates`.
 **Tables written:** `client_tax_plans` (agreement_sent, boldsign_doc_id, client_signed, ceo_signed, signed_followup_sent_date).

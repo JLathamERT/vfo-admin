@@ -22,6 +22,7 @@ Ordered by complexity (highest first). Highest-complexity flow drives the rest o
 | [coaching-renewals.md](coaching-renewals.md) | Coaching meeting log + renewal lifecycle |
 | [gift-credits.md](gift-credits.md) | GC marketplace — buy credits via Stripe, redeem for services |
 | [notifications.md](notifications.md) | How portal notifications get inserted and read |
+| [additional-contacts.md](additional-contacts.md) | Per-client email Cc + greeting: `client_contacts.cc_on_emails` / `use_in_greeting` → `loadAdditionalContacts` → every client-facing email. Replaces the old per-form `extra_cc`. |
 
 ## Doc conventions
 

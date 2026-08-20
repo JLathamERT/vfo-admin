@@ -26,16 +26,21 @@ A client is a member's **end customer** — the person whose tax/financial plann
 
 ## `client_contacts`
 
-Additional contacts attached to a client (spouse, business partner, etc.).
+Additional contacts attached to a client (spouse, business partner, etc.). **Since 2026-08-20 this table also drives who gets Cc'd on the client's automation emails** — full mechanism → [flows/additional-contacts.md](../flows/additional-contacts.md).
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | integer | pk |
 | `client_id` | integer | fk → `clients.id` (CASCADE) |
-| `first_name` / `last_name` / `email` | text | |
+| `first_name` / `last_name` | text | |
+| `email` | text | **REQUIRED on every NEW row since 2026-08-20** (`msm_add_client_contact` 400s without it, validated against the same regex `dedupeEmails` uses). Pre-existing rows may still be blank — they keep working but can never enable `cc_on_emails`. |
+| `cc_on_emails` | boolean | `NOT NULL DEFAULT false` (2026-08-20). Cc this contact on **every** client-facing email for this client. Read at send time by `utils/additional-contact.ts loadAdditionalContacts`. **Requires a non-empty `email`.** |
+| `use_in_greeting` | boolean | `NOT NULL DEFAULT false` (2026-08-20). Also fold this contact's `first_name` into the `[Client First]` body token (*"Dane and Veronica"*). **Requires `cc_on_emails`.** |
 | `created_at` | timestamptz | default `now()` |
 
-**Touched by:** `msm_add_client_contact`, `msm_delete_client_contact`, `load_member_contacts`, `msm_load_client_home`.
+Both toggles are **admin-only** (`msm_update_client_contact` gates on `auth.callerRole === "admin"` — a tax planner is `"tax_planner"`, not an admin). Both invariants are enforced on the **final state**, not the incoming fields. Migration: `20260820190148_client_contacts_cc_toggles`; the legacy `extra_cc` backfill: `20260820193959` + `20260820200601`.
+
+**Touched by:** `msm_add_client_contact`, `msm_update_client_contact` (2026-08-20), `msm_delete_client_contact`, `load_member_contacts`, `msm_load_client_home`, `ciq_add_client_and_create`, `msm_add_client`, and **every emailing handler that calls `loadAdditionalContacts`** (53 sites at ship — derive it, don't trust the count).
 
 ---
 

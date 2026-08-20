@@ -24,6 +24,11 @@ const TEAM_MEMBERS = ['Sarah Freitas', 'Rachael', 'Bridger Silvester', 'Tracy Mi
 const statusColors = { Completed: '#1b9254', Confirmed: '#1b9254', Yes: '#1b9254', 'In Progress': '#e06717', Scheduled: '#0095ff', No: '#e74c3c', 'N/A': 'var(--vfo-muted)', Pending: '#e06717' }
 // Specialist-style section heading (navy, underlined) — matches SpecialistProfileView.
 const cardTitle = { fontSize: '16px', color: 'var(--vfo-heading)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '18px', paddingBottom: '11px', borderBottom: '2px solid var(--vfo-heading)' }
+// Additional Contact Cc — an additional contact is a future Cc recipient, so the
+// email bar here matches the backend's (add-client-contact.ts / dedupeEmails).
+const CONTACT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// Muted read-only marker shown wherever contacts are listed without controls.
+const ccBadgeStyle = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.4px', color: 'var(--vfo-muted)', border: '1px solid var(--vfo-border-chip)', background: 'var(--vfo-tint)', borderRadius: '999px', padding: '2px 9px', whiteSpace: 'nowrap' }
 
 function ClientTabDropdown({ label, isActive, options, onSelect }) {
   const [open, setOpen] = useState(false)
@@ -327,7 +332,7 @@ export default function ClientDetail() {
         ) : (
           <>
             {activeTab === 'home' && <ClientHome client={client} contacts={contacts} onUpdate={() => loadData(true)} sectionStyle={sectionStyle} readOnly={isMember || isPlanner} plannerMode={isPlanner} notes={clientNotes} onNotesChange={setClientNotes} program={program} />}
-            {activeTab === 'details' && isAdmin && <ClientDetails client={client} contacts={contacts} onUpdate={loadData} onReloadContacts={reloadContacts} sectionStyle={sectionStyle} />}
+            {activeTab === 'details' && isAdmin && <ClientDetails client={client} contacts={contacts} onUpdate={loadData} onReloadContacts={reloadContacts} sectionStyle={sectionStyle} isAdmin={isAdmin} />}
             {pfLocked && PROGRAM_TABS.includes(activeTab) && (
               <div style={{ ...sectionStyle, borderColor: 'rgba(231,76,60,0.3)', textAlign: 'center', padding: '40px' }}>
                 <div style={{ fontSize: '15px', color: 'var(--vfo-muted)' }}>Please Select a PF</div>
@@ -427,7 +432,11 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
             <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: i < contacts.length - 1 ? '1px solid var(--vfo-tint)' : 'none' }}>
               <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>{initials(c.first_name, c.last_name)}</div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--vfo-ink)' }}>{c.first_name} {c.last_name}</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--vfo-ink)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span>{c.first_name} {c.last_name}</span>
+                  {c.cc_on_emails && <span style={ccBadgeStyle}>Cc'd on client emails</span>}
+                  {c.use_in_greeting && <span style={ccBadgeStyle}>Included in greeting</span>}
+                </div>
                 {c.email && <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '1px' }}>{c.email}</div>}
               </div>
             </div>
@@ -566,7 +575,7 @@ function ClientHome({ client, contacts = [], onUpdate, sectionStyle, readOnly = 
   )
 }
 
-function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionStyle }) {
+function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionStyle, isAdmin = false }) {
   const [firstName, setFirstName] = useState(client?.first_name || '')
   const [lastName, setLastName] = useState(client?.last_name || '')
   const [email, setEmail] = useState(client?.email || '')
@@ -578,6 +587,22 @@ function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionSt
   const [contactFirst, setContactFirst] = useState('')
   const [contactLast, setContactLast] = useState('')
   const [contactEmail, setContactEmail] = useState('')
+  // Inline edit of one existing contact (name + email) and the per-row error
+  // line that surfaces both the local no-email block and any backend 400.
+  const [editId, setEditId] = useState(null)
+  const [editFirst, setEditFirst] = useState('')
+  const [editLast, setEditLast] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [rowError, setRowError] = useState({})
+  const [busyId, setBusyId] = useState(null)
+  // Cc / greeting are staged locally: a row only appears here once its ticks
+  // differ from what's stored, and the entry is dropped again the moment they
+  // match (either by re-clicking back, or by a successful save).
+  const [stagedToggles, setStagedToggles] = useState({})
+  const [rowSaved, setRowSaved] = useState({})
+
+  const contactEmailValid = CONTACT_EMAIL_RE.test(contactEmail.trim())
+  const canAddContact = !!contactFirst.trim() && !!contactLast.trim() && contactEmailValid
 
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
   const labelStyle = { fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }
@@ -593,9 +618,9 @@ function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionSt
   }
 
   async function addContact() {
-    if (!contactFirst || !contactLast) return
+    if (!canAddContact) return
     try {
-      await callApi('msm_add_client_contact', { client_id: client.id, first_name: contactFirst, last_name: contactLast, email: contactEmail })
+      await callApi('msm_add_client_contact', { client_id: client.id, first_name: contactFirst.trim(), last_name: contactLast.trim(), email: contactEmail.trim() })
       setContactFirst(''); setContactLast(''); setContactEmail(''); setShowAddContact(false)
       setContactStatus('saved')
       setTimeout(() => setContactStatus(''), 4000)
@@ -606,6 +631,84 @@ function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionSt
   async function deleteContact(contactId) {
     try { await callApi('msm_delete_client_contact', { contact_id: contactId }); onReloadContacts() }
     catch (err) { console.error(err) }
+  }
+
+  function startEdit(c) {
+    setEditId(c.id)
+    setEditFirst(c.first_name || ''); setEditLast(c.last_name || ''); setEditEmail(c.email || '')
+    setRowError(prev => ({ ...prev, [c.id]: '' }))
+  }
+
+  function setError(contactId, msg) { setRowError(prev => ({ ...prev, [contactId]: msg })) }
+
+  // One call per change; the backend re-checks every invariant on the final
+  // state, so anything it rejects lands in this row's error line.
+  async function saveContact(contactId, patch) {
+    setBusyId(contactId)
+    try {
+      await callApi('msm_update_client_contact', { contact_id: contactId, ...patch })
+      setError(contactId, '')
+      onReloadContacts()
+      return true
+    } catch (err) {
+      setError(contactId, err?.message || 'Something went wrong')
+      return false
+    } finally { setBusyId(null) }
+  }
+
+  async function saveEdit(contactId) {
+    const next = editEmail.trim()
+    if (!editFirst.trim() || !editLast.trim()) { setError(contactId, 'First and last name are required.'); return }
+    if (next && !CONTACT_EMAIL_RE.test(next)) { setError(contactId, 'Enter a valid email address.'); return }
+    const ok = await saveContact(contactId, { first_name: editFirst.trim(), last_name: editLast.trim(), email: next })
+    if (ok) setEditId(null)
+  }
+
+  // What the ticks should show: the staged edit if there is one, else what's stored.
+  function toggleState(c) {
+    return stagedToggles[c.id] || { cc_on_emails: !!c.cc_on_emails, use_in_greeting: !!c.use_in_greeting }
+  }
+
+  function stageToggles(c, next) {
+    setError(c.id, '')
+    setRowSaved(prev => (prev[c.id] ? { ...prev, [c.id]: false } : prev))
+    setStagedToggles(prev => {
+      const copy = { ...prev }
+      if (next.cc_on_emails === !!c.cc_on_emails && next.use_in_greeting === !!c.use_in_greeting) delete copy[c.id]
+      else copy[c.id] = next
+      return copy
+    })
+  }
+
+  // Cc needs an email on file. Existing rows predate that rule, so the toggle
+  // stays clickable and explains itself rather than sitting silently disabled.
+  function toggleCc(c) {
+    const cur = toggleState(c)
+    if (!cur.cc_on_emails && !String(c.email || '').trim()) {
+      setError(c.id, 'This contact has no email address on file — add one to enable Cc.')
+      return
+    }
+    // Turning Cc off drops the greeting with it — the greeting is meaningless
+    // for a contact who isn't on the email.
+    stageToggles(c, cur.cc_on_emails ? { cc_on_emails: false, use_in_greeting: false } : { ...cur, cc_on_emails: true })
+  }
+
+  function toggleGreeting(c) {
+    const cur = toggleState(c)
+    if (!cur.cc_on_emails) return
+    stageToggles(c, { ...cur, use_in_greeting: !cur.use_in_greeting })
+  }
+
+  // One call carries both flags. On failure the staged state is left alone so
+  // the row keeps its Save button and the user can fix and retry.
+  async function saveToggles(c) {
+    const next = stagedToggles[c.id]
+    if (!next) return
+    const ok = await saveContact(c.id, { cc_on_emails: next.cc_on_emails, use_in_greeting: next.use_in_greeting })
+    if (!ok) return
+    setStagedToggles(prev => { const copy = { ...prev }; delete copy[c.id]; return copy })
+    setRowSaved(prev => ({ ...prev, [c.id]: true }))
+    setTimeout(() => setRowSaved(prev => ({ ...prev, [c.id]: false })), 4000)
   }
 
   return (
@@ -638,10 +741,14 @@ function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionSt
             <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>First Name *</label><input value={contactFirst} onChange={e => setContactFirst(e.target.value)} style={inputStyle} /></div>
               <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>Last Name *</label><input value={contactLast} onChange={e => setContactLast(e.target.value)} style={inputStyle} /></div>
-              <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Email</label><input value={contactEmail} onChange={e => setContactEmail(e.target.value)} type="email" style={inputStyle} /></div>
+              <div style={{ flex: 1, minWidth: '180px' }}>
+                <label style={labelStyle}>Email *</label>
+                <input value={contactEmail} onChange={e => setContactEmail(e.target.value)} type="email" style={inputStyle} />
+                {!!contactEmail.trim() && !contactEmailValid && <div style={{ ...labelStyle, marginTop: '6px', marginBottom: 0 }}>Enter a valid email address.</div>}
+              </div>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={addContact} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', cursor: 'pointer' }}>Save</button>
+              <button onClick={addContact} disabled={!canAddContact} style={{ padding: '8px 20px', borderRadius: '8px', background: canAddContact ? 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)' : 'var(--vfo-tint)', border: canAddContact ? 'none' : '1px solid var(--vfo-border-mid)', boxShadow: canAddContact ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: canAddContact ? '#fff' : 'var(--vfo-muted)', fontSize: '13px', cursor: canAddContact ? 'pointer' : 'not-allowed' }}>Save</button>
               <button onClick={() => setShowAddContact(false)} style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
@@ -650,12 +757,54 @@ function ClientDetails({ client, contacts, onUpdate, onReloadContacts, sectionSt
         {contactStatus === 'saved' && <div style={{ color: '#1b9254', fontSize: '14px', fontWeight: '600', marginBottom: '12px' }}>✓ Contact added</div>}
         {contacts.length === 0 && !showAddContact && <p style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>No additional contacts yet.</p>}
         {contacts.map(c => (
-          <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
-            <div>
-              <div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{c.first_name} {c.last_name}</div>
-              {c.email && <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{c.email}</div>}
-            </div>
-            <button onClick={() => deleteContact(c.id)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Remove</button>
+          <div key={c.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
+            {editId === c.id ? (
+              <div>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>First Name *</label><input value={editFirst} onChange={e => setEditFirst(e.target.value)} style={inputStyle} /></div>
+                  <div style={{ flex: 1, minWidth: '140px' }}><label style={labelStyle}>Last Name *</label><input value={editLast} onChange={e => setEditLast(e.target.value)} style={inputStyle} /></div>
+                  <div style={{ flex: 1, minWidth: '180px' }}><label style={labelStyle}>Email</label><input value={editEmail} onChange={e => setEditEmail(e.target.value)} type="email" style={inputStyle} /></div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => saveEdit(c.id)} disabled={busyId === c.id} style={{ padding: '6px 16px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '12px', cursor: busyId === c.id ? 'not-allowed' : 'pointer' }}>{busyId === c.id ? 'Saving...' : 'Save'}</button>
+                  <button onClick={() => { setEditId(null); setError(c.id, '') }} style={{ padding: '6px 16px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ minWidth: '160px' }}>
+                  <div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>{c.first_name} {c.last_name}</div>
+                  {c.email
+                    ? <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{c.email}</div>
+                    : <div style={{ fontSize: '12px', color: 'var(--vfo-faint)', marginTop: '2px', fontStyle: 'italic' }}>No email on file</div>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                  {isAdmin && (() => {
+                    const t = toggleState(c)
+                    const dirty = !!stagedToggles[c.id]
+                    return (
+                      <>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '12px', color: 'var(--vfo-muted)', cursor: busyId === c.id ? 'not-allowed' : 'pointer' }}>
+                          <input type="checkbox" checked={t.cc_on_emails} disabled={busyId === c.id}
+                            onChange={() => toggleCc(c)} style={{ accentColor: '#125ecc', cursor: busyId === c.id ? 'not-allowed' : 'pointer' }} />
+                          Cc on all client emails
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '12px', color: t.cc_on_emails ? 'var(--vfo-muted)' : 'var(--vfo-faint)', cursor: t.cc_on_emails && busyId !== c.id ? 'pointer' : 'not-allowed' }}>
+                          <input type="checkbox" checked={t.use_in_greeting} disabled={!t.cc_on_emails || busyId === c.id}
+                            onChange={() => toggleGreeting(c)} style={{ accentColor: '#125ecc', cursor: t.cc_on_emails && busyId !== c.id ? 'pointer' : 'not-allowed' }} />
+                          Include in the greeting
+                        </label>
+                        {dirty && <button onClick={() => saveToggles(c)} disabled={busyId === c.id} style={{ padding: '6px 16px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '12px', cursor: busyId === c.id ? 'not-allowed' : 'pointer' }}>{busyId === c.id ? 'Saving...' : 'Save'}</button>}
+                        {!dirty && rowSaved[c.id] && <span style={{ color: '#1b9254', fontWeight: 600, fontSize: '12px' }}>Saved</span>}
+                      </>
+                    )
+                  })()}
+                  <button onClick={() => startEdit(c)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Edit</button>
+                  <button onClick={() => deleteContact(c.id)} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.3)', background: 'transparent', color: '#e74c3c', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Remove</button>
+                </div>
+              </div>
+            )}
+            {rowError[c.id] && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '12px', marginTop: '6px' }}>{rowError[c.id]}</div>}
           </div>
         ))}
       </div>
