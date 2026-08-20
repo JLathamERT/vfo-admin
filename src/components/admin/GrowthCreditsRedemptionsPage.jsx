@@ -1,14 +1,25 @@
-import { useState, useEffect } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
 import { TableSkeleton } from '../shared/Skeleton'
 import { MemberNameLink } from '../shared/personLinks'
 
 // Growth Credits page (top-level admin tab, grantable per admin in the Admin
-// Editor via the 'growth_credits' allowed_tabs key). The redemption fulfillment
-// queue ONLY — packages/services/sandbox live in Automation & Config, and the
-// money view lives in Accounting > Members > Growth Credits.
+// Editor via the 'growth_credits' allowed_tabs key). Two sub-tabs: Redemptions
+// (the fulfillment queue) and Menu (read-only view of the marketplace).
+// Packages/services/sandbox editing lives in Automation & Config, and the money
+// view lives in Accounting > Members > Growth Credits.
+//
+// The sub-tab pill strip is format-identical to Accounting > Members >
+// Membership Fees (MembershipFeesPanel.jsx) — same paddings, radius, border,
+// gradient active state, and type scale.
 
 const NAVY = '#002973'
+const BLUE = '#125ecc'
+
+const SUBTABS = [
+  { key: 'redemptions', label: 'Redemptions' },
+  { key: 'menu', label: 'Menu' },
+]
 
 function fmtDate(s) {
   if (!s) return ''
@@ -17,13 +28,14 @@ function fmtDate(s) {
 
 export default function GrowthCreditsRedemptionsPage() {
   const [redemptions, setRedemptions] = useState(null)
+  const [services, setServices] = useState(null)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
-  const [sort, setSort] = useState('recent')
+  const [section, setSection] = useState('redemptions')
   const [confirmReject, setConfirmReject] = useState(null)
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(); loadMenu() }, [])
 
   async function load() {
     setError('')
@@ -32,6 +44,15 @@ export default function GrowthCreditsRedemptionsPage() {
       if (res?.error) { setError(res.error); return }
       setRedemptions(res.redemptions || [])
     } catch (e) { setError(e?.message || 'Failed to load') }
+  }
+
+  // Read-only reference copy of the live marketplace. Its own loader so a
+  // failure here never blanks the fulfillment queue above it.
+  async function loadMenu() {
+    try {
+      const res = await callApi('gc_load_services')
+      setServices(res?.error ? [] : (res.services || []))
+    } catch { setServices([]) }
   }
 
   function flash(msg) { setStatus(msg); setTimeout(() => setStatus(''), 4000) }
@@ -53,41 +74,53 @@ export default function GrowthCreditsRedemptionsPage() {
   const memberOf = r => r.member_plugin_settings?.name || `Member ${r.member_number}`
   const serviceOf = r => r.gc_services?.name || `Service ${r.service_id}`
 
-  const sortRows = (rows) => {
-    const copy = [...rows]
-    if (sort === 'member') {
-      copy.sort((a, b) => memberOf(a).localeCompare(memberOf(b)) || new Date(b.created_at) - new Date(a.created_at))
-    } else {
-      copy.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    }
-    return copy
-  }
+  const newestFirst = (rows) => [...rows].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 
-  const pending = sortRows((redemptions || []).filter(r => r.status === 'pending'))
-  const done = sortRows((redemptions || []).filter(r => r.status !== 'pending'))
+  const pending = newestFirst((redemptions || []).filter(r => r.status === 'pending'))
+  const done = newestFirst((redemptions || []).filter(r => r.status !== 'pending'))
 
   const card = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '22px', marginBottom: '20px' }
   const cardTitle = { fontSize: '15px', fontWeight: 700, color: 'var(--vfo-heading)', margin: '0 0 16px', paddingBottom: '8px', borderBottom: `2px solid ${NAVY}`, display: 'inline-block' }
-  const pill = (active) => ({ padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: active ? 'none' : '1px solid var(--vfo-border-mid)', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' })
   const rowGrid = { display: 'grid', gridTemplateColumns: '1.5fr 1.7fr 100px 120px 210px', gap: '10px', alignItems: 'center', padding: '12px 4px', borderBottom: '1px solid var(--vfo-border-soft)', fontSize: '13px', color: 'var(--vfo-ink)' }
+  // The whole menu is ONE grid: header cells, full-width category dividers and
+  // every data cell are siblings in the same flow, so all four columns line up
+  // from the top of the card to the bottom. Row rules are drawn per cell, which
+  // is what keeps the hairline continuous across the full width.
+  const menuCols = 'minmax(0, 1fr) 88px 170px 132px'
+  const menuCell = { padding: '10px 12px', borderBottom: '1px solid var(--vfo-border-soft)', fontSize: '13px', color: 'var(--vfo-ink)', minWidth: 0 }
+  const menuHead = { ...menuCell, fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)', paddingTop: '4px', paddingBottom: '8px' }
+  const menuMuted = { ...menuCell, color: 'var(--vfo-faint)', whiteSpace: 'nowrap' }
+
+  const menuGroups = (() => {
+    const byCat = new Map()
+    for (const s of (services || []).filter(s => s.active !== false)) {
+      const cat = s.category || 'Other Services'
+      if (!byCat.has(cat)) byCat.set(cat, [])
+      byCat.get(cat).push(s)
+    }
+    return [...byCat.entries()]
+  })()
 
   return (
     <div style={{ padding: '24px', maxWidth: '1050px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
-      <div style={{ ...card, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-        <div>
-          <p style={{ fontSize: '10.5px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 4px' }}>Admin</p>
-          <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>Growth Credits</h2>
-        </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--vfo-muted)' }}>Sort</span>
-          <button style={pill(sort === 'recent')} onClick={() => setSort('recent')}>Most recent</button>
-          <button style={pill(sort === 'member')} onClick={() => setSort('member')}>By member</button>
-        </div>
+      <div style={{ ...card, marginBottom: '18px' }}>
+        <p style={{ fontSize: '10.5px', color: '#0a85e8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 4px' }}>Admin</p>
+        <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>Growth Credits</h2>
+      </div>
+
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '18px', flexWrap: 'wrap' }}>
+        {SUBTABS.map(t => (
+          <button key={t.key} type="button" onClick={() => setSection(t.key)}
+            style={{ padding: '8px 16px', borderRadius: '99px', border: '1px solid ' + (section === t.key ? 'transparent' : 'var(--vfo-border-strong)'), background: section === t.key ? `linear-gradient(90deg, ${NAVY} 0%, ${BLUE} 100%)` : 'var(--vfo-card)', color: section === t.key ? '#fff' : 'var(--vfo-ink-2)', fontWeight: 700, fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {status && <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af', borderRadius: '12px', padding: '12px 16px', fontSize: '13px', marginBottom: '14px' }}>{status}</div>}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px', marginBottom: '14px' }}>{error}</div>}
 
+      {section === 'redemptions' && (<>
       <div style={card}>
         <div style={cardTitle}>Pending ({redemptions === null ? '…' : pending.length})</div>
         <p style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', margin: '0 0 14px' }}>Services members have redeemed credits for that have not been delivered yet. Check one off once the work is complete; rejecting refunds the credits.</p>
@@ -134,6 +167,48 @@ export default function GrowthCreditsRedemptionsPage() {
           </div>
         )}
       </div>
+      </>)}
+
+      {section === 'menu' && (
+      <div style={card}>
+        <div style={cardTitle}>Marketplace menu</div>
+        <p style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', margin: '0 0 14px' }}>The active services members can redeem against, and who on the team handles each one. Allocations are edited in Automation &amp; Config &rarr; Growth Credits.</p>
+        {services === null && <TableSkeleton cols={[2, 1, 1.4, 1]} rows={4} />}
+        {services !== null && services.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '28px', color: 'var(--vfo-faint)', fontSize: '13px' }}>No active services.</div>
+        )}
+        {services !== null && services.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: menuCols, alignItems: 'center' }}>
+            <div style={menuHead}>Service</div>
+            <div style={{ ...menuHead, textAlign: 'center' }}>Credits</div>
+            <div style={menuHead}>Team Member</div>
+            <div style={menuHead}>Scheduling Link</div>
+
+            {menuGroups.map(([cat, rows], gi) => (
+              <Fragment key={cat}>
+                <div style={{ gridColumn: '1 / -1', padding: gi === 0 ? '14px 12px 8px' : '26px 12px 8px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--vfo-muted)', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+                  {cat}
+                </div>
+                {rows.map(s => (
+                  <Fragment key={s.id}>
+                    <div style={{ ...menuCell, fontWeight: 600 }}>{s.name}</div>
+                    <div style={{ ...menuCell, textAlign: 'center', color: 'var(--vfo-muted)' }}>{s.credit_cost}</div>
+                    {s.allocated_admin_name
+                      ? <div style={{ ...menuCell, whiteSpace: 'nowrap' }}>{s.allocated_admin_name}</div>
+                      : <div style={menuMuted}>&mdash;</div>}
+                    {s.scheduling_link
+                      ? <div style={{ ...menuCell, whiteSpace: 'nowrap' }}>
+                          <a href={s.scheduling_link} target="_blank" rel="noopener noreferrer" style={{ color: BLUE, fontSize: '12px', fontWeight: 600 }}>Scheduling link</a>
+                        </div>
+                      : <div style={menuMuted}>&mdash;</div>}
+                  </Fragment>
+                ))}
+              </Fragment>
+            ))}
+          </div>
+        )}
+      </div>
+      )}
 
       {confirmReject && (
         <div onClick={() => { if (!busy) setConfirmReject(null) }}

@@ -14,9 +14,13 @@ Catalog of redeemable services.
 | `credit_cost` | integer | not null |
 | `category` | text | |
 | `active` | boolean | default `true`. Status field. |
+| `allocated_admin_email` | text | The team member who handles this service. Validated against `allowed_admins.email` in `gc_manage_service`. When set it receives the `GC_credits_spent` bell and is CC'd on the redemption confirmation email; when null the bell falls back to the member's assigned MSM. Stripped from the member payload by `gc_load_services`. |
+| `scheduling_link` | text | Booking URL offered to the member in the redemption confirmation email (only when `allocated_admin_email` is also set). Stripped from the member payload. |
 | `created_at` | timestamptz | default `now()` |
 
-**Touched by:** `gc_load_services`, `gc_manage_service`. Frontend: [MemberGCMarketplace.jsx:40](src/components/member/MemberGCMarketplace.jsx).
+**Touched by:** `gc_load_services`, `gc_manage_service`. Frontend: [MemberGCMarketplace.jsx:40](src/components/member/MemberGCMarketplace.jsx), [GrowthCreditsPanel.jsx](src/components/admin/GrowthCreditsPanel.jsx) (allocation editor), [GrowthCreditsRedemptionsPage.jsx](src/components/admin/GrowthCreditsRedemptionsPage.jsx) (read-only menu, under its "Menu" sub-tab).
+
+A row can be hard-deleted via `gc_manage_service` `mode: 'delete'`, but only while it has no `gc_redemptions` history — the FK is `NO ACTION`. Retiring a service that has been redeemed means `active = false`.
 
 ---
 

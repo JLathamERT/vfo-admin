@@ -217,6 +217,9 @@ export const TEMPLATE_META = {
     ['PFT_decision_no', 'Decision: No — close-out', 'To: Accountant'],
     ['PFT_decision_undecided', 'Decision: Undecided — email with the three path buttons (VFO FT / VFO Associate / No) for the client to self-select', 'To: Accountant'],
   ],
+  'GROWTH_CREDITS': [
+    ['GC_redemption_confirmation', 'Redemption confirmation — the member spent credits on a marketplace service', 'To the member, CC the allocated team member'],
+  ],
   'PAYMENTS': [
     ['card_update', 'Secure link for someone to change their saved card or bank account', 'To: Chosen client / member / specialist'],
   ],
