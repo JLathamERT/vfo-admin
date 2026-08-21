@@ -6,7 +6,7 @@ Read-only architecture map of the VFO portal system. Documents what exists in th
 
 ## What's in this system
 
-Two repos, one Supabase project, four external integrations, one static-hosted SPA — held together by a modular `vfo-admin-api` edge function (123-line orchestrator + ~474 handler files under `actions/`) dispatching **463 actions** (6 logins + 457 dispatched: 132 PUBLIC + 325 AUTH) *(v: 2026-08-16 — derive it, do not trust it: see the hub's DERIVE block)*. See [architecture/01-system-map.md](architecture/01-system-map.md) for the high-level picture.
+Two repos, one Supabase project, four external integrations, one static-hosted SPA — held together by a modular `vfo-admin-api` edge function (123-line orchestrator + ~476 handler files under `actions/`) dispatching **465 actions** (6 logins + 459 dispatched: 132 PUBLIC + 327 AUTH) *(v: 2026-08-21 — derive it, do not trust it: see the hub's DERIVE block)*. See [architecture/01-system-map.md](architecture/01-system-map.md) for the high-level picture.
 
 The central business flow is the **MAP1 contract-and-payment chain**: PIP1 reconfirmation → PF decision → PCADMIN pricing → BoldSign agreement → CEO countersign → Stripe payment → confirmation/invoice/receipt → revenue share. State lives in a single 143-column row of `pipeline_map1`, with each handler advancing specific columns. See [flows/contract-and-payment.md](flows/contract-and-payment.md) for the end-to-end trace.
 
