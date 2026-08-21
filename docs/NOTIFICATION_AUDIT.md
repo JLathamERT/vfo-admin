@@ -81,7 +81,7 @@
 | **Client signed the agreement** — The client signed the MAP 1 membership agreement; awaiting CEO countersignature. | FYI | Assigned PF | BoldSign client-signed webhook — instant |
 | **Client made first payment** — The client made their first MAP 1 membership payment. | FYI | Assigned PF | Payment confirmation chain (payment 1 only) — instant |
 | **Agreement email draft failed** — The Gmail draft of the agreement-signing email could not be created; needs manual attention. | **Action required** | All Admins (shared bell) | Gmail draft failure while sending agreement — instant |
-| **Installment auto-charge failed** — A quarterly installment (P2-P4) could not be auto-charged; the client was emailed a fresh /pay link. | FYI | All Admins (shared bell) | Daily charge-scheduled sweep — instant |
+| **Installment auto-charge failed** — A quarterly installment (P2-P4) could not be auto-charged; the client was emailed a payment link. | FYI | All Admins (shared bell) | Daily charge-scheduled sweep — instant |
 | **Tracy: client paid, cleared to proceed** — A client's MAP 1 payment cleared (includes chosen priorities) - green light for Tracy to move forward. Fires once per payment P1-P4. | FYI | Tracy | Revshare chain after payment clears — instant |
 | **Undecided decision reminder email** — Reminder email (fresh decision buttons) to a client who has not clicked any decision button. | Reminder email | The client (email) | Daily MAP 1 sweep — after **2 business day(s)** (editable) |
 | **Undecided decision stalled (PF bell)** — The client still has not responded to the MAP 1 decision email - asks the PF to reach out. | FYI | Assigned PF | Daily MAP 1 sweep — after **4 business day(s)** (editable) |

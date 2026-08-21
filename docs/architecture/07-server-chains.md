@@ -69,7 +69,7 @@ Three families sit **outside** this cascade as additive blocks: the specialist *
 | Agreement | `automation_CONTRACT_sendagreement` (4 call sites, all forward `body.token`) |
 | First card payment | → `automation_CONTRACT_invoicereceipt` → `automation_CONTRACT_revshare` |
 | First ACH payment | → `automation_CONTRACT_confirmationemail`; on `payment_intent.succeeded` → `_invoicereceipt` → `_revshare` |
-| Quarterly P2–P4 | off-session PI (`metadata.payment_number=N`) → `payN_status` → `_invoicereceipt` → `_revshare` (**latched on `rec{N}_email_sent`**) |
+| Quarterly P2–P4 | off-session PI (`metadata.payment_number=N`) → `payN_status` → `_invoicereceipt` → `_revshare` (**latched on `rec{N}_email_sent`**). *Chain unchanged 2026-08-21; the client-driven `/pay` page now stamps the same `payment_number` metadata, so it feeds this identical chain instead of mis-booking as P1.* |
 | Check | `automation_CONTRACT_paidbycheck` → `automation_CONTRACT_checkcleared` → confirmation **and** invoice/receipt (policy-exempt) |
 
 `automation_CONTRACT_revshare` **pays immediately** — the Tracy Revenue-Master cross-check was removed 2026-07-01 (**#164**), amounts come straight from the PF input form. It also transfers the 10% **strategic partner** share to `strategic_member_groups.stripe_account_id` and drafts the partner rev-share email. Share proration is **not uniform across legs** — member pays in full, strategic is gross-prorated, VFOS is the residual (**#394**); copy `contract-revshare.ts`, never re-derive.
