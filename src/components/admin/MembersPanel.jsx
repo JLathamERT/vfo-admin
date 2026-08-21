@@ -40,7 +40,7 @@ const CORPORATE_TYPES = ['Corporate Member', 'Free Corporate Member', 'Free Corp
 
 // Detail-view tab sets. Advisors/accountants get the full set; Strategic Members
 // get a trimmed view: Profile (all sub-tabs, always shown), MSM limited to
-// Holistic + Tax Planning, plus Specialists + Showroom (no Website Plugin / CIQ /
+// Holistic + Tax Planning, plus Specialists + Showroom + CIQ (no Website Plugin /
 // GC Marketplace / Growth Plan).
 const DEFAULT_MSM_OPTIONS = [
   { key: 'msm_meetings', label: 'MSM' },
@@ -60,7 +60,7 @@ const STRATEGIC_MSM_OPTIONS = [
 // two program toggles and drops the Advanced (coaching) + PFT (partnership)
 // meeting counters.
 const STRATEGIC_PROGRAM_KEYS = ['holistic', 'tax']
-const STRATEGIC_EXTRA_TABS = [['specialists', 'Specialists'], ['showroom', 'Showroom']]
+const STRATEGIC_EXTRA_TABS = [['specialists', 'Specialists'], ['showroom', 'Showroom'], ['ciq', 'CIQ']]
 
 const ACCOUNTANT_TYPES = [
   'Implementation - VFO FT (Direct)',

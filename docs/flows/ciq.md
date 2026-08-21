@@ -6,6 +6,8 @@ A multi-step intake-and-prioritization process owned by a member, run for each o
 
 A member opens the CIQ tab in their portal: [MemberPortal.jsx → MemberCIQ](src/components/shared/MemberCIQ.jsx). Or, an admin opens a member's profile in [MembersPanel](src/components/admin/MembersPanel.jsx) and switches to the CIQ feature tab.
 
+**As of 2026-08-21 that admin route includes Strategic Member profiles.** All three admin member views take their feature tabs from one module-level constant in `MembersPanel.jsx` — `DEFAULT_EXTRA_TABS` (advisors + accountants) and `STRATEGIC_EXTRA_TABS` (strategic) — and both flow into the SAME `extraTabs` prop and the SAME single render site, so advisor, accountant and strategic CIQ are one code path mounting `MemberCIQ` with `isAdmin=true`. Strategic was the only view whose constant omitted `['ciq','CIQ']`; the member-FACING portal already listed it. No backend change was involved — the `ciq_*` actions are not in `TAB_ACTIONS`, so widening a tab set grants nothing new server-side.
+
 Members can **always view** their CIQs. The `members.ciq_enabled` flag (admin-controlled via `member_profile_save`; settings toggle labelled "Allow Member to Start New CIQs") only gates whether a member can **start new** CIQs — when off, the "+ Start New CIQ" button is hidden and `ciq_create` / `ciq_add_client_and_create` 403 a member caller (`actions/ciq/shared.ts` `blockIfMemberCannotStart`). Admins are never gated. *(Historically `ciq_enabled=false` hid the entire tab; repurposed 2026-06-18.)*
 
 ## Step 1 — Load settings + list

@@ -8,6 +8,27 @@
 
 ---
 
+## 2026-08-21 — Admin Strategic Member profiles gain the CIQ feature tab (parity with advisors and accountants)
+
+**Frontend-only, two lines in one file (`src/components/admin/MembersPanel.jsx`). No backend change, no migration, no deploy of `vfo-admin-api` (still v775) or `boldsign-webhook` (still v40). `npm run build` exit 0, 33 route pages.**
+
+**The ask:** an admin viewing a **Strategic Member's** profile could not reach that member's CIQs, while the same admin viewing an advisor or accountant could. The fix gives Strategic the same feature tab.
+
+**What was verified before changing anything** — the whole point of the investigation, since "add a tab" invites three separate wrong assumptions:
+
+1. **Advisor and accountant CIQ are not two paths — they are one.** All three admin member views feed `MemberDirectoryView` through a single `extraTabs` prop, sourced from two module-level constants in `MembersPanel.jsx`: `DEFAULT_EXTRA_TABS` (advisors + accountants, line ~53) and `STRATEGIC_EXTRA_TABS` (line ~63). There is **one** render site for the feature tabs (line ~453) and **one** `MemberCIQ` mount with `isAdmin=true` (line ~465). So the change was never "port a feature to strategic" — it was "stop omitting an entry from a list", and advisor/accountant behaviour is unchanged by construction.
+2. **The member-FACING portal already had CIQ for strategic members.** `MemberPortal.jsx` builds its tabs from a static list that has always included `ciq`; strategic members logging into their own portal have always seen it. **Only the admin-side profile view was trimmed** — so this was an admin-visibility gap, not a missing feature.
+3. **No backend change was needed.** The `ciq_*` actions are **not** in `TAB_ACTIONS`, so they are not tab-gated (contrast #167, where a new action behind a tab-gated surface must join the list or granted admins 403). Admin callers already pass the admin gate. `constants/role-gates.ts` was not touched, and the action count stayed **465**.
+4. **The Growth Plan button cannot leak in.** It renders off a separate `growthPlan` prop that defaults `false`, and `StrategicMembersPanel` never passes it — so widening the tab list could not drag the advisor-only Growth Plan along with it.
+
+**The change:** `['ciq', 'CIQ']` appended to `STRATEGIC_EXTRA_TABS` after Showroom, plus the comment block above `DEFAULT_MSM_OPTIONS` (lines ~41-44) re-worded so it now reads "Specialists + Showroom + CIQ (no Website Plugin / GC Marketplace / Growth Plan)" instead of listing CIQ among the exclusions. Strategic keeps its trimmed MSM options (Holistic + Tax Planning only) and its two program toggles.
+
+**Click-through, run by the owner and passed:** the CIQ tab appears on a Strategic Member profile and opens the questionnaire; advisor and accountant profiles are unchanged (regression check); and no unwanted tab leaked into the strategic view — **Website Plugin, GC Marketplace and Growth Plan are all still absent**.
+
+**Test data cleaned:** a client created during testing — `clients` id **279** ("Jake Test", under member **20007**) — was deleted along with its CIQ tree and its `client_progress` row (the CIQ-complete auto-tick from the 2026-08-03 `syncMap1CiqStep` side effect). Re-queried afterwards: **0 rows** remain for all three.
+
+---
+
 ## 2026-08-21 — Three real-money/real-email defects found by one client's failed installment: `/pay` was payment-1-only, the Connect setup email double-sent, and a membership confirmation said "Payment 2 of 1"
 
 **Backend `vfo-admin-api` v772 → v773 (`/pay` + email fixes) → v774 (setup-email guard) → v775 (membership confirmation re-read), all deployed; v775 is live. TWO frontend `npm run deploy` publishes. One migration `20260821120000_members_connect_setup_email_sent_at.sql` (applied via MCP + committed, #196). `boldsign-webhook` untouched at v40.** Smoke 5/5 was run by the owner after **each** deploy including v775; the security advisor was re-checked after the migration and matches the documented baseline exactly. New gotchas **#427** (post-activation stale object) and **#428** (`send_mode` flip without a UI-copy audit).
