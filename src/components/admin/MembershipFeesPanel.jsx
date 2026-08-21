@@ -132,6 +132,46 @@ function catchUpCliff(fromIso, renewalIso, remaining) {
   return null
 }
 
+// Every occurrence of day-of-month `day` STRICTLY AFTER basisIso, oldest first
+// and stopping before the fixed renewal. Mirrors dayOccurrencesAfter in the
+// backend's actions/membership/shared.ts (same 24-iteration cap; days are 1-15
+// only, so the month never clamps). Same month only when its day-D has not
+// passed yet — a save ON day D bills from the NEXT one.
+function dayOccurrencesAfter(basisIso, day, untilExclusive) {
+  const startOffset = Number(basisIso.slice(8, 10)) < day ? 0 : 1
+  const anchor = basisIso.slice(0, 8) + String(day).padStart(2, '0')
+  const dates = []
+  for (let i = 0; i < 24; i++) {
+    const d = addMonthsIso(anchor, startOffset + i)
+    if (untilExclusive && d >= untilExclusive) break
+    dates.push(d)
+  }
+  return dates
+}
+
+// The year-1 schedule for a monthly transfer that carries a fixed charge day:
+// nothing at the link, every remaining month laid onto a day-D date before the
+// renewal. Mirrors transferDaySchedule + placeMonths in the backend's shared.ts
+// — BEHIND (more months owed than slots) folds the shortfall into the FIRST
+// charge as one combined row, AHEAD just stops early, and with no slots at all
+// the whole year collapses onto the save date itself.
+function transferDaySchedule(basisIso, renewalIso, day, remaining) {
+  const slotDates = dayOccurrencesAfter(basisIso, day, renewalIso)
+  const rowDates = slotDates.length === 0
+    ? [basisIso]
+    : slotDates.slice(0, Math.min(remaining, slotDates.length))
+  const catchUpMonths = slotDates.length === 0
+    ? remaining
+    : 1 + Math.max(0, remaining - slotDates.length)
+  return {
+    slots: slotDates.length,
+    payments: rowDates.length,
+    catchUpMonths,
+    firstChargeDate: rowDates[0],
+    lastChargeDate: rowDates[rowDates.length - 1],
+  }
+}
+
 function parseMoney(v) {
   const n = parseFloat(String(v ?? '').replace(/[,$]/g, ''))
   return Number.isFinite(n) ? n : 0
@@ -441,7 +481,10 @@ function PlanCard({ plan, onChanged, onEdit, isSuperadmin, autoOpen = false, onA
     const ctx = {}
     const first = ((m.first_name || '') || String(plan.member_name || '').split(' ')[0] || '').trim()
     if (first) ctx['First Name'] = first
-    const saveOnly = Number(plan.per_pull_amount) <= 0 || (plan.transfer && plan.frequency === 'annual')
+    // A monthly transfer with a fixed charge day collects nothing at the link
+    // either — the whole year is scheduled on that day.
+    const saveOnly = Number(plan.per_pull_amount) <= 0 || (plan.transfer && plan.frequency === 'annual') ||
+      (plan.transfer && plan.frequency === 'monthly' && Number(plan.charge_day) >= 1)
     const amt = saveOnly && plan.frequency === 'annual' ? Number(plan.annual_amount) : Number(plan.per_pull_amount || 0)
     if (Number.isFinite(amt) && amt > 0) ctx['Amount'] = `$${amt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     if (plan.frequency === 'monthly' || plan.frequency === 'annual') ctx['Cadence'] = plan.frequency === 'monthly' ? 'per month' : 'per year'
@@ -795,6 +838,7 @@ function PlanCard({ plan, onChanged, onEdit, isSuperadmin, autoOpen = false, onA
               <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="MEMBER_MEMBERSHIP_FEES" title="Payment link emails" context={emailCtx} templates={[
                 { name: 'MEMBERSHIP_setup_link', when: 'New plan — payment setup link' },
                 { name: 'MEMBERSHIP_transfer_setup_link', when: 'Transfer plan — setup link' },
+                { name: 'MEMBERSHIP_transfer_setup_link|monthly-saveonly', when: 'Transfer plan with fixed charge day — setup link (save-only)' },
                 { name: 'MEMBERSHIP_update_link', when: 'Active plan — update payment method link' },
               ]} /></span>
             </div>
@@ -913,6 +957,9 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
   const [priorPaid, setPriorPaid] = useState(
     editPlan?.prior_payments_made === 0 || editPlan?.prior_payments_made ? String(editPlan.prior_payments_made) : '',
   )
+  const [chargeDay, setChargeDay] = useState(
+    Number(editPlan?.charge_day) >= 1 ? String(editPlan.charge_day) : '',
+  )
   const [frequency, setFrequency] = useState(editPlan?.frequency || 'monthly')
   const [annualAmount, setAnnualAmount] = useState(editPlan ? String(editPlan.annual_amount) : '')
   const [creditNote, setCreditNote] = useState(editPlan && Number(editPlan.credit_note) > 0 ? String(editPlan.credit_note) : '')
@@ -985,6 +1032,17 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
       .slice(0, Math.max(0, remaining - pullsAtLink)).slice(-1)[0] || today)
     : null
 
+  // The fixed charge day (1-15) a monthly transfer already pays on. Required —
+  // it turns the link save-only and schedules the whole year on that day.
+  const chargeDayFilled = String(chargeDay).trim() !== ''
+  const chargeDayValid = chargeDayFilled &&
+    /^\d+$/.test(String(chargeDay).trim()) && Number(chargeDay) >= 1 && Number(chargeDay) <= 15
+  // Quoted as-if-they-save-today; the real dates are recomputed from the day
+  // they actually save, exactly as the backend does from its own basis date.
+  const daySched = transferQuoteLive && chargeDayValid
+    ? transferDaySchedule(today, transferRenewal, Number(chargeDay), remaining)
+    : null
+
   async function save() {
     setMsg(null)
     if (!memberNumber) { setMsg({ tone: 'error', text: 'Pick a member first.' }); return }
@@ -992,6 +1050,10 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
     if (isTransfer && !transferRenewalValid) { setMsg({ tone: 'error', text: 'Enter the member\'s existing renewal date — it must be the 15th of a month, within a year.' }); return }
     if (isTransfer && frequency === 'monthly' && !priorPaidValid) {
       setMsg({ tone: 'error', text: priorPaidFilled ? 'Must be a whole number between 0 and 11.' : 'Enter how many payments they\'ve already made this year (0 if none).' })
+      return
+    }
+    if (isTransfer && frequency === 'monthly' && !chargeDayValid) {
+      setMsg({ tone: 'error', text: 'Pick the day of the month they currently pay on (1–15) — the whole remaining year is charged on that day.' })
       return
     }
     setBusy(true)
@@ -1007,6 +1069,7 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
         credit_note_memo: creditMemo || undefined,
         renewal_date: isTransfer ? transferRenewal : undefined,
         prior_payments_made: isTransfer && frequency === 'monthly' ? Number(priorPaid) : undefined,
+        charge_day: isTransfer && frequency === 'monthly' ? Number(chargeDay) : undefined,
       })
       if (!res?.ok) { setMsg({ tone: 'error', text: res?.error || 'Could not save the plan.' }); return }
       if (editPlan) { onSaved?.({ tone: 'success', text: 'Plan updated.' }); return }
@@ -1059,7 +1122,9 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
         </div>
         {isTransfer && (
           <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--vfo-muted)' }}>
-            They already paid this year's earlier months on the old system — they pay their next month at the setup link, bill monthly until their existing renewal date, then auto-renew at the full annual value.
+            {frequency === 'monthly'
+              ? 'They already paid this year\'s earlier months on the old system — the setup link only saves their payment method, the payments they still owe are charged on the day of the month they already pay on until their existing renewal date, then they auto-renew at the full annual value.'
+              : 'They already paid this year on the old system — nothing is collected at the setup link, it only saves their payment method, and they auto-renew at the full annual value on their existing renewal date.'}
           </div>
         )}
       </div>
@@ -1110,6 +1175,22 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
             )}
           </div>
         )}
+        {isTransfer && frequency === 'monthly' && (
+          <div>
+            <div style={label}>Day of the month they currently pay on (1–15)</div>
+            <select value={chargeDay} onChange={e => setChargeDay(e.target.value)} style={input}>
+              <option value="">Select a day…</option>
+              {Array.from({ length: 15 }, (_, i) => i + 1).map(d => (
+                <option key={d} value={String(d)}>{ordinal(d)}</option>
+              ))}
+            </select>
+            {chargeDayFilled && !chargeDayValid ? (
+              <div style={{ marginTop: '5px', fontSize: '12px', color: '#b91c1c' }}>Must be a whole number between 1 and 15.</div>
+            ) : (
+              <div style={{ marginTop: '5px', fontSize: '12px', color: 'var(--vfo-ink-3)' }}>The day they already pay on. The link only saves their payment method — every remaining payment is charged on this day.</div>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{ marginBottom: '16px', padding: '14px 16px', borderRadius: '10px', background: 'var(--vfo-input)', border: '1px solid var(--vfo-border-soft)', fontSize: '13px', color: 'var(--vfo-ink-2)' }}>
@@ -1118,7 +1199,36 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
           frequency === 'monthly' ? (
             (!transferRenewalValid || !priorPaidValid) ? (
               <div style={{ color: '#b45309' }}>Enter their existing renewal date and how many payments they've made to see the remaining schedule.</div>
-            ) : (
+            ) : daySched ? (
+              <div>
+                <div>
+                  Paid {prior} of 12 — <strong>{remaining} × {money(perPull)}</strong> left on the <strong>{ordinal(Number(chargeDay))}</strong> of each month.
+                  {' '}<strong>Nothing is collected at the link</strong> — it only saves their payment method.
+                  {credit > 0 ? <> · credit {money(credit)}</> : null}
+                </div>
+                <div style={{ marginTop: '6px' }}>
+                  First charge <strong>{fmtDate(daySched.firstChargeDate)}</strong>
+                  {' · '}{daySched.payments} payment{daySched.payments === 1 ? '' : 's'} remaining
+                  {' · '}last charge <strong>{fmtDate(daySched.lastChargeDate)}</strong>
+                  {' · '}renewal <strong>{fmtDate(transferRenewal)}</strong>
+                </div>
+                {daySched.catchUpMonths > 1 && (
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: '#b45309' }}>
+                    Behind: the first charge on <strong>{fmtDate(daySched.firstChargeDate)}</strong> will be{' '}
+                    <strong>{money(perPull * daySched.catchUpMonths)}</strong>, covering {daySched.catchUpMonths} months
+                    ({daySched.catchUpMonths - 1}-month catch-up) — the same {remaining} payments still have to fit before the renewal.
+                  </div>
+                )}
+                {daySched.slots === 0 && (
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: '#b45309' }}>
+                    No {ordinal(Number(chargeDay))} is left before the renewal, so the whole balance is due as soon as they save their method.
+                  </div>
+                )}
+              </div>
+            ) : editPlan ? (
+              // Legacy pending transfer saved before charge days existed: it
+              // still pays at the link until a day is picked (which the save now
+              // requires), so quote the old behaviour until then.
               <div>
                 <div>
                   Paid {prior} of 12 — <strong>{remaining} × {money(perPull)}</strong> left: <strong>{money(linkAmount)}</strong> at the link
@@ -1134,7 +1244,12 @@ function SetupSection({ category, allMembers, plans, editPlan, onSaved }) {
                     still have to fit before the renewal.
                   </div>
                 )}
+                <div style={{ marginTop: '6px', fontSize: '12px', color: '#b45309' }}>
+                  Pick the day of the month they pay on to switch this plan to a save-only link — it is now required to save.
+                </div>
               </div>
+            ) : (
+              <div style={{ color: '#b45309' }}>Pick the day of the month they currently pay on to see the remaining schedule.</div>
             )
           ) : !transferRenewalValid ? (
             <div style={{ color: '#b45309' }}>Enter their existing renewal date to see the remaining schedule.</div>
@@ -1237,9 +1352,11 @@ function OutstandingLinkRow({ plan, onChanged, onEdit, isSuperadmin }) {
   const [msg, setMsg] = useState(null)
 
   const perPull = Number(plan.per_pull_amount) || 0
-  // Annual transfers charge nothing now (they renew at the renewal date), so
-  // their link only saves a payment method.
-  const saveOnly = perPull <= 0 || (plan.transfer && plan.frequency === 'annual')
+  // Annual transfers charge nothing now (they renew at the renewal date), and a
+  // monthly transfer with a fixed charge day has its whole year scheduled on
+  // that day — either way the link only saves a payment method.
+  const saveOnly = perPull <= 0 || (plan.transfer && plan.frequency === 'annual') ||
+    (plan.transfer && plan.frequency === 'monthly' && Number(plan.charge_day) >= 1)
 
   async function sendLink() {
     setBusy(true); setMsg(null)
@@ -1285,6 +1402,9 @@ function OutstandingLinkRow({ plan, onChanged, onEdit, isSuperadmin }) {
           <LinkDetail label="Annual value" value={money(plan.annual_amount)} />
           <LinkDetail label="Credit note" value={Number(plan.credit_note) > 0 ? money(plan.credit_note) : '—'} />
           {plan.transfer && <LinkDetail label="Renewal date" value={fmtDate(plan.renewal_date)} />}
+          {plan.transfer && plan.frequency === 'monthly' && Number(plan.charge_day) >= 1 && (
+            <LinkDetail label="Charge day" value={`${ordinal(plan.charge_day)} of each month`} />
+          )}
           <LinkDetail label="Plan created" value={`${fmtStamp(plan.created_at)}${plan.created_by ? ` · ${plan.created_by}` : ''}`} />
           <LinkDetail label="Link sent" value={fmtStamp(plan.setup_email_sent_at)} />
 

@@ -149,9 +149,11 @@ export default function MembershipPayPage() {
   const cardTotal = feeApplies && payToday ? Math.round((base + 0.30) / (1 - 0.029) * 100) / 100 : base
   const cardFee = Math.round((cardTotal - base) * 100) / 100
   const cadence = data.frequency === 'monthly' ? 'per month' : 'per year'
-  const renewalFmt = data.renewal_date
-    ? new Date(data.renewal_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-    : null
+  const renewalFmt = fmtLong(data.renewal_date)
+  // A monthly transfer that keeps a fixed charge day: the link only saves the
+  // method. The member's page stays free of amounts, counts and dates so nothing
+  // reads as a charge happening today — the admin preview carries the figures.
+  const daySched = !payToday && data.first_charge_date && data.charge_day ? data : null
 
   return (
     <TokenShell>
@@ -167,6 +169,9 @@ export default function MembershipPayPage() {
           {payToday ? (
             <>Your first payment of <strong>${fmt(base)}</strong> is collected securely today
               {data.frequency === 'monthly' ? <> — then payments run automatically on the same day each month.</> : <> and covers your membership year.</>}</>
+          ) : daySched ? (
+            <><strong>Nothing is charged today.</strong> This securely saves your payment method — your membership
+              payments then continue automatically on the {daySched.charge_day_ordinal} of each month, just as they do now.</>
           ) : (
             <><strong>Nothing is charged today.</strong> This securely saves your payment method
               {renewalFmt ? <> — your next membership charge is at your renewal on <strong>{renewalFmt}</strong>.</> : <> for your automatic membership payments.</>}</>
@@ -181,9 +186,9 @@ export default function MembershipPayPage() {
           title="Bank Account (ACH)"
           badgeText="No Fee"
           badgeClass="green"
-          amount={base}
-          cadence={cadence}
-          breakdown={[
+          amount={daySched ? null : base}
+          cadence={daySched ? null : cadence}
+          breakdown={daySched ? [] : [
             { label: 'VFO Membership', value: `$${fmt(base)}`, valueColor: 'var(--vfo-ink-2)' },
             { label: 'Processing Fee', value: '$0.00', valueColor: '#16a34a' },
           ]}
@@ -200,9 +205,9 @@ export default function MembershipPayPage() {
           title="Credit / Debit Card"
           badgeText={feeApplies && payToday ? '2.9% + $0.30 Fee' : feeApplies ? '2.9% + $0.30 Fee on charges' : 'No Fee'}
           badgeClass={feeApplies ? 'blue' : 'green'}
-          amount={cardTotal}
-          cadence={cadence}
-          breakdown={feeApplies && payToday ? [
+          amount={daySched ? null : cardTotal}
+          cadence={daySched ? null : cadence}
+          breakdown={daySched ? [] : feeApplies && payToday ? [
             { label: 'VFO Membership', value: `$${fmt(base)}`, valueColor: 'var(--vfo-ink-2)' },
             { label: 'Card Processing Fee (2.9% + $0.30)', value: `$${fmt(cardFee)}`, valueColor: 'var(--vfo-ink-2)' },
           ] : [
@@ -246,6 +251,13 @@ function OptionCard({ isHovered, onHover, onLeave, onClick, title: t, badgeText,
 
 function fmt(n) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// Date-only ISO strings from the API — the T00:00:00 keeps them on their own day.
+function fmtLong(iso) {
+  if (!iso) return null
+  return new Date(String(iso).slice(0, 10) + 'T00:00:00')
+    .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 const messageCard = { textAlign: 'center', padding: '12px 0' }
