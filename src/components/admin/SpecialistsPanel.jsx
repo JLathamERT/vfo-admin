@@ -313,7 +313,7 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
     try {
       const res = await callApi('specialist_stripe_connect_request', { expert_id: editingId })
       if (res?.error) { setConnectMsg(res.error); return }
-      setConnectMsg(`Setup email drafted to ${res.to_email}${res.sandbox ? ' (sandbox)' : ''}. Connect account: ${res.stripe_account_id}`)
+      setConnectMsg(`Setup email sent to ${res.to_email}${res.sandbox ? ' (sandbox)' : ''}. Connect account: ${res.stripe_account_id}`)
       await onDataChange()
     } catch (e) {
       setConnectMsg(e?.message || 'Failed to start Connect setup')

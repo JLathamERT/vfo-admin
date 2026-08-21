@@ -871,9 +871,14 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
   async function sendStripeRequest() {
     setStripeRequesting(true); setStripeMsg('')
     try {
-      const res = await callApi('member_stripe_connect_request', { member_number: member.plugin_member_number })
+      let res = await callApi('member_stripe_connect_request', { member_number: member.plugin_member_number })
+      // Guard refusal (new backend only — an older one never returns this).
+      if (res.already_sent_at) {
+        if (!window.confirm(`A setup email was already sent to this member on ${new Date(res.already_sent_at).toLocaleString()}. Send another?`)) return
+        res = await callApi('member_stripe_connect_request', { member_number: member.plugin_member_number, force: true })
+      }
       setStripeMsgType('success')
-      setStripeMsg(`Setup email drafted to ${res.to_email}${res.sandbox ? ' (sandbox)' : ''}. Account ${res.stripe_account_id} created — send the draft from Gmail.`)
+      setStripeMsg(`Setup email sent to ${res.to_email}${res.sandbox ? ' (sandbox)' : ''}. Stripe account ${res.stripe_account_id} is ready.`)
       await loadProfile()
     } catch (err) { setStripeMsgType('error'); setStripeMsg(err.message) }
     finally { setStripeRequesting(false) }
@@ -1681,8 +1686,23 @@ function MemberSettings({ member, onDataChange }) {
   const [stripeRequesting, setStripeRequesting] = useState(false)
   const [stripeMsg, setStripeMsg] = useState('')
   const [stripeMsgType, setStripeMsgType] = useState('success')
+  const [connectStatus, setConnectStatus] = useState(null)
+  const [connectLoading, setConnectLoading] = useState(true)
+  const [connectRefresh, setConnectRefresh] = useState(0)
 
   useEffect(() => { loadLogin() }, [member.plugin_member_number])
+
+  // The `member` prop comes from allMembers and goes stale the moment a send
+  // creates the account, so ask Stripe rather than trusting the cached row.
+  useEffect(() => {
+    let alive = true
+    setConnectLoading(true)
+    callApi('member_connect_status', { member_number: member.plugin_member_number })
+      .then(res => { if (alive) setConnectStatus(res || { status: 'unavailable' }) })
+      .catch(() => { if (alive) setConnectStatus({ status: 'unavailable' }) })
+      .finally(() => { if (alive) setConnectLoading(false) })
+    return () => { alive = false }
+  }, [member.plugin_member_number, connectRefresh])
 
   async function loadLogin() {
     setLoginLoading(true)
@@ -1725,10 +1745,16 @@ function MemberSettings({ member, onDataChange }) {
   async function sendStripeRequest() {
     setStripeRequesting(true); setStripeMsg('')
     try {
-      const res = await callApi('member_stripe_connect_request', { member_number: member.plugin_member_number })
+      let res = await callApi('member_stripe_connect_request', { member_number: member.plugin_member_number })
+      // Guard refusal (new backend only — an older one never returns this).
+      if (res.already_sent_at) {
+        if (!window.confirm(`A setup email was already sent to this member on ${new Date(res.already_sent_at).toLocaleString()}. Send another?`)) return
+        res = await callApi('member_stripe_connect_request', { member_number: member.plugin_member_number, force: true })
+      }
       setStripeMsgType('success')
-      setStripeMsg(`Setup email drafted to ${res.to_email}${res.sandbox ? ' (sandbox)' : ''}. Account ${res.stripe_account_id} created — send the draft from Gmail.`)
-      if (onDataChange) await onDataChange()
+      setStripeMsg(`Setup email sent to ${res.to_email}${res.sandbox ? ' (sandbox)' : ''}. Stripe account ${res.stripe_account_id} is ready.`)
+      // Local refetch only — a global reload here re-skeletons the whole panel (#245).
+      setConnectRefresh(n => n + 1)
     } catch (err) { setStripeMsgType('error'); setStripeMsg(err.message) }
     finally { setStripeRequesting(false) }
   }
@@ -1756,9 +1782,11 @@ function MemberSettings({ member, onDataChange }) {
       </div>
       <div style={sectionStyle}>
         <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Stripe Connect</div>
-        {member.stripe_account_id ? (
+        {connectLoading ? (
+          <SkeletonText lines={2} />
+        ) : (connectStatus && connectStatus.status !== 'none') ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '13px', color: 'var(--vfo-ink-2)', fontFamily: 'monospace', padding: '8px 12px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '8px' }}>{member.stripe_account_id}</span>
+            <span style={{ fontSize: '13px', color: 'var(--vfo-ink-2)', fontFamily: 'monospace', padding: '8px 12px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '8px' }}>{connectStatus.stripe_account_id}</span>
             <button onClick={sendStripeRequest} disabled={stripeRequesting} style={{ padding: '9px 16px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: stripeRequesting ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: stripeRequesting ? 0.6 : 1 }}>
               {stripeRequesting ? 'Sending...' : 'Resend setup email'}
             </button>

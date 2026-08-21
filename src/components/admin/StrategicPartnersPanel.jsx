@@ -54,7 +54,7 @@ function PartnerCard({ group, onSaved }) {
     try {
       const res = await callApi('strategic_group_stripe_connect_request', { group_id: group.id, contact_email: contactEmail.trim() })
       setMsgType('success')
-      setMsg(`Setup email drafted to ${res.to_email}${res.sandbox ? ' (sandbox)' : ''}. Account ${res.stripe_account_id} ready — send the draft from Gmail.`)
+      setMsg(`Setup email sent to ${res.to_email}${res.sandbox ? ' (sandbox)' : ''}. Account ${res.stripe_account_id} is ready.`)
       await onSaved()
     } catch (err) { setMsgType('error'); setMsg(err.message) }
     finally { setRequesting(false) }
