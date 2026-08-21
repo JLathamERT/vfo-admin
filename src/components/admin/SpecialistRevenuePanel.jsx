@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { callApi } from '../../lib/api'
-import { NAVY, money, requestDate, RequestRow, MarkReceivedButton } from './specialistRevenueShared'
+import { NAVY, money, requestDate, RequestRow, MarkReceivedButton, DeleteRequestButton, canDeleteSpecrevRequest } from './specialistRevenueShared'
 import SpecialistPaymentInput from './SpecialistPaymentInput'
 import { OnboardingListSkeleton } from '../shared/Skeleton'
 
@@ -144,7 +144,9 @@ export default function SpecialistRevenuePanel({ allExperts = [], allMembers = [
       )}
       {!loading && !error && filtered.length > 0 && viewMode === 'specialist' && filtered.map(r => (
         <RequestRow key={r.id} request={r} actions={({ request }) => (
-          request.payment_status === 'pending' ? <MarkReceivedButton request={request} onDone={load} /> : null
+          request.payment_status === 'pending' ? <MarkReceivedButton request={request} onDone={load} />
+            : canDeleteSpecrevRequest(request) ? <DeleteRequestButton request={request} onDone={load} />
+              : null
         )} />
       ))}
       {!loading && !error && filtered.length > 0 && viewMode === 'member' && memberGroups.map(g => <MemberGroupRow key={g.key} group={g} />)}

@@ -92,6 +92,55 @@ export function MarkReceivedButton({ request, onDone }) {
   )
 }
 
+// Mirror of the backend guard in actions/specialist-revenue/delete-request.ts: a request
+// is deletable ONLY while it is genuinely pre-payment — the link was emailed and the
+// specialist never entered payment details. 'requested' is the only such status
+// ('pending' is a house-account bank transfer the admin is waiting on and carries
+// payment_method_type 'bank_transfer'; processing / awaiting_verification / received /
+// failed all have a live or finished payment behind them). A recurring row is excluded —
+// recurring has its own cancel on the plan.
+export function canDeleteSpecrevRequest(request) {
+  return request?.payment_status === 'requested'
+    && !request?.recurring_plan_id
+    && !request?.stripe_payment_intent_id
+    && !request?.payment_method_type
+}
+
+// "Delete request" for a pre-payment request: hard-deletes the request + its recipient
+// lines. The emailed payment link dies with the row (the public page loads by
+// checkout_token and finds nothing).
+export function DeleteRequestButton({ request, onDone }) {
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+  async function go() {
+    if (!window.confirm(`Delete the ${money(request.gross_amount)} payment request for ${request.specialist_name || 'this specialist'}? This removes the request and its recipient lines completely, and the payment link already emailed will stop working. This cannot be undone.`)) return
+    setBusy(true); setMsg(null)
+    try {
+      const res = await callApi('specialist_revenue_delete_request', { request_id: request.id })
+      if (res?.ok) { setMsg({ tone: 'success', text: 'Request deleted.' }); onDone?.() }
+      else setMsg({ tone: 'error', text: res?.error || 'Could not delete the request.' })
+    } catch (e) {
+      setMsg({ tone: 'error', text: e?.message || 'Could not delete the request.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+  const tone = msg && (msg.tone === 'success' ? { c: '#166534', b: '#bbf7d0', bg: '#f0fdf4' }
+    : { c: '#b91c1c', b: '#fecaca', bg: '#fef2f2' })
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <button disabled={busy} onClick={go}
+          style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #fecaca', background: busy ? 'var(--vfo-tint)' : '#fef2f2', color: busy ? 'var(--vfo-faint)' : '#b91c1c', fontWeight: 700, fontSize: '13px', cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          {busy ? 'Deleting…' : 'Delete request'}
+        </button>
+        <span style={{ fontSize: '12px', color: 'var(--vfo-faint)' }}>Removes the request completely and kills the payment link that was emailed.</span>
+      </div>
+      {msg && <div style={{ fontSize: '12.5px', padding: '8px 12px', borderRadius: '8px', color: tone.c, border: `1px solid ${tone.b}`, background: tone.bg }}>{msg.text}</div>}
+    </div>
+  )
+}
+
 // A labelled value with a small Copy button (bank-transfer details).
 function CopyField({ label, value }) {
   const [copied, setCopied] = useState(false)
