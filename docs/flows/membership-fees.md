@@ -32,6 +32,9 @@
   snapshot; untagged members = Legacy). Corporate/untagged members are always advisors.
 - **Charge day** = the day of the first payment when it's the 1st–15th (pay the 8th → the 8th
   forever). Paying after the 15th skips the next month, then bills the 1st (pay Jul 19 → Sep 1…).
+  **EXCEPTION — a monthly TRANSFER may carry an admin-entered charge day (1–15), and then that day
+  wins and nothing is derived from the pay date at all.** See "Transfers with a fixed charge day"
+  below; the column is `charge_day` either way.
 - **Renewal is always a 15th**: pay days 1–14 → the last 15th strictly before
   first-payment + 12 months (pay Jul 8 → renews Jun 15 next year); pay day 15 **or**
   after the 15th → the 15th exactly 12 months out (pay Jul 15 → Jul 15; Jul 19 → Jul 15).
@@ -42,7 +45,12 @@
   (`next_year_amount` − `next_year_credit_note`, editable on any active plan, consumed at renewal) —
   unless auto-renew is toggled off.
 - **Transfers** (members moving off the old billing mid-year): keep their existing renewal 15th
-  (admin inputs it) — **the renewal date never moves**. **Reworked 2026-07-31 (v688–v691):** the
+  (admin inputs it) — **the renewal date never moves**. **A MONTHLY transfer has TWO shapes, and
+  `member_payment_plans.charge_day` is the switch between them:** with a day (1–15) the link is
+  **save-only** and the year is scheduled on that day — see *"Transfers with a fixed charge day"*
+  below, which is what every new monthly transfer gets; **without** a day it uses the pay-at-the-link
+  model described in the rest of this bullet, which is still live for any plan saved before
+  2026-08-21 that has not been re-saved. **Reworked 2026-07-31 (v688–v691):** the
   admin enters exactly ONE number, **"Payments already made this year"** (`prior_payments_made`,
   0–11, now **REQUIRED** on monthly transfers), and the server derives the rest —
   `remaining_payments = 12 − prior` (a real column, written server-side only), `slots` = the link
@@ -79,10 +87,44 @@
   reads *"Save Your Payment Method"*. Fully-credited $0 plans are also save-only
   ($0 rows show "Covered by credit" and are waived when due) — they still take the MONTHLY
   template and render "$0.00 per month", knowingly left as-is (accurate, odd, unreachable today).
+- **Transfers with a fixed charge day (added 2026-08-21, v776) — the model every new monthly
+  transfer uses.** A transferring member has been paying on the same day for years (Tray holds the
+  list); deriving their day from whenever they clicked the setup link re-anchored it, charged them
+  at the link for a month the old platform had already collected, and could skip a month entirely.
+  So `membership_plan_save` now takes a **REQUIRED** `charge_day` (**1–15**) on monthly transfers —
+  a 400 (*"Charge day must be a whole number between 1 and 15"*) when present and invalid, and the
+  admin form blocks save without it. **Three consequences, all of them the point:**
+  **(a) the setup link collects NOTHING** — it is `mode=setup`, save-the-method only, exactly like
+  an annual transfer; **(b) the whole year-1 ledger is `scheduled` on that day**, generated at
+  activation; **(c) a BEHIND member's catch-up folds into the FIRST SCHEDULED CHARGE** rather than
+  into a payment at the link — one combined row at `perPull × k` / `creditPer × k` so
+  `monthsCoveredByRow` still reads *k months* (#316), never several rows on one date (#315).
+  **`transferDaySchedule(plan, basisDate)` in `actions/membership/shared.ts` is the single source**
+  for all of it and every surface calls it — `setup-load`, `setup-checkout`, `activate`,
+  `send-setup-link`, plus a deliberate FE mirror in `MembershipFeesPanel.jsx` beside the existing
+  `transferSlots`/`catchUpCliff` mirrors (they move together). It is a function of its **basis
+  date** like `transferLinkPulls` (#349): page and checkout pass today, `activate` passes the save
+  date, `send-setup-link` passes the draft date — so a member who saves late simply has fewer slots
+  and a bigger first charge, recomputed live and never mischarged. **It returns `null` for anything
+  that is not a monthly transfer with a valid 1–15 day, and that null IS the legacy switch** — see
+  gotcha **#429**, because a missing day silently selects the pay-at-the-link behaviour above with
+  nothing on screen to say so. Days stop at 15 so the month never clamps; slots are day-D
+  occurrences **strictly after** the basis (saving *on* day D bills from the next one) and
+  **strictly before** the renewal (#235/#350). **AHEAD** stops early; **zero slots** (a day-15
+  member whose renewal is the next 15th) collapses the year onto the save date, collected by the
+  next nightly sweep. `transferLinkPulls` and `buildActivatedSchedule` were not touched — the
+  legacy path is byte-identical by construction. **Year 2 needs no special handling:** the sweep's
+  renewal pass already reads `plan.charge_day`, so it lands on the chosen day automatically.
 - **Membership sandbox follows the panel's own toggle.** The `MEMBER_MEMBERSHIP` sandbox row is
   **member-keyed**, so the `constants/test-sandbox.ts` force-sandbox override for test member
   **59524** (#251) — which is client-pipeline only (TAX / MAP 1 / PIP) — **does NOT apply here**.
-  Testing a membership plan means setting the panel's SANDBOX badge by hand.
+  Testing a membership plan means setting the panel's SANDBOX badge by hand. **While that toggle is
+  ON, EVERY live setup/update link in the pipeline 400s with *"link is out of date"*** — the v619
+  mode guards compare each plan's stamped `sandbox` against the pipeline toggle, and every real plan
+  is `sandbox=false`, so flipping the toggle inverts the comparison for all of them at once. This
+  bit a real member on 2026-08-21 (Gary Watts opened his link mid-test). Nothing breaks and no link
+  needs re-issuing — but **flip it back in the same sitting, and never leave it on across a
+  link-emailing action.** Gotcha **#430**.
 - **Missed payment**: row → `missed` (red), member gets the friendly `MEMBERSHIP_payment_failed`
   email (no suspension mention — fix your method at the link; next month doubles to catch up),
   `members.membership_suspended` flips on automatically (auto-clears when caught up; login NOT blocked; SEPARATE from the admin's manual `suspended` toggle — displays OR the two, gotcha #240),
@@ -105,12 +147,25 @@
 1. **Plan creation** — `membership_plan_save` (`actions/membership/plan-save.ts`): validates,
    snapshots member name/model, computes the whole-dollar `per_pull_amount`, stores transfer
    renewal (must be a 15th). NO schedule yet — the ledger depends on the day they actually pay.
+   **Since 2026-08-21 (v776) it also writes `charge_day`** — REQUIRED on monthly transfers, and
+   written **unconditionally** as `isTransfer && monthly ? day : null`, so an edit to annual or away
+   from transfer CLEARS it rather than stranding a stale day (the same discipline
+   `remaining_payments` uses). **That makes plan-save a second writer of a column activation used
+   to own** — `activate.ts` now defers to it instead of re-deriving (gotcha **#429**).
    Editable while `setup_pending`; a live plan only offers next-year terms / auto-renew / terminate.
 2. **Setup link** — `membership_send_setup_link`: find-or-create Stripe customer (mode-matched via
-   `plan.sandbox`), mints `setup_token`, drafts one of THREE templates (pipeline
+   `plan.sandbox`), mints `setup_token`, drafts one of **FOUR** templates (pipeline
    `MEMBER_MEMBERSHIP_FEES`, Draft/Send toggle): `MEMBERSHIP_setup_link` (new plan),
-   `MEMBERSHIP_transfer_setup_link` (monthly transfer), or `MEMBERSHIP_transfer_setup_link|annual`
-   (annual transfer — id 215, added 2026-08-10, gotcha #351).
+   `MEMBERSHIP_transfer_setup_link` (monthly transfer with NO charge day — the legacy pay-at-link
+   copy), `MEMBERSHIP_transfer_setup_link|annual` (annual transfer — id 215, added 2026-08-10,
+   gotcha #351), or **`MEMBERSHIP_transfer_setup_link|monthly-saveonly`** (id **229**, added
+   2026-08-21 — a monthly transfer WITH a charge day). The save-only variant exists for the same
+   reason the annual one does (#351): the monthly copy's *"collected when you complete your setup"*
+   sentences are all false for it. Its four extra tokens — `[Charge Day]` (ordinal),
+   `[Last Charge Date]`, `[First Charge Amount]` (`per_pull × catchUpMonths`) and `[Catch Up Note]`
+   (empty unless behind) — all come from the shared helper; the email must never re-derive the
+   schedule. **A missing template row degrades gracefully:** 200 + `email_skipped`, and the link
+   still works.
    Since 2026-07-15 the Set Up Payments form auto-chains this client-side right after a
    successful CREATE (`plan_save` returns `plan_id`; an email failure never rolls back the
    plan — it surfaces as an amber notice pointing at the card's "Send setup link" resend
@@ -119,11 +174,34 @@
    + `membership_setup_checkout`: mode=payment Checkout charging the first pull with
    `setup_future_usage=off_session` (save-only variants use mode=setup). Metadata on session AND
    intent: `pipeline=MEMBER_MEMBERSHIP`, `payment_kind`, `plan_id` (gotcha #216).
+   **`saveOnly` now has FOUR triggers** (both handlers, and mirrored at BOTH FE sites — the
+   `emailCtx` builder and `OutstandingLinkRow`): an already-active plan, a $0 fully-credited plan,
+   an annual transfer, and **a monthly transfer with a charge day**. `setup-load` returns eight
+   **additive** fields for the last case (`charge_day`, `charge_day_ordinal`, `per_pull_amount`,
+   `payments_remaining`, `first_charge_date`, `last_charge_date`, `first_charge_amount`,
+   `first_charge_months`). **The PAGE deliberately renders NONE of them.** A day plan's page shows
+   *"Nothing is charged today … your membership payments then continue automatically on the {N}th
+   of each month, just as they do now"* and suppresses every amount, cadence and breakdown on both
+   OptionCards — same precedent as the update-method page. A schedule box and a catch-up note were
+   built and then **removed on purpose**: any figure on a page reached by clicking "set up payment"
+   reads as a charge happening today, which is the exact misconception the feature exists to
+   prevent. The admin preview and the email carry the figures instead. The card **fee-rate badge**
+   is kept — it describes the rail, not a charge.
 4. **Webhook activation** (`router/webhooks.ts` isolated blocks → `actions/membership/activate.ts`):
    on `checkout.session.completed` saves the PM as the customer/plan default and generates the
    year's ledger — row 1 = the link payment (card `paid`, ACH `processing` until
    `checkout.session.async_payment_succeeded`/`_failed`), locks `charge_day` + `renewal_date`.
    Already-active plans only refresh the method fields (the update-method path).
+   **A day-carrying monthly transfer keeps the ADMIN's day** (`chargeDayOut`: annual → 15,
+   day plan → the entered day, else the legacy `chargeDayFor(basisDate)`) and its ledger is built by
+   `buildTransferDayRows` — normally with `linkPulls = 0`, so **every row is `scheduled` and there
+   is no paid row at all**. The one exception is a **stale link**: a Checkout session minted before
+   the plan had a charge day can still complete as `mode=payment` afterwards, and that money must be
+   recorded — so row 1 becomes the paid link row at the pay date and the remaining months land on
+   day-D slots after it, with no fallback row permitted to collide with it. `router/webhooks.ts`
+   itself was NOT changed: the `mode=setup` path already passes `payDateIso` null, and the
+   first-signup confirmation email is gated on the `membership_first_payment` kind, so **a save-only
+   completion cannot fire a confirmation email.**
 5. **Daily sweep** — `automation_MEMBERSHIP_sweep` (PUBLIC service-role, cron jobid 16 @12:00 UTC,
    `supabase/cron/membership-sweep.sql`), **five** passes in order — **pass 0 = renewal notices,
    added 2026-08-04 / v700, runs FIRST so a plan is always warned before it is rolled over
@@ -412,7 +490,10 @@ writes a second audit row — verified live with a 3-month pause followed by a 2
      `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`,
      `payment_intent.succeeded`, `payment_intent.payment_failed` (NOT "payment_intent.failed").
   5. Flip the FOUR `MEMBER_MEMBERSHIP_FEES` templates Draft→Send (incl. `MEMBERSHIP_update_link`) (standing directive 2026-07-17:
-     nothing flips in the short term).
+     nothing flips in the short term). **`MEMBERSHIP_transfer_setup_link|monthly-saveonly` (id 229)
+     is NOT one of them** — it was seeded Draft deliberately in 2026-08-21 so a human reads every
+     behind member's larger-first-charge warning before it goes out. Flipping it needs its own
+     decision, and #428's rule applies (a `send_mode` flip is a UI edit too).
   6. Verify `advisor_model` tags on fee-paying members (card gross-up depends on the snapshot).
   7. Smoke one real setup link end-to-end and confirm the customer/charge lands in the LIVE
      Stripe dashboard.

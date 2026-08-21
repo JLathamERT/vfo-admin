@@ -22,7 +22,7 @@ when checking, so terminate → create-new works).
 | `frequency` | `'monthly'` \| `'annual'` |
 | `annual_amount` / `credit_note` / `credit_note_memo` / `net_annual` | terms; credit is FIRST-YEAR only |
 | `per_pull_amount` | whole-dollar charge per pull (round half up), computed at plan-save |
-| `charge_day` | 1–15, locked at first payment (annual plans store 15) |
+| `charge_day` | 1–15 (annual plans store 15). **TWO writers as of 2026-08-21 / v776 — which one filled it decides how the plan bills, and the column itself is the only record of that.** *Pay-derived (the original):* `activate.ts` stamps it from the day the member actually paid at the setup link. *Admin-entered (monthly transfers):* `plan-save.ts` writes it from the form — the day the member has always paid on — and `activate.ts` then **defers** to it instead of re-deriving (`chargeDayOut`). plan-save writes it **unconditionally** as `isTransfer && frequency === 'monthly' ? day : null`, so an edit to annual or away from transfer CLEARS it; it is **REQUIRED** on monthly transfers (400 *"Charge day must be a whole number between 1 and 15"*). **On a monthly transfer, NULL vs non-NULL is the switch between two billing models** — non-NULL = save-only link + the whole year scheduled on that day + catch-up folded into the first scheduled charge; NULL = the legacy pay-at-the-link model (`transferLinkPulls`). `transferDaySchedule()` returning null IS that switch, and nothing on screen announces which mode a plan is in, so **a missed backfill or an omitted form key silently selects the old money behaviour** (gotcha **#429**). All 15 live transfer plans were backfilled non-NULL on 2026-08-21 |
 | `start_date` | date of first payment (provisional = creation date until they pay) |
 | `renewal_date` | always a 15th; derived at first payment (pay days 1–14: last 15th strictly before pay+12mo; day 15 & after-the-15th: the 15th exactly 12mo out — gotcha #235) or admin-entered for transfers; advanced +12mo at each renewal |
 | `auto_renew` | default true |
@@ -50,7 +50,7 @@ sweep index `(status, due_date)`.
 | Column | Notes |
 |---|---|
 | `plan_id` (FK cascade) / `member_number` | |
-| `due_date` / `period_label` | e.g. `2026-08-13` / `August 2026` (annual: `Membership year 2026–2027`). A behind mid-year transfer's first row reads `August 2026 (includes 1-month catch-up)`. **`(plan_id, due_date)` is UNIQUE where `kind='membership'`** (partial index, migration `20260717190000`) — the duplicate-charge guard. **Never write two membership rows on one date for a plan:** a multi-period collection changes the row's AMOUNT, never the row COUNT (gotcha #315) |
+| `due_date` / `period_label` | e.g. `2026-08-13` / `August 2026` (annual: `Membership year 2026–2027`). A behind mid-year transfer's first row reads `August 2026 (includes 1-month catch-up)` — on a legacy transfer that is the row PAID at the link, and on a `charge_day` transfer (v776) it is the first SCHEDULED day-D row instead, same label and same `perPull × k` / `creditPer × k` money. **`(plan_id, due_date)` is UNIQUE where `kind='membership'`** (partial index, migration `20260717190000`) — the duplicate-charge guard. **Never write two membership rows on one date for a plan:** a multi-period collection changes the row's AMOUNT, never the row COUNT (gotcha #315) |
 | `amount_due` / `credit_applied` | whole dollars; $0 rows = credit-covered, waived when due. **A catch-up row carries `perPull × N` and `creditPer × N`** — and `(amount_due + credit_applied) / grossMonthly` is exactly how `monthsCoveredByRow` recovers the number of MONTHS the row spans, which is the unit every member-facing count uses (gotcha #316) |
 | `kind` | `'membership'` \| `'termination_fee'` \| **`'pause'`** (added 2026-08-04, `20260804140000` widened the inline CHECK — constraint name `member_payment_schedule_kind_check`, verified against the live catalog). **`'membership'` is the ONLY kind any money consumer reads.** A `'pause'` row is a zero-dollar MARKER (`status='waived'`, `amount_due` 0) standing in for a month skipped during a membership pause; it exists purely so the ledger shows "Paused" months between the real payments. It is invisible to the charge pass, the renewal guard, the $0-waive pass, the invoice/receipt engine, `all-payments-load`, the webhooks, terminate/cancel voids and `send-reminder` **only because every one of them filters `kind='membership'`** — so **ANY NEW READER of this table must filter `kind` or consciously decide what `'pause'` means to it** (gotcha **#332**). It also cannot collide with a real charge on the same date, because the duplicate-charge unique index is PARTIAL on `kind='membership'` (#315/#239) |
 | `status` | `scheduled` → `processing`/`paid` \| `missed`/`declined` (arrears — swept into the next combined charge) \| `waived` \| `canceled` |
@@ -118,6 +118,17 @@ one. Gotcha **#332**.
   `[Setup Note]` / `[Remaining Payments]`, since nothing is collected at an annual transfer's
   link. Id 191 also gained an "assumes you set up today" paragraph the same day (gotcha #349).
   Migration `20260810100000_membership_transfer_setup_link_annual.sql`. See gotcha #351.
+  **A FOURTH setup-link row was added 2026-08-21 (v776):
+  `MEMBERSHIP_transfer_setup_link|monthly-saveonly` (id 229)** — the variant for a monthly transfer
+  that carries an admin-entered `charge_day`, whose link collects nothing. Subject *"We're moving
+  your ERT Membership billing over"*. **Seeded DRAFT (`send_mode=false`) on purpose, unlike its two
+  send-mode siblings 191/215** — for a member who is BEHIND, the human review of that draft is their
+  only advance warning that the first charge will cover several months, so
+  **`send_mode=true` is still exactly ELEVEN rows system-wide** (#325 unchanged). Extra tokens
+  beyond the shared set: `[Charge Day]` (ordinal), `[Last Charge Date]`, `[First Charge Amount]`,
+  `[Catch Up Note]` — all computed by `transferDaySchedule()`, never re-derived in the emailer.
+  Seeded by MCP SQL, **no migration file** (data-only, no DDL). A missing row degrades gracefully:
+  `membership_send_setup_link` returns 200 + `email_skipped` and the link still works.
   **Two rows added 2026-08-04**, both **Draft** (`send_mode=false`), To `["RECIPIENT"]`,
   Cc `tvaldes@` + `rhopson@`, Bcc `aanderson@` + `platham@`:
   **`MEMBERSHIP_renewal_notice` (id 212)** — subject *"Your ERT Membership renewal — [Renewal
