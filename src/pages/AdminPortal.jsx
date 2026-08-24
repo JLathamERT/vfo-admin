@@ -24,6 +24,8 @@ import AllPaymentsTab from '../components/payments/AllPaymentsTab'
 import SpecialistRevenuePanel from '../components/admin/SpecialistRevenuePanel'
 import SpecialistRecurringPanel from '../components/admin/SpecialistRecurringPanel'
 import SpecialistLicensePanel from '../components/admin/SpecialistLicensePanel'
+import SpecialistLicenseReconciliationPanel from '../components/admin/SpecialistLicenseReconciliationPanel'
+import SpecialistLicenseOutstandingPanel from '../components/admin/SpecialistLicenseOutstandingPanel'
 import SpecialistBgPanel from '../components/admin/SpecialistBgPanel'
 import SpecialistReconciliationPanel from '../components/admin/SpecialistReconciliationPanel'
 import HolisticRevenuePanel from '../components/admin/HolisticRevenuePanel'
@@ -870,7 +872,15 @@ export default function AdminPortal() {
             />
           )}
           {activeTab === 'accounting' && !loading && canSeeTab('accounting') && accountingSection === 'specialist_license' && (
-            <SpecialistLicensePanel />
+            <AccountingCombinedPanel
+              breadcrumb="Accounting · Specialists" title="VFO Specialist License Fees"
+              maxWidth="1200px"
+              tabs={[
+                { key: 'specialist_license', label: 'VFO Specialist License Fees', render: () => <SpecialistLicensePanel allExperts={allExperts} embedded /> },
+                { key: 'specialist_license_reconciliation', label: 'License Reconciliation', render: () => <SpecialistLicenseReconciliationPanel embedded /> },
+                { key: 'specialist_license_outstanding', label: 'Outstanding Payment Links', render: () => <SpecialistLicenseOutstandingPanel embedded /> },
+              ]}
+            />
           )}
           {activeTab === 'accounting' && !loading && canSeeTab('accounting') && accountingSection === 'specialist_bg' && (
             <SpecialistBgPanel />

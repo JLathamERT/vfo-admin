@@ -193,7 +193,10 @@ function CopyField({ label, value }) {
 // One specialist request row: header (name + totals + status) → expand → recipient table.
 // `actions` is an optional render-prop ({ request }) => node shown in the expanded panel
 // (used by the Automation tracker for the Retry button).
-export function RequestRow({ request, actions }) {
+// `grid` opts into the table layout the Accounting viewer uses — the same row rendered as
+// one line of a bordered table instead of a standalone card. Passing nothing keeps the
+// card, which is what the Automation tracker renders.
+export function RequestRow({ request, actions, grid }) {
   const [open, setOpen] = useState(false)
   const isRecurring = !!request.recurring_plan_id
   // Recurring rows relabel the two states they use; everything else (incl. the
@@ -212,6 +215,31 @@ export function RequestRow({ request, actions }) {
   const heldMemberTotal = received ? lines.reduce((s, l) => s + (isHeldLine(l) ? Number(l.member_share) || 0 : 0), 0) : 0
   const d = requestDate(request)
   const dateStr = d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
+  const detail = <RequestDetail request={request} actions={actions} received={received} heldMemberTotal={heldMemberTotal} />
+
+  if (grid) {
+    return (
+      <div>
+        <div onClick={() => setOpen(o => !o)} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)', cursor: 'pointer' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, fontWeight: 600 }}>
+            <span style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>{open ? '▾' : '▸'}</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{request.specialist_name || '—'}</span>
+          </span>
+          <span style={{ color: 'var(--vfo-muted)' }}>{dateStr}</span>
+          <span style={{ textAlign: 'right', color: 'var(--vfo-muted)' }}>{lines.length}</span>
+          <span style={{ textAlign: 'right', color: 'var(--vfo-muted)' }}>{request.total_deals || 0}</span>
+          <span style={{ textAlign: 'right' }}>{money(request.total_member_share)}</span>
+          <span style={{ textAlign: 'right' }}>{money(request.total_vfos_share)}</span>
+          <span style={{ textAlign: 'right', fontWeight: 700, color: 'var(--vfo-heading)' }}>{money(request.gross_amount)}</span>
+          <span style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+            {isRecurring && <StatusPill label="Recurring" color="#6b7280" />}
+            <StatusPill label={req.label} color={req.color} />
+          </span>
+        </div>
+        {open && detail}
+      </div>
+    )
+  }
 
   return (
     <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '14px', marginBottom: '10px', overflow: 'hidden' }}>
@@ -241,7 +269,16 @@ export function RequestRow({ request, actions }) {
         </div>
       </div>
 
-      {open && (
+      {open && detail}
+    </div>
+  )
+}
+
+// The expanded half of a request row — recipient lines, their totals, the house-account
+// details and any caller-supplied actions. Shared by the card and table layouts above.
+function RequestDetail({ request, actions, received, heldMemberTotal }) {
+  const lines = request.lines || []
+  return (
         <div style={{ background: 'var(--vfo-input)', borderTop: '1px solid var(--vfo-border-soft)', padding: '14px 18px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 120px 120px 70px 1fr', gap: '10px', padding: '0 0 8px', fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)' }}>
             <div>Recipient</div><div>VFOS $</div><div>Member $</div><div>Deals</div><div style={{ textAlign: 'right' }}>Status</div>
@@ -288,7 +325,5 @@ export function RequestRow({ request, actions }) {
           )}
           {actions && <div style={{ marginTop: '14px' }}>{actions({ request })}</div>}
         </div>
-      )}
-    </div>
   )
 }
