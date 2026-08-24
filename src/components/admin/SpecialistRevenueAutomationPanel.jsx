@@ -8,6 +8,11 @@ import { TableSkeleton } from '../shared/Skeleton'
 // where-everything-is-at status and a Retry-payout action. Sandbox toggle shares the
 // MAP 1 row (the same toggle that controls the Connect accounts + transfers).
 
+// Payout states that still owe the recipient money. The held_member_* pair is parked
+// behind a suspended / paused member and is released on reinstatement, so it counts as
+// open and stays retryable — a retry pays it the moment the member is reinstated.
+const OPEN_PAYOUT = ['pending', 'awaiting_connect', 'failed', 'held_member_suspended', 'held_member_paused']
+
 export default function SpecialistRevenueAutomationPanel() {
   const [requests, setRequests] = useState([])
   const [sandboxConfig, setSandboxConfig] = useState(null)
@@ -52,7 +57,7 @@ export default function SpecialistRevenueAutomationPanel() {
     const awaiting = requests.filter(r => ['requested', 'processing', 'pending', 'awaiting_verification'].includes(r.payment_status)).length
     let pendingLines = 0
     requests.forEach(r => (r.lines || []).forEach(l => {
-      if (['pending', 'awaiting_connect', 'failed'].includes(l.payout_status) && r.payment_status === 'received') pendingLines++
+      if (OPEN_PAYOUT.includes(l.payout_status) && r.payment_status === 'received') pendingLines++
     }))
     return { total, received, awaiting, pendingLines }
   }, [requests])
@@ -107,7 +112,7 @@ export default function SpecialistRevenueAutomationPanel() {
             return <MarkReceivedButton request={request} onDone={load} />
           }
           const received = request.payment_status === 'received'
-          const hasOpen = (request.lines || []).some(l => ['pending', 'awaiting_connect', 'failed'].includes(l.payout_status))
+          const hasOpen = (request.lines || []).some(l => OPEN_PAYOUT.includes(l.payout_status))
           return (
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <button disabled={!received || !hasOpen || retrying === request.id} onClick={() => retry(request.id)}

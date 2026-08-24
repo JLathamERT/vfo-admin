@@ -79,10 +79,13 @@ export function clearedTaxPayments(rows) {
           id: `${r.id}-ret`, kind: 'Retainer', clearedAt, amount: ret, member: mp, strategic: sp, planner: pp,
           vfos: Math.max(ret - mp - sp - pp, 0), status: r.retainer_status,
           // The retainer's revenue share fires on the client's decision after the
-          // review, not on the charge — hence its own context.
+          // review, not on the charge — hence its own context. ALL THREE legs fire on
+          // that one trigger, so all three carry it: without it a blank strategic leg
+          // reads "not yet paid" beside siblings reading "awaiting client decision",
+          // which describes the same wait two different ways.
           memberState: legState(r.retainer_rev_paid, { revShare: r.retainer_rev_share, paymentStatus: r.retainer_status, context: 'tax_retainer' }),
           plannerState: plannerStateFor(pp, r.retainer_planner_paid, r.retainer_status, 'tax_retainer'),
-          strategicState: sp > 0 ? legState(r.retainer_strat_paid, { paymentStatus: r.retainer_status }) : null,
+          strategicState: sp > 0 ? legState(r.retainer_strat_paid, { paymentStatus: r.retainer_status, context: 'tax_retainer' }) : null,
           vfosState: vfosStateFor(r.retainer_status),
           paymentNote: paymentNoteFor(r.retainer_status),
           ...base,

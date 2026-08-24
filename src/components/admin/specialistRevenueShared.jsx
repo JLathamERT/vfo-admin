@@ -2,6 +2,10 @@
 // (Accounting viewer + Automation tracker).
 import { useState } from 'react'
 import { callApi } from '../../lib/api'
+// Wording only. shareLegState imports `money` from here, so this is a cycle — safe
+// because neither module touches the other's bindings at module scope, only inside
+// functions that run at render.
+import { HELD_SUSPENDED_NOTE, HELD_PAUSED_NOTE, PENDING_COLOR } from './shareLegState'
 
 export const NAVY = '#002973'
 export const BLUE = '#125ecc'
@@ -32,9 +36,30 @@ function lineStatusMeta(line, requestReceived) {
     case 'revenue_share_sent': return { label: 'Revenue share payment sent', color: '#16a34a' }
     case 'money_mapping': return { label: 'Allocated to money mapping', color: '#16a34a' }
     case 'awaiting_connect': return { label: 'Awaiting Stripe Connect setup', color: '#b45309' }
+    case 'held_member_suspended': return { label: HELD_SUSPENDED_NOTE, color: '#b45309' }
+    case 'held_member_paused': return { label: HELD_PAUSED_NOTE, color: '#b45309' }
     case 'failed': return { label: 'Transfer failed', color: '#ef4444' }
     default: return { label: 'Pending', color: 'var(--vfo-muted)' }
   }
+}
+
+// The note that sits UNDER a line's Member $ figure, matching what the three VFO Services
+// revenue tabs print under theirs. Only the readings that say something about the money
+// itself get one: it has gone out, or it is parked behind a member hold. Every other open
+// state is already spelled out by the status pill on the right of the same row, so adding
+// a second copy of it under the dollars would be noise.
+export function memberShareNote(line, requestReceived) {
+  if (!requestReceived) return null
+  if (line.payout_status === 'revenue_share_sent') return { text: 'paid', color: '#1b9254' }
+  if (line.payout_status === 'held_member_suspended') return { text: HELD_SUSPENDED_NOTE, color: PENDING_COLOR }
+  if (line.payout_status === 'held_member_paused') return { text: HELD_PAUSED_NOTE, color: PENDING_COLOR }
+  return null
+}
+
+export const shareNoteStyle = { display: 'block', fontSize: '9px', lineHeight: 1.2, fontWeight: 400 }
+
+export function isHeldLine(line) {
+  return line.payout_status === 'held_member_suspended' || line.payout_status === 'held_member_paused'
 }
 
 export function StatusPill({ label, color }) {
@@ -175,13 +200,16 @@ export function RequestRow({ request, actions }) {
   // house-account 'pending' = Awaiting bank transfer) keeps its non-recurring meta.
   const RECURRING_STATUS = {
     processing: { label: 'Pending', color: '#e06717' },
-    received: { label: 'Completed', color: '#16a34a' },
+    received: { label: 'Payment received', color: '#16a34a' },
   }
   const req = (isRecurring && RECURRING_STATUS[request.payment_status])
     || REQ_STATUS[request.payment_status]
     || { label: request.payment_status, color: 'var(--vfo-muted)' }
   const received = request.payment_status === 'received'
   const lines = request.lines || []
+  // Member dollars parked behind a suspended/paused member. Only meaningful once the
+  // specialist's payment is in — before that no line has been attempted at all.
+  const heldMemberTotal = received ? lines.reduce((s, l) => s + (isHeldLine(l) ? Number(l.member_share) || 0 : 0), 0) : 0
   const d = requestDate(request)
   const dateStr = d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
 
@@ -220,6 +248,7 @@ export function RequestRow({ request, actions }) {
           </div>
           {lines.map(line => {
             const m = lineStatusMeta(line, received)
+            const note = memberShareNote(line, received)
             return (
               <div key={line.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 120px 120px 70px 1fr', gap: '10px', alignItems: 'center', padding: '9px 0', borderTop: '1px solid var(--vfo-tint)', fontSize: '13px', color: 'var(--vfo-ink-2)' }}>
                 <div>
@@ -227,7 +256,10 @@ export function RequestRow({ request, actions }) {
                   <div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>{line.recipient_type === 'specialist' ? 'Specialist' : (line.member_number || 'Member')} · {line.revenue_decision || 'Revenue Share'}</div>
                 </div>
                 <div>{money(line.vfos_share)}</div>
-                <div>{money(line.member_share)}</div>
+                <div>
+                  <span style={{ opacity: note && note.color === PENDING_COLOR ? 0.55 : 1 }}>{money(line.member_share)}</span>
+                  {note && <span style={{ ...shareNoteStyle, color: note.color }}>{note.text}</span>}
+                </div>
                 <div>{line.deals || 0}</div>
                 <div style={{ textAlign: 'right' }}><StatusPill label={m.label} color={m.color} /></div>
               </div>
@@ -236,7 +268,10 @@ export function RequestRow({ request, actions }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 120px 120px 70px 1fr', gap: '10px', alignItems: 'center', padding: '10px 0 2px', borderTop: '2px solid var(--vfo-border)', marginTop: '4px', fontSize: '13px', fontWeight: 700, color: 'var(--vfo-heading)' }}>
             <div>Totals</div>
             <div>{money(request.total_vfos_share)}</div>
-            <div>{money(request.total_member_share)}</div>
+            <div>
+              {money(request.total_member_share)}
+              {heldMemberTotal > 0 && <span style={{ ...shareNoteStyle, color: PENDING_COLOR }}>{money(heldMemberTotal)} held</span>}
+            </div>
             <div>{request.total_deals || 0}</div>
             <div style={{ textAlign: 'right', color: 'var(--vfo-muted)', fontWeight: 600 }}>{request.payment_method_type ? `${request.payment_method_type === 'bank_transfer' ? 'bank transfer' : request.payment_method_type}${request.acct_last4 ? ` ••${request.acct_last4}` : ''}` : ''}</div>
           </div>

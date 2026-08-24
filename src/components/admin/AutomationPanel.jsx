@@ -139,6 +139,10 @@ function ExpandedRow({ row, onRefresh }) {
     // nightly sweep pays it once one exists, so say so rather than letting it fall
     // through to the generic "Revenue Share" and read as ordinary.
     if (paidVal === 'Awaiting Connect Setup') return 'Share held — payout setup needed'
+    // Same shape: the share is due, but the member is suspended or paused, so it is
+    // parked until they are reinstated.
+    if (paidVal === 'Held - Member Suspended') return 'Share held — member suspended'
+    if (paidVal === 'Held - Member Paused') return 'Share held — member paused'
     if (share || paidVal === 'Yes' || paidVal === 'Failed') return 'Revenue Share'
     return null
   }

@@ -127,7 +127,7 @@
   link-emailing action.** Gotcha **#430**.
 - **Missed payment**: row → `missed` (red), member gets the friendly `MEMBERSHIP_payment_failed`
   email (no suspension mention — fix your method at the link; next month doubles to catch up),
-  `members.membership_suspended` flips on automatically (auto-clears when caught up; login NOT blocked; SEPARATE from the admin's manual `suspended` toggle — displays OR the two, gotcha #240),
+  `members.membership_suspended` flips on automatically (auto-clears when caught up; login NOT blocked; SEPARATE from the admin's manual `suspended` toggle — displays OR the two, gotcha #240; **since 2026-08-24 it also HOLDS the member's revenue-share payouts across all four engines** — see [tables/members.md](../tables/members.md)),
   admin gets the `MEMBERSHIP_charge_failed` bell. The catch-up is automatic: the next due month
   and ALL arrears go out as ONE combined off-session charge.
 - **Termination**: "Terminate member" (replaces cancel on active plans) → admin enters a fee →
@@ -211,6 +211,15 @@
    LOGICAL/date-less sorted row-set idempotency keys `membership-pull-<plan>-<rowids>`, gotcha
    #228 class; a charge that succeeds but whose ledger write fails alerts Jake loudly; sync
    card decline → missed/email/suspend/bell), **auto-unsuspend** caught-up members.
+   **Pass 4 now also RELEASES HELD REVENUE SHARES (2026-08-24)** *(v: 2026-08-24)* — after
+   clearing `membership_suspended` for a caught-up plan it **re-reads the member row** and, only
+   when `memberHoldReason` finds **no reason left** (the admin's own `suspended`/`paused` toggles
+   hold independently — #240), calls `releaseHeldMemberPayouts(member_number)`, which HTTP-chains
+   `automation_CONTRACT_revshare` / `automation_TAX_revshare` / `automation_PIP_revshare` /
+   `specialist_revenue_payout` for every leg parked by the standing hold. The summary gains
+   **`payouts_released`** (count of legs re-fired). A failed re-read logs and SKIPS the release
+   rather than guessing; the unsuspend itself is never blocked by it. Chain bodies + the both-linkage
+   client resolution: [07-server-chains.md § Member reinstatement](../architecture/07-server-chains.md).
    Off-session PI settlement has a webhook block (`payment_intent.succeeded/_failed` routed by
    membership metadata) covering ACH pulls + termination fees — and since v617 the
    `payment_intent.payment_failed` branch mirrors the sweep's failure arm for late ACH bounces

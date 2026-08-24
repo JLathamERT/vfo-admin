@@ -1279,7 +1279,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
           <div style={sectionStyle}>
             <div style={cardTitle}>Settings</div>
             <div style={rowStyle}>
-              <div><div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>Suspended</div><div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Stops all active processing</div></div>
+              <div><div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>Suspended</div><div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Stops all active processing and holds revenue share payouts — they release automatically when unsuspended</div></div>
               <div onClick={() => update('suspended', !profile.suspended)} style={{ width: '44px', height: '24px', borderRadius: '12px', background: profile.suspended ? '#e74c3c' : 'var(--vfo-border-strong)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
                 <div style={{ position: 'absolute', top: '2px', left: profile.suspended ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'var(--vfo-card)', transition: 'left 0.2s' }} />
               </div>
@@ -1290,7 +1290,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
               </div>
             )}
             <div style={{ ...rowStyle, borderBottom: 'none' }}>
-              <div><div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>Paused</div><div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Temporarily pauses activity</div></div>
+              <div><div style={{ fontSize: '14px', color: 'var(--vfo-ink)' }}>Paused</div><div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>Temporarily pauses activity and holds revenue share payouts — they release automatically when unpaused</div></div>
               <div onClick={() => update('paused', !profile.paused)} style={{ width: '44px', height: '24px', borderRadius: '12px', background: profile.paused ? '#e06717' : 'var(--vfo-border-strong)', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
                 <div style={{ position: 'absolute', top: '2px', left: profile.paused ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'var(--vfo-card)', transition: 'left 0.2s' }} />
               </div>

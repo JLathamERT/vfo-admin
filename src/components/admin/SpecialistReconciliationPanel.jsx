@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { callApi } from '../../lib/api'
 import { NAVY, money, requestDate } from './specialistRevenueShared'
-import { PendingNote } from './shareLegState'
+import { PendingNote, HeldNote } from './shareLegState'
 import { AccountingTableSkeleton } from '../shared/Skeleton'
 
 // Accounting > Specialists > VFO Specialist Member Reconciliation. Pick a year → every
@@ -11,9 +11,15 @@ import { AccountingTableSkeleton } from '../shared/Skeleton'
 //
 // A received request does not mean its member payouts went out — each line carries its
 // own payout_status, so the totals also track the portion still awaiting a transfer and
-// show it as a pending sub-note. The totals themselves are the full share, unchanged.
+// show it as a pending sub-note. Lines parked behind a suspended or paused member get
+// their own "$X held - suspended" / "$X held - paused" note instead, so the two notes
+// partition what is owed. The totals themselves are the full share, unchanged.
 
+// Still owed, but for an ordinary reason. The two member-holds are owed as well and are
+// counted separately, so the pending note and the held note partition the outstanding
+// money instead of both claiming the same dollars.
 const PENDING_PAYOUT = new Set(['pending', 'awaiting_connect', 'failed'])
+const HELD_REASON = { held_member_suspended: 'suspended', held_member_paused: 'paused' }
 
 function memberName(m) {
   return m.name || `${m.first_name || ''} ${m.last_name || ''}`.trim() || '—'
@@ -74,24 +80,32 @@ export default function SpecialistReconciliationPanel({ allMembers = [], embedde
     return Array.from(set).sort((a, b) => b - a)
   }, [memberLines])
 
-  // member_number -> { member, vfos, mm } plus the not-yet-paid portion of each, for the
-  // selected year. A line is settled at revenue_share_sent (transferred) or money_mapping
-  // (credited); pending/awaiting_connect/failed are still owed — payout-sweep.ts.
+  // member_number -> { member, vfos, mm } plus the not-yet-paid portion of each, split
+  // into ordinary-pending and held, for the selected year. A line is settled at
+  // revenue_share_sent (transferred) or money_mapping (credited); pending /
+  // awaiting_connect / failed / held_member_* are still owed — the held pair is parked
+  // behind a suspended or paused member and pays on reinstatement, which is why it is
+  // broken out under its own note rather than folded into "pending".
   const totalsByMember = useMemo(() => {
     const map = {}
     for (const l of memberLines) {
       if (l.year !== year) continue
       const k = l.member_number
-      const t = map[k] || (map[k] = { member: 0, vfos: 0, mm: 0, memberPending: 0, mmPending: 0 })
+      const t = map[k] || (map[k] = { member: 0, vfos: 0, mm: 0, memberPending: 0, mmPending: 0, memberHeldSus: 0, memberHeldPau: 0, mmHeldSus: 0, mmHeldPau: 0 })
       const isMM = (l.revenue_decision || '') === 'Money Mapping'
       const ms = Number(l.member_share) || 0
       const pending = PENDING_PAYOUT.has(l.payout_status)
+      const held = HELD_REASON[l.payout_status] || null
       if (isMM) {
         t.mm += ms
-        if (pending) t.mmPending += ms
+        if (held === 'suspended') t.mmHeldSus += ms
+        else if (held === 'paused') t.mmHeldPau += ms
+        else if (pending) t.mmPending += ms
       } else {
         t.member += ms
-        if (pending) t.memberPending += ms
+        if (held === 'suspended') t.memberHeldSus += ms
+        else if (held === 'paused') t.memberHeldPau += ms
+        else if (pending) t.memberPending += ms
       }
       t.vfos += Number(l.vfos_share) || 0
     }
@@ -117,7 +131,8 @@ export default function SpecialistReconciliationPanel({ allMembers = [], embedde
   const tot = rows.reduce((s, r) => ({
     member: s.member + r.t.member, vfos: s.vfos + r.t.vfos, mm: s.mm + r.t.mm, cn: s.cn + (r.cn || 0),
     memberPending: s.memberPending + r.t.memberPending, mmPending: s.mmPending + r.t.mmPending,
-  }), { member: 0, vfos: 0, mm: 0, cn: 0, memberPending: 0, mmPending: 0 })
+    memberHeld: s.memberHeld + r.t.memberHeldSus + r.t.memberHeldPau, mmHeld: s.mmHeld + r.t.mmHeldSus + r.t.mmHeldPau,
+  }), { member: 0, vfos: 0, mm: 0, cn: 0, memberPending: 0, mmPending: 0, memberHeld: 0, mmHeld: 0 })
 
   const wrap = embedded ? { fontFamily: 'Inter, sans-serif' } : { padding: '24px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }
   const sel = { padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', fontSize: '13px', fontFamily: 'Inter, sans-serif', color: 'var(--vfo-ink)', cursor: 'pointer' }
@@ -151,8 +166,8 @@ export default function SpecialistReconciliationPanel({ allMembers = [], embedde
           <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '11px 18px', borderBottom: '2px solid var(--vfo-border)', background: 'var(--vfo-input)', alignItems: 'center', fontSize: '13px', fontWeight: 800, color: 'var(--vfo-heading)' }}>
             <span />
             <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--vfo-muted)' }}>Totals</span>
-            <span style={{ textAlign: 'right', ...(tot.member ? {} : muted) }}>{tot.member ? money(tot.member) : '—'}<PendingNote amount={tot.memberPending} money={money} /></span>
-            <span style={{ textAlign: 'right', ...(tot.mm ? {} : muted) }}>{tot.mm ? money(tot.mm) : '—'}<PendingNote amount={tot.mmPending} money={money} /></span>
+            <span style={{ textAlign: 'right', ...(tot.member ? {} : muted) }}>{tot.member ? money(tot.member) : '—'}<PendingNote amount={tot.memberPending} money={money} /><HeldNote total={tot.memberHeld} money={money} /></span>
+            <span style={{ textAlign: 'right', ...(tot.mm ? {} : muted) }}>{tot.mm ? money(tot.mm) : '—'}<PendingNote amount={tot.mmPending} money={money} /><HeldNote total={tot.mmHeld} money={money} /></span>
             <span style={{ textAlign: 'right' }}>{money(tot.vfos)}</span>
             <span style={{ textAlign: 'right', ...muted }}>—</span>
             <span style={{ textAlign: 'right' }}>{tot.cn ? money(tot.cn) : '—'}</span>
@@ -162,8 +177,8 @@ export default function SpecialistReconciliationPanel({ allMembers = [], embedde
               <div key={mn} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '11px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)' }}>
                 <span style={{ color: 'var(--vfo-muted)' }}>{mn || '—'}</span>
                 <span style={{ fontWeight: 600 }}>{m ? memberName(m) : '—'}</span>
-                <span style={{ textAlign: 'right', fontWeight: t.member ? 700 : 400, color: t.member ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{t.member ? money(t.member) : '—'}{t.member ? <PendingNote amount={t.memberPending} money={money} /> : null}</span>
-                <span style={{ textAlign: 'right', fontWeight: t.mm ? 700 : 400, color: t.mm ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{t.mm ? money(t.mm) : '—'}{t.mm ? <PendingNote amount={t.mmPending} money={money} /> : null}</span>
+                <span style={{ textAlign: 'right', fontWeight: t.member ? 700 : 400, color: t.member ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{t.member ? money(t.member) : '—'}{t.member ? <><PendingNote amount={t.memberPending} money={money} /><HeldNote suspended={t.memberHeldSus} paused={t.memberHeldPau} money={money} /></> : null}</span>
+                <span style={{ textAlign: 'right', fontWeight: t.mm ? 700 : 400, color: t.mm ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{t.mm ? money(t.mm) : '—'}{t.mm ? <><PendingNote amount={t.mmPending} money={money} /><HeldNote suspended={t.mmHeldSus} paused={t.mmHeldPau} money={money} /></> : null}</span>
                 <span style={{ textAlign: 'right', fontWeight: t.vfos ? 700 : 400, color: t.vfos ? 'var(--vfo-ink)' : 'var(--vfo-faint)' }}>{money(t.vfos)}</span>
                 <span style={{ textAlign: 'right', ...muted }}>—</span>
                 <span style={{ textAlign: 'right', fontWeight: cn ? 700 : 400, color: cn ? '#7c3aed' : 'var(--vfo-faint)' }}>{cn ? money(cn) : '—'}</span>

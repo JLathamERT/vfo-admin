@@ -3,7 +3,7 @@ import { callApi } from '../../lib/api'
 import { NAVY, money } from './specialistRevenueShared'
 import { inPeriod } from './holisticShared'
 import { clearedPipPurchases } from './pipShared'
-import { ShareCell, PendingNote, SubNote } from './shareLegState'
+import { ShareCell, PendingNote, SubNote, HeldNote, heldReason, isMoneyMappingLeg } from './shareLegState'
 import { AccountingTableSkeleton } from '../shared/Skeleton'
 import { ClientNameLink, MemberNameLink } from '../shared/personLinks'
 
@@ -14,8 +14,10 @@ import { ClientNameLink, MemberNameLink } from '../shared/personLinks'
 // The member share is money owed, not money moved: it carries a tiny note saying whether
 // the transfer has actually gone out, and an unpaid one renders dimmed. Elite VFO Income
 // has no payout leg, but it is marked the same way while the payment itself is still
-// clearing. The amounts and the totals are the full split either way — the pending
-// sub-note under each total says how much of it is still sitting in the VFO balance.
+// clearing. The amounts and the totals are the full split either way — the pending and
+// held sub-notes under each member total say how much of it is still sitting in the VFO
+// balance, and which part of that is parked behind a suspended or paused member rather
+// than merely not sent yet.
 //
 // The member's slice lands in one of two columns depending on the member's revenue
 // decision, because a Money Mapping member is credited growth credits rather than paid
@@ -28,7 +30,10 @@ function fmtDate(s) {
   try { return new Date(s).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) } catch { return String(s) }
 }
 
-const isMoneyMapping = p => (p.decision || '') === 'Money Mapping'
+// PIP carries its own history IN the status ('Completed - Money Mapping' vs
+// 'Completed - Revenue Share'), so a settled purchase buckets by what happened; only an
+// unsettled one falls back to the member's current decision. See isMoneyMappingLeg.
+const isMoneyMapping = p => isMoneyMappingLeg(p.memberState, p.decision)
 
 // Inside the Money Mapping column the leg's own 'money mapping' note only repeats the
 // column header, so it reads as 'credited' there. Every other note is left alone.
@@ -76,8 +81,15 @@ export default function PipRevenuePanel({ embedded = false }) {
   const totMemberRev = filtered.reduce((s, p) => s + (isMoneyMapping(p) ? 0 : p.member), 0)
   const totMM = filtered.reduce((s, p) => s + (isMoneyMapping(p) ? p.member : 0), 0)
   const totVfos = filtered.reduce((s, p) => s + p.vfos, 0)
-  const pendMemberRev = filtered.reduce((s, p) => s + (!isMoneyMapping(p) && p.memberState?.tone === 'pending' ? p.member : 0), 0)
-  const pendMM = filtered.reduce((s, p) => s + (isMoneyMapping(p) && p.memberState?.tone === 'pending' ? p.member : 0), 0)
+  // A held leg is pending too, but it is parked for a knowable reason, so it comes OUT of
+  // the plain pending note and gets its own — the two notes partition what is still owed.
+  const pend = p => p.memberState?.tone === 'pending'
+  const heldOf = p => heldReason(p.memberState)
+  const sumMember = fn => filtered.reduce((s, p) => s + (fn(p) ? p.member : 0), 0)
+  const pendMemberRev = sumMember(p => !isMoneyMapping(p) && pend(p) && !heldOf(p))
+  const pendMM = sumMember(p => isMoneyMapping(p) && pend(p) && !heldOf(p))
+  const heldMemberRev = sumMember(p => !isMoneyMapping(p) && heldOf(p))
+  const heldMM = sumMember(p => isMoneyMapping(p) && heldOf(p))
   const pendVfos = filtered.reduce((s, p) => s + (p.vfosState?.tone === 'pending' ? p.vfos : 0), 0)
   const periodLabel = month >= 0 ? `${MONTHS[month]} ${year}` : `${year}`
 
@@ -117,8 +129,8 @@ export default function PipRevenuePanel({ embedded = false }) {
             <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--vfo-muted)' }}>Totals</span>
             <span /><span /><span />
             <span style={{ textAlign: 'right', borderRight: '1px solid var(--vfo-border-strong)', paddingRight: '12px' }}>{money(totGross)}</span>
-            <span style={{ textAlign: 'right' }}>{totMemberRev ? money(totMemberRev) : '—'}<PendingNote amount={pendMemberRev} money={money} /></span>
-            <span style={{ textAlign: 'right' }}>{totMM ? money(totMM) : '—'}<PendingNote amount={pendMM} money={money} /></span>
+            <span style={{ textAlign: 'right' }}>{totMemberRev ? money(totMemberRev) : '—'}<PendingNote amount={pendMemberRev} money={money} /><HeldNote total={heldMemberRev} money={money} /></span>
+            <span style={{ textAlign: 'right' }}>{totMM ? money(totMM) : '—'}<PendingNote amount={pendMM} money={money} /><HeldNote total={heldMM} money={money} /></span>
             <span style={{ textAlign: 'right' }}>{money(totVfos)}<PendingNote amount={pendVfos} money={money} /></span>
           </div>
           {filtered.length === 0 && (

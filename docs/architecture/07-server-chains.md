@@ -22,7 +22,7 @@ await fetch(`${SUPABASE_URL}/functions/v1/vfo-admin-api`, {
 });
 ```
 
-**33 files** chain this way (verified 2026-08-14). Two credential shapes, and the difference is load-bearing:
+**34 files** chain this way (33 verified 2026-08-14; **`utils/member-payout-release.ts` added 2026-08-24** — the first chaining file that is a *util* rather than an action, because its two callers already hold service-role context and nothing third-party triggers it). Two credential shapes, and the difference is load-bearing:
 
 | Caller context | Credential | Notes |
 |---|---|---|
@@ -74,6 +74,8 @@ Three families sit **outside** this cascade as additive blocks: the specialist *
 
 `automation_CONTRACT_revshare` **pays immediately** — the Tracy Revenue-Master cross-check was removed 2026-07-01 (**#164**), amounts come straight from the PF input form. It also transfers the 10% **strategic partner** share to `strategic_member_groups.stripe_account_id` and drafts the partner rev-share email. Share proration is **not uniform across legs** — member pays in full, strategic is gross-prorated, VFOS is the residual (**#394**); copy `contract-revshare.ts`, never re-derive.
 
+**MEMBER-STANDING HOLD (2026-08-24)** *(v: 2026-08-24)*. All four revenue-share engines — `contract-revshare.ts`, `tax/revshare.ts`, `msm/pip-revshare.ts` and `utils/specialist-revenue-payout.ts` — now carry a **hold branch** in their exhaustive branch chain (**#303**), placed **after** money-mapping and the zero-share close and **above** the no-Connect-account branch. `utils/member-payout-hold.ts` `memberHoldReason(member)` reads `members.suspended || members.membership_suspended` → `"suspended"`, else `members.paused` → `"paused"`; a member with any of the three flags gets **no transfer, no member email and no completion stamp**, and the leg parks non-terminally (`"Held - Member Suspended"` / `"Held - Member Paused"` in the `rev_paid` TEXT columns; `held_member_suspended` / `held_member_paused` in `specialist_revenue_lines.payout_status`). **Only the MEMBER leg is held** — strategic-partner, tax-planner and specialist/expert legs pay normally in the same run. The ordering above the no-account branch is deliberate: a suspended member must never trigger the Connect-setup bell or its email. Each hold drafts ONE internal Gmail **draft** (`draftMemberHeldNotice`, template `MEMBERS` / `MEMBER_revshare_held`, never `sendMode`), deduped on the leg's **prior** status so a webhook redelivery (**#327**) or a nightly sweep tick re-holds silently.
+
 ### Tax
 
 | Trigger | Chain |
@@ -86,6 +88,8 @@ Three families sit **outside** this cascade as additive blocks: the specialist *
 **No revshare chain fires on the tax payment itself.** There is **no 24h auto-lock and no auto-charge anywhere in the tax track** — both were deleted (**#264**, **#398**). `automation_TAX_charge_implementation` has exactly **ONE** runtime call site and **nothing may ever chain it from a sweep again**. `'Auto-Locked'` has zero writers system-wide and survives only on historical rows, which `actions/clients/overview-tax.ts` and `TaxPrioritiesTab` still read — do not delete the readers.
 
 ACH retainer → off-session implementation charge is rejected by Stripe (`us_bank_account not allowed`); the handler degrades to `declined` + a fresh `/tax-pay` link (see [flows/tax-planning.md](../flows/tax-planning.md) failure mode #9).
+
+`automation_TAX_revshare` carries the same **member-standing hold branch** as MAP 1 (see the MAP 1 section above) — member leg only; the **strategic and tax-planner legs still pay** in the same run. The 02:30 sweep's `isRetry` predicate was widened to include the two held values so a reinstated member is paid on the next nightly tick.
 
 ### Advisor / Accountant onboarding
 
@@ -102,7 +106,9 @@ Structurally identical — the accountant pipeline is a **file-for-file clone**,
 
 ### PIP Meetings
 
-Card → `automation_PIP_invoicereceipt` + `automation_PIP_revshare`, **no confirmation**. ACH → `automation_PIP_confirmationemail` at checkout, then on `payment_intent.succeeded` (gated `pi.metadata.pipeline === "PIP"`) → `_invoicereceipt` + `_revshare`. PIP's gate is at the **call site** because its confirmation handler owns nothing but the email. `automation_PIP_revshare` also **unlocks locked child meetings** (flips `pip_paid=true` on every row whose `pip_purchased_from_track_id` matches). PIP uses no BoldSign, no storage bucket and **has no cron** — stalled chains need a manual service-role re-fire.
+Card → `automation_PIP_invoicereceipt` + `automation_PIP_revshare`, **no confirmation**. ACH → `automation_PIP_confirmationemail` at checkout, then on `payment_intent.succeeded` (gated `pi.metadata.pipeline === "PIP"`) → `_invoicereceipt` + `_revshare`. PIP's gate is at the **call site** because its confirmation handler owns nothing but the email. `automation_PIP_revshare` also **unlocks locked child meetings** (flips `pip_paid=true` on every row whose `pip_purchased_from_track_id` matches) — and since 2026-08-24 it unlocks on a **held** member leg too, because the client has paid regardless of the member's standing. A held PIP leg writes **neither `pip_rev_share_transfer_id` nor `pip_rev_share_completed_at`**.
+
+PIP uses no BoldSign, no storage bucket and **has no cron of its own** — a `Pending` (failed-transfer) leg or a stalled chain still needs a manual service-role re-fire. **NUANCE 2026-08-24** *(v: 2026-08-24)*: PIP rows parked by the member-standing hold ARE swept, by a **new final pass on the 02:00 MAP 1 revshare sweep** which re-fires `automation_PIP_revshare` for every `client_priority_tracks` row with `track_type='pip'` and `pip_rev_share_status` in the two held values. **Held statuses only** — `Pending` was deliberately left out, so "PIP failures are manual" is still true.
 
 ### Specialist onboarding
 
@@ -152,8 +158,8 @@ One additive isolated block, **two SPECREV pipelines only**, branching on `sessi
 | Time (UTC) | Job | Handler | Does |
 |---|---|---|---|
 | `*/5 * * * *` | `reminder-sweep-5min` | `reminders/sweep.ts` | Delivers due `personal_reminders` via a **direct** `notifications` insert — the one documented **#176** exception |
-| 02:00 | `revshare-sweep-daily` | `pipeline/contract-revshare-sweep.ts` | Retries failed MAP 1 revshare + the MAP 1 3-stall reminder ladder |
-| 02:30 | `tax-revshare-sweep-daily` | `tax/revshare-sweep.ts` | **Sextuple duty** — see below |
+| 02:00 | `revshare-sweep-daily` | `pipeline/contract-revshare-sweep.ts` | Retries failed MAP 1 revshare + the MAP 1 3-stall reminder ladder + **(2026-08-24) a final pass re-firing `automation_PIP_revshare` for every held PIP member leg** — PIP has no cron of its own, so this is the only thing that releases one; returns `pip_held_refired` |
+| 02:30 | `tax-revshare-sweep-daily` | `tax/revshare-sweep.ts` | **Sextuple duty** — see below. Its `isRetry` now also accepts the two member-held values (reason `member-held`) |
 | 03:00 | `chargescheduled-sweep-daily` | `pipeline/contract-chargescheduled-sweep.ts` | Off-session MAP 1 installments — **calendar dates, weekends included** |
 | 04:00 | `check-reminder-sweep-daily` | `pipeline/contract-check-reminder-sweep.ts` | 7-business-day pre-due nudges + uncleared-check bells + `sweepMigrationSetupLinks` |
 | 05:00 | `advisor-sweep-daily` | `advisor/sweep.ts` | 3 stalls × 2/4 + the 14-**calendar**-day auto-decline |
@@ -164,8 +170,8 @@ One additive isolated block, **two SPECREV pipelines only**, branching on `sessi
 | 09:30 | `regular-map4-followup-sweep-daily` | `regular/map4-followup-sweep.ts` | MAP 4 3-tier chained ladder (**#175**) |
 | 10:00 | `growth-overdue-sweep-daily` | `growth/overdue-sweep.ts` | No delay offset → **early-returns on Sat/Sun UTC** |
 | 10:30 | `notifications-purge-daily` | `notifications/purge-sweep.ts` | Hard-deletes READ notifications > 90 days; unread never touched |
-| 11:00 | `specialist-revenue-payout-sweep-daily` | `specialist-revenue/payout-sweep.ts` | 4 passes: payout retries, one-off ladder, recurring-setup ladder, awaiting-verification backstop |
-| 12:00 | `membership-sweep-daily` | `membership/sweep.ts` | **5 passes**: renewal notices → renewals → waive $0 → one combined charge per plan → auto-unsuspend |
+| 11:00 | `specialist-revenue-payout-sweep-daily` | `specialist-revenue/payout-sweep.ts` | 4 passes: payout retries, one-off ladder, recurring-setup ladder, awaiting-verification backstop. **Pass 1's candidate query is the EXPORTED `PAYABLE_STATUSES`** from `utils/specialist-revenue-payout.ts` (2026-08-24) — not a literal list — so it can never drift from the engine's own re-entry set, and it now carries `held_member_suspended` / `held_member_paused` |
+| 12:00 | `membership-sweep-daily` | `membership/sweep.ts` | **5 passes**: renewal notices → renewals → waive $0 → one combined charge per plan → auto-unsuspend. **Pass 4 now also CHAINS** — see "Member reinstatement" below; summary gains `payouts_released` |
 
 ### Reminder-ladder time unit — read before touching any tier
 
@@ -204,13 +210,31 @@ So the ack is now a genuine **satisfied-on-fire guard** in the #365 sense, and t
 
 ### `tax-revshare-sweep` — the seven blocks
 
-1. **Retries only** — failed tax revshare (retainer + implementation) and stranded strategic transfers. It does **not** auto-start revshare on a plan that has not reached an explicit client click.
+1. **Retries only** — failed tax revshare (retainer + implementation) and stranded strategic transfers. It does **not** auto-start revshare on a plan that has not reached an explicit client click. `isRetry` = `rev_share='Pending'` **OR** `rev_paid` ∈ {`Failed`, `Awaiting Connect Setup`, **`Held - Member Suspended`, `Held - Member Paused`** *(added 2026-08-24)*} — all of them writable only AFTER the client's decision-1 click, which is what keeps "retry-only" true.
 2. Tax 4 post-review timers — 2-business-day reminder + 4-business-day PF bell on **both** the Continue and Undecided picks (shared guard columns, **#264**).
 3. Tax 5 implementation timers — **four tiers, no charge among them** (**#398**). Proceed and Undecided ladders share `implementation_reminder_sent_at` / `implementation_pf_notified_at`; safe only because `implementation_decision` is single-valued.
 4. Tax 3 reminder timers — 2/4 on three stalls.
 5. Tax 4 meeting-date nudge — **one persistent action-required bell** per plan (`dismissible:false`), not an email, not a daily repeat. Recipients: assigned PF + allocated planner + Tracy, with a per-recipient planner link override (**#292**).
 6. Tax 2 assess-form reminder, **last-call tier** (2 business days) — **one of the only rules that count DOWN** (business days *before* `tax3_meeting_date`, via `businessDayHorizonDateOnly`). Forks to `TAX_tax3_assess_reminder|vault` for vault-assess groups, and **that chosen name must be passed to both the template lookup and `gmailDraftFetch`** or the Draft/Send toggle silently resolves against nothing (**#356**, **#400**). Stamps its guard column **only after a successful draft**.
 7. Tax 2 assess-form reminder, **early tier** (2026-08-20, rule `TAX_tax3_assess_reminder_early_email`, default 5 business days) — block 6 repeated a working week out, on its own guard column `tax3_assess_reminder_early_sent_at` and its own `…_early` / `…_early|vault` template pair. **Its window is the half-open range past block 6's horizon** (`> assessHorizon` and `<= assessEarlyHorizon`), which is what keeps the two tiers off the same night and makes the block self-empty if the early delay is ever configured at or below 2. Same fork discipline, same stamp-only-on-success semantics.
+
+### Member reinstatement — TWO new chain sources (2026-08-24) *(v: 2026-08-24)*
+
+Reinstating a member releases every revenue-share leg the standing hold parked, **instantly** rather than at the next nightly sweep. Both callers go through `utils/member-payout-release.ts` `releaseHeldMemberPayouts(supabase, memberNumber)`, which resolves the member's clients by **BOTH linkages** — `clients.member_number` **and** `clients.client_ref LIKE '<member>-%'`, because MAP 1 reads the owner off the ref prefix while Tax/PIP read the column — and then chains, sweep-style, over HTTP with `Authorization: Bearer <SERVICE_ROLE_KEY>`. Nothing throws: a failed leg is collected into `results` and the rest still run.
+
+| Held leg found | Chained body |
+|---|---|
+| `pipeline_map1.rec{N}_rev_paid` (N = 1–4) | `{ action: "automation_CONTRACT_revshare", client_id, payment_number: N }` |
+| `client_tax_plans.{retainer\|implementation}_rev_paid` | `{ action: "automation_TAX_revshare", tax_plan_id, payment_kind }` |
+| `client_priority_tracks.pip_rev_share_status` (`track_type='pip'`) | `{ action: "automation_PIP_revshare", priority_track_id }` |
+| `specialist_revenue_lines.payout_status` (member lines) | `{ action: "specialist_revenue_payout", request_id }` — deduped to the distinct parent requests, since that engine is per REQUEST |
+
+**The two call sites:**
+
+1. **`actions/members/profile-save.ts`** — reads the three standing flags **before** the upsert, and when a hold existed it **re-reads the row after** the upsert (never merges the payload: several call sites save a PARTIAL profile). Non-null → null transition ⇒ release. The response gains an **additive** `payout_release: { fired, results }` key; a save with no transition returns the old bare `{ success: true }`.
+2. **`actions/membership/sweep.ts` pass 4** — after `membership_suspended` is cleared for a caught-up plan, it re-reads the row and releases **only if no hold reason remains** (the admin's own `suspended` / `paused` toggles hold independently, **#240**). `summary.payouts_released` accumulates the fired count.
+
+Re-firing a member who is **still** flagged is a safe no-op: every engine re-checks standing on entry and re-holds idempotently, and the internal held notice is deduped on the leg's prior status. So the release is "fire everything that is parked", not "decide who is eligible".
 
 ### Admin-driven paths (no webhook involved)
 

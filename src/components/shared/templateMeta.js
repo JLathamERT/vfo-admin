@@ -250,6 +250,9 @@ export const TEMPLATE_META = {
     ['strategic_group_connect_setup', 'Strategic partner payout setup — Stripe Connect onboarding link for the partner company'],
     ['strategic_partner_revshare', 'Strategic partner revenue share — the 10% share confirmation sent to the partner company'],
   ],
+  'MEMBERS': [
+    ['MEMBER_revshare_held', 'Revenue share held — internal notice when a suspended/paused member\'s revenue share is parked instead of paid (any pipeline); it releases automatically on reinstatement', 'To: Paul · Cc: Anton, Tray, Tracy'],
+  ],
 }
 
 // Role tokens the backend resolver understands (utils/email-recipients.ts).
