@@ -82,6 +82,8 @@ export default function SpecialistRevenuePanel({ allExperts = [], allMembers = [
     return Object.values(map).sort((a, b) => b.member - a.member)
   }, [receivedFiltered])
 
+  const memberDeals = memberGroups.reduce((s, g) => s + (Number(g.deals) || 0), 0)
+  const memberHeld = memberGroups.reduce((s, g) => s + g.items.reduce((t, it) => t + (isHeldLine(it) ? Number(it.member_share) || 0 : 0), 0), 0)
   const periodGross = receivedFiltered.reduce((s, r) => s + (Number(r.gross_amount) || 0), 0)
   const periodMember = receivedFiltered.reduce((s, r) => s + (Number(r.total_member_share) || 0), 0)
   const periodVfos = receivedFiltered.reduce((s, r) => s + (Number(r.total_vfos_share) || 0), 0)
@@ -120,20 +122,6 @@ export default function SpecialistRevenuePanel({ allExperts = [], allMembers = [
           {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
         </select>
         <button onClick={load} style={{ ...sel, color: '#125ecc', fontWeight: 600 }}>Refresh</button>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '24px' }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)' }}>Member shares</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: '#16a34a' }}>{money(periodMember)}</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)' }}>VFOS shares</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--vfo-ink)' }}>{money(periodVfos)}</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)' }}>{periodLabel} gross</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--vfo-heading)' }}>{money(periodGross)}</div>
-          </div>
-        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
@@ -147,38 +135,89 @@ export default function SpecialistRevenuePanel({ allExperts = [], allMembers = [
 
       {loading && <OnboardingListSkeleton rows={3} />}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '14px', fontSize: '13px' }}>{error}</div>}
-      {!loading && !error && filtered.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>No specialist payments for this period.</div>
+
+      {!loading && !error && viewMode === 'specialist' && (
+        <div style={tableStyle}>
+          <div style={{ ...headerRowStyle, gridTemplateColumns: SPECIALIST_GRID }}>
+            <span>Specialist</span><span>Date</span><span style={{ textAlign: 'right' }}>Recipients</span><span style={{ textAlign: 'right' }}>Deals</span><span style={{ textAlign: 'right' }}>Member $</span><span style={{ textAlign: 'right' }}>VFOS $</span><span style={{ textAlign: 'right' }}>Gross</span><span style={{ textAlign: 'right' }}>Status</span>
+          </div>
+          <div style={{ ...totalsRowStyle, gridTemplateColumns: SPECIALIST_GRID }}>
+            <span style={totalsLabelStyle}>Totals<span style={totalsSubStyle}>{periodLabel} · received</span></span>
+            <span /><span /><span />
+            <span style={{ textAlign: 'right' }}>{money(periodMember)}</span>
+            <span style={{ textAlign: 'right' }}>{money(periodVfos)}</span>
+            <span style={{ textAlign: 'right' }}>{money(periodGross)}</span>
+            <span />
+          </div>
+          {filtered.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>No specialist payments for this period.</div>
+          )}
+          {filtered.map(r => (
+            <RequestRow key={r.id} request={r} grid={SPECIALIST_GRID} actions={({ request }) => (
+              request.payment_status === 'pending' ? <MarkReceivedButton request={request} onDone={load} />
+                : canDeleteSpecrevRequest(request) ? <DeleteRequestButton request={request} onDone={load} />
+                  : null
+            )} />
+          ))}
+        </div>
       )}
-      {!loading && !error && filtered.length > 0 && viewMode === 'specialist' && filtered.map(r => (
-        <RequestRow key={r.id} request={r} actions={({ request }) => (
-          request.payment_status === 'pending' ? <MarkReceivedButton request={request} onDone={load} />
-            : canDeleteSpecrevRequest(request) ? <DeleteRequestButton request={request} onDone={load} />
-              : null
-        )} />
-      ))}
-      {!loading && !error && filtered.length > 0 && viewMode === 'member' && memberGroups.map(g => <MemberGroupRow key={g.key} group={g} />)}
+
+      {!loading && !error && viewMode === 'member' && (
+        <div style={tableStyle}>
+          <div style={{ ...headerRowStyle, gridTemplateColumns: MEMBER_GRID }}>
+            <span>Recipient</span><span>Decision</span><span style={{ textAlign: 'right' }}>Deals</span><span style={{ textAlign: 'right' }}>Member $</span><span style={{ textAlign: 'right' }}>VFOS $</span>
+          </div>
+          <div style={{ ...totalsRowStyle, gridTemplateColumns: MEMBER_GRID }}>
+            <span style={totalsLabelStyle}>Totals<span style={totalsSubStyle}>{periodLabel} · received</span></span>
+            <span />
+            <span style={{ textAlign: 'right' }}>{memberDeals}</span>
+            <span style={{ textAlign: 'right' }}>
+              {money(periodMember)}
+              {memberHeld > 0 && <span style={{ ...shareNoteStyle, color: PENDING_COLOR }}>{money(memberHeld)} held</span>}
+            </span>
+            <span style={{ textAlign: 'right' }}>{money(periodVfos)}</span>
+          </div>
+          {memberGroups.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>No specialist payments for this period.</div>
+          )}
+          {memberGroups.map(g => <MemberGroupRow key={g.key} group={g} />)}
+        </div>
+      )}
     </div>
   )
 }
+
+// Holistic Planning Revenue's table chrome, reused verbatim so the two Accounting
+// surfaces read the same: bordered card, uppercase header row, Totals above the data.
+const SPECIALIST_GRID = '1.4fr 118px 84px 62px 112px 112px 112px 178px'
+const MEMBER_GRID = '1.6fr 150px 70px 130px 130px'
+export const tableStyle = { border: '1px solid var(--vfo-border-soft)', borderRadius: '14px', overflow: 'hidden', background: 'var(--vfo-card)', boxShadow: 'var(--vfo-shadow-card)' }
+export const headerRowStyle = { display: 'grid', gap: '8px', padding: '12px 18px', background: 'var(--vfo-input)', borderBottom: '1px solid var(--vfo-border-soft)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--vfo-muted)' }
+export const totalsRowStyle = { display: 'grid', gap: '8px', padding: '11px 18px', borderBottom: '2px solid var(--vfo-border)', background: 'var(--vfo-input)', alignItems: 'center', fontSize: '13px', fontWeight: 800, color: 'var(--vfo-heading)' }
+export const totalsLabelStyle = { fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--vfo-muted)' }
+export const totalsSubStyle = { display: 'block', fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.4px', color: 'var(--vfo-faint)', textTransform: 'none' }
 
 // One recipient's deals grouped across all specialists (Member view).
 function MemberGroupRow({ group }) {
   const [open, setOpen] = useState(false)
   const held = group.items.reduce((s, it) => s + (isHeldLine(it) ? Number(it.member_share) || 0 : 0), 0)
   return (
-    <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '14px', marginBottom: '10px', overflow: 'hidden' }}>
-      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', cursor: 'pointer' }}>
-        <span style={{ fontSize: '11px', color: 'var(--vfo-faint)', width: '12px' }}>{open ? '▾' : '▸'}</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)' }}>{group.name}</div>
-          <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{group.sub} · {group.items.length} deal{group.items.length === 1 ? '' : 's'} across specialists · {group.decision}</div>
-        </div>
-        <div style={{ display: 'flex', gap: '18px', textAlign: 'right' }}>
-          <div><div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)' }}>{money(group.member)}</div><div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>member</div>{held > 0 && <div style={{ ...shareNoteStyle, color: PENDING_COLOR }}>{money(held)} held</div>}</div>
-          <div><div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)' }}>{money(group.vfos)}</div><div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>VFOS</div></div>
-          <div><div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-heading)' }}>{group.deals}</div><div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>deals</div></div>
-        </div>
+    <div>
+      <div onClick={() => setOpen(o => !o)} style={{ display: 'grid', gridTemplateColumns: MEMBER_GRID, gap: '8px', padding: '12px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', cursor: 'pointer', fontSize: '13px', color: 'var(--vfo-ink)' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+          <span style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>{open ? '▾' : '▸'}</span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</span>
+            <span style={{ display: 'block', fontSize: '11px', color: 'var(--vfo-faint)' }}>{group.sub} · {group.items.length} deal{group.items.length === 1 ? '' : 's'} across specialists</span>
+          </span>
+        </span>
+        <span style={{ color: 'var(--vfo-muted)' }}>{group.decision}</span>
+        <span style={{ textAlign: 'right', color: 'var(--vfo-muted)' }}>{group.deals}</span>
+        <span style={{ textAlign: 'right' }}>
+          {money(group.member)}
+          {held > 0 && <span style={{ ...shareNoteStyle, color: PENDING_COLOR }}>{money(held)} held</span>}
+        </span>
+        <span style={{ textAlign: 'right' }}>{money(group.vfos)}</span>
       </div>
       {open && (
         <div style={{ background: 'var(--vfo-input)', borderTop: '1px solid var(--vfo-border-soft)', padding: '14px 18px' }}>

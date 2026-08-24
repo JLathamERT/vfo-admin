@@ -10,7 +10,7 @@ const BADGE_IMPLEMENTATION = { label: 'Implementation', color: '#ef4444' }
 const BADGE_RECURRING = { label: 'Recurring setup', color: '#125ecc' }
 const BADGE_ONEOFF = { label: 'One-off payment', color: '#e06717' }
 
-function fmtDate(s) {
+export function fmtDate(s) {
   if (!s) return null
   try {
     const d = new Date(s)
@@ -19,7 +19,7 @@ function fmtDate(s) {
   } catch { return String(s) }
 }
 
-function shortDate(s) {
+export function shortDate(s) {
   if (!s) return null
   try {
     const d = new Date(s)
@@ -44,7 +44,7 @@ function ordinal(n) {
   return `${v}${s[(m - 20) % 10] || s[m] || s[0]}`
 }
 
-const cardStyle = {
+export const cardStyle = {
   background: 'var(--vfo-card)',
   border: '1px solid var(--vfo-border-soft)',
   borderRadius: '14px',
@@ -53,7 +53,7 @@ const cardStyle = {
   fontFamily: 'Inter, sans-serif',
 }
 
-function Detail({ label, value }) {
+export function Detail({ label, value }) {
   return (
     <div style={{ display: 'flex', gap: '10px', padding: '7px 0', borderTop: '1px solid var(--vfo-tint)', fontSize: '13px', fontFamily: 'Inter, sans-serif' }}>
       <div style={{ width: '170px', flexShrink: 0, color: 'var(--vfo-muted)', fontWeight: 600 }}>{label}</div>
@@ -62,7 +62,7 @@ function Detail({ label, value }) {
   )
 }
 
-function SectionHeader({ title, count }) {
+export function SectionHeader({ title, count }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', margin: '20px 0 10px', fontFamily: 'Inter, sans-serif' }}>
       <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--vfo-heading)', margin: 0 }}>{title}</h3>
@@ -71,7 +71,7 @@ function SectionHeader({ title, count }) {
   )
 }
 
-function EmptyLine() {
+export function EmptyLine() {
   return <div style={{ fontSize: '13px', color: 'var(--vfo-faint)', padding: '4px 2px 10px', fontFamily: 'Inter, sans-serif' }}>None right now.</div>
 }
 
@@ -136,7 +136,7 @@ function ResendButton({ send, onDone }) {
 // be used inside the .map calls below. clientId is optional — specialist cards
 // have no client, so their name stays plain text. `action` is an optional
 // right-edge control (the Resend button) — it must not toggle the card.
-function OutstandingCard({ name, clientId, subtitle, badge, amount, caption, action, children }) {
+export function OutstandingCard({ name, clientId, subtitle, badge, amount, caption, action, children }) {
   const [open, setOpen] = useState(false)
   return (
     <div style={cardStyle}>
