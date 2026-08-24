@@ -145,6 +145,11 @@ export default function PricingSplitCard({ plan, plannerName = '', isSuperadmin 
   // Prorated payout for one payment from a stored (of-total) share.
   const portion = (share, payment) => (totalFee > 0 ? round2((share / totalFee) * payment) : 0)
 
+  // A leg settled as no-share-due pays nothing on that payment, ever — deriving a
+  // dollar figure from the split would invent a payout (e.g. a planner share that only
+  // exists on the implementation rendering under the retainer). Dash it; the note says why.
+  const noShare = s => s === 'N/A — No Share Due'
+
   const rows = [
     { key: 'member', name: 'Member', stored: storedMember, retStatus: plan?.retainer_rev_paid, implStatus: plan?.implementation_rev_paid },
     { key: 'planner', name: plannerName ? `Tax planner — ${plannerName}` : 'Tax planner', stored: storedPlanner, retStatus: plan?.retainer_planner_paid, implStatus: plan?.implementation_planner_paid },
@@ -262,13 +267,13 @@ export default function PricingSplitCard({ plan, plannerName = '', isSuperadmin 
                           two-way policy that predates the tax planner share. Deriving a
                           figure from today's split would invent a payout that never
                           happened and never will — those legs are settled and locked. */}
-                      {retainerIsHistoric ? '—' : fmt(portion(r.stored, retAmt))}
+                      {retainerIsHistoric || noShare(r.retStatus) ? '—' : fmt(portion(r.stored, retAmt))}
                       <div style={{ fontSize: '10px', color: retainerIsHistoric ? 'var(--vfo-muted)' : noteColor(r.retStatus) }}>
                         {retainerIsHistoric ? 'settled on old system' : legNote(r.retStatus)}
                       </div>
                     </td>
                     <td style={{ padding: '7px 8px', textAlign: 'right', color: 'var(--vfo-ink)', borderBottom: '1px solid var(--vfo-border-soft)' }}>
-                      {fmt(portion(r.stored, implAmt))}
+                      {noShare(r.implStatus) ? '—' : fmt(portion(r.stored, implAmt))}
                       {legNote(r.implStatus) && <div style={{ fontSize: '10px', color: noteColor(r.implStatus) }}>{legNote(r.implStatus)}</div>}
                     </td>
                   </tr>

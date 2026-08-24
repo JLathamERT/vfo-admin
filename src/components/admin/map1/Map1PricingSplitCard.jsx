@@ -186,7 +186,9 @@ export default function Map1PricingSplitCard({ plan, expanded, onToggle }) {
                       const per = r.per(i)
                       return (
                         <td key={i} style={td}>
-                          {per == null ? '—' : fmt(per)}
+                          {/* A no-share-due leg pays nothing on this installment — a derived
+                              dollar would invent a payout. The note underneath says why. */}
+                          {per == null || status === 'N/A — No Share Due' ? '—' : fmt(per)}
                           {note && <div style={{ fontSize: '10px', color: noteColor(status) }}>{note}</div>}
                         </td>
                       )
