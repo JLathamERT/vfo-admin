@@ -150,6 +150,13 @@ export default function PricingSplitCard({ plan, plannerName = '', isSuperadmin 
   // exists on the implementation rendering under the retainer). Dash it; the note says why.
   const noShare = s => s === 'N/A — No Share Due'
 
+  // VFO Services keeps whatever the payment holds once the legs that actually pay are
+  // out — a dead (no-share-due) leg's portion stays with VFO, so the column still sums
+  // to the payment. Identical to the configured vfos_share whenever all legs are live.
+  const legAmt = (stored, status, payment) => (noShare(status) ? 0 : portion(stored, payment))
+  const retVfos = round2(retAmt - legAmt(storedMember, plan?.retainer_rev_paid, retAmt) - legAmt(storedPlanner, plan?.retainer_planner_paid, retAmt))
+  const implVfos = round2(implAmt - legAmt(storedMember, plan?.implementation_rev_paid, implAmt) - legAmt(storedPlanner, plan?.implementation_planner_paid, implAmt))
+
   const rows = [
     { key: 'member', name: 'Member', stored: storedMember, retStatus: plan?.retainer_rev_paid, implStatus: plan?.implementation_rev_paid },
     { key: 'planner', name: plannerName ? `Tax planner — ${plannerName}` : 'Tax planner', stored: storedPlanner, retStatus: plan?.retainer_planner_paid, implStatus: plan?.implementation_planner_paid },
@@ -267,13 +274,13 @@ export default function PricingSplitCard({ plan, plannerName = '', isSuperadmin 
                           two-way policy that predates the tax planner share. Deriving a
                           figure from today's split would invent a payout that never
                           happened and never will — those legs are settled and locked. */}
-                      {retainerIsHistoric || noShare(r.retStatus) ? '—' : fmt(portion(r.stored, retAmt))}
+                      {retainerIsHistoric || noShare(r.retStatus) ? '—' : fmt(r.key === 'vfos' ? retVfos : portion(r.stored, retAmt))}
                       <div style={{ fontSize: '10px', color: retainerIsHistoric ? 'var(--vfo-muted)' : noteColor(r.retStatus) }}>
                         {retainerIsHistoric ? 'settled on old system' : legNote(r.retStatus)}
                       </div>
                     </td>
                     <td style={{ padding: '7px 8px', textAlign: 'right', color: 'var(--vfo-ink)', borderBottom: '1px solid var(--vfo-border-soft)' }}>
-                      {noShare(r.implStatus) ? '—' : fmt(portion(r.stored, implAmt))}
+                      {noShare(r.implStatus) ? '—' : fmt(r.key === 'vfos' ? implVfos : portion(r.stored, implAmt))}
                       {legNote(r.implStatus) && <div style={{ fontSize: '10px', color: noteColor(r.implStatus) }}>{legNote(r.implStatus)}</div>}
                     </td>
                   </tr>
