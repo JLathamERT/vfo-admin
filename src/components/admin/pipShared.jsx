@@ -9,7 +9,7 @@
 // whole engagement carries one pip_rev_share_status, written by
 // actions/msm/pip-revshare.ts.
 import { parseNum } from './holisticShared'
-import { paymentNoteFor } from './shareLegState'
+import { paymentNoteFor, HELD_SUSPENDED_NOTE, HELD_PAUSED_NOTE } from './shareLegState'
 
 const PAID = new Set(['succeeded', 'processing'])
 
@@ -25,6 +25,10 @@ function pipMemberState(r) {
   if (s === 'Completed - Money Mapping') return { note: 'money mapping', tone: 'done' }
   if (s === 'Completed - No Share Due') return { note: 'no share due', tone: null }
   if (s === 'Pending') return { note: 'in progress', tone: 'pending' }
+  // PIP writes its own status vocabulary, so the two member-holds need their own cases
+  // here — the lowercase fallthrough below would render the raw column value instead.
+  if (s === 'Held - Member Suspended') return { note: HELD_SUSPENDED_NOTE, tone: 'pending' }
+  if (s === 'Held - Member Paused') return { note: HELD_PAUSED_NOTE, tone: 'pending' }
   if (s) return { note: String(s).toLowerCase(), tone: 'pending' }
   return { note: r.pip_payment_status === 'processing' ? 'payment clearing' : 'not yet paid', tone: 'pending' }
 }

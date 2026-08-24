@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { callApi } from '../../lib/api'
-import { NAVY, money, requestDate, RequestRow, MarkReceivedButton, DeleteRequestButton, canDeleteSpecrevRequest } from './specialistRevenueShared'
+import { NAVY, money, requestDate, RequestRow, MarkReceivedButton, DeleteRequestButton, canDeleteSpecrevRequest, memberShareNote, shareNoteStyle, isHeldLine } from './specialistRevenueShared'
+import { PENDING_COLOR } from './shareLegState'
 import SpecialistPaymentInput from './SpecialistPaymentInput'
 import { OnboardingListSkeleton } from '../shared/Skeleton'
 
@@ -8,6 +9,11 @@ import { OnboardingListSkeleton } from '../shared/Skeleton'
 // payment requests for that period, expand each to see recipients and statuses.
 // The "New Payment" button at the top reveals the Payment Input form inline (the
 // two used to be separate tabs).
+//
+// Each expanded recipient line annotates its Member $ the way the three VFO Services
+// revenue tabs do — "paid" once transferred, "Held - Suspended" / "Held - Paused" while
+// parked behind a member hold. The status pill on the right of the same row still carries
+// the full per-line vocabulary; the note only marks what the dollars themselves did.
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -68,7 +74,9 @@ export default function SpecialistRevenuePanel({ allExperts = [], allMembers = [
         g.member += Number(l.member_share) || 0
         g.vfos += Number(l.vfos_share) || 0
         g.deals += Number(l.deals) || 0
-        g.items.push({ specialist: r.specialist_name || '—', date: d, member_share: l.member_share, vfos_share: l.vfos_share, deals: l.deals })
+        // payout_status rides along so the deal rows below can annotate their Member $
+        // the same way the By-specialist recipient rows do.
+        g.items.push({ specialist: r.specialist_name || '—', date: d, member_share: l.member_share, vfos_share: l.vfos_share, deals: l.deals, payout_status: l.payout_status })
       }
     }
     return Object.values(map).sort((a, b) => b.member - a.member)
@@ -157,6 +165,7 @@ export default function SpecialistRevenuePanel({ allExperts = [], allMembers = [
 // One recipient's deals grouped across all specialists (Member view).
 function MemberGroupRow({ group }) {
   const [open, setOpen] = useState(false)
+  const held = group.items.reduce((s, it) => s + (isHeldLine(it) ? Number(it.member_share) || 0 : 0), 0)
   return (
     <div style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '14px', marginBottom: '10px', overflow: 'hidden' }}>
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', cursor: 'pointer' }}>
@@ -166,7 +175,7 @@ function MemberGroupRow({ group }) {
           <div style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginTop: '2px' }}>{group.sub} · {group.items.length} deal{group.items.length === 1 ? '' : 's'} across specialists · {group.decision}</div>
         </div>
         <div style={{ display: 'flex', gap: '18px', textAlign: 'right' }}>
-          <div><div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)' }}>{money(group.member)}</div><div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>member</div></div>
+          <div><div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)' }}>{money(group.member)}</div><div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>member</div>{held > 0 && <div style={{ ...shareNoteStyle, color: PENDING_COLOR }}>{money(held)} held</div>}</div>
           <div><div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)' }}>{money(group.vfos)}</div><div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>VFOS</div></div>
           <div><div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--vfo-heading)' }}>{group.deals}</div><div style={{ fontSize: '11px', color: 'var(--vfo-faint)' }}>deals</div></div>
         </div>
@@ -176,15 +185,22 @@ function MemberGroupRow({ group }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 130px 110px 110px 70px', gap: '10px', padding: '0 0 8px', fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)' }}>
             <div>Specialist</div><div>Date</div><div>VFOS $</div><div>Member $</div><div>Deals</div>
           </div>
-          {group.items.map((it, i) => (
-            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.4fr 130px 110px 110px 70px', gap: '10px', alignItems: 'center', padding: '9px 0', borderTop: '1px solid var(--vfo-tint)', fontSize: '13px', color: 'var(--vfo-ink-2)' }}>
-              <div style={{ fontWeight: 600 }}>{it.specialist}</div>
-              <div style={{ color: 'var(--vfo-muted)' }}>{it.date ? new Date(it.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</div>
-              <div>{money(it.vfos_share)}</div>
-              <div>{money(it.member_share)}</div>
-              <div>{it.deals || 0}</div>
-            </div>
-          ))}
+          {group.items.map((it, i) => {
+            // Every group item comes from a received request, so the note always applies.
+            const note = memberShareNote(it, true)
+            return (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.4fr 130px 110px 110px 70px', gap: '10px', alignItems: 'center', padding: '9px 0', borderTop: '1px solid var(--vfo-tint)', fontSize: '13px', color: 'var(--vfo-ink-2)' }}>
+                <div style={{ fontWeight: 600 }}>{it.specialist}</div>
+                <div style={{ color: 'var(--vfo-muted)' }}>{it.date ? new Date(it.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</div>
+                <div>{money(it.vfos_share)}</div>
+                <div>
+                  <span style={{ opacity: note && note.color === PENDING_COLOR ? 0.55 : 1 }}>{money(it.member_share)}</span>
+                  {note && <span style={{ ...shareNoteStyle, color: note.color }}>{note.text}</span>}
+                </div>
+                <div>{it.deals || 0}</div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

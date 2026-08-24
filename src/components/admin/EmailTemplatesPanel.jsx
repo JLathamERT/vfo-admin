@@ -33,6 +33,7 @@ const SECTIONS = [
     ['STRATEGIC', 'strategic_group_connect_setup'],
     ['STRATEGIC', 'strategic_partner_revshare'],
     ['VAULT', 'VAULT_request_documentation'],
+    ['MEMBERS', 'MEMBER_revshare_held'],
   ] },
 ]
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { callApi } from '../../../lib/api'
+import { HELD_SUSPENDED_NOTE, HELD_PAUSED_NOTE } from '../shareLegState'
 
 // Pricing + revenue-split summary for a tax plan, sitting directly under the Tax Plan
 // hero. ADMIN (VFOS/ERT) SURFACE ONLY — the caller gates it out of the member and
@@ -28,6 +29,9 @@ const WITHHELD = 'Awaiting Planner Allocation'
 // Member leg only, and non-terminal like WITHHELD: the share is due but the member has no
 // payout account. The nightly sweep pays it as soon as one exists.
 const AWAITING_CONNECT = 'Awaiting Connect Setup'
+// Member leg only, non-terminal too: the share is parked while the member is suspended or
+// paused and is released automatically when they are reinstated.
+const HELD_MEMBER = ['Held - Member Suspended', 'Held - Member Paused']
 
 const money = v => parseFloat(String(v ?? '0').replace(/[,$]/g, '')) || 0
 const round2 = x => Math.round(x * 100) / 100
@@ -44,12 +48,16 @@ function legNote(status) {
   if (status === AWAITING_CONNECT) return 'awaiting payout setup'
   if (status === 'Failed') return 'failed — retrying'
   if (status === 'Pending') return 'in progress'
+  // Both holds need an explicit case: the lowercase fallthrough below would print the
+  // raw column value, which is not the wording Accounting shows for the same leg.
+  if (status === 'Held - Member Suspended') return HELD_SUSPENDED_NOTE
+  if (status === 'Held - Member Paused') return HELD_PAUSED_NOTE
   return String(status).toLowerCase()
 }
 
 function noteColor(status) {
   if (status === 'Yes') return '#1b9254'
-  if (status === WITHHELD || status === AWAITING_CONNECT || status === 'Failed') return '#b9451d'
+  if (status === WITHHELD || status === AWAITING_CONNECT || status === 'Failed' || HELD_MEMBER.includes(status)) return '#b9451d'
   return 'var(--vfo-muted)'
 }
 
