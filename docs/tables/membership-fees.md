@@ -145,4 +145,6 @@ one. Gotcha **#332**.
   `["rhopson@elitert.com"]` is what fires until an admin edits it in Automation → Notification
   Editor, #176).
 - pg_cron jobid 16 `membership-sweep-daily` @12:00 UTC — **five passes as of 2026-08-04**
-  (renewal notices → renewals → waive → charges → auto-unsuspend).
+  (renewal notices → renewals → waive → charges → auto-unsuspend). **Pass 4 also releases the
+  member's held revenue-share payouts when the unsuspend leaves no hold reason at all
+  (2026-08-24); summary gains `payouts_released`.**

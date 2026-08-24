@@ -221,7 +221,7 @@
 | **Member updated progress** — A member updated the status of a Growth Plan priority (one bell per priority changed). | FYI | Assigned Admin | Member saves accountability progress — instant |
 | **Overdue priority** — A Growth Plan priority passed its due date with no progress. | FYI | Assigned Admin | Daily growth sweep — instant, **weekday ticks only** (no `delay_days` to convert, so the sweep early-returns on Saturday/Sunday UTC) |
 
-### VFO Specialist Revenue (9)
+### VFO Specialist Revenue (10)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
@@ -233,6 +233,7 @@
 | **Recurring setup still not completed** (`SPECREV_recurring_setup_tracy_bell`, 2026-07-28) — the recurring plan is still `setup_pending` after the reminder window; asks Tracy to chase. | FYI | Tracy | Nightly payout sweep, Pass 3 — after **4 business day(s)** (editable) |
 | **Recurring monthly payment failed (Jake + Tracy)** (`SPECREV_recurring_payment_failed_bell`) — a recurring monthly ACH payment failed; Stripe retries per its schedule and the plan stays active. *(Existed since 2026-07-09; missing from this table until the 2026-08-11 audit.)* | FYI | Jake + Tracy | Stripe webhook `invoice.payment_failed` (recurring plan) — instant |
 | **Bank verification still not completed** (`SPECREV_awaiting_verification_bell`, 2026-08-11) — a specialist entered their bank details manually and never finished Stripe's micro-deposit check, so no money has moved and Stripe will eventually cancel the payment; asks Tracy to chase (gotcha #370). | FYI | Tracy | Nightly payout sweep, Pass 2b — after **5 business day(s)** (editable) |
+| **Member share held - no payout account** (`SPECREV_member_share_held`, 2026-08-24) — a Specialist Revenue payment was received with a member revenue-share line, but that member has **no Stripe payout account**, so the share is held. The engine deliberately does **not** create an Express account or email the member (no valid setup link exists for them — that is the admin's "Set Up Payment Details" button); it parks the line `awaiting_connect` and raises this instead. Pays automatically on the nightly payout sweep once they connect, and the bell **self-clears** on that transfer (title reconstructed from the values frozen on the line). Expert lines keep the old mint-and-email path. | **Action required** | Jake | Payout engine, member line with no payout account — instant |
 | **One-time payment failed or was canceled (Jake + Tracy)** (`SPECREV_payment_failed_bell`, 2026-08-11) — a one-time ACH payment failed, was canceled, or expired before the specialist verified their bank; the money did not arrive and no payout ran. Dismissible rather than action-required because nothing auto-clears a dead payment (gotcha #372). | FYI | Jake + Tracy | Stripe webhook `payment_intent.canceled` / `payment_intent.payment_failed` / `checkout.session.async_payment_failed` — instant |
 
 ### Payment Continuation (2) *(new area, 2026-07-28)*
@@ -248,7 +249,7 @@
 |---|---|---|---|
 | **MAP 1 installment charge failed (Jake)** — Money-movement alert for a failed MAP 1 quarterly auto-charge. | FYI | Jake | Daily charge-scheduled sweep — instant |
 | **MAP 1 revshare transfer failed (Jake)** — The Stripe Connect member revenue-share transfer failed; the daily sweep retries; auto-clears on success. | **Action required** | Jake | Revshare transfer failure — instant |
-| **PIP revshare transfer failed (Jake)** — The revenue-share transfer for a PIP purchase failed; PIP has no retry sweep - needs manual re-fire. | **Action required** | Jake | PIP purchase revshare failure — instant |
+| **PIP revshare transfer failed (Jake)** — The revenue-share transfer for a PIP purchase failed; PIP has no retry sweep - needs manual re-fire. **Still true for a FAILURE as of 2026-08-24** — the held-payout pass added to the 02:00 MAP 1 sweep that day re-fires only the two `Held - Member …` statuses (the member-standing hold), never `Pending`. | **Action required** | Jake | PIP purchase revshare failure — instant |
 | **Tax implementation charge failed (Jake)** — Money-movement alert when the tax implementation off-session charge fails. | FYI | Jake | Implementation charge failure — instant |
 | **Tax revshare transfer failed (Jake)** — Stripe Connect member revenue-share transfer failed for a tax payment; daily sweep retries; auto-clears on success. | **Action required** | Jake | Revshare transfer failure — instant |
 | **Strategic partner share failed (Jake)** — The 10 percent strategic partner share could not be transferred (missing Connect account or Stripe error); daily sweep retries; auto-clears on success. | **Action required** | Jake | Strategic partner transfer failure — instant |

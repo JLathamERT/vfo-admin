@@ -33,8 +33,11 @@ Stripe webhook (checkout.session.completed, metadata.pipeline='PIP')
 automation_PIP_revshare
   ├─► Revenue Share members: Stripe Connect transfer to members.stripe_account_id
   ├─► Money Mapping members: no transfer; VFO holds internally
+  ├─► Member suspended/paused (2026-08-24): NO transfer, NO member email,
+  │     pip_rev_share_status='Held - Member …' + one internal notice draft
   ├─► drafts member confirmation Gmail
   └─► If pip_purchase_kind='additional_pip': UPDATE client_priority_tracks SET pip_paid=true WHERE pip_purchased_from_track_id=<source>
+        (also runs on the HELD branch — the client paid, so their meetings open)
 ```
 
 ## Tables touched
@@ -46,8 +49,8 @@ automation_PIP_revshare
 | `program_client_phases` | R only | 3 phase rows seeded for `program_id=1, track_type='pip'`: Arrange PIP Meeting / PIP Meeting with client / Post PIP Meeting admin |
 | `program_client_tasks` | R only | 9 task rows (1 in Arrange, 6 in Meeting-with-client, 2 in Post-Admin) |
 | `clients` | R only | first_name, last_name, email, member_number, assigned_pf |
-| `members` | R only | first_name, last_name, email, revenue_decision, stripe_account_id |
-| `email_templates` | R only | 4 PIP templates (pipeline='PIP'): `PIP_meeting_confirmation`, `PIP_payment`, `PIP_confirmation`, `PIP_invoicereceipt_email` |
+| `members` | R only | first_name, last_name, email, **member_number**, revenue_decision, stripe_account_id, **`suspended` / `paused` / `membership_suspended`** (added 2026-08-24 — the standing hold, see Step 9) |
+| `email_templates` | R only | 4 PIP templates (pipeline='PIP'): `PIP_meeting_confirmation`, `PIP_payment`, `PIP_confirmation`, `PIP_invoicereceipt_email` — plus, on a hold only, `MEMBERS`/`MEMBER_revshare_held` (id 230, the internal notice) |
 | `pipeline_sandbox_config` | R only | Reuses `pipeline='MAP 1'` row (PIP rides on Holistic Planning's sandbox toggle) |
 | `document_numbers` | R/W | Shared global counter — `INV-PIP-{clientRef}-{seq:0004}` / `REC-PIP-{clientRef}-{seq:0004}` |
 
@@ -122,16 +125,22 @@ The card branch never reaches `payment_intent.succeeded` (its status is already 
 
 ### Step 9 — Revenue share + unlock
 
-`automation_PIP_revshare` (PUBLIC):
+`automation_PIP_revshare` (PUBLIC). **The branch chain was made EXHAUSTIVE 2026-08-24** (#303 shape — it used to initialise `revPaidValue` to the terminal `'N/A — No Share Due'` with the transfer behind a condition); the ORDER below is the code order and is load-bearing:
+
 1. Reads `member.revenue_decision`
-2. **Revenue Share + share > 0 + stripe_account_id set** → Stripe Connect transfer of `pip_purchase_member_share` to `member.stripe_account_id`. `revPaidValue='Yes'`, `pip_rev_share_status='Completed - Revenue Share'`, records `pip_rev_share_transfer_id`.
-3. **Money Mapping** → no transfer. `revPaidValue='Money Mapping'`, `pip_rev_share_status='Completed - Money Mapping'`.
-4. **Failed / no Connect account** → `pip_rev_share_status='Pending'`, error banner in member email.
-5. **No share due (share=0)** → `revPaidValue='N/A — No Share Due'`, no banner.
+2. **Money Mapping** → no transfer. `revPaidValue='Money Mapping'`, `pip_rev_share_status='Completed - Money Mapping'`.
+3. **No share due (share ≤ 0)** → `revPaidValue='N/A — No Share Due'`.
+4. **MEMBER SUSPENDED / PAUSED — the standing hold (2026-08-24)** *(v: 2026-08-24)*. `memberHoldReason` (`utils/member-payout-hold.ts`) reads `suspended || membership_suspended` → `"suspended"`, else `paused` → `"paused"`. `pip_rev_share_status` = **`'Held - Member Suspended'`** / **`'Held - Member Paused'`** — **non-terminal**: no transfer, **no member email** (the send below is gated on Yes / Money Mapping / N/A, so `pip_rev_member_email_sent_at` stays NULL), and the update deliberately **omits both `pip_rev_share_transfer_id` and `pip_rev_share_completed_at`** so nothing downstream reads the leg as finished. Sits ABOVE the no-account branch so a suspended member never lands on the `Pending` failure bell. One internal Gmail **draft** per hold episode (`MEMBERS`/`MEMBER_revshare_held`, To Paul, Cc Anton/Tray/Tracy, `Revenue type: PIP`), deduped on the status read **before** this run's writes.
+5. **Revenue Share + no `stripe_account_id`** → `revPaidValue='Failed'` → `pip_rev_share_status='Pending'` + the Jake failure bell.
+6. **Revenue Share + share > 0 + `stripe_account_id` set** → Stripe Connect transfer of `pip_purchase_member_share`. `revPaidValue='Yes'`, `pip_rev_share_status='Completed - Revenue Share'`, records `pip_rev_share_transfer_id`. A missing `STRIPE_KEY` env var also → `Failed`/`Pending`.
 
-Writes `pip_rev_share_amount`, `pip_rev_share_completed_at`. Drafts inline-HTML member confirmation Gmail (Revenue Share / Money Mapping / no-share banner styling matches MAP1's pattern). Writes `pip_rev_member_email_sent_at`.
+Writes `pip_rev_share_amount` always; `pip_rev_share_completed_at` on every non-held outcome. Drafts inline-HTML member confirmation Gmail (Revenue Share / Money Mapping / no-share banner styling matches MAP1's pattern) and writes `pip_rev_member_email_sent_at` — **neither on a held leg**.
 
-**Unlock**: if `pip_purchase_kind='additional_pip'` AND (Yes OR Money Mapping), `UPDATE client_priority_tracks SET pip_paid=true WHERE pip_purchased_from_track_id=<source track> AND pip_paid=false`. This is what unlocks the newly-purchased child meetings so the admin can click into them.
+**Unlock**: if `pip_purchase_kind='additional_pip'` AND (Yes OR Money Mapping **OR held**), `UPDATE client_priority_tracks SET pip_paid=true WHERE pip_purchased_from_track_id=<source track> AND pip_paid=false`. This is what unlocks the newly-purchased child meetings so the admin can click into them. **The held case was added deliberately (2026-08-24): the CLIENT has paid, so the meetings they bought must open even while the member's own share is parked.** (Contrast a `Pending` failure, which still leaves them locked.)
+
+**Releasing a held leg — two paths.** (a) The **02:00 MAP 1 revshare sweep** gained a final pass that re-fires `automation_PIP_revshare` for every `track_type='pip'` row whose `pip_rev_share_status` is one of the two held values — held ONLY, so `Pending` failures stay manual. (b) Clearing the member's flags (profile save, or the membership sweep's auto-unsuspend) fires `releaseHeldMemberPayouts`, which chains `{action:"automation_PIP_revshare", priority_track_id}` immediately. Both are safe to re-fire on a member who is still flagged: the handler re-checks standing and re-holds idempotently. See [07-server-chains.md § Member reinstatement](../architecture/07-server-chains.md).
+
+**Idempotency note:** the "already done" skip at the top of the handler matches only `pip_rev_share_status` starting with `Completed`, so a **held row is deliberately NOT resolved** and every re-fire runs the engine again.
 
 **No Tracy's-sheet verification** — PIP revshare uses the values stored directly on the track row from the form (member_share / vfos_share already split by admin at purchase time). Different from MAP1, which verifies against Tracy's Sheets first.
 
@@ -149,14 +158,15 @@ Writes `pip_rev_share_amount`, `pip_rev_share_completed_at`. Drafts inline-HTML 
 | Tracy's-sheet verification | Required before revshare succeeds | Not used (form-supplied splits trusted) |
 | Sandbox config | `pipeline='MAP 1'` | Reuses `pipeline='MAP 1'` (no separate row needed) |
 | Tracy intro email | Yes (after first payment) | None |
-| Reminder cron | MAP1 sweep (3 stalls × 2-business-day reminder + 4-business-day PF bell, #396) | None — PIP purchases are admin-driven, no client-side waits worth chasing |
+| Reminder cron | MAP1 sweep (3 stalls × 2-business-day reminder + 4-business-day PF bell, #396) | None — PIP purchases are admin-driven, no client-side waits worth chasing. **(Since 2026-08-24 PIP does get ONE cron touch: the 02:00 MAP 1 revshare sweep's final pass re-fires held member legs — a payout backstop, not a reminder ladder.)** |
 
 ## Failure modes
 
-1. **Stripe Connect transfer fails** (`insufficient_capabilities_for_transfer`, or member has no `stripe_account_id`) → `pip_rev_share_status='Pending'`. Locked child meetings stay locked. Admin can manually re-fire `automation_PIP_revshare` after fixing the Connect setup.
+1. **Stripe Connect transfer fails** (`insufficient_capabilities_for_transfer`, or member has no `stripe_account_id`) → `pip_rev_share_status='Pending'`. Locked child meetings stay locked. Admin can manually re-fire `automation_PIP_revshare` after fixing the Connect setup. **`Pending` is still MANUAL-ONLY** — the 2026-08-24 nightly backstop re-fires the two `Held - Member …` statuses and nothing else.
+   **1a — Member suspended / paused at payout time (2026-08-24)** → `pip_rev_share_status='Held - Member …'`, no transfer, no member email, no completion stamp — but the child meetings DO unlock and one internal notice draft goes to Paul. It self-releases: nightly via the 02:00 sweep's held pass, or instantly when the member's flags are cleared.
 2. **ACH cleared but pi.succeeded missed** → track stays at `pip_payment_status='processing'`. No reminder cron for PIP; recovery is manual (re-fire `automation_PIP_invoicereceipt` + `automation_PIP_revshare` via service-role — the ACH confirmation already went out at checkout time).
 3. **Webhook fires for a PIP purchase before Phase 4 was deployed** → tracks stay at `pip_payment_status='pending'`. Recover by manually UPDATEing payment columns + firing `automation_PIP_invoicereceipt` + `automation_PIP_revshare` (plus `automation_PIP_confirmationemail` only if the purchase was ACH).
-4. **Idempotency** — all four chain handlers (confirmation, invoicereceipt, revshare) are guarded by their respective `*_sent_at` or `_status` column. Re-firing the chain on an already-completed track is a no-op.
+4. **Idempotency** — all four chain handlers (confirmation, invoicereceipt, revshare) are guarded by their respective `*_sent_at` or `_status` column. Re-firing the chain on an already-completed track is a no-op. **The revshare guard matches `Completed…` only**, so a `Pending` or `Held - Member …` row re-runs by design.
 
 ## Frontend surfaces
 
@@ -190,6 +200,6 @@ Plus existing `msm_save_priority_task` was extended to persist `notes` (used to 
 
 ## Open questions / not yet built
 
-- **No reminder cron** for stalled PIP payments. If a client never clicks `/pip-pay`, the link does not auto-resend. Could be added later if needed (would mirror MAP1's `_revshare_sweep` reminder ladder).
+- **No reminder cron** for stalled PIP payments. If a client never clicks `/pip-pay`, the link does not auto-resend. Could be added later if needed (would mirror MAP1's `_revshare_sweep` reminder ladder). **Still true as of 2026-08-24** — the held-payout pass added to the 02:00 MAP 1 sweep that day is a payout backstop for `Held - Member …` rows only; it sends nothing and chases nobody.
 - **No deep-link to a specific PIP meeting** via URL. `PipMeetingDetailSkeleton` exists but is currently unreachable (the parent only enters detail view by user click, which has all data in memory).
 - **Auto-complete trigger** for `pip_completed_date` — wired but currently only set on Phase 3 submit. There's no specific "meeting held" task that triggers it from Phase 2.
