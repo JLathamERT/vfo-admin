@@ -58,6 +58,7 @@ docs/
 │   ├── stripe-webhook.md             (payment events → pipeline updates → chains)
 │   ├── ciq.md                        (intake questionnaire workflow)
 │   ├── specialist-onboarding.md      (multi-stage vetting workflow)
+│   ├── specialist-license-continuation.md (existing specialist → portal $99/mo ACH licence)
 │   ├── msm-tracking.md               (32-action MSM subsystem map)
 │   ├── coaching-renewals.md          (coaching meeting + renewal log)
 │   ├── gift-credits.md               (GC marketplace buy/redeem)
