@@ -97,10 +97,13 @@ export default function Map1PricingSplitCard({ plan, expanded, onToggle }) {
   // against the gross understated it on member-contribution rows, where net < gross.)
   // A row with no split entered on any leg has nothing to say, and keeps its dash.
   const hasAnySplit = memberRaw != null || vfosRaw != null || stratRaw != null
+  // A leg settled no-share-due pays nothing on that installment, so its portion stays
+  // with VFO — subtracting it would understate the residual on exactly those rows.
+  const deadLeg = s => s === 'N/A — No Share Due' || s === 'N/A'
   const vfosPortion = k => {
     if (!hasAnySplit) return null
-    const m = memberPortion(memberRaw, k) || 0
-    const s = stratRaw ? portion(stratRaw) : 0
+    const m = deadLeg(plan?.[`rec${k}_rev_paid`]) ? 0 : (memberPortion(memberRaw, k) || 0)
+    const s = stratRaw && !deadLeg(plan?.[`rec${k}_strat_paid`]) ? portion(stratRaw) : 0
     return Math.max(round2(perInstalment - m - s), 0)
   }
 
