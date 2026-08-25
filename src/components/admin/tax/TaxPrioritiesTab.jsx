@@ -133,23 +133,42 @@ function amendFeePreview(pl, stage, rawTotal) {
   const retainerCents = amendToCents(pl?.retainer_amount)
 
   if (stage === 'tax4' && threePayment) {
-    const newRetainerCents = Math.round(newTotalCents / 2)
-    const newImplCents = newTotalCents - newRetainerCents
-    const newFinalCents = newRetainerCents - initialCents
-    if (newFinalCents <= 0) {
-      return { error: `Total must be more than $${(initialCents * 2 / 100).toLocaleString('en-US')} — the initial retainer of ${fmtUsdCents(initialCents)} is already paid` }
+    if (newTotalCents > THREE_PAYMENT_THRESHOLD * 100) {
+      const newRetainerCents = Math.round(newTotalCents / 2)
+      const newImplCents = newTotalCents - newRetainerCents
+      const newFinalCents = newRetainerCents - initialCents
+      if (newFinalCents <= 0) {
+        return { error: `Total must be more than $${(initialCents * 2 / 100).toLocaleString('en-US')} — the initial retainer of ${fmtUsdCents(initialCents)} is already paid` }
+      }
+      return {
+        split: {
+          total: newTotalCents / 100,
+          // retainer_amount is DEFINED as initial + final on a 3-payment plan, and
+          // amend-fee.ts writes it that way — not as round(total/2) — so the
+          // preview must show the same sum.
+          retainer: (initialCents + newFinalCents) / 100,
+          implementation: newImplCents / 100,
+          initialRetainer: initialCents / 100,
+          finalRetainer: newFinalCents / 100,
+          threePayment: true,
+        },
+      }
+    }
+    // At or below $30,000 the plan CONVERTS to 2 payments (mirrors amend-fee.ts):
+    // the paid initial retainer becomes the whole retainer, there is no final
+    // retainer any more, and the reduction lands on the implementation fee.
+    if (newTotalCents <= initialCents) {
+      return { error: `Total must be more than the initial retainer of ${fmtUsdCents(initialCents)} already paid` }
     }
     return {
+      converts: true,
       split: {
         total: newTotalCents / 100,
-        // retainer_amount is DEFINED as initial + final on a 3-payment plan, and
-        // amend-fee.ts writes it that way — not as round(total/2) — so the
-        // preview must show the same sum.
-        retainer: (initialCents + newFinalCents) / 100,
-        implementation: newImplCents / 100,
-        initialRetainer: initialCents / 100,
-        finalRetainer: newFinalCents / 100,
-        threePayment: true,
+        retainer: initialCents / 100,
+        implementation: (newTotalCents - initialCents) / 100,
+        initialRetainer: null,
+        finalRetainer: null,
+        threePayment: false,
       },
     }
   }
@@ -182,11 +201,15 @@ const feeRowStyle = (strong) => ({ display: 'flex', justifyContent: 'space-betwe
 // so the rows always sum to the total on screen; the client-facing email still
 // quotes just the initial retainer.
 function FeeBreakdown({ split, projected = false, paidFlags = null }) {
+  // "(50%)" only when it is actually true — an amended or converted schedule is
+  // no longer an even split, and printing the suffix there would be a false claim.
+  const isHalf = Math.abs((split.retainer ?? 0) * 2 - (split.total ?? 0)) < 0.01
+  const pct = isHalf ? ' (50%)' : ''
   const rows = split.threePayment
-    ? [['Initial Retainer', split.initialRetainer, 'initial'], ['Final Retainer', split.finalRetainer, 'final'], ['Implementation Fee (50%)', split.implementation, 'implementation']]
+    ? [['Initial Retainer', split.initialRetainer, 'initial'], ['Final Retainer', split.finalRetainer, 'final'], [`Implementation Fee${pct}`, split.implementation, 'implementation']]
     : projected
-      ? [['Initial Retainer', split.retainer, 'retainer'], ['Implementation Fee (50%)', split.implementation, 'implementation']]
-      : [['Retainer (50%)', split.retainer, 'retainer'], ['Implementation Fee (50%)', split.implementation, 'implementation']]
+      ? [['Initial Retainer', split.retainer, 'retainer'], [`Implementation Fee${pct}`, split.implementation, 'implementation']]
+      : [[`Retainer${pct}`, split.retainer, 'retainer'], [`Implementation Fee${pct}`, split.implementation, 'implementation']]
   return (
     <div style={{ marginTop: '10px', padding: '10px 12px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
       <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Derived payment schedule</div>
@@ -604,9 +627,14 @@ function AmendFeeStep({ task, plan, stage, status, completedDate, readOnly, onAn
               </div>
               <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '4px' }}>
                 {stage === 'tax4' && current?.threePayment
-                  ? 'The 50:50 split is re-derived from the new total; the initial retainer is already paid, so only the final retainer and the implementation fee move.'
+                  ? 'The 50:50 split is re-derived from the new total; the initial retainer is already paid, so only the final retainer and the implementation fee move. At $30,000 or below the plan converts to two payments.'
                   : 'The retainer is already paid, so the whole change lands on the implementation fee.'}
               </div>
+              {preview?.converts && (
+                <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, marginTop: '6px' }}>
+                  Converts to 2 payments: the ${fmtMoney((amendToCents(plan?.initial_retainer_amount)) / 100)} initial retainer already paid becomes the full retainer — no final retainer will be collected, and Client decision 1 releases the revenue share immediately.
+                </div>
+              )}
               {preview?.error && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '12px', marginTop: '6px' }}>{preview.error}</div>}
               {preview?.split && <FeeBreakdown split={preview.split} paidFlags={paidFlags} />}
               <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
