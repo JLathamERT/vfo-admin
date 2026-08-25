@@ -56,17 +56,15 @@ const isLegacyFeeNotes = (existing) =>
 
 const feeRowStyle = (strong) => ({ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', marginBottom: '4px', fontWeight: strong ? 700 : 400 })
 
-// Read-only mirror of what the server will derive. `projected` is the Undecided
-// quote, where only the first retainer payment (and, on the 3-payment shape, the
-// final retainer) has been quoted to the client.
+// Read-only mirror of what the server will derive. `projected` (the Undecided
+// quote) shows the same full schedule — only the labels/total header differ —
+// so the rows always sum to the total on screen; the client-facing email still
+// quotes just the initial retainer.
 function FeeBreakdown({ split, projected = false }) {
-  const rows = projected
-    ? [
-        ['Initial Retainer', split.threePayment ? split.initialRetainer : split.retainer],
-        ...(split.threePayment ? [['Final Retainer', split.finalRetainer]] : []),
-      ]
-    : split.threePayment
-      ? [['Initial Retainer', split.initialRetainer], ['Final Retainer', split.finalRetainer], ['Implementation Fee (50%)', split.implementation]]
+  const rows = split.threePayment
+    ? [['Initial Retainer', split.initialRetainer], ['Final Retainer', split.finalRetainer], ['Implementation Fee (50%)', split.implementation]]
+    : projected
+      ? [['Initial Retainer', split.retainer], ['Implementation Fee (50%)', split.implementation]]
       : [['Retainer (50%)', split.retainer], ['Implementation Fee (50%)', split.implementation]]
   return (
     <div style={{ marginTop: '10px', padding: '10px 12px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
