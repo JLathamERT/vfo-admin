@@ -534,22 +534,36 @@ function AmendFeeStep({ task, plan, stage, status, completedDate, readOnly, onAn
             {amended && mode !== 'amend' && (
               <button disabled={busy} onClick={() => { setSubmitError(''); setMode('amend') }} style={{ border: 'none', background: 'transparent', color: '#125ecc', fontSize: '11.5px', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Change amount</button>
             )}
-            <select
-              disabled={busy}
-              value={mode === 'amend' ? 'amend' : (answered ? (amended ? 'amend' : 'keep') : '')}
-              onChange={e => {
-                const v = e.target.value
-                setSubmitError('')
-                if (v === 'keep' && !amended) submit('keep')
-                else if (v === 'amend') setMode('amend')
-                else { setMode(''); setTotalInput('') }
-              }}
-              style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif', cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1 }}
-            >
-              <option value="">-- Select --</option>
-              <option value="keep" disabled={amended}>Keep the fee</option>
-              <option value="amend">Amend the fee</option>
-            </select>
+            {(() => {
+              const selValue = mode === 'amend' ? 'amend' : (answered ? (amended ? 'amend' : 'keep') : '')
+              // Selection colors mirror the generic status dropdowns: green once
+              // the answer is committed, amber while the amend form is open but
+              // unsaved, muted while nothing is selected.
+              const selColor = answered && mode !== 'amend' ? '#1b9254' : mode === 'amend' ? '#e06717' : 'var(--vfo-muted)'
+              return (
+                <select
+                  disabled={busy}
+                  value={selValue}
+                  onChange={e => {
+                    const v = e.target.value
+                    setSubmitError('')
+                    if (v === 'keep' && !amended) {
+                      // A selection here COMMITS the step (and unlocks the next
+                      // one), so it confirms first — a mis-click must not
+                      // complete a money step.
+                      if (window.confirm(`Keep the fee at $${current ? fmtMoney(current.total) : ''}? This completes the step.`)) submit('keep')
+                    }
+                    else if (v === 'amend') setMode('amend')
+                    else { setMode(''); setTotalInput('') }
+                  }}
+                  style={{ padding: '5px 10px', borderRadius: '6px', border: `1px solid ${selValue ? selColor : 'var(--vfo-border-strong)'}`, background: 'var(--vfo-card)', color: selColor, fontWeight: selValue ? 600 : 400, fontSize: '12px', fontFamily: 'Inter, sans-serif', cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1 }}
+                >
+                  <option value="">-- Select --</option>
+                  <option value="keep" disabled={amended}>Keep the fee</option>
+                  <option value="amend">Amend the fee</option>
+                </select>
+              )
+            })()}
           </div>
         ) : null}
         <StepDate value={completedDate || ''} />
