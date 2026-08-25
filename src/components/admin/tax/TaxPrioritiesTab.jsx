@@ -22,6 +22,24 @@ const THREE_PAYMENT_THRESHOLD = 30000
 const INITIAL_RETAINER_FLAT = 15000
 const FEE_TOTAL_RANGE_MESSAGE = `Total fee must be greater than $0 and no more than $${MAX_TOTAL_FEE.toLocaleString('en-US')}`
 
+// Mirrors the edge repo's constants/tax-fee-process.ts KNOWN_FEE_PROCESS_VERSIONS
+// / isNewFeeProcess (and taxShared.jsx, which already carries the same list). A
+// plan with NULL — or an unrecognised — fee_process_version is on the LEGACY
+// process: it can never amend a fee (amend-fee.ts 400s it), so the two amend
+// steps are not-applicable for it everywhere below.
+const KNOWN_FEE_PROCESS_VERSIONS = ['2026-08-25']
+const isNewFeeProcess = (pl) => KNOWN_FEE_PROCESS_VERSIONS.includes(pl?.fee_process_version)
+
+// The two revised-fee-process "amend the fee" steps, matched by their
+// status_options sentinels. Stored names are 'Amend fee' (Tax 4) and
+// 'Amend implementation fee' (Tax 5b) — the Tax 4 name is ALSO a backend lookup
+// key (AMEND_FEE_TASK_NAME, read by the Client decision 1 gate in
+// actions/tax/postreview-decision.ts), so neither name is matched here (#392).
+const AMEND_FEE_CODE = 'tax_amend_fee'
+const AMEND_FEE_TAX5_CODE = 'tax_amend_fee_tax5'
+const isAmendStepTask = (t) => t?.status_options === AMEND_FEE_CODE || t?.status_options === AMEND_FEE_TAX5_CODE
+const amendStage = (t) => (t?.status_options === AMEND_FEE_TAX5_CODE ? 'tax5' : 'tax4')
+
 function deriveFeeSplit(total) {
   const cents = Math.round(Number(total) * 100)
   if (!Number.isFinite(cents) || cents <= 0 || cents > MAX_TOTAL_FEE * 100) return null
@@ -45,6 +63,109 @@ function feeSplitFromInput(raw) {
   const cleaned = String(raw ?? '').replace(/[$,\s]/g, '')
   if (cleaned === '') return null
   return deriveFeeSplit(parseFloat(cleaned))
+}
+
+// ── Fee amendment (Tax 4 / Tax 5 "Amend fee" steps) ────────────────────────
+// Everything below MIRRORS the edge repo's actions/tax/amend-fee.ts. The server
+// is authoritative — it re-derives every payable amount from the submitted total
+// and ignores anything computed here — so this exists purely so the admin sees
+// the same numbers and the same refusal the server would produce. Change both
+// together; a divergence shows up as a card that previews a schedule the submit
+// then rejects.
+//
+// toCents is byte-for-byte amend-fee.ts's toCents(): a non-numeric string lands
+// on 0 and is then rejected by the range test, so both sides refuse identically.
+const amendToCents = (v) => {
+  const n = parseFloat(String(v ?? '0').replace(/[,$\s]/g, ''))
+  return Number.isFinite(n) ? Math.round(n * 100) : 0
+}
+const fmtUsdCents = (cents) => `$${fmtMoney(cents / 100)}`
+// amend-fee.ts's range message, verbatim (it ends in a period; the Tax 3 form's
+// FEE_TOTAL_RANGE_MESSAGE above does not, and they are shown in different cards).
+const AMEND_RANGE_MESSAGE = `Total fee must be greater than $0 and no more than $${MAX_TOTAL_FEE.toLocaleString('en-US')}.`
+
+// Is this a 3-payment (initial + final retainer) plan? Same test as the edge
+// repo's isThreePaymentPlan: the split columns can only exist on a revised
+// process row, so a legacy or 2-payment plan can never answer true.
+const isThreePaymentPlan = (pl) => isNewFeeProcess(pl) && pl?.initial_retainer_amount != null
+
+// The plan's CURRENT payment schedule, in the shape FeeBreakdown renders.
+// Deliberately reads the STORED columns rather than re-deriving from the total:
+// after an amendment a 3-payment plan can sit at exactly $30,000, where
+// deriveFeeSplit's `cents > threshold` test would call it a 2-payment plan while
+// initial_retainer_amount still says otherwise. Returns null when the plan has
+// no total (nothing to show).
+function planFeeSchedule(pl) {
+  const totalCents = amendToCents(pl?.total_fee)
+  if (totalCents <= 0) return null
+  const threePayment = isThreePaymentPlan(pl)
+  return {
+    total: totalCents / 100,
+    retainer: amendToCents(pl?.retainer_amount) / 100,
+    implementation: amendToCents(pl?.implementation_amount) / 100,
+    initialRetainer: threePayment ? amendToCents(pl?.initial_retainer_amount) / 100 : null,
+    finalRetainer: threePayment ? amendToCents(pl?.final_retainer_amount) / 100 : null,
+    threePayment,
+  }
+}
+
+// What the server WOULD store for `rawTotal` at this stage, or the error it
+// would return. Mirrors amend-fee.ts's derivation branch for branch:
+//
+//   tax4 + 3-payment -> the 50:50 split is RE-DERIVED from the new total and the
+//     already-paid initial retainer is subtracted out of the retainer half, so
+//     only the FINAL retainer and the implementation fee move. Refused when that
+//     would drive the final retainer negative (i.e. below 2x the paid initial).
+//   every other shape (tax4 + 2-payment, tax5 either) -> the retainer side is
+//     settled and untouchable, so the whole movement lands on the implementation
+//     fee. Refused when that would leave the implementation fee at or below $0.
+//   both -> $0 < total <= MAX_TOTAL_FEE.
+//
+// Returns { empty: true } for a blank input (the not-yet-typed state — no error,
+// no preview), { error } for anything the server would refuse, else { split }.
+function amendFeePreview(pl, stage, rawTotal) {
+  if (String(rawTotal ?? '').trim() === '') return { empty: true }
+  const newTotalCents = amendToCents(rawTotal)
+  if (newTotalCents <= 0 || newTotalCents > MAX_TOTAL_FEE * 100) return { error: AMEND_RANGE_MESSAGE }
+
+  const threePayment = isThreePaymentPlan(pl)
+  const initialCents = amendToCents(pl?.initial_retainer_amount)
+  const retainerCents = amendToCents(pl?.retainer_amount)
+
+  if (stage === 'tax4' && threePayment) {
+    const newRetainerCents = Math.round(newTotalCents / 2)
+    const newImplCents = newTotalCents - newRetainerCents
+    const newFinalCents = newRetainerCents - initialCents
+    if (newFinalCents <= 0) {
+      return { error: `Total must be more than $${(initialCents * 2 / 100).toLocaleString('en-US')} — the initial retainer of ${fmtUsdCents(initialCents)} is already paid` }
+    }
+    return {
+      split: {
+        total: newTotalCents / 100,
+        // retainer_amount is DEFINED as initial + final on a 3-payment plan, and
+        // amend-fee.ts writes it that way — not as round(total/2) — so the
+        // preview must show the same sum.
+        retainer: (initialCents + newFinalCents) / 100,
+        implementation: newImplCents / 100,
+        initialRetainer: initialCents / 100,
+        finalRetainer: newFinalCents / 100,
+        threePayment: true,
+      },
+    }
+  }
+
+  const newImplCents = newTotalCents - retainerCents
+  if (newImplCents <= 0) return { error: 'Total must be more than the retainer already paid' }
+  return {
+    split: {
+      total: newTotalCents / 100,
+      retainer: retainerCents / 100,
+      implementation: newImplCents / 100,
+      initialRetainer: threePayment ? initialCents / 100 : null,
+      finalRetainer: threePayment ? amendToCents(pl?.final_retainer_amount) / 100 : null,
+      threePayment,
+    },
+  }
 }
 
 // A completed Tax 3 form stored BEFORE this process shipped carries its own
@@ -310,6 +431,145 @@ function TotalFeeField({ label, hint, value, onChange, split, readOnly = false, 
       {hint && !readOnly && <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '4px' }}>{hint}</div>}
       {invalid && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '12px', marginTop: '6px' }}>{FEE_TOTAL_RANGE_MESSAGE}</div>}
       {split && <FeeBreakdown split={split} projected={projected} />}
+    </div>
+  )
+}
+
+// The Tax 4 'Amend fee' / Tax 5b 'Amend implementation fee' step.
+//
+// ADMIN-ONLY (constants/role-gates.ts keeps automation_TAX_amend_fee out of
+// TAX_PLANNER_ALLOWED_ACTIONS, and neither name is in
+// PLANNER_EDITABLE_TASK_NAMES) — a planner sees this card through the standard
+// inert plannerMode wrapper like every other locked step (#262).
+//
+// Two answers, both of which COMPLETE the step:
+//   Keep    -> automation_TAX_amend_fee { keep: true }, which writes nothing but
+//              confirms the plan is on the revised process, then the step row.
+//   Amend   -> automation_TAX_amend_fee { new_total }, which re-derives every
+//              downstream amount and scales the revenue-share legs server-side,
+//              then the step row.
+// The step row is saved ONLY after the call succeeds — a refused amendment must
+// not leave a completed step behind. The amounts' truth is always the plan
+// columns (#286): this card re-reads them from `plan` after every save, and the
+// step's completion is proven by the progress row OR the fee_amended_at_* stamp.
+function AmendFeeStep({ task, plan, stage, status, completedDate, readOnly, onAnswer }) {
+  const [mode, setMode] = useState('')          // '' | 'amend'
+  const [totalInput, setTotalInput] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+
+  const stamp = stage === 'tax4' ? plan?.fee_amended_at_tax4 : plan?.fee_amended_at_tax5
+  // Mirrors isTaskStatused's rule for these two sentinels, and the backend's
+  // (utils/tax-plan-steps.ts + amendFeeStepState): the progress row is the
+  // normal proof, the stamp is the independent one.
+  const answered = !!status || !!stamp
+  const amended = !!stamp || status === 'Completed - Amended'
+  const current = planFeeSchedule(plan)
+  const green = '#1b9254'
+
+  const preview = mode === 'amend' ? amendFeePreview(plan, stage, totalInput) : null
+  const canSubmitAmend = !!preview?.split && !busy
+
+  async function submit(kind) {
+    if (busy) return
+    setBusy(true)
+    setSubmitError('')
+    try {
+      const body = { tax_plan_id: plan.id, stage }
+      if (kind === 'keep') body.keep = true
+      else body.new_total = totalInput
+      const res = await callApi('automation_TAX_amend_fee', body)
+      // The server re-checks every money guard (retainer settled, decision not
+      // yet sent, nothing in flight) — show its refusal verbatim and leave the
+      // step OPEN so it can still be answered once the blocker clears.
+      if (res?.error) { setSubmitError(res.error); return }
+      await onAnswer(kind === 'keep' ? 'Completed - Kept' : 'Completed - Amended')
+      setMode('')
+      setTotalInput('')
+    } catch (err) {
+      setSubmitError(err?.message || 'unknown error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const rowStyle = { display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }
+  const amendInputStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', width: '180px', boxSizing: 'border-box' }
+  const btn = (hex, rgb) => ({ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: `1px solid rgba(${rgb},0.4)`, background: `rgba(${rgb},0.12)`, color: hex, fontWeight: 600 })
+
+  return (
+    <div style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
+      <div style={rowStyle}>
+        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: answered ? green : 'transparent', flexShrink: 0, border: `1.5px solid ${answered ? green : 'var(--vfo-border-mid)'}` }} />
+        <span style={{ fontSize: '13px', color: answered ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{taskLabel(task)}</span>
+        {answered ? (
+          <span style={chipStyle(green)}>{amended ? 'Amended' : 'Fee kept'}</span>
+        ) : (
+          !readOnly && mode !== 'amend' && (
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <button disabled={busy} onClick={() => submit('keep')} style={{ ...btn(green, '27,146,84'), opacity: busy ? 0.5 : 1 }}>Keep the fee</button>
+              <button disabled={busy} onClick={() => { setSubmitError(''); setMode('amend') }} style={{ ...btn('#e06717', '224,103,23'), opacity: busy ? 0.5 : 1 }}>Amend the fee</button>
+            </div>
+          )
+        )}
+        <StepDate value={completedDate || ''} />
+      </div>
+
+      {/* Answered: what happened, plus the schedule that is now in force. */}
+      {answered && current && (
+        <div style={{ marginLeft: '18px', marginBottom: '10px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--vfo-ink)', fontWeight: 600 }}>
+            {amended ? `Fee amended to $${fmtMoney(current.total)}` : `Fee kept at $${fmtMoney(current.total)}`}
+          </div>
+          <FeeBreakdown split={current} />
+        </div>
+      )}
+
+      {/* Unanswered: the current schedule is always visible, so the decision is
+          made against real numbers rather than from memory. */}
+      {!answered && !readOnly && (current || mode === 'amend') && (
+        <div style={{ marginLeft: '18px', marginBottom: '10px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>
+            {stage === 'tax4'
+              ? 'Confirm the fee before Client decision 1 goes out — that email quotes these figures.'
+              : 'Confirm the implementation fee before Client decision 2 — only the implementation fee can still move.'}
+          </div>
+          {current && <FeeBreakdown split={current} />}
+          {mode === 'amend' && (
+            <div style={{ marginTop: '10px' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>New total fee</label>
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+                <input
+                  value={totalInput}
+                  onChange={e => { setTotalInput(e.target.value); setSubmitError('') }}
+                  placeholder="0.00"
+                  style={{ ...amendInputStyle, paddingLeft: '28px', ...(preview?.error ? { borderColor: '#e74c3c' } : {}) }}
+                />
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '4px' }}>
+                {stage === 'tax4' && current?.threePayment
+                  ? 'The 50:50 split is re-derived from the new total; the initial retainer is already paid, so only the final retainer and the implementation fee move.'
+                  : 'The retainer is already paid, so the whole change lands on the implementation fee.'}
+              </div>
+              {preview?.error && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '12px', marginTop: '6px' }}>{preview.error}</div>}
+              {preview?.split && <FeeBreakdown split={preview.split} />}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                <button disabled={!canSubmitAmend} onClick={() => submit('amend')} style={{ padding: '6px 16px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '12px', cursor: canSubmitAmend ? 'pointer' : 'not-allowed', opacity: canSubmitAmend ? 1 : 0.5 }}>
+                  {busy ? 'Saving...' : 'Save amended fee'}
+                </button>
+                <button disabled={busy} onClick={() => { setMode(''); setTotalInput(''); setSubmitError('') }} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Outside the schedule block on purpose: the server's refusal must be
+          visible even on a plan with no stored total to draw a schedule from. */}
+      {!answered && submitError && (
+        <div style={{ marginLeft: '18px', marginBottom: '10px', color: '#e74c3c', fontWeight: 500, fontSize: '12px' }}>{submitError}</div>
+      )}
     </div>
   )
 }
@@ -1697,6 +1957,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     'Pending Completion': '#e06717',
     'Proceed': '#1b9254',
     'Proceed with tax planning': '#1b9254', 'Stop tax planning': '#e74c3c',
+    // The two answers the 'Amend fee' / 'Amend implementation fee' steps store.
+    'Completed - Kept': '#1b9254', 'Completed - Amended': '#1b9254',
   }
 
   function formatDate(d) {
@@ -1841,6 +2103,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     // gates), while the other four steps the skip removes drop out of the counts
     // entirely (isSkippedAway).
     if (t.status_options === 'tax_3_decision') return !!localProgress[t.id]?.status || roiSkipped
+    // The two "amend the fee" steps: normally proven by their own progress row
+    // ("Completed - Kept" / "Completed - Amended"), but an actual amendment
+    // stamps client_tax_plans.fee_amended_at_tax4/_tax5 and that stamp can only
+    // exist because the step was answered — so it closes the step on its own if
+    // the save-task that follows the amend call is ever lost. Mirrored in the
+    // backend step machine (utils/tax-plan-steps.ts) — #339 keeps them in step.
+    if (t.status_options === AMEND_FEE_CODE) return !!localProgress[t.id]?.status || !!livePlan?.fee_amended_at_tax4
+    if (t.status_options === AMEND_FEE_TAX5_CODE) return !!localProgress[t.id]?.status || !!livePlan?.fee_amended_at_tax5
     return !!localProgress[t.id]?.status
   }
 
@@ -1896,6 +2166,31 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   // actually happened.
   const isSkippedAway = (t) => roiSkipped && isRoiSkipSetTask(t)
     && t?.status_options !== 'tax_3_decision' && !isTaskStatused(t)
+
+  // ── The two revised-fee-process "amend the fee" steps ────────────────────
+  // A LEGACY plan (NULL / unrecognised fee_process_version) can never amend a
+  // fee — actions/tax/amend-fee.ts refuses it outright — so on one of those the
+  // two steps are NOT APPLICABLE: they render as inert rows (the same treatment
+  // isSkippedAway rows get) and drop out of every count, so no legacy plan's
+  // phase pill, hero total or plan-list state changes. A 2-payment plan on the
+  // REVISED process gets both steps normally: only the derivation differs
+  // (implementation-only rather than a re-derived 50:50).
+  // Mirrors utils/tax-plan-steps.ts's `applicable: reach && newFeeProcess`.
+  const newFeeProcess = isNewFeeProcess(livePlan)
+  const isAmendNotApplicable = (t) => isAmendStepTask(t) && !newFeeProcess
+  // Excluded from the done-math: skipped-away rows, plus the not-applicable
+  // amend rows. One helper so every count site uses the same rule.
+  const isStepExcluded = (t) => isSkippedAway(t) || isAmendNotApplicable(t)
+
+  // "Has the amend step been answered?" for the steps that wait on it. An ABSENT
+  // task row reads as answered — the program_client_tasks seed lands after this
+  // code deploys, and a step that does not exist must never lock the one after
+  // it. Exactly the deploy-order-safe rule amendFeeStepState uses server-side
+  // (exists=false -> the backend gate SKIPS).
+  const amendTax4Task = allTasks.find(t => t.status_options === AMEND_FEE_CODE)
+  const amendTax5Task = allTasks.find(t => t.status_options === AMEND_FEE_TAX5_CODE)
+  const amendTax4Blocks = newFeeProcess && !!amendTax4Task && !isTaskStatused(amendTax4Task)
+  const amendTax5Blocks = newFeeProcess && !!amendTax5Task && !isTaskStatused(amendTax5Task)
   // Column-proven as well as progress-proven — isTaskStatused above reads the
   // submitted-form stamp, which is the only thing that completes this step.
   const assessDone = prereqDone('assess_form', 'Assess tax planning opportunities (and enter presentation details)')
@@ -1940,7 +2235,18 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       return { locked: !tax6Unlocked, hint: 'Locked until Implementation decision + AI PC Admin complete' }
     }
     if (phase?.name === TAX5B_PHASE) {
-      return { locked: !tax5bUnlocked, hint: 'Unlocks when "Confirm ready for implementation" is Yes or Undecided on any specialist' }
+      // The whole phase waits on the Tax 5a confirmation — that is what "reaches"
+      // the amend step too, so it needs no gate of its own.
+      if (!tax5bUnlocked) return { locked: true, hint: 'Unlocks when "Confirm ready for implementation" is Yes or Undecided on any specialist' }
+      // Revised fee process: the implementation fee may still be amended here,
+      // and Client decision 2 / the implementation charge are computed from it —
+      // so the amend step is the Implementation decision's new prerequisite.
+      // New-process plans only; on a legacy plan amendTax5Blocks is false and
+      // this step keeps exactly the gate it had.
+      if (so === 'tax_implement_decision' && amendTax5Blocks) {
+        return { locked: true, hint: 'Complete the "Amend implementation fee" step first' }
+      }
+      return { locked: false, hint: '' }
     }
 
     if (so === 'tax_returns_request' || nm === 'Request Tax Returns') {
@@ -2028,6 +2334,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       // Same on both routes — this step confirms the meeting the step above booked.
       return { locked: !hlmConfirmDone, hint: 'Send the detailed tax plan meeting confirmation email first' }
     }
+    // Revised fee process: the fee may be amended after the detailed tax plan
+    // meeting and before Client decision 1 goes out. Same prerequisite the
+    // presentation-confirmation step hands to Client decision 1 today.
+    if (so === AMEND_FEE_CODE) {
+      return { locked: !detailedPresDone, hint: 'Complete the "Detailed tax plan presentation" step first' }
+    }
     if (so === 'tax_continue_stop' || nm === 'Client decision 1') {
       // Meeting first adds the retainer to this step's prerequisites: the meeting
       // happened before the money, and Client decision 1 decides what happens to
@@ -2036,7 +2348,19 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       if (roiSkipMeetingFirst && hlmConfirmDone && detailedPresDone && !tax3AipcDone) {
         return { locked: true, hint: 'Waiting for the client to complete signing and payment' }
       }
-      return { locked: !(hlmConfirmDone && detailedPresDone), hint: 'Complete the detailed tax plan presentation first' }
+      if (!(hlmConfirmDone && detailedPresDone)) {
+        return { locked: true, hint: 'Complete the detailed tax plan presentation first' }
+      }
+      // ...and on a revised-process plan the amend step comes between the two:
+      // this email quotes the current total (and the final retainer on a
+      // 3-payment plan), so it must not go out while the fee is still open. The
+      // backend enforces the same order in actions/tax/postreview-decision.ts.
+      // amendTax4Blocks is false on legacy plans and while the step row has not
+      // been seeded, so neither case changes this gate.
+      if (amendTax4Blocks) {
+        return { locked: true, hint: 'Complete the "Amend fee" step first' }
+      }
+      return { locked: false, hint: '' }
     }
     if (nm === 'Client decision 2') {
       return {
@@ -2058,7 +2382,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     // Filtered ahead of every branch below, not just the generic tail: Tax 3
     // carries "ROI Presentation", so leaving it in would keep that phase off
     // Done forever on a skipped plan.
-    tasks = tasks.filter(t => !isSkippedAway(t))
+    tasks = tasks.filter(t => !isStepExcluded(t))
     // Tax 2 needs no special case: the skip leaves exactly the booking step
     // standing, and the skip answers it, so the generic tail below reads the
     // phase as Done (1/1).
@@ -2158,6 +2482,23 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         </div>
       )
     }
+    // A legacy-process plan can never amend a fee, so both amend steps render as
+    // inert "Not applicable" rows on EVERY surface — same treatment (and same
+    // exclusion from the counts) the ROI-skip rows above get. Ahead of the lock
+    // gate for the same reason: not-applicable outranks locked, and there is no
+    // prerequisite that could ever make it reachable.
+    if (isAmendNotApplicable(task)) {
+      return (
+        <div key={key} title="This plan was priced under the previous fee process, which has no amendment step." style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid var(--vfo-border-mid)' }} />
+          <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: '1 1 auto', minWidth: '140px' }}>{taskLabel(task)}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '0 1 auto', minWidth: '150px', justifyContent: 'flex-end', textAlign: 'right' }}>
+            <span style={chipStyle('var(--vfo-muted)')}>Not applicable</span>
+          </span>
+          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>—</span>
+        </div>
+      )
+    }
     if (!readOnly && !alreadyDone) {
       const gate = stepGate(task, phase)
       if (gate?.locked) {
@@ -2188,6 +2529,21 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     const p = localProgress[key] || {}
     const isDone = !!p.status
     const statusColor = statusColors[p.status] || 'var(--vfo-muted)'
+
+    if (isAmendStepTask(task)) {
+      return (
+        <AmendFeeStep
+          key={key}
+          task={task}
+          plan={livePlan}
+          stage={amendStage(task)}
+          status={p.status || ''}
+          completedDate={p.completed_date || ''}
+          readOnly={readOnly}
+          onAnswer={(st) => saveTask(task.id, st)}
+        />
+      )
+    }
 
     if (task.status_options === 'assess_form' || task.name === 'Assess tax planning opportunities (and enter presentation details)') {
       const green = '#1b9254'
@@ -3690,11 +4046,13 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (phase.name === 'Tax 1 - Diagnostic') {
       tasks = tasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
     }
-    return tasks.filter(t => !isSkippedAway(t))
+    return tasks.filter(t => !isStepExcluded(t))
   }
   const tax5aSpecTasks = tax5aTasks.filter(t => t.status_options !== 'specialist_select')
-  const tax5bCounted = tax5bPhase ? (tax5bPhase.program_client_tasks || []).filter(t => t.status_options !== 'auto') : []
-  const tax5bTaskDone = (t) => t.status_options === 'tax_implement_decision' ? !!livePlan?.implementation_decision : !!localProgress[t.id]?.status
+  // Same exclusion as every other count: a legacy plan's Tax 5b amend row is not
+  // applicable and must not sit in the denominator.
+  const tax5bCounted = tax5bPhase ? (tax5bPhase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !isStepExcluded(t)) : []
+  const tax5bTaskDone = (t) => t.status_options === 'tax_implement_decision' ? !!livePlan?.implementation_decision : isTaskStatused(t)
   // Tax 6 (the only after-spec phase) is per-specialist like Tax 5a, so it is
   // dropped from the plan-level reduce and added as its own term — leaving it in
   // both would double-count it.
@@ -3759,7 +4117,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         if (phase.name === 'Tax 1 - Diagnostic') {
           nonAutoTasks = nonAutoTasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
         }
-        nonAutoTasks = nonAutoTasks.filter(t => !isSkippedAway(t))
+        nonAutoTasks = nonAutoTasks.filter(t => !isStepExcluded(t))
         // Same rule as the hero count and the phase pills — isTaskStatused owns every
         // "this step doesn't live in client_tax_progress" special case in one place.
         const doneTasks = nonAutoTasks.filter(isTaskStatused).length
@@ -4111,7 +4469,11 @@ function TaxPrioritiesTab({ clientId, programId, programName, client, specialist
 
   function getPlanState(plan) {
     const prog = allProgress[plan.id] || {}
-    const allTasks = phases.filter(p => p.name !== 'Tax 5 - Education & DD (Specialist Allocation)' && p.name !== 'Tax 5 - Education & DD (Post Allocation)').flatMap(p => p.program_client_tasks || []).filter(t => t.status_options !== 'auto')
+    // The Tax 4 'Amend fee' step only exists for revised-fee-process plans — a
+    // legacy plan must not drop out of "completed" because of a step it can
+    // never answer. (The Tax 5b amend step is already outside this list, which
+    // excludes both Tax 5 phases entirely.)
+    const allTasks = phases.filter(p => p.name !== 'Tax 5 - Education & DD (Specialist Allocation)' && p.name !== 'Tax 5 - Education & DD (Post Allocation)').flatMap(p => p.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !(isAmendStepTask(t) && !isNewFeeProcess(plan)))
     if (allTasks.length === 0) return 'not started'
     if (allTasks.every(t => prog[t.id]?.status)) return 'completed'
     if (allTasks.some(t => prog[t.id]?.status)) return 'in progress'
