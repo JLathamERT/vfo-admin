@@ -495,7 +495,6 @@ function AmendFeeStep({ task, plan, stage, status, completedDate, readOnly, onAn
 
   const rowStyle = { display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }
   const amendInputStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', width: '180px', boxSizing: 'border-box' }
-  const btn = (hex, rgb) => ({ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: `1px solid rgba(${rgb},0.4)`, background: `rgba(${rgb},0.12)`, color: hex, fontWeight: 600 })
 
   return (
     <div style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
@@ -505,11 +504,28 @@ function AmendFeeStep({ task, plan, stage, status, completedDate, readOnly, onAn
         {answered ? (
           <span style={chipStyle(green)}>{amended ? 'Amended' : 'Fee kept'}</span>
         ) : (
-          !readOnly && mode !== 'amend' && (
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-              <button disabled={busy} onClick={() => submit('keep')} style={{ ...btn(green, '27,146,84'), opacity: busy ? 0.5 : 1 }}>Keep the fee</button>
-              <button disabled={busy} onClick={() => { setSubmitError(''); setMode('amend') }} style={{ ...btn('#e06717', '224,103,23'), opacity: busy ? 0.5 : 1 }}>Amend the fee</button>
-            </div>
+          // House convention: dropdowns make selections, buttons send emails.
+          // "Keep the fee" completes the step on selection, like every other
+          // dropdown step; "Amend the fee" opens the amount form below (the
+          // actual amendment saves from its own button, and Cancel returns the
+          // dropdown to blank).
+          !readOnly && (
+            <select
+              disabled={busy}
+              value={mode === 'amend' ? 'amend' : ''}
+              onChange={e => {
+                const v = e.target.value
+                setSubmitError('')
+                if (v === 'keep') submit('keep')
+                else if (v === 'amend') setMode('amend')
+                else { setMode(''); setTotalInput('') }
+              }}
+              style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif', cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1 }}
+            >
+              <option value="">-- Select --</option>
+              <option value="keep">Keep the fee</option>
+              <option value="amend">Amend the fee</option>
+            </select>
           )
         )}
         <StepDate value={completedDate || ''} />
