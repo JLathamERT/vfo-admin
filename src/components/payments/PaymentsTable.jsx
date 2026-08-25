@@ -62,7 +62,7 @@ function fmtMethod(method, last4) {
 function StatusPill({ status, count }) {
   const s = STATUS[status] || STATUS.unpaid
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', borderRadius: '999px', background: s.bg, color: s.fg, fontSize: '11.5px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '999px', background: s.bg, color: s.fg, fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap' }}>
       <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: s.fg, flexShrink: 0 }} />
       {s.label}{count > 1 ? ` ×${count}` : ''}
     </span>
@@ -368,12 +368,12 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
         <table style={{ width: '100%', ...(hasPerson ? { minWidth: '860px' } : null), borderCollapse: 'collapse', tableLayout: 'fixed', fontFamily: 'Inter, sans-serif' }}>
           <colgroup>
             <col style={{ width: '30px' }} />
-            <col style={{ width: '118px' }} />
+            <col style={{ width: '112px' }} />
             {hasPerson && <col style={{ width: '150px' }} />}
             <col />
+            <col style={{ width: '92px' }} />
             <col style={{ width: '96px' }} />
-            <col style={{ width: '100px' }} />
-            <col style={{ width: '150px' }} />
+            <col style={{ width: '172px' }} />
           </colgroup>
           <thead>
             <tr>
