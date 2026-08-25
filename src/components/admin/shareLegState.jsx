@@ -74,10 +74,13 @@ const noteStyle = { display: 'block', fontSize: '9px', lineHeight: 1.2, fontWeig
 
 // One split-amount grid cell: the amount in the caller's existing styling, dimmed unless
 // the leg has actually settled, with the leg note underneath. A zero/absent share keeps
-// whatever the caller rendered before (a dash, or a plain $0.00) and carries no note.
-export function ShareCell({ value, state, money = defaultMoney, color, fontWeight, dash }) {
+// whatever the caller rendered before (a dash, or a plain $0.00) and carries no note —
+// unless the caller passes noteOnZero, for the one case where a zero is not "no share"
+// but "this share books on a later payment" (the 3-payment tax initial retainer) and the
+// note is the whole point of the cell. Off by default, so every other caller is unchanged.
+export function ShareCell({ value, state, money = defaultMoney, color, fontWeight, dash, noteOnZero = false }) {
   const n = Number(value) || 0
-  const note = n > 0 ? state?.note : null
+  const note = (n > 0 || noteOnZero) ? state?.note : null
   return (
     <span style={{ textAlign: 'right', color, fontWeight }}>
       <span style={{ opacity: note && state.tone !== 'done' ? 0.55 : 1 }}>{n > 0 || dash == null ? money(n) : dash}</span>

@@ -38,9 +38,9 @@ State machine for the tax-planning engagement. **161 columns as of 2026-08-16 �
 |---|---|---|
 | `tax_decision` | text | `Yes` / `Undecided` / `No` (admin-submitted decision). |
 | `risk_mindset` | text | `Yes — Risk N — …` from form's `taxRiskMindset`. |
-| `retainer_amount` | numeric | First 50% — admin-entered. |
-| `implementation_amount` | numeric | Second 50% — admin-entered. May differ from retainer (not enforced 50/50). |
-| `total_fee` | numeric | Auto-computed retainer + implementation. |
+| `retainer_amount` | numeric | The first 50%. **Legacy process:** admin-entered. **Revised process (2026-08-25):** derived server-side as `round(total_fee/2)`, and it stays the **FULL** 50% retainer in BOTH payment shapes — the 3-payment shape only splits *how* that retainer is collected (`initial + final`). **Any new code reading this as "one payment that moved" is wrong on a 3-payment plan** (#440). |
+| `implementation_amount` | numeric | The second 50%. **Legacy:** admin-entered; may differ from retainer (not enforced 50/50). **Revised:** derived as `total_fee − retainer_amount`, so the two always sum to the total to the cent. A fee amendment that cannot move the retainer side lands its whole change here. |
+| `total_fee` | numeric | **Legacy:** auto-computed retainer + implementation. **Revised:** the ONE admin-entered input (`0 < total ≤ $60,000`, hard cap enforced server-side); everything else derives from it. |
 | `discount_applied` | numeric | **Display-only** (added 2026-07-14). Diron Insley (member 59073) clients only — server-gated in `decision.ts`/`pricing.ts`/`extra-meeting.ts` against `clients.member_number` = `constants/tax-discount.ts DISCOUNT_MEMBER_NUMBER`. When > 0 the invoice PDF shows gross Tax Planning Fee (retainer + implementation + discount), the discount in red, Net Payable, and a small-print footnote; the retainer invoice/receipt + implementation receipt emails get a small-print footnote. Does NOT affect charged amounts, receipts, agreement, or revshare. NULL = no discount. |
 | `split_type` | text | `1/3 Member, 2/3 VFOS` / `50/50` / `Custom` (legacy 2-way) — and, since 2026-07-21, the 3-way preset `1/3 Member, 1/3 Tax Planner, 1/3 VFOS`. `TaxDecisionForm`/`TaxPricingForm` now offer the 3-way preset + a Custom mode where all three boxes are editable and must sum to `total_fee` (1-cent tolerance). Strategic-member tax splits (`src/lib/strategicSplits.js`, `programType='tax'`) add a 4th Strategic Partner leg and stamp the value **`Strategic Partner`**. **Since 2026-08-05 `migration_backfill_tax` FORCES that value server-side** whenever a strategic share is submitted — not only in the UI — so a direct API caller cannot store a strategic row carrying a stale `1/3 …` / `Custom` split type (gotcha **#335**). |
 | `member_share` | numeric | Dollar amount of member's revshare (of the TOTAL — proportional per installment, gotcha #252). |
@@ -248,6 +248,31 @@ Tax 5b "Implementation decision" mirrors Tax 4's 3-option pattern: Proceed and U
 | `implementation_announcement_email_sent` | boolean | default false. **Currently unused — wrap-up email was dropped in the Tax 5 client-email redesign.** Kept for future. |
 | `implementing_specialist_id` | integer | fk → `client_tax_specialists.id`. **Still unused, and NOT the per-specialist mechanism.** (It was written when implementation was decided at the phase level. As of 2026-07-31 / v683 the `Tax 6 - Implementation` steps ARE per-specialist, but they are tracked through `client_tax_progress.tax_specialist_id`, not through this column — see #311. Do not start writing this column expecting anything to read it.) |
 
+### Revised fee process — `fee_process_version = '2026-08-25'` *(migration `20260825120000_tax_fee_process_v2026_08_25.sql`)*
+
+18 nullable columns. **The whole group is inert on a legacy plan** and must stay that way. Full flow: [flows/tax-fee-process.md](../flows/tax-fee-process.md).
+
+| Column | Type | Notes |
+|---|---|---|
+| `fee_process_version` | text | **The switch.** `NULL` = the legacy process — nothing about such a plan ever changes and no revised-process validation applies to it. `'2026-08-25'` = the revised process (one total in, all amounts derived server-side, 3-payment shape above $30,000). Stamped by `buildFeeColumns()` at the Tax 3 decision / deferred pricing / extra-meeting writes and **ONLY while `retainer_status IS NULL`**, so a plan already holding retainer money can never change process. New versions are ADDED to `KNOWN_FEE_PROCESS_VERSIONS`, never substituted. |
+| `initial_retainer_amount` | numeric | 3-payment shape only: the flat **$15,000** first retainer payment. NULL on 2-payment and legacy plans. **Kept (not nulled) when a Tax 4 amendment converts a plan back to 2 payments** — it is both the record that $15k was collected and the marker that makes the conversion reversible. |
+| `final_retainer_amount` | numeric | 3-payment shape only: `retainer_amount − 15000`, collected before the Education phase. **`isThreePaymentPlan()` keys on THIS column, never on `initial_retainer_amount`** — a conversion nulls this one, so a predicate keyed on initial silently misclassifies every converted plan (#440). |
+| `projected_total_fee` | numeric | The total quoted at an **Undecided** decision, before the client has committed. **Not a payable amount** — nothing charges from it. |
+| `final_retainer_status` | text | Same vocabulary as `implementation_charge_status` (`succeeded` / `processing` / `declined`). Bare text, no CHECK (#431). |
+| `final_retainer_payment_intent_id` | text | The off-session PI, or the fresh-`/tax-pay`-link PI on the recovery path. |
+| `final_retainer_charge_date` | date | Date the charge was created/settled. |
+| `final_retainer_confirmation_status` | text | **The idempotency latch** for the whole final-retainer webhook block. While NULL the receipt, the deferred revshare and the decision-2 bell have not run; the `payment_intent.succeeded` branch owns it and the `checkout.session.completed` recovery branch deliberately does not touch it (#327). |
+| `final_retainer_receipt_number` | text | `REC-…` from `document_numbers`. |
+| `final_retainer_receipt_drive_id` | text | Drive file id for the receipt PDF. |
+| `final_retainer_receipt_status` | text | Receipt-draft state, mirroring the retainer/implementation receipt columns. |
+| `final_retainer_receipt_email_sent_at` | timestamptz | Also used as a display date fallback on the Payments tab's Final Retainer row. |
+| `final_retainer_invoice_number` | text | `INV-…`, issued at the final retainer **only when `fee_amended_at_tax4` is set**. Its absence is load-bearing: the implementation step re-issues an invoice when `fee_amended_at_tax4` is set AND this column is still NULL. |
+| `final_retainer_invoice_drive_id` | text | Drive file id for that invoice. |
+| `implementation_invoice_number` | text | `INV-…` for the invoice re-issued at the implementation payment when an amendment is not yet reflected on any invoice. |
+| `implementation_invoice_drive_id` | text | Drive file id for that invoice. |
+| `fee_amended_at_tax4` | timestamptz | Set by `automation_TAX_amend_fee` stage `tax4`. Drives the `[AMENDMENT_PARAGRAPH]` in the Client decision 1 email, the fresh invoice at the final retainer, and — as an independent proof beside the `client_tax_progress` row — the "Amend fee" step's done state. |
+| `fee_amended_at_tax5` | timestamptz | Same, stage `tax5`: drives the paragraph in the Client decision 2 email and the fresh invoice at implementation. The Tax 4 / Tax 5 split is deliberate — a Tax 4 amendment does not re-announce itself at decision 2. |
+
 ### Indexes
 - `idx_client_tax_plans_tax_token` ON `tax_token`
 - `idx_client_tax_plans_checkout_token` ON `checkout_token`
@@ -257,7 +282,7 @@ Tax 5b "Implementation decision" mirrors Tax 4's 3-option pattern: Proceed and U
 - `idx_client_tax_plans_implementation_token` ON `implementation_token`
 - `idx_client_tax_plans_post_review_token` ON `post_review_decision_token`
 
-**Touched by:** `tax_load_plans`, `tax_start_plan` (accepts `program_id`; on a Holistic plan ALSO seeds one `client_tax_progress` row for "Client risk profile complete" from the client's MAP 1 risk answer — gotcha #261), `tax_save_deposit_pi`, `automation_TAX_readyfortax3`, `automation_TAX_decision`, `automation_TAX_finaldecision`, `automation_TAX_pricing`, `automation_TAX_extrameeting`, `automation_TAX_sendagreement`, `automation_TAX_ceocountersign`, `automation_TAX_stripecustomer`, `automation_TAX_paymentemail`, `automation_TAX_loadpayment`, `automation_TAX_stripecheckout`, `automation_TAX_confirmationemail`, `automation_TAX_invoicereceipt`, `automation_TAX_paidbycheck`, `automation_TAX_checkcleared`, `automation_TAX_postreviewdecision`, `automation_TAX_postreviewclientdecision`, `automation_TAX_refund`, `automation_TAX_revshare`, `automation_TAX_revshare_sweep`, `automation_TAX_implementdecision`, `automation_TAX_implementfinaldecision`, `automation_TAX_charge_implementation`, `automation_TAX_implementation_receipt`, `automation_TAX_highlevelmeeting_confirm`, `automation_TAX_save_meeting_date` (orphaned), `automation_TAX_depositrefund`, `automation_load_tax_plans`, Stripe webhook (`maybeHandleStripeWebhook`), BoldSign webhook (`maybeHandleBoldSignWebhook` + standalone `boldsign-webhook` function). Frontend: [TaxPrioritiesTab.jsx](src/components/admin/tax/TaxPrioritiesTab.jsx), [TaxAutomationPanel.jsx](src/components/admin/TaxAutomationPanel.jsx), [TaxDecidePage.jsx](src/pages/TaxDecidePage.jsx), [TaxPayPage.jsx](src/pages/TaxPayPage.jsx), [TaxPostReviewDecidePage.jsx](src/pages/TaxPostReviewDecidePage.jsx), [TaxImplementDecidePage.jsx](src/pages/TaxImplementDecidePage.jsx).
+**Touched by:** `tax_load_plans`, `tax_start_plan` (accepts `program_id`; on a Holistic plan ALSO seeds one `client_tax_progress` row for "Client risk profile complete" from the client's MAP 1 risk answer — gotcha #261), `tax_save_deposit_pi`, `automation_TAX_readyfortax3`, `automation_TAX_decision`, `automation_TAX_finaldecision`, `automation_TAX_pricing`, `automation_TAX_extrameeting`, `automation_TAX_sendagreement`, `automation_TAX_ceocountersign`, `automation_TAX_stripecustomer`, `automation_TAX_paymentemail`, `automation_TAX_loadpayment`, `automation_TAX_stripecheckout`, `automation_TAX_confirmationemail`, `automation_TAX_invoicereceipt`, `automation_TAX_paidbycheck`, `automation_TAX_checkcleared`, `automation_TAX_postreviewdecision`, `automation_TAX_postreviewclientdecision`, `automation_TAX_refund`, `automation_TAX_revshare`, `automation_TAX_revshare_sweep`, `automation_TAX_implementdecision`, `automation_TAX_implementfinaldecision`, `automation_TAX_charge_implementation`, `automation_TAX_implementation_receipt`, `automation_TAX_amend_fee`, `automation_TAX_charge_final_retainer`, `automation_TAX_final_retainer_receipt`, `automation_TAX_highlevelmeeting_confirm`, `automation_TAX_save_meeting_date` (orphaned), `automation_TAX_depositrefund`, `automation_load_tax_plans`, Stripe webhook (`maybeHandleStripeWebhook`), BoldSign webhook (`maybeHandleBoldSignWebhook` + standalone `boldsign-webhook` function). Frontend: [TaxPrioritiesTab.jsx](src/components/admin/tax/TaxPrioritiesTab.jsx), [TaxAutomationPanel.jsx](src/components/admin/TaxAutomationPanel.jsx), [TaxDecidePage.jsx](src/pages/TaxDecidePage.jsx), [TaxPayPage.jsx](src/pages/TaxPayPage.jsx), [TaxPostReviewDecidePage.jsx](src/pages/TaxPostReviewDecidePage.jsx), [TaxImplementDecidePage.jsx](src/pages/TaxImplementDecidePage.jsx).
 
 ---
 
@@ -361,3 +386,29 @@ The **5th `*_logins` table** — per-planner portal credentials for the NEW Tax 
 | `created_at` | timestamptz | default `now()`. |
 
 **Touched by:** written by `submit_login_setup` (`login_type='tax_planner'`, keyed on `tax_planner_id`) + `tax_planner_update_login` (self-service); read by `tax_planner_login`. NOTE: the `login_setup_tokens` `login_type` CHECK constraint was widened to admit `'tax_planner'` (migration `20260722110000` — without it, planner token creation 500s; gotcha #258).
+
+---
+
+## `client_tax_fee_amendments` (added 2026-08-25)
+
+One row per fee amendment on a revised-fee-process tax plan, written by `automation_TAX_amend_fee`. **Audit only** — `client_tax_plans` carries the live amounts and **nothing reads this table to make a money decision**, so a failed insert is logged and surfaced in the response but never reverses an amendment that already committed.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | identity, primary key. |
+| `tax_plan_id` | integer | not null. fk → `client_tax_plans.id`. Indexed (`client_tax_fee_amendments_tax_plan_id_idx`). |
+| `stage` | text | not null. `'tax4'` or `'tax5'` — which amend step the change was made at. |
+| `previous_total` | numeric | `total_fee` before the amendment. |
+| `new_total` | numeric | not null. |
+| `previous_final_retainer` | numeric | |
+| `new_final_retainer` | numeric | **NULL when the amendment CONVERTED the plan to 2 payments** (the final retainer ceased to exist) — only the branches that never touch the column carry the old value forward. |
+| `previous_implementation` | numeric | |
+| `new_implementation` | numeric | |
+| `created_by` | text | Email of the admin who amended, from the AUTH session. Falls back to `body.caller_email`, then NULL — never an invented identity. |
+| `created_at` | timestamptz | not null, default `now()`. |
+
+**Per-leg OLD revenue-share values are deliberately NOT stored** — they are recoverable from the ratio (`old_share = new_share × previous_total / new_total`).
+
+**RLS:** enabled with a `"Deny all access"` policy in the same migration (#141). All access is via the service-role edge function.
+
+**Touched by:** `automation_TAX_amend_fee` (insert only — nothing updates or deletes). See [flows/tax-fee-process.md](../flows/tax-fee-process.md).

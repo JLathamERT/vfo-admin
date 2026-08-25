@@ -62,7 +62,7 @@ function fmtMethod(method, last4) {
 function StatusPill({ status, count }) {
   const s = STATUS[status] || STATUS.unpaid
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', borderRadius: '999px', background: s.bg, color: s.fg, fontSize: '11.5px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '999px', background: s.bg, color: s.fg, fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap' }}>
       <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: s.fg, flexShrink: 0 }} />
       {s.label}{count > 1 ? ` ×${count}` : ''}
     </span>
@@ -194,10 +194,15 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
   // tucked under an expanded group parent (indented + lighter, no repeated person/tag).
   function renderRow(r, child) {
     const onBehalf = !!r.onBehalfByMember
+    // Two rows that are halves of ONE collection (the 3-payment tax retainer: initial +
+    // final) share a subGroup and read as one indented block inside the engagement —
+    // deeper indent, a tie bar down their left edge and a slightly deeper tint than the
+    // other children. Rows without subGroup (everything else) render exactly as before.
+    const sub = child && !!r.subGroup
     return (
-      <tr key={r.key} style={{ ...(onBehalf ? { background: '#fffaf2' } : null), ...(child ? { background: '#fbfcfe' } : null) }}>
+      <tr key={r.key} style={{ ...(onBehalf ? { background: '#fffaf2' } : null), ...(child ? { background: '#fbfcfe' } : null), ...(sub && !onBehalf ? { background: '#f3f7fe' } : null) }}>
         <td style={td} />
-        <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--vfo-muted)', ...(child ? { paddingLeft: '14px' } : null) }}>{fmtDate(r.date)}</td>
+        <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--vfo-muted)', ...(child ? { paddingLeft: '14px' } : null), ...(sub ? { paddingLeft: '24px', borderLeft: '3px solid var(--vfo-border-chip)' } : null) }}>{fmtDate(r.date)}</td>
         {hasPerson && (
           <td style={{ ...td, whiteSpace: 'nowrap' }}>
             {!child && personName(r)}
@@ -253,10 +258,18 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
   // Collapsed parent for a multi-row engagement: engagement label, total, and a status
   // tally (e.g. "Paid ×1 · Scheduled ×3"). Click toggles the installment rows.
   function renderGroup(g) {
+    // Same-day rows tie on date (the 3-payment initial + final retainer can both
+    // land on one day), so ties break on the payment sequence the row's detail
+    // line carries ("Retainer payment 1 of 2" / "2 of 2") — initial before final.
+    const seqOf = (r) => {
+      const m = /payment (\d+) of/.exec(r.detail || '')
+      return m ? Number(m[1]) : 99
+    }
     const kids = [...g.rows].sort((a, b) => {
       const ta = a.date ? Date.parse(a.date) : Infinity
       const tb = b.date ? Date.parse(b.date) : Infinity
-      return (isNaN(ta) ? Infinity : ta) - (isNaN(tb) ? Infinity : tb)
+      const dt = (isNaN(ta) ? Infinity : ta) - (isNaN(tb) ? Infinity : tb)
+      return dt !== 0 ? dt : seqOf(a) - seqOf(b)
     })
     const first = kids[0]
     // Overview method = the CURRENT method (what future charges use) = the latest
@@ -357,15 +370,18 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
       <div style={{ overflowX: 'auto' }}>
         {/* Fixed column widths so the layout is identical across filters/tabs (and the
             expanded child rows) — otherwise auto-sizing shifts the headings per content. */}
-        <table style={{ width: '100%', minWidth: hasPerson ? '920px' : '680px', borderCollapse: 'collapse', tableLayout: 'fixed', fontFamily: 'Inter, sans-serif' }}>
+        {/* Per-person tabs get NO min width — the description column flexes and wraps,
+            so the table always fits its card without a horizontal scrollbar. The
+            global admin page (hasPerson) keeps a floor for its extra column. */}
+        <table style={{ width: '100%', ...(hasPerson ? { minWidth: '860px' } : null), borderCollapse: 'collapse', tableLayout: 'fixed', fontFamily: 'Inter, sans-serif' }}>
           <colgroup>
-            <col style={{ width: '38px' }} />
-            <col style={{ width: '120px' }} />
+            <col style={{ width: '30px' }} />
+            <col style={{ width: '112px' }} />
             {hasPerson && <col style={{ width: '150px' }} />}
             <col />
-            <col style={{ width: '135px' }} />
-            <col style={{ width: '120px' }} />
-            <col style={{ width: '150px' }} />
+            <col style={{ width: '92px' }} />
+            <col style={{ width: '96px' }} />
+            <col style={{ width: '172px' }} />
           </colgroup>
           <thead>
             <tr>

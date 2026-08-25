@@ -11,6 +11,233 @@ import { CONFIRMATION_CARD_SKIP } from '../../../lib/confirmationStatus'
 // Matches the backend invoice money formatting ($X,XXX.XX).
 const fmtMoney = (n) => (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
+// Revised fee process (2026-08-25): the fee is driven by ONE number, the total.
+// This mirrors the edge repo's constants/tax-fee-process.ts deriveFeeSplit byte
+// for byte — arithmetic in whole cents so retainer + implementation === total and
+// initial + final === retainer exactly. DISPLAY ONLY: the server re-derives every
+// payable amount from the submitted total and ignores anything computed here, so
+// the two must never drift. Change both together.
+const MAX_TOTAL_FEE = 60000
+const THREE_PAYMENT_THRESHOLD = 30000
+const INITIAL_RETAINER_FLAT = 15000
+const FEE_TOTAL_RANGE_MESSAGE = `Total fee must be greater than $0 and no more than $${MAX_TOTAL_FEE.toLocaleString('en-US')}`
+
+// Mirrors the edge repo's constants/tax-fee-process.ts KNOWN_FEE_PROCESS_VERSIONS
+// / isNewFeeProcess (and taxShared.jsx, which already carries the same list). A
+// plan with NULL — or an unrecognised — fee_process_version is on the LEGACY
+// process: it can never amend a fee (amend-fee.ts 400s it), so the two amend
+// steps are not-applicable for it everywhere below.
+const KNOWN_FEE_PROCESS_VERSIONS = ['2026-08-25']
+const isNewFeeProcess = (pl) => KNOWN_FEE_PROCESS_VERSIONS.includes(pl?.fee_process_version)
+
+// The two revised-fee-process "amend the fee" steps, matched by their
+// status_options sentinels. Stored names are 'Amend fee' (Tax 4) and
+// 'Amend implementation fee' (Tax 5b) — the Tax 4 name is ALSO a backend lookup
+// key (AMEND_FEE_TASK_NAME, read by the Client decision 1 gate in
+// actions/tax/postreview-decision.ts), so neither name is matched here (#392).
+const AMEND_FEE_CODE = 'tax_amend_fee'
+const AMEND_FEE_TAX5_CODE = 'tax_amend_fee_tax5'
+const isAmendStepTask = (t) => t?.status_options === AMEND_FEE_CODE || t?.status_options === AMEND_FEE_TAX5_CODE
+const amendStage = (t) => (t?.status_options === AMEND_FEE_TAX5_CODE ? 'tax5' : 'tax4')
+
+function deriveFeeSplit(total) {
+  const cents = Math.round(Number(total) * 100)
+  if (!Number.isFinite(cents) || cents <= 0 || cents > MAX_TOTAL_FEE * 100) return null
+  const retainerCents = Math.round(cents / 2)
+  const implementationCents = cents - retainerCents
+  const threePayment = cents > THREE_PAYMENT_THRESHOLD * 100
+  const initialCents = threePayment ? INITIAL_RETAINER_FLAT * 100 : null
+  return {
+    total: cents / 100,
+    retainer: retainerCents / 100,
+    implementation: implementationCents / 100,
+    initialRetainer: initialCents === null ? null : initialCents / 100,
+    finalRetainer: initialCents === null ? null : (retainerCents - initialCents) / 100,
+    threePayment,
+  }
+}
+
+// null for anything the server would reject (blank, non-numeric, <= 0, > max) —
+// which is also the signal every caller uses to disable its submit button.
+function feeSplitFromInput(raw) {
+  const cleaned = String(raw ?? '').replace(/[$,\s]/g, '')
+  if (cleaned === '') return null
+  return deriveFeeSplit(parseFloat(cleaned))
+}
+
+// ── Fee amendment (Tax 4 / Tax 5 "Amend fee" steps) ────────────────────────
+// Everything below MIRRORS the edge repo's actions/tax/amend-fee.ts. The server
+// is authoritative — it re-derives every payable amount from the submitted total
+// and ignores anything computed here — so this exists purely so the admin sees
+// the same numbers and the same refusal the server would produce. Change both
+// together; a divergence shows up as a card that previews a schedule the submit
+// then rejects.
+//
+// toCents is byte-for-byte amend-fee.ts's toCents(): a non-numeric string lands
+// on 0 and is then rejected by the range test, so both sides refuse identically.
+const amendToCents = (v) => {
+  const n = parseFloat(String(v ?? '0').replace(/[,$\s]/g, ''))
+  return Number.isFinite(n) ? Math.round(n * 100) : 0
+}
+const fmtUsdCents = (cents) => `$${fmtMoney(cents / 100)}`
+// amend-fee.ts's range message, verbatim (it ends in a period; the Tax 3 form's
+// FEE_TOTAL_RANGE_MESSAGE above does not, and they are shown in different cards).
+const AMEND_RANGE_MESSAGE = `Total fee must be greater than $0 and no more than $${MAX_TOTAL_FEE.toLocaleString('en-US')}.`
+
+// Is this a 3-payment (initial + final retainer) plan? Same test as the edge
+// repo's isThreePaymentPlan — keyed on FINAL: a Tax 4 amendment to <= $30k
+// converts to 2 payments by nulling final only (initial stays as the marker
+// that lets a later above-threshold amendment convert back).
+const isThreePaymentPlan = (pl) => isNewFeeProcess(pl) && pl?.final_retainer_amount != null
+
+// The plan's CURRENT payment schedule, in the shape FeeBreakdown renders.
+// Deliberately reads the STORED columns rather than re-deriving from the total:
+// after an amendment a 3-payment plan can sit at exactly $30,000, where
+// deriveFeeSplit's `cents > threshold` test would call it a 2-payment plan while
+// initial_retainer_amount still says otherwise. Returns null when the plan has
+// no total (nothing to show).
+function planFeeSchedule(pl) {
+  const totalCents = amendToCents(pl?.total_fee)
+  if (totalCents <= 0) return null
+  const threePayment = isThreePaymentPlan(pl)
+  return {
+    total: totalCents / 100,
+    retainer: amendToCents(pl?.retainer_amount) / 100,
+    implementation: amendToCents(pl?.implementation_amount) / 100,
+    initialRetainer: threePayment ? amendToCents(pl?.initial_retainer_amount) / 100 : null,
+    finalRetainer: threePayment ? amendToCents(pl?.final_retainer_amount) / 100 : null,
+    threePayment,
+  }
+}
+
+// What the server WOULD store for `rawTotal` at this stage, or the error it
+// would return. Mirrors amend-fee.ts's derivation branch for branch:
+//
+//   tax4 + 3-payment -> the 50:50 split is RE-DERIVED from the new total and the
+//     already-paid initial retainer is subtracted out of the retainer half, so
+//     only the FINAL retainer and the implementation fee move. Refused when that
+//     would drive the final retainer negative (i.e. below 2x the paid initial).
+//   every other shape (tax4 + 2-payment, tax5 either) -> the retainer side is
+//     settled and untouchable, so the whole movement lands on the implementation
+//     fee. Refused when that would leave the implementation fee at or below $0.
+//   both -> $0 < total <= MAX_TOTAL_FEE.
+//
+// Returns { empty: true } for a blank input (the not-yet-typed state — no error,
+// no preview), { error } for anything the server would refuse, else { split }.
+function amendFeePreview(pl, stage, rawTotal) {
+  if (String(rawTotal ?? '').trim() === '') return { empty: true }
+  const newTotalCents = amendToCents(rawTotal)
+  if (newTotalCents <= 0 || newTotalCents > MAX_TOTAL_FEE * 100) return { error: AMEND_RANGE_MESSAGE }
+
+  const threePayment = isThreePaymentPlan(pl)
+  const initialCents = amendToCents(pl?.initial_retainer_amount)
+  const retainerCents = amendToCents(pl?.retainer_amount)
+
+  // Keyed on the initial retainer having been the collected payment (mirrors
+  // amend-fee.ts) — true for a live 3-payment plan AND a converted one, so the
+  // conversion is reversible in both directions until Client decision 1 is sent.
+  if (stage === 'tax4' && initialCents > 0) {
+    if (newTotalCents > THREE_PAYMENT_THRESHOLD * 100) {
+      const newRetainerCents = Math.round(newTotalCents / 2)
+      const newImplCents = newTotalCents - newRetainerCents
+      const newFinalCents = newRetainerCents - initialCents
+      if (newFinalCents <= 0) {
+        return { error: `Total must be more than $${(initialCents * 2 / 100).toLocaleString('en-US')} — the initial retainer of ${fmtUsdCents(initialCents)} is already paid` }
+      }
+      return {
+        split: {
+          total: newTotalCents / 100,
+          // retainer_amount is DEFINED as initial + final on a 3-payment plan, and
+          // amend-fee.ts writes it that way — not as round(total/2) — so the
+          // preview must show the same sum.
+          retainer: (initialCents + newFinalCents) / 100,
+          implementation: newImplCents / 100,
+          initialRetainer: initialCents / 100,
+          finalRetainer: newFinalCents / 100,
+          threePayment: true,
+        },
+      }
+    }
+    // At or below $30,000 the plan CONVERTS to 2 payments (mirrors amend-fee.ts):
+    // the paid initial retainer becomes the whole retainer, there is no final
+    // retainer any more, and the reduction lands on the implementation fee.
+    if (newTotalCents <= initialCents) {
+      return { error: `Total must be more than the initial retainer of ${fmtUsdCents(initialCents)} already paid` }
+    }
+    return {
+      converts: true,
+      split: {
+        total: newTotalCents / 100,
+        retainer: initialCents / 100,
+        implementation: (newTotalCents - initialCents) / 100,
+        initialRetainer: null,
+        finalRetainer: null,
+        threePayment: false,
+      },
+    }
+  }
+
+  const newImplCents = newTotalCents - retainerCents
+  if (newImplCents <= 0) return { error: 'Total must be more than the retainer already paid' }
+  return {
+    split: {
+      total: newTotalCents / 100,
+      retainer: retainerCents / 100,
+      implementation: newImplCents / 100,
+      initialRetainer: threePayment ? initialCents / 100 : null,
+      finalRetainer: threePayment ? amendToCents(pl?.final_retainer_amount) / 100 : null,
+      threePayment,
+    },
+  }
+}
+
+// A completed Tax 3 form stored BEFORE this process shipped carries its own
+// retainer/implementation amounts, which are not necessarily a 50/50 split of the
+// total — so those rows must keep rendering the two stored amounts verbatim.
+// Presence of either key is the discriminator; new submissions send the total only.
+const isLegacyFeeNotes = (existing) =>
+  existing?.retainerPayment !== undefined || existing?.implementationFee !== undefined
+
+const feeRowStyle = (strong) => ({ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', marginBottom: '4px', fontWeight: strong ? 700 : 400 })
+
+// Read-only mirror of what the server will derive. `projected` (the Undecided
+// quote) shows the same full schedule — only the labels/total header differ —
+// so the rows always sum to the total on screen; the client-facing email still
+// quotes just the initial retainer.
+function FeeBreakdown({ split, projected = false, paidFlags = null }) {
+  // "(50%)" only when it is actually true — an amended or converted schedule is
+  // no longer an even split, and printing the suffix there would be a false claim.
+  const isHalf = Math.abs((split.retainer ?? 0) * 2 - (split.total ?? 0)) < 0.01
+  const pct = isHalf ? ' (50%)' : ''
+  const rows = split.threePayment
+    ? [['Initial Retainer', split.initialRetainer, 'initial'], ['Final Retainer', split.finalRetainer, 'final'], [`Implementation Fee${pct}`, split.implementation, 'implementation']]
+    : projected
+      ? [['Initial Retainer', split.retainer, 'retainer'], [`Implementation Fee${pct}`, split.implementation, 'implementation']]
+      : [[`Retainer${pct}`, split.retainer, 'retainer'], [`Implementation Fee${pct}`, split.implementation, 'implementation']]
+  return (
+    <div style={{ marginTop: '10px', padding: '10px 12px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
+      <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Derived payment schedule</div>
+      {rows.map(([label, amount, key]) => (
+        <div key={label} style={feeRowStyle(false)}>
+          <span>
+            {label}
+            {paidFlags?.[key] && <span style={{ marginLeft: '7px', padding: '1px 7px', borderRadius: '999px', background: '#e7f5ee', color: '#1a7f5a', fontSize: '10px', fontWeight: 700 }}>Paid</span>}
+          </span>
+          <span>${fmtMoney(amount)}</span>
+        </div>
+      ))}
+      <div style={{ ...feeRowStyle(true), borderTop: '1px solid var(--vfo-border-chip)', paddingTop: '6px', marginTop: '6px' }}>
+        <span>{projected ? 'Projected Total' : 'Total'}</span><span>${fmtMoney(split.total)}</span>
+      </div>
+      {split.threePayment && (
+        <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '6px' }}>
+          Above ${THREE_PAYMENT_THRESHOLD.toLocaleString('en-US')} the retainer is collected in two payments — three payments in total.
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Completion dates on the tax track are DISPLAY ONLY (both programs) — the date
 // is whatever the save recorded and is never hand-editable, so this deliberately
 // shadows the shared editable StepDate control and ignores onChange/disabled.
@@ -217,6 +444,223 @@ function PhasePill({ state, detail = '' }) {
   return <span style={{ ...base, background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', fontWeight: 400 }}>Not started</span>
 }
 
+// The single fee input, its inline range error and the derived preview. Styles
+// come from the host form so this reads as part of whichever card renders it.
+function TotalFeeField({ label, hint, value, onChange, split, readOnly = false, projected = false, inputStyle, readOnlyInput, labelStyle }) {
+  const invalid = !readOnly && !split && String(value || '').trim() !== ''
+  return (
+    <div>
+      <label style={labelStyle}>{label}</label>
+      <div style={{ position: 'relative' }}>
+        <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+        <input
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder="0.00"
+          readOnly={readOnly}
+          style={{ ...(readOnly ? readOnlyInput : inputStyle), paddingLeft: '28px', ...(invalid ? { borderColor: '#e74c3c' } : {}) }}
+        />
+      </div>
+      {hint && !readOnly && <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '4px' }}>{hint}</div>}
+      {invalid && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '12px', marginTop: '6px' }}>{FEE_TOTAL_RANGE_MESSAGE}</div>}
+      {split && <FeeBreakdown split={split} projected={projected} />}
+    </div>
+  )
+}
+
+// The Tax 4 'Amend fee' / Tax 5b 'Amend implementation fee' step.
+//
+// ADMIN-ONLY (constants/role-gates.ts keeps automation_TAX_amend_fee out of
+// TAX_PLANNER_ALLOWED_ACTIONS, and neither name is in
+// PLANNER_EDITABLE_TASK_NAMES) — a planner sees this card through the standard
+// inert plannerMode wrapper like every other locked step (#262).
+//
+// Two answers, both of which COMPLETE the step:
+//   Keep    -> automation_TAX_amend_fee { keep: true }, which writes nothing but
+//              confirms the plan is on the revised process, then the step row.
+//   Amend   -> automation_TAX_amend_fee { new_total }, which re-derives every
+//              downstream amount and scales the revenue-share legs server-side,
+//              then the step row.
+// The step row is saved ONLY after the call succeeds — a refused amendment must
+// not leave a completed step behind. The amounts' truth is always the plan
+// columns (#286): this card re-reads them from `plan` after every save, and the
+// step's completion is proven by the progress row OR the fee_amended_at_* stamp.
+function AmendFeeStep({ task, plan, stage, status, completedDate, readOnly, onAnswer }) {
+  const [mode, setMode] = useState('')          // '' | 'amend'
+  const [totalInput, setTotalInput] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+
+  const stamp = stage === 'tax4' ? plan?.fee_amended_at_tax4 : plan?.fee_amended_at_tax5
+  // Mirrors isTaskStatused's rule for these two sentinels, and the backend's
+  // (utils/tax-plan-steps.ts + amendFeeStepState): the progress row is the
+  // normal proof, the stamp is the independent one.
+  const answered = !!status || !!stamp
+  const amended = !!stamp || status === 'Completed - Amended'
+  const current = planFeeSchedule(plan)
+  const green = '#1b9254'
+  // The answer stays CHANGEABLE until the downstream decision goes out — the
+  // same boundary the backend enforces (amend-fee.ts 400s once
+  // post_review_decision / implementation_decision is recorded).
+  const lockedDownstream = stage === 'tax4' ? !!plan?.post_review_decision : !!plan?.implementation_decision
+  const editable = !readOnly && !lockedDownstream
+  // Which schedule components have actually been collected — shown as a Paid
+  // tag beside the row in every breakdown this card renders.
+  const paidFlags = {
+    initial: plan?.retainer_status === 'succeeded',
+    retainer: plan?.retainer_status === 'succeeded',
+    final: plan?.final_retainer_status === 'succeeded',
+    implementation: plan?.implementation_charge_status === 'succeeded',
+  }
+
+  const preview = mode === 'amend' ? amendFeePreview(plan, stage, totalInput) : null
+  const canSubmitAmend = !!preview?.split && !busy
+
+  async function submit(kind) {
+    if (busy) return
+    setBusy(true)
+    setSubmitError('')
+    try {
+      const body = { tax_plan_id: plan.id, stage }
+      if (kind === 'keep') body.keep = true
+      else body.new_total = totalInput
+      const res = await callApi('automation_TAX_amend_fee', body)
+      // The server re-checks every money guard (retainer settled, decision not
+      // yet sent, nothing in flight) — show its refusal verbatim and leave the
+      // step OPEN so it can still be answered once the blocker clears.
+      if (res?.error) { setSubmitError(res.error); return }
+      await onAnswer(kind === 'keep' ? 'Completed - Kept' : 'Completed - Amended')
+      setMode('')
+      setTotalInput('')
+    } catch (err) {
+      setSubmitError(err?.message || 'unknown error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const rowStyle = { display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', flexWrap: 'wrap' }
+  const amendInputStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', width: '180px', boxSizing: 'border-box' }
+
+  return (
+    <div style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
+      <div style={rowStyle}>
+        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: answered ? green : 'transparent', flexShrink: 0, border: `1.5px solid ${answered ? green : 'var(--vfo-border-mid)'}` }} />
+        <span style={{ fontSize: '13px', color: answered ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{taskLabel(task)}</span>
+        {answered && !editable ? (
+          <span style={chipStyle(green)}>{amended ? 'Amended' : 'Fee kept'}</span>
+        ) : editable ? (
+          // House convention: dropdowns make selections, buttons send emails.
+          // "Keep the fee" completes the step on selection, like every other
+          // dropdown step; "Amend the fee" opens the amount form below (the
+          // actual amendment saves from its own button). The selection stays
+          // changeable until the downstream decision email goes out; once the
+          // fee has actually been amended, "keep" would be meaningless (the
+          // amounts already moved), so re-amending is the offered change.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {amended && mode !== 'amend' && (
+              <button disabled={busy} onClick={() => { setSubmitError(''); setMode('amend') }} style={{ border: 'none', background: 'transparent', color: '#125ecc', fontSize: '11.5px', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Change amount</button>
+            )}
+            {(() => {
+              const selValue = mode === 'amend' ? 'amend' : (answered ? (amended ? 'amend' : 'keep') : '')
+              // EXACTLY the generic step dropdown's look (the renderTaskInner
+              // fallback select): same padding/radius/size, green border + text
+              // once committed, plain while unanswered or mid-edit.
+              const committed = answered && mode !== 'amend'
+              return (
+                <select
+                  disabled={busy}
+                  value={selValue}
+                  onChange={e => {
+                    const v = e.target.value
+                    setSubmitError('')
+                    if (v === 'keep' && !amended) {
+                      // A selection here COMMITS the step (and unlocks the next
+                      // one), so it confirms first — a mis-click must not
+                      // complete a money step.
+                      if (window.confirm(`Keep the fee at $${current ? fmtMoney(current.total) : ''}? This completes the step.`)) submit('keep')
+                    }
+                    else if (v === 'amend') setMode('amend')
+                    else { setMode(''); setTotalInput('') }
+                  }}
+                  style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', fontSize: '12px', fontFamily: 'Inter, sans-serif', minWidth: '150px', borderColor: committed ? '#1b925466' : 'var(--vfo-border-strong)', color: committed ? '#1b9254' : 'var(--vfo-ink)', opacity: busy ? 0.6 : 1 }}
+                >
+                  <option value="">-- Select --</option>
+                  <option value="keep" disabled={amended}>Keep the fee</option>
+                  <option value="amend">Amend the fee</option>
+                </select>
+              )
+            })()}
+          </div>
+        ) : null}
+        <StepDate value={completedDate || ''} />
+      </div>
+
+      {/* Answered: what happened, plus the schedule that is now in force. */}
+      {answered && current && mode !== 'amend' && (
+        <div style={{ marginLeft: '18px', marginBottom: '10px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--vfo-ink)', fontWeight: 600 }}>
+            {amended ? `Fee amended to $${fmtMoney(current.total)}` : `Fee kept at $${fmtMoney(current.total)}`}
+          </div>
+          <FeeBreakdown split={current} paidFlags={paidFlags} />
+        </div>
+      )}
+
+      {/* Unanswered (or re-editing an answered step): the current schedule is
+          always visible, so the decision is made against real numbers rather
+          than from memory. */}
+      {editable && (!answered || mode === 'amend') && (current || mode === 'amend') && (
+        <div style={{ marginLeft: '18px', marginBottom: '10px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>
+            {stage === 'tax4'
+              ? 'Confirm the fee before Client decision 1 goes out — that email quotes these figures.'
+              : 'Confirm the implementation fee before Client decision 2 — only the implementation fee can still move.'}
+          </div>
+          {current && <FeeBreakdown split={current} paidFlags={paidFlags} />}
+          {mode === 'amend' && (
+            <div style={{ marginTop: '10px' }}>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>New total fee</label>
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+                <input
+                  value={totalInput}
+                  onChange={e => { setTotalInput(e.target.value); setSubmitError('') }}
+                  placeholder="0.00"
+                  style={{ ...amendInputStyle, paddingLeft: '28px', ...(preview?.error ? { borderColor: '#e74c3c' } : {}) }}
+                />
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '4px' }}>
+                {stage === 'tax4' && amendToCents(plan?.initial_retainer_amount) > 0
+                  ? 'The 50:50 split is re-derived from the new total; the initial retainer is already paid, so only the final retainer and the implementation fee move. At $30,000 or below the plan converts to two payments (and converts back if amended above $30,000 again).'
+                  : 'The retainer is already paid, so the whole change lands on the implementation fee.'}
+              </div>
+              {preview?.converts && (
+                <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, marginTop: '6px' }}>
+                  Converts to 2 payments: the ${fmtMoney((amendToCents(plan?.initial_retainer_amount)) / 100)} initial retainer already paid becomes the full retainer — no final retainer will be collected, and Client decision 1 releases the revenue share immediately.
+                </div>
+              )}
+              {preview?.error && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '12px', marginTop: '6px' }}>{preview.error}</div>}
+              {preview?.split && <FeeBreakdown split={preview.split} paidFlags={paidFlags} />}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                <button disabled={!canSubmitAmend} onClick={() => submit('amend')} style={{ padding: '6px 16px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '12px', cursor: canSubmitAmend ? 'pointer' : 'not-allowed', opacity: canSubmitAmend ? 1 : 0.5 }}>
+                  {busy ? 'Saving...' : 'Save amended fee'}
+                </button>
+                <button disabled={busy} onClick={() => { setMode(''); setTotalInput(''); setSubmitError('') }} style={{ padding: '6px 16px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Outside the schedule block on purpose: the server's refusal must be
+          visible even on a plan with no stored total to draw a schedule from. */}
+      {!answered && submitError && (
+        <div style={{ marginLeft: '18px', marginBottom: '10px', color: '#e74c3c', fontWeight: 500, fontSize: '12px' }}>{submitError}</div>
+      )}
+    </div>
+  )
+}
+
 function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, onSubmitted, memberCategory, memberType, programType, memberNumber }) {
   const existing = existingData || {}
   const isViewMode = !!existingData
@@ -229,21 +673,32 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   const [decision, setDecision] = useState(existing.decision || '')
   const [memberPayingOnBehalf, setMemberPayingOnBehalf] = useState(existing.memberPayingOnBehalf || 'No')
   const [taxRiskMindset, setTaxRiskMindset] = useState(existing.taxRiskMindset || '')
-  const [retainerPayment, setRetainerPayment] = useState(existing.retainerPayment || '')
-  const [implementationFee, setImplementationFee] = useState(existing.implementationFee || '')
+  const [retainerPayment] = useState(existing.retainerPayment || '')
+  const [implementationFee] = useState(existing.implementationFee || '')
+  const [totalFeeInput, setTotalFeeInput] = useState(existing.totalFee || '')
   const [splitType, setSplitType] = useState(existing.splitType || '')
   const [memberShare, setMemberShare] = useState(existing.memberShare || '')
   const [taxPlannerShare, setTaxPlannerShare] = useState(existing.taxPlannerShare || '')
   const [vfosShare, setVfosShare] = useState(existing.vfosShare || '')
   const [strategicPartnerShare, setStrategicPartnerShare] = useState(existing.strategicPartnerShare || '')
   const [potentialTaxSavings, setPotentialTaxSavings] = useState(existing.potentialTaxSavings || '')
-  const [initialRetainer, setInitialRetainer] = useState(existing.initialRetainer || '')
+  const [initialRetainer] = useState(existing.initialRetainer || '')
+  const [projectedTotalInput, setProjectedTotalInput] = useState(existing.totalFee || '')
   const [presentationLink, setPresentationLink] = useState(existing.presentationLink || '')
   const [discountToggle, setDiscountToggle] = useState((existing.discountApplied != null && existing.discountApplied !== '') ? 'Yes' : 'No')
   const [discountApplied, setDiscountApplied] = useState((existing.discountApplied != null && existing.discountApplied !== '') ? String(existing.discountApplied) : '')
   const [submitting, setSubmitting] = useState(false)
 
-  const totalFee = (parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0)
+  // Legacy completed forms render their two stored amounts; everything from
+  // 2026-08-25 on is driven by the single total the admin types.
+  const isLegacyFees = isLegacyFeeNotes(existing)
+  const isLegacyUndecided = existing.initialRetainer !== undefined
+  const feeSplit = feeSplitFromInput(totalFeeInput)
+  const projectedSplit = feeSplitFromInput(projectedTotalInput)
+  // The revenue split still validates against the total, whichever shape supplied it.
+  const totalFee = isLegacyFees
+    ? (parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0)
+    : (feeSplit?.total || 0)
 
   useEffect(() => {
     if (isViewMode) return
@@ -285,6 +740,8 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
 
   async function handleSubmit() {
     if (!decision) return
+    if (decision === 'Yes' && !feeSplit) return
+    if (decision === 'Undecided' && !projectedSplit) return
     if (decision === 'Yes' && isDironInsley && discountToggle === 'Yes') {
       const d = parseFloat(discountApplied)
       if (!(d > 0)) { alert('Please enter a valid discount amount greater than 0.'); return }
@@ -297,9 +754,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
     const formData = { decision, presentationLink, memberPayingOnBehalf }
     if (decision === 'Yes') {
       formData.taxRiskMindset = taxRiskMindset
-      formData.retainerPayment = retainerPayment
-      formData.implementationFee = implementationFee
-      formData.totalFee = totalFee.toFixed(2)
+      formData.totalFee = feeSplit.total.toFixed(2)
       formData.splitType = splitType
       formData.memberShare = memberShare
       formData.taxPlannerShare = taxPlannerShare
@@ -308,7 +763,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
       if (isDironInsley && discountToggle === 'Yes') formData.discountApplied = parseFloat(discountApplied)
     } else if (decision === 'Undecided') {
       formData.potentialTaxSavings = potentialTaxSavings
-      formData.initialRetainer = initialRetainer
+      formData.totalFee = projectedSplit.total.toFixed(2)
     }
     try {
       await callApi('tax_save_task', {
@@ -347,6 +802,11 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   // Custom split must sum to the total fee (mirrors MAP 1 PIPDecisionForm).
   const customSplitTotal = (parseFloat(memberShare) || 0) + (parseFloat(taxPlannerShare) || 0) + (parseFloat(vfosShare) || 0)
   const customSplitMismatch = decision === 'Yes' && isCustomSplit && Math.abs(customSplitTotal - totalFee) > 0.01
+  const feeMissing = (decision === 'Yes' && !feeSplit) || (decision === 'Undecided' && !projectedSplit)
+  // The field prints the range error itself once something invalid is typed; this
+  // only covers the still-blank case, so a greyed-out button always has a reason.
+  const feeBlank = feeMissing && String((decision === 'Yes' ? totalFeeInput : projectedTotalInput) || '').trim() === ''
+  const blockSubmit = submitting || needsPlannerAllocation || customSplitMismatch || feeMissing
 
   return (
     <div style={{ marginLeft: '18px', padding: '16px', background: 'var(--vfo-tint)', borderRadius: '10px', border: '1px solid var(--vfo-tint-deep)', marginTop: '4px', marginBottom: '8px' }}>
@@ -394,29 +854,44 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
 
           <div style={sectionStyle}>
             <div style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Fee details</div>
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: '120px' }}>
-                <label style={labelStyle}>Retainer payment</label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-                  <input value={retainerPayment} onChange={e => setRetainerPayment(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+            {isLegacyFees ? (
+              <>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '120px' }}>
+                    <label style={labelStyle}>Retainer payment</label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+                      <input value={retainerPayment} readOnly style={{ ...readOnlyInput, paddingLeft: '28px' }} />
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: '120px' }}>
+                    <label style={labelStyle}>Implementation fee</label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+                      <input value={implementationFee} readOnly style={{ ...readOnlyInput, paddingLeft: '28px' }} />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div style={{ flex: 1, minWidth: '120px' }}>
-                <label style={labelStyle}>Implementation fee</label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-                  <input value={implementationFee} onChange={e => setImplementationFee(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+                <div>
+                  <label style={labelStyle}>Total fee</label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+                    <input value={existing.totalFee || totalFee.toFixed(2)} readOnly style={{ ...readOnlyInput, paddingLeft: '28px', background: 'rgba(27,146,84,0.08)', borderColor: 'rgba(27,146,84,0.2)' }} />
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div>
-              <label style={labelStyle}>Total fee</label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-                <input value={isViewMode ? (existing.totalFee || '0.00') : totalFee.toFixed(2)} readOnly style={{ ...readOnlyInput, paddingLeft: '28px', background: 'rgba(27,146,84,0.08)', borderColor: 'rgba(27,146,84,0.2)' }} />
-              </div>
-            </div>
+              </>
+            ) : (
+              <TotalFeeField
+                label="Total tax planning fee"
+                value={totalFeeInput}
+                onChange={setTotalFeeInput}
+                split={feeSplit}
+                readOnly={isViewMode}
+                inputStyle={inputStyle}
+                readOnlyInput={readOnlyInput}
+                labelStyle={labelStyle}
+              />
+            )}
           </div>
 
           <div style={sectionStyle}>
@@ -490,7 +965,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
                     <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Invoice preview</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', marginBottom: '4px' }}>
                       <span>Tax Planning Fee</span>
-                      <span>${fmtMoney((parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0) + (parseFloat(discountApplied) || 0))}</span>
+                      <span>${fmtMoney(totalFee + (parseFloat(discountApplied) || 0))}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#dc2626', fontWeight: 600, marginBottom: '4px' }}>
                       <span>Discount Applied*</span>
@@ -498,7 +973,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: 700, borderTop: '1px solid var(--vfo-border-chip)', paddingTop: '6px', marginTop: '6px' }}>
                       <span>Net Payable</span>
-                      <span>${fmtMoney((parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0))}</span>
+                      <span>${fmtMoney(totalFee)}</span>
                     </div>
                   </div>
                 </div>
@@ -519,14 +994,32 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
                 <input value={potentialTaxSavings} onChange={e => setPotentialTaxSavings(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
               </div>
             </div>
-            <div style={{ flex: 1, minWidth: '120px' }}>
-              <label style={labelStyle}>Initial retainer</label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-                <input value={initialRetainer} onChange={e => setInitialRetainer(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+            {isLegacyUndecided && (
+              <div style={{ flex: 1, minWidth: '120px' }}>
+                <label style={labelStyle}>Initial retainer</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+                  <input value={initialRetainer} readOnly style={{ ...readOnlyInput, paddingLeft: '28px' }} />
+                </div>
               </div>
-            </div>
+            )}
           </div>
+          {!isLegacyUndecided && (
+            <div style={{ marginTop: '12px' }}>
+              <TotalFeeField
+                label="Projected total tax planning fee"
+                hint="The client is quoted the initial retainer only — the rest of the schedule follows once they commit."
+                value={projectedTotalInput}
+                onChange={setProjectedTotalInput}
+                split={projectedSplit}
+                readOnly={isViewMode}
+                projected
+                inputStyle={inputStyle}
+                readOnlyInput={readOnlyInput}
+                labelStyle={labelStyle}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -548,10 +1041,13 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
               {needsPlannerAllocation && (
                 <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, marginBottom: '8px' }}>You must allocate a tax planner before submitting.</div>
               )}
+              {feeBlank && (
+                <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, marginBottom: '8px' }}>{decision === 'Yes' ? 'Enter the total tax planning fee before submitting.' : 'Enter the projected total tax planning fee before submitting.'}</div>
+              )}
               {customSplitMismatch && (
                 <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginBottom: '8px' }}>Revenue split (${customSplitTotal.toFixed(2)}) must equal Total Fee (${totalFee.toFixed(2)})</div>
               )}
-              <button onClick={handleSubmit} disabled={submitting || needsPlannerAllocation || customSplitMismatch} style={{ width: '100%', padding: '12px', borderRadius: '8px', background: (submitting || needsPlannerAllocation || customSplitMismatch) ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '15px', fontWeight: '600', cursor: (submitting || needsPlannerAllocation || customSplitMismatch) ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              <button onClick={handleSubmit} disabled={blockSubmit} style={{ width: '100%', padding: '12px', borderRadius: '8px', background: blockSubmit ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '15px', fontWeight: '600', cursor: blockSubmit ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
                 {submitting ? 'Submitting...' : 'Submit Outcome'}
               </button>
             </>
@@ -572,8 +1068,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
   const isDironInsley = memberNumber === DISCOUNT_MEMBER_NUMBER
   const needsPlannerAllocation = !plan?.tax_planner_id
   const [taxRiskMindset, setTaxRiskMindset] = useState('')
-  const [retainerPayment, setRetainerPayment] = useState('')
-  const [implementationFee, setImplementationFee] = useState('')
+  const [totalFeeInput, setTotalFeeInput] = useState('')
   const [splitType, setSplitType] = useState('')
   const [memberShare, setMemberShare] = useState('')
   const [taxPlannerShare, setTaxPlannerShare] = useState('')
@@ -583,7 +1078,9 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
   const [discountApplied, setDiscountApplied] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const totalFee = (parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0)
+  // This form only ever prices a NEW plan, so there is no legacy shape to render.
+  const feeSplit = feeSplitFromInput(totalFeeInput)
+  const totalFee = feeSplit?.total || 0
 
   useEffect(() => {
     if (splitType === '1/3 Member, 1/3 Tax Planner, 1/3 VFOS') {
@@ -619,6 +1116,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
   // Custom split must sum to the total fee (mirrors MAP 1 PIPDecisionForm).
   const customSplitTotal = (parseFloat(memberShare) || 0) + (parseFloat(taxPlannerShare) || 0) + (parseFloat(vfosShare) || 0)
   const customSplitMismatch = splitType === 'Custom' && Math.abs(customSplitTotal - totalFee) > 0.01
+  const blockSubmit = submitting || needsPlannerAllocation || customSplitMismatch || !feeSplit
 
   // Custom split: all three shares (member, tax-planner, VFOS) are freely
   // editable and must sum to the total fee (validated on submit). The preset
@@ -627,7 +1125,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
   function handlePlannerShareChange(val) { setTaxPlannerShare(val) }
 
   async function handle() {
-    if (!taxRiskMindset || !retainerPayment || !implementationFee || !splitType) return
+    if (!taxRiskMindset || !feeSplit || !splitType) return
     if (isDironInsley && discountToggle === 'Yes') {
       const d = parseFloat(discountApplied)
       if (!(d > 0)) { alert('Please enter a valid discount amount greater than 0.'); return }
@@ -640,9 +1138,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
     try {
       await onSubmit({
         taxRiskMindset,
-        retainerPayment,
-        implementationFee,
-        totalFee: totalFee.toFixed(2),
+        totalFee: feeSplit.total.toFixed(2),
         splitType,
         memberShare,
         taxPlannerShare,
@@ -670,29 +1166,15 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
 
       <div style={sectionStyle}>
         <div style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Fee details</div>
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '120px' }}>
-            <label style={labelStyle}>Retainer payment</label>
-            <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-              <input value={retainerPayment} onChange={e => setRetainerPayment(e.target.value)} placeholder="0.00" style={{ ...inputStyle, paddingLeft: '28px' }} />
-            </div>
-          </div>
-          <div style={{ flex: 1, minWidth: '120px' }}>
-            <label style={labelStyle}>Implementation fee</label>
-            <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-              <input value={implementationFee} onChange={e => setImplementationFee(e.target.value)} placeholder="0.00" style={{ ...inputStyle, paddingLeft: '28px' }} />
-            </div>
-          </div>
-        </div>
-        <div>
-          <label style={labelStyle}>Total fee</label>
-          <div style={{ position: 'relative' }}>
-            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-            <input value={totalFee.toFixed(2)} readOnly style={{ ...inputStyle, paddingLeft: '28px', background: 'rgba(27,146,84,0.08)', borderColor: 'rgba(27,146,84,0.2)' }} />
-          </div>
-        </div>
+        <TotalFeeField
+          label="Total tax planning fee"
+          value={totalFeeInput}
+          onChange={setTotalFeeInput}
+          split={feeSplit}
+          inputStyle={inputStyle}
+          readOnlyInput={{ ...inputStyle, opacity: 0.6, pointerEvents: 'none' }}
+          labelStyle={labelStyle}
+        />
       </div>
 
       <div style={sectionStyle}>
@@ -763,7 +1245,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
                 <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Invoice preview</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', marginBottom: '4px' }}>
                   <span>Tax Planning Fee</span>
-                  <span>${fmtMoney((parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0) + (parseFloat(discountApplied) || 0))}</span>
+                  <span>${fmtMoney(totalFee + (parseFloat(discountApplied) || 0))}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#dc2626', fontWeight: 600, marginBottom: '4px' }}>
                   <span>Discount Applied*</span>
@@ -771,7 +1253,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: 700, borderTop: '1px solid var(--vfo-border-chip)', paddingTop: '6px', marginTop: '6px' }}>
                   <span>Net Payable</span>
-                  <span>${fmtMoney((parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0))}</span>
+                  <span>${fmtMoney(totalFee)}</span>
                 </div>
               </div>
             </div>
@@ -782,12 +1264,15 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
       {needsPlannerAllocation && (
         <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, marginTop: '10px', textAlign: 'right' }}>You must allocate a tax planner before submitting.</div>
       )}
+      {!feeSplit && String(totalFeeInput || '').trim() === '' && (
+        <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, marginTop: '10px', textAlign: 'right' }}>Enter the total tax planning fee before submitting.</div>
+      )}
       {customSplitMismatch && (
         <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginTop: '10px', textAlign: 'right' }}>Revenue split (${customSplitTotal.toFixed(2)}) must equal Total Fee (${totalFee.toFixed(2)})</div>
       )}
       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '14px' }}>
         {onCancel && <button disabled={submitting} onClick={onCancel} style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }}>Cancel</button>}
-        <button disabled={submitting || needsPlannerAllocation || customSplitMismatch} onClick={handle} style={{ padding: '8px 18px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: (submitting || needsPlannerAllocation || customSplitMismatch) ? 'not-allowed' : 'pointer', border: 'none', background: (submitting || needsPlannerAllocation || customSplitMismatch) ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#fff' }}>{submitting ? 'Submitting…' : submitLabel}</button>
+        <button disabled={blockSubmit} onClick={handle} style={{ padding: '8px 18px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: blockSubmit ? 'not-allowed' : 'pointer', border: 'none', background: blockSubmit ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#fff' }}>{submitting ? 'Submitting…' : submitLabel}</button>
       </div>
     </div>
   )
@@ -1014,6 +1499,10 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
     const feeNum = parseFloat(fee)
     if (!Number.isFinite(feeNum) || feeNum < 0) {
       setSubmitError(`${ASSESS_FEE_LABEL} is required`)
+      return
+    }
+    if (feeNum > MAX_TOTAL_FEE) {
+      setSubmitError(`${ASSESS_FEE_LABEL} must be no more than $${MAX_TOTAL_FEE.toLocaleString('en-US')}`)
       return
     }
     const readGroup = (src, suffix) => {
@@ -1555,6 +2044,8 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     'Pending Completion': '#e06717',
     'Proceed': '#1b9254',
     'Proceed with tax planning': '#1b9254', 'Stop tax planning': '#e74c3c',
+    // The two answers the 'Amend fee' / 'Amend implementation fee' steps store.
+    'Completed - Kept': '#1b9254', 'Completed - Amended': '#1b9254',
   }
 
   function formatDate(d) {
@@ -1699,6 +2190,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     // gates), while the other four steps the skip removes drop out of the counts
     // entirely (isSkippedAway).
     if (t.status_options === 'tax_3_decision') return !!localProgress[t.id]?.status || roiSkipped
+    // The two "amend the fee" steps: normally proven by their own progress row
+    // ("Completed - Kept" / "Completed - Amended"), but an actual amendment
+    // stamps client_tax_plans.fee_amended_at_tax4/_tax5 and that stamp can only
+    // exist because the step was answered — so it closes the step on its own if
+    // the save-task that follows the amend call is ever lost. Mirrored in the
+    // backend step machine (utils/tax-plan-steps.ts) — #339 keeps them in step.
+    if (t.status_options === AMEND_FEE_CODE) return !!localProgress[t.id]?.status || !!livePlan?.fee_amended_at_tax4
+    if (t.status_options === AMEND_FEE_TAX5_CODE) return !!localProgress[t.id]?.status || !!livePlan?.fee_amended_at_tax5
     return !!localProgress[t.id]?.status
   }
 
@@ -1754,6 +2253,31 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   // actually happened.
   const isSkippedAway = (t) => roiSkipped && isRoiSkipSetTask(t)
     && t?.status_options !== 'tax_3_decision' && !isTaskStatused(t)
+
+  // ── The two revised-fee-process "amend the fee" steps ────────────────────
+  // A LEGACY plan (NULL / unrecognised fee_process_version) can never amend a
+  // fee — actions/tax/amend-fee.ts refuses it outright — so on one of those the
+  // two steps are NOT APPLICABLE: they render as inert rows (the same treatment
+  // isSkippedAway rows get) and drop out of every count, so no legacy plan's
+  // phase pill, hero total or plan-list state changes. A 2-payment plan on the
+  // REVISED process gets both steps normally: only the derivation differs
+  // (implementation-only rather than a re-derived 50:50).
+  // Mirrors utils/tax-plan-steps.ts's `applicable: reach && newFeeProcess`.
+  const newFeeProcess = isNewFeeProcess(livePlan)
+  const isAmendNotApplicable = (t) => isAmendStepTask(t) && !newFeeProcess
+  // Excluded from the done-math: skipped-away rows, plus the not-applicable
+  // amend rows. One helper so every count site uses the same rule.
+  const isStepExcluded = (t) => isSkippedAway(t) || isAmendNotApplicable(t)
+
+  // "Has the amend step been answered?" for the steps that wait on it. An ABSENT
+  // task row reads as answered — the program_client_tasks seed lands after this
+  // code deploys, and a step that does not exist must never lock the one after
+  // it. Exactly the deploy-order-safe rule amendFeeStepState uses server-side
+  // (exists=false -> the backend gate SKIPS).
+  const amendTax4Task = allTasks.find(t => t.status_options === AMEND_FEE_CODE)
+  const amendTax5Task = allTasks.find(t => t.status_options === AMEND_FEE_TAX5_CODE)
+  const amendTax4Blocks = newFeeProcess && !!amendTax4Task && !isTaskStatused(amendTax4Task)
+  const amendTax5Blocks = newFeeProcess && !!amendTax5Task && !isTaskStatused(amendTax5Task)
   // Column-proven as well as progress-proven — isTaskStatused above reads the
   // submitted-form stamp, which is the only thing that completes this step.
   const assessDone = prereqDone('assess_form', 'Assess tax planning opportunities (and enter presentation details)')
@@ -1798,7 +2322,18 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       return { locked: !tax6Unlocked, hint: 'Locked until Implementation decision + AI PC Admin complete' }
     }
     if (phase?.name === TAX5B_PHASE) {
-      return { locked: !tax5bUnlocked, hint: 'Unlocks when "Confirm ready for implementation" is Yes or Undecided on any specialist' }
+      // The whole phase waits on the Tax 5a confirmation — that is what "reaches"
+      // the amend step too, so it needs no gate of its own.
+      if (!tax5bUnlocked) return { locked: true, hint: 'Unlocks when "Confirm ready for implementation" is Yes or Undecided on any specialist' }
+      // Revised fee process: the implementation fee may still be amended here,
+      // and Client decision 2 / the implementation charge are computed from it —
+      // so the amend step is the Implementation decision's new prerequisite.
+      // New-process plans only; on a legacy plan amendTax5Blocks is false and
+      // this step keeps exactly the gate it had.
+      if (so === 'tax_implement_decision' && amendTax5Blocks) {
+        return { locked: true, hint: 'Complete the "Amend implementation fee" step first' }
+      }
+      return { locked: false, hint: '' }
     }
 
     if (so === 'tax_returns_request' || nm === 'Request Tax Returns') {
@@ -1886,6 +2421,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       // Same on both routes — this step confirms the meeting the step above booked.
       return { locked: !hlmConfirmDone, hint: 'Send the detailed tax plan meeting confirmation email first' }
     }
+    // Revised fee process: the fee may be amended after the detailed tax plan
+    // meeting and before Client decision 1 goes out. Same prerequisite the
+    // presentation-confirmation step hands to Client decision 1 today.
+    if (so === AMEND_FEE_CODE) {
+      return { locked: !detailedPresDone, hint: 'Complete the "Detailed tax plan presentation" step first' }
+    }
     if (so === 'tax_continue_stop' || nm === 'Client decision 1') {
       // Meeting first adds the retainer to this step's prerequisites: the meeting
       // happened before the money, and Client decision 1 decides what happens to
@@ -1894,7 +2435,19 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       if (roiSkipMeetingFirst && hlmConfirmDone && detailedPresDone && !tax3AipcDone) {
         return { locked: true, hint: 'Waiting for the client to complete signing and payment' }
       }
-      return { locked: !(hlmConfirmDone && detailedPresDone), hint: 'Complete the detailed tax plan presentation first' }
+      if (!(hlmConfirmDone && detailedPresDone)) {
+        return { locked: true, hint: 'Complete the detailed tax plan presentation first' }
+      }
+      // ...and on a revised-process plan the amend step comes between the two:
+      // this email quotes the current total (and the final retainer on a
+      // 3-payment plan), so it must not go out while the fee is still open. The
+      // backend enforces the same order in actions/tax/postreview-decision.ts.
+      // amendTax4Blocks is false on legacy plans and while the step row has not
+      // been seeded, so neither case changes this gate.
+      if (amendTax4Blocks) {
+        return { locked: true, hint: 'Complete the "Amend fee" step first' }
+      }
+      return { locked: false, hint: '' }
     }
     if (nm === 'Client decision 2') {
       return {
@@ -1916,7 +2469,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     // Filtered ahead of every branch below, not just the generic tail: Tax 3
     // carries "ROI Presentation", so leaving it in would keep that phase off
     // Done forever on a skipped plan.
-    tasks = tasks.filter(t => !isSkippedAway(t))
+    tasks = tasks.filter(t => !isStepExcluded(t))
     // Tax 2 needs no special case: the skip leaves exactly the booking step
     // standing, and the skip answers it, so the generic tail below reads the
     // phase as Done (1/1).
@@ -2016,6 +2569,23 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         </div>
       )
     }
+    // A legacy-process plan can never amend a fee, so both amend steps render as
+    // inert "Not applicable" rows on EVERY surface — same treatment (and same
+    // exclusion from the counts) the ROI-skip rows above get. Ahead of the lock
+    // gate for the same reason: not-applicable outranks locked, and there is no
+    // prerequisite that could ever make it reachable.
+    if (isAmendNotApplicable(task)) {
+      return (
+        <div key={key} title="This plan was priced under the previous fee process, which has no amendment step." style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid var(--vfo-border-mid)' }} />
+          <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: '1 1 auto', minWidth: '140px' }}>{taskLabel(task)}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '0 1 auto', minWidth: '150px', justifyContent: 'flex-end', textAlign: 'right' }}>
+            <span style={chipStyle('var(--vfo-muted)')}>Not applicable</span>
+          </span>
+          <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>—</span>
+        </div>
+      )
+    }
     if (!readOnly && !alreadyDone) {
       const gate = stepGate(task, phase)
       if (gate?.locked) {
@@ -2046,6 +2616,21 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     const p = localProgress[key] || {}
     const isDone = !!p.status
     const statusColor = statusColors[p.status] || 'var(--vfo-muted)'
+
+    if (isAmendStepTask(task)) {
+      return (
+        <AmendFeeStep
+          key={key}
+          task={task}
+          plan={livePlan}
+          stage={amendStage(task)}
+          status={p.status || ''}
+          completedDate={p.completed_date || ''}
+          readOnly={readOnly}
+          onAnswer={(st) => saveTask(task.id, st)}
+        />
+      )
+    }
 
     if (task.status_options === 'assess_form' || task.name === 'Assess tax planning opportunities (and enter presentation details)') {
       const green = '#1b9254'
@@ -3175,9 +3760,18 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         : adminDecision === 'Undecided' ? '#e06717'
         : 'var(--vfo-muted)'
 
+      // Display label only — the SAVED value stays 'Continue - Revenue Share'
+      // on every shape (it keys the template lookup, statusColors, and the
+      // backend's idempotency); on a 3-payment plan the green click also pulls
+      // the final retainer, so the button says so.
+      const decision1ThreePay = isThreePaymentPlan(livePlan)
+      const continueLabel = decision1ThreePay ? 'Continue - Final Retainer + Revenue Share' : 'Continue - Revenue Share'
+
       async function handlePick(value) {
         if (!value) return
-        if (value === 'Continue - Revenue Share' && !confirm("Mark client as Continue?\n\nThis sends them an email with a green Confirm button and a red Refund button. The revenue share fires ONLY when they click Confirm. After 2 business days with no click they get a reminder email, after 4 business days the PF is notified to reach out.")) return
+        if (value === 'Continue - Revenue Share' && !confirm(decision1ThreePay
+          ? "Mark client as Continue?\n\nThis sends them an email with a green Confirm button and a red Refund button. When they click Confirm, their FINAL RETAINER is collected from the payment method on file, and the retainer revenue share fires once that payment settles. After 2 business days with no click they get a reminder email, after 4 business days the PF is notified to reach out."
+          : "Mark client as Continue?\n\nThis sends them an email with a green Confirm button and a red Refund button. The revenue share fires ONLY when they click Confirm. After 2 business days with no click they get a reminder email, after 4 business days the PF is notified to reach out.")) return
         if (value === 'Stop - Refund' && !confirm("Stop - Refund? This will IMMEDIATELY fire a Stripe refund of the retainer and draft a refund confirmation email to the client.")) return
         if (value === 'Undecided' && !confirm("Mark client as Undecided?\n\nThey'll get an email with two buttons (Proceed / Refund). After 2 business days with no click we send a reminder, after 4 business days we notify you to call the client.")) return
         await saveTask(task.id, value, new Date().toISOString().slice(0, 10))
@@ -3219,7 +3813,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             ) : (
               !readOnly && (
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  <button onClick={() => handlePick('Continue - Revenue Share')} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }}>Continue - Revenue Share</button>
+                  <button onClick={() => handlePick('Continue - Revenue Share')} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }}>{continueLabel}</button>
                   <button onClick={() => handlePick('Undecided')} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(251,137,90,0.4)', background: 'rgba(251,137,90,0.12)', color: '#e06717', fontWeight: 600 }}>Undecided</button>
                   <button onClick={() => handlePick('Stop - Refund')} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600 }}>Stop - Refund</button>
                 </div>
@@ -3548,11 +4142,13 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     if (phase.name === 'Tax 1 - Diagnostic') {
       tasks = tasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
     }
-    return tasks.filter(t => !isSkippedAway(t))
+    return tasks.filter(t => !isStepExcluded(t))
   }
   const tax5aSpecTasks = tax5aTasks.filter(t => t.status_options !== 'specialist_select')
-  const tax5bCounted = tax5bPhase ? (tax5bPhase.program_client_tasks || []).filter(t => t.status_options !== 'auto') : []
-  const tax5bTaskDone = (t) => t.status_options === 'tax_implement_decision' ? !!livePlan?.implementation_decision : !!localProgress[t.id]?.status
+  // Same exclusion as every other count: a legacy plan's Tax 5b amend row is not
+  // applicable and must not sit in the denominator.
+  const tax5bCounted = tax5bPhase ? (tax5bPhase.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !isStepExcluded(t)) : []
+  const tax5bTaskDone = (t) => t.status_options === 'tax_implement_decision' ? !!livePlan?.implementation_decision : isTaskStatused(t)
   // Tax 6 (the only after-spec phase) is per-specialist like Tax 5a, so it is
   // dropped from the plan-level reduce and added as its own term — leaving it in
   // both would double-count it.
@@ -3617,7 +4213,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         if (phase.name === 'Tax 1 - Diagnostic') {
           nonAutoTasks = nonAutoTasks.filter(t => !['Email to obtain information required sent', 'Information received', 'Information passed to VFO-L'].includes(t.name))
         }
-        nonAutoTasks = nonAutoTasks.filter(t => !isSkippedAway(t))
+        nonAutoTasks = nonAutoTasks.filter(t => !isStepExcluded(t))
         // Same rule as the hero count and the phase pills — isTaskStatused owns every
         // "this step doesn't live in client_tax_progress" special case in one place.
         const doneTasks = nonAutoTasks.filter(isTaskStatused).length
@@ -3969,7 +4565,11 @@ function TaxPrioritiesTab({ clientId, programId, programName, client, specialist
 
   function getPlanState(plan) {
     const prog = allProgress[plan.id] || {}
-    const allTasks = phases.filter(p => p.name !== 'Tax 5 - Education & DD (Specialist Allocation)' && p.name !== 'Tax 5 - Education & DD (Post Allocation)').flatMap(p => p.program_client_tasks || []).filter(t => t.status_options !== 'auto')
+    // The Tax 4 'Amend fee' step only exists for revised-fee-process plans — a
+    // legacy plan must not drop out of "completed" because of a step it can
+    // never answer. (The Tax 5b amend step is already outside this list, which
+    // excludes both Tax 5 phases entirely.)
+    const allTasks = phases.filter(p => p.name !== 'Tax 5 - Education & DD (Specialist Allocation)' && p.name !== 'Tax 5 - Education & DD (Post Allocation)').flatMap(p => p.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !(isAmendStepTask(t) && !isNewFeeProcess(plan)))
     if (allTasks.length === 0) return 'not started'
     if (allTasks.every(t => prog[t.id]?.status)) return 'completed'
     if (allTasks.some(t => prog[t.id]?.status)) return 'in progress'

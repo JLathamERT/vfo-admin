@@ -54,6 +54,7 @@ docs/
 │   ├── README.md                     (flow index + global open questions)
 │   ├── contract-and-payment.md       (the master MAP1 flow — all 13 steps)
 │   ├── tax-planning.md               (the Tax Planning flow within Holistic Planning — parallel to MAP1)
+│   ├── tax-fee-process.md            (the tax fee/pricing flow — one total in, derived amounts, the 3-payment split, the amend steps)
 │   ├── boldsign-webhook.md           (sign events → pipeline updates → chains)
 │   ├── stripe-webhook.md             (payment events → pipeline updates → chains)
 │   ├── ciq.md                        (intake questionnaire workflow)
