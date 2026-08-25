@@ -11,6 +11,81 @@ import { CONFIRMATION_CARD_SKIP } from '../../../lib/confirmationStatus'
 // Matches the backend invoice money formatting ($X,XXX.XX).
 const fmtMoney = (n) => (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
+// Revised fee process (2026-08-25): the fee is driven by ONE number, the total.
+// This mirrors the edge repo's constants/tax-fee-process.ts deriveFeeSplit byte
+// for byte — arithmetic in whole cents so retainer + implementation === total and
+// initial + final === retainer exactly. DISPLAY ONLY: the server re-derives every
+// payable amount from the submitted total and ignores anything computed here, so
+// the two must never drift. Change both together.
+const MAX_TOTAL_FEE = 60000
+const THREE_PAYMENT_THRESHOLD = 30000
+const INITIAL_RETAINER_FLAT = 15000
+const FEE_TOTAL_RANGE_MESSAGE = `Total fee must be greater than $0 and no more than $${MAX_TOTAL_FEE.toLocaleString('en-US')}`
+
+function deriveFeeSplit(total) {
+  const cents = Math.round(Number(total) * 100)
+  if (!Number.isFinite(cents) || cents <= 0 || cents > MAX_TOTAL_FEE * 100) return null
+  const retainerCents = Math.round(cents / 2)
+  const implementationCents = cents - retainerCents
+  const threePayment = cents > THREE_PAYMENT_THRESHOLD * 100
+  const initialCents = threePayment ? INITIAL_RETAINER_FLAT * 100 : null
+  return {
+    total: cents / 100,
+    retainer: retainerCents / 100,
+    implementation: implementationCents / 100,
+    initialRetainer: initialCents === null ? null : initialCents / 100,
+    finalRetainer: initialCents === null ? null : (retainerCents - initialCents) / 100,
+    threePayment,
+  }
+}
+
+// null for anything the server would reject (blank, non-numeric, <= 0, > max) —
+// which is also the signal every caller uses to disable its submit button.
+function feeSplitFromInput(raw) {
+  const cleaned = String(raw ?? '').replace(/[$,\s]/g, '')
+  if (cleaned === '') return null
+  return deriveFeeSplit(parseFloat(cleaned))
+}
+
+// A completed Tax 3 form stored BEFORE this process shipped carries its own
+// retainer/implementation amounts, which are not necessarily a 50/50 split of the
+// total — so those rows must keep rendering the two stored amounts verbatim.
+// Presence of either key is the discriminator; new submissions send the total only.
+const isLegacyFeeNotes = (existing) =>
+  existing?.retainerPayment !== undefined || existing?.implementationFee !== undefined
+
+const feeRowStyle = (strong) => ({ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', marginBottom: '4px', fontWeight: strong ? 700 : 400 })
+
+// Read-only mirror of what the server will derive. `projected` is the Undecided
+// quote, where only the first retainer payment (and, on the 3-payment shape, the
+// final retainer) has been quoted to the client.
+function FeeBreakdown({ split, projected = false }) {
+  const rows = projected
+    ? [
+        ['Initial Retainer', split.threePayment ? split.initialRetainer : split.retainer],
+        ...(split.threePayment ? [['Final Retainer', split.finalRetainer]] : []),
+      ]
+    : split.threePayment
+      ? [['Initial Retainer', split.initialRetainer], ['Final Retainer', split.finalRetainer], ['Implementation Fee (50%)', split.implementation]]
+      : [['Retainer (50%)', split.retainer], ['Implementation Fee (50%)', split.implementation]]
+  return (
+    <div style={{ marginTop: '10px', padding: '10px 12px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
+      <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Derived payment schedule</div>
+      {rows.map(([label, amount]) => (
+        <div key={label} style={feeRowStyle(false)}><span>{label}</span><span>${fmtMoney(amount)}</span></div>
+      ))}
+      <div style={{ ...feeRowStyle(true), borderTop: '1px solid var(--vfo-border-chip)', paddingTop: '6px', marginTop: '6px' }}>
+        <span>{projected ? 'Projected Total' : 'Total'}</span><span>${fmtMoney(split.total)}</span>
+      </div>
+      {split.threePayment && (
+        <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '6px' }}>
+          Above ${THREE_PAYMENT_THRESHOLD.toLocaleString('en-US')} the retainer is collected in two payments — three payments in total.
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Completion dates on the tax track are DISPLAY ONLY (both programs) — the date
 // is whatever the save recorded and is never hand-editable, so this deliberately
 // shadows the shared editable StepDate control and ignores onChange/disabled.
@@ -217,6 +292,30 @@ function PhasePill({ state, detail = '' }) {
   return <span style={{ ...base, background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', color: 'var(--vfo-muted)', fontWeight: 400 }}>Not started</span>
 }
 
+// The single fee input, its inline range error and the derived preview. Styles
+// come from the host form so this reads as part of whichever card renders it.
+function TotalFeeField({ label, hint, value, onChange, split, readOnly = false, projected = false, inputStyle, readOnlyInput, labelStyle }) {
+  const invalid = !readOnly && !split && String(value || '').trim() !== ''
+  return (
+    <div>
+      <label style={labelStyle}>{label}</label>
+      <div style={{ position: 'relative' }}>
+        <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+        <input
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder="0.00"
+          readOnly={readOnly}
+          style={{ ...(readOnly ? readOnlyInput : inputStyle), paddingLeft: '28px', ...(invalid ? { borderColor: '#e74c3c' } : {}) }}
+        />
+      </div>
+      {hint && !readOnly && <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '4px' }}>{hint}</div>}
+      {invalid && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '12px', marginTop: '6px' }}>{FEE_TOTAL_RANGE_MESSAGE}</div>}
+      {split && <FeeBreakdown split={split} projected={projected} />}
+    </div>
+  )
+}
+
 function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, onSubmitted, memberCategory, memberType, programType, memberNumber }) {
   const existing = existingData || {}
   const isViewMode = !!existingData
@@ -229,21 +328,32 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   const [decision, setDecision] = useState(existing.decision || '')
   const [memberPayingOnBehalf, setMemberPayingOnBehalf] = useState(existing.memberPayingOnBehalf || 'No')
   const [taxRiskMindset, setTaxRiskMindset] = useState(existing.taxRiskMindset || '')
-  const [retainerPayment, setRetainerPayment] = useState(existing.retainerPayment || '')
-  const [implementationFee, setImplementationFee] = useState(existing.implementationFee || '')
+  const [retainerPayment] = useState(existing.retainerPayment || '')
+  const [implementationFee] = useState(existing.implementationFee || '')
+  const [totalFeeInput, setTotalFeeInput] = useState(existing.totalFee || '')
   const [splitType, setSplitType] = useState(existing.splitType || '')
   const [memberShare, setMemberShare] = useState(existing.memberShare || '')
   const [taxPlannerShare, setTaxPlannerShare] = useState(existing.taxPlannerShare || '')
   const [vfosShare, setVfosShare] = useState(existing.vfosShare || '')
   const [strategicPartnerShare, setStrategicPartnerShare] = useState(existing.strategicPartnerShare || '')
   const [potentialTaxSavings, setPotentialTaxSavings] = useState(existing.potentialTaxSavings || '')
-  const [initialRetainer, setInitialRetainer] = useState(existing.initialRetainer || '')
+  const [initialRetainer] = useState(existing.initialRetainer || '')
+  const [projectedTotalInput, setProjectedTotalInput] = useState(existing.totalFee || '')
   const [presentationLink, setPresentationLink] = useState(existing.presentationLink || '')
   const [discountToggle, setDiscountToggle] = useState((existing.discountApplied != null && existing.discountApplied !== '') ? 'Yes' : 'No')
   const [discountApplied, setDiscountApplied] = useState((existing.discountApplied != null && existing.discountApplied !== '') ? String(existing.discountApplied) : '')
   const [submitting, setSubmitting] = useState(false)
 
-  const totalFee = (parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0)
+  // Legacy completed forms render their two stored amounts; everything from
+  // 2026-08-25 on is driven by the single total the admin types.
+  const isLegacyFees = isLegacyFeeNotes(existing)
+  const isLegacyUndecided = existing.initialRetainer !== undefined
+  const feeSplit = feeSplitFromInput(totalFeeInput)
+  const projectedSplit = feeSplitFromInput(projectedTotalInput)
+  // The revenue split still validates against the total, whichever shape supplied it.
+  const totalFee = isLegacyFees
+    ? (parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0)
+    : (feeSplit?.total || 0)
 
   useEffect(() => {
     if (isViewMode) return
@@ -285,6 +395,8 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
 
   async function handleSubmit() {
     if (!decision) return
+    if (decision === 'Yes' && !feeSplit) return
+    if (decision === 'Undecided' && !projectedSplit) return
     if (decision === 'Yes' && isDironInsley && discountToggle === 'Yes') {
       const d = parseFloat(discountApplied)
       if (!(d > 0)) { alert('Please enter a valid discount amount greater than 0.'); return }
@@ -297,9 +409,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
     const formData = { decision, presentationLink, memberPayingOnBehalf }
     if (decision === 'Yes') {
       formData.taxRiskMindset = taxRiskMindset
-      formData.retainerPayment = retainerPayment
-      formData.implementationFee = implementationFee
-      formData.totalFee = totalFee.toFixed(2)
+      formData.totalFee = feeSplit.total.toFixed(2)
       formData.splitType = splitType
       formData.memberShare = memberShare
       formData.taxPlannerShare = taxPlannerShare
@@ -308,7 +418,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
       if (isDironInsley && discountToggle === 'Yes') formData.discountApplied = parseFloat(discountApplied)
     } else if (decision === 'Undecided') {
       formData.potentialTaxSavings = potentialTaxSavings
-      formData.initialRetainer = initialRetainer
+      formData.totalFee = projectedSplit.total.toFixed(2)
     }
     try {
       await callApi('tax_save_task', {
@@ -347,6 +457,11 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   // Custom split must sum to the total fee (mirrors MAP 1 PIPDecisionForm).
   const customSplitTotal = (parseFloat(memberShare) || 0) + (parseFloat(taxPlannerShare) || 0) + (parseFloat(vfosShare) || 0)
   const customSplitMismatch = decision === 'Yes' && isCustomSplit && Math.abs(customSplitTotal - totalFee) > 0.01
+  const feeMissing = (decision === 'Yes' && !feeSplit) || (decision === 'Undecided' && !projectedSplit)
+  // The field prints the range error itself once something invalid is typed; this
+  // only covers the still-blank case, so a greyed-out button always has a reason.
+  const feeBlank = feeMissing && String((decision === 'Yes' ? totalFeeInput : projectedTotalInput) || '').trim() === ''
+  const blockSubmit = submitting || needsPlannerAllocation || customSplitMismatch || feeMissing
 
   return (
     <div style={{ marginLeft: '18px', padding: '16px', background: 'var(--vfo-tint)', borderRadius: '10px', border: '1px solid var(--vfo-tint-deep)', marginTop: '4px', marginBottom: '8px' }}>
@@ -394,29 +509,44 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
 
           <div style={sectionStyle}>
             <div style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Fee details</div>
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: '120px' }}>
-                <label style={labelStyle}>Retainer payment</label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-                  <input value={retainerPayment} onChange={e => setRetainerPayment(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+            {isLegacyFees ? (
+              <>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '120px' }}>
+                    <label style={labelStyle}>Retainer payment</label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+                      <input value={retainerPayment} readOnly style={{ ...readOnlyInput, paddingLeft: '28px' }} />
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: '120px' }}>
+                    <label style={labelStyle}>Implementation fee</label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+                      <input value={implementationFee} readOnly style={{ ...readOnlyInput, paddingLeft: '28px' }} />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div style={{ flex: 1, minWidth: '120px' }}>
-                <label style={labelStyle}>Implementation fee</label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-                  <input value={implementationFee} onChange={e => setImplementationFee(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+                <div>
+                  <label style={labelStyle}>Total fee</label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+                    <input value={existing.totalFee || totalFee.toFixed(2)} readOnly style={{ ...readOnlyInput, paddingLeft: '28px', background: 'rgba(27,146,84,0.08)', borderColor: 'rgba(27,146,84,0.2)' }} />
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div>
-              <label style={labelStyle}>Total fee</label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-                <input value={isViewMode ? (existing.totalFee || '0.00') : totalFee.toFixed(2)} readOnly style={{ ...readOnlyInput, paddingLeft: '28px', background: 'rgba(27,146,84,0.08)', borderColor: 'rgba(27,146,84,0.2)' }} />
-              </div>
-            </div>
+              </>
+            ) : (
+              <TotalFeeField
+                label="Total tax planning fee"
+                value={totalFeeInput}
+                onChange={setTotalFeeInput}
+                split={feeSplit}
+                readOnly={isViewMode}
+                inputStyle={inputStyle}
+                readOnlyInput={readOnlyInput}
+                labelStyle={labelStyle}
+              />
+            )}
           </div>
 
           <div style={sectionStyle}>
@@ -490,7 +620,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
                     <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Invoice preview</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', marginBottom: '4px' }}>
                       <span>Tax Planning Fee</span>
-                      <span>${fmtMoney((parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0) + (parseFloat(discountApplied) || 0))}</span>
+                      <span>${fmtMoney(totalFee + (parseFloat(discountApplied) || 0))}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#dc2626', fontWeight: 600, marginBottom: '4px' }}>
                       <span>Discount Applied*</span>
@@ -498,7 +628,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: 700, borderTop: '1px solid var(--vfo-border-chip)', paddingTop: '6px', marginTop: '6px' }}>
                       <span>Net Payable</span>
-                      <span>${fmtMoney((parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0))}</span>
+                      <span>${fmtMoney(totalFee)}</span>
                     </div>
                   </div>
                 </div>
@@ -519,14 +649,32 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
                 <input value={potentialTaxSavings} onChange={e => setPotentialTaxSavings(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
               </div>
             </div>
-            <div style={{ flex: 1, minWidth: '120px' }}>
-              <label style={labelStyle}>Initial retainer</label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-                <input value={initialRetainer} onChange={e => setInitialRetainer(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+            {isLegacyUndecided && (
+              <div style={{ flex: 1, minWidth: '120px' }}>
+                <label style={labelStyle}>Initial retainer</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+                  <input value={initialRetainer} readOnly style={{ ...readOnlyInput, paddingLeft: '28px' }} />
+                </div>
               </div>
-            </div>
+            )}
           </div>
+          {!isLegacyUndecided && (
+            <div style={{ marginTop: '12px' }}>
+              <TotalFeeField
+                label="Projected total tax planning fee"
+                hint="The client is quoted the initial retainer only — the rest of the schedule follows once they commit."
+                value={projectedTotalInput}
+                onChange={setProjectedTotalInput}
+                split={projectedSplit}
+                readOnly={isViewMode}
+                projected
+                inputStyle={inputStyle}
+                readOnlyInput={readOnlyInput}
+                labelStyle={labelStyle}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -548,10 +696,13 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
               {needsPlannerAllocation && (
                 <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, marginBottom: '8px' }}>You must allocate a tax planner before submitting.</div>
               )}
+              {feeBlank && (
+                <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, marginBottom: '8px' }}>{decision === 'Yes' ? 'Enter the total tax planning fee before submitting.' : 'Enter the projected total tax planning fee before submitting.'}</div>
+              )}
               {customSplitMismatch && (
                 <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginBottom: '8px' }}>Revenue split (${customSplitTotal.toFixed(2)}) must equal Total Fee (${totalFee.toFixed(2)})</div>
               )}
-              <button onClick={handleSubmit} disabled={submitting || needsPlannerAllocation || customSplitMismatch} style={{ width: '100%', padding: '12px', borderRadius: '8px', background: (submitting || needsPlannerAllocation || customSplitMismatch) ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '15px', fontWeight: '600', cursor: (submitting || needsPlannerAllocation || customSplitMismatch) ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              <button onClick={handleSubmit} disabled={blockSubmit} style={{ width: '100%', padding: '12px', borderRadius: '8px', background: blockSubmit ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '15px', fontWeight: '600', cursor: blockSubmit ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
                 {submitting ? 'Submitting...' : 'Submit Outcome'}
               </button>
             </>
@@ -572,8 +723,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
   const isDironInsley = memberNumber === DISCOUNT_MEMBER_NUMBER
   const needsPlannerAllocation = !plan?.tax_planner_id
   const [taxRiskMindset, setTaxRiskMindset] = useState('')
-  const [retainerPayment, setRetainerPayment] = useState('')
-  const [implementationFee, setImplementationFee] = useState('')
+  const [totalFeeInput, setTotalFeeInput] = useState('')
   const [splitType, setSplitType] = useState('')
   const [memberShare, setMemberShare] = useState('')
   const [taxPlannerShare, setTaxPlannerShare] = useState('')
@@ -583,7 +733,9 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
   const [discountApplied, setDiscountApplied] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const totalFee = (parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0)
+  // This form only ever prices a NEW plan, so there is no legacy shape to render.
+  const feeSplit = feeSplitFromInput(totalFeeInput)
+  const totalFee = feeSplit?.total || 0
 
   useEffect(() => {
     if (splitType === '1/3 Member, 1/3 Tax Planner, 1/3 VFOS') {
@@ -619,6 +771,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
   // Custom split must sum to the total fee (mirrors MAP 1 PIPDecisionForm).
   const customSplitTotal = (parseFloat(memberShare) || 0) + (parseFloat(taxPlannerShare) || 0) + (parseFloat(vfosShare) || 0)
   const customSplitMismatch = splitType === 'Custom' && Math.abs(customSplitTotal - totalFee) > 0.01
+  const blockSubmit = submitting || needsPlannerAllocation || customSplitMismatch || !feeSplit
 
   // Custom split: all three shares (member, tax-planner, VFOS) are freely
   // editable and must sum to the total fee (validated on submit). The preset
@@ -627,7 +780,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
   function handlePlannerShareChange(val) { setTaxPlannerShare(val) }
 
   async function handle() {
-    if (!taxRiskMindset || !retainerPayment || !implementationFee || !splitType) return
+    if (!taxRiskMindset || !feeSplit || !splitType) return
     if (isDironInsley && discountToggle === 'Yes') {
       const d = parseFloat(discountApplied)
       if (!(d > 0)) { alert('Please enter a valid discount amount greater than 0.'); return }
@@ -640,9 +793,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
     try {
       await onSubmit({
         taxRiskMindset,
-        retainerPayment,
-        implementationFee,
-        totalFee: totalFee.toFixed(2),
+        totalFee: feeSplit.total.toFixed(2),
         splitType,
         memberShare,
         taxPlannerShare,
@@ -670,29 +821,15 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
 
       <div style={sectionStyle}>
         <div style={{ fontSize: '12px', color: '#0095ff', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Fee details</div>
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '120px' }}>
-            <label style={labelStyle}>Retainer payment</label>
-            <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-              <input value={retainerPayment} onChange={e => setRetainerPayment(e.target.value)} placeholder="0.00" style={{ ...inputStyle, paddingLeft: '28px' }} />
-            </div>
-          </div>
-          <div style={{ flex: 1, minWidth: '120px' }}>
-            <label style={labelStyle}>Implementation fee</label>
-            <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-              <input value={implementationFee} onChange={e => setImplementationFee(e.target.value)} placeholder="0.00" style={{ ...inputStyle, paddingLeft: '28px' }} />
-            </div>
-          </div>
-        </div>
-        <div>
-          <label style={labelStyle}>Total fee</label>
-          <div style={{ position: 'relative' }}>
-            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-            <input value={totalFee.toFixed(2)} readOnly style={{ ...inputStyle, paddingLeft: '28px', background: 'rgba(27,146,84,0.08)', borderColor: 'rgba(27,146,84,0.2)' }} />
-          </div>
-        </div>
+        <TotalFeeField
+          label="Total tax planning fee"
+          value={totalFeeInput}
+          onChange={setTotalFeeInput}
+          split={feeSplit}
+          inputStyle={inputStyle}
+          readOnlyInput={{ ...inputStyle, opacity: 0.6, pointerEvents: 'none' }}
+          labelStyle={labelStyle}
+        />
       </div>
 
       <div style={sectionStyle}>
@@ -763,7 +900,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
                 <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Invoice preview</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', marginBottom: '4px' }}>
                   <span>Tax Planning Fee</span>
-                  <span>${fmtMoney((parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0) + (parseFloat(discountApplied) || 0))}</span>
+                  <span>${fmtMoney(totalFee + (parseFloat(discountApplied) || 0))}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#dc2626', fontWeight: 600, marginBottom: '4px' }}>
                   <span>Discount Applied*</span>
@@ -771,7 +908,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: 700, borderTop: '1px solid var(--vfo-border-chip)', paddingTop: '6px', marginTop: '6px' }}>
                   <span>Net Payable</span>
-                  <span>${fmtMoney((parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0))}</span>
+                  <span>${fmtMoney(totalFee)}</span>
                 </div>
               </div>
             </div>
@@ -782,12 +919,15 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
       {needsPlannerAllocation && (
         <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, marginTop: '10px', textAlign: 'right' }}>You must allocate a tax planner before submitting.</div>
       )}
+      {!feeSplit && String(totalFeeInput || '').trim() === '' && (
+        <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, marginTop: '10px', textAlign: 'right' }}>Enter the total tax planning fee before submitting.</div>
+      )}
       {customSplitMismatch && (
         <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '13px', marginTop: '10px', textAlign: 'right' }}>Revenue split (${customSplitTotal.toFixed(2)}) must equal Total Fee (${totalFee.toFixed(2)})</div>
       )}
       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '14px' }}>
         {onCancel && <button disabled={submitting} onClick={onCancel} style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }}>Cancel</button>}
-        <button disabled={submitting || needsPlannerAllocation || customSplitMismatch} onClick={handle} style={{ padding: '8px 18px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: (submitting || needsPlannerAllocation || customSplitMismatch) ? 'not-allowed' : 'pointer', border: 'none', background: (submitting || needsPlannerAllocation || customSplitMismatch) ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#fff' }}>{submitting ? 'Submitting…' : submitLabel}</button>
+        <button disabled={blockSubmit} onClick={handle} style={{ padding: '8px 18px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: blockSubmit ? 'not-allowed' : 'pointer', border: 'none', background: blockSubmit ? '#93b4e8' : 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', color: '#fff' }}>{submitting ? 'Submitting…' : submitLabel}</button>
       </div>
     </div>
   )
