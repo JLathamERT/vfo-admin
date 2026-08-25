@@ -362,14 +362,17 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
       <div style={{ overflowX: 'auto' }}>
         {/* Fixed column widths so the layout is identical across filters/tabs (and the
             expanded child rows) — otherwise auto-sizing shifts the headings per content. */}
-        <table style={{ width: '100%', minWidth: hasPerson ? '920px' : '680px', borderCollapse: 'collapse', tableLayout: 'fixed', fontFamily: 'Inter, sans-serif' }}>
+        {/* Per-person tabs get NO min width — the description column flexes and wraps,
+            so the table always fits its card without a horizontal scrollbar. The
+            global admin page (hasPerson) keeps a floor for its extra column. */}
+        <table style={{ width: '100%', ...(hasPerson ? { minWidth: '860px' } : null), borderCollapse: 'collapse', tableLayout: 'fixed', fontFamily: 'Inter, sans-serif' }}>
           <colgroup>
-            <col style={{ width: '38px' }} />
-            <col style={{ width: '120px' }} />
+            <col style={{ width: '30px' }} />
+            <col style={{ width: '118px' }} />
             {hasPerson && <col style={{ width: '150px' }} />}
             <col />
-            <col style={{ width: '135px' }} />
-            <col style={{ width: '120px' }} />
+            <col style={{ width: '96px' }} />
+            <col style={{ width: '100px' }} />
             <col style={{ width: '150px' }} />
           </colgroup>
           <thead>
