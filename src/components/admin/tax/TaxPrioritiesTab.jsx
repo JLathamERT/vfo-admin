@@ -1156,6 +1156,10 @@ function AssessTaxForm({ task, plan, saveTask, existingData, onSubmitted, onCanc
       setSubmitError(`${ASSESS_FEE_LABEL} is required`)
       return
     }
+    if (feeNum > MAX_TOTAL_FEE) {
+      setSubmitError(`${ASSESS_FEE_LABEL} must be no more than $${MAX_TOTAL_FEE.toLocaleString('en-US')}`)
+      return
+    }
     const readGroup = (src, suffix) => {
       const nums = {}
       for (const f of ASSESS_YEAR_FIELDS) {
