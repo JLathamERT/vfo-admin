@@ -3756,9 +3756,18 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         : adminDecision === 'Undecided' ? '#e06717'
         : 'var(--vfo-muted)'
 
+      // Display label only — the SAVED value stays 'Continue - Revenue Share'
+      // on every shape (it keys the template lookup, statusColors, and the
+      // backend's idempotency); on a 3-payment plan the green click also pulls
+      // the final retainer, so the button says so.
+      const decision1ThreePay = isThreePaymentPlan(livePlan)
+      const continueLabel = decision1ThreePay ? 'Continue - Final Retainer + Revenue Share' : 'Continue - Revenue Share'
+
       async function handlePick(value) {
         if (!value) return
-        if (value === 'Continue - Revenue Share' && !confirm("Mark client as Continue?\n\nThis sends them an email with a green Confirm button and a red Refund button. The revenue share fires ONLY when they click Confirm. After 2 business days with no click they get a reminder email, after 4 business days the PF is notified to reach out.")) return
+        if (value === 'Continue - Revenue Share' && !confirm(decision1ThreePay
+          ? "Mark client as Continue?\n\nThis sends them an email with a green Confirm button and a red Refund button. When they click Confirm, their FINAL RETAINER is collected from the payment method on file, and the retainer revenue share fires once that payment settles. After 2 business days with no click they get a reminder email, after 4 business days the PF is notified to reach out."
+          : "Mark client as Continue?\n\nThis sends them an email with a green Confirm button and a red Refund button. The revenue share fires ONLY when they click Confirm. After 2 business days with no click they get a reminder email, after 4 business days the PF is notified to reach out.")) return
         if (value === 'Stop - Refund' && !confirm("Stop - Refund? This will IMMEDIATELY fire a Stripe refund of the retainer and draft a refund confirmation email to the client.")) return
         if (value === 'Undecided' && !confirm("Mark client as Undecided?\n\nThey'll get an email with two buttons (Proceed / Refund). After 2 business days with no click we send a reminder, after 4 business days we notify you to call the client.")) return
         await saveTask(task.id, value, new Date().toISOString().slice(0, 10))
@@ -3800,7 +3809,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             ) : (
               !readOnly && (
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  <button onClick={() => handlePick('Continue - Revenue Share')} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }}>Continue - Revenue Share</button>
+                  <button onClick={() => handlePick('Continue - Revenue Share')} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }}>{continueLabel}</button>
                   <button onClick={() => handlePick('Undecided')} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(251,137,90,0.4)', background: 'rgba(251,137,90,0.12)', color: '#e06717', fontWeight: 600 }}>Undecided</button>
                   <button onClick={() => handlePick('Stop - Refund')} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600 }}>Stop - Refund</button>
                 </div>
