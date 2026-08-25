@@ -45,7 +45,7 @@ Auth header: `X-API-KEY: <BOLDSIGN_API_KEY>`.
 9. Updates `pipeline_map1`: `c16_sent='Yes'`, `boldsign_doc_id=<documentId>`, `c17_client_signed='No'`, `c18_ceo_signed='No'`, `c17_followup_sent_date=<today>`.
 10. Loads `email_templates` row `template_name='CONTRACT_agreementsent|Yes'` and creates a Gmail draft to the client with the embedded sign link substituted into `[ENGAGEMENT]`.
 
-> **Important:** `agreement_templates.boldsign_template_id` is **read but not used** in the request. The handler builds form-fields manually from `field_map` instead of referencing the BoldSign-hosted template via `templateId`. The `boldsign_template_id` column may be vestigial. Flagged.
+> **Important:** `agreement_templates.boldsign_template_id` is **read but not used in the SEND request** — the handler builds form-fields manually from `field_map` instead of referencing the BoldSign-hosted template via `templateId`. **That does NOT make the column vestigial.** As of 2026-08-25 it is meaningfully stamped on rows **8**, **20**, **23** and **24** (all four verified non-null), because the `field_map` coordinates are *sourced* by placing the fields visually in that BoldSign template and reading them back. **Do not "clean up" the column** — dropping a value destroys the only pointer to the template a row's coordinates came from. Rows **23 `Client Paying - 3 Payments`** and **24 `Member Paying - 3 Payments`** were added 2026-08-25 for the 3-payment tax fee shape.
 
 ### Signer field structure
 
@@ -63,6 +63,8 @@ Built from `agreement_templates.field_map` JSONB:
 - 1 dateSigned: `ceo_date`
 
 CEO signer is hardcoded to `Anton Anderson` / `aanderson@elitert.com` ([line 4748](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)).
+
+> **⚠️ `field_map` PAGE NUMBERS are coupled to the agreement body's CONTENT LENGTH.** The 2026-08-25 addendum paragraph pushed the signature block from **page 3 to page 4** on all four tax rows, so **a body edit and its `field_map` page fix must land in the SAME statement** — ship them apart and live sends place signature fields on blank space. Coordinates are read back via the throwaway `boldsign-template-fields` edge function (v1, deployed 2026-08-25, safe to delete). **The AUTHORITATIVE page check is the first sandbox send's real render** — BoldSign renders through html2pdf.app, so a local Chromium render does not settle it. See GOTCHAS.md gotcha **#439**.
 
 ## Webhook handler
 

@@ -12,7 +12,7 @@ Read-only schema mapping — column lists, types, defaults, FKs, and which actio
 | [members.md](members.md) | `members`, `member_connections`, `member_plugin_settings`, `member_type_history`, `member_exclusions` | The advisor/accountant member roster + the mutual member-connection pairs (2026-07-31) + per-member website widget config |
 | [clients.md](clients.md) | `clients`, `client_contacts`, `client_notes`, `client_enrollments`, `client_progress`, `client_priority_tracks`, `priority_progress` | The advisor's clients (downstream of members) + program/priority progress |
 | [ciq.md](ciq.md) | `client_ciqs`, `ciq_answers`, `ciq_priorities`, `ciq_priority_snapshots`, `ciq_assignments` | Client Intake Questionnaire data + ranked priority decisions + snapshots |
-| [tax.md](tax.md) | `client_tax_plans`, `client_tax_progress`, `client_tax_specialists` | Tax engagement plan + per-specialist progress |
+| [tax.md](tax.md) | `client_tax_plans`, `client_tax_progress`, `client_tax_specialists`, `client_tax_fee_amendments` | Tax engagement plan + per-specialist progress |
 | [programs.md](programs.md) | `programs`, `program_client_phases`, `program_client_tasks`, `program_training_phases`, `program_training_tasks`, `member_program_enabled`, `member_program_notes`, `member_enrollments`, `member_training_progress`, `member_meetings` | Program template (phases/tasks) + per-enrollment progress |
 | [specialists.md](specialists.md) | `experts`, `vfo_ecosystem_assignments`, `specialist_onboarding`, `specialist_onboarding_meetings`, `specialist_onboarding_progress`, `specialist_onboarding_votes` | Specialist roster, ecosystem tags, onboarding workflow |
 | [coaching.md](coaching.md) | `coaching_meetings`, `coaching_renewals` | Member-coaching meetings and renewal log |

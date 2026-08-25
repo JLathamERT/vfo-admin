@@ -116,6 +116,23 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
 2. **Chains** `automation_CONTRACT_invoicereceipt` for payment 1.
 3. **Chains** `automation_CONTRACT_revshare` for payment 1.
 
+### Sub-branch B3 — TAX final retainer settled *(added 2026-08-25, 3-payment plans)*
+
+**Discriminant:** `pi.metadata.payment_kind === 'final_retainer'`, row from `client_tax_plans` by `stripe_customer_id`. Card arrives here immediately after the off-session charge; ACH days later.
+
+**Latched on `final_retainer_confirmation_status IS NULL`** — and that single latch is all that protects a receipt PDF, a Gmail draft **and a real Connect transfer** from a redelivery (**#327**).
+
+**What it does:**
+1. Expands the PaymentIntent's payment method; derives `card_processing_fee` from **`final_retainer_amount`, NOT `retainer_amount`** — the full retainer is initial + final, so grossing against it writes a large NEGATIVE fee. The same bug existed on the initial-retainer branch in `checkout.session.completed` (which now derives its base from `initial_retainer_amount` on a 3-payment plan) and both were fixed in one change.
+2. UPDATEs `final_retainer_status='succeeded'` + `final_retainer_confirmation_status='Confirmation Needed'`, and **re-states** the PI id and charge date, because on the fresh-link recovery path Stripe can deliver `payment_intent.succeeded` *before* `checkout.session.completed`.
+3. **Chains** `automation_TAX_final_retainer_receipt` (which also issues a fresh amended invoice when `fee_amended_at_tax4` is set).
+4. **Chains** `automation_TAX_revshare` with `payment_kind='retainer'` — the **deferred** retainer revenue share, paid on the FULL `retainer_amount`.
+5. Mints the "Complete Client decision 2" bell, but only after a `'Continue - Revenue Share'` decision — matching the 2-payment condition exactly.
+
+See [tax-fee-process.md](tax-fee-process.md) for why the revshare is deferred and which gate actually holds it (**#441**).
+
+> **A final retainer can also arrive through Branch A.** If the off-session charge failed and the client paid through a fresh `/tax-pay` link, `checkout.session.completed` books it off `session.metadata.payment_kind === 'final_retainer'` (card → `succeeded` + chain the receipt; ACH → `processing`, chains nothing). That block deliberately does **not** set `final_retainer_confirmation_status` — this branch owns the latch.
+
 ---
 
 ## Branch C — `payment_intent.payment_failed` (late-ACH off-session, v612)
@@ -124,6 +141,9 @@ An off-session charge (a swept quarterly installment or a Tax implementation cha
 
 - **MAP1 installment** — `metadata.payment_number` ∈ {2,3,4}, row by `stripe_customer_id`, acts ONLY when `pay{N}_status === 'processing'`: flips it to `declined` + `notifyByRule MAP1_installment_charge_failed` + `notifyJakeFailure FAILURE_map1_installment_charge` + drafts the client `/pay` email via the shared `utils/map1-installment-failure.ts` (bell text conditional on `checkout_token`).
 - **TAX implementation** — `metadata.payment_kind === 'implementation'`, acts ONLY when `implementation_charge_status === 'processing'`: flips it to `declined` + `notifyByRule TAX_impl_charge_failed` + `notifyJakeFailure FAILURE_tax_implementation_charge` (status + alerts only, no email — admin re-sends via Tax 5).
+- **TAX final retainer** *(added 2026-08-25)* — `metadata.payment_kind === 'final_retainer'`, acts ONLY when `final_retainer_status === 'processing'`: flips it to `declined` + `notifyByRule TAX_final_retainer_charge_failed` + `notifyJakeFailure FAILURE_tax_final_retainer_charge`. Unlike the implementation twin the bell text is conditional on `checkout_token`, because the client's **existing `/tax-pay` link self-serves the retry** — `stripe-checkout.ts` resolves kind `final_retainer` once the status is `declined`.
+
+`payment_kind === 'final_retainer'` also joined the `isOffSession` test at the top of this branch, so a late final-retainer failure cannot fall through to `resolveStripeFirstPaymentFailure`.
 
 The rule keys deliberately reuse the synchronous sweep paths'. See [SESSION_REFERENCE.md](../SESSION_REFERENCE.md) "Failure-event handling" for the full failure-event roster.
 
@@ -131,8 +151,10 @@ The rule keys deliberately reuse the synchronous sweep paths'. See [SESSION_REFE
 
 ## Tables touched (across all branches)
 
-- **Read:** `pipeline_map1`, `pipeline_sandbox_config`, `gc_balances`.
-- **Written:** `pipeline_map1` (status/method/dates), `gc_balances` (insert/update), `gc_transactions` (insert).
+- **Read:** `pipeline_map1`, `pipeline_sandbox_config`, `gc_balances`, `client_tax_plans`.
+- **Written:** `pipeline_map1` (status/method/dates), `gc_balances` (insert/update), `gc_transactions` (insert), `client_tax_plans` (retainer / implementation / **final-retainer** status, method, dates, card fee), `notifications` (the failure bells).
+
+> This list has always been MAP1-centric and is still not exhaustive — the tax, advisor, accountant, PIP and specialist branches all write their own pipeline tables. Derive from `router/webhooks.ts`, not from here.
 
 ## Downstream chains
 

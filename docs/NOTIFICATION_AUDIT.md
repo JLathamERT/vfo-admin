@@ -61,10 +61,10 @@
 > | Membership Fees | 2 | ✗ no section |
 > | Partnership Fast Track | 10 | 8 |
 > | Payment Continuation | 2 | 2 ✓ |
-> | Payment Failure Alerts | 17 | 16 |
+> | Payment Failure Alerts | 18 | 17 |
 > | Regular Priorities (MAP 4) | 4 | 4 ✓ |
 > | Specialist Onboarding | 35 | 34 |
-> | Tax | 37 | 22 |
+> | Tax | 39 | 23 |
 > | **Tax Planners** | **16** | ✗ no section — see [flows/tax-planning.md](flows/tax-planning.md#thirteen-planner-notification-bells-six-new-2026-07-22-a-seventh-2026-07-23-an-eighth-2026-07-23-evening-a-ninth-and-tenth-2026-08-10-an-eleventh-and-twelfth-2026-08-11-a-thirteenth-later-the-same-day) |
 > | Uploads | 5 | ✗ no section |
 > | VFO Specialist Revenue | 9 | 9 ✓ |
@@ -91,7 +91,7 @@
 | **First payment stalled (PF bell)** — The client still has not paid the MAP 1 first payment - asks the PF to reach out. | FYI | Assigned PF | Daily MAP 1 sweep — after **4 business day(s)** (editable) |
 | **Check payment due reminder email** — Reminder email to check-paying quarterly clients whose next installment is due soon. The delay is a LOOK-AHEAD (business days before the due date, walked forward by `businessDayHorizonDateOnly`). | Reminder email | The client (email) | Daily check-reminder sweep — after **7 business day(s)** (editable) |
 
-### Tax (22)
+### Tax (23)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
@@ -120,6 +120,7 @@
 | **Retainer payment reminder email** — Client has not paid the Tax Planning retainer - reminder email with a fresh /tax-pay link drafted to the client. | Reminder email | The client (email) | Daily tax sweep — after **2 business day(s)** (editable) |
 | **Retainer payment stalled (PF bell)** — Client still has not paid the retainer - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 business day(s)** (editable) |
 | ~~**Client decision 1 needed**~~ (`TAX_tax4_decision_needed`) — **DORMANT since 2026-08-11 (#170): no call site.** Superseded by the **Tax Planners** rule `TAX_planner_tax4_steps_needed`, which asks the ALLOCATED PLANNER ALONE for BOTH Tax 4 steps ("Detailed tax plan presentation" + "Client decision 1") instead of asking three people for one of them. The row stays enabled for rollback; its clear stays in `postreview-decision.ts` for unread bells already in production. | ~~Action required~~ | ~~Assigned PF + Allocated Tax Planner + Tracy~~ | — (trigger unchanged, now on the new rule: daily tax sweep, meeting date passed; still a deliberate CALENDAR comparison) |
+| **Final retainer charge failed** (`TAX_final_retainer_charge_failed`, NEW 2026-08-25) — an ACH final retainer bounced late: the row was still `processing` when Stripe reported the failure, so the charge is now marked declined. The message says exactly that, and states whether the client's existing `/tax-pay` link can self-serve the retry. Links to `/admin/client/<id>?tab=tax`. | FYI (`action_required=false`, DB-verified — the twin of `TAX_impl_charge_failed` above) | Jake (`jlatham@elitert.com`) | `router/webhooks.ts` on `payment_intent.payment_failed` with `metadata.payment_kind='final_retainer'`, row still `processing` — instant |
 
 ### Regular Priorities (MAP 4) (4)
 
@@ -243,7 +244,7 @@
 | **Setup-link reminder email** (`MIGRATION_setup_link_reminder_email`) — nudges a migrated client who was emailed the `/connect-card` link but never saved a card or bank; includes the same `[PAYMENT_SCHEDULE]` block as the original setup email — **for MAP 1 a date/amount table, split since v762 (2026-08-19) into "Past-due payments:" and "Your upcoming payments:" (a DATE-ONLY split that deliberately promises no collection — only the `/connect-card` page mirrors the charge sweep, #421), but since v715 (2026-08-10) NO figure at all for TAX**, just the fixed "set up proactively … to collect any future payments" sentence (#352). **If the link has EXPIRED the sweep mints a fresh 7-day one and emails that instead** (capped at 3 automatic re-sends per row). | Reminder email | The client (email) | Nightly check-reminder sweep — after **2 business day(s)** (editable) — gotcha #300 |
 | **Client hasn't set up their payment method** (`MIGRATION_setup_link_stall_bell`) — their remaining scheduled payments cannot run. Wording is four-way truthful: reach out / a fresh link was automatically emailed / re-send manually / automatic re-sends exhausted. | FYI | Tracy + Jake | Nightly check-reminder sweep — after **4 business day(s)** (editable) |
 
-### Payment Failure Alerts (16)
+### Payment Failure Alerts (17)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
@@ -251,6 +252,7 @@
 | **MAP 1 revshare transfer failed (Jake)** — The Stripe Connect member revenue-share transfer failed; the daily sweep retries; auto-clears on success. | **Action required** | Jake | Revshare transfer failure — instant |
 | **PIP revshare transfer failed (Jake)** — The revenue-share transfer for a PIP purchase failed; PIP has no retry sweep - needs manual re-fire. **Still true for a FAILURE as of 2026-08-24** — the held-payout pass added to the 02:00 MAP 1 sweep that day re-fires only the two `Held - Member …` statuses (the member-standing hold), never `Pending`. | **Action required** | Jake | PIP purchase revshare failure — instant |
 | **Tax implementation charge failed (Jake)** — Money-movement alert when the tax implementation off-session charge fails. | FYI | Jake | Implementation charge failure — instant |
+| **Tax final retainer charge failed (Jake)** (`FAILURE_tax_final_retainer_charge`, NEW 2026-08-25) — the twin of the row above for the **3-payment final retainer**, fired by `notifyJakeFailure` from the same `router/webhooks.ts` block as the Tax-area `TAX_final_retainer_charge_failed` bell. | FYI | Jake | `payment_intent.payment_failed` with `metadata.payment_kind='final_retainer'`, row still `processing` — instant |
 | **Tax revshare transfer failed (Jake)** — Stripe Connect member revenue-share transfer failed for a tax payment; daily sweep retries; auto-clears on success. | **Action required** | Jake | Revshare transfer failure — instant |
 | **Strategic partner share failed (Jake)** — The 10 percent strategic partner share could not be transferred (missing Connect account or Stripe error); daily sweep retries; auto-clears on success. | **Action required** | Jake | Strategic partner transfer failure — instant |
 | **Specialist background-check payment failed (Jake)** — Stripe reported a failed background-check payment (payment_intent.payment_failed) for a specialist in onboarding. | FYI | Jake | Stripe webhook: payment_intent.payment_failed — instant |
