@@ -559,10 +559,10 @@ function AmendFeeStep({ task, plan, stage, status, completedDate, readOnly, onAn
             )}
             {(() => {
               const selValue = mode === 'amend' ? 'amend' : (answered ? (amended ? 'amend' : 'keep') : '')
-              // Selection colors mirror the generic status dropdowns: green once
-              // the answer is committed, amber while the amend form is open but
-              // unsaved, muted while nothing is selected.
-              const selColor = answered && mode !== 'amend' ? '#1b9254' : mode === 'amend' ? '#e06717' : 'var(--vfo-muted)'
+              // EXACTLY the generic step dropdown's look (the renderTaskInner
+              // fallback select): same padding/radius/size, green border + text
+              // once committed, plain while unanswered or mid-edit.
+              const committed = answered && mode !== 'amend'
               return (
                 <select
                   disabled={busy}
@@ -579,7 +579,7 @@ function AmendFeeStep({ task, plan, stage, status, completedDate, readOnly, onAn
                     else if (v === 'amend') setMode('amend')
                     else { setMode(''); setTotalInput('') }
                   }}
-                  style={{ padding: '5px 10px', borderRadius: '6px', border: `1px solid ${selValue ? selColor : 'var(--vfo-border-strong)'}`, background: 'var(--vfo-card)', color: selColor, fontWeight: selValue ? 600 : 400, fontSize: '12px', fontFamily: 'Inter, sans-serif', cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1 }}
+                  style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', fontSize: '12px', fontFamily: 'Inter, sans-serif', minWidth: '150px', borderColor: committed ? '#1b925466' : 'var(--vfo-border-strong)', color: committed ? '#1b9254' : 'var(--vfo-ink)', opacity: busy ? 0.6 : 1 }}
                 >
                   <option value="">-- Select --</option>
                   <option value="keep" disabled={amended}>Keep the fee</option>
