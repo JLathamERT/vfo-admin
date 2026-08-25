@@ -41,6 +41,19 @@ const creditedNote = st => (st?.note === 'money mapping' ? { ...st, note: 'credi
 
 const dashCell = { textAlign: 'right', color: '#c7d0de' }
 
+// Two payments of ONE collection (a 3-payment plan's initial + final retainer) share a
+// faint tint and a tie bar down their left edge; the divider between them softens to a
+// dashed hairline so the block reads as one and the rows either side stay separate.
+// Only ever applied to those pairs — every other row keeps the plain style.
+function bandRow(band) {
+  return {
+    background: 'rgba(18,94,204,0.035)',
+    borderLeft: '3px solid rgba(18,94,204,0.22)',
+    paddingLeft: '15px',
+    ...(band === 'mid' ? { borderBottom: '1px dashed var(--vfo-border-chip)' } : null),
+  }
+}
+
 function ProgramTag({ label }) {
   const planning = label === 'Tax Planning'
   const c = planning ? { bg: 'rgba(147,51,234,0.12)', fg: '#7c3aed' } : { bg: 'rgba(18,94,204,0.10)', fg: '#125ecc' }
@@ -78,10 +91,27 @@ export default function TaxRevenuePanel({ embedded = false }) {
     return Array.from(set).sort((a, b) => b - a)
   }, [payments])
 
-  const filtered = useMemo(() => payments
-    .filter(p => inPeriod(p.clearedAt, year, month))
-    .sort((a, b) => new Date(b.clearedAt) - new Date(a.clearedAt)),
-    [payments, year, month])
+  // Newest-first, except that the two payments of a 3-payment retainer are ONE collection
+  // and must read as one: any other client's payment could otherwise land between them by
+  // date. The pair is pulled together at the newer one's position and banded (band: 'mid'
+  // for every row but the last of the block) so the tie is visible. A block with only one
+  // of its two rows inside the period is left completely alone.
+  const filtered = useMemo(() => {
+    const list = payments
+      .filter(p => inPeriod(p.clearedAt, year, month))
+      .sort((a, b) => new Date(b.clearedAt) - new Date(a.clearedAt))
+    const blockSize = {}
+    for (const p of list) if (p.retainerBlock) blockSize[p.retainerBlock] = (blockSize[p.retainerBlock] || 0) + 1
+    const out = []
+    const placed = new Set()
+    for (const p of list) {
+      if (placed.has(p.id)) continue
+      if (!p.retainerBlock || blockSize[p.retainerBlock] < 2) { placed.add(p.id); out.push(p); continue }
+      const block = list.filter(q => q.retainerBlock === p.retainerBlock)
+      block.forEach((q, i) => { placed.add(q.id); out.push({ ...q, band: i === block.length - 1 ? 'end' : 'mid' }) })
+    }
+    return out
+  }, [payments, year, month])
 
   const totGross = filtered.reduce((s, p) => s + p.amount, 0)
   const totMemberRev = filtered.reduce((s, p) => s + (isMoneyMapping(p) ? 0 : p.member), 0)
@@ -149,26 +179,33 @@ export default function TaxRevenuePanel({ embedded = false }) {
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--vfo-faint)', fontSize: '14px' }}>No Tax payments cleared in this period.</div>
           )}
           {filtered.map(p => (
-            <div key={p.id} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)' }}>
+            <div key={p.id} style={{ display: 'grid', gridTemplateColumns: grid, gap: '8px', padding: '12px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)', ...(p.band ? bandRow(p.band) : null) }}>
               <span style={{ color: 'var(--vfo-muted)' }}>{fmtDate(p.clearedAt)}</span>
               <span style={{ fontWeight: 600 }}><ClientNameLink clientId={p.clientId} tab="tax">{p.clientName}</ClientNameLink><span style={{ color: 'var(--vfo-faint)', fontWeight: 400 }}> · {p.kind}</span></span>
               <span>{p.memberName ? <MemberNameLink memberNumber={p.memberNumber}>{p.memberName}</MemberNameLink> : '—'}{p.memberNumber && <span style={{ color: 'var(--vfo-faint)' }}> · {p.memberNumber}</span>}</span>
               <span><ProgramTag label={p.tier} /></span>
               <span style={{ textAlign: 'right', fontWeight: 700, borderRight: '1px solid var(--vfo-tint)', paddingRight: '12px' }}>{money(p.amount)}<SubNote text={p.paymentNote} /></span>
+              {/* A 3-payment plan's INITIAL retainer moves no share at all — every leg
+                  fires later, on the full retainer, when the final payment settles. Its
+                  slices are zero, so the cells keep their dashes and carry the leg note
+                  (noteOnZero) saying what they are still waiting on. */}
               {isMoneyMapping(p) ? (
                 <>
                   <span style={dashCell}>—</span>
-                  <ShareCell value={p.member} state={creditedNote(p.memberState)} money={money} color={p.member > 0 ? 'var(--vfo-ink)' : '#c7d0de'} fontWeight={p.member > 0 ? 600 : 400} dash="—" />
+                  <ShareCell value={p.member} state={creditedNote(p.memberState)} money={money} color={p.member > 0 ? 'var(--vfo-ink)' : '#c7d0de'} fontWeight={p.member > 0 ? 600 : 400} dash="—" noteOnZero={p.sharesDeferred} />
                 </>
               ) : (
                 <>
-                  <ShareCell value={p.member} state={p.memberState} money={money} color={p.member > 0 ? '#16a34a' : '#c7d0de'} fontWeight={p.member > 0 ? 600 : 400} dash="—" />
+                  <ShareCell value={p.member} state={p.memberState} money={money} color={p.member > 0 ? '#16a34a' : '#c7d0de'} fontWeight={p.member > 0 ? 600 : 400} dash="—" noteOnZero={p.sharesDeferred} />
                   <span style={dashCell}>—</span>
                 </>
               )}
-              <ShareCell value={p.planner} state={p.plannerState} money={money} color={p.planner > 0 ? 'var(--vfo-ink)' : '#c7d0de'} fontWeight={p.planner > 0 ? 600 : 400} dash="—" />
-              <ShareCell value={p.vfos} state={p.vfosState} money={money} />
-              <ShareCell value={p.strategic} state={p.strategicState} money={money} color={p.strategic > 0 ? '#8b5cf6' : '#c7d0de'} dash="—" />
+              <ShareCell value={p.planner} state={p.plannerState} money={money} color={p.planner > 0 ? 'var(--vfo-ink)' : '#c7d0de'} fontWeight={p.planner > 0 ? 600 : 400} dash="—" noteOnZero={p.sharesDeferred} />
+              {/* Elite VFO Income normally prints $0.00 rather than a dash; a deferred
+                  row has no income to book YET, so it reads as a dash like its siblings.
+                  Every other row keeps the $0.00. */}
+              <ShareCell value={p.vfos} state={p.vfosState} money={money} noteOnZero={p.sharesDeferred} dash={p.sharesDeferred ? '—' : undefined} />
+              <ShareCell value={p.strategic} state={p.strategicState} money={money} color={p.strategic > 0 ? '#8b5cf6' : '#c7d0de'} dash="—" noteOnZero={p.sharesDeferred} />
             </div>
           ))}
         </div>

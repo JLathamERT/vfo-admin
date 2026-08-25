@@ -1,7 +1,8 @@
 // Shared helper for the Accounting > VFO Services > Tax Planning views. Flattens
 // enriched client_tax_plans rows into per-payment CLEARED entries (retainer +
-// implementation), each split into member, tax planner and VFOS revenue. Covers both
-// program_id=1 (Tax Priorities) and program_id=4 (Tax Planning).
+// implementation — initial retainer + final retainer + implementation on a revised-
+// process 3-payment plan), each split into member, tax planner and VFOS revenue. Covers
+// both program_id=1 (Tax Priorities) and program_id=4 (Tax Planning).
 //
 // Each emitted row also carries the payout state of its member / planner / strategic leg
 // (memberState, plannerState, strategicState) plus a paymentNote for a payment still in
@@ -13,6 +14,17 @@ import { parseNum } from './holisticShared'
 import { legState, isTerminalLeg, paymentNoteFor } from './shareLegState'
 
 const PAID = new Set(['succeeded', 'processing', 'check_pending'])
+
+// Revised fee process (2026-08-25). Above the 3-payment threshold the retainer is
+// COLLECTED in two payments: initial_retainer_amount at the retainer step, then
+// final_retainer_amount. retainer_amount stays the SUM of the two, so it must never be
+// booked as one cleared payment. Mirrors the edge constants/tax-fee-process.ts
+// isThreePaymentPlan — a legacy or 2-payment row can never carry the split columns, so
+// every pre-existing row takes the untouched single-Retainer path below.
+const KNOWN_FEE_PROCESS_VERSIONS = ['2026-08-25']
+function isThreePaymentPlan(r) {
+  return KNOWN_FEE_PROCESS_VERSIONS.includes(r?.fee_process_version) && r?.initial_retainer_amount != null
+}
 
 function programLabel(pid) { return Number(pid) === 4 ? 'Tax Planning' : 'Tax Priorities' }
 
@@ -69,7 +81,64 @@ export function clearedTaxPayments(rows) {
       return legState(status, { paymentStatus, context })
     }
 
-    if (PAID.has(r.retainer_status) && ret > 0) {
+    // 3-payment shape: the retainer step collected initial_retainer_amount only, and NO
+    // revenue share fires on it — all three retainer legs pay out once, on the FULL
+    // retainer_amount, when the final retainer settles. So this row books the cash and
+    // shows every share leg as still awaiting; the split rides on the Final Retainer row
+    // below, which is where the transfers actually happen.
+    const threePayment = isThreePaymentPlan(r)
+    const retainerBlock = threePayment ? `${r.id}-retainer` : null
+
+    if (PAID.has(r.retainer_status) && threePayment && parseNum(r.initial_retainer_amount) > 0) {
+      const clearedAt = r.retainer_invoice_email_sent_at || r.retainer_date
+      if (clearedAt) {
+        // Computed but not displayed: a leg that will never carry money keeps its plain
+        // dash, exactly as everywhere else on this tab.
+        const willPayMember = memberPortion(memberRaw, ret) > 0
+        const willPayStrat = stratPer(ret) > 0
+        const willPayPlanner = plannerPortion(ret) > 0
+        // Same reading a blank retainer leg gets today: the share is waiting on the
+        // client, not lost. 'payment clearing' still wins while the cash is in flight.
+        const deferred = legState(null, { paymentStatus: r.retainer_status, context: 'tax_retainer' })
+        out.push({
+          id: `${r.id}-ret`, kind: 'Initial Retainer', clearedAt, amount: parseNum(r.initial_retainer_amount),
+          member: 0, strategic: 0, planner: 0, vfos: 0, status: r.retainer_status,
+          retainerBlock, sharesDeferred: true,
+          memberState: willPayMember ? deferred : null,
+          plannerState: willPayPlanner ? deferred : null,
+          strategicState: willPayStrat ? deferred : null,
+          vfosState: deferred,
+          paymentNote: paymentNoteFor(r.retainer_status),
+          ...base,
+        })
+      }
+    }
+
+    // The final retainer settles → the whole retainer's split books here, computed on
+    // retainer_amount (initial + final) exactly as the payout engine pays it, off the
+    // same retainer_* leg columns. Its own RECEIVED is only this payment's cash.
+    if (threePayment && PAID.has(r.final_retainer_status) && parseNum(r.final_retainer_amount) > 0) {
+      const clearedAt = r.final_retainer_charge_date || r.final_retainer_receipt_email_sent_at
+      if (clearedAt) {
+        const mp = memberPortion(memberRaw, ret)
+        const sp = stratPer(ret)
+        const pp = plannerPortion(ret)
+        out.push({
+          id: `${r.id}-fret`, kind: 'Final Retainer', clearedAt, amount: parseNum(r.final_retainer_amount),
+          member: mp, strategic: sp, planner: pp,
+          vfos: Math.max(ret - mp - sp - pp, 0), status: r.final_retainer_status,
+          retainerBlock,
+          memberState: legState(r.retainer_rev_paid, { revShare: r.retainer_rev_share, paymentStatus: r.final_retainer_status, context: 'tax_retainer' }),
+          plannerState: plannerStateFor(pp, r.retainer_planner_paid, r.final_retainer_status, 'tax_retainer'),
+          strategicState: sp > 0 ? legState(r.retainer_strat_paid, { paymentStatus: r.final_retainer_status, context: 'tax_retainer' }) : null,
+          vfosState: vfosStateFor(r.final_retainer_status),
+          paymentNote: paymentNoteFor(r.final_retainer_status),
+          ...base,
+        })
+      }
+    }
+
+    if (PAID.has(r.retainer_status) && !threePayment && ret > 0) {
       const clearedAt = r.retainer_invoice_email_sent_at || r.retainer_date
       if (clearedAt) {
         const mp = memberPortion(memberRaw, ret)

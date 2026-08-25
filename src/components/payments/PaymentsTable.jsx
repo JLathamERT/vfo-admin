@@ -194,10 +194,15 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
   // tucked under an expanded group parent (indented + lighter, no repeated person/tag).
   function renderRow(r, child) {
     const onBehalf = !!r.onBehalfByMember
+    // Two rows that are halves of ONE collection (the 3-payment tax retainer: initial +
+    // final) share a subGroup and read as one indented block inside the engagement —
+    // deeper indent, a tie bar down their left edge and a slightly deeper tint than the
+    // other children. Rows without subGroup (everything else) render exactly as before.
+    const sub = child && !!r.subGroup
     return (
-      <tr key={r.key} style={{ ...(onBehalf ? { background: '#fffaf2' } : null), ...(child ? { background: '#fbfcfe' } : null) }}>
+      <tr key={r.key} style={{ ...(onBehalf ? { background: '#fffaf2' } : null), ...(child ? { background: '#fbfcfe' } : null), ...(sub && !onBehalf ? { background: '#f3f7fe' } : null) }}>
         <td style={td} />
-        <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--vfo-muted)', ...(child ? { paddingLeft: '14px' } : null) }}>{fmtDate(r.date)}</td>
+        <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--vfo-muted)', ...(child ? { paddingLeft: '14px' } : null), ...(sub ? { paddingLeft: '24px', borderLeft: '3px solid var(--vfo-border-chip)' } : null) }}>{fmtDate(r.date)}</td>
         {hasPerson && (
           <td style={{ ...td, whiteSpace: 'nowrap' }}>
             {!child && personName(r)}
