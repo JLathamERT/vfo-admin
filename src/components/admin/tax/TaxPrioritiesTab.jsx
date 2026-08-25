@@ -181,17 +181,23 @@ const feeRowStyle = (strong) => ({ display: 'flex', justifyContent: 'space-betwe
 // quote) shows the same full schedule — only the labels/total header differ —
 // so the rows always sum to the total on screen; the client-facing email still
 // quotes just the initial retainer.
-function FeeBreakdown({ split, projected = false }) {
+function FeeBreakdown({ split, projected = false, paidFlags = null }) {
   const rows = split.threePayment
-    ? [['Initial Retainer', split.initialRetainer], ['Final Retainer', split.finalRetainer], ['Implementation Fee (50%)', split.implementation]]
+    ? [['Initial Retainer', split.initialRetainer, 'initial'], ['Final Retainer', split.finalRetainer, 'final'], ['Implementation Fee (50%)', split.implementation, 'implementation']]
     : projected
-      ? [['Initial Retainer', split.retainer], ['Implementation Fee (50%)', split.implementation]]
-      : [['Retainer (50%)', split.retainer], ['Implementation Fee (50%)', split.implementation]]
+      ? [['Initial Retainer', split.retainer, 'retainer'], ['Implementation Fee (50%)', split.implementation, 'implementation']]
+      : [['Retainer (50%)', split.retainer, 'retainer'], ['Implementation Fee (50%)', split.implementation, 'implementation']]
   return (
     <div style={{ marginTop: '10px', padding: '10px 12px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
       <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Derived payment schedule</div>
-      {rows.map(([label, amount]) => (
-        <div key={label} style={feeRowStyle(false)}><span>{label}</span><span>${fmtMoney(amount)}</span></div>
+      {rows.map(([label, amount, key]) => (
+        <div key={label} style={feeRowStyle(false)}>
+          <span>
+            {label}
+            {paidFlags?.[key] && <span style={{ marginLeft: '7px', padding: '1px 7px', borderRadius: '999px', background: '#e7f5ee', color: '#1a7f5a', fontSize: '10px', fontWeight: 700 }}>Paid</span>}
+          </span>
+          <span>${fmtMoney(amount)}</span>
+        </div>
       ))}
       <div style={{ ...feeRowStyle(true), borderTop: '1px solid var(--vfo-border-chip)', paddingTop: '6px', marginTop: '6px' }}>
         <span>{projected ? 'Projected Total' : 'Total'}</span><span>${fmtMoney(split.total)}</span>
@@ -466,6 +472,19 @@ function AmendFeeStep({ task, plan, stage, status, completedDate, readOnly, onAn
   const amended = !!stamp || status === 'Completed - Amended'
   const current = planFeeSchedule(plan)
   const green = '#1b9254'
+  // The answer stays CHANGEABLE until the downstream decision goes out — the
+  // same boundary the backend enforces (amend-fee.ts 400s once
+  // post_review_decision / implementation_decision is recorded).
+  const lockedDownstream = stage === 'tax4' ? !!plan?.post_review_decision : !!plan?.implementation_decision
+  const editable = !readOnly && !lockedDownstream
+  // Which schedule components have actually been collected — shown as a Paid
+  // tag beside the row in every breakdown this card renders.
+  const paidFlags = {
+    initial: plan?.retainer_status === 'succeeded',
+    retainer: plan?.retainer_status === 'succeeded',
+    final: plan?.final_retainer_status === 'succeeded',
+    implementation: plan?.implementation_charge_status === 'succeeded',
+  }
 
   const preview = mode === 'amend' ? amendFeePreview(plan, stage, totalInput) : null
   const canSubmitAmend = !!preview?.split && !busy
@@ -501,56 +520,62 @@ function AmendFeeStep({ task, plan, stage, status, completedDate, readOnly, onAn
       <div style={rowStyle}>
         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: answered ? green : 'transparent', flexShrink: 0, border: `1.5px solid ${answered ? green : 'var(--vfo-border-mid)'}` }} />
         <span style={{ fontSize: '13px', color: answered ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{taskLabel(task)}</span>
-        {answered ? (
+        {answered && !editable ? (
           <span style={chipStyle(green)}>{amended ? 'Amended' : 'Fee kept'}</span>
-        ) : (
+        ) : editable ? (
           // House convention: dropdowns make selections, buttons send emails.
           // "Keep the fee" completes the step on selection, like every other
           // dropdown step; "Amend the fee" opens the amount form below (the
-          // actual amendment saves from its own button, and Cancel returns the
-          // dropdown to blank).
-          !readOnly && (
+          // actual amendment saves from its own button). The selection stays
+          // changeable until the downstream decision email goes out; once the
+          // fee has actually been amended, "keep" would be meaningless (the
+          // amounts already moved), so re-amending is the offered change.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {amended && mode !== 'amend' && (
+              <button disabled={busy} onClick={() => { setSubmitError(''); setMode('amend') }} style={{ border: 'none', background: 'transparent', color: '#125ecc', fontSize: '11.5px', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Change amount</button>
+            )}
             <select
               disabled={busy}
-              value={mode === 'amend' ? 'amend' : ''}
+              value={mode === 'amend' ? 'amend' : (answered ? (amended ? 'amend' : 'keep') : '')}
               onChange={e => {
                 const v = e.target.value
                 setSubmitError('')
-                if (v === 'keep') submit('keep')
+                if (v === 'keep' && !amended) submit('keep')
                 else if (v === 'amend') setMode('amend')
                 else { setMode(''); setTotalInput('') }
               }}
               style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '12px', fontFamily: 'Inter, sans-serif', cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1 }}
             >
               <option value="">-- Select --</option>
-              <option value="keep">Keep the fee</option>
+              <option value="keep" disabled={amended}>Keep the fee</option>
               <option value="amend">Amend the fee</option>
             </select>
-          )
-        )}
+          </div>
+        ) : null}
         <StepDate value={completedDate || ''} />
       </div>
 
       {/* Answered: what happened, plus the schedule that is now in force. */}
-      {answered && current && (
+      {answered && current && mode !== 'amend' && (
         <div style={{ marginLeft: '18px', marginBottom: '10px' }}>
           <div style={{ fontSize: '12px', color: 'var(--vfo-ink)', fontWeight: 600 }}>
             {amended ? `Fee amended to $${fmtMoney(current.total)}` : `Fee kept at $${fmtMoney(current.total)}`}
           </div>
-          <FeeBreakdown split={current} />
+          <FeeBreakdown split={current} paidFlags={paidFlags} />
         </div>
       )}
 
-      {/* Unanswered: the current schedule is always visible, so the decision is
-          made against real numbers rather than from memory. */}
-      {!answered && !readOnly && (current || mode === 'amend') && (
+      {/* Unanswered (or re-editing an answered step): the current schedule is
+          always visible, so the decision is made against real numbers rather
+          than from memory. */}
+      {editable && (!answered || mode === 'amend') && (current || mode === 'amend') && (
         <div style={{ marginLeft: '18px', marginBottom: '10px' }}>
           <div style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>
             {stage === 'tax4'
               ? 'Confirm the fee before Client decision 1 goes out — that email quotes these figures.'
               : 'Confirm the implementation fee before Client decision 2 — only the implementation fee can still move.'}
           </div>
-          {current && <FeeBreakdown split={current} />}
+          {current && <FeeBreakdown split={current} paidFlags={paidFlags} />}
           {mode === 'amend' && (
             <div style={{ marginTop: '10px' }}>
               <label style={{ display: 'block', fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>New total fee</label>
@@ -569,7 +594,7 @@ function AmendFeeStep({ task, plan, stage, status, completedDate, readOnly, onAn
                   : 'The retainer is already paid, so the whole change lands on the implementation fee.'}
               </div>
               {preview?.error && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '12px', marginTop: '6px' }}>{preview.error}</div>}
-              {preview?.split && <FeeBreakdown split={preview.split} />}
+              {preview?.split && <FeeBreakdown split={preview.split} paidFlags={paidFlags} />}
               <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                 <button disabled={!canSubmitAmend} onClick={() => submit('amend')} style={{ padding: '6px 16px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', color: '#fff', fontSize: '12px', cursor: canSubmitAmend ? 'pointer' : 'not-allowed', opacity: canSubmitAmend ? 1 : 0.5 }}>
                   {busy ? 'Saving...' : 'Save amended fee'}
