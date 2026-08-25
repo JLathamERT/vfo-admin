@@ -22,8 +22,11 @@ const PAID = new Set(['succeeded', 'processing', 'check_pending'])
 // isThreePaymentPlan — a legacy or 2-payment row can never carry the split columns, so
 // every pre-existing row takes the untouched single-Retainer path below.
 const KNOWN_FEE_PROCESS_VERSIONS = ['2026-08-25']
+// Keyed on FINAL (mirrors the edge constant): a Tax 4 amendment to <= $30k
+// converts the plan to 2 payments by nulling final only — initial stays as the
+// reversibility marker — so final is the one truthful discriminator.
 function isThreePaymentPlan(r) {
-  return KNOWN_FEE_PROCESS_VERSIONS.includes(r?.fee_process_version) && r?.initial_retainer_amount != null
+  return KNOWN_FEE_PROCESS_VERSIONS.includes(r?.fee_process_version) && r?.final_retainer_amount != null
 }
 
 function programLabel(pid) { return Number(pid) === 4 ? 'Tax Planning' : 'Tax Priorities' }

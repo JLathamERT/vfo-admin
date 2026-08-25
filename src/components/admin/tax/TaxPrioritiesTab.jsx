@@ -85,9 +85,10 @@ const fmtUsdCents = (cents) => `$${fmtMoney(cents / 100)}`
 const AMEND_RANGE_MESSAGE = `Total fee must be greater than $0 and no more than $${MAX_TOTAL_FEE.toLocaleString('en-US')}.`
 
 // Is this a 3-payment (initial + final retainer) plan? Same test as the edge
-// repo's isThreePaymentPlan: the split columns can only exist on a revised
-// process row, so a legacy or 2-payment plan can never answer true.
-const isThreePaymentPlan = (pl) => isNewFeeProcess(pl) && pl?.initial_retainer_amount != null
+// repo's isThreePaymentPlan — keyed on FINAL: a Tax 4 amendment to <= $30k
+// converts to 2 payments by nulling final only (initial stays as the marker
+// that lets a later above-threshold amendment convert back).
+const isThreePaymentPlan = (pl) => isNewFeeProcess(pl) && pl?.final_retainer_amount != null
 
 // The plan's CURRENT payment schedule, in the shape FeeBreakdown renders.
 // Deliberately reads the STORED columns rather than re-deriving from the total:
@@ -132,7 +133,10 @@ function amendFeePreview(pl, stage, rawTotal) {
   const initialCents = amendToCents(pl?.initial_retainer_amount)
   const retainerCents = amendToCents(pl?.retainer_amount)
 
-  if (stage === 'tax4' && threePayment) {
+  // Keyed on the initial retainer having been the collected payment (mirrors
+  // amend-fee.ts) — true for a live 3-payment plan AND a converted one, so the
+  // conversion is reversible in both directions until Client decision 1 is sent.
+  if (stage === 'tax4' && initialCents > 0) {
     if (newTotalCents > THREE_PAYMENT_THRESHOLD * 100) {
       const newRetainerCents = Math.round(newTotalCents / 2)
       const newImplCents = newTotalCents - newRetainerCents
@@ -626,8 +630,8 @@ function AmendFeeStep({ task, plan, stage, status, completedDate, readOnly, onAn
                 />
               </div>
               <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '4px' }}>
-                {stage === 'tax4' && current?.threePayment
-                  ? 'The 50:50 split is re-derived from the new total; the initial retainer is already paid, so only the final retainer and the implementation fee move. At $30,000 or below the plan converts to two payments.'
+                {stage === 'tax4' && amendToCents(plan?.initial_retainer_amount) > 0
+                  ? 'The 50:50 split is re-derived from the new total; the initial retainer is already paid, so only the final retainer and the implementation fee move. At $30,000 or below the plan converts to two payments (and converts back if amended above $30,000 again).'
                   : 'The retainer is already paid, so the whole change lands on the implementation fee.'}
               </div>
               {preview?.converts && (
