@@ -258,10 +258,18 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
   // Collapsed parent for a multi-row engagement: engagement label, total, and a status
   // tally (e.g. "Paid ×1 · Scheduled ×3"). Click toggles the installment rows.
   function renderGroup(g) {
+    // Same-day rows tie on date (the 3-payment initial + final retainer can both
+    // land on one day), so ties break on the payment sequence the row's detail
+    // line carries ("Retainer payment 1 of 2" / "2 of 2") — initial before final.
+    const seqOf = (r) => {
+      const m = /payment (\d+) of/.exec(r.detail || '')
+      return m ? Number(m[1]) : 99
+    }
     const kids = [...g.rows].sort((a, b) => {
       const ta = a.date ? Date.parse(a.date) : Infinity
       const tb = b.date ? Date.parse(b.date) : Infinity
-      return (isNaN(ta) ? Infinity : ta) - (isNaN(tb) ? Infinity : tb)
+      const dt = (isNaN(ta) ? Infinity : ta) - (isNaN(tb) ? Infinity : tb)
+      return dt !== 0 ? dt : seqOf(a) - seqOf(b)
     })
     const first = kids[0]
     // Overview method = the CURRENT method (what future charges use) = the latest
