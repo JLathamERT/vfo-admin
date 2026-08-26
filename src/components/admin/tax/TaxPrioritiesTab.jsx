@@ -1930,10 +1930,11 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       // they are still the holder.
       if (!teamSlot || !livePlan?.tax_planner_id) {
         const fullName = `${planner.first_name || ''} ${planner.last_name || ''}`.trim()
-        await saveTask(task.id, fullName, localProgress[key]?.completed_date)
+        await saveTask(task.id, fullName, localProgress[key]?.completed_date, null, { skipRefresh: true, skipBusy: true })
       }
       setAllocPick(prev => ({ ...prev, [key]: '' }))
-      refreshLivePlan()
+      // Awaited: the chips read livePlan, so the row stays busy until it lands.
+      await refreshLivePlan()
     } catch (err) {
       console.error(err)
       alert('Allocation failed: ' + (err?.message || 'unknown error'))
@@ -1953,11 +1954,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         ? { tax_plan_id: plan.id, tax_team_member_id: null }
         : { tax_plan_id: plan.id, tax_planner_id: null })
       if (teamSlot) {
-        if (!livePlan?.tax_planner_id) await saveTask(task.id, '')
+        if (!livePlan?.tax_planner_id) await saveTask(task.id, '', undefined, null, { skipRefresh: true, skipBusy: true })
       } else {
-        await saveTask(task.id, rosterFullName(livePlan?.tax_team_member_id))
+        await saveTask(task.id, rosterFullName(livePlan?.tax_team_member_id), undefined, null, { skipRefresh: true, skipBusy: true })
       }
-      refreshLivePlan()
+      // Awaited: the chips read livePlan, so the row stays busy until it lands.
+      await refreshLivePlan()
     } catch (err) {
       console.error(err)
       alert('Clear failed: ' + (err?.message || 'unknown error'))
@@ -2092,17 +2094,22 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     }
   }
 
-  async function saveTask(taskId, status, existingDate, taxSpecialistId = null) {
+  // Both options default off, so every caller that passes only the positional
+  // args keeps today's behavior. The allocation slots pass both: they chain a
+  // second call after this one, so a refresh here would run tax_load_plans twice
+  // (3-5s each), and clearing the row's busy flag here would release the row
+  // while their own refresh is still in flight.
+  async function saveTask(taskId, status, existingDate, taxSpecialistId = null, { skipRefresh = false, skipBusy = false } = {}) {
     const today = new Date().toISOString().split('T')[0]
     const date = existingDate || (status ? today : null)
     const key = taxSpecialistId ? `${taskId}_${taxSpecialistId}` : taskId
-    setSaving(p => ({ ...p, [key]: true }))
+    if (!skipBusy) setSaving(p => ({ ...p, [key]: true }))
     try {
       await callApi('tax_save_task', { tax_plan_id: plan.id, task_id: taskId, status, completed_date: date || null, tax_specialist_id: taxSpecialistId || null })
       setLocalProgress(p => ({ ...p, [key]: { ...p[key], task_id: taskId, status, completed_date: date, tax_specialist_id: taxSpecialistId } }))
-      refreshLivePlan()
+      if (!skipRefresh) refreshLivePlan()
     } catch (err) { console.error(err) }
-    finally { setSaving(p => ({ ...p, [key]: false })) }
+    finally { if (!skipBusy) setSaving(p => ({ ...p, [key]: false })) }
   }
 
   async function fireReadyForTax3(taskId, decision, opts = {}) {
@@ -4166,6 +4173,9 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 style={{ ...inputStyle, background: 'var(--vfo-card)', cursor: (saving[key] || !pick) ? 'default' : 'pointer', opacity: (saving[key] || !pick) ? 0.5 : 1, padding: '5px 12px' }}>Add</button>
             </>
           )}
+          {/* The whole chain (allocate, save, reload) runs behind saving[key], so
+              this covers the seconds where the chips have not moved yet. */}
+          {saving[key] && <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>Saving...</span>}
           <StepDate value={isAllocated ? (p.completed_date || '') : ''} />
         </div>
       )
