@@ -61,16 +61,24 @@
 > | Membership Fees | 2 | ✗ no section |
 > | Partnership Fast Track | 10 | 8 |
 > | Payment Continuation | 2 | 2 ✓ |
-> | Payment Failure Alerts | 18 | 17 |
+> | Payment Failure Alerts | **19** | **18** |
 > | Regular Priorities (MAP 4) | 4 | 4 ✓ |
 > | Specialist Onboarding | 35 | 34 |
 > | Tax | 39 | 23 |
 > | **Tax Planners** | **16** | ✗ no section — see [flows/tax-planning.md](flows/tax-planning.md#thirteen-planner-notification-bells-six-new-2026-07-22-a-seventh-2026-07-23-an-eighth-2026-07-23-evening-a-ninth-and-tenth-2026-08-10-an-eleventh-and-twelfth-2026-08-11-a-thirteenth-later-the-same-day) |
 > | Uploads | 5 | ✗ no section |
-> | VFO Specialist Revenue | 9 | 9 ✓ |
+> | VFO Specialist Revenue | **12** | **12 ✓** |
 >
 > Each section heading's own count is likewise the snapshot number, kept so the tables and the
 > counts stay self-consistent. **Do not add a new total here** — it will be wrong within a week.
+>
+> **The table is now MIXED-DATE, deliberately.** The two **bolded** rows (`Payment Failure Alerts`,
+> `VFO Specialist Revenue`) were **re-derived live on 2026-08-26** with the query above, because that
+> session added rules to both areas; every other row is still the 2026-08-17 snapshot and is only
+> getting staler. Re-derive the row you touch rather than regenerating the page. The one honest
+> mismatch left in the two re-derived areas: **Payment Failure Alerts lists 18 of its 19 live rules** —
+> `FAILURE_tax_planner_share` ("Tax planner revshare transfer failed (Jake)", action-required) has
+> never been written up here.
 
 ### MAP 1 (14)
 
@@ -222,7 +230,7 @@
 | **Member updated progress** — A member updated the status of a Growth Plan priority (one bell per priority changed). | FYI | Assigned Admin | Member saves accountability progress — instant |
 | **Overdue priority** — A Growth Plan priority passed its due date with no progress. | FYI | Assigned Admin | Daily growth sweep — instant, **weekday ticks only** (no `delay_days` to convert, so the sweep early-returns on Saturday/Sunday UTC) |
 
-### VFO Specialist Revenue (10)
+### VFO Specialist Revenue (12)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
@@ -234,6 +242,8 @@
 | **Recurring setup still not completed** (`SPECREV_recurring_setup_tracy_bell`, 2026-07-28) — the recurring plan is still `setup_pending` after the reminder window; asks Tracy to chase. | FYI | Tracy | Nightly payout sweep, Pass 3 — after **4 business day(s)** (editable) |
 | **Recurring monthly payment failed (Jake + Tracy)** (`SPECREV_recurring_payment_failed_bell`) — a recurring monthly ACH payment failed; Stripe retries per its schedule and the plan stays active. *(Existed since 2026-07-09; missing from this table until the 2026-08-11 audit.)* | FYI | Jake + Tracy | Stripe webhook `invoice.payment_failed` (recurring plan) — instant |
 | **Bank verification still not completed** (`SPECREV_awaiting_verification_bell`, 2026-08-11) — a specialist entered their bank details manually and never finished Stripe's micro-deposit check, so no money has moved and Stripe will eventually cancel the payment; asks Tracy to chase (gotcha #370). | FYI | Tracy | Nightly payout sweep, Pass 2b — after **5 business day(s)** (editable) |
+| **Payout account setup reminder email** (`SPECREV_connect_reminder_email`, NEW 2026-08-26) — a revenue-share recipient was emailed their payment-setup link and still has not finished Stripe Connect onboarding, so their share cannot be transferred. **Re-sends the `SPECREV_connect_setup` template** with a `"Reminder: "` subject prefix and the *same* durable `/payout-setup?token=` button (gotcha #268). **The initial send is now ONCE-ONLY** — it used to real-send every night, because its button was a raw expiring Stripe `account_links` URL that had to be re-minted to stay valid — so this tier is the only chase. Clocked off the line's `email_drafted_at`, stamped once into `connect_reminder_sent_at`. **A member with no payout account is excluded by construction** (nothing is ever drafted to them, so the clock stays NULL); their nag is `SPECREV_member_share_held` below. Never fired live as of 2026-08-26. | Reminder email | The recipient (email; addressed through the template's `RECIPIENT` token, not the rule's inert `SPECIALIST` default) | Nightly payout sweep, Pass 2c — after **2 business day(s)** (editable) |
+| **Recipient still has not set up their payout account** (`SPECREV_connect_tracy_bell`, NEW 2026-08-26) — the escalation tier of the row above: still no completed Stripe onboarding after the reminder window, so the share sits unpaid; asks Tracy to chase. **Dismissible FYI rather than action-required, by explicit instruction** — the line pays itself on the next nightly payout tick the moment they connect, so there is nothing for an admin to complete. Deduped on unread and stamped once into `connect_pf_notified_at`. Never fired live as of 2026-08-26. | FYI | Tracy | Nightly payout sweep, Pass 2d — after **4 business day(s)** (editable) |
 | **Member share held - no payout account** (`SPECREV_member_share_held`, 2026-08-24) — a Specialist Revenue payment was received with a member revenue-share line, but that member has **no Stripe payout account**, so the share is held. The engine deliberately does **not** create an Express account or email the member (no valid setup link exists for them — that is the admin's "Set Up Payment Details" button); it parks the line `awaiting_connect` and raises this instead. Pays automatically on the nightly payout sweep once they connect, and the bell **self-clears** on that transfer (title reconstructed from the values frozen on the line). Expert lines keep the old mint-and-email path. | **Action required** | Jake | Payout engine, member line with no payout account — instant |
 | **One-time payment failed or was canceled (Jake + Tracy)** (`SPECREV_payment_failed_bell`, 2026-08-11) — a one-time ACH payment failed, was canceled, or expired before the specialist verified their bank; the money did not arrive and no payout ran. Dismissible rather than action-required because nothing auto-clears a dead payment (gotcha #372). | FYI | Jake + Tracy | Stripe webhook `payment_intent.canceled` / `payment_intent.payment_failed` / `checkout.session.async_payment_failed` — instant |
 
@@ -244,7 +254,7 @@
 | **Setup-link reminder email** (`MIGRATION_setup_link_reminder_email`) — nudges a migrated client who was emailed the `/connect-card` link but never saved a card or bank; includes the same `[PAYMENT_SCHEDULE]` block as the original setup email — **for MAP 1 a date/amount table, split since v762 (2026-08-19) into "Past-due payments:" and "Your upcoming payments:" (a DATE-ONLY split that deliberately promises no collection — only the `/connect-card` page mirrors the charge sweep, #421), but since v715 (2026-08-10) NO figure at all for TAX**, just the fixed "set up proactively … to collect any future payments" sentence (#352). **If the link has EXPIRED the sweep mints a fresh 7-day one and emails that instead** (capped at 3 automatic re-sends per row). | Reminder email | The client (email) | Nightly check-reminder sweep — after **2 business day(s)** (editable) — gotcha #300 |
 | **Client hasn't set up their payment method** (`MIGRATION_setup_link_stall_bell`) — their remaining scheduled payments cannot run. Wording is four-way truthful: reach out / a fresh link was automatically emailed / re-send manually / automatic re-sends exhausted. | FYI | Tracy + Jake | Nightly check-reminder sweep — after **4 business day(s)** (editable) |
 
-### Payment Failure Alerts (17)
+### Payment Failure Alerts (18)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
@@ -265,6 +275,7 @@
 | **Refund issued (Jake)** — A refund was issued (including ones made directly in the Stripe Dashboard). | FYI | Jake | Stripe webhook: charge.refunded — instant |
 | **Refund failed (Jake)** — A refund FAILED — the money was not returned to the customer. | FYI | Jake | Stripe webhook: refund.failed — instant |
 | **Rev-share transfer reversed (Jake)** — A revenue-share Stripe Connect transfer was reversed/clawed back. | FYI | Jake | Stripe webhook: transfer.reversed — instant |
+| **MAP 1 cancelled installment collected (Jake)** (`FAILURE_map1_cancelled_installment_collected`, NEW 2026-08-26) — money arrived on a MAP 1 quarterly installment (P2–P4) that VFO had already **CANCELLED** through the superadmin *Cancel all remaining payments* button (`payments_cancel_remaining`, which writes the literal status `'cancelled'`). Reachable as a race — the charge was raised before the cancel landed, or Stripe redelivered the event afterwards (#327). **The webhook still records `succeeded` + receipt + revenue share, because the money really did move**; a silent skip would leave a collected payment with no receipt and an unpaid member share. This bell is raised *in addition*, so a human decides whether the client is owed a refund. Never fired live as of 2026-08-26. | **Action required** | Jake | `router/webhooks.ts` P2–P4 `payment_intent.succeeded` branch, installment status was `'cancelled'` — instant |
 
 > **Update 2026-07-03 — Phases A + B of the gap list are BUILT** (8 new rules, so the editor now
 > holds 130): gap #2 (tax-return uploads -> `UPLOAD_tax_return_uploaded`, new "Uploads" area,
