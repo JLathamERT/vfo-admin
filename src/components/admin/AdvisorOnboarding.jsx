@@ -143,10 +143,12 @@ export default function AdvisorOnboarding() {
       ) : onboardings.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--vfo-muted)' }}>No onboarding records yet. Click "+ New Onboarding" to start.</div>
       ) : (() => {
+        // status is the single source of truth for stopped now (backfilled, and
+        // written by every stop-meaning branch). The old inline derivation missed
+        // 'Auto-Declined', so 14-day implicit-No rows rendered as in-progress.
         const classify = ob => {
           if (ob.member_created_at) return 'completed'
-          const finalDec = ob.final_decision || (ob.prelim_meeting_decision === 'Yes' ? 'Yes' : ob.prelim_meeting_decision === 'No' ? 'No' : null)
-          if (finalDec === 'No' || ob.prelim_meeting_status === 'No Show') return 'stopped'
+          if (ob.status === 'stopped') return 'stopped'
           return 'in_progress'
         }
         const inProgress = onboardings.filter(o => classify(o) === 'in_progress')
@@ -222,6 +224,7 @@ function OnboardingDetail({ id, onBack }) {
   const [saving, setSaving] = useState(false)
   const [pendingDecision, setPendingDecision] = useState(null)
   const [creatingMember, setCreatingMember] = useState(false)
+  const [togglingStatus, setTogglingStatus] = useState(false)
   const [showSaleModal, setShowSaleModal] = useState(false)
   const [expanded, setExpanded] = useState({ 1: true, 2: true, 3: true })
   const [implBuf, setImplBuf] = useState({ vfo_ft: '', pft: '' })
@@ -326,6 +329,17 @@ function OnboardingDetail({ id, onBack }) {
       if (res?.onboarding) setOb(res.onboarding)
     } catch (err) { console.error(err); alert('Error: ' + err.message) }
     finally { setSaving(false) }
+  }
+
+  async function toggleStatus() {
+    const newStatus = ob?.status === 'stopped' ? 'active' : 'stopped'
+    setTogglingStatus(true)
+    try {
+      const res = await callApi('advisor_update_status', { onboarding_id: id, status: newStatus })
+      if (res?.onboarding) setOb(res.onboarding)
+      else setOb(p => (p ? { ...p, status: newStatus } : p))
+    } catch (err) { console.error(err) }
+    finally { setTogglingStatus(false) }
   }
 
   async function createAdvisor(saleFields) {
@@ -452,6 +466,15 @@ function OnboardingDetail({ id, onBack }) {
           { label: 'PC Admin', state: stage2State() },
           { label: 'Add New Advisor', state: stage3State() },
         ]}
+        action={!ob.member_created_at && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: '600' }}>{ob.status === 'stopped' ? 'Stopped' : 'Live'}</span>
+            <div onClick={() => { if (!togglingStatus) toggleStatus() }}
+              style={{ width: '44px', height: '24px', borderRadius: '12px', background: ob.status === 'stopped' ? '#e74c3c' : '#1b9254', cursor: 'pointer', position: 'relative', opacity: togglingStatus ? 0.5 : 1 }}>
+              <div style={{ position: 'absolute', top: '2px', left: ob.status === 'stopped' ? '2px' : '22px', width: '20px', height: '20px', borderRadius: '50%', background: 'var(--vfo-card)', transition: 'left 0.2s' }} />
+            </div>
+          </div>
+        )}
       />
 
       <StageBlock stage={1} title="Preliminary Meeting" state={stage1State()} expanded={expanded[1]} onToggle={() => setExpanded(p => ({ ...p, 1: !p[1] }))}>

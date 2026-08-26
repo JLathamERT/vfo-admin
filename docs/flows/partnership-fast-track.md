@@ -189,6 +189,20 @@ reminded the following Monday rather than over the weekend. The three PF bell bo
 delay and now read *"N business day(s) have passed since …"*. PFT has no auto-decline, so it has no calendar
 survivor of the advisor/accountant 14-day kind.
 
+## Stopping an onboarding — `advisor_onboarding.status` / `accountant_onboarding.status` *(2026-08-26, v793)*
+
+Both tables gained `status` — `'active'` | `'stopped'`, **NOT NULL DEFAULT `'active'`**, bare `text`, no CHECK (#431), migration `20260826181000_advisor_accountant_onboarding_status.sql`. The value set deliberately mirrors `specialist_onboarding.status`, which has carried `'active' | 'stopped' | 'completed'` since that pipeline was built — but **`'completed'` is NOT written here**: advisor/accountant completion is already expressed by `member_created_at`, and the frontend classifies on that first.
+
+**Two effects, and only two.** (1) **Display** — the onboarding list files the row under its existing **Stopped** section (the list classify now reads `ob.status`; before this it tested `final_decision === 'No'` only), and the detail header shows a **Live/Stopped toggle**, hidden once `member_created_at` is set. (2) **Sweep silencing** — every reminder ladder in `actions/advisor/sweep.ts` and `actions/accountant/sweep.ts` (decision, signing, payment; email tier + PF-bell tier = 6) **and the 14-day auto-decline query** filter `.eq("status","active")`. `NOT NULL DEFAULT` is load-bearing for the same `.eq`-vs-`.neq` reason as MAP 1 (#437).
+
+**No money path reads this column** — once a payment link has been sent, Stripe collects the onboarding fee independently of onboarding status.
+
+**Writers:** the new `advisor_update_status` / `accountant_update_status` actions (ADMIN_ONLY, not tab-gated), plus auto-stop on: `client-decision.ts` (**No**), `decision.ts` (prelim **No**; `'Undecided'` stays active — the decision cascade runs off it), `extra-meeting.ts` (**No**), `prelim-meeting.ts` (**No Show**), and the sweep's **14-day auto-decline**, which now writes `status:'stopped'` alongside `final_decision:'Auto-Declined'`.
+
+**Backfill — and the live bug it fixed.** `final_decision IN ('No','Auto-Declined') OR prelim_meeting_decision='No' OR prelim_meeting_status='No Show'` → **exactly ONE row flipped: `accountant_onboarding` id 24 (Jon Bell)**. `'Auto-Declined'` is the sweep's 14-day implicit No, and **the frontend classify had only ever tested for `'No'`**, so every auto-declined row had been rendering as *in progress* — Jon Bell was the live instance. Two exclusions are deliberate: **`'ExtraMeeting'`** parks `final_decision` while a meeting is pending and the engagement is still live; **`prelim_meeting_status='Request no meeting'`** is the PFT fast-track path (`actions/pft/ft-response.ts`) and means the onboarding proceeds *without* a preliminary meeting, not that it stopped.
+
+**Correcting a mis-picked "No Show" does NOT un-stop the row** — reopening is the header toggle's job, so a genuine stop is never silently undone by an unrelated edit to that dropdown.
+
 ## Accountant Onboarding handoff differences
 - New `accountant_onboarding.accountant_type` (`'VFO FT'` | `'VFO Associate'`). "+ New Onboarding" requires it.
 - **VFO Associate** skips Stages 1 & 2 (no agreement/payment) — `AccountantOnboarding.jsx` hides them and
