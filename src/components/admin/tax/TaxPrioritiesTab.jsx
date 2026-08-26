@@ -22,6 +22,19 @@ const THREE_PAYMENT_THRESHOLD = 30000
 const INITIAL_RETAINER_FLAT = 15000
 const FEE_TOTAL_RANGE_MESSAGE = `Total fee must be greater than $0 and no more than $${MAX_TOTAL_FEE.toLocaleString('en-US')}`
 
+// clients.id allowed to quote a CUSTOM initial retainer in place of the flat
+// $15,000 at the Tax 3 decision — Chris Colby (59481-002). Mirrors the edge
+// repo's constants/tax-fee-process.ts CUSTOM_SPLIT_CLIENT_IDS: the server only
+// honours a customInitialRetainer for a client on ITS list, so the two must
+// never drift. The 50:50 retainer/implementation split of the total is
+// unaffected — only the initial/final boundary inside the retainer half moves.
+// NOTE: unrelated to `splitType === 'Custom'` further down, which is the REVENUE
+// split between member / tax planner / VFOS.
+// 62 is the standing sandbox-forced Test Client (member 59524, gotcha #251),
+// kept on the list so this path stays click-testable.
+const CUSTOM_SPLIT_CLIENT_IDS = [105, 62]
+const CUSTOM_INITIAL_RANGE_MESSAGE = 'Must be more than $0 and less than the retainer half'
+
 // Mirrors the edge repo's constants/tax-fee-process.ts KNOWN_FEE_PROCESS_VERSIONS
 // / isNewFeeProcess (and taxShared.jsx, which already carries the same list). A
 // plan with NULL — or an unrecognised — fee_process_version is on the LEGACY
@@ -40,12 +53,32 @@ const AMEND_FEE_TAX5_CODE = 'tax_amend_fee_tax5'
 const isAmendStepTask = (t) => t?.status_options === AMEND_FEE_CODE || t?.status_options === AMEND_FEE_TAX5_CODE
 const amendStage = (t) => (t?.status_options === AMEND_FEE_TAX5_CODE ? 'tax5' : 'tax4')
 
-function deriveFeeSplit(total) {
+// customInitial (DOLLARS, optional) moves the initial/final boundary inside the
+// retainer half — the total, the retainer half and the implementation fee are
+// untouched by it. Mirrors the edge deriveFeeSplit's second argument, except
+// that every case it THROWS on returns null here (this file's invalid
+// convention): total out of range, a custom initial on a 2-payment total, or a
+// custom initial outside 0 < x < the retainer half.
+function deriveFeeSplit(total, customInitial) {
   const cents = Math.round(Number(total) * 100)
   if (!Number.isFinite(cents) || cents <= 0 || cents > MAX_TOTAL_FEE * 100) return null
   const retainerCents = Math.round(cents / 2)
   const implementationCents = cents - retainerCents
   const threePayment = cents > THREE_PAYMENT_THRESHOLD * 100
+  const wantsCustom = customInitial !== undefined && customInitial !== null
+  if (wantsCustom) {
+    if (!threePayment) return null
+    const customInitialCents = Math.round(Number(customInitial) * 100)
+    if (!Number.isFinite(customInitialCents) || customInitialCents <= 0 || customInitialCents >= retainerCents) return null
+    return {
+      total: cents / 100,
+      retainer: retainerCents / 100,
+      implementation: implementationCents / 100,
+      initialRetainer: customInitialCents / 100,
+      finalRetainer: (retainerCents - customInitialCents) / 100,
+      threePayment,
+    }
+  }
   const initialCents = threePayment ? INITIAL_RETAINER_FLAT * 100 : null
   return {
     total: cents / 100,
@@ -59,10 +92,16 @@ function deriveFeeSplit(total) {
 
 // null for anything the server would reject (blank, non-numeric, <= 0, > max) —
 // which is also the signal every caller uses to disable its submit button.
-function feeSplitFromInput(raw) {
+// rawCustom is the optional custom initial retainer: leave it undefined for the
+// flat-$15,000 schedule (every caller but the allowlisted Tax 3 form). A blank
+// or non-numeric rawCustom is INVALID (null), never a silent fall back to flat.
+function feeSplitFromInput(raw, rawCustom) {
   const cleaned = String(raw ?? '').replace(/[$,\s]/g, '')
   if (cleaned === '') return null
-  return deriveFeeSplit(parseFloat(cleaned))
+  if (rawCustom === undefined || rawCustom === null) return deriveFeeSplit(parseFloat(cleaned))
+  const cleanedCustom = String(rawCustom).replace(/[$,\s]/g, '')
+  if (cleanedCustom === '') return null
+  return deriveFeeSplit(parseFloat(cleaned), parseFloat(cleanedCustom))
 }
 
 // ── Fee amendment (Tax 4 / Tax 5 "Amend fee" steps) ────────────────────────
@@ -446,8 +485,13 @@ function PhasePill({ state, detail = '' }) {
 
 // The single fee input, its inline range error and the derived preview. Styles
 // come from the host form so this reads as part of whichever card renders it.
-function TotalFeeField({ label, hint, value, onChange, split, readOnly = false, projected = false, inputStyle, readOnlyInput, labelStyle }) {
-  const invalid = !readOnly && !split && String(value || '').trim() !== ''
+// `rangeInvalid` overrides the "no split means the total is out of range" test
+// for a caller whose split can also be nulled by something OTHER than the total
+// (the custom initial retainer) — without it that caller would print the total's
+// range error under a perfectly good total. `children` renders between the hint
+// and the derived preview, so such a caller can put its own control there.
+function TotalFeeField({ label, hint, value, onChange, split, readOnly = false, projected = false, inputStyle, readOnlyInput, labelStyle, rangeInvalid = null, children = null }) {
+  const invalid = rangeInvalid !== null ? rangeInvalid : (!readOnly && !split && String(value || '').trim() !== '')
   return (
     <div>
       <label style={labelStyle}>{label}</label>
@@ -463,6 +507,7 @@ function TotalFeeField({ label, hint, value, onChange, split, readOnly = false, 
       </div>
       {hint && !readOnly && <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '4px' }}>{hint}</div>}
       {invalid && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '12px', marginTop: '6px' }}>{FEE_TOTAL_RANGE_MESSAGE}</div>}
+      {children}
       {split && <FeeBreakdown split={split} projected={projected} />}
     </div>
   )
@@ -676,6 +721,15 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   const [retainerPayment] = useState(existing.retainerPayment || '')
   const [implementationFee] = useState(existing.implementationFee || '')
   const [totalFeeInput, setTotalFeeInput] = useState(existing.totalFee || '')
+  // Custom INITIAL retainer, allowlisted clients only — NOT the revenue
+  // `splitType === 'Custom'` further down. A completed form that stored one
+  // re-opens with the toggle already on, so view mode shows what was quoted.
+  const [customInitialEnabled, setCustomInitialEnabled] = useState(
+    existing.customInitialRetainer != null && existing.customInitialRetainer !== ''
+  )
+  const [customInitialInput, setCustomInitialInput] = useState(
+    existing.customInitialRetainer != null ? String(existing.customInitialRetainer) : ''
+  )
   const [splitType, setSplitType] = useState(existing.splitType || '')
   const [memberShare, setMemberShare] = useState(existing.memberShare || '')
   const [taxPlannerShare, setTaxPlannerShare] = useState(existing.taxPlannerShare || '')
@@ -693,12 +747,27 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   // 2026-08-25 on is driven by the single total the admin types.
   const isLegacyFees = isLegacyFeeNotes(existing)
   const isLegacyUndecided = existing.initialRetainer !== undefined
-  const feeSplit = feeSplitFromInput(totalFeeInput)
+  // The flat-$15,000 schedule the total alone implies. Also the only test of
+  // whether the TOTAL is in range, and the gate for offering a custom split at
+  // all (the custom initial only exists on a 3-payment total).
+  const flatFeeSplit = feeSplitFromInput(totalFeeInput)
+  const customSplitAllowed = CUSTOM_SPLIT_CLIENT_IDS.includes(plan?.client_id)
+  const customInitialOffered = customSplitAllowed && !!flatFeeSplit?.threePayment
+  const customInitialActive = customInitialOffered && customInitialEnabled
+  const customFeeSplit = customInitialActive ? feeSplitFromInput(totalFeeInput, customInitialInput) : null
+  // What the server will store: the custom schedule while one is being quoted,
+  // else the flat one — null (which blocks submit) while a requested custom
+  // initial is still blank or out of range.
+  const feeSplit = customInitialActive ? customFeeSplit : flatFeeSplit
+  // Red hint only once something has been typed, matching TotalFeeField.
+  const customInitialInvalid = customInitialActive && !customFeeSplit && String(customInitialInput || '').trim() !== ''
   const projectedSplit = feeSplitFromInput(projectedTotalInput)
-  // The revenue split still validates against the total, whichever shape supplied it.
+  // The revenue split still validates against the total, whichever shape supplied
+  // it — read off the FLAT split so an in-progress custom initial never zeroes
+  // the auto-computed shares (the total is identical in both splits).
   const totalFee = isLegacyFees
     ? (parseFloat(retainerPayment) || 0) + (parseFloat(implementationFee) || 0)
-    : (feeSplit?.total || 0)
+    : (flatFeeSplit?.total || 0)
 
   useEffect(() => {
     if (isViewMode) return
@@ -755,6 +824,10 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
     if (decision === 'Yes') {
       formData.taxRiskMindset = taxRiskMindset
       formData.totalFee = feeSplit.total.toFixed(2)
+      // Only ever present for an allowlisted client with the toggle on and a
+      // valid amount — the server refuses the key for anyone else, and its
+      // absence is what restores the flat $15,000 initial retainer.
+      if (customInitialActive) formData.customInitialRetainer = feeSplit.initialRetainer.toFixed(2)
       formData.splitType = splitType
       formData.memberShare = memberShare
       formData.taxPlannerShare = taxPlannerShare
@@ -806,7 +879,11 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
   // The field prints the range error itself once something invalid is typed; this
   // only covers the still-blank case, so a greyed-out button always has a reason.
   const feeBlank = feeMissing && String((decision === 'Yes' ? totalFeeInput : projectedTotalInput) || '').trim() === ''
-  const blockSubmit = submitting || needsPlannerAllocation || customSplitMismatch || feeMissing
+  // A requested custom initial retainer that is blank or out of range blocks the
+  // submit (feeSplit is already null there — this states it in its own right so
+  // the reason is not buried in feeMissing).
+  const customInitialBlocking = decision === 'Yes' && customInitialActive && !customFeeSplit
+  const blockSubmit = submitting || needsPlannerAllocation || customSplitMismatch || feeMissing || customInitialBlocking
 
   return (
     <div style={{ marginLeft: '18px', padding: '16px', background: 'var(--vfo-tint)', borderRadius: '10px', border: '1px solid var(--vfo-tint-deep)', marginTop: '4px', marginBottom: '8px' }}>
@@ -890,7 +967,50 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
                 inputStyle={inputStyle}
                 readOnlyInput={readOnlyInput}
                 labelStyle={labelStyle}
-              />
+                rangeInvalid={!isViewMode && !flatFeeSplit && String(totalFeeInput || '').trim() !== ''}
+              >
+                {customInitialOffered && (
+                  <div style={{ marginTop: '10px' }}>
+                    {isViewMode
+                      ? (customInitialEnabled ? <label style={labelStyle}>Custom payment split</label> : null)
+                      : (
+                        <button
+                          type="button"
+                          onClick={() => setCustomInitialEnabled(v => !v)}
+                          style={{
+                            fontSize: '11px', padding: '3px 10px', borderRadius: '999px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                            ...(customInitialEnabled
+                              ? { background: 'rgba(0,149,255,0.15)', color: '#0095ff', border: '1px solid rgba(0,149,255,0.3)' }
+                              : { background: 'var(--vfo-tint)', color: 'var(--vfo-muted)', border: '1px solid var(--vfo-border-chip)' }),
+                          }}
+                        >
+                          Allow custom split
+                        </button>
+                      )}
+                    {customInitialEnabled && (
+                      <div style={{ marginTop: '10px' }}>
+                        <label style={labelStyle}>Custom initial retainer</label>
+                        <div style={{ position: 'relative' }}>
+                          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
+                          <input
+                            value={customInitialInput}
+                            onChange={e => setCustomInitialInput(e.target.value)}
+                            placeholder="0.00"
+                            readOnly={isViewMode}
+                            style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px', ...(customInitialInvalid ? { borderColor: '#e74c3c' } : {}) }}
+                          />
+                        </div>
+                        {!isViewMode && (
+                          <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '4px' }}>
+                            Replaces the flat ${INITIAL_RETAINER_FLAT.toLocaleString('en-US')} initial retainer. The final retainer and the implementation fee stay derived — only the initial/final boundary moves.
+                          </div>
+                        )}
+                        {customInitialInvalid && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '12px', marginTop: '6px' }}>{CUSTOM_INITIAL_RANGE_MESSAGE}</div>}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </TotalFeeField>
             )}
           </div>
 

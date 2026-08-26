@@ -4,7 +4,7 @@
 >
 > **The switch is `client_tax_plans.fee_process_version`.** `NULL` = the legacy process. **Nothing about a legacy plan ever changes**, no revised-process validation applies to it, and both amend steps read as not-applicable on it. `'2026-08-25'` = the revised process described here. New versions get ADDED to `KNOWN_FEE_PROCESS_VERSIONS` in `constants/tax-fee-process.ts`, never substituted for this one.
 >
-> Shipped 2026-08-25 (`vfo-admin-api` v782 → v787). Gotchas **#438**–**#443**.
+> Shipped 2026-08-25 (`vfo-admin-api` v782 → v787). Gotchas **#438**–**#443**. Extended 2026-08-26 — the custom initial retainer, the three-handler select fix (v791) and the per-payment card-fee columns (v792, code-only): gotchas **#448**–**#450**.
 
 ---
 
@@ -15,12 +15,28 @@ Under the legacy process an admin typed the retainer and the implementation fee 
 | Total fee | Shape | Retainer | Implementation |
 |---|---|---|---|
 | `0 < total ≤ $30,000` | **2 payments** | `total / 2` | `total / 2` |
-| `$30,000 < total ≤ $60,000` | **3 payments** | `total / 2`, collected as **initial `$15,000` flat** + **final `total/2 − 15000`** | `total / 2` |
+| `$30,000 < total ≤ $60,000` | **3 payments** | `total / 2`, collected as **initial `$15,000` flat** + **final `total/2 − 15000`** — the initial is overridable on an allowlisted client, see *The custom initial retainer* below | `total / 2` |
 
 - **`$60,000` is a hard cap** and `total` must be `> 0`. Enforced in `deriveFeeSplit()`, in `automation_TAX_amend_fee`, and separately on the assess form's *"VFO Services Tax Planning Fee"* field (frontend **and** backend, in lockstep — #306).
 - **Arithmetic runs in whole cents.** `retainer = round(total/2)`, `implementation = total − retainer`, so `retainer + implementation === total` and `initial + final === retainer` to the cent, always.
 - **`retainer_amount` stays the FULL 50% retainer in both shapes.** The 3-payment shape changes only *how* that retainer is collected. This is what lets every pre-existing invoice, receipt and revenue-share calculation keep working untouched — and it is why **any new code that reads `retainer_amount` as "one payment that moved" is wrong on a 3-payment plan** (#440).
+- **The `$15,000` initial is a DEFAULT, not a law.** One allowlisted client may quote a different initial retainer at the Tax 3 decision; only the initial/final boundary *inside* the retainer half moves. See the next section.
 - The form may not send amounts. `parseFeeTotal()` refuses a request carrying `retainerPayment` / `implementationFee` instead of `totalFee`, with a message naming the mistake.
+
+## The custom initial retainer
+
+`CUSTOM_SPLIT_CLIENT_IDS: number[] = [105, 62]` in `constants/tax-fee-process.ts` is a list of **`clients.id`** values allowed to override the initial retainer. **105 is Chris Colby (59481-002)** — the real client this exists for. **62 is the standing sandbox-forced Test Client** (member 59524, #251), kept on the list so the path stays click-testable.
+
+**It moves exactly ONE boundary.** The 50:50 retainer/implementation split of the total is **unaffected** — `total_fee`, `retainer_amount` and `implementation_amount` come out identical to what the flat schedule would have written. Only where the retainer half is cut into initial and final moves.
+
+- `deriveFeeSplit(total, customInitial?)` takes the override in **DOLLARS** as a second argument, replacing `INITIAL_RETAINER_FLAT`. It **throws** unless the total is a 3-payment total (`CUSTOM_INITIAL_NOT_THREE_PAYMENT_MESSAGE`) and unless `0 < customInitial < retainerHalf` (`CUSTOM_INITIAL_RANGE_MESSAGE`). A non-numeric value is **REFUSED, never silently dropped back to the flat amount**. Omitted/undefined — the only shape every pre-existing caller sends — is byte-identical to the previous behaviour.
+- `parseFeeTotal(fd, opts?: FeeParseOptions)` reads `fd.customInitialRetainer` and returns `{ error: CUSTOM_INITIAL_NOT_ALLOWED_MESSAGE }` — *"Custom split is not enabled for this client"* — unless `opts.allowCustomInitial` is true. `buildFeeColumns(plan, fd, opts?)` passes the options straight through.
+- **`actions/tax/decision.ts` (Tax 3, decision `Yes`) is the ONLY caller that passes the opt-in**, computed as `CUSTOM_SPLIT_CLIENT_IDS.includes(plan.client_id)`. `actions/tax/pricing.ts`, `actions/tax/extra-meeting.ts` and the **Undecided** branch of `decision.ts` deliberately pass **no** opts, so a `customInitialRetainer` reaching any of them is refused by the default. **The Undecided quote therefore still quotes the flat `$15,000`** — deliberate, and unchanged.
+- **Frontend mirror** in `src/components/admin/tax/TaxPrioritiesTab.jsx`: same constant, same validation, returning `null` where the server throws (that file's invalid convention). The **"Allow custom split"** pill renders only when the client is allowlisted **AND** the typed total is already 3-payment, and the `customInitialRetainer` payload key is **absent** unless the toggle is on and the value valid. The two lists must move in lockstep — the same cross-repo coupling class as the predicate (#339). **This is unrelated to `splitType === 'Custom'` in the same form**, which is the REVENUE split between member / tax planner / VFOS. The two "custom"s live in the same form and mean entirely different things.
+
+**Nothing downstream needed changing, and that is the point worth keeping.** The agreement, the invoices, the receipts, the card-fee maths, the Payments tab, the Accounting tab and **both** amend steps all read the STORED `initial_retainer_amount` / `final_retainer_amount` columns rather than re-deriving from the flat constant. `actions/tax/amend-fee.ts` in particular reads the ROW's `initial_retainer_amount` in every arm, so a custom initial survives a Tax 4 amendment, the `≤ $30,000` conversion, the conversion back and Tax 5 — and the *"Total must be more than …"* floor is **`2 ×` the row's initial**, which for Chris is **$16,663.00** rather than the usual $30,000. `isThreePaymentPlan` is untouched: it keys on `final_retainer_amount`, which a custom initial never affects.
+
+**Verified live end to end** on Test Client 62 with a $46,038 total and a custom initial of $8,331.50 → final $14,687.50 / implementation $23,019: the agreement rendered all three figures, the initial was paid by card with the fee derived from $8,331.50, both amend directions, the `≤ $30,000` conversion and back, and Client decision 1 through to **both** revenue-share transfers completing on the FULL retainer.
 
 ## Where the version is stamped
 
@@ -30,7 +46,7 @@ A row carrying fee data with no version stamp is a legacy row (`isLegacyFeeRow()
 
 ## Columns
 
-All on `client_tax_plans`, all nullable, added by migration `20260825120000_tax_fee_process_v2026_08_25.sql`. Full notes in [tables/tax.md](../tables/tax.md).
+All on `client_tax_plans`, all nullable, added by migration `20260825120000_tax_fee_process_v2026_08_25.sql` except the last group, which names its own. Full notes in [tables/tax.md](../tables/tax.md).
 
 | Group | Columns |
 |---|---|
@@ -40,6 +56,7 @@ All on `client_tax_plans`, all nullable, added by migration `20260825120000_tax_
 | Final-retainer documents | `final_retainer_receipt_number`, `final_retainer_receipt_drive_id`, `final_retainer_receipt_status`, `final_retainer_receipt_email_sent_at`, `final_retainer_invoice_number`, `final_retainer_invoice_drive_id` |
 | Re-issued implementation invoice | `implementation_invoice_number`, `implementation_invoice_drive_id` |
 | Amendment stamps | `fee_amended_at_tax4`, `fee_amended_at_tax5` |
+| Per-payment card fees *(migration `20260826170000_tax_per_payment_card_fees.sql`, not the 2026-08-25 one)* | `final_retainer_card_fee`, `implementation_card_fee` — alongside the pre-existing `card_processing_fee`, which now means the FIRST retainer payment alone |
 
 New audit table **`client_tax_fee_amendments`** (RLS + deny-all policy in the same migration, #141). One row per amendment. **Audit only** — `client_tax_plans` carries the live amounts and nothing reads this table to make a money decision.
 
@@ -49,7 +66,9 @@ New audit table **`client_tax_fee_amendments`** (RLS + deny-all policy in the sa
 isThreePaymentPlan(plan) === isNewFeeProcess(plan) && plan.final_retainer_amount != null
 ```
 
-**Keyed on FINAL, never on initial.** A Tax 4 amendment to `≤ $30,000` converts a 3-payment plan back to 2 payments by **nulling `final_retainer_amount` while KEEPING `initial_retainer_amount`** — the kept value is both the record that $15,000 was collected as an initial retainer and the marker that lets a later above-threshold amendment convert *back*. Both columns are written together at pricing, so on every non-converted row the two tests are identical and a predicate keyed on `initial` passes all normal testing and then misclassifies exactly the converted plans. See **#440**.
+**Keyed on FINAL, never on initial.** A Tax 4 amendment to `≤ $30,000` converts a 3-payment plan back to 2 payments by **nulling `final_retainer_amount` while KEEPING `initial_retainer_amount`** — the kept value is both the record of what was collected as an initial retainer and the marker that lets a later above-threshold amendment convert *back*. Both columns are written together at pricing, so on every non-converted row the two tests are identical and a predicate keyed on `initial` passes all normal testing and then misclassifies exactly the converted plans. See **#440**.
+
+**Every explicit-select caller must carry `final_retainer_amount` — and `fee_process_version` with it.** The predicate reads `false` on a row where the column simply was not selected, and nothing errors: a handler that lists its columns by name and forgets one treats **every** 3-payment plan as a 2-payment plan, permanently and silently. Three handlers shipped on 2026-08-25 exactly that way — `confirmation-email.ts`, `payment-email.ts` and `paidbycheck.ts` — so the confirmation bell quoted the wrong amount, the payment email resolved `[RETAINER_LABEL]` and `[LATER_PAYMENTS]` to their 2-payment wording, and a check-paying client was asked for the **FULL** retainer instead of the initial. Fixed in v791. There is no compile-time protection here; the select list is the enforcement. See **#448**.
 
 The predicate exists in **three** places that must move in lockstep: `constants/tax-fee-process.ts` and both frontend mirrors (`taxShared.jsx`, `TaxPrioritiesTab.jsx`). Same cross-repo coupling class as the step machine (#339).
 
@@ -62,7 +81,7 @@ The predicate exists in **three** places that must move in lockstep: `constants/
 ```
 Tax 3 decision (total > $30k)      -> fee_process_version stamped, initial + final written
 Agreement (row 23 / 24, 4 pages)   -> client signs; client_signed_at stamped
-Initial retainer  $15,000          -> /tax-pay -> checkout.session.completed
+Initial retainer  $15k or custom   -> /tax-pay -> checkout.session.completed
                                       card fee derived from initial_retainer_amount (NOT retainer_amount)
                                       invoice (3 lines) + receipt, "initial retainer" wording
 [ Tax 4 - "Amend fee" step ]       -> optional; re-prices before Client decision 1 goes out
@@ -101,6 +120,29 @@ The final retainer follows the implementation charge's ACH shape exactly: the of
 
 A final retainer paid through a **fresh `/tax-pay` link** is booked in `checkout.session.completed` off `session.metadata.payment_kind` (card → `succeeded` + chain the receipt; ACH → `processing`, chains nothing, settled later by `payment_intent.succeeded`). That block deliberately does **not** set `final_retainer_confirmation_status` — the `payment_intent.succeeded` branch owns the latch.
 
+### Card processing fees — one column per payment *(2026-08-26, v792 — CODE-ONLY)*
+
+`client_tax_plans.card_processing_fee` was a **single** column that all three tax charges wrote, each overwriting the last. Proven live: an $8,331.50 initial retainer stamped **$249.14**, then the $11,668.50 final retainer replaced it with **$348.80** — the initial payment's fee no longer existed on the row. Already-rendered PDFs are static and unaffected, but any re-render of an earlier payment's document would print a later payment's fee, and the receipt handlers had grown *"pass `0` instead"* workarounds around the ambiguity. Migration `20260826170000_tax_per_payment_card_fees.sql` gives each payment its own nullable `numeric` column and pins the ownership of all three with SQL column comments:
+
+| Column | The payment it describes |
+|---|---|
+| `card_processing_fee` | the **FIRST retainer payment ONLY** — the whole retainer on a 2-payment or legacy plan, the initial retainer on a 3-payment plan. **Meaning unchanged, never renamed, never backfilled**; every existing writer and reader keeps it. |
+| `final_retainer_card_fee` | the **final retainer** payment. 3-payment shape only — always NULL on 2-payment and legacy plans. |
+| `implementation_card_fee` | the **implementation** charge. Every plan shape, legacy included. |
+
+**Writers:** the `router/webhooks.ts` `payment_intent.succeeded` final-retainer and implementation branches now write their own columns instead of the shared one. **Readers:** `final-retainer-receipt.ts` and `implementation-receipt.ts` read theirs; `confirmation-email.ts` branches on `isImpl` (and `implementation_card_fee` was added to its explicit select); `invoice-receipt.ts` correctly keeps `card_processing_fee`.
+
+**Both re-issued invoices now pass `plan.card_processing_fee` where they previously passed a hard-coded `0`.** `utils/tax-invoice-html.ts` renders its card-fee row **exclusively against the FIRST retainer payment** (*"Total Charged for Initial Retainer"* / *"… for Retainer"*, amount = initial + fee), so the `0` was a workaround for the shared column rather than a semantic requirement — passing the real fee restores parity with the invoice the client originally received. Each payment's own fee still appears broken out in full on its own receipt.
+
+**NO backfill, deliberately.** Production exposure was verified zero: no plan carried `fee_process_version`, `final_retainer_amount` or `final_retainer_status`, so no final-retainer or implementation charge has ever run under the revised process. Both new columns start NULL, which reads as *"this payment was not paid by card"* everywhere they are consumed. Adding nullable columns to an existing table changes no RLS policy.
+
+**Two honest caveats.**
+
+- The `checkout.session.completed` fresh-`/tax-pay`-link final-retainer branch writes **no** card fee at all and never did (pre-existing). A card-paid fresh-link final retainer whose `payment_intent.succeeded` never lands therefore leaves `final_retainer_card_fee` NULL.
+- **`payment_method_type` on the same table is STILL a single shared column** across all three payments. A re-issued invoice for a plan whose payments used different methods reads the LATEST method and can drop the initial retainer's card-fee disclosure. Knowingly unfixed.
+
+**⚠️ CODE-ONLY as of writing.** The migration is applied to production, but `vfo-admin-api` v792 is not deployed and **neither new column has ever been written or read by a real payment.** The lesson — one column per occurrence, the moment a second occurrence exists — is **#450**.
+
 ### Cancelling the remaining tax payments *(2026-08-26, v789 — CODE-ONLY)*
 
 The superadmin **"Cancel all remaining payments"** button on the admin client Payments tab closes the tax side too: `payments_cancel_remaining` writes the literal **`'cancelled'`** onto `final_retainer_status` and/or `implementation_charge_status`, plus the audit stamps `final_retainer_cancelled_at` / `implementation_cancelled_at`. No Stripe call, no email, no bell, and **no rev-share column is touched** — an uncollected payment has no payout leg to settle (#377). Mechanism, allowlist and the MAP 1 half: [contract-and-payment.md](contract-and-payment.md) Step 10¾.
@@ -136,13 +178,15 @@ The two names are **deliberately different**. A step row is resolved by NAME, so
 
 **Revenue-share re-scaling.** Every leg is a **dollar amount of the total engagement** (#252), so all of them scale by `new_total / old_total`, rounded to the cent, with the **residual absorbed by `vfos_share`** (VFO Services is the residual party, #394). It deliberately does **not** force the sum to the new total when the old legs did not already sum to the old total — otherwise an amendment would invent money onto the VFOS leg of a partially-priced plan. Nothing scales when the old total is zero/unknown or no leg carries a value. `strategic_partner_share` is a text column and is written back as text.
 
+**An amendment and Stripe's idempotency key can collide.** `charge-final-retainer.ts` keys its PaymentIntent `tax-finalret-<plan.id>-<payment-method suffix>-<UTC date>` and `charge-implementation.ts` keys its own the same way (`tax-impl-…`); `revshare.ts` keys each transfer `revshare-tax-<plan.id>-<payment_kind>` with no date at all. **None of those keys carries an AMOUNT** — they were built to make a genuine retry of the *same* charge safe (#15, #228). An amendment changes the amount without changing any key component, so a re-priced charge attempted inside the same key window is not a fresh request as far as Stripe is concerned. See **#449** before adding an amend-then-recharge path.
+
 **The step reads done from EITHER of two sources** — its own `client_tax_progress` row, or the `fee_amended_at_*` stamp. The stamp is kept as an independent proof so a lost `save-task` after a *successful* amendment does not leave the step reading outstanding while the money has already moved. The frontend's `isTaskStatused` uses the same two-source rule (#339).
 
 **The UI confirms before committing.** The house convention is that a step dropdown completes on select; here that would finalise a price on a stray click, so "keep the fee as it is" confirms first, and the answer stays editable until the downstream decision is recorded. See **#442**.
 
 ### Conversion, and why it is reversible
 
-A Tax 4 amendment to `≤ $30,000` **converts a 3-payment plan to 2 payments**: `final_retainer_amount` is nulled, `initial_retainer_amount` is kept, the $15,000 already paid becomes the whole retainer and the reduction lands entirely on the implementation fee. Every surface flips to the 2-payment shape at once, because they all read `isThreePaymentPlan`. A later amendment back **above** $30,000 converts it back. Both directions stay available until Client decision 1 goes out.
+A Tax 4 amendment to `≤ $30,000` **converts a 3-payment plan to 2 payments**: `final_retainer_amount` is nulled, `initial_retainer_amount` is kept, the initial retainer already paid — flat or custom — becomes the whole retainer, and the reduction lands entirely on the implementation fee. Every surface flips to the 2-payment shape at once, because they all read `isThreePaymentPlan`. A later amendment back **above** $30,000 converts it back. Both directions stay available until Client decision 1 goes out.
 
 Guards: a conversion refuses a total at or below the initial retainer already paid; a stay-3-payment amendment refuses anything that would leave a final retainer of `$0.00` or less.
 
@@ -177,6 +221,8 @@ Eleven new `email_templates` rows (**233–243**), all `send_mode=false`, plus t
 | `[LATER_PAYMENTS]` | `payment-email.ts` | *"the final retainer and the implementation fee"* (3-pay) / *"the implementation fee"* |
 | `[ATTACHED_DOCS]` | `implementation-receipt.ts` | *"invoice and receipt"* when the amended fresh invoice rides along, else *"receipt"* |
 
+**`[RETAINER_LABEL]` and `[LATER_PAYMENTS]` are LIVE in `email_templates` today.** Rows **22** and **131** (the `/tax-pay` payment email and its member-paying twin) carry **both**; `[RETAINER_LABEL]` is also live on **23 / 24 / 30** and their member twins (confirmation) and on **29 / 133** (paid-by-check). In-file comments in `payment-email.ts`, `confirmation-email.ts` and `paidbycheck.ts` still claiming *"no-op on today's bodies"* were stale and were corrected in v791. Read the deploy-order rule below as the rule for the NEXT token, not as a description of these two — and note that a live `[RETAINER_LABEL]` is exactly why the missing `final_retainer_amount` select in those three handlers (#448) reached a client's inbox rather than staying invisible.
+
 **Deploy order is binding for all of them:** the handler substitution ships FIRST, then the template SQL. The reverse order prints a raw `[TOKEN]` into a client's email. Every money-bearing substitution uses a replacer **function**, never a replacement string — see **#438**.
 
 New client-facing email on the green click: `TAX_postreview_confirmed` and `TAX_postreview_confirmed|3pay`, each with a member-paying twin. Drafted **before** the money chain so the client's inbox explains the pull that is about to happen, and wrapped so a missing template or a Gmail hiccup can never fail a decision the client has already made.
@@ -195,7 +241,9 @@ Two new `notification_rules`: `TAX_final_retainer_charge_failed` and `FAILURE_ta
 - **`boldsign-webhook`** — untouched, still v40.
 - **`actions/tax/revshare.ts`** — the deferred call needed no handler change.
 - **`automation_TAX_charge_implementation`** — the single-call-site rule (#398) is unchanged; the final retainer copies it rather than modifying it.
+- **The 50:50 retainer/implementation split.** The custom initial retainer moves the initial/final boundary inside the retainer half and nothing else — `total_fee`, `retainer_amount`, `implementation_amount`, `isThreePaymentPlan` and every revenue-share leg are identical to what the flat schedule writes.
+- **`card_processing_fee`.** Not renamed, not backfilled, not re-pointed — it still means the first retainer payment's fee, which is what it always held before a second charge started overwriting it.
 
 ## Cross-references
 
-[flows/tax-planning.md](tax-planning.md) · [flows/stripe-webhook.md](stripe-webhook.md) · [architecture/07-server-chains.md](../architecture/07-server-chains.md) · [architecture/05-api-action-catalog.md](../architecture/05-api-action-catalog.md) · [tables/tax.md](../tables/tax.md) · [integrations/boldsign.md](../integrations/boldsign.md) · [NOTIFICATION_AUDIT.md](../NOTIFICATION_AUDIT.md) · gotchas **#438**–**#443**, plus **#252**, **#327**, **#339**, **#377**, **#394**, **#398**
+[flows/tax-planning.md](tax-planning.md) · [flows/stripe-webhook.md](stripe-webhook.md) · [architecture/07-server-chains.md](../architecture/07-server-chains.md) · [architecture/05-api-action-catalog.md](../architecture/05-api-action-catalog.md) · [tables/tax.md](../tables/tax.md) · [integrations/boldsign.md](../integrations/boldsign.md) · [NOTIFICATION_AUDIT.md](../NOTIFICATION_AUDIT.md) · gotchas **#438**–**#443** and **#448**–**#450**, plus **#251**, **#252**, **#327**, **#339**, **#377**, **#394**, **#398**
