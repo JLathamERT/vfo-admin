@@ -66,6 +66,8 @@ Eleven handlers had `tax_team_member_id` added to their explicit `.select(...)`.
 
 **NOT touched:** `contract-chargescheduled-sweep.ts`, `contract-check-reminder-sweep.ts`, `boldsign-webhook` (still v40), `router/webhooks.ts`.
 
+**One deploy-time nuance worth knowing, not a gotcha.** The #337 freshness check (`git rev-list --count HEAD..origin/main`) printed **1** in the edge worktree immediately before the v794 deploy, which normally means "you are about to deploy reverted code". Here it did not: the branch had been **squash-merged**, so main carried a new commit whose *content* was already in the worktree — `git diff origin/main --stat` was **empty**, which is the check that actually answers the question. The count is a history-shape measure and a squash merge deliberately changes history shape without changing content. **The commit count is still the right routine check; when it is non-zero, diff the content before concluding anything.**
+
 **Shipped state:** backend `v794` (v793 plus the two widened guards), frontend deployed. Until that frontend deploy landed, production served the old single allocation dropdown against the new two-slot API, so allocating a Team Member 400'd with *"… is a Team Member — add them to the Team Member slot"* — the two deploys had to go together.
 
 ## 2026-08-26 — One client's initial retainer stops being $15,000, three three-payment predicates that had never once been true, and a card fee that was overwriting itself
