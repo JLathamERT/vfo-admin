@@ -173,11 +173,11 @@ One additive isolated block, **two SPECREV pipelines only**, branching on `sessi
 | Time (UTC) | Job | Handler | Does |
 |---|---|---|---|
 | `*/5 * * * *` | `reminder-sweep-5min` | `reminders/sweep.ts` | Delivers due `personal_reminders` via a **direct** `notifications` insert — the one documented **#176** exception |
-| 02:00 | `revshare-sweep-daily` | `pipeline/contract-revshare-sweep.ts` | Retries failed MAP 1 revshare + the MAP 1 3-stall reminder ladder + **(2026-08-24) a final pass re-firing `automation_PIP_revshare` for every held PIP member leg** — PIP has no cron of its own, so this is the only thing that releases one; returns `pip_held_refired` |
+| 02:00 | `revshare-sweep-daily` | `pipeline/contract-revshare-sweep.ts` | Retries failed MAP 1 revshare + the MAP 1 3-stall reminder ladder + **(2026-08-24) a final pass re-firing `automation_PIP_revshare` for every held PIP member leg** — PIP has no cron of its own, so this is the only thing that releases one; returns `pip_held_refired`. **The 3-stall ladder (6 queries) filters `status='live'` since 2026-08-26; the three money loops in the same handler deliberately do NOT** — see *What ELSE stops a ladder* below |
 | 02:30 | `tax-revshare-sweep-daily` | `tax/revshare-sweep.ts` | **Sextuple duty** — see below. Its `isRetry` now also accepts the two member-held values (reason `member-held`) |
 | 03:00 | `chargescheduled-sweep-daily` | `pipeline/contract-chargescheduled-sweep.ts` | Off-session MAP 1 installments — **calendar dates, weekends included** |
 | 04:00 | `check-reminder-sweep-daily` | `pipeline/contract-check-reminder-sweep.ts` | 7-business-day pre-due nudges + uncleared-check bells + `sweepMigrationSetupLinks` |
-| 05:00 | `advisor-sweep-daily` | `advisor/sweep.ts` | 3 stalls × 2/4 + the 14-**calendar**-day auto-decline |
+| 05:00 | `advisor-sweep-daily` | `advisor/sweep.ts` | 3 stalls × 2/4 + the 14-**calendar**-day auto-decline. **All seven queries filter `status='active'` since 2026-08-26** (the auto-decline also WRITES `status='stopped'`) |
 | 06:00 | `accountant-sweep-daily` | `accountant/sweep.ts` | Same shape as advisor |
 | 07:00 | `specialist-sweep-daily` | `onboarding/sweep.ts` | **7 stalls** × 2/4; no auto-decline. **+ tier 7b (2026-08-24)**: licence **CONTINUATION** link sent but not set up — same 2/4 ladder, template `SPECIALIST_lic_continuation_reminder` (pipeline `SPECIALIST_LICENSE_CONTINUATION`), **reusing tier 7's rule keys and guard columns** (no new `notification_rules`). "Done" is `lic_subscription_id IS NOT NULL`, **not** a payment — a deferred setup completes with no money moved (**#437**). Tier 7 unchanged |
 | 08:00 | `pft-sweep-daily` | `pft/sweep.ts` | Partnership Fast Track, 3 ladders; no auto-decline |
@@ -222,6 +222,23 @@ Until v760 a stall ladder had **no off switch**: the 4-business-day PF bell was 
 So the ack is now a genuine **satisfied-on-fire guard** in the #365 sense, and the same tick also clears the step's existing unread bells (see [../flows/notifications.md](../flows/notifications.md)). **Two consequences for a sweep author.** (1) A new stall ladder must add the column, the UI checkbox **and** this guard — a column without a guard is the old inert shape and reads as done while the chase continues. (2) The guard stops a re-*mint*, not a re-*arm*: `pft/meeting-email.ts` still **nulls `discovery_pf_notified_at`** on a plain (non-`reschedule`) send, which resets the tier the guard was protecting, so the two mechanisms can still disagree on that one path. Verification is owed against the first cron run after 2026-08-19.
 
 **Deliberate calendar survivors — owner decisions, do not "finish the job":** advisor + accountant 14-day auto-decline, the Tax 4 meeting-passed nudge, the membership 30-day renewal notice, the chargescheduled sweep, the notifications purge, personal reminders, and every token/session expiry window.
+
+### What ELSE stops a ladder — a stopped engagement (2026-08-26, v793)
+
+The ack guard above silences **one tier of one stall**. A **stopped engagement** silences every ladder on the row at once, by making the sweep's own row selection consult a first-class status column. Three pipelines gained one:
+
+| Column | Values | Silences |
+|---|---|---|
+| `pipeline_map1.status` | `'live'` \| `'stopped'` | the **6** ladder queries in `pipeline/contract-revshare-sweep.ts` — c14 decision, c17 signing, pay1 payment, each in an email tier and a PF-bell tier |
+| `advisor_onboarding.status` | `'active'` \| `'stopped'` | all **6** ladders in `advisor/sweep.ts` **plus the 14-day auto-decline query** |
+| `accountant_onboarding.status` | `'active'` \| `'stopped'` | the same six + auto-decline in `accountant/sweep.ts` |
+
+`specialist_onboarding.status` already carried `'active' \| 'stopped' \| 'completed'` and its sweep was already filtered — no change there, and it is the shape the two new columns were modelled on.
+
+- **Every one of these columns is `NOT NULL DEFAULT '<live value>'`, and that is load-bearing.** The filters are `.eq("status","live")` / `.eq("status","active")`. PostgREST **`.neq` silently drops NULL rows** (#437), so a nullable column would have made every legacy row invisible to its own ladders — the exact inverse of the intended behaviour, and silent. Do not relax the NOT NULL.
+- **MONEY IS DELIBERATELY UNFILTERED, and the split runs THROUGH one handler.** Inside `contract-revshare-sweep.ts` the six ladder queries filter on status while the **rev-share candidate loop, the strategic-partner retry and the PIP held-release in the same function do not** — a client who owes money keeps being collected from and paid out on after a stop. `contract-chargescheduled-sweep.ts` and `contract-check-reminder-sweep.ts` were **never touched at all**. Stopping is about silence, not about writing money off; **"Cancel all remaining payments" (Step 10¾ of [../flows/contract-and-payment.md](../flows/contract-and-payment.md)) is the money tool** and is entirely independent of this.
+- **The auto-decline WRITES the status as well as reading it.** `advisor/sweep.ts` and `accountant/sweep.ts` now set `status:'stopped'` alongside `final_decision:'Auto-Declined'`, so a row the sweep implicitly declined stops chasing itself on the next pass.
+- **Bare `text`, no CHECK** (#431) — every enumerating predicate has to be taught a new value by hand.
 
 ### `tax-revshare-sweep` — the seven blocks
 

@@ -367,6 +367,32 @@ For each payment cycle (P1 for one-time, P1+P2+P3+P4 for quarterly), the row sho
 
 ---
 
+## Stopping an engagement — `pipeline_map1.status` *(2026-08-26, v793)*
+
+The counterpart to Step 10¾ and **not to be confused with it**: cancelling closes uncollected **money**; stopping closes the **conversation**. Migration `20260826180000_pipeline_map1_status.sql` adds `pipeline_map1.status` — `'live'` | `'stopped'`, **NOT NULL DEFAULT `'live'`**, bare `text`, no CHECK (#431).
+
+**Stopping does exactly two things.**
+
+1. **Display.** The MAP 1 track header renders a **Live/Stopped toggle** (`ClientTrackViewV2.jsx`), and `actions/clients/overview-map1.ts` reports the track closed. Two changes there: `track_status` is now `pd.status` (it was hard-coded `null`), and `closedReason` gained a precedence rule — **a recorded decline still reads *"Client declined"***, because that says *why*; plain *"Stopped"* is what is left for a row VFO closed by hand.
+2. **Sweep silencing.** The **six** reminder-ladder queries in `contract-revshare-sweep.ts` — c14 decision, c17 signing, pay1 payment, each in a client-email tier and a PF-bell tier — filter `.eq("status","live")`.
+
+**MONEY IS DELIBERATELY UNAFFECTED, and the line runs through the middle of one handler.** In that same `contract-revshare-sweep.ts`, the **rev-share candidate loop, the strategic-partner retry and the PIP held-release are NOT filtered**. `contract-chargescheduled-sweep.ts` (Step 10½) and `contract-check-reminder-sweep.ts` (Step 10⅔b) were **never opened**. A signed client who owes money keeps being charged and chased for it after a stop — if the intent is to stop *collecting*, use **Cancel all remaining payments** (Step 10¾), which is entirely independent of this column.
+
+**`NOT NULL DEFAULT 'live'` is load-bearing** — the filters are `.eq`, and PostgREST `.neq` silently drops NULL rows (#437), so a nullable column would have hidden every legacy row from its own ladders.
+
+**Writers.**
+
+| Writer | When |
+|---|---|
+| `map1_update_status` (**new action**, ADMIN_ONLY, not tab-gated) | the header toggle, both directions — the only way back to `'live'` |
+| `pcadmin-final-decision.ts` | the client's **"No thank you"** on `/decide`. **`'ExtraMeeting'` does NOT stop** — the engagement is live while the meeting is pending |
+| `pcadmin-extra-meeting.ts` | the extra-meeting outcome recorded as **No** |
+| `pipfu-decision.ts` | the PIP follow-up **c13 No**. **`'Undecided'` does NOT stop** — the whole C14/C15 cascade runs off it |
+
+**Backfill: 0 rows matched** (`c13_decision='No' OR c15_final_decision='No'`). `overview-map1.ts`'s **third** `declined` leg — a manual `client_progress` task ("Send declined email" / "Call outcome = No" / "Client PIP decision = No") — was **deliberately not backfilled**: it lives in another table keyed by program task ids, and a wrong guess would silence a live engagement. The 2 clients that leg affects (102 Dan Niemerg, 136 Francisco Hervella) have **no `pipeline_map1` row at all**, so nothing was owed; any such row can be stopped by hand from the toggle.
+
+**Deliberately NOT auto-stopping:** `ExtraMeeting`, `'Request no meeting'`, every tax handler, and `agreements/declined.ts`.
+
 ## Step 11 — Confirmation email *(ACH + check only — a card first payment is receipt-only)*
 
 **Trigger:** Server-to-server chain from Stripe webhook handler (or from `automation_CONTRACT_checkcleared` on the check path).
