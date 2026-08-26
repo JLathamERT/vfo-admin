@@ -13,6 +13,10 @@ const STATUS = {
   refunded:   { label: 'Refunded',          fg: '#475467', bg: 'var(--vfo-tint)' },
   scheduled:  { label: 'Scheduled',         fg: '#1570ef', bg: '#e3effd' },
   awaiting:   { label: 'Awaiting decision', fg: '#7839ee', bg: '#f0e9fe' },
+  // Closed by VFO ("Cancel all remaining payments"). Same red family as `failed` —
+  // both mean "no money came in" — but a distinct label, because a cancellation is a
+  // decision we made, not something that went wrong.
+  cancelled:  { label: 'Cancelled',         fg: '#b42318', bg: '#fdecea' },
   unpaid:     { label: 'Not paid',          fg: 'var(--vfo-faint)', bg: '#f2f4f7' },
 }
 
@@ -80,6 +84,46 @@ function groupKeyOf(r) {
   return null
 }
 
+// ── "Cancel all remaining payments" support (opt-in) ─────────────────────────
+// Only the admin CLIENT Payments tab passes cancellableGroups + onCancelGroup, so
+// the Member / Specialist / global AllPayments tabs — which share this table —
+// render exactly as before.
+//
+// A group is cancellable when its program prefix is one the caller opted into AND it
+// still holds at least one child the backend would actually close. The child test
+// mirrors actions/payments/cancel-remaining.ts one-for-one; keep the two together:
+//
+//   MAP 1 — key map1-<id>-p<n>, n in 2..4 (payment 1 is NEVER cancellable: it is the
+//     engagement's opening payment, not an installment — see the handler header),
+//     with a normalized status of 'scheduled' (raw NULL) or 'failed' (raw declined /
+//     auth_required). 'paid' / 'processing' are money done or in flight.
+//   Tax  — key tax-<id>-fret (final retainer) or tax-<id>-impl (implementation), the
+//     only two tax slots that are charged later. Normalized 'awaiting' (raw NULL —
+//     exactly the rows the tab shows as still to come) or 'failed' (raw declined /
+//     auth_required / manual_required). The initial retainer (tax-<id>-ret) and the
+//     two refund rows are never cancellable.
+//
+// The button reads the normalized status rather than a raw column because that is
+// all the loader response carries — and the normalization is 1:1 over the six live
+// MAP 1 values and the five tax ones, so nothing is lost. The server re-checks every
+// slot against the raw column anyway and is the authority; this test only decides
+// whether the button is worth showing.
+const MAP1_CANCELLABLE_CHILD = /^map1-\d+-p[2-4]$/
+const TAX_CANCELLABLE_CHILD = /^tax-\d+-(fret|impl)$/
+
+function isCancellableChild(r) {
+  const k = r.key || ''
+  if (MAP1_CANCELLABLE_CHILD.test(k)) return r.status === 'scheduled' || r.status === 'failed'
+  if (TAX_CANCELLABLE_CHILD.test(k)) return r.status === 'awaiting' || r.status === 'failed'
+  return false
+}
+
+/** 'map1-12' -> { program: 'map1', rowId: 12 }; null for anything else. */
+export function parseGroupKey(gk) {
+  const m = /^(map1|tax)-(\d+)$/.exec(String(gk || ''))
+  return m ? { program: m[1], rowId: Number(m[2]) } : null
+}
+
 function Tag({ children, fg = 'var(--vfo-muted)', bg = 'var(--vfo-tint)' }) {
   return (
     <span style={{ display: 'inline-block', padding: '1px 7px', borderRadius: '5px', background: bg, color: fg, fontSize: '10px', fontWeight: 700, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
@@ -88,7 +132,17 @@ function Tag({ children, fg = 'var(--vfo-muted)', bg = 'var(--vfo-tint)' }) {
   )
 }
 
-export default function PaymentsTable({ rows = [], emptyText = 'No payments recorded yet.', buckets = null }) {
+// cancellableGroups  — array of program prefixes the CALLER supports, e.g.
+//                      ['map1', 'tax']. Omit (or leave null) and no cancel control
+//                      is ever rendered. Membership / PIP are deliberately not
+//                      supported.
+// onCancelGroup      — (groupKey, groupLabel) => void. Required alongside the array;
+//                      the parent owns the confirm dialog, the API call and reload.
+// cancelBusyKey      — group key currently in flight, so its button can disable.
+export default function PaymentsTable({
+  rows = [], emptyText = 'No payments recorded yet.', buckets = null,
+  cancellableGroups = null, onCancelGroup = null, cancelBusyKey = null,
+}) {
   const [filter, setFilter] = useState('All')   // payment-type (category) filter
   const [ptype, setPtype] = useState('All')      // person-type filter (global admin page only)
   const [bucketKey, setBucketKey] = useState(buckets ? buckets[0].key : null)  // 2-way money-in/out filter (global page)
@@ -282,10 +336,23 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
     const groupLabel = labels.every(l => l === labels[0]) ? labels[0] : (first.category || labels[0])
     const noun = g.key.startsWith('map1') ? 'payments' : 'charges'
     const startDate = (kids.find(k => k.date) || {}).date || null
-    const order = ['awaiting', 'scheduled', 'processing', 'paid', 'refunded', 'failed', 'unpaid']
+    // Tally order: still-open states first, settled ones after. 'cancelled' sits with
+    // the other closed outcomes, next to 'failed'.
+    const order = ['awaiting', 'scheduled', 'processing', 'paid', 'refunded', 'failed', 'cancelled', 'unpaid']
     const tally = {}
     for (const k of kids) tally[k.status] = (tally[k.status] || 0) + 1
     const open = !!expanded[g.key]
+    // One button per group, only for a program the caller opted into, and only while
+    // the group still holds something the server would close. Once everything is
+    // cancelled or collected the button disappears rather than sitting there doing
+    // nothing — and there is no un-cancel, so nothing brings it back.
+    const parsed = parseGroupKey(g.key)
+    const canCancel = !!onCancelGroup &&
+      Array.isArray(cancellableGroups) &&
+      !!parsed && cancellableGroups.includes(parsed.program) &&
+      kids.some(isCancellableChild)
+    const cancelBusy = cancelBusyKey === g.key
+    const colSpan = hasPerson ? 7 : 6
     return (
       <Fragment key={g.key}>
         <tr onClick={() => setExpanded(p => ({ ...p, [g.key]: !p[g.key] }))} style={{ cursor: 'pointer', background: open ? 'var(--vfo-page)' : 'var(--vfo-card)' }}>
@@ -322,6 +389,24 @@ export default function PaymentsTable({ rows = [], emptyText = 'No payments reco
           </td>
         </tr>
         {open && kids.map(k => renderRow(k, true))}
+        {open && canCancel && (
+          <tr style={{ background: '#fbfcfe' }}>
+            <td colSpan={colSpan} style={{ padding: '10px 12px 14px 14px', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+              <button
+                onClick={() => onCancelGroup(g.key, groupLabel)}
+                disabled={cancelBusy}
+                style={{
+                  background: 'transparent', color: cancelBusy ? '#c99a95' : '#b42318',
+                  border: `1px solid ${cancelBusy ? '#f0d4d0' : '#f7c4bd'}`, borderRadius: '8px',
+                  padding: '7px 13px', fontSize: '12px', fontWeight: 700,
+                  fontFamily: 'Inter, sans-serif', cursor: cancelBusy ? 'default' : 'pointer',
+                }}
+              >
+                {cancelBusy ? 'Cancelling…' : 'Cancel all remaining payments'}
+              </button>
+            </td>
+          </tr>
+        )}
       </Fragment>
     )
   }

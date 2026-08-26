@@ -40,7 +40,9 @@ const ECO_DB_KEYS = ['D&B_strategy_expertise', 'D&B_cutoff_date', 'D&B_client_re
 const TAX_KEYS = ['D&B_tax_risk_notes', 'D&B_audit_risk_general', 'D&B_audit_risk_history', 'D&B_audit_risk_worst_case', 'D&B_audit_risk_precautions']
 const NONTAX_CONTENT_KEYS = ['short_bio', ...ECO_DB_KEYS]
 const CONTENT_KEYS = [...NONTAX_CONTENT_KEYS, ...TAX_KEYS]
-const SHARED_KEYS = ['name', 'email', 'status', 'leave_date', 'join_date', 'revenue_decision', 'long_bio', 'background_check', 'top_of_t', 'vfo_accredited']
+// personal_email is record-only: it loads/saves through the shared block but is
+// never emailed and is stripped from every non-admin payload (see load-data.ts).
+const SHARED_KEYS = ['name', 'email', 'personal_email', 'status', 'leave_date', 'join_date', 'revenue_decision', 'long_bio', 'background_check', 'top_of_t', 'vfo_accredited']
 // Boolean shared flags (default false, coerced on load/blank).
 const BOOL_KEYS = ['top_of_t', 'vfo_accredited']
 const uniqueEcos = arr => [...new Set(arr || [])]
@@ -492,9 +494,15 @@ export default function SpecialistsPanel({ allExperts, ecoMap, onDataChange, sec
           <label style={labelStyle}>Name *</label>
           <input value={shared.name} onChange={e => setShared(p => ({ ...p, name: e.target.value }))} placeholder="Full name" style={inputStyle} />
         </div>
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Email</label>
-          <input value={shared.email || ''} onChange={e => setShared(p => ({ ...p, email: e.target.value }))} placeholder="specialist@example.com" style={inputStyle} />
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: '200px' }}>
+            <label style={labelStyle}>Work email (emails sent here)</label>
+            <input value={shared.email || ''} onChange={e => setShared(p => ({ ...p, email: e.target.value }))} placeholder="specialist@example.com" style={inputStyle} />
+          </div>
+          <div style={{ flex: 1, minWidth: '200px' }}>
+            <label style={labelStyle}>Personal email (not emailed)</label>
+            <input value={shared.personal_email || ''} onChange={e => setShared(p => ({ ...p, personal_email: e.target.value }))} style={inputStyle} />
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
           <div style={{ flex: 1 }}>
@@ -814,7 +822,8 @@ function SpecialistProfileView({ expert, ecos: ecosProp, connectBusy = false, co
           <div style={{ ...sectionStyle, flex: 1 }}>
             <div style={cardTitle}>Account &amp; Payout</div>
             {[
-              ['Email', expert.email || '—'],
+              ['Work email', expert.email || '—'],
+              ['Personal email', expert.personal_email || '—'],
               ['Status', expert.status || 'Active'],
               ...(expert.leave_date ? [['Leave date', String(expert.leave_date).split('T')[0]]] : []),
               ['Join date', expert.join_date ? String(expert.join_date).split('T')[0] : '—'],

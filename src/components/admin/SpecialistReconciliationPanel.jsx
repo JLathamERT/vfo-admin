@@ -18,6 +18,10 @@ import { AccountingTableSkeleton } from '../shared/Skeleton'
 // Still owed, but for an ordinary reason. The two member-holds are owed as well and are
 // counted separately, so the pending note and the held note partition the outstanding
 // money instead of both claiming the same dollars.
+// Both are POSITIVE lookups, so the terminal statuses fall out on their own: a line
+// closed as no_payout_due (member share entered as $0) is neither pending nor held, and
+// it contributes $0 to the member / money-mapping totals anyway — those are bucketed off
+// line.revenue_decision, not payout_status, so nothing about this year's figures moves.
 const PENDING_PAYOUT = new Set(['pending', 'awaiting_connect', 'failed'])
 const HELD_REASON = { held_member_suspended: 'suspended', held_member_paused: 'paused' }
 

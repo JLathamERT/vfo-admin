@@ -1,18 +1,55 @@
 import { useState, useEffect } from 'react'
-import { callApi } from '../../lib/api'
+import { callApi, getSession } from '../../lib/api'
 import { Skeleton } from '../shared/Skeleton'
-import PaymentsTable from './PaymentsTable'
+import PaymentsTable, { parseGroupKey } from './PaymentsTable'
 import PaymentsHeader from './PaymentsHeader'
 
 // Read-only Payments tab for a client (admin view). Aggregates their MAP 1, Tax and
 // PIP Meetings payments via client_payments_load. Member-paid-on-behalf rows are
 // flagged inside PaymentsTable.
+//
+// ONE write lives here: the superadmin-only "Cancel all remaining payments" button
+// PaymentsTable renders at the bottom of an expanded MAP 1 / Tax group. This is the
+// ONLY tab that passes those props, so the Member / Specialist / global Payments
+// tabs that share the same table stay strictly read-only. Membership and PIP are
+// deliberately out of scope. Superadmin gate mirrors PaymentsHeader.jsx:14 — the
+// server re-checks it (payments_cancel_remaining is in SUPERADMIN_ONLY_ACTIONS);
+// this is only about what a non-superadmin is shown.
 export default function ClientPaymentsTab({ clientId, sectionStyle }) {
+  const isSuper = getSession()?.is_superadmin
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [cancelBusyKey, setCancelBusyKey] = useState(null)
+  const [cancelMsg, setCancelMsg] = useState(null)   // { tone, text }
 
   useEffect(() => { load() }, [clientId])
+
+  // groupKey is 'map1-<id>' / 'tax-<id>' — the row_id the server needs is in it.
+  async function cancelGroup(groupKey, groupLabel) {
+    const parsed = parseGroupKey(groupKey)
+    if (!parsed) return
+    if (!window.confirm(`Cancel all remaining payments for ${groupLabel}? This cannot be undone from the UI.`)) return
+    setCancelBusyKey(groupKey); setCancelMsg(null)
+    try {
+      const d = await callApi('payments_cancel_remaining', {
+        client_id: clientId,
+        program: parsed.program,
+        row_id: parsed.rowId,
+      })
+      const n = d?.count || 0
+      setCancelMsg(n > 0
+        ? { tone: 'success', text: `Cancelled ${n} remaining payment${n === 1 ? '' : 's'} for ${groupLabel}. Nothing further will be charged.` }
+        // count 0 is the idempotent repeat click, or a group whose slots all moved
+        // to a non-cancellable state between the page load and the click.
+        : { tone: 'warn', text: `Nothing was cancelled for ${groupLabel} — no remaining payment was still open.` })
+      await load()
+    } catch (e) {
+      setCancelMsg({ tone: 'warn', text: e?.message || 'Could not cancel the remaining payments.' })
+    } finally {
+      setCancelBusyKey(null)
+    }
+  }
 
   async function load() {
     setLoading(true); setError(null)
@@ -55,7 +92,24 @@ export default function ClientPaymentsTab({ clientId, sectionStyle }) {
   return (
     <div style={sectionStyle}>
       <PaymentsHeader personType="client" personRef={clientId} />
-      <PaymentsTable rows={rows} emptyText="No payments recorded for this client yet." />
+      {cancelMsg && (
+        <div style={{
+          marginBottom: '14px', padding: '10px 14px', borderRadius: '10px',
+          fontSize: '12.5px', lineHeight: 1.45,
+          background: cancelMsg.tone === 'success' ? 'rgba(34,197,94,0.10)' : '#fff7e6',
+          border: cancelMsg.tone === 'success' ? '1px solid rgba(34,197,94,0.30)' : '1px solid #f3d9a6',
+          color: cancelMsg.tone === 'success' ? '#0f7a3d' : '#8a5200',
+        }}>
+          {cancelMsg.text}
+        </div>
+      )}
+      <PaymentsTable
+        rows={rows}
+        emptyText="No payments recorded for this client yet."
+        cancellableGroups={isSuper ? ['map1', 'tax'] : null}
+        onCancelGroup={isSuper ? cancelGroup : null}
+        cancelBusyKey={cancelBusyKey}
+      />
     </div>
   )
 }

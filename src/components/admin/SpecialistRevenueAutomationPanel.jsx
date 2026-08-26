@@ -11,6 +11,10 @@ import { TableSkeleton } from '../shared/Skeleton'
 // Payout states that still owe the recipient money. The held_member_* pair is parked
 // behind a suspended / paused member and is released on reinstatement, so it counts as
 // open and stays retryable — a retry pays it the moment the member is reinstated.
+// POSITIVE list, mirroring PAYABLE_STATUSES in utils/specialist-revenue-payout.ts: the
+// three terminal values (revenue_share_sent, money_mapping, no_payout_due) are excluded
+// by construction, so a $0 line closed as no_payout_due drops out of "Payouts pending"
+// and stops keeping the Retry button lit.
 const OPEN_PAYOUT = ['pending', 'awaiting_connect', 'failed', 'held_member_suspended', 'held_member_paused']
 
 export default function SpecialistRevenueAutomationPanel() {
@@ -42,7 +46,7 @@ export default function SpecialistRevenueAutomationPanel() {
     try {
       const res = await callApi('specialist_revenue_retry_payout', { request_id: requestId })
       if (res?.error) { setRetryMsg(res.error); return }
-      setRetryMsg(`Payout run — sent ${res.sent}, money mapping ${res.money_mapping}, awaiting Connect ${res.awaiting}, failed ${res.failed}.`)
+      setRetryMsg(`Payout run — sent ${res.sent}, money mapping ${res.money_mapping}, awaiting Connect ${res.awaiting}, no payout due ${res.zero ?? 0}, failed ${res.failed}.`)
       await load()
     } catch (e) {
       setRetryMsg(e?.message || 'Retry failed')

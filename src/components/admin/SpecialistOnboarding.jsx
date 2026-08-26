@@ -152,7 +152,7 @@ export default function SpecialistOnboarding() {
               <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Full name" style={inputStyle} />
             </div>
             <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Email *</label>
+              <label style={{ fontSize: '12px', color: 'var(--vfo-muted)', display: 'block', marginBottom: '6px' }}>Work Email *</label>
               <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Email address" style={inputStyle} />
             </div>
           </div>

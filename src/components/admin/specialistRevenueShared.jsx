@@ -30,11 +30,20 @@ const REQ_STATUS = {
 }
 
 // Per-recipient status. Before the specialist's money is in, everything reads Pending.
+//
+// The `default` arm is a real fallback, not a hole: an unrecognised payout_status
+// renders the neutral grey "Pending" pill rather than a blank or broken chip, so a
+// value this map has not been taught still shows something legible. That is also why
+// it must be taught deliberately — 'no_payout_due' would otherwise have read as
+// "Pending" forever on a line that is in fact finished (#433).
 function lineStatusMeta(line, requestReceived) {
   if (!requestReceived) return { label: 'Pending', color: 'var(--vfo-muted)' }
   switch (line.payout_status) {
     case 'revenue_share_sent': return { label: 'Revenue share payment sent', color: '#16a34a' }
     case 'money_mapping': return { label: 'Allocated to money mapping', color: '#16a34a' }
+    // Terminal, and deliberately NOT green: nothing was paid, there was simply
+    // nothing to pay (member share entered as $0). Muted grey = settled, no money.
+    case 'no_payout_due': return { label: 'No payout due', color: 'var(--vfo-muted)' }
     case 'awaiting_connect': return { label: 'Awaiting Stripe Connect setup', color: '#b45309' }
     case 'held_member_suspended': return { label: HELD_SUSPENDED_NOTE, color: '#b45309' }
     case 'held_member_paused': return { label: HELD_PAUSED_NOTE, color: '#b45309' }
@@ -48,6 +57,11 @@ function lineStatusMeta(line, requestReceived) {
 // itself get one: it has gone out, or it is parked behind a member hold. Every other open
 // state is already spelled out by the status pill on the right of the same row, so adding
 // a second copy of it under the dollars would be noise.
+//
+// 'no_payout_due' deliberately gets NO note: the figure it would annotate is already
+// "$0.00" and the pill next to it already says "No payout due" — a third statement of
+// the same nothing. It is also correctly absent from isHeldLine below, so it never
+// lands in the "$X held" roll-ups.
 export function memberShareNote(line, requestReceived) {
   if (!requestReceived) return null
   if (line.payout_status === 'revenue_share_sent') return { text: 'paid', color: '#1b9254' }
