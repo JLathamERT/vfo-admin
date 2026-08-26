@@ -1179,20 +1179,18 @@ Some tax-planning groups write their own tax assessment document, so re-keying i
 - **Who may EDIT the allocation from the planner portal is role-split, and fails closed.** `tax_planner_portal_clients` already returned `self_role`; the FE now reads it. A **Team Member** caller gets full edit (remove either chip, add either empty slot). A **Tax Planner** caller gets the step **read-only** — chips only, no `×`, no dropdown — because allocating the planner is the team member's job and an allocated planner has no business re-cutting the allocation that put them there. **Anything else, including the first paint before the roster loads, reads read-only.** The rest of their portal is unaffected.
 - **The admin dropdown orders the process, but does not enforce it.** Team Members list first, and Tax Planners appear only once a team member is allocated. That is **UI-only** (#353 family) — the API happily accepts planner-first, and a portal caller is offered both roles from the start.
 
-> ### ⚠️ KNOWN LIVE REGRESSION shipped with v793 — two guards were not split (gotcha #452)
+> ### The two ownership guards accept EITHER slot — and briefly did not (gotcha #452)
 >
-> Two guards still read `tax_planner_id` alone while **meaning "anybody is allocated"**, and their own error strings give them away by naming both roles:
+> Two guards ask **"does anybody hold this plan?"**, which is what their error strings have always said by naming both roles:
 >
-> - **`actions/tax/ready-for-tax3.ts:72`** — `decision !== "declined" && !plan.tax_planner_id` → 400 ***"Allocate a Team Member / Tax Planner before sending the confirmation email"***
-> - **`actions/tax/skip-roi-meeting.ts:98`** — the same test, same wording, for **Skip ROI meeting**
+> - **`actions/tax/ready-for-tax3.ts`** — `decision !== "declined" && !plan.tax_planner_id && !plan.tax_team_member_id` → 400 ***"Allocate a Team Member / Tax Planner before sending the confirmation email"***
+> - **`actions/tax/skip-roi-meeting.ts`** — the same test, same wording, for **Skip ROI meeting**. Its plan `.select(...)` carries `tax_team_member_id` **because this guard needs it** — without the column the new term reads `undefined`, making the guard silently, permanently true (#448).
 >
-> Before the split a Team Member satisfied both (they sat in that column). After it, **a plan held by a Team Member alone can neither send its ROI confirmation email nor skip the meeting** — which is exactly the pre-hand-off state the split exists to support, and exactly the flow described in step 2 of the hand-off chain ("has Tray book the ROI meeting off the back of that allocation").
+> **They were briefly wrong.** The two-slot split narrowed `tax_planner_id` to mean *the planner*, but these two had been relying on the old overload to mean *anybody* and were not updated with it — so for the life of **v793** a plan held by a Team Member alone could neither send its ROI confirmation email nor skip the meeting, which is exactly the pre-hand-off state the split exists to support and exactly the flow step 2 of the hand-off chain describes. Caught by the doc audit at wrap-up, **fixed in the same session and shipped in `v794`; the guards above are the fixed form.**
 >
-> **Live blast radius: ONE plan — `client_tax_plans` 159 (client 145, Katie Williams / ICG), the single row the migration moved.** Its `ready_for_tax3_email_sent` is NULL, so it has not hit the guard yet; Tray's next confirm-send on it will 400. Test plan 161 holds both slots and is unaffected. No other live plan has a team member.
+> **Zero occurrences.** The only plan that could have hit it was `client_tax_plans` **159** (client 145, Katie Williams / ICG), the single row the migration moved — and it was DB-verified after the fix with `ready_for_tax3_email_sent`, `roi_meeting_skipped_at` and `tax3_meeting_date` all still NULL, so neither guard ever fired in the v793 window. Test plan 161 holds both slots and was never affected.
 >
-> **Second-order:** this branch's own re-nag at `ready-for-tax3.ts:276` (`!tax_planner_id && tax_team_member_id` on `confirm_date`) is **UNREACHABLE** — line 72 returns 400 first. It is dead code that reads as a working feature.
->
-> **The fix is one line in each guard** (`!plan.tax_planner_id && !plan.tax_team_member_id`), plus re-checking whether the ROI-skip should be team-member-permissible at all. **It needs a backend deploy (v794) and was NOT applied in v793** — deliberately, so the shipped code matches what was tested. Do this before Tray touches plan 159.
+> **Second-order, also fixed:** the team-member re-nag further down `ready-for-tax3.ts` (`!tax_planner_id && tax_team_member_id` on `confirm_date`) had been **unreachable**, because the guard above returned 400 first. With the guard widened, a team-member-only plan now passes it and reaches the re-nag — the shape that had read as a working feature actually is one.
 
 ## The tax-track hand-off chain
 

@@ -10,7 +10,7 @@
 
 ## 2026-08-26 — Stopping an engagement becomes a real column, and a tax allocation that used to destroy itself becomes two slots
 
-**Two features in one chat, both shipped as `vfo-admin-api` v793 with three migrations applied live. The frontend is NOT deployed — see the gap note at the end, it matters.**
+**Two features in one chat, shipped as `vfo-admin-api` v793 with three migrations applied live, then `v794` for the guard regression the wrap-up doc audit caught (see the end of this entry).**
 
 ### Feature A — "Stopped" becomes a first-class state (MAP 1 + advisor / accountant / specialist onboarding)
 
@@ -50,7 +50,15 @@ Eleven handlers had `tax_team_member_id` added to their explicit `.select(...)`.
 ### Gotchas
 
 - **#451** — a shared resolver's optional column must distinguish `undefined` (the caller's select never carried it → look it up) from `null` (genuinely none), or every explicit-select caller silently drops the second recipient. The defensive half of #448, and the reason the one un-updated caller (`webhooks.ts`'s `mintDecision2Bell`) is merely a query slower rather than broken.
-- **#452** — **splitting one column into two silently invalidates every OTHER guard that read the old column as "somebody is allocated", and the guards that break are the ones you did not touch.** This one shipped as a **live regression in v793** and is the branch's biggest open item: `ready-for-tax3.ts:72` and `skip-roi-meeting.ts:98` still test `!plan.tax_planner_id` while *meaning* "anybody" — their own error strings say *"Allocate a Team Member / Tax Planner"*, which is the tell. After the split, a plan held by a Team Member alone can neither send its ROI confirmation email nor skip the meeting, which is exactly the pre-hand-off state the feature exists to support. **Live blast radius is one plan — 159, the single row the migration moved.** A second-order casualty: this branch's own re-nag at `ready-for-tax3.ts:276` is **unreachable**, because line 72 returns 400 first. The fix is one line in each guard plus a deploy; it was deliberately **not** applied in v793 so the shipped code matches what was tested.
+- **#452** — **splitting one column into two silently invalidates every OTHER guard that read the old column as "somebody is allocated", and the guards that break are the ones you did not touch.** `ready-for-tax3.ts` and `skip-roi-meeting.ts` both kept testing `!plan.tax_planner_id` while *meaning* "anybody" — their own error strings say *"Allocate a Team Member / Tax Planner"*, which is the tell. After the split, a plan held by a Team Member alone could neither send its ROI confirmation email nor skip the meeting: exactly the pre-hand-off state the feature exists to support. A second-order casualty: the branch's own team-member re-nag in `ready-for-tax3.ts` was **unreachable**, because the guard above it returned 400 first — dead code that read as a working feature.
+
+### The regression, and the same-session fix (v793 → v794)
+
+**Nothing in the feature work caught #452.** The build, `deno check` and the whole live click-through passed, because they exercised the *new* paths and never re-walked the old ones. It surfaced during the **wrap-up doc audit** — reading the guard while rewriting the allocation section and noticing its error string promised something the code no longer allowed. The doc sentence *"a Team Member is allocated, and Tray books the ROI meeting off the back of that allocation"* was a written-down invariant, and checking it against the diff is what exposed the break; that is the argument for auditing docs against the code rather than from memory.
+
+**Fixed in the same session and shipped as `v794`.** Both guards widened to `!tax_planner_id && !tax_team_member_id`, and — the trap inside the fix — `skip-roi-meeting.ts`'s explicit `.select(...)` gained `tax_team_member_id`, without which the added term would have read `undefined` and left the guard permanently true. That is **#448 nested inside the fix for #452**: the audit rule caught the bug, and the audit rule was needed again to fix it correctly. The re-nag is reachable again.
+
+**Zero live occurrences.** The only exposed row was `client_tax_plans` **159** (client 145, Katie Williams / ICG), the single plan the migration moved. It was DB-verified after the fix with `ready_for_tax3_email_sent`, `roi_meeting_skipped_at` and `tax3_meeting_date` all still NULL — neither guard ever fired during the hours v793 was live. Test plan 161 holds both slots and was never affected.
 
 ### Verification
 
@@ -58,7 +66,7 @@ Eleven handlers had `tax_team_member_id` added to their explicit `.select(...)`.
 
 **NOT touched:** `contract-chargescheduled-sweep.ts`, `contract-check-reminder-sweep.ts`, `boldsign-webhook` (still v40), `router/webhooks.ts`.
 
-**PRODUCTION GAP at hand-off:** the backend is live at v793 and the **frontend is not deployed**. Production still serves the old single allocation dropdown against the new two-slot API, so an admin allocating a Team Member gets a 400 (*"… is a Team Member — add them to the Team Member slot"*) until `npm run deploy` lands.
+**Shipped state:** backend `v794` (v793 plus the two widened guards), frontend deployed. Until that frontend deploy landed, production served the old single allocation dropdown against the new two-slot API, so allocating a Team Member 400'd with *"… is a Team Member — add them to the Team Member slot"* — the two deploys had to go together.
 
 ## 2026-08-26 — One client's initial retainer stops being $15,000, three three-payment predicates that had never once been true, and a card fee that was overwriting itself
 
