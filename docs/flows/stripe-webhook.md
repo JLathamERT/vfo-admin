@@ -125,7 +125,7 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
 **Latched on `final_retainer_confirmation_status IS NULL`** — and that single latch is all that protects a receipt PDF, a Gmail draft **and a real Connect transfer** from a redelivery (**#327**).
 
 **What it does:**
-1. Expands the PaymentIntent's payment method; derives `card_processing_fee` from **`final_retainer_amount`, NOT `retainer_amount`** — the full retainer is initial + final, so grossing against it writes a large NEGATIVE fee. The same bug existed on the initial-retainer branch in `checkout.session.completed` (which now derives its base from `initial_retainer_amount` on a 3-payment plan) and both were fixed in one change.
+1. Expands the PaymentIntent's payment method; derives the fee from **`final_retainer_amount`, NOT `retainer_amount`** — the full retainer is initial + final, so grossing against it writes a large NEGATIVE fee. The same bug existed on the initial-retainer branch in `checkout.session.completed` (which now derives its base from `initial_retainer_amount` on a 3-payment plan) and both were fixed in one change. **It writes that fee to `final_retainer_card_fee`, its OWN column (2026-08-26, v792)** — `card_processing_fee` belongs to the FIRST retainer payment for the life of the plan and is never touched here; the implementation branch below owns `implementation_card_fee` the same way (**#450**).
 2. UPDATEs `final_retainer_status='succeeded'` + `final_retainer_confirmation_status='Confirmation Needed'`, and **re-states** the PI id and charge date, because on the fresh-link recovery path Stripe can deliver `payment_intent.succeeded` *before* `checkout.session.completed`.
 3. **Chains** `automation_TAX_final_retainer_receipt` (which also issues a fresh amended invoice when `fee_amended_at_tax4` is set).
 4. **Chains** `automation_TAX_revshare` with `payment_kind='retainer'` — the **deferred** retainer revenue share, paid on the FULL `retainer_amount`.
@@ -154,7 +154,7 @@ The rule keys deliberately reuse the synchronous sweep paths'. See [SESSION_REFE
 ## Tables touched (across all branches)
 
 - **Read:** `pipeline_map1`, `pipeline_sandbox_config`, `gc_balances`, `client_tax_plans`.
-- **Written:** `pipeline_map1` (status/method/dates), `gc_balances` (insert/update), `gc_transactions` (insert), `client_tax_plans` (retainer / implementation / **final-retainer** status, method, dates, card fee), `notifications` (the failure bells).
+- **Written:** `pipeline_map1` (status/method/dates), `gc_balances` (insert/update), `gc_transactions` (insert), `client_tax_plans` (retainer / implementation / **final-retainer** status, method, dates, and **a card fee per payment** — `card_processing_fee` / `final_retainer_card_fee` / `implementation_card_fee`, never shared), `notifications` (the failure bells).
 
 > This list has always been MAP1-centric and is still not exhaustive — the tax, advisor, accountant, PIP and specialist branches all write their own pipeline tables. Derive from `router/webhooks.ts`, not from here.
 
