@@ -163,6 +163,8 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
   const [expanded, setExpanded] = useState({})
   const [completedPhases, setCompletedPhases] = useState({})
   const [pipelineData, setPipelineData] = useState(null)
+  const [trackStatus, setTrackStatus] = useState('live')
+  const [togglingStatus, setTogglingStatus] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => { loadTrack() }, [clientId])
@@ -204,9 +206,22 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
           clientRow = (pData.rows || []).find(r => r.client_id === clientId) || null
         }
         setPipelineData(clientRow || null)
+        setTrackStatus(clientRow?.status || 'live')
       } catch (e) { console.error('Pipeline load error:', e) }
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
+  }
+
+  async function toggleTrackStatus() {
+    if (!pipelineData?.id) return
+    const newStatus = trackStatus === 'live' ? 'stopped' : 'live'
+    setTogglingStatus(true)
+    try {
+      await callApi('map1_update_status', { pipeline_id: pipelineData.id, status: newStatus })
+      setTrackStatus(newStatus)
+      setPipelineData(p => (p ? { ...p, status: newStatus } : p))
+    } catch (err) { console.error(err) }
+    finally { setTogglingStatus(false) }
   }
 
   async function saveTask(taskId, status, existingDate) {
@@ -410,6 +425,15 @@ function ClientTrackViewV2({ clientId, programId, client, readOnly = false, note
         completed={completedTasks}
         total={totalTasks}
         steps={phases.map(ph => ({ label: ph.name.replace(/^MAP 1 - /, ''), state: getPhaseState(ph) }))}
+        action={!readOnly && pipelineData?.id && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: '600' }}>{trackStatus === 'live' ? 'Live' : 'Stopped'}</span>
+            <div onClick={() => { if (!togglingStatus) toggleTrackStatus() }}
+              style={{ width: '44px', height: '24px', borderRadius: '12px', background: trackStatus === 'live' ? '#1b9254' : '#e74c3c', cursor: 'pointer', position: 'relative', opacity: togglingStatus ? 0.5 : 1 }}>
+              <div style={{ position: 'absolute', top: '2px', left: trackStatus === 'live' ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'var(--vfo-card)', transition: 'left 0.2s' }} />
+            </div>
+          </div>
+        )}
       />
 
       {/* Admin surface only — exposes VFO's own cut, so it is not rendered in the

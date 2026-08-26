@@ -1844,6 +1844,13 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const [togglingStatus, setTogglingStatus] = useState(false)
   const [taxPlanners, setTaxPlanners] = useState([])
   const [taxGroups, setTaxGroups] = useState([])
+  // The allocation step's pending dropdown pick, per task id — nothing is written
+  // until Add is pressed, so the two slots can't be filled by a stray change event.
+  const [allocPick, setAllocPick] = useState({})
+  // The PORTAL caller's own planner_role (tax_planner_portal_clients.self_role).
+  // Only a Team Member may edit the allocation step from the portal, so this
+  // starts null and FAILS CLOSED: an unidentified caller gets the read-only view.
+  const [plannerSelfRole, setPlannerSelfRole] = useState(null)
 
   // Known-value substitutions for the email previews (see StepEmailsChip).
   // Reactive to the selected client; empty values are omitted so those tokens
@@ -1880,8 +1887,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   useEffect(() => {
     if (plannerMode) {
       loadCachedAction('tax_planner_portal_clients')
-        .then(res => { setTaxPlanners(Array.isArray(res?.group) ? res.group : []); setTaxGroups([]) })
-        .catch(() => { setTaxPlanners([]); setTaxGroups([]) })
+        .then(res => {
+          setTaxPlanners(Array.isArray(res?.group) ? res.group : [])
+          setTaxGroups([])
+          setPlannerSelfRole(res?.self_role || null)
+        })
+        .catch(() => { setTaxPlanners([]); setTaxGroups([]); setPlannerSelfRole(null) })
       return
     }
     loadCachedAction('tax_planners_load')
@@ -1892,13 +1903,36 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       .catch(() => { setTaxPlanners([]); setTaxGroups([]) })
   }, [plannerMode])
 
+  // The allocation step holds TWO slots: the Tax Planner who runs the plan
+  // (client_tax_plans.tax_planner_id — the only one money keys on) and an
+  // optional, persistent Team Member (tax_team_member_id). The person's role
+  // decides which slot they go in; the backend refuses a mismatch.
+  //
+  // The progress-row echo names the plan's CURRENT HOLDER: the planner once one
+  // is allocated, otherwise the team member. Admins finish this step by allocating
+  // a team member alone (the hand-off to a Tax Planner happens later, in the
+  // planner portal), so the row has to read done at that point — and the backend
+  // step machine reads that same row.
+  const rosterFullName = (id) => {
+    const pl = id == null ? null : taxPlanners.find(x => String(x.id) === String(id))
+    return pl ? `${pl.first_name || ''} ${pl.last_name || ''}`.trim() : ''
+  }
+
   async function allocatePlanner(task, planner) {
     const key = task.id
+    const teamSlot = planner?.planner_role === 'Team Member'
     setSaving(p => ({ ...p, [key]: true }))
     try {
-      await callApi('tax_allocate_planner', { tax_plan_id: plan.id, tax_planner_id: planner.id })
-      const fullName = `${planner.first_name || ''} ${planner.last_name || ''}`.trim()
-      await saveTask(task.id, fullName, localProgress[key]?.completed_date)
+      await callApi('tax_allocate_planner', teamSlot
+        ? { tax_plan_id: plan.id, tax_team_member_id: planner.id }
+        : { tax_plan_id: plan.id, tax_planner_id: planner.id })
+      // A team member added ALONGSIDE a planner leaves the echo on the planner —
+      // they are still the holder.
+      if (!teamSlot || !livePlan?.tax_planner_id) {
+        const fullName = `${planner.first_name || ''} ${planner.last_name || ''}`.trim()
+        await saveTask(task.id, fullName, localProgress[key]?.completed_date)
+      }
+      setAllocPick(prev => ({ ...prev, [key]: '' }))
       refreshLivePlan()
     } catch (err) {
       console.error(err)
@@ -1908,15 +1942,21 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
     }
   }
 
-  // Clearing the allocation: choosing the empty "-- Select --" option removes the
-  // planner (backend accepts null) and resets the task status to '' the same way
-  // the generic dropdown tasks do (saveTask handles the plan refresh).
-  async function clearPlanner(task) {
+  // Removing one slot's holder (backend accepts null). The echo falls back to
+  // whoever is left: removing the planner hands it back to the team member if one
+  // is still allocated, and only an empty plan resets it to ''.
+  async function clearPlanner(task, teamSlot = false) {
     const key = task.id
     setSaving(p => ({ ...p, [key]: true }))
     try {
-      await callApi('tax_allocate_planner', { tax_plan_id: plan.id, tax_planner_id: null })
-      await saveTask(task.id, '')
+      await callApi('tax_allocate_planner', teamSlot
+        ? { tax_plan_id: plan.id, tax_team_member_id: null }
+        : { tax_plan_id: plan.id, tax_planner_id: null })
+      if (teamSlot) {
+        if (!livePlan?.tax_planner_id) await saveTask(task.id, '')
+      } else {
+        await saveTask(task.id, rosterFullName(livePlan?.tax_team_member_id))
+      }
       refreshLivePlan()
     } catch (err) {
       console.error(err)
@@ -4000,77 +4040,130 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
 
     if (task.status_options === 'tax_planner_select' || task.name === 'Allocate to Advanced Tax Planner' || task.name === 'Allocate Team Member / Tax Planner') {
       const green = '#1b9254'
+      // TWO slots, filled independently: the Tax Planner who runs the plan and an
+      // optional, persistent Team Member. Only the planner slot is "done".
       const allocatedId = livePlan?.tax_planner_id
-      // Team Members are allocatable — they hold the plan until they hand it to a
-      // tax planner — so the picker offers the whole active roster.
+      const teamMemberId = livePlan?.tax_team_member_id
       const activePlanners = taxPlanners.filter(pl => (pl.status ? String(pl.status).toLowerCase() === 'active' : true))
       // The selected planner: match by id (plan.tax_planner_id) first, falling
-      // back to the stored name for legacy rows without an id.
-      const selectedPlanner = taxPlanners.find(pl => String(pl.id) === String(allocatedId))
-        || activePlanners.find(pl => `${pl.first_name || ''} ${pl.last_name || ''}`.trim() === (p.status || ''))
+      // back to the stored name for legacy rows without an id. Team Members are
+      // excluded from that fallback — the progress row still carries the name of
+      // a team member who held the old single slot, and they are shown by the
+      // team-member chip below, never as the tax planner.
+      const selectedPlanner = (allocatedId != null ? taxPlanners.find(pl => String(pl.id) === String(allocatedId)) : null)
+        || activePlanners.find(pl => pl.planner_role !== 'Team Member'
+          && `${pl.first_name || ''} ${pl.last_name || ''}`.trim() === (p.status || ''))
+      const selectedTeamMember = teamMemberId != null
+        ? (taxPlanners.find(pl => String(pl.id) === String(teamMemberId)) || null)
+        : null
       // Display name carries the certifications suffix; the stored value (p.status)
       // is the plain full name and is never rewritten from here.
       const allocatedName = selectedPlanner ? plannerDisplayName(selectedPlanner) : (p.status || '')
-      // Allocated means a real planner id on the plan — the one thing that decides who
-      // gets paid. A legacy progress row holding only a name (a departed employee)
-      // used to satisfy this and show green while the dropdown sat on "-- Select --".
-      const isAllocated = !!allocatedId
+      const teamMemberName = selectedTeamMember ? plannerDisplayName(selectedTeamMember) : ''
+      // Allocated means a real id in EITHER slot on the plan. Allocating the team
+      // member is this step's whole job for an admin — the hand-off to a Tax
+      // Planner happens afterwards, in the planner portal — so a team member alone
+      // closes it. A legacy progress row holding only a name (a departed employee)
+      // used to satisfy this and show green while the dropdown sat on "-- Select --",
+      // which is why the name never counts on its own. Downstream steps still
+      // require a real Tax Planner: that is taxPlannerAllocated's job, unchanged.
+      const isAllocated = !!(allocatedId || teamMemberId)
+      // The planner pill is the PLANNER slot's own chip — never the team member's,
+      // whose name the progress row now echoes when they are the only holder.
+      const plannerShown = !!(allocatedId || selectedPlanner)
       const greenPill = chipStyle(green)
-      // Small pills sitting next to the select for the currently selected planner.
       // Colors reuse the portal's tinted-pill idiom: green #1b9254 (positive),
       // red #e74c3c (No Stripe), amber #b45309 (Team Member).
       const teamMemberChip = chipStyle('#b45309')
-      const selectedIsTeamMember = selectedPlanner?.planner_role === 'Team Member'
       // Stripe status now comes from the planner's Tax Planning Group (member_type),
       // not the planner row. Connected only when the group has a Stripe account.
       const plannerGroup = selectedPlanner ? taxGroups.find(g => g.name === selectedPlanner.member_type) : null
       const groupConnected = !!(plannerGroup && (plannerGroup.stripe_account_id || '').trim())
-      const chips = selectedPlanner ? [
-        ...(selectedIsTeamMember ? [{ label: 'Team Member', style: teamMemberChip }] : []),
-        ...(plannerMode ? [] : [
-          groupConnected
-            ? { label: 'Stripe Connected', style: chipStyle('#1b9254') }
-            : { label: 'No Stripe', style: chipStyle('#e74c3c') },
-        ]),
+      const plannerChips = (selectedPlanner && !plannerMode) ? [
+        groupConnected
+          ? { label: 'Stripe Connected', style: chipStyle('#1b9254') }
+          : { label: 'No Stripe', style: chipStyle('#e74c3c') },
       ] : []
 
-      if (readOnly) {
+      // Who may WRITE the allocation. In the portal that is the Team Member alone —
+      // allocating the Tax Planner is their job, and an allocated planner has no
+      // business re-cutting the allocation that put them there — so a Tax Planner
+      // caller gets this one step read-only while the rest of their portal stays
+      // editable. self_role is the backend's answer (tax_planner_portal_clients);
+      // anything else, including a roster that has not loaded yet, reads read-only.
+      const allocReadOnly = readOnly || (plannerMode && plannerSelfRole !== 'Team Member')
+
+      if (allocReadOnly) {
         return (
-          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isAllocated ? green : 'transparent', flexShrink: 0, border: `1.5px solid ${isAllocated ? green : 'var(--vfo-border-mid)'}` }} />
             <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: 1 }}>{taskLabel(task)}</span>
-            {isAllocated
-              ? <>
-                  <span style={greenPill}>{allocatedName || 'Allocated'}</span>
-                  {selectedIsTeamMember && <span style={teamMemberChip}>Team Member</span>}
-                </>
-              : <span style={neutralChipStyle}>Not started</span>}
+            {selectedTeamMember && <span style={teamMemberChip}>{teamMemberName} — Team Member</span>}
+            {plannerShown
+              ? <span style={greenPill}>{allocatedName || 'Allocated'}</span>
+              : !selectedTeamMember && <span style={neutralChipStyle}>Not started</span>}
             <StepDate value={isAllocated ? (p.completed_date || '') : ''} />
           </div>
         )
       }
 
-      const selectValue = selectedPlanner ? String(selectedPlanner.id) : ''
+      // A person is addable only while THEIR slot is empty — one Tax Planner and
+      // one Team Member, no more. The process decides what an ADMIN sees: their
+      // job on this step is the team member, and the hand-off to a Tax Planner is
+      // the team member's own job in the planner portal, so planners appear in the
+      // admin dropdown only once a team member exists (admins can then place one
+      // themselves if they need to). A portal caller has already reached that
+      // point, so both roles are offered there from the start.
+      const addable = activePlanners.filter(pl => {
+        if (pl.planner_role === 'Team Member') return teamMemberId == null
+        if (allocatedId) return false
+        return plannerMode || teamMemberId != null
+      })
+      const pick = allocPick[key] || ''
+      const removeBtn = (onClick, label) => (
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={saving[key]}
+          title={label}
+          style={{ background: 'none', border: 'none', cursor: saving[key] ? 'default' : 'pointer', color: 'var(--vfo-muted)', fontSize: '13px', lineHeight: 1, padding: '0 2px' }}>&times;</button>
+      )
       return (
-        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isAllocated ? green : 'transparent', flexShrink: 0, border: `1.5px solid ${isAllocated ? green : 'var(--vfo-border-mid)'}` }} />
           <span style={{ fontSize: '13px', color: isAllocated ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{taskLabel(task)}</span>
+          {selectedTeamMember && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <span style={teamMemberChip}>{teamMemberName} — Team Member</span>
+              {removeBtn(() => clearPlanner(task, true), 'Remove team member')}
+            </span>
+          )}
+          {plannerShown && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              {/* The remove belongs to the NAME, so it sits with it — the Stripe
+                  chip is a status annotation and follows both. */}
+              <span style={greenPill}>{allocatedName || 'Allocated'}</span>
+              {removeBtn(() => clearPlanner(task), 'Remove tax planner')}
+              {plannerChips.map(c => <span key={c.label} style={c.style}>{c.label}</span>)}
+            </span>
+          )}
           {activePlanners.length === 0 ? (
             <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>No tax planners yet — add one under Tax Planners.</span>
-          ) : (
+          ) : addable.length > 0 && (
             <>
-              {chips.map(c => <span key={c.label} style={c.style}>{c.label}</span>)}
               <select
-                value={selectValue}
-                onChange={e => { if (!e.target.value) { clearPlanner(task); return } const pl = activePlanners.find(x => String(x.id) === e.target.value); if (pl) allocatePlanner(task, pl) }}
+                value={pick}
+                onChange={e => setAllocPick(prev => ({ ...prev, [key]: e.target.value }))}
                 disabled={saving[key]}
                 style={{ ...inputStyle, background: 'var(--vfo-card)', minWidth: '150px', borderColor: isAllocated ? `${green}66` : 'var(--vfo-border-strong)', color: isAllocated ? green : 'var(--vfo-ink)' }}>
-                {/* Portal callers must replace themselves, never clear to nobody —
-                    an unallocated plan drops out of the whole group's view and
-                    tax_save_task would 403 the status write mid-flight. */}
-                <option value="" disabled={plannerMode}>-- Select --</option>
-                {activePlanners.map(pl => <option key={pl.id} value={String(pl.id)}>{plannerDisplayName(pl)}{pl.planner_role === 'Team Member' ? ' — Team Member' : ''}</option>)}
+                <option value="">-- Select --</option>
+                {addable.map(pl => <option key={pl.id} value={String(pl.id)}>{plannerDisplayName(pl)}{pl.planner_role === 'Team Member' ? ' — Team Member' : ''}</option>)}
               </select>
+              <button
+                type="button"
+                onClick={() => { const pl = addable.find(x => String(x.id) === pick); if (pl) allocatePlanner(task, pl) }}
+                disabled={saving[key] || !pick}
+                style={{ ...inputStyle, background: 'var(--vfo-card)', cursor: (saving[key] || !pick) ? 'default' : 'pointer', opacity: (saving[key] || !pick) ? 0.5 : 1, padding: '5px 12px' }}>Add</button>
             </>
           )}
           <StepDate value={isAllocated ? (p.completed_date || '') : ''} />

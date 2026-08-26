@@ -93,6 +93,8 @@ export default function SpecialistOnboarding() {
   const [newName, setNewName] = useState('')
   const [newEmail, setNewEmail] = useState('')
   const [creating, setCreating] = useState(false)
+  const [showCompleted, setShowCompleted] = useState(false)
+  const [showStopped, setShowStopped] = useState(false)
   const session = getSession()
   const [searchParams] = useSearchParams()
 
@@ -168,28 +170,67 @@ export default function SpecialistOnboarding() {
         <SpecialistOnboardingListSkeleton />
       ) : onboardings.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px', color: 'var(--vfo-muted)' }}>No onboarding records yet. Click "+ New Onboarding" to start.</div>
-      ) : (
-        <div>
-          {onboardings.map(ob => {
-            const stageColor = ob.status === 'stopped' ? '#e74c3c' : ob.status === 'completed' ? '#1b9254' : '#0095ff'
-            return (
-              <div key={ob.id} onClick={() => { setSelectedId(ob.id); setView('detail') }} style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '18px', marginBottom: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,149,255,0.4)'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--vfo-border)'}>
-                <div>
-                  <div style={{ fontSize: '15px', color: 'var(--vfo-ink)', fontWeight: '500', marginBottom: '4px' }}>{ob.specialist_name}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>{ob.specialist_email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: ob.status === 'stopped' ? 'rgba(231,76,60,0.15)' : ob.status === 'completed' ? 'rgba(27,146,84,0.15)' : 'rgba(0,149,255,0.15)', color: stageColor, border: `1px solid ${ob.status === 'stopped' ? 'rgba(231,76,60,0.3)' : ob.status === 'completed' ? 'rgba(27,146,84,0.3)' : 'rgba(0,149,255,0.3)'}` }}>
-                    {ob.status === 'stopped' ? 'Stopped' : ob.status === 'completed' ? 'Completed' : `Stage ${ob.current_stage} · ${STAGE_NAMES[ob.current_stage]}`}
-                  </span>
-                </div>
+      ) : (() => {
+        // Same three-bucket shape as the advisor / accountant lists: in-progress
+        // rows stay loose at the top, done and stopped collapse away.
+        const inProgress = onboardings.filter(o => o.status !== 'completed' && o.status !== 'stopped')
+        const completed = onboardings.filter(o => o.status === 'completed')
+        const stopped = onboardings.filter(o => o.status === 'stopped')
+
+        const renderRow = ob => {
+          const isStopped = ob.status === 'stopped'
+          const isDone = ob.status === 'completed'
+          const stageColor = isStopped ? '#e74c3c' : isDone ? '#1b9254' : '#0095ff'
+          return (
+            <div key={ob.id} onClick={() => { setSelectedId(ob.id); setView('detail') }} style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '18px', marginBottom: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,149,255,0.4)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--vfo-border)'}>
+              <div>
+                <div style={{ fontSize: '15px', color: 'var(--vfo-ink)', fontWeight: '500', marginBottom: '4px' }}>{ob.specialist_name}</div>
+                <div style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>{ob.specialist_email || 'No email'} · Started {ob.created_at?.split('T')[0]}</div>
               </div>
-            )
-          })}
-        </div>
-      )}
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: isStopped ? 'rgba(231,76,60,0.15)' : isDone ? 'rgba(27,146,84,0.15)' : 'rgba(0,149,255,0.15)', color: stageColor, border: `1px solid ${isStopped ? 'rgba(231,76,60,0.3)' : isDone ? 'rgba(27,146,84,0.3)' : 'rgba(0,149,255,0.3)'}` }}>
+                  {isStopped ? 'Stopped' : isDone ? 'Completed' : `Stage ${ob.current_stage} · ${STAGE_NAMES[ob.current_stage]}`}
+                </span>
+              </div>
+            </div>
+          )
+        }
+
+        const SectionHeader = ({ title, count, open, onToggle, color }) => (
+          <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', marginTop: '20px', marginBottom: '10px', borderRadius: '8px', cursor: 'pointer', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-tint-deep)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: open ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: color, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{title}</span>
+              <span style={{ fontSize: '11px', color: 'var(--vfo-muted)' }}>({count})</span>
+            </div>
+          </div>
+        )
+
+        return (
+          <div>
+            {inProgress.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '20px', color: 'var(--vfo-muted)', fontSize: '13px' }}>No active onboardings in progress.</div>
+            )}
+            {inProgress.map(renderRow)}
+
+            {completed.length > 0 && (
+              <>
+                <SectionHeader title="Completed" count={completed.length} open={showCompleted} onToggle={() => setShowCompleted(v => !v)} color="#1b9254" />
+                {showCompleted && completed.map(renderRow)}
+              </>
+            )}
+
+            {stopped.length > 0 && (
+              <>
+                <SectionHeader title="Stopped" count={stopped.length} open={showStopped} onToggle={() => setShowStopped(v => !v)} color="#e74c3c" />
+                {showStopped && stopped.map(renderRow)}
+              </>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }
@@ -202,6 +243,7 @@ function OnboardingDetail({ id, onBack }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState({})
   const [fqPending, setFqPending] = useState(null)
+  const [togglingStatus, setTogglingStatus] = useState(false)
   const [expanded, setExpanded] = useState({})
   const session = getSession()
   const navigate = useNavigate()
@@ -276,6 +318,16 @@ function OnboardingDetail({ id, onBack }) {
  
   async function stopOnboarding() {
     await updateOnboarding({ status: 'stopped' })
+  }
+
+  // Header toggle. Lives OUTSIDE every isStopped-disabled region on purpose —
+  // it is the only control that can bring a stopped onboarding back.
+  async function toggleStatus() {
+    const newStatus = ob?.status === 'stopped' ? 'active' : 'stopped'
+    setTogglingStatus(true)
+    try {
+      await updateOnboarding({ status: newStatus })
+    } finally { setTogglingStatus(false) }
   }
  
   async function completeOnboarding() {
@@ -1803,6 +1855,15 @@ function OnboardingDetail({ id, onBack }) {
           </>
         }
         steps={[1, 2, 3, 4, 5].map(s => ({ label: STAGE_NAMES[s], state: getStageState(s) }))}
+        action={!isCompleted && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', fontWeight: '600' }}>{isStopped ? 'Stopped' : 'Live'}</span>
+            <div onClick={() => { if (!togglingStatus) toggleStatus() }}
+              style={{ width: '44px', height: '24px', borderRadius: '12px', background: isStopped ? '#e74c3c' : '#1b9254', cursor: 'pointer', position: 'relative', opacity: togglingStatus ? 0.5 : 1 }}>
+              <div style={{ position: 'absolute', top: '2px', left: isStopped ? '2px' : '22px', width: '20px', height: '20px', borderRadius: '50%', background: 'var(--vfo-card)', transition: 'left 0.2s' }} />
+            </div>
+          </div>
+        )}
       />
  
       <StageHeader stage={1} title="Stage 1 — Preliminary Meeting" />
