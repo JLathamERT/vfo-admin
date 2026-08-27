@@ -2,6 +2,8 @@
 
 A points-economy where members buy "Growth Credits" via Stripe and redeem them against a service catalog. The Stripe purchase → credit-balance update is handled in the same Stripe webhook that handles MAP1 payments — disambiguated by Checkout Session metadata.
 
+Since 2026-08-27 a service can also bill on a **repeating cadence** (`gc_services.billing_interval`). The first charge of a recurring service is the ordinary redemption below, unchanged in every respect; what is added is a `gc_subscriptions` row and a nightly sweep that charges it again — see **Flow E**.
+
 ## Trigger
 
 Member opens [MemberPortal](src/pages/MemberPortal.jsx) → GC Marketplace tab → mounts [MemberGCMarketplace.jsx](src/components/member/MemberGCMarketplace.jsx).
@@ -63,7 +65,7 @@ The payload splits by caller role. A **member** gets the active services with `a
 **Handler:** `gc_redeem({member_number, service_id})` ([MemberGCMarketplace.jsx:55](src/components/member/MemberGCMarketplace.jsx) → [admin-api:2723-2747](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)).
 
 Roughly:
-1. Reads `gc_services` for `credit_cost`.
+1. Reads `gc_services` for `credit_cost`. **If the service is `monthly`/`yearly`, first refuses a duplicate** — an `active`/`on_hold` `gc_subscriptions` row for this member+service returns **400** *"You already have this recurring service"*, because a second subscription would have the sweep charging twice. (This is what a stale browser tab hits.)
 2. Reads `gc_balances` for current balance. Returns error if insufficient.
 3. INSERTs `gc_redemptions` row with `status='pending'`, `credits=<credit_cost>`.
 4. UPDATEs `gc_balances.balance` -= credit_cost.
@@ -77,11 +79,13 @@ Then two best-effort side effects, each in its own `try/catch` — neither may f
 6. **Bell** — `notifyByRule('GC_credits_spent')`. If the service has an `allocated_admin_email`, the bell goes to THAT person ("<Member> has redeemed Growth Credits for <Service>"). Only an unallocated service falls back to the historical routing: the member's assigned MSM, or the whole MSM team with an "assign an MSM" prompt if they have none. The rule's `ASSIGNED_MSM` dynamic token name is retained in all three branches because the `notification_rules` row still refers to it — under allocation it simply carries the allocated team member's address.
 7. **Confirmation email** — [utils/gc-redemption-email.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/gc-redemption-email.ts) drafts pipeline `GROWTH_CREDITS` / template `GC_redemption_confirmation` to the member, CC the allocated team member (`TEAM_MEMBER` role token). Draft mode by default (`send_mode = false`) and sandbox-aware via `pipeline_sandbox_config` for `GROWTH_CREDITS`. Tokens: `[Member Name]`, `[Member First]`, `[Service Name]`, `[Credits Spent]` (singular / plural / "0 Growth Credits (free of charge)"), `[Team Member Name]` (falls back to "Our team" when unallocated, which also drops the CC), and `[MEETING_LINK_TEXT]` (the service's `scheduling_link` as a sentence + anchor, empty when there is no link or no allocation).
 
+8. **Subscription open — recurring services only.** A third best-effort step: INSERTs `gc_subscriptions` with `status='active'`, `last_charged_at=now()` and `next_charge_date = addInterval(today, billing_interval)` from the shared [utils/gc-recurring.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/gc-recurring.ts) (UTC, month-end clamped — Jan 31 + monthly is Feb 28/29, **not** Mar 3, which is where a naive `setUTCMonth()` rolls over to). On success the response carries `recurring: {billing_interval, next_charge_date}`, which is what the frontend's success banner reads; on failure it is logged and omitted, never returned as an error, because the credits are already spent.
+
 ### Step 3 — Admin processes redemption
 
-**Handler:** `gc_update_redemption({redemption_id, status})` ([admin-api:2769-2789](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)). UPDATEs `gc_redemptions.status`. Status values are application-defined (e.g., `'pending'`, `'fulfilled'`, `'rejected'`) — not DB-constrained.
+**Handler:** `gc_update_redemption({redemption_id, status})` ([actions/gc/update-redemption.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/gc/update-redemption.ts)). `status` must be `fulfilled` or `rejected` (400 otherwise); the stored `gc_redemptions.status` column itself is not DB-constrained.
 
-If a redemption is rejected, there's **no automatic refund** of credits — would require a separate `gc_add_credits` call.
+**Rejecting** a still-`pending` redemption refunds the credits — `gc_balances` is put back and a `gc_transactions` row of `type='refunded'` is filed (*"Redemption rejected — credits refunded"*). Since 2026-08-27 it **also cancels the member+service `gc_subscriptions` row** (`status='cancelled'` + `cancelled_at`, matched on `active`/`on_hold`), or the sweep would keep charging for something VFO has just declined to deliver. Renewals never file a redemption row, so a *rejectable pending* redemption is always the INITIAL one — there is no ambiguity about which subscription is meant.
 
 ## Flow C — Admin manual credit adjustment
 
@@ -97,23 +101,77 @@ In `ADMIN_ONLY_ACTIONS`. Member callers cannot.
 
 **Delete branch:** `{service_id, mode: 'delete'}`. Runs before the name/cost validation (a delete carries neither), and requires only `service_id`. `gc_redemptions.service_id` is `ON DELETE NO ACTION`, so a service anyone has ever redeemed cannot be deleted — the handler catches Postgres `23503` and returns **400** "This service has redemption history — set it Inactive instead." Redemptions are never cascaded or deleted. The panel surfaces that message through its existing flash.
 
+Also accepts **`billing_interval`** on both insert and update — `one_time` (the default, applied when the key is absent, null or empty) | `monthly` | `yearly`, anything else 400s, and the DB carries the same CHECK. It is the **Frequency** dropdown in the Growth Credits panel (*1 time / Monthly / Yearly*), on both the add-row and every existing row.
+
 Also accepts the two allocation fields, on both insert and update: `allocated_admin_email` and `scheduling_link`. Both are trimmed, an empty string becomes `null`, and a non-null `allocated_admin_email` is rejected with a 400 unless it matches a row in `allowed_admins` — a typo here would silently orphan every redemption of the service. Edited in Automation & Config → Growth Credits ([GrowthCreditsPanel.jsx](src/components/admin/GrowthCreditsPanel.jsx)); the caller always sends the current values alongside whatever it is changing, so saving one field never wipes the others.
 
 Admin-only.
 
+## Flow E — Recurring services (2026-08-27)
+
+### E1 — Making a service recurring
+
+Flow D's `billing_interval`. **One-time is the not-null default, so every pre-existing service is untouched and the whole one-time path above is unchanged.** Nothing about a *service's* cadence retroactively affects redemptions already made — the sweep re-reads the service each night, and flipping a live service back to `one_time` (or inactive) makes its subscriptions skip in place (E3).
+
+### E2 — Subscribing
+
+There is no separate "subscribe" action: **the member redeems the service in the ordinary way** (Flow B), which pays for the first period and files the `gc_redemptions` row the fulfilment queue works off. Step 8 of that flow opens the `gc_subscriptions` row. A duplicate redeem while a live subscription exists is refused (Flow B step 1).
+
+### E3 — The nightly sweep
+
+**Handler:** `automation_GC_recurring_sweep` ([actions/gc/recurring-sweep.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/gc/recurring-sweep.ts)), `PUBLIC_HANDLERS`, service-role `Authorization` gate — modelled on `automation_GROWTH_overdue_sweep`. Cron `gc-recurring-sweep-daily` @ **12:30 UTC**. Returns `{ok, charged, held, skipped}`.
+
+Candidates: `status in ('active','on_hold') AND next_charge_date <= today`. Per row:
+
+1. **Re-read the service.** Missing, `active=false`, or back to `one_time` → **skip in place**, counted in `skipped`. The row keeps its now-past `next_charge_date`, so restoring the service charges it once on the next tick rather than back-billing the gap.
+2. **Charge the service's CURRENT `credit_cost`** — a price change applies from the next renewal; nothing is snapshotted on the subscription.
+3. **Claim the period optimistically, BEFORE spending anything.** The UPDATE advances `next_charge_date`, stamps `last_charged_at`, sets `status='active'` and clears `on_hold_notified_at`, filtered with `.eq("next_charge_date", <the value this run read>)`, then `.select()`s. Zero rows = another run already claimed this period → skip, balance untouched. Only after the claim lands is `gc_balances` decremented and the `gc_transactions` row filed.
+4. **Re-anchor from TODAY, never from the stored due date** (gotcha **#456**). A row funded weeks after going on hold is charged **once** and lands a full period in the future; anchoring on the due date would have it charged every night until it "caught up".
+5. **Insufficient balance** → `status='on_hold'` + `on_hold_notified_at` stamped (behind `.is("on_hold_notified_at", null)`, so exactly **one** out-of-credits email per hold episode; later ticks just count as `skipped`). **`next_charge_date` is deliberately NOT advanced** — the member is charged for the period they are actually starting, whenever they fund it.
+6. **Renewals write `gc_transactions` ONLY** — `type='redeemed'`, description `"<Service Name> (renewal)"` — and **never** a `gc_redemptions` row. Charge 2..n is not a new request for the fulfilment queue to work, so from the second charge on the ledger is the entire audit trail.
+
+**No weekend skip**, deliberately — unlike the growth-overdue sweep it was cloned from. These are date-anchored charges and member-facing emails, not admin bells landing on a Saturday.
+
+### E4 — The two emails
+
+[utils/gc-recurring-email.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/utils/gc-recurring-email.ts), pipeline `GROWTH_CREDITS`, both fire-and-forget from the sweep and both **draft mode** (`send_mode=false`), To `RECIPIENT` (the member) / Cc `TEAM_MEMBER` (the service's allocated admin). Sandbox-aware via `pipeline_sandbox_config`; a missing or inactive template is a **logged skip**, never an error — the money has already moved. Function replacers throughout (#438).
+
+| Template | Row | When | Tokens |
+|---|---|---|---|
+| `GC_recurring_renewal` | 244 | Charge 2..n succeeded | `[Member Name]` `[Member First]` `[Service Name]` `[Credits Spent]` `[Credit Balance]` (balance AFTER) `[Team Member Name]` |
+| `GC_recurring_out_of_credits` | 245 | The renewal could not be taken; row parked `on_hold` | same, but `[Credits Needed]` in place of `[Credits Spent]`, and `[Credit Balance]` is the balance that fell short |
+
+**No new `notification_rules` key.** The existing `GC_credits_spent` bell fires on the initial redemption only — a renewal is not a new ask, so nobody is rung.
+
+### E5 — Cancelling
+
+Three routes, all landing on `status='cancelled'` + `cancelled_at`:
+
+- **The member**, from the Services tab — `gc_cancel_subscription`.
+- **An admin on their behalf**, from MembersPanel → member → Growth Credits → Services — the same action with that member's number.
+- **Automatically**, when an admin **rejects** the initial redemption (Flow B step 3).
+
+**No refund and no proration** — the period already paid for stands; cancelling only stops the next charge. `gc_cancel_subscription` sits in `MEMBER_SCOPED_ACTIONS`, which rewrites **only `body.member_number`** — so the handler's `.eq("member_number", …)` **is** the ownership guard (#455), and a zero-row `.select()` returns 404 rather than a false success.
+
+### E6 — What the member and the admin see
+
+Both surfaces render the **same component**, [GCMarketplaceViews.jsx](src/components/shared/GCMarketplaceViews.jsx) (`GCServicesView` + `GCTransactionHistory`), so they cannot drift; `adminMode` only changes copy and hides Buy-credits. A recurring row reads `N credits / month|year`; a live subscription replaces Redeem with a **Subscribed — renews \<date\>** pill (or **On hold — add credits to resume**) plus a Cancel behind a confirm modal, and the recurring redeem modal spells the repeat charge out before anything is spent.
+
 ## Tables touched (composite)
 
-- **Read:** `gc_services`, `gc_balances`, `gc_transactions`, `gc_redemptions`.
-- **Written:** `gc_balances` (upsert), `gc_transactions` (insert), `gc_redemptions` (insert/update), `gc_services` (insert/update/delete).
+- **Read:** `gc_services`, `gc_balances`, `gc_transactions`, `gc_redemptions`, `gc_subscriptions`.
+- **Written:** `gc_balances` (upsert), `gc_transactions` (insert), `gc_redemptions` (insert/update), `gc_services` (insert/update/delete), `gc_subscriptions` (insert/update).
 
 ## Downstream chains
 
 - Stripe purchase → Stripe webhook is the only chain trigger. The webhook is not chained to anything else (no email, no notification).
+- `automation_GC_recurring_sweep` chains nothing; its two emails are drafted in-process.
 
 ## Frontend touch-points
 
-- [MemberGCMarketplace.jsx](src/components/member/MemberGCMarketplace.jsx) — member view. Calls `gc_load_balance`, `gc_load_transactions`, `gc_load_services`, `gc_create_checkout`, `gc_redeem`.
-- [MembersPanel.jsx:615-628](src/components/admin/MembersPanel.jsx) — admin view per-member. Calls `gc_load_balance`, `gc_load_transactions`, `gc_load_redemptions`, `gc_add_credits`.
+- [MemberGCMarketplace.jsx](src/components/member/MemberGCMarketplace.jsx) — member view. Calls `gc_load_balance`, `gc_load_transactions`, `gc_create_checkout`; its Services/History tabs are the shared views below.
+- [GCMarketplaceViews.jsx](src/components/shared/GCMarketplaceViews.jsx) — the shared Services + History views. Calls `gc_load_services`, `gc_load_subscriptions`, `gc_redeem`, `gc_cancel_subscription`.
+- [MembersPanel.jsx](src/components/admin/MembersPanel.jsx) `MemberGC` — admin view per-member, sub-tabs **Dashboard | Services | History**. Dashboard is admin-only (balance, stats, `gc_add_credits`); Services and History are the shared views, passed the member's number so an admin can redeem or cancel on their behalf.
 
 ## Auth
 

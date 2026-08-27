@@ -16,9 +16,10 @@ Catalog of redeemable services.
 | `active` | boolean | default `true`. Status field. |
 | `allocated_admin_email` | text | The team member who handles this service. Validated against `allowed_admins.email` in `gc_manage_service`. When set it receives the `GC_credits_spent` bell and is CC'd on the redemption confirmation email; when null the bell falls back to the member's assigned MSM. Stripped from the member payload by `gc_load_services`. |
 | `scheduling_link` | text | Booking URL offered to the member in the redemption confirmation email (only when `allocated_admin_email` is also set). Stripped from the member payload. |
+| `billing_interval` | text | not null, default `'one_time'`, CHECK `one_time \| monthly \| yearly` (2026-08-27). The default is what makes every pre-existing row, and the whole one-time path, unchanged. A `monthly`/`yearly` service opens a `gc_subscriptions` row on redemption and is then charged by `automation_GC_recurring_sweep`. Edited as **Frequency** in the Growth Credits panel; validated again in `gc_manage_service` (400 on anything else). NOT stripped from the member payload — the marketplace renders `credits / month`. |
 | `created_at` | timestamptz | default `now()` |
 
-**Touched by:** `gc_load_services`, `gc_manage_service`. Frontend: [MemberGCMarketplace.jsx:40](src/components/member/MemberGCMarketplace.jsx), [GrowthCreditsPanel.jsx](src/components/admin/GrowthCreditsPanel.jsx) (allocation editor), [GrowthCreditsRedemptionsPage.jsx](src/components/admin/GrowthCreditsRedemptionsPage.jsx) (read-only menu, under its "Menu" sub-tab).
+**Touched by:** `gc_load_services`, `gc_manage_service`, `gc_redeem` (reads `billing_interval`), `automation_GC_recurring_sweep` (re-reads the row every night — the sweep charges the CURRENT `credit_cost`, so a price change applies from the next renewal). Frontend: [MemberGCMarketplace.jsx:40](src/components/member/MemberGCMarketplace.jsx), [GrowthCreditsPanel.jsx](src/components/admin/GrowthCreditsPanel.jsx) (allocation editor), [GrowthCreditsRedemptionsPage.jsx](src/components/admin/GrowthCreditsRedemptionsPage.jsx) (read-only menu, under its "Menu" sub-tab).
 
 A row can be hard-deleted via `gc_manage_service` `mode: 'delete'`, but only while it has no `gc_redemptions` history — the FK is `NO ACTION`. Retiring a service that has been redeemed means `active = false`.
 
@@ -69,6 +70,32 @@ Pending/completed redemption requests linking a member to a `gc_services` row.
 | `created_at` | timestamptz | default `now()` |
 
 **Touched by:** `gc_load_redemptions`, `gc_load_all_redemptions`, `gc_redeem`, `gc_update_redemption`.
+
+**Renewals of a recurring service deliberately file NO row here** — charge 2..n is not a new request for the fulfilment queue to work, so `gc_transactions` is the entire audit trail from the second charge on. The corollary the code relies on: a *pending* (therefore rejectable) redemption of a recurring service is always the **initial** one.
+
+---
+
+## `gc_subscriptions`
+
+One live recurring service per member (2026-08-27, migration `20260827150000_gc_recurring_services.sql`). **RLS enabled + deny-all policy in the same migration** (#141); all access is via the service-role edge function.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | bigint | pk, generated always as identity |
+| `member_number` | text | not null. fk → `member_plugin_settings.plugin_member_number` (**CASCADE**) — mirrors `gc_balances` / `gc_redemptions`. |
+| `service_id` | integer | not null. fk → `gc_services.id` (**NO ACTION**) — mirrors `gc_redemptions.service_id`, so a service anyone has ever subscribed to cannot be deleted and history keeps resolving. |
+| `status` | text | not null, default `'active'`, CHECK `active \| on_hold \| cancelled`. **A real CHECK, unlike the bare-`text` status columns #431/#444 warn about.** |
+| `next_charge_date` | date | not null. **Deliberately NOT advanced while `on_hold`** — a funded hold charges once at the next sweep and is re-anchored one full period from THAT day, so missed periods never stack (#456). |
+| `last_charged_at` | timestamptz | Set at redemption (the first period) and on every successful renewal. |
+| `on_hold_notified_at` | timestamptz | One out-of-credits email per hold episode: stamped when the row goes `on_hold`, cleared by the charge that releases it. The sweep's `.is(…, null)` filter on the hold UPDATE is the dedupe. |
+| `created_at` | timestamptz | not null, default `now()` |
+| `cancelled_at` | timestamptz | Stamped by all three cancel routes (member, admin-on-behalf, redemption rejection). |
+
+**Indexes:** `(status, next_charge_date)` for the sweep's candidate query; `(member_number)` for the portal + cancel handler.
+
+**Touched by:** `gc_redeem` (insert, and the duplicate-subscription refusal), `gc_load_subscriptions`, `gc_cancel_subscription`, `gc_update_redemption` (reject → cancel), `automation_GC_recurring_sweep`.
+
+No unique constraint enforces one live subscription per (member, service) — `gc_redeem`'s `active`/`on_hold` lookup is the guard, and the sweep's optimistic `next_charge_date` claim is what makes a double charge impossible if one ever slipped through.
 
 ---
 
