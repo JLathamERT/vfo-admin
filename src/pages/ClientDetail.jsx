@@ -171,7 +171,7 @@ export default function ClientDetail() {
       if (prog?.name === 'Partnership Fast Track') return base
       return [...base, 'tax']
     }
-    const profile = isMember ? ['home'] : ['home', 'details', 'vault', 'payments', 'settings', ...(session?.is_superadmin ? ['continuation'] : [])]
+    const profile = isMember ? ['home', 'vault'] : ['home', 'details', 'vault', 'payments', 'settings', ...(session?.is_superadmin ? ['continuation'] : [])]
     if (prog?.name === 'Partnership Fast Track') return [...profile, 'pft']
     if (prog?.name === 'VFO Tax Planning') return [...profile, 'tax']
     return [...profile, 'map1', 'regular', 'tax', 'pip']
@@ -307,7 +307,10 @@ export default function ClientDetail() {
             ) : (
             <>
               {isMember
-                ? <button style={tabStyle(activeTab === 'home')} onClick={() => setActiveTab('home')}>Profile</button>
+                ? <>
+                    <button style={tabStyle(activeTab === 'home')} onClick={() => setActiveTab('home')}>Profile</button>
+                    <button style={tabStyle(activeTab === 'vault')} onClick={() => setActiveTab('vault')}>Vault</button>
+                  </>
                 : <ClientTabDropdown label="Profile" isActive={activeTab === 'home' || activeTab === 'details' || activeTab === 'vault' || activeTab === 'payments' || activeTab === 'settings' || activeTab === 'continuation'} options={[{key:'home',label:'Profile'},{key:'details',label:'Edit Profile'},{key:'vault',label:'Vault'},...(client?.member_number ? [{key:'ciq',label:'CIQ'}] : []),{key:'payments',label:'Payments'},{key:'settings',label:'Settings'},...(session?.is_superadmin ? [{key:'continuation',label:'Payment Continuation'}] : [])]} onSelect={handleTabSelect} />
               }
               {program?.name === 'Partnership Fast Track' ? (
@@ -344,7 +347,10 @@ export default function ClientDetail() {
             {activeTab === 'regular' && program && !pfLocked && !isPlanner && <RegularPrioritiesTab clientId={parseInt(clientId)} programId={program.id} client={client} specialists={specialists} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} initialTrackId={initialTrackId} />}
             {activeTab === 'tax' && program && !pfLocked && <TaxPrioritiesTab clientId={parseInt(clientId)} programId={program.id} programName={program.name} client={client} specialists={specialists} ecosystems={ecosystems} readOnly={isMember} plannerMode={isPlanner} notes={clientNotes} onNotesChange={setClientNotes} initialPlanId={initialPlanId} />}
             {activeTab === 'pip' && program && !pfLocked && !isPlanner && <PipMeetingsTab clientId={parseInt(clientId)} programId={program.id} client={client} readOnly={isMember} notes={clientNotes} onNotesChange={setClientNotes} />}
-            {activeTab === 'vault' && (isAdmin || isPlanner) && <ClientVaultTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} specialists={specialists} readOnly={isPlanner} allowUpload={isPlanner} recipientName={`${client?.first_name || ''} ${client?.last_name || ''}`.trim() || undefined} recipientFirst={client?.first_name || undefined} />}
+            {/* memberMode is its own flag, not a relaxed readOnly: a member gets
+                view on all three sections + add on the two client-owned ones,
+                and never share / delete / request-docs / drag-to-move. */}
+            {activeTab === 'vault' && (isAdmin || isPlanner || isMember) && <ClientVaultTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} specialists={specialists} readOnly={isPlanner} allowUpload={isPlanner} memberMode={isMember} recipientName={`${client?.first_name || ''} ${client?.last_name || ''}`.trim() || undefined} recipientFirst={client?.first_name || undefined} />}
             {activeTab === 'payments' && isAdmin && <ClientPaymentsTab clientId={parseInt(clientId)} sectionStyle={sectionStyle} />}
             {activeTab === 'settings' && isAdmin && (
               <div style={sectionStyle}>

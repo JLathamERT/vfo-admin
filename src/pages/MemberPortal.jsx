@@ -19,6 +19,7 @@ const normalizeUrl = (u) => { const s = (u || '').trim(); return s && !/^https?:
 import vfoCertifiedSeal from '../assets/vfo-certified-emblem.png'
 import vfoAccreditedSeal from '../assets/vfo-accredited-emblem.png'
 import { MemberProfileSkeleton } from '../components/shared/Skeleton'
+import { leadMemberNumberOf, findLeadMember } from '../components/shared/corporateMember'
 
 export default function MemberPortal() {
   const navigate = useNavigate()
@@ -31,6 +32,7 @@ export default function MemberPortal() {
   })
   const [showSettings, setShowSettings] = useState(false)
   const [memberData, setMemberData] = useState(null)
+  const [allMembers, setAllMembers] = useState([])
   const [allExperts, setAllExperts] = useState([])
   const [exclusions, setExclusions] = useState([])
   const [ecoMap, setEcoMap] = useState({})
@@ -60,6 +62,8 @@ export default function MemberPortal() {
       ])
       const me = (data.members || []).find(m => m.member_number === session.member_number)
       setMemberData(me || null)
+      // Full roster is kept only to name a corporate member's lead member.
+      setAllMembers(data.members || [])
       setAllExperts(data.experts || [])
       const myExclusions = (data.exclusions || [])
         .filter(e => e.member_number === session.member_number)
@@ -157,7 +161,7 @@ export default function MemberPortal() {
           {loading && activeTab && <MemberProfileSkeleton />}
 
           {!loading && activeTab === 'profile' && memberData && (
-            <MemberProfile member={memberData} />
+            <MemberProfile member={memberData} allMembers={allMembers} />
           )}
           {!loading && (activeTab === 'msm_home' || activeTab?.startsWith('msm_')) && memberData && (
             <MemberMSMTracking member={memberData} activeTab={activeTab} onNavigate={setActiveTab} />
@@ -333,7 +337,7 @@ function MemberSpecialists({ member, allExperts, exclusions, ecoMap = {}, onData
   )
 }
 
-function MemberProfile({ member }) {
+function MemberProfile({ member, allMembers = [] }) {
   // Mirrors the admin-side member profile (MembersPanel MemberProfile):
   // hero header with headshot + status meta, short facts side by side, then
   // full-width long-form (bio).
@@ -348,6 +352,10 @@ function MemberProfile({ member }) {
   const statusColors = { Active: '#1b9254', Lost: '#e74c3c', Removed: '#e74c3c' }
   const hasCerts = member.vfo_certified_date || member.vfo_accredited_date
   const headshotSrc = member.headshot_image ? HEADSHOT_SUPABASE + encodeURIComponent(member.headshot_image) : null
+  // Corporate members name their lead member in the identity line. Plain text
+  // here — MemberNameLink routes into the admin portal.
+  const leadNumber = leadMemberNumberOf(member)
+  const leadName = findLeadMember(allMembers, member)?.name
 
   return (
     <div style={{ maxWidth: '980px', margin: '0 auto', padding: '24px' }}>
@@ -361,7 +369,7 @@ function MemberProfile({ member }) {
             <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, letterSpacing: '-0.03em', fontSize: '24px', color: 'var(--vfo-heading)', lineHeight: 1.15 }}>{member.name}</div>
             <div style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <span style={{ fontFamily: 'monospace' }}>{member.member_number}</span>
-              {member.member_type && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span>{member.member_type}</span></>}
+              {member.member_type && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span>{member.member_type}{leadNumber && ` - ${leadName || leadNumber}`}</span></>}
               {member.elite_status && (
                 <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}>
