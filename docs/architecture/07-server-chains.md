@@ -168,7 +168,7 @@ One additive isolated block, **two SPECREV pipelines only**, branching on `sessi
 
 ## Sweeps — the cron half of the chain graph
 
-**15 `pg_cron` jobs, all active** (verified live 2026-08-14). Staggered to avoid races on the same row. All invoke `vfo-admin-api` with the service-role key.
+**16 `pg_cron` jobs, all active** (verified live 2026-08-27). Staggered to avoid races on the same row. All invoke `vfo-admin-api` with the service-role key.
 
 | Time (UTC) | Job | Handler | Does |
 |---|---|---|---|
@@ -187,6 +187,7 @@ One additive isolated block, **two SPECREV pipelines only**, branching on `sessi
 | 10:30 | `notifications-purge-daily` | `notifications/purge-sweep.ts` | Hard-deletes READ notifications > 90 days; unread never touched |
 | 11:00 | `specialist-revenue-payout-sweep-daily` | `specialist-revenue/payout-sweep.ts` | **Five pass groups**, numbered 1 · 2 · 2b · 2c/2d · 3: payout retries, one-off payment ladder, awaiting-verification backstop, **NEW (2026-08-26) Connect-setup ladder 2c/2d** (2-business-day reminder email + 4-business-day dismissible Tracy FYI, clocked off the line's `email_drafted_at` — see "SpecRev payout engine" above), recurring-setup ladder. **Pass 1's candidate query is the EXPORTED `PAYABLE_STATUSES`** from `utils/specialist-revenue-payout.ts` (2026-08-24) — not a literal list — so it can never drift from the engine's own re-entry set, and it now carries `held_member_suspended` / `held_member_paused`. Being a **positive** list it also excludes the new terminal `no_payout_due` by construction |
 | 12:00 | `membership-sweep-daily` | `membership/sweep.ts` | **5 passes**: renewal notices → renewals → waive $0 → one combined charge per plan → auto-unsuspend. **Pass 4 now also CHAINS** — see "Member reinstatement" below; summary gains `payouts_released` |
+| 12:30 | `gc-recurring-sweep-daily` | `gc/recurring-sweep.ts` | **NEW 2026-08-27.** Charges every due `gc_subscriptions` row out of the member's **credit** balance (no Stripe, no money). **NO weekend skip** — deliberately unlike `growth-overdue-sweep-daily` above, which it was cloned from: these are date-anchored charges and member-facing emails, not admin bells landing on a Saturday. Charges the service's **current** `credit_cost`; a deactivated / re-`one_time`d service **skips in place**. **Claims the period optimistically BEFORE deducting** (advance `next_charge_date` with `.eq` on the value read + `.select()`; zero rows ⇒ another run has it). **Re-anchors from TODAY, never the stored due date (#456)** — else a funded hold is charged nightly until it catches up. Short balance ⇒ `on_hold` + one `GC_recurring_out_of_credits` draft per episode (`on_hold_notified_at` is the guard) and the date is **not** advanced. Renewals write `gc_transactions` only, **never** `gc_redemptions`. Returns `{charged, held, skipped}` |
 
 ### Reminder-ladder time unit — read before touching any tier
 

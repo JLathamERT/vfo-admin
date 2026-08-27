@@ -8,6 +8,57 @@
 
 ---
 
+## 2026-08-27 — Recurring Growth Credit services: a cadence on the service, a subscription per member, and a nightly sweep that charges from the credit balance
+
+**One chat, shipped as `vfo-admin-api` v797 with ONE migration (`20260827150000_gc_recurring_services.sql`, applied to prod via MCP and committed as a file, #196). Action count 477 → 480 (+3, all GC). One new cron: `gc-recurring-sweep-daily` @ 12:30 UTC, so the inventory is 15 → 16 jobs. `boldsign-webhook` untouched, still v40. No new `notification_rules` key. Frontend deploy NOT done in this session — it is the branch's headline owed item.**
+
+### What it is
+
+A `gc_services` row can now bill on a repeating cadence. `gc_services.billing_interval` is `'one_time'` (not-null default, so **every pre-existing row is unchanged and the entire one-time path is byte-for-byte what it was**) | `'monthly'` | `'yearly'`, with a CHECK constraint, edited through a new **Frequency** dropdown in Automation & Config → Growth Credits.
+
+**The first charge of a recurring service is the ordinary redemption, completely untouched** — `gc_redeem` deducts the credits, files the `gc_redemptions` row the fulfilment queue works off, rings the `GC_credits_spent` bell and drafts the confirmation email. What is new is that a monthly/yearly service ALSO opens a `gc_subscriptions` row, and the nightly `automation_GC_recurring_sweep` charges every due row again straight out of `gc_balances`.
+
+**Renewals deliberately write `gc_transactions` ONLY, never `gc_redemptions`** (description `"<name> (renewal)"`) — charge 2..n is not a new request for anyone to fulfil, so from the second charge on the ledger is the entire audit trail. That single decision is what keeps the Redemptions queue honest and is also why the reject branch below can assume what it assumes.
+
+### The three new actions (477 → 480, all AUTH)
+
+- **`gc_load_subscriptions`** and **`gc_cancel_subscription`**, both in `MEMBER_SCOPED_ACTIONS`. Cancel takes a `subscription_id`, and that list rewrites **only `body.member_number`** — so the handler's `.eq("member_number", …)` on the UPDATE **is** the ownership guard, not decoration (#455, commented at the site). `.select()` confirms a row was matched; zero rows returns 404 rather than a false success. Cancelling is not a refund and not a proration: the period already paid for stands, only the next charge stops.
+- **`automation_GC_recurring_sweep`** in `PUBLIC_HANDLERS` behind the same service-role `Authorization` check as `automation_GROWTH_overdue_sweep`, which it is modelled on.
+
+### The sweep, and the review catch that changed it
+
+Daily at 12:30 UTC. Candidates are `status in ('active','on_hold') AND next_charge_date <= today`. Per row: re-read the service (a deactivated service, or one flipped back to `one_time`, **skips in place** — the row keeps its now-past due date, so restoring the service charges once on the next tick); then charge the service's **CURRENT `credit_cost`**, not a snapshot.
+
+The charge is claimed **optimistically before the money moves**: the UPDATE advances `next_charge_date` with an `.eq()` on the value this run read, then `.select()`s, and a zero-row result means another run already claimed the period — skip, balance untouched. Short balance → `status='on_hold'` + an `on_hold_notified_at` stamp (one out-of-credits email per hold episode, guarded by that stamp), and **the date is deliberately NOT advanced**, so the member is charged for the period they are actually starting. There is **no weekend skip**, unlike the growth-overdue sweep it was cloned from — these are date-anchored charges and member-facing emails, not admin bells landing on a Saturday.
+
+**The catch worth recording: as first written, the re-anchor derived from the stale due date.** A subscription that went on hold and was funded weeks later would have been charged again every single night until it "caught up" — the code comment said the right thing while the code did the wrong one. Caught in review before the deploy, changed to re-anchor from **TODAY, the day the charge actually happens**, and then live-proven: a row due `2026-07-15`, funded on the 27th, charged exactly once and re-anchored to `2026-09-27`. This is gotcha **#456**.
+
+`gc_update_redemption`'s **reject** branch also cancels the member+service subscription, on top of the credit refund it already did. A rejectable *pending* redemption of a recurring service is always the initial one — renewals file no redemption row — so there is no ambiguity about which subscription is meant.
+
+### Emails and data
+
+`utils/gc-recurring-email.ts`, same safety contract as `gc-redemption-email.ts`: function replacers throughout (#438), sandbox-aware via `pipeline_sandbox_config`, a missing or inactive template is a logged skip rather than an error, and nothing in it may throw back into the sweep. Two templates seeded live, both `send_mode=false`, To `RECIPIENT` / Cc `TEAM_MEMBER`: **244 `GC_recurring_renewal`** and **245 `GC_recurring_out_of_credits`**. No new `notification_rules` key was needed — the existing `GC_credits_spent` bell fires on the initial redemption and renewals are not a new ask.
+
+New table `gc_subscriptions`: `member_number` FK → `member_plugin_settings` CASCADE (mirroring `gc_balances`/`gc_redemptions`), `service_id` FK → `gc_services` **NO ACTION** (so a subscribed service cannot be deleted and history keeps resolving), `status` CHECK `active|on_hold|cancelled`, `next_charge_date`, `last_charged_at`, `on_hold_notified_at`, `created_at`, `cancelled_at`; indexes on `(status, next_charge_date)` for the sweep and `(member_number)` for the portal. **RLS + deny-all in the same migration** (#141), advisor GREEN at the exact baseline afterwards, and an anon probe on the table returned `Content-Range: */0`.
+
+### Frontend
+
+`src/components/shared/GCMarketplaceViews.jsx` is new and is now the **single** source for `GCServicesView` + `GCTransactionHistory`, rendering both the member marketplace's Services/History tabs and the admin per-member GC tab in `MembersPanel`. That admin tab's sub-tabs went **Dashboard | Member Details** → **Dashboard | Services | History**: the bespoke "Member Details" transaction/redemption lists were deleted in favour of the member-identical History, and admins can redeem or cancel on a member's behalf by passing that member's number (which member-scoping permits for an admin session). Recurring rows read `N credits / month|year`; a live subscription replaces Redeem with a **Subscribed — renews \<date\>** or **On hold — add credits to resume** pill plus a Cancel button behind a confirm modal, and the recurring confirm modal spells the repeat charge out in words before anything is spent. Bare `YYYY-MM-DD` dates are pinned to local midnight before formatting so they do not render a day early west of Greenwich.
+
+Also fixed in the same file, and worth its own line because it is older than this branch: the GC banner had exactly ONE style, green, so **every error the marketplace has ever shown was rendered as a success**. It now discriminates on the `'Error'` prefix the hosts already funnelled failures through, and renders red.
+
+### Verified live, and what was not
+
+All live testing was on test member 59524, all fixtures wiped afterwards (balance restored to 1001, test service deleted, `gc_subscriptions` back to 0 rows). Owner click-through plus SQL-driven sweep runs proved: the frequency save; the member display and the recurring confirm modal; that first-redemption side effects are unchanged (bell, confirmation draft, pending queue); the renewal charge + email + re-anchor; sweep idempotency (a second run in the same day charged 0); the out-of-credits hold, its single Cc'd email, and that a second tick does not re-send it; the funded catch-up charging once (the #456 proof above); member cancel, admin cancel, and rejection auto-cancel + refund; a cancelled row ignored when due; an inactive service skipped in place; a stale-tab duplicate redeem refused with no double charge; and the admin mirror including an on-behalf redeem and the no-Buy-credits insufficient modal.
+
+**Not exercised:** the forged cross-member `gc_cancel_subscription` 404 (the #455 negative case, code-proven only); the **yearly** interval, which never ran live at all — every live test was monthly, and `addInterval`'s yearly arm is spot-check/simulation only; the renewal email's `TEAM_MEMBER` Cc, which was added at the owner's request *after* the tested render, so the next renewal draft is that Cc's first verification; and an organic cron-fired run — every sweep run was hand-invoked.
+
+**Superseded hub values moved here in this pass:** action count **477 → 480**; cron inventory **15 → 16 jobs, all active**; live `vfo-admin-api` **v796 → v797**. Route pages stayed 33 and the advisor baseline is unchanged.
+
+**Discharged from the hub in this pass** (all fully settled, their prose retired from still-open OWED entries): the 2026-08-27 corporate-member branch's items (1) FE deploy and (3) the Wyatt `58147-C1` link resolution — both already marked DISCHARGED at their own ship, with the Wyatt link verified byte-identical to Sterling Hirsch's `stripe_account_id` and left linked deliberately; the 2026-08-26 Stopped-state branch's items (1) the FE deploy that closed the old-dropdown 400 window and (2) the #452 guard regression, fixed and live in v794 with plan 159 DB-verified untouched, plus that branch's shipped-gate list (smoke 5/5 vs v793, advisor GREEN after all three migrations, deno 0, build 33 pages, action count 473); the 2026-08-26 custom-retainer branch's discharged ship line (v792 deployed, `live-171-custom-split` landed, smoke re-run 5/5 vs v792); the 2026-08-26 four-feature branch's discharged item (1) (`live-170-cancel-misc` tagged, so the cancel UI, the two specialist email fields and the "No payout due" pill are live); the 2026-08-25 fee-process branch's three discharged items (1)–(3) (v787 + `npm run deploy` both landed, smoke 5/5 vs v787, and the `PENDING_minor_wording_tokens` SQL run post-v787 with all four rows verified tokened — the first real render of both tokens remains owed and stays in the hub); and the 2026-08-24 member-hold branch's discharged smoke gate (5/5 against the shipping v781, which carries v778's hold code).
+
+---
+
 ## 2026-08-27 — Corporate Member lead in the header, a borrowed Stripe Connect account, a member Vault tab — and an IDOR found on the way past
 
 **Three user-requested edits and one security fix, one chat, shipped as `vfo-admin-api` v796 with ONE migration (`20260827140000_member_stripe_linked_from.sql`, applied to prod BEFORE the deploy). Action count 473 → 477 (+1 members, +3 vault). `boldsign-webhook` untouched, still v40. The four revenue-share payout engines, `router/webhooks.ts`, and every existing `vault_gen_*` / `vault_tax_*` / `admin_ert_*` action were deliberately NOT touched.**

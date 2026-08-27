@@ -1,36 +1,18 @@
 import { useState, useEffect } from 'react'
 import { callApi } from '../../lib/api'
 import { Skeleton } from '../shared/Skeleton'
-
-// Escape DB/admin-authored text before it's rendered via dangerouslySetInnerHTML
-// (M1a) so a malicious gc_services.description can't inject script into member browsers.
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-}
-
-function formatServiceDetails(description) {
-  if (!description) return ''
-  const parts = description.split('|')
-  const labels = ['Objective', 'Available to', 'Includes', 'Tailoring Options']
-  return parts.map((part, i) => part.trim() ? `<div style="margin-bottom:8px;text-align:left;"><span style="color:var(--vfo-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">${labels[i] || ''}</span><div style="color:#44557a;font-size:13px;margin-top:2px;">${escapeHtml(part.trim())}</div></div>` : '').join('')
-}
+import { GCServicesView, GCTransactionHistory } from '../shared/GCMarketplaceViews'
 
 export default function MemberGCMarketplace({ memberNumber }) {
   const [gcTab, setGcTab] = useState('dashboard')
   const [balance, setBalance] = useState(null)
   const [transactions, setTransactions] = useState(null)
-  const [services, setServices] = useState([])
-  const [servicesLoaded, setServicesLoaded] = useState(false)
   const [totalRedeemed, setTotalRedeemed] = useState(null)
   const [showBuyModal, setShowBuyModal] = useState(false)
   const [buyPkg, setBuyPkg] = useState(null) // selected package -> shows the payment-method step
-  const [confirmService, setConfirmService] = useState(null)
-  const [redeeming, setRedeeming] = useState(false)
-  const [openDetails, setOpenDetails] = useState({})
   const [banner, setBanner] = useState('')
 
   useEffect(() => { loadDashboard() }, [memberNumber])
-  useEffect(() => { if (gcTab === 'services') loadServices() }, [gcTab])
 
   // Stripe returns the buyer to /member?gc_success=1&m=<method>. Card payments
   // settle immediately (webhook credits within seconds) so we poll the balance
@@ -90,14 +72,6 @@ export default function MemberGCMarketplace({ memberNumber }) {
     } catch (err) { console.error(err) }
   }
 
-  async function loadServices() {
-    try {
-      const data = await callApi('gc_load_services')
-      setServices(data.services || [])
-    } catch (err) { console.error(err) }
-    finally { setServicesLoaded(true) }
-  }
-
   async function buyCredits(amount, payment_method) {
     try {
       // Price is derived server-side from the fixed package table; only the
@@ -109,34 +83,12 @@ export default function MemberGCMarketplace({ memberNumber }) {
 
   function closeBuyModal() { setShowBuyModal(false); setBuyPkg(null) }
 
-  async function redeemService(svc) {
-    setRedeeming(true)
-    try {
-      const result = await callApi('gc_redeem', { member_number: memberNumber, service_id: svc.id })
-      setBalance(result.balance)
-      showBanner(`Successfully redeemed ${svc.name} for ${svc.credit_cost} ${svc.credit_cost === 1 ? 'credit' : 'credits'}.`)
-      loadDashboard()
-    } catch (err) { showBanner('Error: ' + err.message) }
-    setRedeeming(false)
-    setConfirmService(null)
-  }
-
   function showBanner(msg) { setBanner(msg); setTimeout(() => setBanner(''), 5000) }
-  function toggleDetails(id) { setOpenDetails(p => ({ ...p, [id]: !p[id] })) }
 
   const subTabStyle = (active) => ({
     padding: '7px 16px', background: active ? '#125ecc' : 'transparent', border: 'none', borderRadius: '999px', boxShadow: active ? '0 2px 8px rgba(18,94,204,0.28)' : 'none', color: active ? '#ffffff' : 'var(--vfo-muted)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', marginRight: '4px'
   })
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
-
-  const categories = []
-  const catMap = {}
-  services.forEach(svc => {
-    const cat = svc.category || 'Other Services'
-    if (!catMap[cat]) { catMap[cat] = []; categories.push(cat) }
-    catMap[cat].push(svc)
-  })
-  categories.sort((a, b) => a === 'Other Services' ? 1 : b === 'Other Services' ? -1 : 0)
 
   return (
     <div>
@@ -230,144 +182,22 @@ export default function MemberGCMarketplace({ memberNumber }) {
         </>
       )}
 
-      {/* Services */}
-      {gcTab === 'services' && (
-        <>
-          {banner && <div style={{ background: 'rgba(27,146,84,0.15)', border: '1px solid rgba(27,146,84,0.4)', color: '#1b9254', fontWeight: 500, padding: '14px 20px', borderRadius: '10px', fontSize: '14px', marginBottom: '20px', textAlign: 'left' }}>{banner}</div>}
-          {!servicesLoaded && Array.from({ length: 2 }).map((_, ci) => (
-            <div key={ci} style={sectionStyle}>
-              <Skeleton width={150} height={12} style={{ marginBottom: '18px' }} />
-              {Array.from({ length: 4 }).map((_, ri) => (
-                <div key={ri} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '14px', borderBottom: '1px solid var(--vfo-border-soft)', marginBottom: '14px' }}>
-                  <Skeleton width="42%" height={14} />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Skeleton width={28} height={14} />
-                    <Skeleton width={72} height={30} style={{ borderRadius: '6px' }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-          {servicesLoaded && categories.map(cat => (
-            <div key={cat} style={sectionStyle}>
-              <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>{cat}</div>
-              {catMap[cat].map(svc => (
-                <div key={svc.id} style={{ paddingBottom: '14px', borderBottom: '1px solid var(--vfo-border-soft)', marginBottom: '14px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ color: 'var(--vfo-ink)', fontSize: '14px', textAlign: 'left' }}>{svc.name}</span>
-                      {svc.description && (
-                        <button onClick={() => toggleDetails(svc.id)}
-                          style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                          {openDetails[svc.id] ? 'Hide' : 'Details'}
-                        </button>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                      <span style={{ color: 'var(--vfo-ink)', fontWeight: '700' }}>{svc.credit_cost}</span>
-                      <span style={{ color: 'var(--vfo-muted)', fontSize: '11px' }}>credits</span>
-                      {balance !== null && balance < svc.credit_cost ? (
-                        <button onClick={() => setConfirmService(svc)} title="Not enough credits"
-                          style={{ padding: '6px 18px', borderRadius: '6px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-mid)', color: 'var(--vfo-muted)', fontSize: '12px', cursor: 'pointer' }}>Redeem</button>
-                      ) : (
-                        <button onClick={() => setConfirmService(svc)} style={{ padding: '6px 18px', borderRadius: '6px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '12px', cursor: 'pointer' }}>Redeem</button>
-                      )}
-                    </div>
-                  </div>
-                  {openDetails[svc.id] && (
-                    <div style={{ marginTop: '12px', padding: '16px', background: 'var(--vfo-tint)', borderRadius: '8px', textAlign: 'left' }}
-                      dangerouslySetInnerHTML={{ __html: formatServiceDetails(svc.description) }} />
-                  )}
-                </div>
-              ))}
-            </div>
-          ))}
-        </>
-      )}
+      {/* Services — shared with the admin per-member GC tab. Kept mounted so
+          the loaded catalogue and open Details survive a tab switch, exactly as
+          when this markup lived here. */}
+      <GCServicesView
+        active={gcTab === 'services'}
+        memberNumber={memberNumber}
+        balance={balance}
+        banner={banner}
+        showBanner={showBanner}
+        onBalanceChange={setBalance}
+        onRedeemed={loadDashboard}
+        onBuyCredits={() => { setGcTab('dashboard'); setBuyPkg(null); setShowBuyModal(true) }}
+      />
 
       {/* History */}
-      {gcTab === 'history' && (
-        <div style={sectionStyle}>
-          <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Transaction History</div>
-          {transactions === null
-            ? Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
-                <div style={{ flex: 1, textAlign: 'left' }}>
-                  <Skeleton width={160} height={14} />
-                  <Skeleton width={90} height={11} style={{ marginTop: '4px' }} />
-                </div>
-                <Skeleton width={70} height={20} style={{ borderRadius: '6px' }} />
-              </div>
-            ))
-            : transactions.length === 0
-            ? <p style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>No transactions yet.</p>
-            : transactions.map(tx => (
-              <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
-                <div style={{ flex: 1, textAlign: 'left' }}>
-                  <div style={{ color: 'var(--vfo-ink)', fontSize: '14px' }}>{tx.description || tx.type}</div>
-                  <div style={{ color: 'var(--vfo-muted)', fontSize: '12px', marginTop: '2px' }}>{new Date(tx.created_at).toLocaleDateString()}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  {tx.type === 'purchased'
-                    ? <span style={{ background: 'rgba(27,146,84,0.2)', color: '#1b9254', padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>purchased</span>
-                    : tx.type === 'refunded'
-                    ? <span style={{ background: 'rgba(0,149,255,0.2)', color: '#0095ff', padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>refunded</span>
-                    : <span style={{ background: 'rgba(231,76,60,0.2)', color: '#d93025', padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>redeemed</span>
-                  }
-                  <span style={{ color: tx.amount > 0 ? '#1b9254' : '#d93025', fontWeight: '600', minWidth: '50px', textAlign: 'right' }}>{tx.amount > 0 ? '+' : ''}{tx.amount}</span>
-                  <span style={{ color: 'var(--vfo-muted)', fontSize: '12px', minWidth: '40px', textAlign: 'right' }}>{tx.balance_after}</span>
-                </div>
-              </div>
-            ))
-          }
-        </div>
-      )}
-
-      {confirmService && (
-        <div onClick={() => { if (!redeeming) setConfirmService(null) }}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(9,14,26,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: '0 18px 50px rgba(9,14,26,0.35)', padding: '26px 28px', maxWidth: '420px', width: '100%', textAlign: 'left' }}>
-            {balance !== null && balance < confirmService.credit_cost ? (
-              <>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--vfo-heading)', marginBottom: '10px' }}>Not enough credits</div>
-                <p style={{ fontSize: '14px', color: 'var(--vfo-ink)', margin: '0 0 6px', lineHeight: 1.5 }}>
-                  <strong>{confirmService.name}</strong> requires <strong>{confirmService.credit_cost} {confirmService.credit_cost === 1 ? 'credit' : 'credits'}</strong> and you currently have <strong>{balance}</strong>.
-                </p>
-                <p style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', margin: '0 0 18px' }}>
-                  You need {confirmService.credit_cost - balance} more {confirmService.credit_cost - balance === 1 ? 'credit' : 'credits'} to redeem this service.
-                </p>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                  <button onClick={() => setConfirmService(null)}
-                    style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Close</button>
-                  <button onClick={() => { setConfirmService(null); setGcTab('dashboard'); setBuyPkg(null); setShowBuyModal(true) }}
-                    style={{ padding: '8px 22px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Buy credits</button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--vfo-heading)', marginBottom: '10px' }}>Redeem service</div>
-                <p style={{ fontSize: '14px', color: 'var(--vfo-ink)', margin: '0 0 6px', lineHeight: 1.5 }}>
-                  Redeem <strong>{confirmService.name}</strong> for <strong>{confirmService.credit_cost} {confirmService.credit_cost === 1 ? 'credit' : 'credits'}</strong>?
-                </p>
-                {balance !== null && (
-                  <p style={{ fontSize: '12.5px', color: 'var(--vfo-muted)', margin: '0 0 18px' }}>
-                    Balance after: {balance - confirmService.credit_cost} {balance - confirmService.credit_cost === 1 ? 'credit' : 'credits'}
-                  </p>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: balance === null ? '18px' : 0 }}>
-                  <button onClick={() => setConfirmService(null)} disabled={redeeming}
-                    style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: redeeming ? 'default' : 'pointer', opacity: redeeming ? 0.6 : 1 }}>Cancel</button>
-                  <button onClick={() => redeemService(confirmService)} disabled={redeeming}
-                    style={{ padding: '8px 22px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: redeeming ? 'default' : 'pointer', opacity: redeeming ? 0.7 : 1 }}>
-                    {redeeming ? 'Redeeming…' : 'Confirm redemption'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      {gcTab === 'history' && <GCTransactionHistory transactions={transactions} />}
     </div>
   )
 }
