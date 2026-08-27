@@ -261,7 +261,7 @@ description: "MAP 1 Revenue Share - Client: (<client_ref>) <Client Name> - Membe
 > **Memo convention (2026-07-15):** every Stripe money movement carries a human-readable memo — Checkout sessions put it in BOTH the line-item product name (client-visible) and `payment_intent_data.description` (dashboard); off-session PaymentIntents and Connect transfers use `description`. Formats per pipeline are itemized in the payment-memo session entry in [SESSION_REFERENCE.md](../SESSION_REFERENCE.md).
 
 This requires:
-- A Stripe Connect account configured for each member (`members.stripe_account_id` populated).
+- A Stripe Connect account configured for each member (`members.stripe_account_id` populated). **Since 2026-08-27 that id is not necessarily the member's OWN** — a Corporate Member may be paid into their lead member's account by a straight copy of the id, marked by `members.stripe_account_linked_from`; the engines are unchanged and neither know nor care (gotcha #454, section below).
 - The platform's Stripe account (the `STRIPE_SECRET_KEY` holder) to have sufficient balance for the transfer.
 
 The handler **only transfers** if:
@@ -292,6 +292,24 @@ Stripe account-onboarding links (`connect.stripe.com/setup/...`) are **single-us
 - `utils/specialist-revenue-payout.ts` — the automatic SPECREV "awaiting connect" setup email minted when a payout line finds `transfers !== 'active'` (gotcha #159). **NARROWED 2026-08-24:** a **member** line with **no `stripe_account_id` at all** now mints **nothing** — no Express account, no account link, no email — because the durable `/payout-setup?token=` page 404s for a member with no account, so there would be no working link to send. That line parks `awaiting_connect` (without `email_drafted_at`) and raises the action-required `SPECREV_member_share_held` bell telling an admin to run the member's own "Set Up Payment Details" flow. **Expert lines, and members who already have a half-built account, keep the mint-and-email path unchanged** — that link works.
 
 **Any NEW account-link mint must do the same** — grep `v1/account_links` before adding one. The fix is forward-only: accounts already onboarded through an old currently_due-only link keep their cap until someone resends them a setup email. Those are exactly the accounts the member-profile status dot now renders **orange** (`eligible_capped` — "payouts eligible to $3,000"), which is how you find them; see the Connect-status read below.
+
+### A Corporate Member can BORROW their lead member's Connect account (2026-08-27, v796, gotcha #454)
+
+A Corporate Member (`58147-C1`) has no Connect account of their own, and their rev-share belongs in their **LEAD** member's account (`58147`). Since 2026-08-27 an admin can wire that up from the member profile — and **the mechanism is a COPY, which is the single most important thing to know before reading `members.stripe_account_id` anywhere:**
+
+> **`member_stripe_link_lead` writes the LEAD's `stripe_account_id` onto the corporate member's row.** `members.stripe_account_linked_from` records whose account it is. **Nothing resolves through that marker column** — all four payout engines (`actions/pipeline/contract-revshare.ts`, `actions/tax/revshare.ts`, `actions/msm/pip-revshare.ts`, `utils/specialist-revenue-payout.ts`) still read `stripe_account_id` directly as the transfer `destination`, and **not one of them changed. The copy IS the routing.**
+
+**The action** (`actions/members/stripe-link-lead.ts`, AUTH + `ADMIN_ONLY_ACTIONS`, body `{ member_number, unlink?: true }`) resolves the lead **server-side** from the member row — `connected_member_number` when non-empty, else the member-number prefix (see [tables/members.md](../tables/members.md)) — because a lead id taken from the body would let a caller point any member's payouts at any account. It refuses a non-corporate `member_type`, an unresolvable or non-existent lead, a lead with **no** Stripe account, an `unlink` when nothing is linked, and — critically — a member who already has an account of their **own** (`stripe_account_id` set with no marker), which it will not clobber. `unlink` clears **both** columns.
+
+**Three surfaces had to be gated, because they read `stripe_account_id` meaning *"this member's own account"* rather than *"where the money goes"*.** Two of them are writes into a third party's Stripe account and one is a read leak; a bare copy would have opened all three silently:
+
+| Surface | Without the guard | With it |
+|---|---|---|
+| `actions/members/stripe-connect-request.ts` | The setup email hands the corporate member an **onboarding link into the LEAD's Stripe account** — they could submit or change the lead's banking details. | **400**, naming the lead, before any Stripe call or mail side effect. |
+| `actions/payouts/connect-setup-link.ts` (PUBLIC `/payout-setup?token=`) | The same hole, reached through a **durable token already sitting in an inbox** — guarding only the admin button leaves this open. | The **generic 404** (`genericInvalid`), reason logged server-side, never leaked to the page. |
+| `actions/payments/member-payments-load.ts` | The payout list is `GET /v1/transfers?destination=`, so the tab shows **the lead's entire payout history and every sibling corporate member's**. | Stripe is never called; the response carries `payouts_linked_to: { member_number, name }` and the FE renders a note in place of the table. |
+
+**Any NEW surface that reads `members.stripe_account_id` must decide which of the two meanings it wants** — grep `stripe_account_linked_from` and follow the pattern. The status dot (below) deliberately keeps reading the borrowed account and simply labels it: the pill is suffixed *"— \<Lead\>'s account"*, because the account's readiness genuinely is what governs whether the transfer lands.
 
 ### Member Connect status is read live, and it is the only surface that is (2026-08-03, gotcha #318)
 

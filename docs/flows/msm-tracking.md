@@ -49,7 +49,7 @@ The 32 `msm_*` actions fall into 5 subsystems. Each is a small CRUD island — n
 
 | Action | Tables | Notes |
 |---|---|---|
-| `msm_load_clients` | `clients`, `client_enrollments` | Joins clients to enrollment. |
+| `msm_load_clients` | `clients`, `client_enrollments` | Joins clients to enrollment. **IDOR fixed 2026-08-27 / v796 — `denyIfNotOwnEnrollment` now runs first; see the member-side note below (#455).** |
 | `msm_load_member_clients` | `clients` | All clients for a member, regardless of enrollment. |
 | `msm_add_client` | inserts `clients` + optional `client_contacts` + `client_enrollments` | Creates a new client tied to an enrollment. |
 | `msm_link_existing_client` | inserts `client_enrollments` | Links existing client to a new enrollment. |
@@ -86,10 +86,20 @@ msm_load_training_progress, msm_load_training_track,
 load_exclusions, load_member_contacts
 ```
 
+> **⚠️ That list is NOT an ownership guard, and two of its entries were an IDOR until 2026-08-27 / v796 (gotcha #455).** `MEMBER_SCOPED_ACTIONS` does exactly one thing — overwrite `body.member_number`. **`msm_load_clients` and `msm_load_training_progress` never read `member_number`:** they key on `body.enrollment_id`, and `msm_load_clients` returned whole `clients.*` rows (names, emails, phones). Enrollment ids are sequential integers, so any logged-in member could enumerate any other member's entire client list by incrementing one. Both now call **`denyIfNotOwnEnrollment`** as their first statement (`dispatch.ts` passes `c.auth`). `msm_load_training_track` was checked and needs nothing — it keys on `program_id` and returns shared curriculum templates. **Before trusting any entry above, read the handler and name the body field it filters on; if it is not `member_number`, it needs its own guard.** Fixed code-only — never exercised with a forged id.
+
 **Adding clients is member-allowed (v337).** `msm_add_client` (the member-side "+ Add Client" on Holistic / Tax / Partnership Fast Track — on Partnership the "clients" are accountants, same action with an `-PFT` ref) and `msm_add_client_contact` are in `MEMBER_SCOPED_ACTIONS`. Because the middleware only scopes `member_number` (not `enrollment_id` / `client_id`), the **handlers add their own ownership guard**: `add-client.ts` returns `403` unless `enrollment.member_number === member_number` (all callers; no-op for admins), and `add-client-contact.ts` returns `403` unless the target client belongs to the caller (member callers only). See [04-auth-and-sessions.md](../architecture/04-auth-and-sessions.md#role-gates).
 
 Other mutations are admin-only (in `ADMIN_ONLY_ACTIONS` array — `constants/role-gates.ts`). Notably:
 - `msm_save_client_task` is NOT in either list — the handler doesn't enforce role, so members could in theory write client progress for any client they know the ID of (application/UI-level ownership is the only guard). **`msm_save_training_task` was closed 2026-07-21** — it is now in `ADMIN_ONLY_ACTIONS` (the list previously carried only the dead name `msm_save_training_progress`, which matched no dispatched action, so the real training-status writer was ungated; gotcha #256).
+
+## The member's Vault tab on their own client (2026-08-27, v796)
+
+**A member drilling into one of their own clients via `ClientDetail.jsx` now gets a `Vault` tab beside Profile** — the member-portal view of the same client vault the admin/planner `ClientVaultTab` renders. `validTabsForProgram`'s member array becomes `['home','vault']`, and the tab **appears for EVERY program the member is enrolled in, not just Holistic** — deliberate, matching admin/planner behaviour.
+
+Permissions, chosen by the user: **General VIEW+ADD · Sensitive/tax-returns VIEW+ADD · ERT/VFOS Documentation VIEW ONLY.** No delete, no share, no request-documentation, no drag-to-move. `ClientVaultTab.jsx` takes a new `memberMode` prop with `MEMBER_SECTIONS` beside the renamed `ADMIN_SECTIONS`; **every added condition is `&& !memberMode`**, so admin and planner rendering is unchanged.
+
+Three new backend actions — `member_client_vault_list` / `_download` / `_upload_url` — and **their gating is the part to read before touching them:** all three are in **NO `role-gates.ts` list**, confined instead by an in-handler `denyIfNotOwnClient` as the first statement of each, with the write bucket chosen from a positive allowlist that omits `'ert'` entirely. Full reasoning in [05-api-action-catalog.md](../architecture/05-api-action-catalog.md) (*Client vault — MEMBER side*) and [04-auth-and-sessions.md](../architecture/04-auth-and-sessions.md). A member upload raises the existing `VAULT_planner_document_added` bell to Tracy + the client's assigned PF, and **deliberately does not** stamp the tax planner's assess step.
 
 ## Cross-talk with other flows
 
