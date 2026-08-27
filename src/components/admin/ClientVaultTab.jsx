@@ -32,7 +32,15 @@ const fmtSize = (n) => n == null ? '' : n < 1024 ? `${n} B` : n < 1048576 ? `${(
 // one exception granted to planners / Team Members: they may ADD to the two
 // client-owned sections, but still not delete, share or request documents. The
 // ERT/VFOS section stays admin-managed even then (adminOnlyUpload).
-export default function ClientVaultTab({ clientId, sectionStyle, specialists = [], readOnly = false, allowUpload = false, recipientName, recipientFirst }) {
+//
+// memberMode (the MEMBER portal's own client page) is a third, separate flag —
+// not a loosening of readOnly (#386). A member may VIEW all three sections and
+// ADD to General + Sensitive; Share, Delete, Request documentation and
+// drag-to-move are withheld everywhere in that surface, with no exception, and
+// the member-mode blurbs promise exactly that and nothing more. It routes every
+// call through the three member_client_vault_* actions, which are confined
+// server-side by denyIfNotOwnClient.
+export default function ClientVaultTab({ clientId, sectionStyle, specialists = [], readOnly = false, allowUpload = false, memberMode = false, recipientName, recipientFirst }) {
   const [sensitive, setSensitive] = useState([])
   const [canView, setCanView] = useState(false)
   // Strictly narrower than canView: an assigned PF may OPEN this client's tax
@@ -57,7 +65,9 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
   // the returns land rather than persisting for the whole app session.
   const [returnsPending, setReturnsPending] = useState(false)
   useEffect(() => {
-    if (readOnly || !clientId) return
+    // Members never see the Request-documentation button, so they never need
+    // this lookup — and it is one fewer portal round trip.
+    if (readOnly || memberMode || !clientId) return
     let cancelled = false
     callApi('tax_load_plans', { client_id: clientId })
       .then(res => {
@@ -69,7 +79,7 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
       // gated - the button must not break for non-tax clients.
       .catch(() => { if (!cancelled) setReturnsPending(false) })
     return () => { cancelled = true }
-  }, [clientId, readOnly])
+  }, [clientId, readOnly, memberMode])
 
   // Drag-to-move between sections (ERT managers only). dragItem holds the row
   // being dragged; dragOverKey highlights the section currently under the cursor.
@@ -91,6 +101,23 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
   // permission boundary (#386, one section short).
   async function load() {
     setLoading(true); setError('')
+    // Member mode fans ONE call into the same three pieces of state the three
+    // admin calls populate below — deliberately not three round trips, because
+    // the portal already suffers from sequential-call stacking.
+    if (memberMode) {
+      try {
+        const d = await callApi('member_client_vault_list', { client_id: clientId })
+        setSensitive(d.sensitive || []); setGeneral(d.general || []); setErt(d.ert || [])
+        setTaxDenied(false); setGenDenied(false); setErtDenied(false)
+      } catch (e) {
+        // One call, so a refusal denies all three sections together.
+        setSensitive([]); setGeneral([]); setErt([])
+        setTaxDenied(true); setGenDenied(true); setErtDenied(true)
+        setError(e.message || 'Could not load vault')
+      }
+      setLoading(false)
+      return
+    }
     const [tax, gen, ertRes] = await Promise.allSettled([
       callApi('vault_tax_list', { client_id: clientId }),
       callApi('vault_gen_list', { client_id: clientId }),
@@ -115,7 +142,11 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
   // The ERT/VFOS section is routed through the unified admin_ert_* actions
   // ({ entity, key }); the sensitive/general sections use their { client_id }
   // handlers. paramsFor picks the right shape per section.
-  const paramsFor = (sec) => sec.key === 'ert' ? { entity: 'client', key: clientId } : { client_id: clientId }
+  // Member mode has ONE handler pair for all three sections, keyed by an
+  // explicit `section` the server re-checks against a positive allowlist.
+  const paramsFor = (sec) => memberMode
+    ? { client_id: clientId, section: sec.key }
+    : sec.key === 'ert' ? { entity: 'client', key: clientId } : { client_id: clientId }
 
   async function view(sec, path) {
     try { const d = await callApi(sec.actions.download, { ...paramsFor(sec), path }); if (d.url) window.open(d.url, '_blank', 'noopener') }
@@ -206,10 +237,49 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
   // in sessionStorage, so an admin holding a pre-deploy session sees the flag as
   // undefined and gets View only until they log in again — fails CLOSED.
   const isErtManager = !!getSession()?.is_ert_manager
-  // Drag-to-move is the same two people. Never in the planner portal (readOnly).
-  const canMove = isErtManager && !readOnly
+  // Drag-to-move is the same two people. Never in the planner portal (readOnly),
+  // and never in the member portal (a member session can never carry the flag,
+  // but this surface withholds the handle unconditionally rather than relying
+  // on that).
+  const canMove = isErtManager && !readOnly && !memberMode
 
-  const SECTIONS = [
+  // Member portal view of one of the member's OWN clients. All three sections
+  // are viewable; General + Sensitive are addable; ERT/VFOS is view-only. The
+  // blurbs assert exactly this permission set and no more (#386).
+  const MEMBER_SECTIONS = [
+    {
+      key: 'sensitive', title: 'Sensitive Documents', sub: '(tax returns)', files: sensitive,
+      canManage: !taxDenied, canWrite: true, bucket: 'client-tax-returns', noShare: true,
+      blurb: taxDenied
+        ? 'Stored in a private vault. You do not have access to this client.'
+        : 'Stored in a private vault. This is where tax returns and other confidential documents belong. You can view these documents and add new ones.',
+      actions: { download: 'member_client_vault_download', upload: 'member_client_vault_upload_url' },
+    },
+    {
+      key: 'general', title: 'General Documentation', sub: '', files: general,
+      canManage: !genDenied, canWrite: true, bucket: 'client-documents', noShare: true,
+      // A JSX node, not a string: the warning sentence has to be bold and the
+      // blurb is rendered as a plain text child (never dangerouslySetInnerHTML).
+      blurb: genDenied
+        ? 'Everyday client documents. You do not have access to this client.'
+        : (
+          <>General documentation only. <strong>DO NOT UPLOAD TAX RETURNS OR SENSITIVE TAX DOCUMENTS HERE</strong> — those belong in the Sensitive Documents section above.</>
+        ),
+      actions: { download: 'member_client_vault_download', upload: 'member_client_vault_upload_url' },
+    },
+    {
+      // canWrite false, and the upload action is deliberately absent — this
+      // section is VFO-managed and the server refuses a member write to it.
+      key: 'ert', title: 'ERT/VFOS Documentation', sub: '', files: ert,
+      canManage: !ertDenied, canWrite: false, bucket: 'client-ert-docs', noShare: true,
+      blurb: ertDenied
+        ? 'VFO / ERT documentation for this client. You do not have access to this client.'
+        : 'VFO / ERT internal documentation for this client. View only — the VFO team adds and manages these.',
+      actions: { download: 'member_client_vault_download' },
+    },
+  ]
+
+  const ADMIN_SECTIONS = [
     {
       // canManage = may OPEN (the View button + the unlocked row chrome);
       // canWrite = may CHANGE (Add / Delete / Share). Same seam the ERT section
@@ -254,6 +324,8 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
     },
   ]
 
+  const SECTIONS = memberMode ? MEMBER_SECTIONS : ADMIN_SECTIONS
+
   const chipStyle = { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--vfo-ink-2)', background: '#dce7fb', border: '1px solid var(--vfo-border-mid)', borderRadius: '999px', padding: '3px 6px 3px 11px' }
 
   return (
@@ -283,7 +355,7 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
           <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>{sec.title} {sec.sub && <span style={{ textTransform: 'none', fontSize: '12px' }}>{sec.sub}</span>}</div>
           <p style={{ fontSize: '12px', color: 'var(--vfo-muted)', marginBottom: '16px' }}>{sec.blurb}</p>
 
-          {sec.canRequestDocs && sec.canManage && !readOnly && (
+          {sec.canRequestDocs && sec.canManage && !readOnly && !memberMode && (
             sec.key === 'sensitive' && returnsPending ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
                 <LockedIcon />
@@ -318,8 +390,8 @@ export default function ClientVaultTab({ clientId, sectionStyle, specialists = [
                       {sec.canManage ? (
                         <>
                           <button onClick={() => view(sec, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>View</button>
-                          {!readOnly && !sec.noShare && sec.canWrite !== false && <button onClick={() => toggleShare(sec.bucket, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(18,94,204,0.4)', background: open ? 'rgba(18,94,204,0.22)' : 'rgba(18,94,204,0.1)', color: '#125ecc', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>Share</button>}
-                          {!readOnly && sec.canWrite !== false && <button onClick={() => remove(sec, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>Delete</button>}
+                          {!readOnly && !memberMode && !sec.noShare && sec.canWrite !== false && <button onClick={() => toggleShare(sec.bucket, f.path)} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '6px', border: '1px solid rgba(18,94,204,0.4)', background: open ? 'rgba(18,94,204,0.22)' : 'rgba(18,94,204,0.1)', color: '#125ecc', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>Share</button>}
+                          {!readOnly && !memberMode && sec.canWrite !== false && <button onClick={() => remove(sec, f.path)} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.1)', color: '#e74c3c', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>Delete</button>}
                         </>
                       ) : (
                         <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', fontStyle: 'italic', flexShrink: 0 }}>locked</span>

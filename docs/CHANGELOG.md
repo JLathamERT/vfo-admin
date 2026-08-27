@@ -8,6 +8,54 @@
 
 ---
 
+## 2026-08-27 — Corporate Member lead in the header, a borrowed Stripe Connect account, a member Vault tab — and an IDOR found on the way past
+
+**Three user-requested edits and one security fix, one chat, shipped as `vfo-admin-api` v796 with ONE migration (`20260827140000_member_stripe_linked_from.sql`, applied to prod BEFORE the deploy). Action count 473 → 477 (+1 members, +3 vault). `boldsign-webhook` untouched, still v40. The four revenue-share payout engines, `router/webhooks.ts`, and every existing `vault_gen_*` / `vault_tax_*` / `admin_ert_*` action were deliberately NOT touched.**
+
+### Feature A — a Corporate Member's identity line names their lead member (frontend only)
+
+A corporate member's profile header read `58147-C1 · Corporate Member · Active` — the suffix was the only clue whose corporate member they were. It now reads `58147-C1 · Corporate Member - Sterling Hirsch · Active`, on **both** the admin profile and the member's own portal profile (the user asked for both).
+
+The lead is derived from the **member-number prefix** (`58147-C1` → `58147`), in the new shared `src/components/shared/corporateMember.js` (`CORPORATE_TYPES`, `isCorporateMember`, `leadMemberNumberOf`, `findLeadMember`). `members.connected_member_number` carries the same relationship and is preferred when non-empty, but the 2026-07-31 `member_connections` migration left it populated on only **3 of 40** corporate rows (#312) — the prefix resolves for **100% of the 40**, live-verified, and the 3 always agree. Three corporate types exist (`Corporate Member`, `Free Corporate Member`, `Free Corporate Member (Legacy)`; suffixes `-C<n>`, `-FC<n>`, `-FCL<n>`), and the helper tolerates both key spellings — admin roster rows carry `plugin_member_number`, the `load_data` blob aliases the same value to `member_number`.
+
+`MembersPanel.jsx` renders it through `MemberNameLink` (an admin-only route) and dropped its local `CORPORATE_TYPES` const for the shared helper. `MemberPortal.jsx` renders the same line as **plain text**, because that link goes to `/admin`. **No backend field was needed:** the full roster was already fetched and discarded in `loadData` — it is now kept in state and passed to `MemberProfile`.
+
+### Feature B — "Link to Lead Member's Stripe Connect" (backend + migration + frontend)
+
+A corporate member with no Connect account of their own can have their rev-share paid into their **lead member's** account. **The mechanism is a COPY, and this is the load-bearing sentence: the lead's `stripe_account_id` is written onto the corporate member's row.** All four payout engines (`actions/pipeline/contract-revshare.ts:212`, `actions/tax/revshare.ts:227`, `actions/msm/pip-revshare.ts:114`, `utils/specialist-revenue-payout.ts:392`) read `members.stripe_account_id` directly as the Stripe transfer `destination`; **none of them changed** — the copy IS the routing. The new `members.stripe_account_linked_from` (nullable text, no FK) is a **MARKER only**, naming whose account it is.
+
+New action **`member_stripe_link_lead`** (`actions/members/stripe-link-lead.ts`, `ADMIN_ONLY_ACTIONS`), body `{ member_number, unlink?: true }`. The lead is resolved **server-side** from the member row — a lead id from the body would let a caller point any member's payouts at any account. It refuses: a non-corporate member type; an unresolvable lead; a lead that does not exist; a lead with no Stripe account; an **unlink when nothing is linked**; and a member who already has an account of their OWN (`stripe_account_id` set with no marker) — it will not clobber a real account id.
+
+**The three guards are the reason this was built as link-and-guard rather than a bare copy** (gotcha #454). Each closes a hole the copy opens, because `stripe_account_id` is read by surfaces that mean *"this member's own account"*:
+
+1. `actions/members/stripe-connect-request.ts` — **400s** for a linked member, naming the lead. Without it the setup email hands the corporate member an onboarding link **into the lead's Stripe account**.
+2. `actions/payouts/connect-setup-link.ts` — the PUBLIC `/payout-setup?token=` page returns its **generic 404** for a linked member (reason logged, never leaked). Same hole, reached through a **durable token already sitting in an inbox** — closing only the admin button would have left it open.
+3. `actions/payments/member-payments-load.ts` — skips the Stripe transfers-by-`destination` listing entirely and returns `payouts_linked_to: { member_number, name }`. Without it a linked member's Payments tab shows **the lead's whole payout history and every sibling corporate member's**.
+
+Frontend: `MembersPanel.jsx` — a *"Borrowed Stripe Account"* label on the Details tab reading *"Payouts go to \<Lead\> (\<number\>)'s Stripe account"*, an Unlink with a confirm, the Link button beside the existing setup-email button (disabled with a tooltip when the lead has no account), the live status pill suffixed *"— \<Lead\>'s account"*, and the Settings tab showing the disclosure **instead of** the setup buttons. `MemberPaymentsTab.jsx` shows a note in place of the empty payout table.
+
+### Feature C — a member Vault tab on their own client (backend + frontend, security-sensitive)
+
+A member in the member portal (MSM → program → their client) now gets a **Vault** tab beside Profile. Permissions, chosen by the user (and amended mid-build — tax returns started view-only and became view+add): **General VIEW+ADD · Sensitive/tax-returns VIEW+ADD · ERT/VFOS VIEW ONLY.** No delete, no share, no request-documentation, no drag-to-move.
+
+Three new actions — `member_client_vault_list`, `member_client_vault_download`, `member_client_vault_upload_url` (`actions/vault/member-client-vault-*.ts` + a shared file) — and **the gating is the interesting part.** None is in `ADMIN_ONLY_ACTIONS` (that would 403 the surface they exist for) and **none is in `MEMBER_SCOPED_ACTIONS`**, which rewrites a `body.member_number` they never read and would therefore guard nothing (#455). Their confinement is the in-handler **`denyIfNotOwnClient`** (`utils/client-ownership.ts`), the **first statement of all three**, before any storage call — members are deny-by-**OMISSION** in `middleware/auth.ts`, so this is #309's shape, and `role-gates.ts` carries an 11-line comment naming the three actions and their guard so the next reader does not "fix" the omission.
+
+**Bucket safety:** `member-client-vault-shared.ts` holds **TWO** maps — READ (`general`/`sensitive`/`ert`) and WRITE (`general`/`sensitive` only). `'ert'` is **ABSENT** from the write map rather than present-and-rejected, so widening READ can never widen WRITE. `bucketFrom()` is a `hasOwnProperty` **positive-allowlist** lookup with **no fallback** — deliberately unlike the older `memberBucketFor`, which silently defaults an unknown section to the general bucket (#204). Paths are built server-side as `${client_id}/${token32().slice(0,16)}_${safeName}`; the body selects neither bucket nor folder. Download additionally enforces `path.startsWith(`${client_id}/`)`; signed URLs are 300s.
+
+A member upload fires the existing **`VAULT_planner_document_added`** bell through a new sibling helper `notifyMemberVaultDrop` — a sibling rather than a branch because `notifyPlannerVaultDrop` resolves a planner session first and would silently no-op for a member caller. Same rule key, same title shape, same recipients (Tracy + the client's assigned PF on their portal-login email), same fires-at-MINT-time caveat (#393). It **deliberately does NOT call `maybeStampAssessVaultUpload`**, which the admin/planner minters do: that stamp satisfies the **tax planner's** assess step for vault-assess groups, and a member dropping a file must never green a planner's step on their behalf.
+
+Frontend: `ClientDetail.jsx` (member tab strip gains Vault; `validTabsForProgram`'s member array becomes `['home','vault']`) and `ClientVaultTab.jsx` (a new `memberMode` prop, `MEMBER_SECTIONS` beside the renamed `ADMIN_SECTIONS`; **every added condition is `&& !memberMode`**, so admin/planner rendering is bit-for-bit unchanged; the section blurb now accepts a JSX node so the General warning can bold without `dangerouslySetInnerHTML`). That warning reads exactly: *"General documentation only. **DO NOT UPLOAD TAX RETURNS OR SENSITIVE TAX DOCUMENTS HERE** — those belong in the Sensitive Documents section above."*
+
+### Security fix — the `msm_load_clients` IDOR (found in passing, user approved folding it in)
+
+Found while exploring the member portal for Feature C, by no gate and no report. **`msm_load_clients` took `enrollment_id` from the body and returned whole `clients.*` rows — names, emails, phones — with no ownership check.** Being in `MEMBER_SCOPED_ACTIONS` only rewrites `body.member_number`, which it never reads. Enrollment ids are sequential integers, so **any logged-in member could enumerate any other member's entire client list by incrementing a number.** `msm_load_training_progress` had the identical shape. Both now take `auth` and call the pre-existing `denyIfNotOwnEnrollment` first, with `dispatch.ts` passing `c.auth`. `msm_load_training_track` was checked and needs nothing — it keys on `program_id` and returns shared curriculum templates. See gotcha #455. **Shipped code-only: no forged-enrollment call was ever attempted.**
+
+### Verification
+
+`deno check --no-lock` **0** · action count **477** · `npm run build` exit 0, **33** route pages · security advisor at the **exact GREEN baseline** re-run after the migration (5 deny-all INFO + the `pg_net` WARN — an `ADD COLUMN` on an existing table never changes its policies) · **smoke gate 5/5 against v796**, run by Jake. Features A, B and C were all **user-tested live**, including Feature B's disabled negative case (Greg Keiper `59151-C1`, whose lead has no account) and its refusal path, and Feature C's uploads to both writable sections and downloads from all three. The IDOR fix is the one thing on this branch with no live exercise.
+
+---
+
 ## 2026-08-27 — The ROI deck stops hard-coding "50%" and starts mirroring the revised tax fee process (template v6)
 
 **One feature in one chat, shipped as `vfo-admin-api` v795. No frontend change, no migration, no new action — the count stays at 473. Template `ROI-template-master-v6.pptx` uploaded to the `presentation-templates` bucket BEFORE the deploy, v5 retained as the rollback. `boldsign-webhook` untouched, still v40.**

@@ -74,6 +74,13 @@ export default function MemberPaymentsTab({ member }) {
           Rev-share payout history could not be loaded from Stripe: {data.payout_error}
         </div>
       )}
+      {/* Borrowed Connect account: the backend deliberately returns no payouts
+          (they belong to the lead member's account, not this member's). */}
+      {data?.payouts_linked_to && (
+        <div style={{ marginBottom: '14px', padding: '10px 14px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '10px', color: 'var(--vfo-muted)', fontSize: '12.5px' }}>
+          Rev-share payouts are paid to {data.payouts_linked_to.name} ({data.payouts_linked_to.member_number})'s Stripe account.
+        </div>
+      )}
       <PaymentsTable rows={rows} emptyText="No payments recorded for this member yet." />
     </div>
   )

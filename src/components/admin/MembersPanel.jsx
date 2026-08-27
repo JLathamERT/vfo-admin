@@ -17,6 +17,8 @@ import { MemberProfileDetailsSkeleton, Skeleton, SkeletonText } from '../shared/
 import { TrackHero, HeroAvatar, ListHeader } from '../shared/TrackKit'
 import { VisibilityBadge, noteTint } from '../shared/NoteVisibility'
 import ImageCropModal from './ImageCropModal'
+import { MemberNameLink } from '../shared/personLinks'
+import { CORPORATE_TYPES, isCorporateMember, leadMemberNumberOf, findLeadMember } from '../shared/corporateMember'
 
 // Creating advisors / accountants / strategic members is restricted to the
 // SuperAdmin (Jake) plus Tray Valdés-Dennis (tvaldes@elitert.com).
@@ -35,8 +37,6 @@ const MEMBER_TYPES = [
   'Corporate Member', 'Free Corporate Member', 'Free Corporate Member (Legacy)',
   'Financial Collaborator', 'VFO Reconciliation (Free)'
 ]
-
-const CORPORATE_TYPES = ['Corporate Member', 'Free Corporate Member', 'Free Corporate Member (Legacy)']
 
 // Detail-view tab sets. Advisors/accountants get the full set; Strategic Members
 // get a trimmed view: Profile (all sub-tabs, always shown), MSM limited to
@@ -383,6 +383,11 @@ function MemberDirectoryView({
     : displayMembers
   const filteredMembers = searched.filter(m => matchesFilter(m, filterGroups, listFilter))
 
+  // Corporate members name their lead member in the hero identity line. Falls
+  // back to the bare number when the lead is not in this roster slice.
+  const heroLeadNumber = selectedMember ? leadMemberNumberOf(selectedMember) : null
+  const heroLeadName = selectedMember ? findLeadMember(allMembers, selectedMember)?.name : null
+
   return (
     <div>
 
@@ -440,7 +445,7 @@ function MemberDirectoryView({
             meta={
               <>
                 <span style={{ fontFamily: 'monospace' }}>{selectedMember.plugin_member_number}</span>
-                {selectedMember.member_type && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span>{selectedMember.member_type}</span></>}
+                {selectedMember.member_type && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span>{selectedMember.member_type}{heroLeadNumber && <> - <MemberNameLink memberNumber={heroLeadNumber}>{heroLeadName || heroLeadNumber}</MemberNameLink></>}</span></>}
                 {selectedMember.elite_status && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: selectedMember.elite_status === 'Active' ? '#1b9254' : selectedMember.elite_status === 'Lost' ? '#e74c3c' : 'var(--vfo-faint)', flexShrink: 0 }} />{selectedMember.elite_status}</span></>}
                 {selectedMember.paused && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e06717', flexShrink: 0 }} />Paused</span></>}
                 {(selectedMember.suspended || selectedMember.membership_suspended) && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e74c3c', flexShrink: 0 }} />Suspended</span></>}
@@ -466,7 +471,7 @@ function MemberDirectoryView({
           {growthPlan && memberFeatureTab.startsWith('gp_') && <AdminGrowthPlan member={selectedMember} activeStep={memberFeatureTab} onNavigate={k => { setMemberFeatureTab(k); sessionStorage.setItem(featureTabKey, k) }} />}
           {memberFeatureTab === 'gc' && <MemberGC member={selectedMember} />}
           {memberFeatureTab === 'vault' && <MemberVault memberNumber={selectedMember.plugin_member_number} admin={true} recipientName={selectedMember.name} recipientFirst={(selectedMember.name || '').trim().split(/\s+/)[0]} />}
-          {memberFeatureTab === 'settings' && <MemberSettings member={selectedMember} onDataChange={onDataChange} />}
+          {memberFeatureTab === 'settings' && <MemberSettings member={selectedMember} allMembers={allMembers} onDataChange={onDataChange} />}
         </>
       )}
     </div>
@@ -839,6 +844,7 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
   const [showIntroducedSearch, setShowIntroducedSearch] = useState(false)
   const [programNotes, setProgramNotes] = useState([])
   const [stripeRequesting, setStripeRequesting] = useState(false)
+  const [stripeLinking, setStripeLinking] = useState(false)
   const [stripeMsg, setStripeMsg] = useState('')
   const [stripeMsgType, setStripeMsgType] = useState('success')
   const [connectStatus, setConnectStatus] = useState(null)
@@ -882,6 +888,34 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
       await loadProfile()
     } catch (err) { setStripeMsgType('error'); setStripeMsg(err.message) }
     finally { setStripeRequesting(false) }
+  }
+
+  // A Corporate Member has no Connect account of their own — their rev-share is
+  // paid into the LEAD member's account. The backend resolves the lead itself
+  // (a lead id from the client would let anyone redirect anyone's payouts) and
+  // returns a written-for-the-admin sentence on every refusal, so err.message
+  // goes straight into the message line.
+  async function linkStripeToLead() {
+    setStripeLinking(true); setStripeMsg('')
+    try {
+      const res = await callApi('member_stripe_link_lead', { member_number: member.plugin_member_number })
+      setStripeMsgType('success')
+      setStripeMsg(`Payouts now go to ${res.lead_name} (${res.lead_member_number})'s Stripe account ${res.stripe_account_id}.`)
+      await loadProfile()
+    } catch (err) { setStripeMsgType('error'); setStripeMsg(err.message) }
+    finally { setStripeLinking(false) }
+  }
+
+  async function unlinkStripeFromLead(leadLabel) {
+    if (!window.confirm(`Stop paying ${member.name} into ${leadLabel}'s Stripe account? Their rev-share will have nowhere to go until a new account is set up.`)) return
+    setStripeLinking(true); setStripeMsg('')
+    try {
+      await callApi('member_stripe_link_lead', { member_number: member.plugin_member_number, unlink: true })
+      setStripeMsgType('success')
+      setStripeMsg('Link removed. This member has no Stripe account until a new one is set up.')
+      await loadProfile()
+    } catch (err) { setStripeMsgType('error'); setStripeMsg(err.message) }
+    finally { setStripeLinking(false) }
   }
 
   useEffect(() => { loadProfile(); loadProgramNotes() }, [member.plugin_member_number])
@@ -996,6 +1030,18 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
   const introducedByMe = myNumber ? allMembers.filter(m => m.introduced_by_member_number === myNumber && !CORPORATE_TYPES.includes(m.member_type)) : []
   const connectedToMe = connectionPartners.filter(m => !CORPORATE_TYPES.includes(m.member_type))
 
+  // stripe_account_linked_from is the BORROWED marker: when it is set,
+  // stripe_account_id is the lead member's account, not this member's.
+  const linkedFrom = (profile.stripe_account_linked_from || '').trim()
+  const linkedLeadRow = linkedFrom ? allMembers.find(m => m.plugin_member_number === linkedFrom) : null
+  const linkedLeadName = linkedLeadRow?.name || linkedFrom
+  // The roster gives the disabled state immediately; the backend refusal
+  // ("<name> (<number>) has no Stripe Connect account yet…") is the backstop.
+  const canLinkToLead = isCorporateMember(member)
+  const leadRow = canLinkToLead ? findLeadMember(allMembers, member) : null
+  const leadLacksAccount = !!leadRow && !(leadRow.stripe_account_id || '').trim()
+  const leadRowName = leadRow?.name || leadMemberNumberOf(member) || 'The lead member'
+
   return (
     <div>
       
@@ -1045,29 +1091,48 @@ function MemberProfile({ member, allMembers, onDataChange, activeSection, hidden
                   </div>
                   {profile.stripe_account_id ? (
                     <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid var(--vfo-tint)' }}>
-                      <div style={fieldLabel}>Stripe Account</div>
+                      <div style={fieldLabel}>{linkedFrom ? 'Borrowed Stripe Account' : 'Stripe Account'}</div>
+                      {linkedFrom && (
+                        <div style={{ fontSize: '13px', color: 'var(--vfo-ink-2)', lineHeight: 1.5, marginTop: '7px' }}>
+                          Payouts go to <strong>{linkedLeadName} ({linkedFrom})</strong>'s Stripe account. This member has no Stripe Connect account of their own.
+                        </div>
+                      )}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '7px' }}>
                         <span style={{ fontSize: '13px', color: 'var(--vfo-ink-2)', fontFamily: 'monospace', padding: '6px 12px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '8px' }}>{profile.stripe_account_id}</span>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', fontWeight: 600, color: 'var(--vfo-ink)', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '999px', padding: '4px 12px' }}>
                           <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: connectPill.dot, flexShrink: 0 }} />
-                          {connectPill.label}
+                          {linkedFrom ? `${connectPill.label} — ${linkedLeadName}'s account` : connectPill.label}
                         </span>
                         <button type="button" onClick={() => setConnectRefresh(n => n + 1)} disabled={connectLoading}
                           style={{ background: 'none', border: 'none', padding: 0, color: '#0095ff', fontSize: '12px', fontWeight: 600, cursor: connectLoading ? 'wait' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
                           Refresh
                         </button>
+                        {linkedFrom && (
+                          <button type="button" onClick={() => unlinkStripeFromLead(linkedLeadName)} disabled={stripeLinking}
+                            style={{ padding: '5px 14px', borderRadius: '999px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '12px', fontWeight: 600, cursor: stripeLinking ? 'wait' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                            {stripeLinking ? 'Working…' : 'Unlink'}
+                          </button>
+                        )}
                       </div>
+                      {stripeMsg && <p style={{ fontSize: '12px', marginTop: '8px', color: stripeMsgType === 'success' ? '#1b9254' : '#d93025' }}>{stripeMsg}</p>}
                     </div>
                   ) : (
                     <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid var(--vfo-tint)' }}>
                       <div style={fieldLabel}>Stripe Connect</div>
-                      <div style={{ marginTop: '10px' }}>
+                      <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <button type="button" onClick={sendStripeRequest} disabled={stripeRequesting}
                           style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #125ecc', background: 'var(--vfo-card)', color: '#125ecc', fontSize: '13px', fontWeight: 600, cursor: stripeRequesting ? 'wait' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
                           {stripeRequesting ? 'Working…' : 'Send Stripe Connect setup email'}
                         </button>
-                        {stripeMsg && <p style={{ fontSize: '12px', marginTop: '8px', color: stripeMsgType === 'success' ? '#1b9254' : '#d93025' }}>{stripeMsg}</p>}
+                        {canLinkToLead && (
+                          <button type="button" onClick={linkStripeToLead} disabled={stripeLinking || leadLacksAccount}
+                            title={leadLacksAccount ? `${leadRowName} has no Stripe Connect account yet` : undefined}
+                            style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #125ecc', background: 'var(--vfo-card)', color: '#125ecc', fontSize: '13px', fontWeight: 600, cursor: leadLacksAccount ? 'not-allowed' : stripeLinking ? 'wait' : 'pointer', opacity: leadLacksAccount ? 0.5 : 1, fontFamily: 'Inter, sans-serif' }}>
+                            {stripeLinking ? 'Working…' : "Link to Lead Member's Stripe Connect"}
+                          </button>
+                        )}
                       </div>
+                      {stripeMsg && <p style={{ fontSize: '12px', marginTop: '8px', color: stripeMsgType === 'success' ? '#1b9254' : '#d93025' }}>{stripeMsg}</p>}
                     </div>
                   )}
                 </div>
@@ -1671,7 +1736,7 @@ function MemberGC({ member }) {
 
 
 
-function MemberSettings({ member, onDataChange }) {
+function MemberSettings({ member, allMembers = [], onDataChange }) {
   const [loginLoading, setLoginLoading] = useState(true)
   const [existingLogin, setExistingLogin] = useState(null)
   const [loginEmail, setLoginEmail] = useState('')
@@ -1689,8 +1754,19 @@ function MemberSettings({ member, onDataChange }) {
   const [connectStatus, setConnectStatus] = useState(null)
   const [connectLoading, setConnectLoading] = useState(true)
   const [connectRefresh, setConnectRefresh] = useState(0)
+  const [linkedFrom, setLinkedFrom] = useState('')
 
   useEffect(() => { loadLogin() }, [member.plugin_member_number])
+
+  // The borrowed-account marker lives only on the members row — the roster blob
+  // load_data returns does not carry it — so read it from the profile.
+  useEffect(() => {
+    let alive = true
+    callApi('member_profile_load', { member_number: member.plugin_member_number })
+      .then(d => { if (alive) setLinkedFrom((d?.profile?.stripe_account_linked_from || '').trim()) })
+      .catch(() => { if (alive) setLinkedFrom('') })
+    return () => { alive = false }
+  }, [member.plugin_member_number, connectRefresh])
 
   // The `member` prop comes from allMembers and goes stale the moment a send
   // creates the account, so ask Stripe rather than trusting the cached row.
@@ -1761,6 +1837,7 @@ function MemberSettings({ member, onDataChange }) {
 
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
   const inputStyle = { padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+  const linkedLeadName = (linkedFrom && allMembers.find(m => m.plugin_member_number === linkedFrom)?.name) || linkedFrom
 
   return (
     <div>
@@ -1784,6 +1861,17 @@ function MemberSettings({ member, onDataChange }) {
         <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Stripe Connect</div>
         {connectLoading ? (
           <SkeletonText lines={2} />
+        ) : linkedFrom ? (
+          // Borrowed account — the setup-email button 400s for a linked member,
+          // so it is not offered here at all.
+          <div>
+            <p style={{ color: 'var(--vfo-muted)', fontSize: '14px', margin: 0, lineHeight: 1.5 }}>
+              Payouts go to <strong style={{ color: 'var(--vfo-ink)' }}>{linkedLeadName} ({linkedFrom})</strong>'s Stripe account. This member has no Stripe Connect account of their own — manage the link on the Profile tab.
+            </p>
+            {connectStatus?.stripe_account_id && (
+              <span style={{ display: 'inline-block', marginTop: '12px', fontSize: '13px', color: 'var(--vfo-ink-2)', fontFamily: 'monospace', padding: '8px 12px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '8px' }}>{connectStatus.stripe_account_id}</span>
+            )}
+          </div>
         ) : (connectStatus && connectStatus.status !== 'none') ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '13px', color: 'var(--vfo-ink-2)', fontFamily: 'monospace', padding: '8px 12px', background: 'var(--vfo-tint)', border: '1px solid var(--vfo-border-chip)', borderRadius: '8px' }}>{connectStatus.stripe_account_id}</span>
