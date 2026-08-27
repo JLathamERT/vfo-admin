@@ -235,6 +235,18 @@ Two new `notification_rules`: `TAX_final_retainer_charge_failed` and `FAILURE_ta
 - **Accounting → Tax Planning revenue tab** pairs the two rows the same way, with the shares on the Final row.
 - **Step machine** (`utils/tax-plan-steps.ts` + its FE mirrors) marks both amend steps `applicable: false` on a legacy plan, exactly like the steps a skipped ROI meeting removes — so a legacy plan's completeness, `next_action` and warnings are untouched.
 
+## The ROI deck mirrors this process *(2026-08-27, template v6 / v795)*
+
+**Anything that changes the numbers on this page changes the client-facing ROI deck too.** `actions/tax/generate-presentation.ts` **imports `THREE_PAYMENT_THRESHOLD` and `INITIAL_RETAINER_FLAT` from `constants/tax-fee-process.ts`** rather than re-typing them, so the deck and the money can never disagree about where 2 payments become 3. Template v6 tokenised every fee label and amount on slides 24 / 27 / 28 and carries a third fee row the handler either fills (3-payment) or deletes (2-payment).
+
+Three things a future change to this process must know:
+
+- **Move `THREE_PAYMENT_THRESHOLD` or `INITIAL_RETAINER_FLAT` and the deck follows automatically** — that is the point of the import. Do not add a second copy anywhere.
+- **The deck reads the ASSESS FEE, never a column.** It is generated on *"Tax 2 - Deeper Dive"*, upstream of every write on this page — `fee_process_version`, `initial_retainer_amount` and `final_retainer_amount` are all stamped at the Tax 3 decision, so at generation time `isThreePaymentPlan()` would answer false on every plan.
+- **The deck always quotes the FLAT $15,000 initial retainer.** [The custom initial retainer](#the-custom-initial-retainer) is deliberately **not** wired into it (user decision, 2026-08-27): an allowlisted client's deck shows the standard figure, and they see their real numbers on the agreement and the invoice. If that ever needs to change, the deck must first gain a way to know the custom quote exists — which today it does not, because the quote is taken downstream of it.
+
+Detail: [flows/tax-planning.md](tax-planning.md) → *"THE FEE MODE"*, and `scripts/roi-presentation/README.md` in the EDGE repo.
+
 ## What this did NOT change
 
 - **Legacy plans.** No column, no validation, no step, no email.
