@@ -22,6 +22,9 @@ function formatServiceDetails(description) {
 
 const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
 const bannerStyle = { background: 'rgba(27,146,84,0.15)', border: '1px solid rgba(27,146,84,0.4)', color: '#1b9254', fontWeight: 500, padding: '14px 20px', borderRadius: '10px', fontSize: '14px', marginBottom: '20px', textAlign: 'left' }
+// The hosts funnel failures through showBanner('Error: ...'), so the prefix is
+// the discriminator the historical single green banner never had.
+const errorBannerStyle = { ...bannerStyle, background: 'rgba(217,48,37,0.12)', border: '1px solid rgba(217,48,37,0.35)', color: '#d93025' }
 
 const INTERVAL_NOUN = { monthly: 'month', yearly: 'year' }
 const isRecurring = (svc) => !!INTERVAL_NOUN[svc?.billing_interval]
@@ -175,7 +178,7 @@ export function GCServicesView({
 
   return (
     <>
-      {banner && <div style={bannerStyle}>{banner}</div>}
+      {banner && <div style={banner.startsWith('Error') ? errorBannerStyle : bannerStyle}>{banner}</div>}
       {!servicesLoaded && Array.from({ length: 2 }).map((_, ci) => (
         <div key={ci} style={sectionStyle}>
           <Skeleton width={150} height={12} style={{ marginBottom: '18px' }} />
