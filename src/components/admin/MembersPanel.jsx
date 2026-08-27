@@ -19,6 +19,7 @@ import { VisibilityBadge, noteTint } from '../shared/NoteVisibility'
 import ImageCropModal from './ImageCropModal'
 import { MemberNameLink } from '../shared/personLinks'
 import { CORPORATE_TYPES, isCorporateMember, leadMemberNumberOf, findLeadMember } from '../shared/corporateMember'
+import { GCServicesView, GCTransactionHistory } from '../shared/GCMarketplaceViews'
 
 // Creating advisors / accountants / strategic members is restricted to the
 // SuperAdmin (Jake) plus Tray Valdés-Dennis (tvaldes@elitert.com).
@@ -1612,6 +1613,9 @@ function MemberSpecialists({ member, allExperts, allExclusionMap, ecoMap = {}, o
   )
 }
 
+// Admin-side view of one member's Growth Credits. Services and History are the
+// member's own views (shared components) so the two can never drift; Dashboard
+// stays admin-only (balance, stats, Add Credits).
 function MemberGC({ member }) {
   const [gcTab, setGcTab] = useState('dashboard')
   const [balance, setBalance] = useState(null)
@@ -1621,6 +1625,7 @@ function MemberGC({ member }) {
   const [addDesc, setAddDesc] = useState('')
   const [status, setStatus] = useState('')
   const [statusType, setStatusType] = useState('success')
+  const [banner, setBanner] = useState('')
 
   useEffect(() => { loadGC() }, [member.plugin_member_number])
 
@@ -1636,6 +1641,8 @@ function MemberGC({ member }) {
       setRedemptions(red.redemptions || [])
     } catch (err) { console.error(err) }
   }
+
+  function showBanner(msg) { setBanner(msg); setTimeout(() => setBanner(''), 5000) }
 
   async function addCredits() {
     if (!addAmount) return
@@ -1655,8 +1662,9 @@ function MemberGC({ member }) {
   return (
     <div>
       <div style={{ display: 'flex', borderBottom: '1px solid var(--vfo-border)', marginBottom: '24px' }}>
-        <button style={subTabStyle(gcTab === 'dashboard')} onClick={() => setGcTab('dashboard')}>Dashboard</button>
-        <button style={subTabStyle(gcTab === 'details')} onClick={() => setGcTab('details')}>Member Details</button>
+        {[['dashboard', 'Dashboard'], ['services', 'Services'], ['history', 'History']].map(([key, label]) => (
+          <button key={key} style={subTabStyle(gcTab === key)} onClick={() => setGcTab(key)}>{label}</button>
+        ))}
       </div>
       {gcTab === 'dashboard' && (
         <>
@@ -1690,46 +1698,20 @@ function MemberGC({ member }) {
           </div>
         </>
       )}
-      {gcTab === 'details' && (
-        <>
-          <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Transaction History</div>
-            {transactions === null
-              ? Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
-                  <div style={{ textAlign: 'left' }}><Skeleton width={140} height={14} /><Skeleton width={70} height={11} style={{ marginLeft: '8px' }} /></div>
-                  <Skeleton width={40} height={14} />
-                </div>
-              ))
-              : transactions.length === 0
-              ? <p style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>No transactions yet.</p>
-              : transactions.map(t => (
-              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
-                <div style={{ textAlign: 'left' }}><span style={{ fontSize: '13px', color: 'var(--vfo-ink)' }}>{t.description}</span><span style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginLeft: '8px' }}>{new Date(t.created_at).toLocaleDateString()}</span></div>
-                <span style={{ color: t.amount > 0 ? '#1b9254' : '#e74c3c', fontWeight: '600', fontSize: '14px' }}>{t.amount > 0 ? '+' : ''}{t.amount}</span>
-              </div>
-            ))}
-          </div>
-          <div style={sectionStyle}>
-            <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Redemption History</div>
-            {redemptions === null
-              ? Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
-                  <div style={{ textAlign: 'left' }}><Skeleton width={140} height={14} /><Skeleton width={70} height={11} style={{ marginLeft: '8px' }} /></div>
-                  <Skeleton width={40} height={14} />
-                </div>
-              ))
-              : redemptions.length === 0
-              ? <p style={{ color: 'var(--vfo-muted)', fontSize: '14px' }}>No redemptions yet.</p>
-              : redemptions.map(r => (
-              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--vfo-tint)' }}>
-                <div style={{ textAlign: 'left' }}><span style={{ fontSize: '13px', color: 'var(--vfo-ink)' }}>{r.service_name || 'Service'}</span><span style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginLeft: '8px' }}>{new Date(r.created_at).toLocaleDateString()}</span></div>
-                <span style={{ color: '#e74c3c', fontWeight: '600', fontSize: '14px' }}>-{r.credits}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      {/* Kept mounted so the catalogue and open Details survive a tab switch.
+          Every gc_* call inside is passed this member's number explicitly —
+          admins are not member-scoped by the backend. */}
+      <GCServicesView
+        active={gcTab === 'services'}
+        adminMode
+        memberNumber={member.plugin_member_number}
+        balance={balance}
+        banner={banner}
+        showBanner={showBanner}
+        onBalanceChange={setBalance}
+        onRedeemed={loadGC}
+      />
+      {gcTab === 'history' && <GCTransactionHistory transactions={transactions} />}
     </div>
   )
 }

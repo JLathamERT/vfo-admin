@@ -23,6 +23,14 @@ const BLUE = '#125ecc'
 // Sentinel option value — never a real category, so it cannot collide with one.
 const ADD_NEW_CATEGORY = '__add_new_category__'
 
+// A recurring service deducts its credit cost again every month/year until the
+// member cancels; one_time is the historical (and default) behaviour.
+const FREQUENCIES = [
+  { value: 'one_time', label: '1 time' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'yearly', label: 'Yearly' },
+]
+
 // Category picker: the categories already in use, plus an escape hatch that
 // swaps the select for a free-text box. Clearing that box and leaving it (or
 // hitting the cancel affordance) returns to the list, so a mis-click is
@@ -79,7 +87,7 @@ export default function GrowthCreditsPanel() {
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(null)
-  const [adding, setAdding] = useState({ name: '', description: '', category: '', credit_cost: '', allocated_admin_email: '', scheduling_link: '' })
+  const [adding, setAdding] = useState({ name: '', description: '', category: '', billing_interval: 'one_time', credit_cost: '', allocated_admin_email: '', scheduling_link: '' })
 
   useEffect(() => { load() }, [])
 
@@ -112,6 +120,7 @@ export default function GrowthCreditsPanel() {
         name: pick('name'),
         description: pick('description'),
         category: pick('category'),
+        billing_interval: pick('billing_interval') || 'one_time',
         credit_cost: pick('credit_cost'),
         active: pick('active'),
         allocated_admin_email: pick('allocated_admin_email') || null,
@@ -150,11 +159,12 @@ export default function GrowthCreditsPanel() {
         name: adding.name,
         description: adding.description.trim() || null,
         category: adding.category.trim() || null,
+        billing_interval: adding.billing_interval,
         credit_cost: parseInt(adding.credit_cost, 10),
         allocated_admin_email: adding.allocated_admin_email || null,
         scheduling_link: adding.scheduling_link || null,
       })
-      setAdding({ name: '', description: '', category: '', credit_cost: '', allocated_admin_email: '', scheduling_link: '' })
+      setAdding({ name: '', description: '', category: '', billing_interval: 'one_time', credit_cost: '', allocated_admin_email: '', scheduling_link: '' })
       flash('Service added.')
       await load()
     } catch (e) {
@@ -170,7 +180,7 @@ export default function GrowthCreditsPanel() {
   const input = { padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', width: '100%', boxSizing: 'border-box' }
   // Same tokens as `input`, but drag-to-grow vertically for long copy.
   const descBox = { ...input, fontSize: '11.5px', lineHeight: 1.45, resize: 'vertical', minHeight: '40px' }
-  const cols = '1.5fr 0.85fr 1.05fr 1.15fr 84px 56px 70px 82px'
+  const cols = '1.5fr 0.8fr 1fr 1.05fr 96px 84px 56px 70px 82px'
 
   // Every category already in use, for the pickers. Sourced from the loaded
   // rows (the panel always loads include_inactive, so nothing is missed) —
@@ -215,11 +225,11 @@ export default function GrowthCreditsPanel() {
 
       <div style={card}>
         <div style={cardTitle}>Services</div>
-        {loading && <TableSkeleton cols={[2, 1, 1, 1, 1, 1, 1]} rows={3} />}
+        {loading && <TableSkeleton cols={[2, 1, 1, 1, 1, 1, 1, 1]} rows={3} />}
         {!loading && !error && (
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '10px', padding: '8px 4px', fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--vfo-muted)', borderBottom: '1px solid var(--vfo-border-soft)' }}>
-              <span>Name / Description</span><span>Category</span><span>Team Member</span><span>Scheduling Link</span><span style={{ textAlign: 'right' }}>Credit Cost</span><span style={{ textAlign: 'center' }}>Active</span><span /><span />
+              <span>Name / Description</span><span>Category</span><span>Team Member</span><span>Scheduling Link</span><span>Frequency</span><span style={{ textAlign: 'right' }}>Credit Cost</span><span style={{ textAlign: 'center' }}>Active</span><span /><span />
             </div>
             {services.length === 0 && (
               <div style={{ textAlign: 'center', padding: '28px', color: 'var(--vfo-faint)', fontSize: '13px' }}>No services yet.</div>
@@ -241,6 +251,9 @@ export default function GrowthCreditsPanel() {
                   {admins.map(a => <option key={a.email} value={a.email}>{a.name || a.email}</option>)}
                 </select>
                 <input style={input} placeholder="Scheduling link (optional)" value={adding.scheduling_link} onChange={e => setAdding(a => ({ ...a, scheduling_link: e.target.value }))} />
+                <select style={input} value={adding.billing_interval} onChange={e => setAdding(a => ({ ...a, billing_interval: e.target.value }))}>
+                  {FREQUENCIES.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                </select>
                 <input style={{ ...input, textAlign: 'right' }} type="number" placeholder="0" value={adding.credit_cost} onChange={e => setAdding(a => ({ ...a, credit_cost: e.target.value }))} />
                 <span />
                 <span />
@@ -282,9 +295,11 @@ function ServiceRow({ svc, cols, input, descBox, busy, admins, categories, onSav
   const [cost, setCost] = useState(String(svc.credit_cost ?? ''))
   const [owner, setOwner] = useState(svc.allocated_admin_email || '')
   const [link, setLink] = useState(svc.scheduling_link || '')
+  const [billing, setBilling] = useState(svc.billing_interval || 'one_time')
   const dirty = (svc.name || '') !== name
     || (svc.description || '') !== desc
     || (svc.category || '') !== cat
+    || (svc.billing_interval || 'one_time') !== billing
     || String(svc.credit_cost ?? '') !== cost
     || (svc.allocated_admin_email || '') !== owner
     || (svc.scheduling_link || '') !== link
@@ -296,6 +311,7 @@ function ServiceRow({ svc, cols, input, descBox, busy, admins, categories, onSav
       name: name.trim(),
       description: desc.trim() || null,
       category: cat.trim() || null,
+      billing_interval: billing,
       credit_cost: parseInt(cost, 10),
       allocated_admin_email: owner || null,
       scheduling_link: link.trim() || null,
@@ -315,6 +331,9 @@ function ServiceRow({ svc, cols, input, descBox, busy, admins, categories, onSav
         {owner && !(admins || []).some(a => a.email === owner) && <option value={owner}>{owner}</option>}
       </select>
       <input style={input} placeholder="Scheduling link" value={link} onChange={e => setLink(e.target.value)} />
+      <select style={input} value={billing} onChange={e => setBilling(e.target.value)}>
+        {FREQUENCIES.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+      </select>
       <input style={{ ...input, textAlign: 'right', maxWidth: '90px', justifySelf: 'end' }} type="number" value={cost} onChange={e => setCost(e.target.value)} />
       <button
         type="button"
