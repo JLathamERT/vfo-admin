@@ -227,6 +227,8 @@ Eleven new `email_templates` rows (**233–243**), all `send_mode=false`, plus t
 
 New client-facing email on the green click: `TAX_postreview_confirmed` and `TAX_postreview_confirmed|3pay`, each with a member-paying twin. Drafted **before** the money chain so the client's inbox explains the pull that is about to happen, and wrapped so a missing template or a Gmail hiccup can never fail a decision the client has already made.
 
+**Every plan shape gets it, legacy included *(2026-08-28)*.** The original `isNewFeeProcess(plan)` gate around the draft was removed: a legacy green click was recording the decision and firing the revenue share while sending the client no acknowledgement at all. A legacy row can never carry `final_retainer_amount`, so `isThreePaymentPlan()` is false and it resolves to the plain `TAX_postreview_confirmed` (row 239) or its member twin (row 240) — the 2-payment wording, which describes a fully-collected retainer moving into the Education phase and is exactly the legacy truth. No column, no validation, no step and no money behaviour reaches legacy from this change.
+
 Two new `notification_rules`: `TAX_final_retainer_charge_failed` and `FAILURE_tax_final_retainer_charge`. Their list columns are **jsonb, not `text[]`** (#443).
 
 ## Display
@@ -249,7 +251,7 @@ Detail: [flows/tax-planning.md](tax-planning.md) → *"THE FEE MODE"*, and `scri
 
 ## What this did NOT change
 
-- **Legacy plans.** No column, no validation, no step, no email.
+- **Legacy plans.** No column, no validation, no step. **One email as of 2026-08-28:** the `TAX_postreview_confirmed` acknowledgement now drafts on a legacy green click too (see above) — it is the 2-payment wording, and nothing else about a legacy plan changes.
 - **`boldsign-webhook`** — untouched, still v40.
 - **`actions/tax/revshare.ts`** — the deferred call needed no handler change.
 - **`automation_TAX_charge_implementation`** — the single-call-site rule (#398) is unchanged; the final retainer copies it rather than modifying it.

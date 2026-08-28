@@ -8,6 +8,68 @@
 
 ---
 
+## 2026-08-28 — An audit of the tax client-decision emails found three holes, all three shipped, plus two decision timestamps — and a real production agreement that BoldSign accepted and then lost
+
+**One chat. Shipped MID-BRANCH as `vfo-admin-api` v799 with ONE DDL migration (`20260828120000_tax_decision_click_timestamps.sql`, applied via MCP and committed as a file, #196) and ONE seeded `email_templates` row (id 246). Action count UNMOVED at 480 — no dispatch or index change. The FRONTEND IS NOT DEPLOYED, and a second backend deploy (v800) is owed for the Task 6 guards.**
+
+The session began as an audit of the two client-facing tax decision pages rather than as a bug report. It found three separate holes, none of which had been noticed in production.
+
+### Finding 1 — the 3-payment refund refunded money that was never charged
+
+`actions/tax/refund.ts` refunded `retainer_amount` against `retainer_payment_intent_id`. On a 2-payment or legacy plan those agree. On a **3-payment** plan they do not: `retainer_amount` is the FULL 50% retainer, but only `initial_retainer_amount` was ever captured on that PaymentIntent — the final retainer is a separate later charge, and a processing/succeeded one is refused upstream, so the Refund click is only ever reachable while the initial is all the client has paid. The handler was therefore asking Stripe to return more than the charge ever took. On Chris Colby's custom schedule ($8,331.50 initial of a $23,019 retainer) that is a ~$14.7k over-refund request.
+
+The shape test is `isThreePaymentPlan()` — **never** `initial_retainer_amount`, which survives a Tax 4 conversion back to 2 payments (#440). `metadata[refund_kind]` now reads `initial_retainer` on that path. Everything downstream — the `refund_amount` write, the `[Payment Amount]` in the confirmation email, the six JSON returns — already flowed from the one `baseAmount`, so nothing else needed touching.
+
+A grep of every `refund_amount` reader confirmed none assumes the full retainer: `payments/normalize.ts`, `TaxAutomationPanel.jsx` and `tables/tax.md` all treat it as "whatever was actually refunded". Two docs did state the old rule and were corrected.
+
+### Finding 2 — the implementation step ignored member-pays entirely
+
+`actions/tax/implement-final-decision.ts` sent **both** its client-facing emails — the Proceed acknowledgement and the Decline notice — straight to the client, with the client's Additional Contacts Cc'd, on a plan where the member signs and pays on the client's behalf. Every comparable site in the system had been converted to the member-pays pattern; this one had been missed. It is now the 28th `CLIENT: memberPays ? undefined` site (26 files).
+
+Two things fell out of doing it properly. The Decline branch's twin — `email_templates` **144** — had existed and been active for a long time and had **never once been selected**, and it greets on `[Member First]`, a token the handler never substituted; the first real member-pays decline would have shipped a raw `[Member First]` to a member. The Proceed twin did not exist at all and was drafted, approved and seeded as **id 246**. Every substitution in both builders moved from a replacement string to a replacer **function** (#438) — `[Payment Amount]` is money and was raw.
+
+### Finding 3 — a legacy plan's green click said nothing to the client
+
+`draftPostReviewConfirmation` was gated behind `isNewFeeProcess(plan)`. A legacy client clicking "Continue" on Client decision 1 had their decision recorded and their revenue share released, and received **no acknowledgement whatsoever**. The gate is gone. A legacy row can never carry `final_retainer_amount`, so it resolves to the plain 2-payment `TAX_postreview_confirmed` (row 239) or its member twin (240) — wording that describes a fully-collected retainer moving into the Education phase, which is exactly the legacy truth.
+
+### Two timestamps, and a failed refund that stopped lying
+
+`client_tax_plans` recorded WHAT the client decided and never WHEN — the click moment lived only in the admin bell, which is purgeable. `post_review_client_decision_at` and `implementation_final_decision_at` now ride in the SAME write that latches each decision, so a timestamp can never disagree with the decision it dates; on Client decision 1 that is the conditional `.is(..., null)` latch, so the loser of a double-click race writes neither. No backfill — inventing a timestamp from a bell's `created_at` would present a reconstruction as a record.
+
+Separately: when the refund chain failed, `postreview-client-decision.ts` still returned a clean success and `TaxPostReviewDecidePage` told the client *"your refund request has been received and is being processed. You will receive a confirmation email shortly."* — over a refund that had not happened and an email nobody would send. It now returns `refund_failed: true` (still HTTP 200 — the decision IS recorded) on **both** failure shapes, the refused-refund return and the thrown-chain `catch`, and the page renders an amber **"Refund Request Received"** state that promises no email. **This FE fix is load-bearing and is NOT deployed** — production still makes the false promise.
+
+### Two follow-on tasks
+
+**Task 5 — the Diron discount input.** It accepted arbitrary text; a typed *"No"* went `parseFloat` → NaN → silently stored as no-discount, so the admin saw their answer accepted and it went nowhere. Both form instances now filter to digits and at most one decimal point with `inputMode="decimal"`, and — the real change — a toggle of *Yes* with a zero/blank/unparseable amount **no longer blocks the form**: it submits as no-discount by omitting the key, byte-identical to what a *No* toggle sends and matching what the backend already stored. The in-form invoice preview is hidden entirely below `> 0` rather than rendering a meaningless `-$0.00`. Every `discount_applied` reader was verified to treat 0/NULL as no-discount — the four receipt handlers, `implement-final-decision.ts`, `utils/tax-invoice-html.ts` (where one `hasDiscount` gates the discount row, the "(50%)" label suppression, the `Net Payable` band AND the footnote) and `TaxAutomationPanel.jsx`. None needed fixing.
+
+**Task 6 — risk mindset required.** `risk_mindset` was written as `fd.taxRiskMindset || null` on three paths, so an unanswered dropdown stored NULL and the agreement PDF shipped a blank `[TAX_RISK_MINDSET]`. `decision.ts` (on Yes) and `pricing.ts` now refuse a blank with 400 before any write or chain; `extra-meeting.ts` is deliberately NOT guarded, because that step can legitimately be answered before pricing is settled. Both forms block submit with a message — the deferred-pricing form previously had a **silent** `return` that made the button appear dead. Neither form pre-selects a risk level, so the guard is real.
+
+### Live testing against v799 — five paths, and what they did NOT prove
+
+On fixture plans 168 and 169 (test client 62, $46,038), all PASS: a 3-pay red click refunded **exactly $15,000** (`re_3U9R2sRv8yMNbvOJ0edsmJ9a`) with the email quoting `$15,000.00` and `post_review_client_decision_at` stamped 14:47:41Z; a check-paid plan with no PaymentIntent produced the `refund_failed` flag and the amber page on the dev server, with no email; a legacy green click drafted row 239 — **the first legacy confirmation the system has ever sent**; a member-pays implementation green selected the new row 246 and stamped its timestamp, with the charge correctly failing `manual_required` (no saved card), which incidentally proved the ack-before-charge ordering; and a member-pays red selected row 144 for the first time ever.
+
+**What that does not cover.** Recipients are sandbox-rewritten on client 62 (#324), so **template SELECTION is proven and member-addressed ROUTING is not** — the first real member-pays send is still the only proof. The thrown-exception half of `refund_failed`, the 3-pay refund email's member-pays twin, a legacy green on a member-pays plan, and the pricing-form variants of both Tasks 5 and 6 are all code-only. The risk-mindset 400s are **unreachable from the UI** — the FE alert fires first — so they stay code-only unless someone curls them. No smoke gate has been run against v799, and `smoke 5/5 vs v800` is owed to Jake post-deploy.
+
+Fixtures were cleaned: plans 168 and 169 and their 28 `client_tax_progress` rows deleted, client 62 back to zero plans. Still owed by hand: ~6 test Gmail drafts, the sandbox BoldSign documents from both plans (including completed `024a8726-2105-4364-a384-4cbc257a7c7a`), and plan 168's sandbox Stripe customer/payment/refund artifacts.
+
+### The Lana Hurdle incident — BoldSign accepted a document and then lost it
+
+Mid-session, a real production failure. Lana Hurdle's Tax 3 agreement send (client 159, plan 107, 14:52:35Z) received a clean `200` from BoldSign `document/send` with `documentId f8cf9e52-73ac-4fac-bbe1-51cb5e3a0209`. **The document never materialised** — absent from the BoldSign dashboard, while Chris Colby's document from the same template and the same live key the previous day exists normally. All five `getEmbeddedSignLink` attempts 403'd, the client's email shipped with the red `[ENGAGEMENT — signing link unavailable]` placeholder where the signing button belongs, and `agreement_sent='Yes'` was written regardless.
+
+Ruled out one at a time: the discount field (NULL, and never read by `send-agreement.ts`), the blank `risk_mindset` (substitutes to `""`), sandbox/env confusion (TAX sandbox off, live key), and the template `field_map` (all four rows page-4; row 8 produced a working document that same week). What remains is a transient BoldSign-side async failure after the API accepted the request.
+
+The trap, recorded as **#458**: the 403 is ambiguous by construction. A freshly created document legitimately 403s for a few seconds — that is why the retry loop exists — so a permanent 403 from a missing document is indistinguishable from the benign race. The loop exhausts its budget and the handler proceeds down its success path. **Budget exhaustion is evidence about the DOCUMENT, not the timing.**
+
+Remediated by SQL, not fixed: plan 107's decision step was cleared (progress row 1250 deleted; `tax_decision`, `agreement_sent`, `agreement_sent_at`, `boldsign_doc_id`, `client_signed`, `ceo_signed` and `signed_followup_sent_date` all NULL, fee columns kept) because the signing-reminder ladder was chasing a document that does not exist. Jake re-fills the decision by hand, this time with a risk mindset.
+
+**FLAGGED, NOT BUILT — three items, all live:** the 5×5s retry budget is unchanged; **nothing records or alerts when the embedded link comes back empty**, so `agreement_sent='Yes'` keeps claiming success over a broken email; and MAP 1's `contract-send-agreement.ts` carries the identical loop and the identical silent failure.
+
+### One small lesson
+
+The email decision buttons hardcode `https://vfoportal.com/...` (`postreview-decision.ts:293`, `implement-decision.ts:177`), so a drafted test email always points at production. Every page-state test in this session — the amber refund page in particular — had to be driven on localhost against the deployed backend rather than by clicking the button in the draft.
+
+---
+
 ## 2026-08-27 — Email recipients: the client goes quiet when the member pays, the presentation Cc is gated to the client-addressed branch, a typed "$757,805" stops rendering "$TBD", and MAP 4 names the specialist
 
 **One chat, shipped as `vfo-admin-api` v798 with TWO migrations, both DATA-only (no DDL), both applied to prod via MCP and committed as files (#196): `20260827220000_regular_map4_cc_tnmiller_tvaldes.sql` and `20260827221500_regular_map4confirm_specialist_name_token.sql`. Action count unchanged at 480 — no new actions, no role-gate, dispatch or auth change. `boldsign-webhook` untouched, still v40. No new `notification_rules` key and no bell touched anywhere. Frontend deploy NOT done in this session.**
