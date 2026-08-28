@@ -79,7 +79,7 @@ const parseSlotNotes = (s) => {
 // PIP 1 Confirmation Email (PipConfirmStep): "with date" (date/time/tz), "date not
 // confirmed", and "declined". Drafts the email via the backend, then records the
 // task status. Self-contained so its date/time inputs survive parent re-renders.
-function Map4ConfirmStep({ trackId, task, p, onDone, emailCtx }) {
+function Map4ConfirmStep({ trackId, task, p, track, onDone, emailCtx }) {
   const [showDate, setShowDate] = useState(false)
   const [rescheduling, setRescheduling] = useState(false)
   const [date, setDate] = useState('')
@@ -121,6 +121,13 @@ function Map4ConfirmStep({ trackId, task, p, onDone, emailCtx }) {
     setRescheduling(true)
   }
 
+  // Backend replaces [Specialist Name] with specialist_name minus the "Custom - "
+  // prefix a custom track stores, falling back when the track has no name.
+  const confirmCtx = {
+    ...(emailCtx || {}),
+    'Specialist Name': String(track.specialist_name || '').replace(/^custom\s*-\s*/i, '').trim() || 'your VFO Specialist',
+  }
+
   const dateForm = (onCancel) => (
     <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
       <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
@@ -141,7 +148,7 @@ function Map4ConfirmStep({ trackId, task, p, onDone, emailCtx }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
-      <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="REGULAR" title={task.name} templates={[{ name: 'REGULAR_map4confirm', when: 'If date confirmed / not confirmed' }, { name: 'REGULAR_map4declined', when: 'If the client declined' }]} context={emailCtx} /></span></span>
+      <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{task.name}<span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline="REGULAR" title={task.name} templates={[{ name: 'REGULAR_map4confirm', when: 'If date confirmed / not confirmed' }, { name: 'REGULAR_map4declined', when: 'If the client declined' }]} context={confirmCtx} /></span></span>
       {isDone
         ? rescheduling
           ? dateForm(() => setRescheduling(false))
@@ -511,6 +518,7 @@ function PriorityTrackView({ track, phases, progress, specialists, onBack, onPro
                       trackId={track.id}
                       task={task}
                       p={p}
+                      track={track}
                       emailCtx={emailCtx}
                       onDone={(taskId, status, date) => {
                         const updated = { task_id: taskId, status, completed_date: date }

@@ -133,10 +133,10 @@ export const TEMPLATE_META = {
     ['PIP_member_revshare', 'Revenue share confirmation to the member after a PIP purchase'],
   ],
   'REGULAR': [
-    ['REGULAR_map4confirm', 'MAP 4 meeting is booked — confirmation', 'To: Client · Auto-Cc: Member + PF'],
-    ['REGULAR_map4declined', 'Client declined the MAP 4 meeting — close-out', 'To: Client · Auto-Cc: Member + PF'],
-    ['REGULAR_map4followup', 'Sent 2 days after the MAP 4 meeting — link to fill in the MAP 4 form', 'To: Client · Auto-Cc: Member'],
-    ['REGULAR_map4reminder', 'Reminder — MAP 4 form still not submitted 2 days after the follow-up', 'To: Client · Auto-Cc: Member'],
+    ['REGULAR_map4confirm', 'MAP 4 meeting is booked — confirmation, naming the priority’s specialist', 'To: Client · Auto-Cc: Member + PF + Tracy + Tray'],
+    ['REGULAR_map4declined', 'Client declined the MAP 4 meeting — close-out', 'To: Client · Auto-Cc: Member + PF + Tracy + Tray'],
+    ['REGULAR_map4followup', 'Sent 2 days after the MAP 4 meeting — link to fill in the MAP 4 form', 'To: Client · Auto-Cc: Member + PF + Tracy + Tray'],
+    ['REGULAR_map4reminder', 'Reminder — MAP 4 form still not submitted 2 days after the follow-up', 'To: Client · Auto-Cc: Member + PF + Tracy + Tray'],
   ],
   'ADVISOR_ONBOARDING': [
     ['ADVISOR_undecided', 'Advisor is undecided after the intro meeting — decision email with Yes / No buttons', 'To: Advisor'],
