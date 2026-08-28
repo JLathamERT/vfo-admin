@@ -835,7 +835,9 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
       if (isStrategic) formData.strategicPartnerShare = strategicPartnerShare
       if (isDironInsley && discountToggle === 'Yes') formData.discountApplied = parseFloat(discountApplied)
     } else if (decision === 'Undecided') {
-      formData.potentialTaxSavings = potentialTaxSavings
+      // Same money-clean as feeSplitFromInput: the server parseFloats this
+      // straight, so a typed "$757,805" would reach the email as NaN ("$TBD").
+      formData.potentialTaxSavings = String(potentialTaxSavings ?? '').replace(/[$,\s]/g, '')
       formData.totalFee = projectedSplit.total.toFixed(2)
     }
     try {
