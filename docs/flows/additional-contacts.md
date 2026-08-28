@@ -102,10 +102,14 @@ withGreetingNames("Dane", [])            ->  "Dane"                  ->  unchang
 | `login-setup/send-email.ts`, `login-setup/request-reset.ts` | **A password-reset or login-setup link is a CREDENTIAL.** An additional contact is not entitled to one. These were wired during phase 4 and **reverted before deploy** on the user's decision. Permanently out of scope. |
 | `tax/revshare-sweep.ts` assess-reminder tiers | Those emails go **to the planner**, not the client. A client's Cc has no business on a planner-facing chase. |
 | Member / specialist branches of `vault/request-docs.ts` | The mechanism is client-keyed. Only the `entityType === "client"` branch loads contacts — and for that branch `entity_key` **is** `clients.id` (see `resolveVaultPerson`). |
+| `tax/presentation-sweep.ts` when the presentation email goes **to the member** | **Gated 2026-08-27** — it used to pass the Cc unconditionally. The Cc now rides **only on the fallback branch**, where the member has no email on file and the To falls back to the client's own address. A member-addressed presentation email carries no additional-contact Cc. |
+| Every **member-pays-on-behalf** branch | **Reversed 2026-08-27.** When the member pays, the client's whole side of the recipient list goes quiet: the ctx **omits `CLIENT`** and no additional-contact Cc is passed. The client receives nothing. |
 
 ⚠️ **`vault/request-docs.ts` is one of the eleven `send_mode=true` templates (#325).** It **real-sends**, so the first genuine vault documentation request to a client who has a Cc contact reaches that contact with nobody reviewing the draft first.
 
-**Kept wired on purpose:** `tax/presentation-sweep.ts` (To is the member, but the client is the subject of the email, not a bystander) and every **member-pays-on-behalf** branch (the client remains the subject even when the member is the payer — an explicit user decision).
+⚠️ **The member-pays template rows still list `CLIENT` in their `cc_list`, and that was NOT edited.** The entry is **inert** on a member-pays send because the handler no longer resolves the token. Do not "fix" the rows to match the behaviour, and do not read them as proof the client is Cc'd (#324 — the handler is the routing).
+
+**The rule since 2026-08-27:** an additional-contact Cc rides **only on an email actually addressed TO the client.** The moment the To flips to the member, the client's side of the recipient list drops out — the `CLIENT` Cc token and the additional contacts alike. This **replaces** the 2026-08-20 decision recorded here, which kept both `tax/presentation-sweep.ts` and the member-pays branches wired on the reasoning that the client stays the *subject* of the email even when the member is the recipient. Being the subject is no longer enough; being the To is.
 
 ---
 

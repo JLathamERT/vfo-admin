@@ -8,6 +8,84 @@
 
 ---
 
+## 2026-08-27 — Email recipients: the client goes quiet when the member pays, the presentation Cc is gated to the client-addressed branch, a typed "$757,805" stops rendering "$TBD", and MAP 4 names the specialist
+
+**One chat, shipped as `vfo-admin-api` v798 with TWO migrations, both DATA-only (no DDL), both applied to prod via MCP and committed as files (#196): `20260827220000_regular_map4_cc_tnmiller_tvaldes.sql` and `20260827221500_regular_map4confirm_specialist_name_token.sql`. Action count unchanged at 480 — no new actions, no role-gate, dispatch or auth change. `boldsign-webhook` untouched, still v40. No new `notification_rules` key and no bell touched anywhere. Frontend deploy NOT done in this session.**
+
+Four user-reported items plus one scope extension the user decided mid-session. They share a subject — **who is actually on a client's email** — and nothing else.
+
+### 1. The presentation-link email was Cc'ing the client's Additional Contacts on an email addressed to the member
+
+Reported from production: Ally Buehrie was Cc'd on a `TAX_presentation_link` draft for the client Pat Hurst, because she is one of Hurst's Additional Contacts. The daily tax presentation sweep (`actions/tax/presentation-sweep.ts`, template id 151) sends **To the member** — the prep email is for them — and was calling `loadAdditionalContacts(supabase, plan.client_id)` unconditionally, so the client's people rode along on an email the client was not on.
+
+The load is now gated: contacts are fetched and passed **only when `member?.email` is falsy**, i.e. only on the fallback branch where the To drops back to `client.email`. A member-addressed presentation email carries no additional-contact Cc at all.
+
+**This reverses a decision recorded on 2026-08-20**, where `presentation-sweep.ts` was deliberately left wired on the reasoning that *the client is the subject of the email even when the member is the recipient*. That reasoning is retired. `flows/additional-contacts.md` now carries the replacement rule verbatim: **an additional-contact Cc rides only on an email actually addressed TO the client** — being the subject is no longer enough, being the To is.
+
+### 2. An Undecided tax decision rendered "$TBD" for savings the admin had entered
+
+Reported on Dave Clark (client 119, plan 90). The `TAX_decision_undecided` draft said *"$TBD"* where the projected savings belong, and `client_tax_plans.potential_tax_savings` was NULL — while the fee figure right beside it was correct.
+
+Root cause, confirmed by reading the `client_tax_progress` notes to recover what was actually typed: the admin entered **`$757,805`**. `actions/tax/decision.ts` parsed the fee through `parseFeeTotal`, which strips `[$,\s]`, but parsed the savings with a bare `parseFloat`. `parseFloat("$757,805")` is `NaN`, and both uses had a fallback that turned that into a designed-looking business state — `|| null` at the column write, `|| 0` at the `[TAX_SAVINGS]` token, where zero renders the intentional `"TBD"` placeholder. No error, no log line, and the sibling field's correctness is what made it read as data entry rather than a bug. That asymmetry is gotcha **#457**.
+
+Fixed on both sides. `decision.ts` gained a module-level `parseMoney` (strips `[$,\s]`, same shape as `parseFeeTotal`) used at the DB write **and** at the email token. The frontend `TaxDecisionForm` (`src/components/admin/tax/TaxPrioritiesTab.jsx`, Undecided branch) strips the same characters before sending — a convenience, not the guard: the handler is the boundary.
+
+**Data repair:** plan 90's `potential_tax_savings` was set to `757805` by SQL. The already-minted Gmail draft was corrected **by hand** by Jake — drafts are minted once and never regenerated, so a code fix cannot reach mail that already exists.
+
+### 3. Tracy Miller and Tray Valdes join the Regular Priorities Cc
+
+Investigated first, and it turned out to be **pure data, zero code**: `tnmiller@vfo-services.com` and `tvaldes@vfo-services.com` were already in `email_templates.cc_list` on all **81** TAX rows and all **34** MAP 1 rows. Only the four `REGULAR` rows were missing them.
+
+`20260827220000_…` appends each address to `cc_list` with a `not (cc_list ? '<addr>')` guard, so it is idempotent. Verified after applying: ids **152 `REGULAR_map4confirm`**, **153 `map4declined`**, **154 `map4followup`** and **174 `map4reminder`** all now read `["MEMBER","ASSIGNED_PF","tnmiller@vfo-services.com","tvaldes@vfo-services.com"]`.
+
+### 4. The MAP 4 confirmation email names the specialist
+
+`REGULAR_map4confirm`'s body said *"where your VFO Specialist will:"*. `actions/regular/map4-confirm-email.ts` now substitutes a **`[Specialist Name]`** token from `client_priority_tracks.specialist_name`, stripping the server-owned `"Custom - "` prefix (`/^custom\s*-\s*/i`) because that prefix is an internal marker and never belongs in client-facing copy, and falling back to *"your VFO Specialist"* when the column is empty. The substitution uses a **replacer function**, not a replacement string, per **#438** — `specialist_name` is free text a human typed.
+
+The template body was edited by `20260827221500_…`, **applied after the v798 deploy** so there was never a window in which the live function served a body containing a token it could not resolve.
+
+Frontend: `RegularPrioritiesTab.jsx`'s `Map4ConfirmStep` now receives `track` and passes `'Specialist Name'` into the `StepEmailsChip` preview ctx — the same idiom `Map4FollowupStep` already used for Meeting Date.
+
+### 5. Scope extension — on a member-pays-on-behalf email, the client receives nothing
+
+A user decision taken during the session, and much the largest change by surface area. Previously a member-pays send addressed the member (`RECIPIENT`) but still resolved `CLIENT` into the Cc and still appended the client's Additional Contacts. The rule is now that when the member pays, **the client's whole side of the recipient list drops out.**
+
+**26 `resolveTemplateRecipients` call sites across 25 files** now pass `CLIENT: memberPays ? undefined : clientEmail` together with an empty `extraCc` when `memberPays`:
+
+- **17 tax actions** — `decision.ts` (both the Undecided and the No branches), `confirmation-email`, `send-agreement`, `payment-email`, `invoice-receipt`, `paidbycheck`, `extra-meeting`, `final-decision`, `postreview-decision`, `postreview-client-decision`, `implement-decision`, `charge-final-retainer`, `charge-implementation`, `final-retainer-receipt`, `implementation-receipt`, `refund`, and `revshare-sweep.ts`.
+- **8 pipeline actions** — `contract-confirmation-email`, `contract-invoice-receipt`, `contract-payment-email`, `contract-revshare-sweep`, `contract-send-agreement`, `pcadmin-extra-meeting`, `pcadmin-final-decision`, `pipfu-decision`.
+
+**The greeting is deliberately untouched.** 24 of the sites keep their `loadAdditionalContacts` call even under `memberPays`, because the same call returns `greetingFirsts`, which feeds `withGreetingNames` — only the `ccList` half is dropped. Two sites (`tax/charge-final-retainer.ts`, `tax/charge-implementation.ts`) do not use the greeting at all, so those gate the load itself and save the query.
+
+**The member-pays template variants' `CLIENT` `cc_list` entries were deliberately NOT edited.** They are now inert, because the handler no longer resolves the token (**#324** — the handler is the routing, the template row is documentation). Editing them would have created a second, redundant place to keep in sync and would have destroyed the audit trail of what the rows used to mean. `flows/additional-contacts.md` says so explicitly, so nobody "fixes" them later.
+
+Non-`memberPays` behaviour across all 26 sites is byte-identical.
+
+### Testing
+
+Live against **v798**, on test client 62 / member 59524 (sandbox-forced via #251):
+
+- MAP 4 confirm preview + sandbox draft with a **roster** specialist — *"where Jason Bright will:"*. Passed.
+- The same with a **Custom** specialist — *"where Stuart Kruse will:"*, the `"Custom - "` prefix stripped. Passed.
+- A fresh plan completed **Undecided** typing **`$757,805`** — the draft rendered **"$757,805.00"** and `client_tax_plans.potential_tax_savings` held **757805**, verified by SQL. Passed.
+
+**Fixtures wiped after, and this is the wipe that finally emptied the client.** Client 62 now has **zero** `client_tax_plans` rows (161, 163, 166 and 167 all deleted along with their progress, specialists and amendment rows) and **zero** non-PIP `client_priority_tracks` (100, 101, 102 deleted with their `priority_progress`); its three PIP tracks are the client's permanent shape and were left alone. Bells marked read — 0 unread. The plan-163 step-unlock fixture writes made during this session (`presentation_send_date` / `email_sent_at` stamps) are superseded by it.
+
+**The per-plan inventory the hub had been carrying since 2026-08-26 dies here**, recorded once for history: **161** was the two-slot branch's fixture (program 4, `live`, created 2026-08-26, holding only `tax_team_member_id`=16 after its `tax_planner_id` was cleared, no `assess_form`) and **163** was the ROI-deck branch's (created 2026-08-27, `tax_planner_id`=9 and a single-year `assess_form` with **no `year2` group**, which is why every deck that session generated was 27 slides); both carried every fee column NULL and zero `client_tax_fee_amendments` rows. Plans 148, 152 and 160 had already gone in earlier sessions — 152 and 160 being 2026-08-26's two custom-split runs, 160 created deliberately because a fresh plan id is the only way out of a poisoned Stripe idempotency key (**#449**).
+
+**Two carried cleanup items are discharged by the same wipe**, both SQL-verified: the throwaway `tax_planners` id **19 *'Temp TeamMember'*** (Test Group) no longer exists — it had in fact been deleted at some earlier point, so nothing was ever owed on it — and plan 161's test allocation / progress / deposit fixtures went with the plan. What survives the wipe is the standing lesson that a live sweep re-mints bells on this client afterwards, so "clean" here means *no plan rows*, never *no bells* — and the planner test login's bells, which were never checked.
+
+### What is NOT verified
+
+Everything in this entry that concerns a recipient is **invisible in sandbox by construction** — sandbox reroutes the whole send to the sandbox address with no Cc at all (#324) — so a live send is the only proof, and none has happened:
+
+- **No member-pays send has occurred since v798.** The first real one is the sole verification for all 26 sites, and for greeting preservation on them.
+- The presentation sweep's **member-addressed, no-Cc** send is code-proven only, and so is its **client-fallback** branch (a member with no email on file, where the Cc is kept).
+- **Tracy and Tray have never rendered on a real `REGULAR` draft**, and `REGULAR_map4declined` / `map4followup` / `map4reminder` were not drafted at all this session.
+- `[Specialist Name]` has only ever been seen on the test client, and the NULL-specialist *"your VFO Specialist"* fallback was never exercised.
+- **The frontend is not deployed.** Until `npm run deploy`, live admins see a grey `[Specialist Name]` chip in the MAP 4 email **preview** — the drafted email is correct, because the backend substitutes — and live typed-`$` inputs rely on the backend sanitize alone, which is sufficient.
+- The **5-pipeline smoke gate passed 5/5 against v798** (run by Jake at wrap-up).
+
 ## 2026-08-27 — Recurring Growth Credit services: a cadence on the service, a subscription per member, and a nightly sweep that charges from the credit balance
 
 **One chat, shipped as `vfo-admin-api` v797 with ONE migration (`20260827150000_gc_recurring_services.sql`, applied to prod via MCP and committed as a file, #196). Action count 477 → 480 (+3, all GC). One new cron: `gc-recurring-sweep-daily` @ 12:30 UTC, so the inventory is 15 → 16 jobs. `boldsign-webhook` untouched, still v40. No new `notification_rules` key. Frontend deploy NOT done in this session — it is the branch's headline owed item.**
