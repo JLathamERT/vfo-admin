@@ -11,6 +11,19 @@ import { CONFIRMATION_CARD_SKIP } from '../../../lib/confirmationStatus'
 // Matches the backend invoice money formatting ($X,XXX.XX).
 const fmtMoney = (n) => (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
+// Keystroke filter for a plain dollar-amount input: digits and AT MOST one
+// decimal point, everything else dropped. The Diron discount field used to take
+// free text, so a typed "No" reached parseFloat as NaN and was silently stored
+// as no-discount — the admin saw their answer accepted and it went nowhere.
+// Letters can no longer be typed at all, which is the honest version of that.
+// Deliberately NOT a parse: it returns the STRING so a half-typed "12." keeps
+// its point while the admin is still typing.
+const moneyDigitsOnly = (raw) => {
+  const cleaned = String(raw ?? '').replace(/[^0-9.]/g, '')
+  const [whole, ...rest] = cleaned.split('.')
+  return rest.length ? `${whole}.${rest.join('')}` : whole
+}
+
 // Revised fee process (2026-08-25): the fee is driven by ONE number, the total.
 // This mirrors the edge repo's constants/tax-fee-process.ts deriveFeeSplit byte
 // for byte — arithmetic in whole cents so retainer + implementation === total and
@@ -811,10 +824,14 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
     if (!decision) return
     if (decision === 'Yes' && !feeSplit) return
     if (decision === 'Undecided' && !projectedSplit) return
-    if (decision === 'Yes' && isDironInsley && discountToggle === 'Yes') {
-      const d = parseFloat(discountApplied)
-      if (!(d > 0)) { alert('Please enter a valid discount amount greater than 0.'); return }
+    if (decision === 'Yes' && String(taxRiskMindset ?? '').trim() === '') {
+      alert('Please select a tax risk mindset.')
+      return
     }
+    // Toggle Yes with no usable amount is NOT an error — it submits as
+    // no-discount (the key is simply omitted below). Blocking here used to be
+    // the only thing standing between an admin and a stuck form, and the
+    // backend already stores 0/blank as NULL, so the two agree.
     if (decision === 'Yes' && splitType === 'Custom') {
       const splitTotal = (parseFloat(memberShare) || 0) + (parseFloat(taxPlannerShare) || 0) + (parseFloat(vfosShare) || 0)
       if (Math.abs(splitTotal - totalFee) > 0.01) return
@@ -833,7 +850,11 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
       formData.taxPlannerShare = taxPlannerShare
       formData.vfosShare = vfosShare
       if (isStrategic) formData.strategicPartnerShare = strategicPartnerShare
-      if (isDironInsley && discountToggle === 'Yes') formData.discountApplied = parseFloat(discountApplied)
+      // > 0 or nothing at all: an empty, zero or unparseable amount omits the
+      // key entirely, which is exactly the shape a 'No' toggle sends.
+      if (isDironInsley && discountToggle === 'Yes' && parseFloat(discountApplied) > 0) {
+        formData.discountApplied = parseFloat(discountApplied)
+      }
     } else if (decision === 'Undecided') {
       // Same money-clean as feeSplitFromInput: the server parseFloats this
       // straight, so a typed "$757,805" would reach the email as NaN ("$TBD").
@@ -1080,9 +1101,13 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
                   <label style={labelStyle}>Discount applied ($)</label>
                   <div style={{ position: 'relative' }}>
                     <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-                    <input value={discountApplied} onChange={e => setDiscountApplied(e.target.value)} placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
+                    <input value={discountApplied} onChange={e => setDiscountApplied(moneyDigitsOnly(e.target.value))} inputMode="decimal" placeholder="0.00" style={{ ...(isViewMode ? readOnlyInput : inputStyle), paddingLeft: '28px' }} readOnly={isViewMode} />
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '4px' }}>Discount applied due to previous planning issue</div>
+                  {/* Only a REAL discount gets a preview. At 0 or blank this
+                      submits as no-discount, so a "-$0.00" line would be
+                      describing an invoice line that will never exist. */}
+                  {parseFloat(discountApplied) > 0 && (
                   <div style={{ marginTop: '10px', padding: '10px 12px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
                     <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Invoice preview</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', marginBottom: '4px' }}>
@@ -1098,6 +1123,7 @@ function TaxDecisionForm({ task, plan, saveTask, taxSpecialistId, existingData, 
                       <span>${fmtMoney(totalFee)}</span>
                     </div>
                   </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1247,11 +1273,16 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
   function handlePlannerShareChange(val) { setTaxPlannerShare(val) }
 
   async function handle() {
-    if (!taxRiskMindset || !feeSplit || !splitType) return
-    if (isDironInsley && discountToggle === 'Yes') {
-      const d = parseFloat(discountApplied)
-      if (!(d > 0)) { alert('Please enter a valid discount amount greater than 0.'); return }
+    // Risk mindset gets a MESSAGE, not a silent return: a blank one used to be
+    // stored as NULL and shipped an empty [TAX_RISK_MINDSET] into the agreement
+    // PDF, and this form is the one that chains sendagreement.
+    if (String(taxRiskMindset ?? '').trim() === '') {
+      alert('Please select a tax risk mindset.')
+      return
     }
+    if (!feeSplit || !splitType) return
+    // Toggle Yes with no usable amount submits as no-discount — see the same
+    // rule on the Tax 3 decision form.
     if (splitType === 'Custom') {
       const splitTotal = (parseFloat(memberShare) || 0) + (parseFloat(taxPlannerShare) || 0) + (parseFloat(vfosShare) || 0)
       if (Math.abs(splitTotal - totalFee) > 0.01) return
@@ -1266,7 +1297,9 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
         taxPlannerShare,
         vfosShare,
         ...(isStrategic ? { strategicPartnerShare } : {}),
-        ...(isDironInsley && discountToggle === 'Yes' ? { discountApplied: parseFloat(discountApplied) } : {}),
+        ...(isDironInsley && discountToggle === 'Yes' && parseFloat(discountApplied) > 0
+          ? { discountApplied: parseFloat(discountApplied) }
+          : {}),
       })
     } catch (err) {
       console.error(err)
@@ -1360,9 +1393,12 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
               <label style={labelStyle}>Discount applied ($)</label>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--vfo-muted)', fontSize: '14px' }}>$</span>
-                <input value={discountApplied} onChange={e => setDiscountApplied(e.target.value)} placeholder="0.00" style={{ ...inputStyle, paddingLeft: '28px' }} />
+                <input value={discountApplied} onChange={e => setDiscountApplied(moneyDigitsOnly(e.target.value))} inputMode="decimal" placeholder="0.00" style={{ ...inputStyle, paddingLeft: '28px' }} />
               </div>
               <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '4px' }}>Discount applied due to previous planning issue</div>
+              {/* Only a REAL discount gets a preview — see the same rule on the
+                  Tax 3 decision form. */}
+              {parseFloat(discountApplied) > 0 && (
               <div style={{ marginTop: '10px', padding: '10px 12px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
                 <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Invoice preview</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--vfo-ink)', marginBottom: '4px' }}>
@@ -1378,6 +1414,7 @@ function TaxPricingForm({ submitLabel = 'Submit', onSubmit, onCancel, memberCate
                   <span>${fmtMoney(totalFee)}</span>
                 </div>
               </div>
+              )}
             </div>
           )}
         </div>

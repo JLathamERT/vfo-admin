@@ -57,6 +57,13 @@ export default function TaxPostReviewDecidePage() {
         setStatus('error')
         return
       }
+      // The decision IS recorded (HTTP 200) but the Stripe refund did not go
+      // through. Never promise a confirmation email the refund handler will not
+      // send — show the "received, we'll process it" state instead.
+      if (data.refund_failed) {
+        setStatus('refund_pending')
+        return
+      }
       setStatus('success')
     } catch (err) {
       setError('Unable to connect. Please try again later.')
@@ -113,6 +120,12 @@ function getView(status, decision, error) {
   }
   if (status === 'window_expired') {
     return { icon: '⏰', color: '#e06717', title: 'Window Closed', message: error || 'The refund window has closed. Your engagement has been locked in. Please contact us if you have questions.' }
+  }
+  // Decision recorded, automatic refund failed. Amber like the window_expired
+  // state — this is neither a clean success nor an error the client caused, and
+  // the copy deliberately promises no confirmation email.
+  if (status === 'refund_pending') {
+    return { icon: '⏳', color: '#e06717', title: 'Refund Request Received', message: 'Your refund request has been received. Our team will review and process it, and will be in touch.' }
   }
   if (status === 'error') {
     return { icon: '⚠️', color: '#ef4444', title: 'Something Went Wrong', message: error || 'An unexpected error occurred. Please contact us.' }
