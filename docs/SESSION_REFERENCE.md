@@ -29,13 +29,13 @@ Run these instead of believing any version/tag/count written anywhere. Expected 
 # 1. Live function versions — MCP list_edge_functions { project_id: "ejpsprsmhpufwogbmxjv" }
 #    Expect: vfo-admin-api ACTIVE + boldsign-webhook ACTIVE, verify_jwt=false on BOTH.
 #    Plus helpers draft-agreement-pdfs v1 + boldsign-template-fields v1 (throwaway,
-#    safe to delete). (v: 2026-08-28 — v799 / v40, read from list_edge_functions)
+#    safe to delete). (v: 2026-08-28 — v800 / v40, read from list_edge_functions)
 
 # 2. Deploy tags — git is the source of truth, these lines are not (#222, #376).
 #    Re-stamp these THREE lines AFTER wrap-up Part 4D, not during Part 1: the
 #    version and tag do not exist yet when the hub is written (#408).
-cd C:\vfo-react;          git tag -l 'live-*'         --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-27 → live-176-email-recipients)
-cd C:\vfo-edge-functions; git tag -l 'backend-good-*' --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-27 → backend-good-2026-08-27-v798)
+cd C:\vfo-react;          git tag -l 'live-*'         --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-28 → live-177-tax-decision-emails)
+cd C:\vfo-edge-functions; git tag -l 'backend-good-*' --sort=v:refname | Select-Object -Last 1   # (v: 2026-08-28 → backend-good-2026-08-28-v800)
 
 # 3. Action-count parity — the ANCHORED patterns are required; a raw unanchored
 #    grep on index.ts returns 7 (the 7th is a comment on line 3). (v: 2026-08-27 → 6 + 474 = 480)
