@@ -8,6 +8,48 @@
 
 ---
 
+## 2026-08-31 — Four small asks, and the first one was a rendering trap that had made a whole class of member-view steps unreadable
+
+**One chat, one branch (`claude/vfo-session-setup-5de839`). Shipped as `vfo-admin-api` **v801** with THREE migrations (`20260831120000_additional_info_requests.sql`, `20260831130000_holistic_msm2_tax_planning_video.sql`, `20260831140000_msm2_video_section_wording.sql` — all applied via MCP and committed as files, #196). Action count UNMOVED at **480** — no dispatch or index change. Smoke **5/5 against v801** (Jake). The two migrations that seed training rows are LIVE-VISIBLE WITH NO DEPLOY, because that curriculum is data.**
+
+### 1 — the allocation dot on the member portal, and the catch-all that was eating it
+
+The report was narrow: on the member portal the dot beside *"Allocate Team Member / Tax Planner"* stayed grey on a completed step. The step's own renderer was correct and had been since the two-slot split — it reads `isAllocated = !!(tax_planner_id || tax_team_member_id)` and has an explicit `allocReadOnly` branch that paints the dot green.
+
+That branch was **dead code for members**. `renderTaskInner` carries a catch-all `if (readOnly) return <generic row>` roughly 340 lines ABOVE it, so in the member view every step below that line falls into the generic row — which colours its dot from `statusColors[p.status]`. The allocation step is the one step in the tax track whose progress `status` is a **person's name** rather than a status-vocabulary word, so `statusColors['Test TaxPlanner']` resolved to `undefined` → the muted-grey fallback. Every other preempted step happened to store a vocabulary word and looked fine, which is why this had survived unnoticed.
+
+Fixed by exempting exactly that step from the catch-all (`isAllocTask()`, a new module-scope predicate that also replaced the triple-condition copy at the renderer). The read-only row additionally learned a roster-less fallback: members get a 403 on `tax_planners_load` (it is `ADMIN_ONLY_ACTIONS`), so neither slot ever resolves to a person for them, and a team-member-only plan would otherwise have shown a green dot next to *"Not started"*. It now falls back to the stored name. **Deliberately NOT widened:** the same catch-all still preempts the `tax_deposit_pi`, `tax_3_decision`, post-review and additional-info branches, each of which contains its own unreachable `readOnly` handling — pre-existing, and out of scope for a dot fix. Gotcha **#459**.
+
+That investigation also surfaced a three-way disagreement nobody had noticed and nothing was changed to fix: see gotcha **#460** and the hub's OWED list.
+
+### 2 — Test Member 59524 exempted from the VFO Reconciliation lock
+
+`MembersPanel.jsx` blocks every admin except Jake and Paul Latham from opening a `"VFO Reconciliation (Free)"` member (#245b). 59524 carries that type only because the standing sandbox test account (#251) sits on the free tier, so the lock made the test member untestable by anyone else. A module-scope `RECONCILIATION_EXEMPT_MEMBERS = ['59524']` now feeds a `reconciliationLocked(m)` helper; the superadmin/platham rule is untouched. Confirmed **frontend-only** before changing it — nothing in the edge repo references the type, so this is a guardrail, not a boundary (#353 family).
+
+### 3 — the "Request additional information" question is now stored
+
+Until today `automation_TAX_request_additional_info` stamped only `additional_info_requested_at`. The free text the admin or planner typed was interpolated into the Gmail draft and **lost** — the portal could show the client's replies but not what they were replying to. Two docs said so explicitly and are now corrected.
+
+New column `client_tax_plans.additional_info_requests` (jsonb), **append-only `[{ text, at }]`, oldest first**, mirroring `additional_info_responses` on the same row so a resend adds an entry rather than overwriting. The handler's plan `select` gained the column — an explicit list, so omitting it would have read `undefined` and silently discarded every earlier ask (#448).
+
+Frontend: *"Request email sent to client"* gained a **View request** button opening a timestamped panel of the asks, and **Client explanation moved INSIDE the AI PC Admin sub-bullet block** as its third row with a **View reply** button, replacing the standalone top-level step row. Both use one shared `entryPanel`, so the question and the answer read as a pair. The first cut used a chip plus a ▼ caret with the whole row clickable; on review that became a plain button with no caret and a non-clickable row, so there is exactly one way to open it. The block's guard widened to `requestedAt || responses.length > 0` so a reply can never be orphaned by the move.
+
+**Not backfillable.** All 15 plans that have ever had a request sent carry NULL — the text exists only in each Gmail draft, and `gmailDraftFetch` logs nothing. Those rows correctly show no View request button rather than an empty panel.
+
+### 4 — a new video section in the Holistic 90 Day Plan
+
+`WATCH VFO TAX PLANNING PROCESS` added to program 1 → MSM 2 Training, above the existing identify group: one `task_type='section'` header + one `'substep'` at orders 2 and 3, everything from order 2 shifted +2. Grouping is by **adjacency** in `task_order`, so the shift is load-bearing and was verified by re-reading the whole phase.
+
+Jake supplied the Wistia **share** link `https://elitert.wistia.com/s/pr0cwsau22ew6ea`, which is exactly the #174 trap — it contains the string `wistia`, so the renderer would have taken the iframe branch and framed the share PAGE instead of the player. Resolved to media **`9zhvrxs34i`** and stored as `https://fast.wistia.net/embed/iframe/9zhvrxs34i`. The share page's `twitter:player` / `twitter:title` meta tags carry both the media id and the title (*"VFO Tax Planning Process"*), which is a second route to the same answer when oEmbed is not to hand — #174 updated to record it.
+
+Two label fixes followed: the substep was renamed *"Watch The VFO Tax Planning Process"* (it had read identically to its own section header) and task 121 *"Watch Steps 1 - Identify"* → *"Watch Step 1 - Identify"* — it was the ONLY section in either program using the plural, against nine siblings. Both repos were grepped for the old label first (#382/#392): no code matches, and the update pins task ids rather than matching the old text, so Partnership's identically-named section (task 142) cannot be renamed by accident.
+
+### Discharged from the 2026-08-28 entry's OWED list
+
+Its `v800 + the FE deploy are owed` and `smoke 5/5 vs v800 must be run by Jake` items are settled by evidence rather than by assertion: `live-177-tax-decision-emails` and `backend-good-2026-08-28-v800` both exist in git, and today's smoke ran **5/5 green against v801**, which supersedes the v800 ask. The behavioural gaps in that entry (sandbox-rewritten recipients, the `catch` half of `refund_failed`, the unreachable risk-mindset 400s) are untouched and remain owed.
+
+---
+
 ## 2026-08-28 — An audit of the tax client-decision emails found three holes, all three shipped, plus two decision timestamps — and a real production agreement that BoldSign accepted and then lost
 
 **One chat. Shipped MID-BRANCH as `vfo-admin-api` v799 with ONE DDL migration (`20260828120000_tax_decision_click_timestamps.sql`, applied via MCP and committed as a file, #196) and ONE seeded `email_templates` row (id 246). Action count UNMOVED at 480 — no dispatch or index change. The FRONTEND IS NOT DEPLOYED, and a second backend deploy (v800) is owed for the Task 6 guards.**

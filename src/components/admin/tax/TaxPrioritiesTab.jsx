@@ -347,6 +347,14 @@ const PLANNER_EDITABLE_TASK_NAMES = new Set([
 ])
 const isPlannerEditable = (task) => PLANNER_EDITABLE_TASK_NAMES.has(task?.name)
 
+// The allocation step, matched exactly as its renderer does. It is the one step
+// whose progress status is a PERSON'S NAME rather than a status vocabulary word,
+// so the generic read-only row further down cannot colour it — it must always
+// reach its own branch, on every surface.
+const isAllocTask = (task) => task?.status_options === 'tax_planner_select'
+  || task?.name === 'Allocate Team Member / Tax Planner'
+  || task?.name === 'Allocate to Advanced Tax Planner'
+
 // Diron Insley — his clients get a display-only invoice discount (mirrors
 // backend constants/tax-discount.ts; delete both to retire the special case).
 const DISCOUNT_MEMBER_NUMBER = '59073'
@@ -3743,7 +3751,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       )
     }
 
-    if (readOnly) return (
+    // Generic read-only row: the member view's catch-all, ahead of every branch
+    // below it. The allocation step is EXEMPT — its progress status is the
+    // holder's NAME, which is not in statusColors, so this row painted its dot
+    // and chip muted grey on a completed step. It has its own read-only render
+    // (allocReadOnly) that reads the two slot columns instead; let it through.
+    if (readOnly && !isAllocTask(task)) return (
       <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDone ? statusColor : 'transparent', flexShrink: 0, border: `1.5px solid ${isDone ? statusColor : 'var(--vfo-border-mid)'}` }} />
         <span style={{ fontSize: '13px', color: isDone ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{taskLabel(task)}</span>
@@ -4084,7 +4097,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       )
     }
 
-    if (task.status_options === 'tax_planner_select' || task.name === 'Allocate to Advanced Tax Planner' || task.name === 'Allocate Team Member / Tax Planner') {
+    if (isAllocTask(task)) {
       const green = '#1b9254'
       // TWO slots, filled independently: the Tax Planner who runs the plan and an
       // optional, persistent Team Member. Only the planner slot is "done".
@@ -4147,7 +4160,16 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
             {selectedTeamMember && <span style={teamMemberChip}>{teamMemberName} — Team Member</span>}
             {plannerShown
               ? <span style={greenPill}>{allocatedName || 'Allocated'}</span>
-              : !selectedTeamMember && <span style={neutralChipStyle}>Not started</span>}
+              : !selectedTeamMember && (
+                // The member view cannot load the planner roster (tax_planners_load
+                // is ADMIN_ONLY), so neither slot resolves to a person here. The
+                // slot columns still prove the allocation and the progress row
+                // still carries the holder's name — never "Not started" when a
+                // slot is filled.
+                isAllocated
+                  ? <span style={greenPill}>{p.status || 'Allocated'}</span>
+                  : <span style={neutralChipStyle}>Not started</span>
+              )}
             <StepDate value={isAllocated ? (p.completed_date || '') : ''} />
           </div>
         )
@@ -4231,7 +4253,11 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       // server-side). Either a written reply or an upload stamps receivedAt.
       const responses = Array.isArray(livePlan?.additional_info_responses) ? livePlan.additional_info_responses : []
       const respKey = `addinfo_resp_${task.id}`
-      const respShown = expanded[respKey]
+      // What was ASKED, appended once per send by request-additional-info.ts.
+      // Requests sent before that column existed are NULL and cannot be
+      // recovered, so those rows simply carry no view chip.
+      const requests = Array.isArray(livePlan?.additional_info_requests) ? livePlan.additional_info_requests : []
+      const reqKey = `addinfo_req_${task.id}`
       const clientFull = client ? `${client.first_name || ''} ${client.last_name || ''}`.trim() : ''
       const clientFirst = clientFull ? clientFull.split(/\s+/)[0] : ''
       const draft = declineDrafts[task.id] || {}
@@ -4263,6 +4289,45 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
           {isGreen && at && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)', flexShrink: 0 }}>{fmtMMDD(at)}</span>}
         </div>
       )
+      // A transcript panel — the asks, or the client's written replies. One
+      // shape for both so the question and the answer read as a pair; newest
+      // first, matching the standalone Client explanation panel it replaced.
+      const entryPanel = (entries) => (
+        <div style={{ marginLeft: '14px', marginBottom: '8px', padding: '12px 14px', background: 'var(--vfo-card)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
+          {entries.slice().reverse().map((r, i) => (
+            <div key={i} style={{ marginBottom: i === entries.length - 1 ? 0 : '10px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginBottom: '4px' }}>{formatStamp(r?.at)}</div>
+              <div style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '13px', fontFamily: 'Inter, sans-serif', whiteSpace: 'pre-wrap' }}>{r?.text || '—'}</div>
+            </div>
+          ))}
+        </div>
+      )
+      // Expandable variant of aiStep: `expand` = { key, noun, panel }. The BUTTON
+      // is the whole affordance — no caret, and the row itself is not clickable,
+      // so there is exactly one way to open it. Kept separate from aiStep above
+      // so the two plain sub-steps stay byte-identical to the Request Tax
+      // Returns block.
+      const aiViewBtn = { padding: '3px 10px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: '1px solid rgba(0,149,255,0.4)', background: 'rgba(0,149,255,0.12)', color: '#0095ff', fontWeight: 600, fontFamily: 'Inter, sans-serif' }
+      const aiStepExpandable = (label, isGreen, at, expand) => {
+        const open = !!expanded[expand.key]
+        return (
+          <div style={{ borderBottom: '1px solid var(--vfo-border-soft)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0' }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: isGreen ? '#1b9254' : 'transparent', flexShrink: 0, border: `1px solid ${isGreen ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
+              <span style={{ fontSize: '12px', color: 'var(--vfo-ink)' }}>{label}</span>
+              <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => setExpanded(prev => ({ ...prev, [expand.key]: !prev[expand.key] }))}
+                  style={aiViewBtn}>{open ? 'Hide' : 'View'} {expand.noun}</button>
+                {isGreen && <span style={chipStyle('#1b9254')}>Done</span>}
+                {isGreen && at && <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>{fmtMMDD(at)}</span>}
+              </span>
+            </div>
+            {open && expand.panel}
+          </div>
+        )
+      }
       return (
         <div key={key}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
@@ -4316,37 +4381,24 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                   </div>
                 </div>
               )}
-              {requestedAt && (
+              {/* Client explanation lives INSIDE this block, not as a sibling
+                  step: the ask, the receipt and the reply are one exchange and
+                  read as one. The guard therefore also opens on responses so a
+                  reply can never be orphaned by a missing requested-at stamp. */}
+              {(requestedAt || responses.length > 0) && (
                 <div style={{ padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
                     <span style={{ fontSize: '13px', color: 'var(--vfo-ink)', flex: 1, fontWeight: '600' }}>AI PC Admin</span>
                   </div>
                   <div style={{ marginLeft: '18px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
-                    {aiStep('Request email sent to client', !!requestedAt, requestedAt)}
+                    {requests.length > 0
+                      ? aiStepExpandable('Request email sent to client', !!requestedAt, requestedAt, { key: reqKey, noun: 'request', panel: entryPanel(requests) })
+                      : aiStep('Request email sent to client', !!requestedAt, requestedAt)}
                     {aiStep('Additional information received', !!receivedAt, receivedAt)}
+                    {responses.length > 0
+                      && aiStepExpandable('Client explanation', true, responses[responses.length - 1]?.at, { key: respKey, noun: 'reply', panel: entryPanel(responses) })}
                   </div>
-                </div>
-              )}
-              {responses.length > 0 && (
-                <div style={{ borderBottom: '1px solid var(--vfo-border-soft)', padding: '7px 0' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flexWrap: 'wrap' }} onClick={() => setExpanded(prev => ({ ...prev, [respKey]: !prev[respKey] }))}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1b9254', flexShrink: 0, border: '1.5px solid #1b9254' }} />
-                    <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: 1 }}>Client explanation</span>
-                    <span style={chipStyle('#1b9254')}>Submitted</span>
-                    <span style={{ fontSize: '11px', color: 'var(--vfo-muted)', display: 'inline-block', width: '55px', textAlign: 'right', flexShrink: 0 }}>{formatStamp(responses[responses.length - 1]?.at)}</span>
-                    <span style={{ color: 'var(--vfo-muted)', fontSize: '10px', transform: respShown ? 'rotate(180deg)' : 'none', display: 'inline-block', transition: 'transform 0.2s' }}>▼</span>
-                  </div>
-                  {respShown && (
-                    <div style={{ marginLeft: '18px', padding: '16px', background: 'var(--vfo-tint)', borderRadius: '10px', border: '1px solid var(--vfo-tint-deep)', marginTop: '4px', marginBottom: '8px' }}>
-                      {responses.slice().reverse().map((r, i) => (
-                        <div key={i} style={{ marginBottom: i === responses.length - 1 ? 0 : '12px' }}>
-                          <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginBottom: '4px' }}>{formatStamp(r?.at)}</div>
-                          <div style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', fontFamily: 'Inter, sans-serif', opacity: 0.6, whiteSpace: 'pre-wrap' }}>{r?.text || '—'}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
             </>

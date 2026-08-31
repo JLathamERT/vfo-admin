@@ -39,6 +39,12 @@ const MEMBER_TYPES = [
   'Financial Collaborator', 'VFO Reconciliation (Free)'
 ]
 
+// Members carrying the "VFO Reconciliation (Free)" type that ANY admin may still
+// open. 59524 is the standing sandbox-forced Test Member (#251) — it holds that
+// type only because the test account sits on the free tier, and locking it to
+// Jake + Paul would leave every other admin unable to exercise the test member.
+const RECONCILIATION_EXEMPT_MEMBERS = ['59524']
+
 // Detail-view tab sets. Advisors/accountants get the full set; Strategic Members
 // get a trimmed view: Profile (all sub-tabs, always shown), MSM limited to
 // Holistic + Tax Planning, plus Specialists + Showroom + CIQ (no Website Plugin /
@@ -323,6 +329,9 @@ function MemberDirectoryView({
   // row does not open.
   const _sess = getSession()
   const canOpenReconciliation = !!_sess?.is_superadmin || (_sess?.email || '').toLowerCase() === 'platham@elitert.com'
+  const reconciliationLocked = (m) => m.member_type === 'VFO Reconciliation (Free)'
+    && !canOpenReconciliation
+    && !RECONCILIATION_EXEMPT_MEMBERS.includes(String(m.plugin_member_number ?? m.member_number ?? ''))
   const [deny, setDeny] = useState(null) // { x, y } screen coords of the last blocked click
   const denyTimer = useRef(null)
   useEffect(() => () => clearTimeout(denyTimer.current), [])
@@ -412,7 +421,7 @@ function MemberDirectoryView({
           <div>
             {sortMembers(filteredMembers, listSort).map(m => (
               <div key={m.plugin_member_number}
-                onClick={(e) => { if (m.member_type === 'VFO Reconciliation (Free)' && !canOpenReconciliation) { flashDeny(e); return } setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem(selectedKey, m.plugin_member_number); sessionStorage.setItem(featureTabKey, 'profile_details'); window.scrollTo(0, 0) }}
+                onClick={(e) => { if (reconciliationLocked(m)) { flashDeny(e); return } setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem(selectedKey, m.plugin_member_number); sessionStorage.setItem(featureTabKey, 'profile_details'); window.scrollTo(0, 0) }}
                 style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 16px', marginBottom: '6px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '12px', boxShadow: '0 2px 8px rgba(20,45,95,0.04)', cursor: 'pointer' }}
                 onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,149,255,0.4)'}
                 onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--vfo-border-soft)'}>
