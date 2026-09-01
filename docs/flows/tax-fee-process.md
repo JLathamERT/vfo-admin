@@ -2,9 +2,9 @@
 
 > **Scope.** This doc covers how a tax engagement's FEE is set, split, collected and amended. The surrounding pipeline — meetings, the agreement send, the specialist phases, the bells — is [flows/tax-planning.md](tax-planning.md), and every step reference below points there. Read this one whenever you touch an amount.
 >
-> **The switch is `client_tax_plans.fee_process_version`.** `NULL` = the legacy process. **Nothing about a legacy plan ever changes**, no revised-process validation applies to it, and both amend steps read as not-applicable on it. `'2026-08-25'` = the revised process described here. New versions get ADDED to `KNOWN_FEE_PROCESS_VERSIONS` in `constants/tax-fee-process.ts`, never substituted for this one.
+> **The switch is `client_tax_plans.fee_process_version`.** `NULL` = the legacy process, `'2026-08-25'` = the revised process described here. New versions get ADDED to `KNOWN_FEE_PROCESS_VERSIONS` in `constants/tax-fee-process.ts`, never substituted for this one. **No revised-process PRICING or validation reaches a legacy plan** — no column, no derivation, no `$60,000` cap, no one-input rule. **The two AMEND steps are the exception, and as of 2026-09-01 they are the only one:** a legacy plan inside its amendment window gets both steps for real, on the same blocking terms a revised-process plan gets them. See [The two amend steps](#the-two-amend-steps).
 >
-> Shipped 2026-08-25 (`vfo-admin-api` v782 → v787). Gotchas **#438**–**#443**. Extended 2026-08-26 — the custom initial retainer, the three-handler select fix (v791) and the per-payment card-fee columns (v792, code-only): gotchas **#448**–**#450**.
+> Shipped 2026-08-25 (`vfo-admin-api` v782 → v787). Gotchas **#438**–**#443**. Extended 2026-08-26 — the custom initial retainer, the three-handler select fix (v791) and the per-payment card-fee columns (v792, code-only): gotchas **#448**–**#450**. Extended 2026-09-01 (v802 → v803) — **legacy plans can amend**, plus the `cancelled` freeze: gotchas **#461**–**#462**.
 
 ---
 
@@ -168,13 +168,33 @@ The two names are **deliberately different**. A step row is resolved by NAME, so
 
 **Two request shapes.** `{ tax_plan_id, stage, keep: true }` writes **nothing** and short-circuits **before** the state guards — the step must stay answerable even on a plan where an actual change would now be refused. `{ tax_plan_id, stage, new_total }` re-derives everything.
 
+### Which plans get the steps *(the three-way rule, 2026-09-01 / v802)*
+
+Both amend steps are **applicable** when **any one** of three things holds — `utils/tax-plan-steps.ts` server-side, and `TaxPrioritiesTab.jsx` (`isAmendNotApplicable` + `getPlanState`'s local mirror) on the frontend. The two repos are the same cross-repo coupling class as the step machine itself (#339) and must be changed together:
+
+1. the plan is on the **REVISED** fee process (`isNewFeeProcess`) — it always has both steps, unconditionally; **or**
+2. the step is **ANSWERED** — the same two-source test the done state uses (its own `client_tax_progress` row **or** the `fee_amended_at_*` stamp); **or**
+3. the amendment **WINDOW** is still open — this stage's client decision is not yet recorded (`post_review_decision` at Tax 4, `implementation_decision` at Tax 5).
+
+Test 3 reads **truthiness**, not `!= null`, in all three places, because that is how `amend-fee.ts` reads the same columns (`if (plan.post_review_decision)`) — so an empty-string decision counts as undecided everywhere and *applicable* can never outlive *answerable*.
+
+**Why a window and not simply "every legacy plan":** roughly **22 production legacy plans** are already past Client decision 1 or complete. The handler refuses stage `tax4` once `post_review_decision` is set and stage `tax5` once `implementation_decision` is, so making the step unconditionally applicable would leave those plans' phase pills, `next_action` and completeness permanently one step short on a row nobody could ever action. A past-the-window unanswered legacy plan therefore keeps **exactly** its pre-2026-09-01 rendering: an inert *"Not applicable"* row (the treatment the ROI-skip rows get), dropped from every count. `computeTrack` and `taxPlanStepsComplete` both discard `applicable === false` steps entirely.
+
+**The lock is unconditional wherever the step exists.** Both backend gates — `postreview-decision.ts` (Tax 4) and `implement-decision.ts` (Tax 5) — dropped their `isNewFeeProcess` test: they now read `exists && !answered` on every fee shape, and the FE's `amendTax4Blocks` / `amendTax5Blocks` are byte-for-byte that same test. The `exists=false` skip is what keeps an un-seeded program from growing a gate out of nowhere, and a past-the-window legacy plan is never wedged because the decision step already saved its own progress row, so `renderTask`'s `alreadyDone` short-circuits ahead of the lock.
+
+**The Tax 5 gate is WINDOW-SCOPED and the Tax 4 gate is not** — `if (!plan.implementation_decision && plan.fee_amended_at_tax5 == null)`. `implement-decision.ts` is deliberately re-runnable (an admin flips *Undecided* → *Proceed* through it), and on any plan whose decision was recorded while the step sat unanswered the handler would otherwise 400 forever on a step `amend-fee.ts` now refuses to accept. Tax 4 needs no equivalent because `postreview-decision.ts`'s idempotency return fires first. See **#462**.
+
 **What cannot be amended:**
 
-- **Tax 4** needs the initial retainer `succeeded` and Client decision 1 **not yet sent** (that email quotes the amended figures to the client). A `processing`/`succeeded` final retainer freezes it.
-- **Tax 5** needs Client decision 2 **not yet recorded**, and on a 3-payment plan the **final** retainer settled — at Tax 5 the whole retainer side is closed, so only the implementation fee may still move. A `processing`/`succeeded` implementation charge freezes it.
-- A legacy plan 400s outright.
+- **Tax 4** needs the initial retainer `succeeded` and Client decision 1 **not yet sent** (that email quotes the amended figures to the client). A `processing`, `succeeded` **or `cancelled`** final retainer freezes it.
+- **Tax 5** needs Client decision 2 **not yet recorded**, and on a 3-payment plan the **final** retainer settled — at Tax 5 the whole retainer side is closed, so only the implementation fee may still move. A `processing`, `succeeded` **or `cancelled`** implementation charge freezes it.
+- **A legacy plan that was never PRICED** — no `total_fee` or no `retainer_amount` (**34 such rows in production**) — is refused: *"This plan's fee has not been set yet — there is nothing to amend."* Without it the implementation-only arm would derive the whole new total onto the implementation fee off a zero retainer. The check sits **after** the `keep` short-circuit, so those plans can still answer the step; only an actual change is refused. It is legacy-only by construction — a revised-process row is priced by definition.
 
-**How the movement lands.** With the retainer side settled, the whole change goes onto the implementation fee. The one exception is a Tax 4 amendment on a plan whose initial retainer was collected, where the 50:50 split is re-held against the new total and the already-paid initial is subtracted out of the retainer half. `retainer_amount` is rewritten alongside `final_retainer_amount` — leaving it stale would pay the member/planner/partner legs on the pre-amendment retainer.
+**`'cancelled'` is a freeze, not an in-flight state** *(2026-09-01)*. It is VFO's own write-off from `payments_cancel_remaining` (see [Cancelling the remaining tax payments](#cancelling-the-remaining-tax-payments-2026-08-26-v789---code-only)): that payment will never settle, the client's own link already says nothing further is due, and re-deriving amounts around a closed schedule would move money on a schedule that has been shut. The message **branches** rather than interpolating the status, because *"is already cancelled"* reads as something still pending: *"The final retainer payment **was cancelled by VFO** — the fee can no longer be amended here."*
+
+**How the movement lands.** With the retainer side settled, the whole change goes onto the implementation fee. The one exception is a Tax 4 amendment on a plan whose **initial** retainer was collected, where the 50:50 split is re-held against the new total and the already-paid initial is subtracted out of the retainer half. `retainer_amount` is rewritten alongside `final_retainer_amount` — leaving it stale would pay the member/planner/partner legs on the pre-amendment retainer.
+
+**A LEGACY amendment is always the implementation-only arm, and that is the whole of it.** The legacy retainer was collected in ONE payment and is already settled, so `retainer_amount` never moves and the new implementation fee is simply `new_total − retainer_amount`. **No charge fires from an amendment on any shape**; the revenue-share legs re-scale proportionally with the residual on `vfos_share` exactly as on a revised-process plan. The 3-payment re-derivation and the `≤ $30,000` conversion arms stay revised-process-only **without a version test** — they are keyed on `stage === "tax4" && initialCents > 0`, and a legacy row can never carry `initial_retainer_amount`. **Do not re-key them onto `isNewFeeProcess`**; the shape test is what makes the single handler correct for both processes.
 
 **Revenue-share re-scaling.** Every leg is a **dollar amount of the total engagement** (#252), so all of them scale by `new_total / old_total`, rounded to the cent, with the **residual absorbed by `vfos_share`** (VFO Services is the residual party, #394). It deliberately does **not** force the sum to the new total when the old legs did not already sum to the old total — otherwise an amendment would invent money onto the VFOS leg of a partially-priced plan. Nothing scales when the old total is zero/unknown or no leg carries a value. `strategic_partner_share` is a text column and is written back as text.
 
@@ -217,9 +237,11 @@ Eleven new `email_templates` rows (**233–243**), all `send_mode=false`, plus t
 |---|---|---|
 | `[RETAINER_LABEL]` | `invoice-receipt`, `confirmation-email`, `payment-email`, `send-agreement`, `paidbycheck` | `"initial retainer"` on a 3-payment plan, `"retainer"` on every 2-payment and legacy plan. **16 rows.** |
 | `[FINAL_RETAINER]` | `postreview-decision.ts` | the already-formatted amount **including the `$`** |
-| `[AMENDMENT_PARAGRAPH]` | `postreview-decision.ts` (Tax 4), `implement-decision.ts` (Tax 5) | the sentence plus its own trailing `<br><br>`, or **the empty string**. Substituted **unconditionally on every shape, legacy included**, purely to prevent a token leak. The Tax 4 / Tax 5 split is deliberate: a Tax 4 amendment does not re-announce itself at Client decision 2. |
+| `[AMENDMENT_PARAGRAPH]` | `postreview-decision.ts` (Tax 4), `implement-decision.ts` (Tax 5) | the sentence plus its own trailing `<br><br>`, or **the empty string**. Substituted **unconditionally on every shape**, so an unamended plan can never leak a raw token. **Since 2026-09-01 the VALUE is no longer revised-process-only either:** the builder is gated on the `fee_amended_at_*` stamp alone, so a legacy client is told about their amendment in the same words. The Tax 4 / Tax 5 split is deliberate: a Tax 4 amendment does not re-announce itself at Client decision 2. |
 | `[LATER_PAYMENTS]` | `payment-email.ts` | *"the final retainer and the implementation fee"* (3-pay) / *"the implementation fee"* |
 | `[ATTACHED_DOCS]` | `implementation-receipt.ts` | *"invoice and receipt"* when the amended fresh invoice rides along, else *"receipt"* |
+
+**The amendment sentence's addendum clause is kept even with no signing date *(2026-09-01, v803)*.** Both builders read `client_signed_at` and format it when present: *"…amending the Total Tax Planning fee to $X, as an addendum to your Tax Engagement Agreement signed on \<date\>."* When the column is NULL the clause **stays and only the DATE is dropped** — *"…, as an addendum to your Tax Engagement Agreement."* — rather than inventing a date the client can contradict. That branch used to be the repair case (a hand-migrated row); **a LEGACY plan never carries `client_signed_at` at all**, so it is now the ordinary path, and the client still signed an agreement, whichever vintage.
 
 **`[RETAINER_LABEL]` and `[LATER_PAYMENTS]` are LIVE in `email_templates` today.** Rows **22** and **131** (the `/tax-pay` payment email and its member-paying twin) carry **both**; `[RETAINER_LABEL]` is also live on **23 / 24 / 30** and their member twins (confirmation) and on **29 / 133** (paid-by-check). In-file comments in `payment-email.ts`, `confirmation-email.ts` and `paidbycheck.ts` still claiming *"no-op on today's bodies"* were stale and were corrected in v791. Read the deploy-order rule below as the rule for the NEXT token, not as a description of these two — and note that a live `[RETAINER_LABEL]` is exactly why the missing `final_retainer_amount` select in those three handlers (#448) reached a client's inbox rather than staying invisible.
 
@@ -235,7 +257,7 @@ Two new `notification_rules`: `TAX_final_retainer_charge_failed` and `FAILURE_ta
 
 - **Client Payments tab** — a 3-payment retainer renders as **two grouped rows** (*"Retainer payment 1 of 2"* / *"2 of 2"*) sharing a `subGroup`, drawn as one indented block with a tie bar. Same-day rows tie-break on the payment sequence so the initial always precedes the final. **The revenue-share preview sits on the FINAL row**, because that is where the transfers actually fire; the initial row shows no preview at all. Rows without a `subGroup` — everything else in the system — render exactly as before.
 - **Accounting → Tax Planning revenue tab** pairs the two rows the same way, with the shares on the Final row.
-- **Step machine** (`utils/tax-plan-steps.ts` + its FE mirrors) marks both amend steps `applicable: false` on a legacy plan, exactly like the steps a skipped ROI meeting removes — so a legacy plan's completeness, `next_action` and warnings are untouched.
+- **Step machine** (`utils/tax-plan-steps.ts` + its FE mirrors) decides both amend steps by the three-way rule in [Which plans get the steps](#which-plans-get-the-steps-the-three-way-rule-2026-09-01--v802). Where it answers no — a legacy plan past its amendment window that never answered the step — the step is `applicable: false` and drops out of completeness, `next_action` and warnings exactly like the steps a skipped ROI meeting removes.
 
 ## The ROI deck mirrors this process *(2026-08-27, template v6 / v795)*
 
@@ -251,7 +273,8 @@ Detail: [flows/tax-planning.md](tax-planning.md) → *"THE FEE MODE"*, and `scri
 
 ## What this did NOT change
 
-- **Legacy plans.** No column, no validation, no step. **One email as of 2026-08-28:** the `TAX_postreview_confirmed` acknowledgement now drafts on a legacy green click too (see above) — it is the 2-payment wording, and nothing else about a legacy plan changes.
+- **Legacy PRICING.** No column, no derivation, no one-input rule, no `$60,000` cap, no `fee_process_version` stamp — a legacy plan is still priced by hand exactly as it always was, and **nothing in this doc's money chain runs on one**. Two things about a legacy plan DID change and neither is pricing: the `TAX_postreview_confirmed` acknowledgement now drafts on a legacy green click *(2026-08-28, 2-payment wording)*, and **both amend steps are now real on a legacy plan inside its amendment window** *(2026-09-01 — see [The two amend steps](#the-two-amend-steps))*. A legacy plan past its window, and every unpriced legacy plan, is untouched by both.
+- **No total_fee backfill.** Verified by SQL at ship: all **26** priced legacy plans already satisfy `total_fee = retainer_amount + implementation_amount` exactly, so the implementation-only arm's arithmetic is sound on every one of them without touching a row. The **34** unpriced legacy plans get priced under the revised process when they reach Tax 3.
 - **`boldsign-webhook`** — untouched, still v40.
 - **`actions/tax/revshare.ts`** — the deferred call needed no handler change.
 - **`automation_TAX_charge_implementation`** — the single-call-site rule (#398) is unchanged; the final retainer copies it rather than modifying it.
@@ -260,4 +283,4 @@ Detail: [flows/tax-planning.md](tax-planning.md) → *"THE FEE MODE"*, and `scri
 
 ## Cross-references
 
-[flows/tax-planning.md](tax-planning.md) · [flows/stripe-webhook.md](stripe-webhook.md) · [architecture/07-server-chains.md](../architecture/07-server-chains.md) · [architecture/05-api-action-catalog.md](../architecture/05-api-action-catalog.md) · [tables/tax.md](../tables/tax.md) · [integrations/boldsign.md](../integrations/boldsign.md) · [NOTIFICATION_AUDIT.md](../NOTIFICATION_AUDIT.md) · gotchas **#438**–**#443** and **#448**–**#450**, plus **#251**, **#252**, **#327**, **#339**, **#377**, **#394**, **#398**
+[flows/tax-planning.md](tax-planning.md) · [flows/stripe-webhook.md](stripe-webhook.md) · [architecture/07-server-chains.md](../architecture/07-server-chains.md) · [architecture/05-api-action-catalog.md](../architecture/05-api-action-catalog.md) · [tables/tax.md](../tables/tax.md) · [integrations/boldsign.md](../integrations/boldsign.md) · [NOTIFICATION_AUDIT.md](../NOTIFICATION_AUDIT.md) · gotchas **#438**–**#443**, **#448**–**#450** and **#461**–**#462**, plus **#251**, **#252**, **#327**, **#339**, **#377**, **#394**, **#398**
