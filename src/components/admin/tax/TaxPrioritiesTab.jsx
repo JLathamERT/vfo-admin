@@ -51,8 +51,12 @@ const CUSTOM_INITIAL_RANGE_MESSAGE = 'Must be more than $0 and less than the ret
 // Mirrors the edge repo's constants/tax-fee-process.ts KNOWN_FEE_PROCESS_VERSIONS
 // / isNewFeeProcess (and taxShared.jsx, which already carries the same list). A
 // plan with NULL — or an unrecognised — fee_process_version is on the LEGACY
-// process: it can never amend a fee (amend-fee.ts 400s it), so the two amend
-// steps are not-applicable for it everywhere below.
+// process. Legacy plans CAN now amend a fee (amend-fee.ts accepts them and puts
+// the whole movement on implementation_amount, leaving the retainer alone), so
+// this test no longer decides applicability on its own — see
+// isAmendNotApplicable below for the three-way rule that replaced it. What this
+// still decides is the SHAPE questions: 3-payment vs 2-payment, and which fee
+// schedule the cards render.
 const KNOWN_FEE_PROCESS_VERSIONS = ['2026-08-25']
 const isNewFeeProcess = (pl) => KNOWN_FEE_PROCESS_VERSIONS.includes(pl?.fee_process_version)
 
@@ -541,9 +545,16 @@ function TotalFeeField({ label, hint, value, onChange, split, readOnly = false, 
 // PLANNER_EDITABLE_TASK_NAMES) — a planner sees this card through the standard
 // inert plannerMode wrapper like every other locked step (#262).
 //
+// EVERY fee shape reaches this card, legacy included: on a legacy plan (and on
+// a 2-payment revised plan, and on either at Tax 5b) the amendment lands wholly
+// on the implementation fee — amendFeePreview's `stage === 'tax4' &&
+// initialCents > 0` key is false without a paid initial retainer, so legacy
+// always falls through to the implementation-only arm, and planFeeSchedule
+// reads the stored columns off total_fee, which every priced legacy plan has.
+//
 // Two answers, both of which COMPLETE the step:
 //   Keep    -> automation_TAX_amend_fee { keep: true }, which writes nothing but
-//              confirms the plan is on the revised process, then the step row.
+//              confirms the fee as it stands, then the step row.
 //   Amend   -> automation_TAX_amend_fee { new_total }, which re-derives every
 //              downstream amount and scales the revenue-share legs server-side,
 //              then the step row.
@@ -719,8 +730,11 @@ function AmendFeeStep({ task, plan, stage, status, completedDate, readOnly, onAn
       )}
 
       {/* Outside the schedule block on purpose: the server's refusal must be
-          visible even on a plan with no stored total to draw a schedule from. */}
-      {!answered && submitError && (
+          visible even on a plan with no stored total to draw a schedule from.
+          NOT gated on !answered: a re-amend ("Change amount") on an ALREADY
+          answered step can be refused too — a cancelled/in-flight charge — and
+          swallowing that refusal renders the save as "nothing happened". */}
+      {submitError && (
         <div style={{ marginLeft: '18px', marginBottom: '10px', color: '#e74c3c', fontWeight: 500, fontSize: '12px' }}>{submitError}</div>
       )}
     </div>
@@ -2468,17 +2482,41 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const isSkippedAway = (t) => roiSkipped && isRoiSkipSetTask(t)
     && t?.status_options !== 'tax_3_decision' && !isTaskStatused(t)
 
-  // ── The two revised-fee-process "amend the fee" steps ────────────────────
-  // A LEGACY plan (NULL / unrecognised fee_process_version) can never amend a
-  // fee — actions/tax/amend-fee.ts refuses it outright — so on one of those the
-  // two steps are NOT APPLICABLE: they render as inert rows (the same treatment
-  // isSkippedAway rows get) and drop out of every count, so no legacy plan's
-  // phase pill, hero total or plan-list state changes. A 2-payment plan on the
-  // REVISED process gets both steps normally: only the derivation differs
-  // (implementation-only rather than a re-derived 50:50).
-  // Mirrors utils/tax-plan-steps.ts's `applicable: reach && newFeeProcess`.
+  // ── The two "amend the fee" steps ─────────────────────────────────────────
+  // An amend step is APPLICABLE when any one of three things holds — the exact
+  // rule utils/tax-plan-steps.ts now uses server-side, and #339 (cross-repo
+  // coupling) means the two must be changed together:
+  //   1. the plan is on the REVISED fee process, or
+  //   2. the step is ANSWERED — the two-source test (progress row OR the
+  //      fee_amended_at_tax4/_tax5 stamp) that isTaskStatused already carries
+  //      for these two sentinels, or
+  //   3. the amendment WINDOW is still open — the downstream decision has not
+  //      been recorded (tax4: post_review_decision, tax5:
+  //      implementation_decision). That is the same boundary amend-fee.ts
+  //      itself enforces before it 400s, so "applicable" never outlives
+  //      "answerable".
+  // LEGACY plans (NULL / unrecognised fee_process_version) can now amend too:
+  // amend-fee.ts accepts them and lands the whole movement on
+  // implementation_amount, leaving the retainer side untouched. What the WINDOW
+  // half of the rule buys is the ~22 production legacy plans already past
+  // Client decision 1: making the step unconditionally applicable would leave
+  // their phase pills incomplete FOREVER on a step they can never answer, so a
+  // past-the-window UNANSWERED legacy plan keeps today's behaviour exactly —
+  // NOT APPLICABLE, rendering as an inert row (the treatment isSkippedAway rows
+  // get) and dropping out of every count, so its phase pill, hero total and
+  // plan-list state are unchanged by this feature.
+  // A 2-payment plan on the REVISED process gets both steps normally: only the
+  // derivation differs (implementation-only rather than a re-derived 50:50).
   const newFeeProcess = isNewFeeProcess(livePlan)
-  const isAmendNotApplicable = (t) => isAmendStepTask(t) && !newFeeProcess
+  // The decision column this stage's window closes on. An empty string counts
+  // as "not decided" alongside null — a blank stored value must not close the
+  // window early (same null/empty test the backend gates use).
+  const amendWindowOpen = (t) => {
+    const decision = amendStage(t) === 'tax5' ? livePlan?.implementation_decision : livePlan?.post_review_decision
+    return decision === null || decision === undefined || decision === ''
+  }
+  const isAmendNotApplicable = (t) =>
+    isAmendStepTask(t) && !newFeeProcess && !isTaskStatused(t) && !amendWindowOpen(t)
   // Excluded from the done-math: skipped-away rows, plus the not-applicable
   // amend rows. One helper so every count site uses the same rule.
   const isStepExcluded = (t) => isSkippedAway(t) || isAmendNotApplicable(t)
@@ -2490,8 +2528,20 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   // (exists=false -> the backend gate SKIPS).
   const amendTax4Task = allTasks.find(t => t.status_options === AMEND_FEE_CODE)
   const amendTax5Task = allTasks.find(t => t.status_options === AMEND_FEE_TAX5_CODE)
-  const amendTax4Blocks = newFeeProcess && !!amendTax4Task && !isTaskStatused(amendTax4Task)
-  const amendTax5Blocks = newFeeProcess && !!amendTax5Task && !isTaskStatused(amendTax5Task)
+  // No newFeeProcess prefix any more: the "answer the amend step before the
+  // decision email goes out" lock applies to LEGACY plans too, because the
+  // backend gates (postreview-decision.ts / implement-decision.ts) dropped
+  // theirs — both now read `exists && !answered` on every fee shape, and this
+  // is byte-for-byte that test. A legacy plan still inside its amendment window
+  // has a real, answerable step and a decision email that quotes the fee, so
+  // the order matters there exactly as much as on the revised process.
+  // Past-the-window legacy plans are NOT stranded by the missing applicability
+  // term: the only way the window closed is that the decision step already ran,
+  // and that step saves its own progress row (handlePick -> saveTask, before
+  // the automation call), so renderTask's `alreadyDone` short-circuits ahead of
+  // stepGate and the lock is never reached.
+  const amendTax4Blocks = !!amendTax4Task && !isTaskStatused(amendTax4Task)
+  const amendTax5Blocks = !!amendTax5Task && !isTaskStatused(amendTax5Task)
   // Column-proven as well as progress-proven — isTaskStatused above reads the
   // submitted-form stamp, which is the only thing that completes this step.
   const assessDone = prereqDone('assess_form', 'Assess tax planning opportunities (and enter presentation details)')
@@ -2539,11 +2589,14 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       // The whole phase waits on the Tax 5a confirmation — that is what "reaches"
       // the amend step too, so it needs no gate of its own.
       if (!tax5bUnlocked) return { locked: true, hint: 'Unlocks when "Confirm ready for implementation" is Yes or Undecided on any specialist' }
-      // Revised fee process: the implementation fee may still be amended here,
-      // and Client decision 2 / the implementation charge are computed from it —
-      // so the amend step is the Implementation decision's new prerequisite.
-      // New-process plans only; on a legacy plan amendTax5Blocks is false and
-      // this step keeps exactly the gate it had.
+      // The implementation fee may still be amended here, and Client decision 2
+      // / the implementation charge are computed from it — so the amend step is
+      // the Implementation decision's new prerequisite. EVERY fee shape,
+      // including legacy (whose amendment lands wholly on the implementation
+      // fee), matching the backend gate in actions/tax/implement-decision.ts.
+      // A legacy plan already past its window cannot be wedged by this:
+      // renderTask's `alreadyDone` treats a set implementation_decision as done
+      // for this very step, so stepGate is never consulted there.
       if (so === 'tax_implement_decision' && amendTax5Blocks) {
         return { locked: true, hint: 'Complete the "Amend implementation fee" step first' }
       }
@@ -2635,9 +2688,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       // Same on both routes — this step confirms the meeting the step above booked.
       return { locked: !hlmConfirmDone, hint: 'Send the detailed tax plan meeting confirmation email first' }
     }
-    // Revised fee process: the fee may be amended after the detailed tax plan
-    // meeting and before Client decision 1 goes out. Same prerequisite the
-    // presentation-confirmation step hands to Client decision 1 today.
+    // The fee may be amended after the detailed tax plan meeting and before
+    // Client decision 1 goes out — on every fee shape, legacy included. Same
+    // prerequisite the presentation-confirmation step hands to Client decision 1
+    // today. No fee-process test here: a legacy plan the rule says is not
+    // applicable never reaches stepGate at all (the "Not applicable" row in
+    // renderTask returns ahead of the lock branch).
     if (so === AMEND_FEE_CODE) {
       return { locked: !detailedPresDone, hint: 'Complete the "Detailed tax plan presentation" step first' }
     }
@@ -2656,8 +2712,10 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       // this email quotes the current total (and the final retainer on a
       // 3-payment plan), so it must not go out while the fee is still open. The
       // backend enforces the same order in actions/tax/postreview-decision.ts.
-      // amendTax4Blocks is false on legacy plans and while the step row has not
-      // been seeded, so neither case changes this gate.
+      // LEGACY plans are in scope now too (they can amend onto the
+      // implementation fee) — amendTax4Blocks is false only while the step row
+      // has not been seeded or the step is already answered, so an un-seeded
+      // program never has this gate appear out of nowhere.
       if (amendTax4Blocks) {
         return { locked: true, hint: 'Complete the "Amend fee" step first' }
       }
@@ -2783,14 +2841,19 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
         </div>
       )
     }
-    // A legacy-process plan can never amend a fee, so both amend steps render as
-    // inert "Not applicable" rows on EVERY surface — same treatment (and same
-    // exclusion from the counts) the ROI-skip rows above get. Ahead of the lock
-    // gate for the same reason: not-applicable outranks locked, and there is no
-    // prerequisite that could ever make it reachable.
+    // The narrow residue of the old legacy exclusion (see isAmendNotApplicable):
+    // a LEGACY plan whose amendment window has already closed — the downstream
+    // decision is recorded — and which never answered the step. Legacy plans
+    // still inside the window get the live card like everybody else; this row
+    // exists so the ~22 production plans already past Client decision 1 are not
+    // left with a permanently unanswerable step dragging their phase pill.
+    // Renders inert on EVERY surface, with the same exclusion from the counts
+    // the ROI-skip rows above get. Ahead of the lock gate for the same reason:
+    // not-applicable outranks locked, and no prerequisite can reopen a closed
+    // window.
     if (isAmendNotApplicable(task)) {
       return (
-        <div key={key} title="This plan was priced under the previous fee process, which has no amendment step." style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+        <div key={key} title="The client decision for this stage has already been recorded, so the fee can no longer be amended." style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'transparent', flexShrink: 0, border: '1.5px solid var(--vfo-border-mid)' }} />
           <span style={{ fontSize: '13px', color: 'var(--vfo-muted)', flex: '1 1 auto', minWidth: '140px' }}>{taskLabel(task)}</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '0 1 auto', minWidth: '150px', justifyContent: 'flex-end', textAlign: 'right' }}>
@@ -4879,11 +4942,31 @@ function TaxPrioritiesTab({ clientId, programId, programName, client, specialist
 
   function getPlanState(plan) {
     const prog = allProgress[plan.id] || {}
-    // The Tax 4 'Amend fee' step only exists for revised-fee-process plans — a
-    // legacy plan must not drop out of "completed" because of a step it can
-    // never answer. (The Tax 5b amend step is already outside this list, which
-    // excludes both Tax 5 phases entirely.)
-    const allTasks = phases.filter(p => p.name !== 'Tax 5 - Education & DD (Specialist Allocation)' && p.name !== 'Tax 5 - Education & DD (Post Allocation)').flatMap(p => p.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !(isAmendStepTask(t) && !isNewFeeProcess(plan)))
+    // An amend step that is NOT APPLICABLE to this plan must not keep it out of
+    // "completed" — it is a step the plan can never answer. Same three-way rule
+    // TaxPlanTrackView's isAmendNotApplicable uses, and the same one the backend
+    // step machine uses (utils/tax-plan-steps.ts — #339 keeps all three in
+    // step): applicable when the plan is on the revised fee process, OR the step
+    // is ANSWERED, OR the amendment WINDOW is still open (this stage's client
+    // decision not yet recorded).
+    // This scope carries everything the rule needs, so it is a full mirror, not
+    // an approximation: `prog` is the plan's whole client_tax_progress map
+    // (loadData fills it per plan) and `plan` comes from tax_load_plans, which
+    // selects *, so the stamps and both decision columns are on it.
+    // (Only the Tax 4 step can actually reach this filter — the list drops both
+    // Tax 5 phases — but the rule is written stage-blind so it stays correct if
+    // that ever changes.)
+    const amendNotApplicable = (t) => {
+      if (!isAmendStepTask(t) || isNewFeeProcess(plan)) return false
+      const tax5 = amendStage(t) === 'tax5'
+      // Two-source "answered", exactly as isTaskStatused reads it: the progress
+      // row is the normal proof, the fee_amended_at_* stamp the independent one.
+      const answered = !!prog[t.id]?.status || !!(tax5 ? plan?.fee_amended_at_tax5 : plan?.fee_amended_at_tax4)
+      const decision = tax5 ? plan?.implementation_decision : plan?.post_review_decision
+      const windowOpen = decision === null || decision === undefined || decision === ''
+      return !answered && !windowOpen
+    }
+    const allTasks = phases.filter(p => p.name !== 'Tax 5 - Education & DD (Specialist Allocation)' && p.name !== 'Tax 5 - Education & DD (Post Allocation)').flatMap(p => p.program_client_tasks || []).filter(t => t.status_options !== 'auto' && !amendNotApplicable(t))
     if (allTasks.length === 0) return 'not started'
     if (allTasks.every(t => prog[t.id]?.status)) return 'completed'
     if (allTasks.some(t => prog[t.id]?.status)) return 'in progress'
