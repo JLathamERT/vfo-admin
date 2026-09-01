@@ -8,6 +8,54 @@
 
 ---
 
+## 2026-09-01 — Legacy tax plans can amend their fee, and the gate that would have wedged the old ones
+
+**One chat, one branch (`claude/vfo-session-setup-3ae25d`). Shipped as `vfo-admin-api` **v802**, then **v803** for a wording change made mid-test. NO migration, NO DDL, NO template-row edit, NO cron change, NO new action — count UNMOVED at **480**. `boldsign-webhook` untouched at v40. Smoke **5/5 against v802 AND re-run 5/5 against v803** (Jake). Security advisor deliberately NOT re-run: nothing in this branch touches a table, a policy or a database function.**
+
+### What changed, and why it is smaller than it sounds
+
+The Tax 4 *"Amend fee"* and Tax 5b *"Amend implementation fee"* steps shipped on 2026-08-25 as revised-fee-process-only: `amend-fee.ts` 400'd a legacy plan outright and the step machine marked both steps `applicable: false` on one. VFO does still re-price legacy engagements — by hand, off the record — so the ask was to give those plans the same step.
+
+**The legacy semantics are the fallback arm that was already there.** A legacy retainer was collected in ONE payment and is already settled, so the whole movement lands on `implementation_amount` (`newImpl = newTotal − retainer_amount`) — the same else-arm a 2-payment revised plan takes at Tax 4 and every plan takes at Tax 5. **No charge ever fires from an amendment**, on any shape. The revenue-share legs re-scale proportionally with the residual on `vfos_share` (#252, #394), unchanged. The 3-payment re-derivation and the ≤ $30,000 conversion arms stay revised-process-only **without a version test**, because they are keyed on `stage === "tax4" && initialCents > 0` and a legacy row can never carry `initial_retainer_amount` — re-keying them onto `isNewFeeProcess` would have been the wrong fix.
+
+**No `total_fee` backfill, and that was checked rather than assumed.** All **26** priced legacy plans satisfy `total_fee = retainer_amount + implementation_amount` exactly (SQL-verified), so the arithmetic is sound on every one. The **34** unpriced legacy plans — no `total_fee`, no `retainer_amount` — get a legacy-only guard instead: *"This plan's fee has not been set yet — there is nothing to amend."* Without it the else-arm would have made the entire new total an implementation fee off a zero retainer. It sits AFTER the `keep: true` short-circuit, so an unpriced plan can still ANSWER the step; only a change is refused.
+
+### The applicability rule, and the ~22 plans it exists for
+
+The obvious implementation — every legacy plan gets both steps — would have been wrong. Roughly **22 production legacy plans** are already past Client decision 1 or complete, and `amend-fee.ts` refuses stage `tax4` once `post_review_decision` is set and stage `tax5` once `implementation_decision` is. An unconditional step would have left those plans' phase pills, `next_action` and completeness permanently one short on a row nobody could ever action.
+
+So `applicable` became three-way: `reach && (newFeeProcess || answered || windowOpen)`, where *answered* is the existing two-source test (progress row OR `fee_amended_at_*` stamp) and *windowOpen* is `!plan.post_review_decision` / `!plan.implementation_decision`. All three window tests read **truthiness**, not `!= null`, matching how `amend-fee.ts` reads the same columns — so `''` counts as undecided everywhere and *applicable* can never outlive *answerable*. `TaxPrioritiesTab.jsx` carries the identical rule in two places (`isAmendNotApplicable` and a local mirror inside `getPlanState`), which with the backend makes three surfaces bound by #339.
+
+A past-the-window legacy plan therefore renders **exactly** as it did before: the inert *"Not applicable"* row, dropped from every count. Its tooltip changed, because the old one was now a lie — *"This plan was priced under the previous fee process, which has no amendment step"* became *"The client decision for this stage has already been recorded, so the fee can no longer be amended."*
+
+### The gate that would have wedged the old rows — #462
+
+Both decision handlers dropped their `isNewFeeProcess` prefix, so the "answer the amend step first" lock applies on every fee shape. On Tax 4 that is the whole change: `postreview-decision.ts` returns its idempotency response before the gate is reached.
+
+**Tax 5 is a different kind of handler.** `automation_TAX_implementdecision` is re-run by design — an admin who recorded *Undecided* comes back through the same call to flip it to *Proceed* — so the gate IS evaluated on rows whose decision already exists, and on exactly those rows the amend step is unanswerable. An un-scoped gate would have 400'd that flip forever, on an instruction nobody could follow. The gate is therefore window-scoped: `if (!plan.implementation_decision && plan.fee_amended_at_tax5 == null)`. Tax 4 needs no equivalent. **Nothing in the build, the type-check or the live click-through would have caught this** — the tested path is a fresh plan inside the window; the broken path is an old row somebody flips weeks later.
+
+### Two hardenings that also reach revised-process plans
+
+**`'cancelled'` now freezes both stages.** `final_retainer_status` at Tax 4 and `implementation_charge_status` at Tax 5 joined `processing`/`succeeded` in the freeze guards. `'cancelled'` is VFO's own write-off from `payments_cancel_remaining` (2026-08-26): that payment will never settle and the client's link already says nothing further is due, so re-deriving amounts around a closed schedule would move money on a schedule that has been shut. The message **branches** rather than interpolating the status — *"was cancelled by VFO"*, because *"is already cancelled"* reads as something still pending.
+
+**A pre-existing FE bug, found by testing that guard.** The card's server-refusal message was rendered `{!answered && submitError && …}`. The card is re-openable via "Change amount", and a re-amend on an already-answered step is exactly the request most likely to be refused — so the message was mounted behind a condition the failure path guarantees to be false. The cancelled-guard test clicked Save and **nothing at all happened on screen** while the server refused correctly, in writing. Now `{submitError && …}`. Gotcha **#461**: the gate belongs on the action, never on the message explaining why the action failed.
+
+### The wording change that became v803
+
+Mid-test, on reading the first legacy decision-1 draft, the user asked for the addendum clause to survive a missing signing date. `client_signed_at` is stamped for every revised-process plan but **a legacy plan never has it at all**, so what used to be the repair branch is now the ordinary one. The clause is kept and only the DATE is dropped: *"…amending the Total Tax Planning fee to $30,000.00, as an addendum to your Tax Engagement Agreement."* Both builders (`postreview-decision.ts`, `implement-decision.ts`) changed identically. The `[AMENDMENT_PARAGRAPH]` builders also lost their `isNewFeeProcess` gate — they key on the `fee_amended_at_*` stamp alone now, so a legacy client is told about their amendment in the same words. `[FINAL_RETAINER]` stays 3-payment-only, that shape being revised-process by definition.
+
+One stale comment in `actions/payments/normalize.ts` was corrected in passing — it claimed the implementation invoice number is "NULL on legacy", which stopped being true the moment legacy plans could amend.
+
+### Tested live, on fixture plan 175 (client 62, legacy-shaped, sandbox-forced)
+
+Against the deployed version of each moment: the amend step appearing on a legacy plan at Tax 4 with Client decision 1 locked behind it; *"Keep the fee"* with its confirm dialog; **Tax 4 $20,000 → $25,000** — retainer untouched at $10,000, implementation $15,000, `fee_process_version` still NULL, shares scaled ×1.25 with the VFOS residual summing to exactly $25,000 (8333.34 / 8333.34 / 8333.32), stamp written, audit row correct with `created_by`; Client decision 1 sent and the draft read (amendment sentence with *"$25,000.00"*, no raw tokens, no stray `[FINAL_RETAINER]`); **Tax 5 $25,000 → $30,000** — implementation $20,000, shares ×1.2 summing to exactly $30,000, second audit row; the **cancelled freeze at Tax 5**, hand-setting `implementation_charge_status='cancelled'` and watching the re-amend refused server-side with the DB untouched and the red message finally visible; and Client decision 2 with the **new v803 wording** in the draft. Read-only eyeballs on two REAL plans: client 82 (legacy, past decision 1 — Tax 4 amend inert with the new tooltip and counts unchanged, Tax 5 amend live because that window is open, which is intended) and client 123 (revised-process 2-pay — both steps unchanged).
+
+Green buttons were deliberately never clicked: no revenue share and no charge fired, both paths being untouched by this branch. **All fixtures wiped afterwards** — plans 172, 174 and 175 deleted with their progress, specialist and amendment rows, leaving client 62 with **zero** `client_tax_plans` rows. That also discharges the 2026-08-31 entry's owed "plan 172 fixture wipe". Bells were deliberately left alone (a live sweep re-mints them anyway).
+
+### Shipped with the frontend NOT deployed — the one urgent item
+
+`v803` is live and refuses Client decision 1 / 2 on any in-window legacy plan until the amend step is answered, but production's bundle does not render that step. Until `npm run deploy` runs, an admin on a legacy plan in the Tax-4 window (~4 plans) or the Tax-5 window (~9) hits a 400 with no visible step to satisfy it. Everything else owed is in the hub.
+
 ## 2026-08-31 — Four small asks, and the first one was a rendering trap that had made a whole class of member-view steps unreadable
 
 **One chat, one branch (`claude/vfo-session-setup-5de839`). Shipped as `vfo-admin-api` **v801** with THREE migrations (`20260831120000_additional_info_requests.sql`, `20260831130000_holistic_msm2_tax_planning_video.sql`, `20260831140000_msm2_video_section_wording.sql` — all applied via MCP and committed as files, #196). Action count UNMOVED at **480** — no dispatch or index change. Smoke **5/5 against v801** (Jake). The two migrations that seed training rows are LIVE-VISIBLE WITH NO DEPLOY, because that curriculum is data.**
