@@ -15,16 +15,19 @@ import { legState, isTerminalLeg, paymentNoteFor } from './shareLegState'
 
 const PAID = new Set(['succeeded', 'processing', 'check_pending'])
 
-// Revised fee process (2026-08-25). Above the 3-payment threshold the retainer is
-// COLLECTED in two payments: initial_retainer_amount at the retainer step, then
+// Revised fee process (2026-08-25). At $31,000 and above the retainer is COLLECTED in
+// two payments: initial_retainer_amount at the retainer step, then
 // final_retainer_amount. retainer_amount stays the SUM of the two, so it must never be
 // booked as one cleared payment. Mirrors the edge constants/tax-fee-process.ts
-// isThreePaymentPlan — a legacy or 2-payment row can never carry the split columns, so
-// every pre-existing row takes the untouched single-Retainer path below.
+// isThreePaymentPlan — a legacy or 2-payment row can never carry
+// final_retainer_amount, so every such row takes the untouched single-Retainer path
+// below.
 const KNOWN_FEE_PROCESS_VERSIONS = ['2026-08-25']
-// Keyed on FINAL (mirrors the edge constant): a Tax 4 amendment to <= $30k
-// converts the plan to 2 payments by nulling final only — initial stays as the
-// reversibility marker — so final is the one truthful discriminator.
+// Keyed on FINAL (mirrors the edge constant), never on initial: a 2-payment row CAN
+// carry initial_retainer_amount — a Tax 4 amendment below $31,000 converts a plan by
+// nulling final only, and a buffer-band plan ($30,000.01-$30,999.99) is written that
+// way from the outset — with initial kept as the reversibility marker in both cases.
+// Final is the one truthful discriminator.
 function isThreePaymentPlan(r) {
   return KNOWN_FEE_PROCESS_VERSIONS.includes(r?.fee_process_version) && r?.final_retainer_amount != null
 }

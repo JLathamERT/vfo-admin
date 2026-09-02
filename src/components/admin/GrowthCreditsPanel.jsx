@@ -12,9 +12,10 @@ import { TableSkeleton } from '../shared/Skeleton'
 // redemption history — Inactive is the retire-it path.
 
 const PACKAGES = [
-  { credits: 1, price: '$100' },
-  { credits: 10, price: '$950' },
-  { credits: 20, price: '$1,800' },
+  { credits: 1, price: '$100', savings: null },
+  { credits: 10, price: '$950', savings: 'Save 5%' },
+  { credits: 20, price: '$1,800', savings: 'Save 10%' },
+  { credits: 50, price: '$4,000', savings: 'Save 20%' },
 ]
 
 const NAVY = '#002973'
@@ -218,6 +219,7 @@ export default function GrowthCreditsPanel() {
               <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--vfo-ink)' }}>{p.credits}</div>
               <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase', color: 'var(--vfo-muted)', marginTop: '2px' }}>{p.credits === 1 ? 'credit' : 'credits'}</div>
               <div style={{ fontSize: '15px', fontWeight: 700, color: BLUE, marginTop: '8px' }}>{p.price}</div>
+              {p.savings && <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--vfo-muted)', marginTop: '2px' }}>{p.savings}</div>}
             </div>
           ))}
         </div>

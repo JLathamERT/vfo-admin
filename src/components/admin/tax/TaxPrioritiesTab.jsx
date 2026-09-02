@@ -25,13 +25,25 @@ const moneyDigitsOnly = (raw) => {
 }
 
 // Revised fee process (2026-08-25): the fee is driven by ONE number, the total.
-// This mirrors the edge repo's constants/tax-fee-process.ts deriveFeeSplit byte
-// for byte — arithmetic in whole cents so retainer + implementation === total and
-// initial + final === retainer exactly. DISPLAY ONLY: the server re-derives every
-// payable amount from the submitted total and ignores anything computed here, so
-// the two must never drift. Change both together.
+// This mirrors the edge repo's constants/tax-fee-process.ts splitFeeCents /
+// deriveFeeSplit byte for byte — arithmetic in whole cents so retainer +
+// implementation === total and initial + final === retainer exactly. DISPLAY
+// ONLY: the server re-derives every payable amount from the submitted total and
+// ignores anything computed here, so the two must never drift. Change both
+// together.
+//
+// THREE BANDS. The plain 50:50 split ENDS at THREE_PAYMENT_THRESHOLD; the
+// 3-payment schedule BEGINS at THREE_PAYMENT_MIN. Between them is the BUFFER
+// BAND ($30,000.01 - $30,999.99), which is 2 payments with the flat $15,000 as
+// the WHOLE retainer — it exists because a 3-payment split there would leave a
+// final retainer of a few dollars ($30,119 -> $59.50). A buffer-band plan is
+// STORED exactly like one an amendment converted back to 2 payments (initial
+// kept, final NULL), so isThreePaymentPlan reads it as 2 payments everywhere and
+// the kept initial is what lets a later amendment reaching $31,000 convert it
+// to 3.
 const MAX_TOTAL_FEE = 60000
 const THREE_PAYMENT_THRESHOLD = 30000
+const THREE_PAYMENT_MIN = 31000
 const INITIAL_RETAINER_FLAT = 15000
 const FEE_TOTAL_RANGE_MESSAGE = `Total fee must be greater than $0 and no more than $${MAX_TOTAL_FEE.toLocaleString('en-US')}`
 
@@ -40,7 +52,9 @@ const FEE_TOTAL_RANGE_MESSAGE = `Total fee must be greater than $0 and no more t
 // repo's constants/tax-fee-process.ts CUSTOM_SPLIT_CLIENT_IDS: the server only
 // honours a customInitialRetainer for a client on ITS list, so the two must
 // never drift. The 50:50 retainer/implementation split of the total is
-// unaffected — only the initial/final boundary inside the retainer half moves.
+// unaffected — only the initial/final boundary inside the retainer half moves,
+// which is why it is offered on 3-payment totals ONLY: below $31,000 there is no
+// final retainer for the boundary to sit against, buffer band included.
 // NOTE: unrelated to `splitType === 'Custom'` further down, which is the REVENUE
 // split between member / tax planner / VFOS.
 // 62 is the standing sandbox-forced Test Client (member 59524, gotcha #251),
@@ -70,40 +84,70 @@ const AMEND_FEE_TAX5_CODE = 'tax_amend_fee_tax5'
 const isAmendStepTask = (t) => t?.status_options === AMEND_FEE_CODE || t?.status_options === AMEND_FEE_TAX5_CODE
 const amendStage = (t) => (t?.status_options === AMEND_FEE_TAX5_CODE ? 'tax5' : 'tax4')
 
+// The whole-cents core, mirroring the edge splitFeeCents(). No range check —
+// deriveFeeSplit below owns that, exactly as on the server.
+function splitFeeCents(cents) {
+  const threePayment = cents >= THREE_PAYMENT_MIN * 100
+  const bufferBand = cents > THREE_PAYMENT_THRESHOLD * 100 && !threePayment
+  if (bufferBand) {
+    const retainerCents = INITIAL_RETAINER_FLAT * 100
+    return {
+      threePayment: false,
+      bufferBand: true,
+      retainerCents,
+      implementationCents: cents - retainerCents,
+      initialCents: retainerCents,
+      finalCents: null,
+    }
+  }
+  const retainerCents = Math.round(cents / 2)
+  const initialCents = threePayment ? INITIAL_RETAINER_FLAT * 100 : null
+  return {
+    threePayment,
+    bufferBand: false,
+    retainerCents,
+    implementationCents: cents - retainerCents,
+    initialCents,
+    finalCents: initialCents === null ? null : retainerCents - initialCents,
+  }
+}
+
 // customInitial (DOLLARS, optional) moves the initial/final boundary inside the
 // retainer half — the total, the retainer half and the implementation fee are
-// untouched by it. Mirrors the edge deriveFeeSplit's second argument, except
-// that every case it THROWS on returns null here (this file's invalid
-// convention): total out of range, a custom initial on a 2-payment total, or a
-// custom initial outside 0 < x < the retainer half.
+// untouched by it. It is 3-PAYMENT-ONLY: a buffer-band total has no
+// initial/final boundary to move, so it refuses like a plain 2-payment total.
+// Mirrors the edge deriveFeeSplit's second argument, except that every case it
+// THROWS on returns null here (this file's invalid convention): total out of
+// range, a custom initial on a non-3-payment total, or a custom initial outside
+// 0 < x < the retainer half.
 function deriveFeeSplit(total, customInitial) {
   const cents = Math.round(Number(total) * 100)
   if (!Number.isFinite(cents) || cents <= 0 || cents > MAX_TOTAL_FEE * 100) return null
-  const retainerCents = Math.round(cents / 2)
-  const implementationCents = cents - retainerCents
-  const threePayment = cents > THREE_PAYMENT_THRESHOLD * 100
+  const shape = splitFeeCents(cents)
   const wantsCustom = customInitial !== undefined && customInitial !== null
   if (wantsCustom) {
-    if (!threePayment) return null
+    if (!shape.threePayment) return null
+    const retainerCents = shape.retainerCents
     const customInitialCents = Math.round(Number(customInitial) * 100)
     if (!Number.isFinite(customInitialCents) || customInitialCents <= 0 || customInitialCents >= retainerCents) return null
     return {
       total: cents / 100,
       retainer: retainerCents / 100,
-      implementation: implementationCents / 100,
+      implementation: shape.implementationCents / 100,
       initialRetainer: customInitialCents / 100,
       finalRetainer: (retainerCents - customInitialCents) / 100,
-      threePayment,
+      threePayment: true,
+      bufferBand: false,
     }
   }
-  const initialCents = threePayment ? INITIAL_RETAINER_FLAT * 100 : null
   return {
     total: cents / 100,
-    retainer: retainerCents / 100,
-    implementation: implementationCents / 100,
-    initialRetainer: initialCents === null ? null : initialCents / 100,
-    finalRetainer: initialCents === null ? null : (retainerCents - initialCents) / 100,
-    threePayment,
+    retainer: shape.retainerCents / 100,
+    implementation: shape.implementationCents / 100,
+    initialRetainer: shape.initialCents === null ? null : shape.initialCents / 100,
+    finalRetainer: shape.finalCents === null ? null : shape.finalCents / 100,
+    threePayment: shape.threePayment,
+    bufferBand: shape.bufferBand,
   }
 }
 
@@ -141,17 +185,19 @@ const fmtUsdCents = (cents) => `$${fmtMoney(cents / 100)}`
 const AMEND_RANGE_MESSAGE = `Total fee must be greater than $0 and no more than $${MAX_TOTAL_FEE.toLocaleString('en-US')}.`
 
 // Is this a 3-payment (initial + final retainer) plan? Same test as the edge
-// repo's isThreePaymentPlan — keyed on FINAL: a Tax 4 amendment to <= $30k
-// converts to 2 payments by nulling final only (initial stays as the marker
-// that lets a later above-threshold amendment convert back).
+// repo's isThreePaymentPlan — keyed on FINAL, because two different 2-payment
+// shapes carry an initial_retainer_amount: a plan a Tax 4 amendment below
+// $31,000 converted (final nulled, initial kept as the marker that lets a later
+// amendment reaching $31,000 convert back), and a BUFFER-BAND plan, which is
+// written that way from the outset.
 const isThreePaymentPlan = (pl) => isNewFeeProcess(pl) && pl?.final_retainer_amount != null
 
 // The plan's CURRENT payment schedule, in the shape FeeBreakdown renders.
 // Deliberately reads the STORED columns rather than re-deriving from the total:
-// after an amendment a 3-payment plan can sit at exactly $30,000, where
-// deriveFeeSplit's `cents > threshold` test would call it a 2-payment plan while
-// initial_retainer_amount still says otherwise. Returns null when the plan has
-// no total (nothing to show).
+// after an amendment a 3-payment plan can sit at a total deriveFeeSplit would
+// call 2-payment (or the reverse), while the stored columns still say what is
+// actually being collected. Returns null when the plan has no total (nothing to
+// show).
 function planFeeSchedule(pl) {
   const totalCents = amendToCents(pl?.total_fee)
   if (totalCents <= 0) return null
@@ -169,10 +215,15 @@ function planFeeSchedule(pl) {
 // What the server WOULD store for `rawTotal` at this stage, or the error it
 // would return. Mirrors amend-fee.ts's derivation branch for branch:
 //
-//   tax4 + 3-payment -> the 50:50 split is RE-DERIVED from the new total and the
-//     already-paid initial retainer is subtracted out of the retainer half, so
-//     only the FINAL retainer and the implementation fee move. Refused when that
-//     would drive the final retainer negative (i.e. below 2x the paid initial).
+//   tax4 + an already-paid initial retainer, new total >= $31,000 -> the 50:50
+//     split is RE-DERIVED from the new total and the already-paid initial
+//     retainer is subtracted out of the retainer half, so only the FINAL
+//     retainer and the implementation fee move. Refused when that would drive
+//     the final retainer negative (i.e. below 2x the paid initial).
+//   tax4 + an already-paid initial retainer, new total < $31,000 -> the plan is
+//     2 payments: the paid initial becomes the whole retainer and the rest is
+//     the implementation fee. That covers both a plain <= $30,000 total and one
+//     inside the $30,000-$31,000 buffer band, which store identically.
 //   every other shape (tax4 + 2-payment, tax5 either) -> the retainer side is
 //     settled and untouchable, so the whole movement lands on the implementation
 //     fee. Refused when that would leave the implementation fee at or below $0.
@@ -193,7 +244,7 @@ function amendFeePreview(pl, stage, rawTotal) {
   // amend-fee.ts) — true for a live 3-payment plan AND a converted one, so the
   // conversion is reversible in both directions until Client decision 1 is sent.
   if (stage === 'tax4' && initialCents > 0) {
-    if (newTotalCents > THREE_PAYMENT_THRESHOLD * 100) {
+    if (newTotalCents >= THREE_PAYMENT_MIN * 100) {
       const newRetainerCents = Math.round(newTotalCents / 2)
       const newImplCents = newTotalCents - newRetainerCents
       const newFinalCents = newRetainerCents - initialCents
@@ -214,9 +265,10 @@ function amendFeePreview(pl, stage, rawTotal) {
         },
       }
     }
-    // At or below $30,000 the plan CONVERTS to 2 payments (mirrors amend-fee.ts):
-    // the paid initial retainer becomes the whole retainer, there is no final
-    // retainer any more, and the reduction lands on the implementation fee.
+    // Below $31,000 — at or below $30,000, or inside the $30,000-$31,000 buffer
+    // band — the plan CONVERTS to 2 payments (mirrors amend-fee.ts): the paid
+    // initial retainer becomes the whole retainer, there is no final retainer any
+    // more, and the reduction lands on the implementation fee.
     if (newTotalCents <= initialCents) {
       return { error: `Total must be more than the initial retainer of ${fmtUsdCents(initialCents)} already paid` }
     }
@@ -287,7 +339,12 @@ function FeeBreakdown({ split, projected = false, paidFlags = null }) {
       </div>
       {split.threePayment && (
         <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '6px' }}>
-          Above ${THREE_PAYMENT_THRESHOLD.toLocaleString('en-US')} the retainer is collected in two payments — three payments in total.
+          At ${THREE_PAYMENT_MIN.toLocaleString('en-US')} and above the retainer is collected in two payments — three payments in total.
+        </div>
+      )}
+      {split.bufferBand && (
+        <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '6px' }}>
+          Between ${THREE_PAYMENT_THRESHOLD.toLocaleString('en-US')} and ${THREE_PAYMENT_MIN.toLocaleString('en-US')} the retainer is the flat ${INITIAL_RETAINER_FLAT.toLocaleString('en-US')} and the remainder is the implementation fee.
         </div>
       )}
     </div>
@@ -708,7 +765,7 @@ function AmendFeeStep({ task, plan, stage, status, completedDate, readOnly, onAn
               </div>
               <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', marginTop: '4px' }}>
                 {stage === 'tax4' && amendToCents(plan?.initial_retainer_amount) > 0
-                  ? 'The 50:50 split is re-derived from the new total; the initial retainer is already paid, so only the final retainer and the implementation fee move. At $30,000 or below the plan converts to two payments (and converts back if amended above $30,000 again).'
+                  ? 'At $31,000 or more the 50:50 split is re-derived from the new total; the initial retainer is already paid, so only the final retainer and the implementation fee move. Below $31,000 the plan is two payments: the initial retainer already paid becomes the whole retainer and the rest is the implementation fee (it converts back if amended to $31,000 or more).'
                   : 'The retainer is already paid, so the whole change lands on the implementation fee.'}
               </div>
               {preview?.converts && (

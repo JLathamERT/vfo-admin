@@ -12,37 +12,60 @@ Member opens [MemberPortal](src/pages/MemberPortal.jsx) → GC Marketplace tab �
 
 ### Step 1 — Initiate Stripe Checkout
 
-**Handler:** `gc_create_checkout({member_number, amount, price})` ([MemberGCMarketplace.jsx:47](src/components/member/MemberGCMarketplace.jsx) → [admin-api:2806-2837](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)).
+**Handler:** `gc_create_checkout({member_number, amount, payment_method})` ([MemberGCMarketplace.jsx](src/components/member/MemberGCMarketplace.jsx) → [actions/gc/create-checkout.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/gc/create-checkout.ts)).
+
+**Four fixed packages, priced SERVER-SIDE.** `GC_PACKAGES` in that handler is the single source of truth; the client-sent `amount` must be one of its keys and **any client-sent price is ignored**.
+
+| Credits | Price | vs. the $100-per-credit headline |
+|---|---|---|
+| 1 | `$100` | — |
+| 10 | `$950` | **5% off** ($1,000) |
+| 20 | `$1,800` | **10% off** ($2,000) |
+| 50 | `$4,000` | **20% off** ($5,000) *(added 2026-09-01)* |
+
+The **member** Buy Credits modal ([MemberGCMarketplace.jsx](src/components/member/MemberGCMarketplace.jsx)) renders these as a **4-column comparison table** — struck-through headline price, an *"N% off"* line, the net price, and a **Select** button per column — computing the headline and the discount from `GC_NET_PRICES`, which mirrors the server list **for display only**. The **admin** panel ([GrowthCreditsPanel.jsx](src/components/admin/GrowthCreditsPanel.jsx)) shows the same four as reference cards with a *"Save N%"* line. **All three lists must move together when a package changes**, and the server one is the only one that decides what is charged.
+
+**ACH or card, and the card price is grossed up.** `payment_method` is required and must be `'ach'` or `'card'`. ACH charges the flat package price; **card grosses the charge up so Stripe's 2.9% + $0.30 nets to the flat price** — `chargeCents = round((price + 0.30) / (1 - 0.029) * 100)`, the same formula as `tax/stripe-checkout.ts` and `pipeline/contract-stripe-checkout.ts`. The gross-up amount rides along as `metadata.card_processing_fee`. `payment_method_types[]` is `card` or `us_bank_account`, and the ACH session additionally sets `payment_method_options[us_bank_account][verification_method] = instant`.
 
 Creates a Stripe Checkout Session:
 
 ```
 mode: payment
-success_url: https://vfoportal.com/?gc_success=1
-cancel_url:  https://vfoportal.com/
+success_url: <base>/member?gc_success=1&m=<payment_method>
+cancel_url:  <base>/member
+payment_method_types[]: card | us_bank_account
 line_items[0]:
   price_data.currency: usd
-  price_data.unit_amount: <price * 100>
-  price_data.product_data.name: "<amount> Growth Credits - (<member_number>) <Member Name>"
+  price_data.unit_amount: <chargeCents>   # grossed up on card, flat on ACH
+  price_data.product_data.name: "<credits> Growth Credits - (<member_number>) <Member Name>"
   quantity: 1
 payment_intent_data.description: <same memo as the product name>
 metadata.member_number: <member_number>
-metadata.credits: <amount>
+metadata.credits: <credits>
+metadata.pipeline: GROWTH_CREDITS          # what the webhook routes on
+metadata.card_processing_fee: <fee>        # card only
 ```
 
 Returns the Checkout URL. Frontend redirects via `window.location.href`.
 
-> **Note:** uses `STRIPE_SECRET_KEY` only — no sandbox path. GC purchases always go through live Stripe.
+> **`<base>` is the REQUEST's Origin when allowlisted.** The handler reads the `Origin` header and uses it when it appears in `ALLOWED_ORIGINS` (`constants/allowed-origins.ts`), else falls back to `https://vfoportal.com` — so local dev returns to localhost rather than production.
+
+> **GC purchases DO have a sandbox path.** The Stripe key comes from `getStripeKey(isSandbox)`, with `isSandbox` loaded from the **`GROWTH_CREDITS`** row of `pipeline_sandbox_config`. (An older note here claimed `STRIPE_SECRET_KEY` unconditionally with no sandbox path; that is no longer true. The `integrations/stripe/client.ts` comment saying the same is likewise stale.)
 
 ### Step 2 — Client pays on Stripe-hosted page
 
-External to this codebase. Stripe redirects back to `success_url` after payment.
+External to this codebase. Stripe redirects back to `success_url` after payment — `/member?gc_success=1&m=<method>`, so the portal knows which method was used and can say "credits added" for a card versus "settling" for ACH.
 
 ### Step 3 — Stripe webhook fulfills the purchase
 
-**Handler:** Stripe webhook block at [admin-api:270-288](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts) (gated by `stripe-signature` header).
+**Handler:** `fulfillGrowthCredits()` in [router/webhooks.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/router/webhooks.ts), reached through `maybeHandleStripeWebhook()` in the same file (gated by the `stripe-signature` header).
 
-On `event.type === "checkout.session.completed"` with `session.metadata.member_number` and `metadata.credits` set:
+**Routed on `session.metadata.pipeline === "GROWTH_CREDITS"`**, and called from **two** event types so card and ACH cannot drift:
+
+- `checkout.session.completed` — only when `session.payment_status === "paid"`, i.e. **card**. An ACH session completes as `processing`, with the money not yet settled.
+- `checkout.session.async_payment_succeeded` — **ACH**, when it settles later.
+
+The helper is **idempotent against Stripe retries** via a `stripe_session_id` guard: it looks for an existing `gc_transactions` row for that session id before crediting. Then:
 1. Reads existing `gc_balances.balance` (or 0).
 2. UPSERTs `gc_balances` with `balance = current + credits`.
 3. INSERTs `gc_transactions` row: `type='purchased'`, `amount=<credits>`, `balance_after=<new>`, `description="<credits> credits purchased via Stripe"`.
@@ -56,13 +79,13 @@ See [stripe-webhook.md](stripe-webhook.md#sub-branch-a1--gc-credit-purchase) for
 
 ### Step 1 — Browse services
 
-**Handler:** `gc_load_services` ([MemberGCMarketplace.jsx:40](src/components/member/MemberGCMarketplace.jsx) → [actions/gc/load-services.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/gc/load-services.ts)). Reads all `gc_services` rows.
+**Handler:** `gc_load_services` ([GCMarketplaceViews.jsx](src/components/shared/GCMarketplaceViews.jsx), the shared Services view that `MemberGCMarketplace.jsx` mounts → [actions/gc/load-services.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/gc/load-services.ts)). Reads all `gc_services` rows.
 
 The payload splits by caller role. A **member** gets the active services with `allocated_admin_email` and `scheduling_link` stripped — the allocation is internal routing and the scheduling link reaches them in the confirmation email instead. An **admin** additionally gets `allocated_admin_name` resolved per service (email → `allowed_admins.name`) and a top-level `admins: [{name, email}]` list for the allocation dropdown.
 
 ### Step 2 — Initiate redemption
 
-**Handler:** `gc_redeem({member_number, service_id})` ([MemberGCMarketplace.jsx:55](src/components/member/MemberGCMarketplace.jsx) → [admin-api:2723-2747](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)).
+**Handler:** `gc_redeem({member_number, service_id})` ([MemberGCMarketplace.jsx](src/components/member/MemberGCMarketplace.jsx) → [actions/gc/redeem.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/gc/redeem.ts)).
 
 Roughly:
 1. Reads `gc_services` for `credit_cost`. **If the service is `monthly`/`yearly`, first refuses a duplicate** — an `active`/`on_hold` `gc_subscriptions` row for this member+service returns **400** *"You already have this recurring service"*, because a second subscription would have the sweep charging twice. (This is what a stale browser tab hits.)
@@ -89,7 +112,7 @@ Then two best-effort side effects, each in its own `try/catch` — neither may f
 
 ## Flow C — Admin manual credit adjustment
 
-**Handler:** `gc_add_credits({member_number, amount, description})` ([MembersPanel.jsx:628](src/components/admin/MembersPanel.jsx) → [admin-api:2749-2767](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)).
+**Handler:** `gc_add_credits({member_number, amount, description})` ([MembersPanel.jsx](src/components/admin/MembersPanel.jsx) → [actions/gc/add-credits.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/gc/add-credits.ts)).
 
 Updates `gc_balances` and inserts a `gc_transactions` row of `type='added'` (or similar — exact value set in admin-api code). Used to manually credit (or, with negative `amount`, debit) a member's balance.
 
@@ -175,25 +198,19 @@ Both surfaces render the **same component**, [GCMarketplaceViews.jsx](src/compon
 
 ## Auth
 
-- `gc_redeem` and `gc_add_credits` are NOT in `ADMIN_ONLY_ACTIONS`. `gc_create_checkout` IS in the admin-only list ([admin-api:2235](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)).
-
-> **Inconsistency:** `gc_create_checkout` is admin-only but the frontend [MemberGCMarketplace.jsx:47](src/components/member/MemberGCMarketplace.jsx) calls it from a member-mounted component. **A member calling `gc_create_checkout` would currently get HTTP 403.** This means either:
-> 1. The frontend has a broken purchase flow for members (admin-only error visible only at runtime), OR
-> 2. The component is admin-mounted-only (but it's imported into MemberPortal at line 7 with `gc` tab routing)
->
-> Worth investigating in actual runtime behavior. Flagged.
+- `gc_redeem`, `gc_add_credits` and `gc_create_checkout` are all NOT in `ADMIN_ONLY_ACTIONS`. `gc_create_checkout` sits in **`MEMBER_SCOPED_ACTIONS`** ([constants/role-gates.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/constants/role-gates.ts)), so a member calls it for their own `member_number` — the router rewrites `body.member_number` to the caller's — and the price is derived server-side from `GC_PACKAGES` rather than from the request. An earlier admin-only gate here **did** 403 the member purchase flow; it was fixed together with server-side pricing (**GOTCHAS #210**).
 
 ## Failure modes
 
-1. **Purchase race** — between Step 2 (Stripe redirect) and Step 3 (webhook fulfillment), the member's balance reflects the old amount. The window is short but observable.
-2. **Webhook idempotency** — Stripe's at-least-once delivery means a duplicate `checkout.session.completed` could double-credit. The handler does NOT check for prior fulfillment of the same `session.id`. Worth flagging.
-3. **`gc_redeem` race** — the balance check + decrement are not in a DB transaction. Two concurrent redemptions could oversell. Probably benign at low volume.
-4. **Rejected redemption with no refund** — admin must manually `gc_add_credits` to refund.
+1. **Purchase lag between the redirect and fulfillment — real, but no longer silent.** The balance still only rises when the webhook lands, so there is always a window after Stripe returns the buyer. **The size of it depends entirely on the method, and the UI now says so** (`MemberGCMarketplace.jsx`, off the `&m=` param on the return URL): a **card** payment settles in seconds, so the portal shows *"Payment received. Adding your credits…"* and **polls `gc_load_balance` every 3s for up to 30s**, confirming with the new balance the moment it rises; an **ACH** payment settles over **days**, so it shows a persistent (non-dismissing) banner explaining that the credits will appear automatically once the transfer clears. The remaining exposure is a card purchase whose webhook takes longer than the 30s poll — the banner simply stops updating and the balance is correct on the next load.
+2. **Webhook double-credit — GUARDED.** `fulfillGrowthCredits()` in `router/webhooks.ts` looks for an existing `gc_transactions` row carrying the same **`stripe_session_id`** before crediting anything, so Stripe's at-least-once redelivery cannot double-credit a purchase. Routing is on **`session.metadata.pipeline === "GROWTH_CREDITS"`**, and the helper is shared by the two events that can fulfill one — `checkout.session.completed` **only when `session.payment_status === "paid"`** (card; an ACH session completes as `processing`) and `checkout.session.async_payment_succeeded` (ACH, on settlement) — so the card and ACH paths cannot drift and cannot both credit the same session. *(This doc previously said the handler did NOT check for prior fulfillment. That is stale.)*
+3. **`gc_redeem` race** — the balance check + decrement are not in a DB transaction. Two concurrent redemptions could oversell. Probably benign at low volume. **Still open** — unlike the purchase path, there is no session-id equivalent to latch on.
+4. **Rejected redemption — REFUNDED AUTOMATICALLY, no admin action needed.** `actions/gc/update-redemption.ts` on `status='rejected'` re-reads the redemption, and **only if it is still `pending`** credits `gc_redemptions.credits` back to `gc_balances` and appends a `gc_transactions` row of type **`refunded`** (*"Redemption rejected — credits refunded"*). It also **cancels any `active`/`on_hold` `gc_subscriptions` row** for that member + service, so the recurring sweep stops charging for something VFO just declined to deliver (renewals never file a redemption row, so a rejectable pending one is always the INITIAL redemption). The `pending` test is what stops a second rejection click from refunding twice. *(This doc previously said an admin had to refund by hand with `gc_add_credits`; that contradicted Flow B step 3, and step 3 was the correct one.)*
 
 ## Open questions
 
-1. The admin-only gate on `gc_create_checkout` — see Auth note.
-2. Webhook idempotency — confirm if Stripe's "delivery_attempt" header is being checked anywhere (it isn't in observed code).
+1. ~~The admin-only gate on `gc_create_checkout`~~ — **resolved**: it is `MEMBER_SCOPED`, see the Auth note (#210).
+2. ~~Webhook idempotency~~ — **resolved**: the `stripe_session_id` lookup in `fulfillGrowthCredits()` is the dedupe, so Stripe's `delivery_attempt` header does not need to be read. See failure mode 2.
 
 ## Cross-references
 
