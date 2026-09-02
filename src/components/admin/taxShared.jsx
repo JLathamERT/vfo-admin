@@ -40,33 +40,54 @@ function vfosStateFor(status) {
   return paymentNoteFor(status) ? { note: 'payment clearing', tone: 'pending' } : null
 }
 
-// member_share: flat $ (>100) splits in half across retainer+implementation; else % of
-// that payment's amount.
-function memberPortion(memberRaw, amount) {
-  const mp = memberRaw > 100 ? memberRaw / 2 : (memberRaw / 100) * amount
-  return Math.min(Math.max(mp, 0), amount)
+// EVERY share on a tax plan — member, tax planner, strategic partner — is stored as
+// DOLLARS OF THE TOTAL engagement, and all three payout legs prorate it by what THIS
+// payment actually received (gotcha #252):
+//
+//   portion = (share / total) * payment,  falling back to share / 2 when total is
+//                                         unusable
+//
+// which is verbatim actions/tax/revshare.ts (member + strategic) and
+// utils/tax-planner-payout.ts (planner). One helper for all three, so this panel and the
+// money cannot drift apart again.
+//
+// It replaces two helpers that each assumed the retainer and implementation were EQUAL
+// HALVES and so hard-split the share `/ 2`. That held while every plan was a 50:50 pair;
+// it stopped holding the moment uneven splits became normal, and on Lorente (plan 91,
+// $4,887.50 / $10,112.50) it booked the member $3,750 against the $2,443.75 really
+// transferred, the partner $750 against $488.75, and drove the VFO residual to -$590
+// which `Math.max(…, 0)` then displayed as a clean $0.00.
+//
+// The old member helper also carried a `share <= 100 ? percent-of-this-payment` arm.
+// That is DELETED, not ported: revshare.ts states "There is no percent interpretation",
+// and 0 of 58 live plans store a share small enough to reach it — it was unreachable
+// code describing a convention the engine does not implement.
+function sharePortion(shareRaw, total, amount) {
+  if (!(shareRaw > 0)) return 0
+  const p = total > 0 ? (shareRaw / total) * amount : shareRaw / 2
+  return Math.min(Math.max(p, 0), amount)
 }
 
 export function clearedTaxPayments(rows) {
   const out = []
   for (const r of rows || []) {
     const memberRaw = parseNum(r.member_share)
-    // Strategic Partner Share (strategic members): a flat $ split half on
-    // retainer, half on implementation like the member share. Comes out of the
-    // VFOS slice (for strategic rows the split is off the full total fee).
+    // Strategic Partner Share (strategic members) and the tax planner share both come
+    // out of the VFOS slice, which used to absorb them. retainerIsHistoric mirrors
+    // PricingSplitCard's rule: a migrated plan whose retainer was SETTLED on the old
+    // two-way system carries a stored split describing the implementation only, so its
+    // retainer pays the planner nothing.
     const stratRaw = parseNum(r.strategic_partner_share)
-    const stratPer = (amt) => Math.min(Math.max(stratRaw / 2, 0), amt)
     const label = programLabel(r.program_id)
     const ret = parseNum(r.retainer_amount)
     const imp = parseNum(r.implementation_amount)
-    // tax_planner_share: stored as DOLLARS OF THE TOTAL engagement, prorated per payment
-    // (share / total * payment) exactly as PricingSplitCard does. Comes out of the VFOS
-    // slice, which until now absorbed it. retainerIsHistoric mirrors that card's rule: a
-    // migrated plan whose retainer was SETTLED on the old two-way system carries a stored
-    // split describing the implementation only, so its retainer pays the planner nothing.
     const plannerRaw = parseNum(r.tax_planner_share)
     const total = parseNum(r.total_fee) > 0 ? parseNum(r.total_fee) : ret + imp
-    const plannerPortion = (amt) => (total > 0 && plannerRaw > 0 ? Math.min(Math.max((plannerRaw / total) * amt, 0), amt) : 0)
+    // All three legs, one rule — see sharePortion. Declared together so a future edit
+    // to one is visibly an edit to all three.
+    const memberPortion = (amt) => sharePortion(memberRaw, total, amt)
+    const stratPer = (amt) => sharePortion(stratRaw, total, amt)
+    const plannerPortion = (amt) => sharePortion(plannerRaw, total, amt)
     const retainerIsHistoric = !!r.legacy_source && r.retainer_rev_paid === 'N/A — No Share Due'
     const base = {
       clientName: r.client_name || `Client #${r.client_id}`,
@@ -100,7 +121,7 @@ export function clearedTaxPayments(rows) {
       if (clearedAt) {
         // Computed but not displayed: a leg that will never carry money keeps its plain
         // dash, exactly as everywhere else on this tab.
-        const willPayMember = memberPortion(memberRaw, ret) > 0
+        const willPayMember = memberPortion(ret) > 0
         const willPayStrat = stratPer(ret) > 0
         const willPayPlanner = plannerPortion(ret) > 0
         // Same reading a blank retainer leg gets today: the share is waiting on the
@@ -126,7 +147,7 @@ export function clearedTaxPayments(rows) {
     if (threePayment && PAID.has(r.final_retainer_status) && parseNum(r.final_retainer_amount) > 0) {
       const clearedAt = r.final_retainer_charge_date || r.final_retainer_receipt_email_sent_at
       if (clearedAt) {
-        const mp = memberPortion(memberRaw, ret)
+        const mp = memberPortion(ret)
         const sp = stratPer(ret)
         const pp = plannerPortion(ret)
         out.push({
@@ -147,7 +168,7 @@ export function clearedTaxPayments(rows) {
     if (PAID.has(r.retainer_status) && !threePayment && ret > 0) {
       const clearedAt = r.retainer_invoice_email_sent_at || r.retainer_date
       if (clearedAt) {
-        const mp = memberPortion(memberRaw, ret)
+        const mp = memberPortion(ret)
         const sp = stratPer(ret)
         const pp = retainerIsHistoric ? 0 : plannerPortion(ret)
         out.push({
@@ -171,7 +192,7 @@ export function clearedTaxPayments(rows) {
     if (PAID.has(r.implementation_charge_status) && imp > 0) {
       const clearedAt = r.implementation_charge_date || r.implementation_confirmation_email_sent_at
       if (clearedAt) {
-        const mp = memberPortion(memberRaw, imp)
+        const mp = memberPortion(imp)
         const sp = stratPer(imp)
         const pp = plannerPortion(imp)
         out.push({

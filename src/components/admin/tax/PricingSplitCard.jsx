@@ -23,6 +23,15 @@ import { HELD_SUSPENDED_NOTE, HELD_PAUSED_NOTE } from '../shareLegState'
 // (portion = share / total * payment). Operators think in per-payment dollars, so the
 // table always shows the prorated figures and the editor takes whichever base is still
 // live — implementation-only once the retainer legs are settled, total otherwise.
+//
+// STRATEGIC PARTNER. A plan sold through a strategic member (Tax Plan IQ, Action Coach,
+// …) carries a FOURTH leg in strategic_partner_share, paid to the partner company's
+// Connect account by actions/tax/revshare.ts on the SAME dollar-of-total proration as
+// the member and planner legs. It had no row here, and because VFO Services is rendered
+// as the residual of the payment, the partner's cut was silently reported as VFO income
+// (plan 91: $488.75 of the retainer's "$1,466.25" was Tax Plan IQ's, already transferred).
+// The row is conditional — the vast majority of plans have no partner and gain nothing
+// from an always-dashed line. Mirrors Map1PricingSplitCard, which has always had it.
 
 const TERMINAL = ['Yes', 'Money Mapping', 'N/A — No Share Due']
 const WITHHELD = 'Awaiting Planner Allocation'
@@ -88,6 +97,8 @@ export default function PricingSplitCard({ plan, plannerName = '', isSuperadmin 
   const storedMember = money(plan?.member_share)
   const storedPlanner = money(plan?.tax_planner_share)
   const storedVfos = money(plan?.vfos_share)
+  const storedStrat = money(plan?.strategic_partner_share)
+  const hasStrategic = storedStrat > 0
 
   // The editor's base: once the retainer legs are settled they can never pay again, so
   // the only dollars in play are the implementation's — which is also how the operator
@@ -100,7 +111,13 @@ export default function PricingSplitCard({ plan, plannerName = '', isSuperadmin 
   const chargeInFlight = plan?.implementation_charge_status === 'succeeded' || plan?.implementation_charge_status === 'processing'
   const implSettled = TERMINAL.includes(plan?.implementation_rev_paid) || TERMINAL.includes(plan?.implementation_planner_paid)
   const locked = chargeInFlight || implSettled
-  const canEdit = isSuperadmin && !readOnly && hasPricing && !locked
+  // The editor and tax_update_split both know three legs only, and the handler refuses
+  // unless member + planner + vfos equals the WHOLE total — which a strategic plan never
+  // does, the partner holding the rest. So Save was already impossible here; hiding the
+  // button says so instead of walking the operator into a red sum they can only "fix" by
+  // handing VFO the partner's dollars. Teaching both sides the fourth leg is a backend
+  // change, deliberately out of scope for this display fix.
+  const canEdit = isSuperadmin && !readOnly && hasPricing && !locked && !hasStrategic
 
   // Seed the form from the stored values, converted back into the active base.
   useEffect(() => {
@@ -154,12 +171,18 @@ export default function PricingSplitCard({ plan, plannerName = '', isSuperadmin 
   // out — a dead (no-share-due) leg's portion stays with VFO, so the column still sums
   // to the payment. Identical to the configured vfos_share whenever all legs are live.
   const legAmt = (stored, status, payment) => (noShare(status) ? 0 : portion(stored, payment))
-  const retVfos = round2(retAmt - legAmt(storedMember, plan?.retainer_rev_paid, retAmt) - legAmt(storedPlanner, plan?.retainer_planner_paid, retAmt))
-  const implVfos = round2(implAmt - legAmt(storedMember, plan?.implementation_rev_paid, implAmt) - legAmt(storedPlanner, plan?.implementation_planner_paid, implAmt))
+  const retVfos = round2(retAmt - legAmt(storedMember, plan?.retainer_rev_paid, retAmt) - legAmt(storedPlanner, plan?.retainer_planner_paid, retAmt) - legAmt(storedStrat, plan?.retainer_strat_paid, retAmt))
+  const implVfos = round2(implAmt - legAmt(storedMember, plan?.implementation_rev_paid, implAmt) - legAmt(storedPlanner, plan?.implementation_planner_paid, implAmt) - legAmt(storedStrat, plan?.implementation_strat_paid, implAmt))
 
   const rows = [
     { key: 'member', name: 'Member', stored: storedMember, retStatus: plan?.retainer_rev_paid, implStatus: plan?.implementation_rev_paid },
     { key: 'planner', name: plannerName ? `Tax planner — ${plannerName}` : 'Tax planner', stored: storedPlanner, retStatus: plan?.retainer_planner_paid, implStatus: plan?.implementation_planner_paid },
+    // Sits above VFO Services so the residual stays the last line, the way it reads on
+    // MAP 1 and the way the arithmetic runs.
+    // Unnamed on purpose: the partner company is members.member_type, which this
+    // payload does not carry, and split_type is the preset LABEL ("Strategic Partner"),
+    // not the company. Same wording as Map1PricingSplitCard.
+    ...(hasStrategic ? [{ key: 'strat', name: 'Strategic partner', stored: storedStrat, retStatus: plan?.retainer_strat_paid, implStatus: plan?.implementation_strat_paid }] : []),
     { key: 'vfos', name: 'VFO Services', stored: storedVfos, retStatus: null, implStatus: null },
   ]
 
@@ -288,6 +311,14 @@ export default function PricingSplitCard({ plan, plannerName = '', isSuperadmin 
               </tbody>
             </table>
           </div>
+
+          {/* Says why there is no Edit button, rather than leaving a superadmin to
+              wonder. Only shown to someone who would otherwise have had one. */}
+          {hasStrategic && isSuperadmin && !readOnly && !locked && (
+            <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--vfo-muted)' }}>
+              This engagement pays a strategic partner, which the split editor does not yet handle — the split can only be corrected in the database. Every figure above is what the payout engine actually uses.
+            </div>
+          )}
 
           {warnings.length > 0 && (
             <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--vfo-muted)' }}>
