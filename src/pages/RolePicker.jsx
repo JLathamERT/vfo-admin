@@ -61,7 +61,7 @@ export default function RolePicker() {
         <div>&copy; 2026 VFO Services &middot; An affiliate of Elite Resource Team</div>
         <div>
           12636 High Bluff Drive, Suite 400, San Diego, CA 92130 &middot; (619) 981-9703 &middot;{' '}
-          <a href="mailto:support@elitert.com" style={FOOTER_LINK} onMouseEnter={underline} onMouseLeave={noUnderline}>support@elitert.com</a>
+          <a href="mailto:support@vfo-services.com" style={FOOTER_LINK} onMouseEnter={underline} onMouseLeave={noUnderline}>support@vfo-services.com</a>
         </div>
         <div>
           <a href="https://www.vfo-services.com" target="_blank" rel="noopener noreferrer" style={FOOTER_LINK} onMouseEnter={underline} onMouseLeave={noUnderline}>vfo-services.com</a>

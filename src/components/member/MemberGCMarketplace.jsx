@@ -3,6 +3,18 @@ import { callApi } from '../../lib/api'
 import { Skeleton } from '../shared/Skeleton'
 import { GCServicesView, GCTransactionHistory } from '../shared/GCMarketplaceViews'
 
+// Mirrors the server's GC_PACKAGES in actions/gc/create-checkout.ts — display only;
+// the checkout price is always re-derived server-side from the credit amount.
+const GC_NET_PRICES = { 1: 100, 10: 950, 20: 1800, 50: 4000 }
+const GC_PACKAGES = [1, 10, 20, 50].map(amount => {
+  const headline = amount * 100
+  const price = GC_NET_PRICES[amount]
+  const savings = headline - price
+  return { amount, headline, price, savings, discountPct: Math.round(savings / headline * 100) }
+})
+
+const gcMoney = (n) => '$' + Number(n).toLocaleString('en-US')
+
 export default function MemberGCMarketplace({ memberNumber }) {
   const [gcTab, setGcTab] = useState('dashboard')
   const [balance, setBalance] = useState(null)
@@ -10,6 +22,7 @@ export default function MemberGCMarketplace({ memberNumber }) {
   const [totalRedeemed, setTotalRedeemed] = useState(null)
   const [showBuyModal, setShowBuyModal] = useState(false)
   const [buyPkg, setBuyPkg] = useState(null) // selected package -> shows the payment-method step
+  const [hoverPkg, setHoverPkg] = useState(null)
   const [banner, setBanner] = useState('')
 
   useEffect(() => { loadDashboard() }, [memberNumber])
@@ -90,6 +103,15 @@ export default function MemberGCMarketplace({ memberNumber }) {
   })
   const sectionStyle = { background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '24px', marginBottom: '20px' }
 
+  const pkgCell = (amount) => ({ padding: '10px 18px', textAlign: 'center', cursor: 'pointer', background: hoverPkg === amount ? 'var(--vfo-tint)' : 'transparent', borderLeft: '1px solid var(--vfo-border-mid)', borderRight: '1px solid var(--vfo-border-mid)' })
+  const pkgCellProps = (pkg) => ({
+    role: 'button', tabIndex: 0,
+    onClick: () => setBuyPkg(pkg),
+    onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBuyPkg(pkg) } },
+    onMouseEnter: () => setHoverPkg(pkg.amount),
+    onMouseLeave: () => setHoverPkg(null),
+  })
+
   return (
     <div>
       <div style={{ display: 'flex', borderBottom: '1px solid var(--vfo-border)', marginBottom: '24px' }}>
@@ -126,19 +148,56 @@ export default function MemberGCMarketplace({ memberNumber }) {
             <div style={sectionStyle}>
               <div style={{ fontSize: '13px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Buy Credits</div>
               <p style={{ color: 'var(--vfo-muted)', fontSize: '13px', marginBottom: '16px', textAlign: 'left' }}>Select a credit package to purchase.</p>
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
-                {[
-                  { amount: 1, price: 100, label: '1 credit — $100', savings: null },
-                  { amount: 10, price: 950, label: '10 credits — $950', savings: 'Save 5%' },
-                  { amount: 20, price: 1800, label: '20 credits — $1,800', savings: 'Save 10%' },
-                ].map(pkg => (
-                  <button key={pkg.amount} onClick={() => setBuyPkg(pkg)}
-                    style={{ padding: '16px 24px', flex: 1, textAlign: 'center', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'var(--vfo-tint)', cursor: 'pointer' }}>
-                    <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--vfo-ink)' }}>{pkg.amount}</div>
-                    <div style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.8px', color: 'var(--vfo-muted)', marginTop: '4px' }}>{pkg.label}</div>
-                    {pkg.savings && <div style={{ fontSize: '10px', color: '#1b9254', fontWeight: 600, marginTop: '2px' }}>{pkg.savings}</div>}
-                  </button>
-                ))}
+              <div style={{ overflowX: 'auto', marginBottom: '16px' }}>
+                <table style={{ borderCollapse: 'collapse', minWidth: '100%', fontFamily: 'Inter, sans-serif' }}>
+                  <thead>
+                    <tr>
+                      {GC_PACKAGES.map(pkg => (
+                        <th key={pkg.amount} {...pkgCellProps(pkg)}
+                          style={{ ...pkgCell(pkg.amount), borderTop: '1px solid var(--vfo-border-mid)', borderBottom: '1px solid var(--vfo-border-mid)', borderTopLeftRadius: '10px', borderTopRightRadius: '10px', fontSize: '14px', fontWeight: 700, color: 'var(--vfo-ink)', whiteSpace: 'nowrap' }}>
+                          {pkg.amount} {pkg.amount === 1 ? 'Credit' : 'Credits'}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      {GC_PACKAGES.map(pkg => (
+                        <td key={pkg.amount} {...pkgCellProps(pkg)}
+                          style={{ ...pkgCell(pkg.amount), padding: '14px 18px 2px', fontSize: '13px', color: 'var(--vfo-muted)', textDecoration: pkg.savings > 0 ? 'line-through' : 'none' }}>
+                          {pkg.savings > 0 ? gcMoney(pkg.headline) : '\u00a0'}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      {GC_PACKAGES.map(pkg => (
+                        <td key={pkg.amount} {...pkgCellProps(pkg)}
+                          style={{ ...pkgCell(pkg.amount), padding: '2px 18px', fontSize: '12px', fontWeight: 600, color: '#1b9254', whiteSpace: 'nowrap' }}>
+                          {pkg.savings > 0 ? `${pkg.discountPct}% off` : '\u00a0'}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      {GC_PACKAGES.map(pkg => (
+                        <td key={pkg.amount} {...pkgCellProps(pkg)}
+                          style={{ ...pkgCell(pkg.amount), padding: '4px 18px 12px', fontSize: '20px', fontWeight: 700, color: 'var(--vfo-ink)', whiteSpace: 'nowrap' }}>
+                          {gcMoney(pkg.price)}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      {GC_PACKAGES.map(pkg => (
+                        <td key={pkg.amount} {...pkgCellProps(pkg)}
+                          style={{ ...pkgCell(pkg.amount), padding: '0 18px 16px', borderBottom: '1px solid var(--vfo-border-mid)', borderBottomLeftRadius: '10px', borderBottomRightRadius: '10px' }}>
+                          <button onClick={() => setBuyPkg(pkg)}
+                            style={{ padding: '8px 22px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', fontWeight: 600, fontFamily: 'Inter, sans-serif', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            Select
+                          </button>
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
               </div>
               <button onClick={closeBuyModal} style={{ padding: '8px 20px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
             </div>
