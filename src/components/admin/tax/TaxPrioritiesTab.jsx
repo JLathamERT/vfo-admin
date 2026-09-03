@@ -405,6 +405,13 @@ const PLANNER_EDITABLE_TASK_NAMES = new Set([
   'Specialist confirms implementation completed',
   'Specialist confirms VFOS Gross Rev',
   'PC confirms receipt of VFOS Gross Rev',
+  // Added 2026-09-03 — see the AmendFeeStep header comment. These two save
+  // through automation_TAX_amend_fee AND a following tax_save_task, so all three
+  // #262 surfaces had to move together. Names are exact-matched against
+  // program_client_tasks.name; the card itself is still located by its
+  // status_options sentinel (#392), so a rename must touch this set too.
+  'Amend fee',
+  'Amend implementation fee',
 ])
 const isPlannerEditable = (task) => PLANNER_EDITABLE_TASK_NAMES.has(task?.name)
 
@@ -597,10 +604,16 @@ function TotalFeeField({ label, hint, value, onChange, split, readOnly = false, 
 
 // The Tax 4 'Amend fee' / Tax 5b 'Amend implementation fee' step.
 //
-// ADMIN-ONLY (constants/role-gates.ts keeps automation_TAX_amend_fee out of
-// TAX_PLANNER_ALLOWED_ACTIONS, and neither name is in
-// PLANNER_EDITABLE_TASK_NAMES) — a planner sees this card through the standard
-// inert plannerMode wrapper like every other locked step (#262).
+// ADMIN + TAX PLANNER since 2026-09-03 (both portal roles). It was admin-only
+// until then, which left both amend steps unanswerable in the planner portal and
+// — because each one GATES the decision step below it — dead-ended a planner at
+// Tax 4. Widening took all three #262 surfaces at once: automation_TAX_amend_fee
+// joined TAX_PLANNER_ALLOWED_ACTIONS, both task names joined the backend
+// PLANNER_EDITABLE_TASK_NAMES (the step row is a SECOND tax_save_task call), and
+// both joined the FE set below so this card escapes the inert plannerMode
+// wrapper. The boundary is now amend-fee.ts's denyIfNotPlannerPlan group guard.
+// `readOnly` is untouched and unrelated: the member/client track still shows the
+// card inert.
 //
 // EVERY fee shape reaches this card, legacy included: on a legacy plan (and on
 // a 2-payment revised plan, and on either at Tax 5b) the amendment lands wholly
