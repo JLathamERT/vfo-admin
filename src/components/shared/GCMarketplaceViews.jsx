@@ -63,7 +63,13 @@ export function GCTransactionHistory({ transactions }) {
               <div style={{ color: 'var(--vfo-muted)', fontSize: '12px', marginTop: '2px' }}>{new Date(tx.created_at).toLocaleDateString()}</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              {tx.type === 'purchased'
+              {/* A grant is stored as type "purchased" too (gc_add_credits), so the flag
+                  alone would tell a member they bought credits they were given — which is
+                  exactly what happened to 27 members before this. The Stripe session id is
+                  what a real payment leaves behind, so derive the word from that (#465). */}
+              {tx.type === 'purchased' && !tx.stripe_session_id
+                ? <span style={{ background: 'rgba(0,149,255,0.2)', color: '#0095ff', padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>added</span>
+                : tx.type === 'purchased'
                 ? <span style={{ background: 'rgba(27,146,84,0.2)', color: '#1b9254', padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>purchased</span>
                 : tx.type === 'refunded'
                 ? <span style={{ background: 'rgba(0,149,255,0.2)', color: '#0095ff', padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>refunded</span>
