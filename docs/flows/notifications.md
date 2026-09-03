@@ -121,7 +121,7 @@ Every TAX notification routes to a specific person via [`utils/tax-notify.ts`](C
 
 ### Advisor / Accountant onboarding — route to the "Team Member Responsible" (2026-06-15)
 
-Each `advisor_onboarding` / `accountant_onboarding` row carries an `onboarding_team_member` name (Stage-1 dropdown). [`constants/onboarding-team.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/constants/onboarding-team.ts) `teamMemberRecipient(name)` maps it to that person's login email, or `'admin'` when unset/unmapped. The seven mapped names (Rachael Hopson, Ian Welham, Anton Anderson, Paul Latham, Seth Hartford, Evan Anderson, Bridger Silvester — the last two added 2026-07-14) mirror the frontend's `SALES_TEAM_NAMES`. Which onboarding notifications use it:
+Each `advisor_onboarding` / `accountant_onboarding` row carries an `onboarding_team_member` name (Stage-1 dropdown). [`constants/onboarding-team.ts`](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/constants/onboarding-team.ts) `teamMemberRecipient(name)` maps it to that person's login email, or `'admin'` when unset/unmapped. The mapped names mirror the frontend's `SALES_TEAM_NAMES` and the two must move together — read the map rather than a count written here (#402); Vanessa Smith was added 2026-09-03. A name present only in the frontend array is selectable and then routes silently to the shared `admin` bell, with nothing on screen to say so (#466). Which onboarding notifications use it:
 
 | Insert point | Recipient | Notes |
 |---|---|---|

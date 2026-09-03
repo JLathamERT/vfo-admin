@@ -46,7 +46,7 @@ Append-only credit ledger. `balance_after` is captured per-tx so audits don't ne
 |---|---|---|
 | `id` | integer | pk |
 | `member_number` | text | not null. fk → `member_plugin_settings.plugin_member_number` (CASCADE). |
-| `type` | text | not null. Application-defined (e.g., `'add'`, `'redeem'`, `'purchase'`). |
+| `type` | text | not null. Bare text, no CHECK. The values actually written are **`purchased`** / **`redeemed`** / **`refunded`** — NOT `'add'`/`'purchase'`, which this row claimed until 2026-09-03 and which nothing has ever written. **`purchased` covers TWO different events and cannot tell them apart:** a real Stripe sale (`fulfillGrowthCredits`) and an admin comp (`gc_add_credits`, which takes no money). The discriminator is **`stripe_session_id`** — present on a sale, NULL on a grant — and every reader that cares must test it, because the type alone reports a comp as a sale (#466). `load-accounting.ts` splits `credits_purchased` / `credits_granted` on exactly that test, and both credit-history renderers label the row from it. |
 | `amount` | integer | not null. Signed (positive = credit, negative = debit). |
 | `balance_after` | integer | not null. Snapshot of `gc_balances.balance` after this tx. |
 | `description` | text | |

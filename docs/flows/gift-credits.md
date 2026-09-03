@@ -114,7 +114,9 @@ Then two best-effort side effects, each in its own `try/catch` — neither may f
 
 **Handler:** `gc_add_credits({member_number, amount, description})` ([MembersPanel.jsx](src/components/admin/MembersPanel.jsx) → [actions/gc/add-credits.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/actions/gc/add-credits.ts)).
 
-Updates `gc_balances` and inserts a `gc_transactions` row of `type='added'` (or similar — exact value set in admin-api code). Used to manually credit (or, with negative `amount`, debit) a member's balance.
+Updates `gc_balances` and inserts a `gc_transactions` row of **`type='purchased'`** with `description` defaulting to *"Credits added"*. It is **not** `'added'`, as this line claimed until 2026-09-03 — the handler reuses the SALE's type for a comp, so a granted credit is indistinguishable from a bought one by type, and `amount_usd` / `stripe_session_id` are left NULL because no money is taken. Used to manually credit (or, with negative `amount`, debit) a member's balance.
+
+**This conflation reached members.** Both credit histories keyed their label on `type` and so told 27 members across 31 rows that they had *purchased* credits they were given — one of them reported buying credits that appear nowhere in Stripe, correctly, because the portal said so. Since 2026-09-03 every reader derives the word from `stripe_session_id` instead (absent ⇒ *"added"*), and `load-accounting.ts` splits the totals the same way: `credits_purchased` counted 3,257 when 2 credits had ever been sold. **The row is still written as `purchased`** — the fix is at the readers, so anything new reading this table must apply the same test (#466). There is no `created_by` on `gc_transactions`, so **who granted a credit is not recorded anywhere**.
 
 In `ADMIN_ONLY_ACTIONS`. Member callers cannot.
 
