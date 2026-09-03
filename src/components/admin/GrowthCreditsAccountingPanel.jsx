@@ -12,13 +12,21 @@ function fmtDate(s) {
   try { return new Date(s).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) } catch { return String(s) }
 }
 
-function TypeTag({ type }) {
-  const tone = type === 'purchased'
+// `type` is "purchased" for BOTH a Stripe sale and an admin grant (gc_add_credits), so
+// the label is derived from the Stripe session id instead — the thing only a real
+// payment leaves behind. Mirrors GCMarketplaceViews.jsx, which shows the member the
+// same word, and load-accounting.ts, which splits the totals on the same test (#465).
+function TypeTag({ type, sessionId }) {
+  const granted = type === 'purchased' && !sessionId
+  const label = granted ? 'added' : (type || '—')
+  const tone = granted
+    ? { bg: 'rgba(0,149,255,0.16)', fg: '#0095ff' }
+    : type === 'purchased'
     ? { bg: 'rgba(22,163,74,0.14)', fg: '#16a34a' }
     : type === 'refunded'
     ? { bg: 'rgba(0,149,255,0.16)', fg: '#0095ff' }
     : { bg: 'rgba(217,48,37,0.14)', fg: '#d93025' }
-  return <span style={{ padding: '3px 10px', borderRadius: '20px', background: tone.bg, color: tone.fg, fontSize: '11.5px', fontWeight: 700 }}>{type || '—'}</span>
+  return <span style={{ padding: '3px 10px', borderRadius: '20px', background: tone.bg, color: tone.fg, fontSize: '11.5px', fontWeight: 700 }}>{label}</span>
 }
 
 export default function GrowthCreditsAccountingPanel() {
@@ -45,6 +53,9 @@ export default function GrowthCreditsAccountingPanel() {
   const totals = data?.totals || {}
   const cards = [
     { label: 'Credits Sold', value: totals.credits_purchased ?? 0 },
+    // Comped credits used to be counted as Sold. They are still real issued credits a
+    // member can spend, so they get their own tile rather than disappearing.
+    { label: 'Credits Granted', value: totals.credits_granted ?? 0 },
     { label: 'Credits Spent', value: totals.credits_spent ?? 0 },
     { label: 'Credits Refunded', value: totals.credits_refunded ?? 0 },
     { label: 'Revenue', value: money(totals.revenue_usd || 0) },
@@ -103,7 +114,7 @@ export default function GrowthCreditsAccountingPanel() {
               <div key={t.id} style={{ display: 'grid', gridTemplateColumns: txCols, gap: '8px', padding: '12px 18px', borderBottom: '1px solid var(--vfo-border-soft)', alignItems: 'center', fontSize: '13px', color: 'var(--vfo-ink)' }}>
                 <span style={{ color: 'var(--vfo-muted)' }}>{fmtDate(t.created_at)}</span>
                 <span><MemberNameLink memberNumber={t.member_number} style={{ fontWeight: 600 }}>{t.member_name}</MemberNameLink></span>
-                <span><TypeTag type={t.type} /></span>
+                <span><TypeTag type={t.type} sessionId={t.stripe_session_id} /></span>
                 <span style={{ textAlign: 'right', fontWeight: 700, color: (t.amount || 0) < 0 ? '#d93025' : '#16a34a' }}>{(t.amount || 0) > 0 ? '+' : ''}{t.amount}</span>
                 <span style={{ textAlign: 'right' }}>{t.amount_usd != null ? money(t.amount_usd) : '—'}</span>
                 <span style={{ color: 'var(--vfo-muted)' }}>{t.description || '—'}</span>
