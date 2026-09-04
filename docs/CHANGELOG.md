@@ -8,6 +8,41 @@
 
 ---
 
+## 2026-09-04 (2nd branch) — Steve Peterson 59127-002 re-stated to the amounts actually collected
+
+**Edge repo only. NO code shipped: `vfo-admin-api` went v808 → v809 → **v810**, where v810 reverts v809 and is byte-identical to v808 (`aa33e42`). Action count is unchanged at **481**. Tags `backend-good-2026-09-04-v809` and `backend-good-2026-09-04-v810` both exist and both record real deploys. `boldsign-webhook` untouched at **v40**. NO migration, NO DDL, NO template edit, NO cron, NO frontend change (so no `live-N`).**
+
+### The data correction — the only lasting change
+
+**Applied by `execute_sql`, not by a migration, so no file in the repo reproduces it. This entry is its record.** (`apply_migration` was refused by tooling; the write itself was approved and verified.)
+
+`pipeline_map1` **142** (Steve Peterson, `59127-002`, member Jeff Rainer) re-stated:
+
+| Column | Before | After |
+|---|---|---|
+| `net_invoice` | `5200` | **`5400`** |
+| `member_share` | `2600` | **`2700`** |
+| `vfos_share` | `2600` | **`2700`** |
+
+The `UPDATE` carried `and net_invoice = '5200'` so a re-run is a no-op rather than a second bump.
+
+**Why.** Installments 1–3 were collected at **$1,350** each on the legacy system but were migrated in as $1,300 — a transcription error at migration time. Installment 4 was then charged the migrated (wrong) $1,300 through the portal, and the $50 shortfall was collected by hand afterwards. All four installments now read **$1,350** with a **$675 / $675** split, and `member_share + vfos_share = net_invoice` exactly.
+
+**Why it was safe, and the check that made it so.** Both nightly sweeps were proven inert on this row **before** the write, not after:
+
+- **03:00 charge sweep** — all four `payN_status` are `succeeded`, and the sweep charges only an EMPTY slot (`if (status) continue`, #431/#444). No installment can be re-charged.
+- **02:00 revshare sweep** — all four legs carry `recN_rev_share = 'Completed - Money Mapping'` with `rev_paid` in the terminal set (`N/A — No Share Due` on 1–3, `Money Mapping` on 4), which satisfies the sweep's `resolved` test exactly. No transfer can fire.
+
+The engagement is **Money Mapping throughout**, so the member is never paid by Stripe transfer here and no payout was ever owed — the share is an internal allocation. The Drive receipt `REC-59127-002-0001` still says $1,300 for installment 4 and was **deliberately not reissued**; the extra $50 was handled outside the system.
+
+**Changing `net_invoice` changes only reporting here.** Every consumer that could act on it is gated on a payment status that is already terminal; the per-installment figures on the Payments tab, the pricing split card and the Accounting panels all derive from these three columns and now agree with what was actually collected.
+
+### Why there are two tags for one day
+
+A draft-only tax-planner revenue-share tool (`tax_planner_revshare_draft`) was built and shipped as **v809** to produce two after-the-fact confirmation emails for shares settled on the legacy system, then **reverted in v810 at the user's request** — it was a one-off need that will not recur, and the code was not wanted in the repo. Both emails were produced and sent before the revert. `v810` restores `utils/tax-planner-payout.ts` to its exact pre-v809 form, so the draft for a planner share remains reachable **only** through `transferPlannerShare` on a successful transfer, as it was before. This paragraph exists so the v809/v810 tag pair is not a mystery later; there is no surviving code, action or script to look for.
+
+---
+
 ## 2026-09-04 — A payee nobody rendered, an email nobody sent, and a bell that said otherwise
 
 **One chat, one branch (`claude/vfo-session-setup-b2f32f`), BOTH repos. `vfo-admin-api` **v807 → v808**. THREE `email_templates` data migrations applied (two files). ONE new action — count **480 → 481** (`accounting_redraft_installment_link`). NO DDL, NO schema change, NO cron change, NO new table. `boldsign-webhook` untouched at **v40**. Gates against the shipping version: `deno check` **0**, action count **481**, build **33 route pages**, **smoke 5/5 against v808** (Jake). Security advisor deliberately NOT re-run — the migrations edit column VALUES, and no table, policy or database function is touched. Gotcha **#468**. Production data DID change: 42 `email_templates` bodies.**
