@@ -111,6 +111,14 @@ export function resendFirstPaymentLink({ pipeline, rowId }) {
   return callApi('accounting_resend_first_payment_link', { pipeline, row_id: rowId })
 }
 
+// Failed MAP 1 quarterly installment: re-drafts the charge-failure email carrying the
+// /pay link. Which installment is DERIVED server-side from the same resolver the /pay
+// page runs, so no payment number is sent — the button cannot ask for one the link
+// would not collect.
+export function redraftInstallmentEmail({ rowId }) {
+  return callApi('accounting_redraft_installment_link', { row_id: rowId })
+}
+
 export function getSession() {
   return JSON.parse(sessionStorage.getItem('vfo_session') || 'null')
 }

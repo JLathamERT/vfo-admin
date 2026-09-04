@@ -278,19 +278,25 @@ export default function PaymentsTable({
               {[r.invoiceNumber, r.receiptNumber].filter(Boolean).join('  ·  ')}
             </div>
           )}
-          {r.revShare && (r.revShare.member != null || r.revShare.vfo != null || r.revShare.taxPlanner != null || r.revShare.status) && (
+          {r.revShare && (r.revShare.member != null || r.revShare.vfo != null || r.revShare.taxPlanner != null || r.revShare.strategic != null || r.revShare.status) && (
             <div style={{ fontSize: '11px', color: 'var(--vfo-faint)', marginTop: '4px' }}>
               {`Revenue share${r.revShare.splitType ? ` (${r.revShare.splitType})` : ''}`}
               {/* A settled old-system payment carries a status and no breakdown — the
                   split describes what the implementation will pay, not what that
                   retainer did. */}
-              {(r.revShare.member != null || r.revShare.vfo != null || r.revShare.taxPlanner != null) && (
+              {(r.revShare.member != null || r.revShare.vfo != null || r.revShare.taxPlanner != null || r.revShare.strategic != null) && (
                 <>
                   {': Member '}
                   {r.revShare.member == null ? '—' : (r.revShare.memberIsPercent ? `${r.revShare.member}%` : fmtMoney(r.revShare.member))}
                   {/* Only shown once a tax planner share exists — plans predating the
                       3-way split have none and should not gain an empty leg. */}
                   {r.revShare.taxPlanner != null && <>{' · Tax planner '}{fmtMoney(r.revShare.taxPlanner)}</>}
+                  {/* Same rule for the strategic partner, and the same position it
+                      holds in both PricingSplitCards: above VFO, so the residual
+                      stays the last leg. Omitting it did NOT change the VFO figure —
+                      the server already netted it off — it just hid a payee, which
+                      made VFO's number look like the whole remainder (#465). */}
+                  {r.revShare.strategic != null && <>{' · Strategic partner '}{fmtMoney(r.revShare.strategic)}</>}
                   {' · VFO '}
                   {r.revShare.vfo == null ? '—' : fmtMoney(r.revShare.vfo)}
                 </>

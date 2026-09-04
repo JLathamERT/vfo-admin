@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { callApi, resendContinuationSetupLink, resendFirstPaymentLink } from '../../lib/api'
+import { callApi, redraftInstallmentEmail, resendContinuationSetupLink, resendFirstPaymentLink } from '../../lib/api'
 import { money, StatusPill } from './specialistRevenueShared'
 import { OnboardingListSkeleton } from '../shared/Skeleton'
 import { MemberNameLink, ClientNameLink } from '../shared/personLinks'
@@ -7,6 +7,7 @@ import { MemberNameLink, ClientNameLink } from '../shared/personLinks'
 const BADGE_FIRST = { label: 'First payment', color: '#125ecc' }
 const BADGE_CONTINUATION = { label: 'Payment continuation', color: '#e06717' }
 const BADGE_IMPLEMENTATION = { label: 'Implementation', color: '#ef4444' }
+const BADGE_INSTALLMENT = { label: 'Failed installment', color: '#ef4444' }
 const BADGE_RECURRING = { label: 'Recurring setup', color: '#125ecc' }
 const BADGE_ONEOFF = { label: 'One-off payment', color: '#e06717' }
 
@@ -312,6 +313,51 @@ function ImplementationCard({ item }) {
   )
 }
 
+// A MAP 1 quarterly installment Stripe refused. The nightly sweep charges only an
+// EMPTY slot, so a declined installment is never retried and the money stays open
+// until the client uses the /pay link — the ONE email carrying that link is drafted
+// at failure time and its template is draft-mode, so if nobody sends the draft the
+// client is never told. Hence the Resend button here.
+//
+// `payment_number` is whatever the /pay link would actually collect (the server runs
+// the page's own resolver), which is the LOWEST failed installment — so a row with
+// two failed slots shows one card, and clearing it surfaces the next.
+function InstallmentCard({ item, onDone }) {
+  const failed = item.failed_payments || []
+  const parts = []
+  parts.push(`Payment ${item.payment_number} ${item.charge_status === 'auth_required' ? 'needs authentication' : 'declined'}`)
+  const charged = fmtDate(item.charge_date)
+  if (charged) parts.push(`due ${shortDate(item.charge_date)}`)
+  if (failed.length > 1) parts.push(`${failed.length} failed installments`)
+  return (
+    <OutstandingCard
+      name={item.client_name}
+      clientId={item.client_id}
+      subtitle={<><MemberPrefix memberNumber={item.member_number} />{parts.join(' · ')}</>}
+      badge={BADGE_INSTALLMENT}
+      amount={item.amount_due}
+      caption="due"
+      action={item.has_token ? <ResendButton onDone={onDone} send={() => redraftInstallmentEmail({ rowId: item.row_id })} /> : null}
+    >
+      <Detail label="Amount due" value={money(item.amount_due)} />
+      <Detail label="Installment" value={`Payment ${item.payment_number} of 4`} />
+      <Detail label="Charge status" value={item.charge_status || 'unknown'} />
+      <Detail label="Scheduled for" value={charged || 'not set'} />
+      {failed.length > 1 && (
+        <Detail
+          label="Also failed"
+          value={failed.filter(f => f.n !== item.payment_number).map(f => `Payment ${f.n} (${f.status})`).join(', ')}
+        />
+      )}
+      {!item.has_token && (
+        <div style={{ marginTop: '12px', padding: '10px 12px', borderRadius: '8px', background: '#fffbeb', border: '1px solid #fde68a', color: '#b45309', fontSize: '12.5px' }}>
+          This row has no checkout token, so no /pay link can be emailed - follow up with the client manually.
+        </div>
+      )}
+    </OutstandingCard>
+  )
+}
+
 function RecurringCard({ item }) {
   const parts = []
   parts.push(item.link_sent_at ? `Link sent ${shortDate(item.link_sent_at)}` : 'Link not sent yet')
@@ -385,9 +431,10 @@ export default function OutstandingLinksPanel({ kind, embedded = false }) {
   const firstLinks = bucket.first_links || []
   const continuation = bucket.continuation || []
   const implementation = bucket.implementation_links || []
+  const installments = bucket.installment_links || []
   const recurring = bucket.recurring || []
   const requests = bucket.requests || []
-  const totalCount = firstLinks.length + continuation.length + implementation.length + recurring.length + requests.length
+  const totalCount = firstLinks.length + continuation.length + implementation.length + installments.length + recurring.length + requests.length
 
   const wrap = embedded
     ? { fontFamily: 'Inter, sans-serif' }
@@ -431,6 +478,15 @@ export default function OutstandingLinksPanel({ kind, embedded = false }) {
           {continuation.length === 0 ? <EmptyLine /> : continuation.map(it => (
             <ContinuationCard key={it.row_id ?? it.client_id} item={it} kind={kind} onDone={() => load({ quiet: true })} />
           ))}
+
+          {kind === 'map1' && installments.length > 0 && (
+            <>
+              <SectionHeader title="Failed Installments - Retry Links" count={installments.length} />
+              {installments.map(it => (
+                <InstallmentCard key={it.row_id} item={it} onDone={() => load({ quiet: true })} />
+              ))}
+            </>
+          )}
 
           {kind === 'tax' && implementation.length > 0 && (
             <>

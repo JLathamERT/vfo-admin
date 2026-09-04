@@ -8,6 +8,58 @@
 
 ---
 
+## 2026-09-04 — A payee nobody rendered, an email nobody sent, and a bell that said otherwise
+
+**One chat, one branch (`claude/vfo-session-setup-b2f32f`), BOTH repos. `vfo-admin-api` **v807 → v808**. THREE `email_templates` data migrations applied (two files). ONE new action — count **480 → 481** (`accounting_redraft_installment_link`). NO DDL, NO schema change, NO cron change, NO new table. `boldsign-webhook` untouched at **v40**. Gates against the shipping version: `deno check` **0**, action count **481**, build **33 route pages**, **smoke 5/5 against v808** (Jake). Security advisor deliberately NOT re-run — the migrations edit column VALUES, and no table, policy or database function is touched. Gotcha **#468**. Production data DID change: 42 `email_templates` bodies.**
+
+Three unrelated asks, one branch. What tied them together only became visible while diagnosing the first: **all three were cases of a system reporting something other than what it had done.**
+
+### 1. Lenny Genna 59457-001, payment 3 — nobody was ever emailed, and the bell said they had been
+
+`pipeline_map1` row 143 was migrated from the legacy system on **2026-08-19 21:38Z** carrying a P3 already past due (`pay3_date` 2026-08-15). The first nightly `chargescheduled-sweep-daily` run after the migration, **2026-08-21 03:00:05Z**, charged $675 off `pm_1U6UsrRwdhysCa6FZFkte2yX` (card ••6205) and Stripe refused it: *"Your card was declined."* — a generic issuer decline, and no more detail is stored anywhere. `pay3_status` became `declined` and **stayed there for two weeks**.
+
+That much is by design: the sweep charges only an EMPTY slot (#431/#444), so a declined installment is deliberately never re-raised — recovery is entirely client-driven through the `/pay` link. **The design's single point of failure is that the only email carrying that link is drafted once, at failure time, and `CONTRACT_installment_charge_failed` is `send_mode=false`.** It landed in Gmail Drafts and nobody sent it. The client was never told his payment had failed.
+
+**And the bell told the human that it had been.** `contract-chargescheduled-sweep.ts` composed *"Client emailed a payment link."* from nothing but the presence of a `checkout_token`, before the draft call it was describing — so it asserted an outcome it had not yet attempted, about a template that cannot send.
+
+**There was also no way to produce a second email.** Accounting → Outstanding Payment Links covered MAP 1 first payments, tax retainers, tax implementation retries and continuation tokens — **every open-money case except this one**, whose money is open indefinitely by construction.
+
+**New: `accounting_redraft_installment_link`** (`actions/migration/redraft-installment-link.ts`), fired from a new *"Failed Installments - Retry Links"* section, mirroring the tax implementation-retry section one block down and gated on the same `TAB_ACTIONS.accounting` as its neighbours. It calls the sweep's own sender, so a manual re-draft and an automatic one are byte-identical by construction rather than by discipline.
+
+**The design decision worth keeping: the installment is DERIVED, never passed in.** The handler runs `resolveOpenInstallment()` — the same function the public `/pay` page runs — so the email's *"Complete Payment N"* and the page the client lands on cannot disagree, and a body parameter cannot ask for an installment the link would not collect. `REOPEN_STATUSES` was exported from `utils/map1-open-installment.ts` for the same reason: one list, two readers. When several installments have failed the resolver returns the lowest, which is the only one the link can collect — so a two-failure row shows one card and clearing it surfaces the next.
+
+`draftMap1InstallmentFailureEmail` changed from `Promise<void>` to `Promise<"sent" | "drafted" | false>` and switched from `gmailDraftFetch` to `deliverRaw` — same two HTTP calls in the same order, but `deliverRaw` surfaces `sent` from `maybeSendDraft`, so **a `drafts.send` that FAILS reads as `"drafted"`, which is the truth: the draft is still sitting there.** Both the bell and the button's confirmation now report that three-way outcome, and the bell is composed AFTER the draft attempt rather than before it. The old code also returned success even when the Gmail draft POST failed; it now checks.
+
+**Copy fix, found by Jake reading the first draft.** The template closed *"If you'd prefer to handle this another way, just reply to this email and we'll help."* There is no other way — a declined installment is never re-charged, so the `/pay` link in that very email is the only mechanism that collects the money, and the sentence invited the client to opt out of the one thing that works. Replaced with the line its two direct twins already use (`TAX_implementation_charge_failed` 180, `TAX_final_retainer_charge_failed` 243): *"If you have any questions, please reach out and we'll be happy to help."* All three auto-charge-failure emails now close identically. **Note recorded at the row for the next editor: this template can only use `[Client First]`, `[Client Name]`, `[X]` and `[PAY_BUTTON]`** — the closer 29 other templates use names the PF via `[PF Name]`, which this handler does not substitute and would print literally (#324).
+
+### 2. The strategic partner was paid and not shown
+
+Steve Bitzer 20003-001 (`pipeline_map1` 129) settled installment 2 of 4 on **2026-09-04 03:00:18Z**: `rec2_strat_paid='Yes'`, a **$135** transfer, exactly as the hub's WATCH line predicted on 2026-08-14 — **that WATCH item is DISCHARGED by this branch** (the money half is proven by the columns; the partner rev-share draft itself was not inspected). The Payments row reported `Member $607.50 · VFO $607.50` and dropped the $135 entirely.
+
+`actions/payments/normalize.ts` already COMPUTED the strategic portion and already netted it off the MAP 1 residual — which is why VFO read a correct $607.50 rather than an inflated $742.50. It simply never emitted it: the `revShare` type listed `member`, `taxPlanner`, `vfo` and nothing else, and `PaymentsTable.jsx` had nothing to render.
+
+**This is #465 one surface over, with the opposite symptom, and the difference is the useful part.** On `tax/PricingSplitCard.jsx` the residual ABSORBED the partner's leg, so the column still summed perfectly to its header while attributing $488.75 of Tax Plan IQ's money to VFO. Here the payee was merely ABSENT: the parts summed to $1,215 of a $1,350 installment. **A residual that swallows a payee reconciles and lies; an omitted payee under-sums and tells you.** Same root cause — enumerating payees from the columns already rendered instead of from the payout engine — and only one of the two failure modes is self-announcing.
+
+Fixed at all five emit sites (one MAP 1, four tax) plus the shared table, rendering `Member → Tax planner → Strategic partner → VFO` in the order both PricingSplitCards already use, gated on `> 0` to match their `hasStrategic` so a plan with no partner gains no empty leg. The MAP 1 residual arithmetic was left untouched, so no previously-correct figure moved.
+
+**Verified live against v808** on every strategic row in production: Bitzer and Deanna Hains 20028-001 on MAP 1 (`Member $607.50 · Strategic partner $135.00 · VFO $607.50`); Michael Lorente 20027-001 plan 91 on tax — retainer `$2,443.75 / $977.50 / $488.75 / $977.50` summing cent-exact to `$4,887.50`, implementation `$5,056.25 / $2,022.50 / $1,011.25 / $2,022.50` summing to `$10,112.50`, and the two to `$15,000.00`; Ekansh Bhatnagar 20023-001 plan 103 as the legacy-migrated control (`$1,000 / $400 / $200 / $400` on both rows, proving `retMigSettled` does not blank a plan whose legs are live). Negative check on Lenny Genna: no strategic row. **Bhatnagar is also a deliberate cross-surface divergence** — his Pricing split card shows the strategic leg as *"N/A — No Share Due"* (a legacy pre-settle) while his Payments row shows `$200.00`; the card reports a LEG STATUS and the row reports the QUOTED SPLIT, and they answer different questions.
+
+### 3. Every email that said "I"
+
+An audit of all **230** `email_templates` rows for first-person singular, derived rather than sampled: 82 occurrences across 41 rows, in nine phrase families (`I understand that` ×23, `I attach a` ×13, `I hope that` ×11, `I also attach` ×10, `I am writing` ×10, `reach out to me` ×8, `hesitate to email me` ×4, `I can confirm` ×2, `I am introducing` ×1). Zero were in subject lines. The shared signature has read *"VFO Services - Proactive Coordinator Team"* throughout, so the singular voice contradicted the sign-off on every one of them. **Data only — no code change and no deploy**; the two hardcoded fallback bodies (`card-update-send.ts`, `member-payout-hold.ts`) were already plural.
+
+**Three matches were deliberately NOT converted, and they are the reason a blanket find-and-replace would have been wrong: they are in the RECIPIENT's voice, not the sender's.** Templates 80 and 78 carry the button *"I Have Further Questions"*, and 216 carries *"Reset my passcode"*. Pluralising those makes the reader speak for a group they are not part of.
+
+The eight *"agreement sent"* templates closed with *"please do not hesitate to reach out to me - your AI powered Proactive Coordinator"*, where a bare pronoun swap would have paired a plural pronoun with a singular role. **Jake chose to replace the sentence** with *"If you have any questions, please don't hesitate to reach out."* — which turned out to be the house default already carried by 22 other rows, so the eight joined the largest group in the system rather than forming a ninth variant.
+
+**The defect the first pass shipped, caught by re-reading the output rather than by any gate (#468).** *"Nevertheless, I hope that you found the conversation valuable"* became *"Nevertheless, **We** hope…"* — capital W mid-sentence, 11 times. **"I" is capitalised everywhere; its replacement inherits the case rules of an ordinary word.** Every one of the ~60 other conversion sites was sentence-initial, established by grouping all occurrences by their preceding 24 characters rather than by spot-checking — each follows `<br>`, `<p>`, `</ul>`, a list marker or a full stop. Fixed in a second migration.
+
+### Files
+
+`actions/payments/normalize.ts` (strategic leg, 5 emit sites) · `actions/migration/outstanding-links.ts` (new `installment_links` section) · `actions/migration/redraft-installment-link.ts` (NEW) · `actions/pipeline/contract-chargescheduled-sweep.ts` (bell honesty) · `utils/map1-installment-failure.ts` (three-way outcome via `deliverRaw`) · `utils/map1-open-installment.ts` (export `REOPEN_STATUSES`) · `router/dispatch.ts` · `constants/role-gates.ts` · two migration files. Frontend: `payments/PaymentsTable.jsx` · `admin/OutstandingLinksPanel.jsx` · `lib/api.js`.
+
+---
+
 ## 2026-09-03 (2nd branch) — The grant that was already given: a permission that read as complete and could not be reached
 
 **One chat, one branch (`claude/vfo-session-setup-a54e09`), BOTH repos. `vfo-admin-api` **v806 → v807**; frontend published. NO migration, NO DDL, NO `email_templates` edit, NO cron change, NO new action — count unmoved at **480**. `boldsign-webhook` untouched at **v40**. Gates against the shipping version: `deno check` **0**, action count **480**, build **33 route pages**, **smoke 5/5 against v807** (Jake). Security advisor deliberately NOT re-run — no table, policy or database function is touched by this branch. Gotcha **#467**. No production data changed; the only DB writes were sandbox fixtures on test client 62, all wiped.**
