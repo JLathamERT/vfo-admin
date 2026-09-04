@@ -200,11 +200,22 @@ All automation emails use HTML templates from the [`email_templates`](../tables/
 | `CONTRACT_confirmationemail\|card` / `\|ach` / `\|check` | `automation_CONTRACT_confirmationemail`. **The `\|card` variant is no longer sent automatically** (2026-07-26): a card payment 1 is receipt-only, so only `\|ach` and `\|check` are drafted by the automation. The row is kept for reference + manual resend. The same rule retires the automatic use of `TAX_confirmationemail\|card`, `ADVISOR_payment_confirmation\|card`, `ACCOUNTANT_payment_confirmation\|card`, `SPECIALIST_bg_confirmation\|card`, `SPECIALIST_lic_confirmation\|card` and `MEMBERSHIP_confirmation\|card`; `PIP_confirmation` and `SPECREV_payment_confirmation` are single-variant templates that are now ACH-only. See [stripe.md](stripe.md#purchase-email-policy--system-wide-2026-07-26-v663). |
 | `CONTRACT_invoicereceipt_email\|first` / `\|subsequent` | `automation_CONTRACT_invoicereceipt` |
 | `CONTRACT_paidbycheck\|check` | `automation_CONTRACT_paidbycheck` (inline Gmail draft when admin clicks "Pay via check"). Body has a `[QUARTERLY_NOTE]` placeholder that the handler substitutes per payment plan (Quarterly: reminder-note sentence; OneTime: empty). |
+| `CONTRACT_installment_charge_failed` | `utils/map1-installment-failure.ts`, shared by `automation_CONTRACT_chargescheduled_sweep`, the webhook's late-ACH failure branch and (2026-09-04) `accounting_redraft_installment_link`. **`send_mode=false`** — it lands in Drafts and a human must send it, which is why the sweep's bell reports `"sent" | "drafted" | false` rather than asserting the client was emailed (#468a). **It may only use `[Client First]`, `[Client Name]`, `[X]` and `[PAY_BUTTON]`** — those are the four handles in that util's `subst()`. `[PF Name]` is NOT substituted here and would print literally (#324). |
 | `CONTRACT_checkreminder\|check` | `automation_CONTRACT_checkreminder_sweep` (daily 04:00 UTC cron). `[Due Date]` substituted via `utils/format-date.ts::formatLongDate()`. |
 
 The `pipeline` field is `"MAP 1"` for all of the above. No other pipelines exist yet.
 
 The `automation_CONTRACT_revshare` handler does **not** use `email_templates` — it builds its email HTML inline ([admin-api:1580, 1583](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts)) and similarly inlines the Tracy intro email at [line 1624](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/index.ts).
+
+### Voice: every client-facing template speaks as WE, not I *(2026-09-04, v808)*
+
+The shared signature appended to every draft is `VFO Services - Proactive Coordinator Team` (`VFO_SIGNATURE` in `utils/gmail-draft.ts`), so the body must not speak in the first-person singular. On 2026-09-04 an audit of all 230 `email_templates` rows found **82 first-person-singular occurrences across 41 rows** — *"I understand that"*, *"I attach a copy"*, *"I hope that"*, *"I am writing"*, *"reach out to me"* — every one of them contradicting the sign-off directly below it. All were converted to plural by data migration (`20260904120000_email_templates_first_person_plural.sql`); no code changed, because these strings are read straight out of the column at send time.
+
+**Three rules for anyone editing or adding a template body, all learned by getting them wrong first (#468c):**
+
+1. **The sender is not the only voice in the template.** Three matches were deliberately left singular because they are BUTTON LABELS in the RECIPIENT's voice: *"I Have Further Questions"* (ids 78, 80) and *"Reset my passcode"* (id 216). Pluralising those makes the reader speak for a group they are not part of. A find-and-replace over a copy column has to answer *"who is talking?"* per occurrence.
+2. **"I" is capitalised in every position; "we" is not.** A global swap silently capitalises mid-sentence wherever the original followed a comma — *"Nevertheless, I hope that…"* became *"Nevertheless, **We** hope…"* eleven times on the first pass. The check that catches it is total rather than sampled: group every occurrence by its preceding ~24 characters and read the groups.
+3. **Carry the verb.** Match `I am writing` → `We are writing`, never the pronoun alone.
 
 ### Standard placeholders
 
