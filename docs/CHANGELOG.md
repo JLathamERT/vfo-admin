@@ -8,35 +8,38 @@
 
 ---
 
-## 2026-09-04 (2nd branch) — An email you could only get by paying for it
+## 2026-09-04 (2nd branch) — Steve Peterson 59127-002 re-stated to the amounts actually collected
 
-**One chat continuation, one branch (`claude/planner-revshare-draft`), edge repo ONLY. `vfo-admin-api` **v808 → v809** (`backend-good-2026-09-04-v809`, PR #217). ONE new action — count **481 → 482**. NO frontend change, so NO `live-N` tag and no `npm run deploy`. NO migration, NO DDL, NO template edit, NO cron. `boldsign-webhook` untouched at **v40**. Gates: `deno check` **0**, action count **482**, **smoke 5/5 against v809** (Jake). Advisor not re-run — no table, policy or DB function touched.**
+**Edge repo only. NO code shipped: `vfo-admin-api` went v808 → v809 → **v810**, where v810 reverts v809 and is byte-identical to v808 (`aa33e42`). Action count is unchanged at **481**. Tags `backend-good-2026-09-04-v809` and `backend-good-2026-09-04-v810` both exist and both record real deploys. `boldsign-webhook` untouched at **v40**. NO migration, NO DDL, NO template edit, NO cron, NO frontend change (so no `live-N`).**
 
-**The ask was "trigger two drafts". The finding was that you could not."** Jake needed the tax-planner revenue-share confirmation sent to Innovation Consulting Group for two engagements whose retainers were collected on the LEGACY system — the money had already moved, outside the portal, and only the notice was missing.
+### The data correction — the only lasting change
 
-**There was no way to produce that email without paying for it.** The draft is built inside `utils/tax-planner-payout.ts transferPlannerShare()`, gated on `status === "Yes"` — a state reachable ONLY after a successful Stripe transfer — and the same call writes `{kind}_planner_paid`, `_completed_at` and `_email_sent_at`. Correct for the automatic path; useless here. Worse, both target plans carry the migration's terminal `N/A — No Share Due` pre-settle (#362), so the automatic path was closed to them regardless.
+**Applied by `execute_sql`, not by a migration, so no file in the repo reproduces it. This entry is its record.** (`apply_migration` was refused by tooling; the write itself was approved and verified.)
 
-**New: `tax_planner_revshare_draft`** (`actions/tax/planner-revshare-draft.ts`), **SUPERADMIN_ONLY**. It renders the real `TAX_planner_revshare|<kind>` template and creates a Gmail draft. It moves no money and **writes no column at all** — the legacy pre-settle is left intact and the nightly sweep's view of the plan is unchanged. `body: { plan_id, kind?, amount? }`, where `amount` overrides the computed share in dollars for the case the money that actually moved differs from today's split; the response echoes BOTH figures so the caller can see whether they agree.
+`pipeline_map1` **142** (Steve Peterson, `59127-002`, member Jeff Rainer) re-stated:
 
-**Two extractions, for the reason this session had already written down twice.** `draftPlannerRevshareEmail()` takes the rendering **verbatim** out of the payout engine, and `plannerPortionFor()` takes the share arithmetic — `(tax_planner_share / total_fee) × thisPayment` (#252). Both are now imported by the engine AND the manual tool, so the two cannot diverge on copy or on money; the same discipline as the failed-installment retry button reusing the charge sweep's own sender (#465c/#468). Everything caller-specific stayed with the caller: `transferPlannerShare` keeps the `status === "Yes"` gate, the once-only `!plan[emailSentKey]` guard and the stamp. The refactor touches a live money path (`tax-revshare-sweep-daily`, 02:30 UTC) and is a pure move — no arithmetic, no branch and no write changed — which is why the smoke gate mattered more than usual here.
+| Column | Before | After |
+|---|---|---|
+| `net_invoice` | `5200` | **`5400`** |
+| `member_share` | `2600` | **`2700`** |
+| `vfos_share` | `2600` | **`2700`** |
 
-**Deliberately NOT idempotent in Gmail.** There is no stamp to guard on, by construction: the action writes nothing. Clicking twice makes two drafts. A duplicate draft is a nuisance; a missing payment notice is not.
+The `UPDATE` carried `and net_invoice = '5200'` so a re-run is a no-op rather than a second bump.
 
-**Invocation is a script, not a button.** `scripts/draft-planner-revshare.ps1` mirrors `smoke-pipelines.ps1`'s auth exactly — the caller's own `admin_login`, so no credential is stored or handled by anyone but Jake. A per-plan UI control was not built: the case is a rare legacy correction, and a script kept the change backend-only (no frontend deploy).
+**Why.** Installments 1–3 were collected at **$1,350** each on the legacy system but were migrated in as $1,300 — a transcription error at migration time. Installment 4 was then charged the migrated (wrong) $1,300 through the portal, and the $50 shortfall was collected by hand afterwards. All four installments now read **$1,350** with a **$675 / $675** split, and `member_share + vfos_share = net_invoice` exactly.
 
-**Verified live against v809:** both drafts produced and inspected — plans **75** (Jamison Brown 59123-001, Evan Jensen, `$2,166.67`) and **45** (Mark Henneberger 59073-001, Jack Olson, `$2,500.00`), each To `brittany@wealthig.com` with the planner Cc'd, both amounts engine-computed with no override and both matching Jake's figures to the cent. The group renders as **"Innovation Consulting Group"** — its stored name — which Jake confirmed over the "Innovation Wealth Group" he had used verbally.
+**Why it was safe, and the check that made it so.** Both nightly sweeps were proven inert on this row **before** the write, not after:
 
-### Production data correction, same day — Steve Peterson 59127-002
+- **03:00 charge sweep** — all four `payN_status` are `succeeded`, and the sweep charges only an EMPTY slot (`if (status) continue`, #431/#444). No installment can be re-charged.
+- **02:00 revshare sweep** — all four legs carry `recN_rev_share = 'Completed - Money Mapping'` with `rev_paid` in the terminal set (`N/A — No Share Due` on 1–3, `Money Mapping` on 4), which satisfies the sweep's `resolved` test exactly. No transfer can fire.
 
-**Applied by `execute_sql`, NOT by a migration, so there is no file in git recording it — this entry is the only record.** (`apply_migration` was refused by the tooling; the write itself was approved and verified.)
+The engagement is **Money Mapping throughout**, so the member is never paid by Stripe transfer here and no payout was ever owed — the share is an internal allocation. The Drive receipt `REC-59127-002-0001` still says $1,300 for installment 4 and was **deliberately not reissued**; the extra $50 was handled outside the system.
 
-`pipeline_map1` **142** re-stated `net_invoice` `5200` → **`5400`**, `member_share` `2600` → **`2700`**, `vfos_share` `2600` → **`2700`**, guarded `and net_invoice = '5200'` so a re-run is a no-op. Installments 1–3 were collected at `$1,350` each on the legacy system but were migrated as `$1,300`; installment 4 was charged the wrong `$1,300` through the portal and the `$50` shortfall was collected by hand afterwards. All four installments now read `$1,350` with a `$675`/`$675` split, and `member_share + vfos_share = net_invoice` exactly.
+**Changing `net_invoice` changes only reporting here.** Every consumer that could act on it is gated on a payment status that is already terminal; the per-installment figures on the Payments tab, the pricing split card and the Accounting panels all derive from these three columns and now agree with what was actually collected.
 
-**Both nightly sweeps were proven inert BEFORE the write, which is the only reason it was safe:** all four `payN_status` are `succeeded`, so the 03:00 charge sweep's positive gate (`if (status) continue`) skips every slot; and all four legs carry `recN_rev_share = 'Completed - Money Mapping'` with `rev_paid` in the terminal set, so the 02:00 revshare sweep's `resolved` test skips every one. The engagement is Money Mapping throughout, so no transfer was ever owed to the member. The Drive receipt `REC-59127-002-0001` still says `$1,300` and was **deliberately not reissued**.
+### Why there are two tags for one day
 
-### Files
-
-`actions/tax/planner-revshare-draft.ts` (NEW) · `utils/tax-planner-payout.ts` (two extractions) · `router/dispatch.ts` · `constants/role-gates.ts` · `scripts/draft-planner-revshare.ps1` (NEW).
+A draft-only tax-planner revenue-share tool (`tax_planner_revshare_draft`) was built and shipped as **v809** to produce two after-the-fact confirmation emails for shares settled on the legacy system, then **reverted in v810 at the user's request** — it was a one-off need that will not recur, and the code was not wanted in the repo. Both emails were produced and sent before the revert. `v810` restores `utils/tax-planner-payout.ts` to its exact pre-v809 form, so the draft for a planner share remains reachable **only** through `transferPlannerShare` on a successful transfer, as it was before. This paragraph exists so the v809/v810 tag pair is not a mystery later; there is no surviving code, action or script to look for.
 
 ---
 
