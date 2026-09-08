@@ -47,7 +47,7 @@ Card is refused with a 400. Amount is a flat **9900** (no gross-up — ACH has n
 
 **Date bounding** (identical to the SpecRev recurring setup): Stripe needs the target still in the future at Checkout *completion*, and an anchor may not exceed creation + 1 month. Preferred time is 17:00 UTC (1pm ET); if next month's 17:00 overshoots the limit by hours, step down to 04:05 UTC, then 00:05 UTC, then hard-clamp. The session carries `expires_at` = now + 1h so the 2h buffer always holds.
 
-**Deliberately NOT set:** `payment_method_options[us_bank_account][verification_method]=instant`. This mirrors the SpecRev recurring setup (**#298**) — a subscription can go active on an unverified bank and the failure surfaces at charge day.
+**Deliberately NOT set:** `payment_method_options[us_bank_account][verification_method]=instant`. This mirrors the SpecRev recurring setup (**#298**) — a subscription can go active on an unverified bank and the failure surfaces at charge day. **Since 2026-09-08 the continuation branch also carries the shared bank-sign-in note** (`constants/ach-checkout-note.ts ACH_BANK_SIGN_IN_NOTE`), **prepended** to the existing deferred/catch-up `custom_text[submit][message]` sentence with a blank line between — the note first, then the "no charge today" / "collected today" wording, both still shown. The licence **first-charge** branch in the same file still pins `instant` and gets no note.
 
 ## Webhook (`router/webhooks.ts`)
 

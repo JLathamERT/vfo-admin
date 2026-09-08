@@ -45,7 +45,7 @@
 ## Every notification in the system
 
 > **⚠️ THE TABLES BELOW ARE A SNAPSHOT, NOT AN INVENTORY — the DB is the source of truth.**
-> They were written when there were 128 rules in 11 areas. As of **2026-09-08 there are 207 rules in
+> They were written when there were 128 rules in 11 areas. As of **2026-09-08 there are 209 rules in
 > 16 areas**, so roughly a third of the live rules are NOT listed here. Derive the current picture
 > instead of trusting a count on this page:
 > `select area, count(*) from notification_rules group by area order by area;`
@@ -57,14 +57,14 @@
 > | Advisor Onboarding | 19 | 18 |
 > | Growth Credits | 2 | ✗ no section |
 > | Growth Plan | 4 | 2 |
-> | MAP 1 | 17 | 14 |
+> | MAP 1 | **18** | **15** |
 > | Membership Fees | 2 | ✗ no section |
 > | Partnership Fast Track | 10 | 8 |
 > | Payment Continuation | 2 | 2 ✓ |
 > | Payment Failure Alerts | **19** | **18** |
 > | Regular Priorities (MAP 4) | 4 | 4 ✓ |
 > | Specialist Onboarding | 35 | 34 |
-> | Tax | 39 | 23 |
+> | Tax | **40** | **24** |
 > | **Tax Planners** | **16** | ✗ no section — see [flows/tax-planning.md](flows/tax-planning.md#thirteen-planner-notification-bells-six-new-2026-07-22-a-seventh-2026-07-23-an-eighth-2026-07-23-evening-a-ninth-and-tenth-2026-08-10-an-eleventh-and-twelfth-2026-08-11-a-thirteenth-later-the-same-day) |
 > | Uploads | 5 | ✗ no section |
 > | VFO Specialist Revenue | **12** | **12 ✓** |
@@ -72,15 +72,17 @@
 > Each section heading's own count is likewise the snapshot number, kept so the tables and the
 > counts stay self-consistent. **Do not add a new total here** — it will be wrong within a week.
 >
-> **The table is now MIXED-DATE, deliberately.** The two **bolded** rows (`Payment Failure Alerts`,
-> `VFO Specialist Revenue`) were **re-derived live on 2026-08-26** with the query above, because that
-> session added rules to both areas; every other row is still the 2026-08-17 snapshot and is only
-> getting staler. Re-derive the row you touch rather than regenerating the page. The one honest
+> **The table is now MIXED-DATE, deliberately.** The **bolded** rows were re-derived live with the query
+> above by the session that touched them: `Payment Failure Alerts` and `VFO Specialist Revenue` on
+> **2026-08-26**, and `MAP 1` + `Tax` on **2026-09-08** (each gained one rule —
+> `MAP1_ach_bank_verification_pending` / `TAX_ach_bank_verification_pending`, both written up below, so
+> the "listed" column moved with the live one). Every other row is still the 2026-08-17 snapshot and is
+> only getting staler. Re-derive the row you touch rather than regenerating the page. The one honest
 > mismatch left in the two re-derived areas: **Payment Failure Alerts lists 18 of its 19 live rules** —
 > `FAILURE_tax_planner_share` ("Tax planner revshare transfer failed (Jake)", action-required) has
 > never been written up here.
 
-### MAP 1 (14)
+### MAP 1 (15)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
@@ -98,8 +100,9 @@
 | **First payment reminder email** — Reminder email (/pay link) to a client who has not completed the first payment. | Reminder email | The client (email) | Daily MAP 1 sweep — after **2 business day(s)** (editable) |
 | **First payment stalled (PF bell)** — The client still has not paid the MAP 1 first payment - asks the PF to reach out. | FYI | Assigned PF | Daily MAP 1 sweep — after **4 business day(s)** (editable) |
 | **Check payment due reminder email** — Reminder email to check-paying quarterly clients whose next installment is due soon. The delay is a LOOK-AHEAD (business days before the due date, walked forward by `businessDayHorizonDateOnly`). | Reminder email | The client (email) | Daily check-reminder sweep — after **7 business day(s)** (editable) |
+| **Client entered bank details manually (verification pending)** (`MAP1_ach_bank_verification_pending`, NEW 2026-09-08) — the client paid Holistic payment 1 by ACH but typed their account and routing numbers instead of signing in to their bank, so Stripe is holding the PaymentIntent for micro-deposit verification and **NO money has moved**. `pay1_status` stays `processing`; Stripe cancels after ~10 business days. The message also says the Gmail draft is the verify-bank version, not the usual confirmation. Dismissible, `dedupe:"unread"`. Links to `/admin/client/<id>?tab=payments`. | FYI (`action_required=false`) | Jake + Tim (`jlatham@`, `tnmiller@`) | `router/webhooks.ts` on `checkout.session.completed` (MAP 1) when the fetched PaymentIntent is `requires_action` on a non-card — instant |
 
-### Tax (23)
+### Tax (24)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
@@ -129,6 +132,7 @@
 | **Retainer payment stalled (PF bell)** — Client still has not paid the retainer - asks the PF to reach out. | FYI | Assigned PF | Daily tax sweep — after **4 business day(s)** (editable) |
 | ~~**Client decision 1 needed**~~ (`TAX_tax4_decision_needed`) — **DORMANT since 2026-08-11 (#170): no call site.** Superseded by the **Tax Planners** rule `TAX_planner_tax4_steps_needed`, which asks the ALLOCATED PLANNER ALONE for BOTH Tax 4 steps ("Detailed tax plan presentation" + "Client decision 1") instead of asking three people for one of them. The row stays enabled for rollback; its clear stays in `postreview-decision.ts` for unread bells already in production. | ~~Action required~~ | ~~Assigned PF + Allocated Tax Planner + Tracy~~ | — (trigger unchanged, now on the new rule: daily tax sweep, meeting date passed; still a deliberate CALENDAR comparison) |
 | **Final retainer charge failed** (`TAX_final_retainer_charge_failed`, NEW 2026-08-25) — an ACH final retainer bounced late: the row was still `processing` when Stripe reported the failure, so the charge is now marked declined. The message says exactly that, and states whether the client's existing `/tax-pay` link can self-serve the retry. Links to `/admin/client/<id>?tab=tax`. | FYI (`action_required=false`, DB-verified — the twin of `TAX_impl_charge_failed` above) | Jake (`jlatham@elitert.com`) | `router/webhooks.ts` on `payment_intent.payment_failed` with `metadata.payment_kind='final_retainer'`, row still `processing` — instant |
+| **Client entered bank details manually (verification pending)** (`TAX_ach_bank_verification_pending`, NEW 2026-09-08) — the client paid a Tax **retainer** or **final retainer** by ACH but typed their account and routing numbers instead of signing in to their bank, so Stripe is holding the PaymentIntent for micro-deposit verification and **NO money has moved**. The status column stays `processing`; Stripe cancels after ~10 business days. On the retainer the message adds that the Gmail draft is the verify-bank version; the final-retainer fresh link sends the client **no email at all**, so there the bell is the whole signal. Dismissible, `dedupe:"unread"`. Links to `/admin/client/<id>?tab=tax[&program=<id>]`. | FYI (`action_required=false`) | Jake + Tim (`jlatham@`, `tnmiller@`) | `router/webhooks.ts` on `checkout.session.completed` (TAX) when the fetched PaymentIntent is `requires_action` on a non-card — instant. **One rule key, two call sites** (retainer + final-retainer fresh link), distinguished by the bell title. |
 
 ### Regular Priorities (MAP 4) (4)
 
