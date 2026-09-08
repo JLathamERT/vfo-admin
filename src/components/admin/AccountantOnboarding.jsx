@@ -404,7 +404,7 @@ function OnboardingDetail({ id, onBack }) {
   }
 
   async function sendDepositRefund(reason) {
-    if (!window.confirm('Refund the deposit via Stripe and draft the refund email?\n\nThis refunds the deposit PaymentIntent in full, stops this onboarding and drafts an email to the accountant including your reason(s). Cannot be undone.')) return
+    if (!window.confirm('Refund the deposit via Stripe and send the refund email?\n\nThis refunds the deposit PaymentIntent in full, stops this onboarding and emails the accountant including your reason(s). Cannot be undone.')) return
     setRefundDraft(d => ({ ...d, sending: true }))
     try {
       const res = await callApi('automation_ACCOUNTANT_depositrefund', { onboarding_id: id, reason })
@@ -545,7 +545,8 @@ function OnboardingDetail({ id, onBack }) {
   const depositRefunded = depositStatus === 'refunded'
   const depositAmount = Number(ob.deposit_amount) || 0
   const depositTyped = parseFloat(depositBuf)
-  const depositSendable = Number.isFinite(depositTyped) && depositTyped >= 500 && depositTyped <= 4000
+  const depositMax = ob.accountant_partnership === 'Accountant Partnership' ? 2000 : 4000
+  const depositSendable = Number.isFinite(depositTyped) && depositTyped >= 500 && depositTyped <= depositMax
   // A refunded or already-swept-through deposit has nothing left to give back.
   const depositRefundable = depositStatus === 'succeeded' && !ob.deposit_refund_id
     && ob.payment_status !== 'succeeded' && ob.payment_status !== 'processing'
@@ -754,19 +755,9 @@ function OnboardingDetail({ id, onBack }) {
             <option value="Request no meeting">Requested no meeting</option>
           </select>
         </Row>
-        {prelimStatus === PRELIM_SEND_DEPOSIT && (
-          <>
-            <Row label="Deposit" done={depositSent} date={depositRefunded ? ob.deposit_refund_date : ob.deposit_email_sent_at} emails={ACCOUNTANT_DEPOSIT_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx}>
-              {depositControl}
-            </Row>
-            {!depositSent && <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', padding: '4px 0 0 18px' }}>Minimum $500, maximum $4,000</div>}
-            {depositRefundCard}
-            {depositCascade}
-          </>
-        )}
         <Row label="Direct or Advisor Partnership" done={!!ob.accountant_partnership} date={ob.accountant_partnership_at} onDateChange={d => saveStepDate('accountant_partnership_at', d)} saving={saving}
-          locked={!ob.accountant_partnership && !prelimSettled} lockedHint={prelimLockHint}>
-          <select value={ob.accountant_partnership || ''} onChange={e => savePartnership(e.target.value)} disabled={saving} style={{ ...selectStyle, color: 'var(--vfo-ink)' }}>
+          locked={!ob.accountant_partnership && (!prelimStatus || prelimStatus === 'No Show')} lockedHint={prelimStatus === 'No Show' ? 'Preliminary meeting was a no-show' : 'Complete the Preliminary Meeting step first'}>
+          <select value={ob.accountant_partnership || ''} onChange={e => savePartnership(e.target.value)} disabled={saving || depositSent} title={depositSent ? 'A deposit link has already been sent' : undefined} style={{ ...selectStyle, color: 'var(--vfo-ink)' }}>
             <option value="">-- Select --</option>
             <option value="No accountant partnership">Direct</option>
             <option value="Accountant Partnership">Advisor</option>
@@ -784,6 +775,17 @@ function OnboardingDetail({ id, onBack }) {
               onClear={() => saveCcAdvisor(null)}
             />
           </Row>
+        )}
+        {prelimStatus === PRELIM_SEND_DEPOSIT && (
+          <>
+            <Row label="Deposit" done={depositSent} date={depositRefunded ? ob.deposit_refund_date : ob.deposit_email_sent_at} emails={ACCOUNTANT_DEPOSIT_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx}
+              locked={!depositSent && !ob.accountant_partnership} lockedHint="Select Direct or Advisor Partnership first">
+              {depositControl}
+            </Row>
+            {!depositSent && ob.accountant_partnership && <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', padding: '4px 0 0 18px' }}>{`Minimum $500, maximum $${fmtMoney(depositMax)}`}</div>}
+            {depositRefundCard}
+            {depositCascade}
+          </>
         )}
         <Row label="Preliminary Meeting Decision" done={!!decision} date={ob.prelim_meeting_decision_at} emails={ACCOUNTANT_DECISION_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} onDateChange={d => saveStepDate('prelim_meeting_decision_at', d)} saving={saving}
           locked={!decision && !prelimSettled} lockedHint={prelimStatus === 'No Show' ? 'Preliminary meeting was a no-show' : prelimLockHint}>
