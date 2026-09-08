@@ -3,16 +3,31 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { callApi, getSession } from '../../lib/api'
 import { AccountantOnboardingListSkeleton, AccountantOnboardingDetailSkeleton } from '../shared/Skeleton'
 import { TrackHero, PhaseBadge, ListHeader } from '../shared/TrackKit'
-import NewModelSaleModal, { SALES_TEAM_NAMES } from './NewModelSaleModal'
+import NewModelSaleModal from './NewModelSaleModal'
+
+// The Team Member Responsible step offers only the people who run preliminary
+// meetings; the New Model Sale modal keeps the wider SALES_TEAM_NAMES list. A
+// row already holding another name keeps showing it (the option is appended).
+const ONBOARDING_TEAM_MEMBER_NAMES = ['Ian Welham', 'Vanessa Smith', 'Rachael Hopson', 'Jake Latham']
 import OnboardingExtraMeetingCard from './OnboardingExtraMeetingCard'
 import StepEmailsChip from '../shared/StepEmailsChip'
-import StepDate from '../shared/StepDate'
 import { MemberNameLink } from '../shared/personLinks'
 
 const STAGE_NAMES = ['', 'Preliminary Meeting', 'PC Admin', 'Add New Accountant']
 
 // Read-only per-step email previews (see StepEmailsChip).
 const ACCOUNTANT_PIPELINE = 'ACCOUNTANT_ONBOARDING'
+const ACCOUNTANT_MEETING_REMINDER_EMAILS = [
+  { name: 'ACCOUNTANT_meeting_reminder', when: 'Automatic — sent 1 business day before the meeting (CONFIRM / CANCEL / RESCHEDULE buttons)' },
+  { name: 'ACCOUNTANT_meeting_reminder_60m', when: 'Automatic — 60 minutes before, if confirmed' },
+  { name: 'ACCOUNTANT_meeting_reminder_10m', when: 'Automatic — 10 minutes before, if confirmed' },
+]
+const ACCOUNTANT_DEPOSIT_EMAILS = [
+  { name: 'ACCOUNTANT_deposit_payment_link', when: 'Deposit payment link (ACH or Card choice)' },
+  { name: 'ACCOUNTANT_deposit_received', when: 'Automatic — sent when the deposit is paid' },
+  { name: 'ACCOUNTANT_deposit_reminder', when: 'Automatic reminder if unpaid (2 business days)' },
+  { name: 'ACCOUNTANT_deposit_refund', when: 'Refund — deposit refunded with your reason' },
+]
 const ACCOUNTANT_DECISION_EMAILS = [
   { name: 'ACCOUNTANT_undecided', when: 'If Undecided — decision email with buttons' },
   { name: 'ACCOUNTANT_undecided_reminder', when: 'Automatic reminder if no response (2 business days); auto-declines after 14 days' },
@@ -38,6 +53,20 @@ const ACCOUNTANT_INVOICE_EMAILS = [
 ]
 const ACCOUNTANT_LOGIN_EMAILS = [
   { name: 'ACCOUNTANT_login_setup', when: 'Portal login setup email' },
+]
+
+// Rows written before the outcome was split into deposit/no-deposit carry the
+// bare 'Completed' — it means "no deposit", so it displays and gates as that.
+const LEGACY_PRELIM_STATUS = 'Completed'
+const PRELIM_NO_DEPOSIT = 'Completed - No Deposit'
+const PRELIM_SEND_DEPOSIT = 'Completed - Send Deposit'
+const MEETING_TIMEZONES = [
+  ['ET', 'Eastern (ET)'],
+  ['CT', 'Central (CT)'],
+  ['MT', 'Mountain (MT)'],
+  ['PT', 'Pacific (PT)'],
+  ['AKT', 'Alaska (AKT)'],
+  ['HT', 'Hawaii (HT)'],
 ]
 
 export default function AccountantOnboarding() {
@@ -173,7 +202,7 @@ export default function AccountantOnboarding() {
           const bg = isStopped ? 'rgba(231,76,60,0.15)' : isDone ? 'rgba(27,146,84,0.15)' : 'rgba(0,149,255,0.15)'
           const border = isStopped ? 'rgba(231,76,60,0.3)' : isDone ? 'rgba(27,146,84,0.3)' : 'rgba(0,149,255,0.3)'
           return (
-            <div key={ob.id} onClick={() => { setSelectedId(ob.id); setView('detail') }} style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '18px', marginBottom: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            <div key={ob.id} onClick={() => { setSelectedId(ob.id); setView('detail'); const n = new URLSearchParams(searchParams); n.set('onboarding', String(ob.id)); setSearchParams(n, { replace: true }) }} style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: 'var(--vfo-shadow-card)', padding: '18px', marginBottom: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,149,255,0.4)'}
               onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--vfo-border)'}>
               <div>
@@ -238,6 +267,11 @@ function OnboardingDetail({ id, onBack }) {
   const [expanded, setExpanded] = useState({ 1: true, 2: true, 3: true })
   const [advisors, setAdvisors] = useState(null)
   const [savingCc, setSavingCc] = useState(false)
+  const [reminderForm, setReminderForm] = useState({ open: false, reschedule: false, date: '', time: '', tz: 'ET' })
+  const [reminderBusy, setReminderBusy] = useState(false)
+  const [depositBuf, setDepositBuf] = useState('')
+  const [depositBusy, setDepositBusy] = useState(false)
+  const [refundDraft, setRefundDraft] = useState({ open: false, reason: '', sending: false })
 
   useEffect(() => { loadDetail() }, [id])
 
@@ -316,6 +350,39 @@ function OnboardingDetail({ id, onBack }) {
     finally { setSaving(false) }
   }
 
+  function openReminderForm(reschedule) {
+    setReminderForm({
+      open: true,
+      reschedule,
+      date: ob?.meeting_date || '',
+      time: String(ob?.meeting_time || '').slice(0, 5),
+      tz: ob?.meeting_timezone || 'ET',
+    })
+  }
+
+  async function sendMeetingReminder(body) {
+    setReminderBusy(true)
+    try {
+      const res = await callApi('automation_ACCOUNTANT_meetingreminder', { onboarding_id: id, ...body })
+      if (res?.error) { alert('Error: ' + res.error); return }
+      if (res?.onboarding) setOb(res.onboarding)
+      setReminderForm({ open: false, reschedule: false, date: '', time: '', tz: 'ET' })
+    } catch (err) { console.error(err); alert('Error: ' + err.message) }
+    finally { setReminderBusy(false) }
+  }
+
+  function submitMeetingReminder() {
+    if (!reminderForm.date || !reminderForm.time) return
+    if (!window.confirm('This reminder will be sent to the prospective accountant 1 business day before the meeting.')) return
+    sendMeetingReminder({
+      mode: 'schedule',
+      meeting_date: reminderForm.date,
+      meeting_time: reminderForm.time,
+      meeting_tz: reminderForm.tz || 'ET',
+      reschedule: !!reminderForm.reschedule,
+    })
+  }
+
   // Inline edit of a manual step's completion date (matches the tracking tracks).
   async function saveStepDate(field, date) {
     setSaving(true)
@@ -324,6 +391,30 @@ function OnboardingDetail({ id, onBack }) {
       if (res?.onboarding) setOb(res.onboarding)
     } catch (err) { console.error(err); alert('Error: ' + err.message) }
     finally { setSaving(false) }
+  }
+
+  async function sendDepositEmail(amount) {
+    setDepositBusy(true)
+    try {
+      const res = await callApi('automation_ACCOUNTANT_depositemail', { onboarding_id: id, amount })
+      if (res?.error) { alert('Error: ' + res.error); return }
+      if (res?.onboarding) setOb(res.onboarding)
+    } catch (err) { console.error(err); alert('Error: ' + err.message) }
+    finally { setDepositBusy(false) }
+  }
+
+  async function sendDepositRefund(reason) {
+    if (!window.confirm('Refund the deposit via Stripe and draft the refund email?\n\nThis refunds the deposit PaymentIntent in full, stops this onboarding and drafts an email to the accountant including your reason(s). Cannot be undone.')) return
+    setRefundDraft(d => ({ ...d, sending: true }))
+    try {
+      const res = await callApi('automation_ACCOUNTANT_depositrefund', { onboarding_id: id, reason })
+      if (res?.error) { alert('Error: ' + res.error); setRefundDraft(d => ({ ...d, sending: false })); return }
+      if (res?.onboarding) setOb(res.onboarding)
+      setRefundDraft({ open: false, reason: '', sending: false })
+    } catch (err) {
+      console.error(err); alert('Error: ' + err.message)
+      setRefundDraft(d => ({ ...d, sending: false }))
+    }
   }
 
   async function saveDecision(decision) {
@@ -384,6 +475,157 @@ function OnboardingDetail({ id, onBack }) {
   const noPath = finalDec === 'No'
   const undecidedPending = decision === 'Undecided' && !ob.final_decision
 
+  // Stage 1 runs strictly in order now: team member, then the meeting reminder,
+  // then the meeting outcome, then the partnership and the decision. A step that
+  // is already done is never locked, so legacy rows keep rendering what they hold.
+  const prelimStatus = ob.prelim_meeting_status
+  const depositSent = !!ob.deposit_email_sent_at
+  const reminderDone = !!(ob.meeting_reminder_scheduled_at || ob.meeting_reminder_skipped_at)
+  const reminderDate = ob.meeting_reminder_scheduled_at || ob.meeting_reminder_skipped_at
+  const prelimSettled = prelimStatus === PRELIM_NO_DEPOSIT || prelimStatus === LEGACY_PRELIM_STATUS
+    || prelimStatus === 'Request no meeting'
+    || (prelimStatus === PRELIM_SEND_DEPOSIT && depositSent)
+  const prelimLockHint = prelimStatus === PRELIM_SEND_DEPOSIT && !depositSent
+    ? 'Send the deposit link first'
+    : 'Complete the Preliminary Meeting step first'
+  const prelimSelectValue = prelimStatus === LEGACY_PRELIM_STATUS ? PRELIM_NO_DEPOSIT : (prelimStatus || '')
+
+  const tdInput = { padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '11px' }
+  const tdGreen = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: reminderBusy ? 'not-allowed' : 'pointer', border: '1px solid rgba(27,146,84,0.4)', background: 'rgba(27,146,84,0.12)', color: '#1b9254', fontWeight: 600 }
+  const tdCancel = { padding: '4px 8px', borderRadius: '5px', fontSize: '11px', cursor: reminderBusy ? 'not-allowed' : 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }
+  const meetingLabel = [ob.meeting_date, String(ob.meeting_time || '').slice(0, 5), ob.meeting_timezone].filter(Boolean).join(' ')
+  const reminderSendable = !!reminderForm.date && !!reminderForm.time
+
+  const reminderControl = reminderForm.open ? (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <input type="date" value={reminderForm.date} onChange={e => setReminderForm(f => ({ ...f, date: e.target.value }))} style={tdInput} />
+      <input type="time" value={reminderForm.time} onChange={e => setReminderForm(f => ({ ...f, time: e.target.value }))} style={tdInput} />
+      <select value={reminderForm.tz} onChange={e => setReminderForm(f => ({ ...f, tz: e.target.value }))} style={{ ...tdInput, background: 'var(--vfo-card)' }}>
+        {MEETING_TIMEZONES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+      <button disabled={reminderBusy || !reminderSendable} onClick={submitMeetingReminder} style={{ ...tdGreen, opacity: (reminderBusy || !reminderSendable) ? 0.6 : 1 }}>{reminderBusy ? 'Sending...' : 'Send'}</button>
+      <button disabled={reminderBusy} onClick={() => setReminderForm(f => ({ ...f, open: false }))} style={tdCancel}>Cancel</button>
+    </div>
+  ) : ob.meeting_reminder_scheduled_at ? (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <span style={pillStyle('#1b9254')}>Reminder scheduled — {meetingLabel}</span>
+      <button disabled={reminderBusy} onClick={() => openReminderForm(true)} style={tdCancel} title="Pick a new date/time and re-schedule the reminder.">Reschedule</button>
+    </div>
+  ) : ob.meeting_reminder_skipped_at ? (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <span style={neutralPillStyle}>Reminder skipped</span>
+      <button disabled={reminderBusy} onClick={() => openReminderForm(false)} style={tdCancel} title="Pick a new date/time and re-schedule the reminder.">Schedule reminder</button>
+    </div>
+  ) : (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <button disabled={reminderBusy} onClick={() => openReminderForm(false)} style={tdGreen}>Send reminder (with date)</button>
+      <button disabled={reminderBusy} onClick={() => sendMeetingReminder({ mode: 'skip' })} style={tdCancel}>Skip reminder</button>
+    </div>
+  )
+
+  const responseTag = ob.meeting_response === 'confirm' ? 'Confirmed'
+    : ob.meeting_response === 'cancel' ? 'Cancelled'
+      : ob.meeting_response === 'reschedule' ? 'Reschedule requested' : null
+
+  const reminderCascade = ob.meeting_reminder_scheduled_at ? (
+    <div style={{ marginLeft: '18px', marginBottom: '4px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
+      <AutoRow label="Reminder email sent (1 business day before)" done={!!ob.meeting_reminder_sent_at} date={ob.meeting_reminder_sent_at} />
+      {!ob.meeting_reminder_sent_at && ob.meeting_reminder_due_at && (
+        <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', padding: '4px 0 0 14px' }}>{new Date(ob.meeting_reminder_due_at) <= new Date() ? 'Sends on the next sweep run (within 5 minutes) — the 1-business-day mark has already passed' : `Sends ${formatStampFull(ob.meeting_reminder_due_at)} (1 business day before the meeting)`}</div>
+      )}
+      <AutoRow label="Prospective accountant responded" done={!!ob.meeting_response} date={ob.meeting_response_at} tag={responseTag} />
+      <AutoRow label="60-minute reminder sent" done={!!ob.meeting_reminder_60m_sent_at} date={ob.meeting_reminder_60m_sent_at} />
+      <AutoRow label="10-minute reminder sent" done={!!ob.meeting_reminder_10m_sent_at} date={ob.meeting_reminder_10m_sent_at} />
+    </div>
+  ) : null
+
+  // Membership deposit: only ever offered on the "send deposit" outcome, and the
+  // amount is typed once — the row turns into a chip the moment the link goes out.
+  const depositStatus = ob.deposit_status
+  const depositRefunded = depositStatus === 'refunded'
+  const depositAmount = Number(ob.deposit_amount) || 0
+  const depositTyped = parseFloat(depositBuf)
+  const depositSendable = Number.isFinite(depositTyped) && depositTyped >= 500 && depositTyped <= 4000
+  // A refunded or already-swept-through deposit has nothing left to give back.
+  const depositRefundable = depositStatus === 'succeeded' && !ob.deposit_refund_id
+    && ob.payment_status !== 'succeeded' && ob.payment_status !== 'processing'
+  const refundSending = !!refundDraft.sending
+  const refundReason = refundDraft.reason || ''
+  const trRed = { padding: '4px 10px', borderRadius: '5px', fontSize: '11px', cursor: refundSending ? 'not-allowed' : 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.12)', color: '#e74c3c', fontWeight: 600 }
+  const accountantFullName = `${ob.first_name || ''} ${ob.last_name || ''}`.trim()
+  const accountantFirstName = (ob.first_name || '').trim() || accountantFullName.split(/\s+/)[0] || ''
+
+  const depositControl = !depositSent ? (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <span style={{ fontSize: '12px', color: 'var(--vfo-muted)' }}>$</span>
+      <input
+        value={depositBuf}
+        inputMode="decimal"
+        placeholder="0.00"
+        disabled={depositBusy}
+        onChange={e => setDepositBuf(sanitizeMoney(e.target.value))}
+        onKeyDown={e => { if (e.key === 'Enter' && depositSendable && !depositBusy) sendDepositEmail(Math.round(depositTyped * 100) / 100) }}
+        title="Deposit amount — the accountant gets an ACH or Card payment link for this"
+        style={{ ...selectStyle, minWidth: '100px', width: '100px', textAlign: 'right' }}
+      />
+      <button disabled={depositBusy || !depositSendable} onClick={() => sendDepositEmail(Math.round(depositTyped * 100) / 100)} style={{ ...tdGreen, cursor: (depositBusy || !depositSendable) ? 'not-allowed' : 'pointer', opacity: (depositBusy || !depositSendable) ? 0.6 : 1 }}>{depositBusy ? 'Sending...' : 'Send'}</button>
+    </div>
+  ) : depositRefunded ? (
+    <span style={pillStyle('#1b9254')}>Refunded ${fmtMoney(ob.deposit_refund_amount)}</span>
+  ) : depositStatus === 'succeeded' ? (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <span style={pillStyle('#1b9254')}>Deposit paid — ${fmtMoney(depositAmount)}</span>
+      {depositRefundable && !refundDraft.open && <button disabled={refundSending} onClick={() => setRefundDraft({ open: true, reason: '', sending: false })} style={trRed}>Refund</button>}
+    </div>
+  ) : depositStatus === 'processing' ? (
+    <span style={pillStyle('#e06717')}>Deposit pending (ACH clearing) — ${fmtMoney(depositAmount)}</span>
+  ) : depositStatus === 'failed' ? (
+    <span style={pillStyle('#e74c3c')}>Deposit failed</span>
+  ) : (
+    <span style={pillStyle('#0095ff')}>Deposit link sent — ${fmtMoney(depositAmount)}</span>
+  )
+
+  const depositRefundCard = refundDraft.open ? (
+    <div style={{ marginLeft: '18px', marginBottom: '8px', padding: '14px 16px', background: 'var(--vfo-tint)', borderRadius: '10px', border: '1px solid var(--vfo-tint-deep)', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+        Subject: Elite Resource Team - Membership Deposit refunded — {accountantFullName || '[Accountant Name]'}
+      </div>
+      <div style={{ fontSize: '13px', color: '#44557a', lineHeight: '1.6' }}>
+        <p style={{ margin: '0 0 12px' }}>Dear {accountantFirstName || '[Accountant First]'},</p>
+        <textarea
+          value={refundReason}
+          onChange={e => setRefundDraft(d => ({ ...d, reason: e.target.value }))}
+          placeholder="Type the reason we are not moving forward here - written as if speaking directly to the accountant."
+          disabled={refundSending}
+          style={{ width: '100%', minHeight: '90px', padding: '10px 12px', borderRadius: '6px', border: '1px solid rgba(231,76,60,0.4)', background: 'rgba(231,76,60,0.06)', color: 'var(--vfo-ink)', fontFamily: 'Inter, sans-serif', fontSize: '13px', lineHeight: '1.55', boxSizing: 'border-box', resize: 'vertical', marginBottom: '12px' }}
+        />
+        <p style={{ margin: '0 0 12px' }}>We have refunded your ERT Membership Deposit of ${fmtMoney(depositAmount)}. You should see the funds back in your account within the next few days.</p>
+        <p style={{ margin: '0 0 12px' }}>If you have any questions, just let us know.</p>
+        <p style={{ margin: '0 0 12px' }}>Thank you for your time.</p>
+        <p style={{ margin: 0 }}>Regards,</p>
+      </div>
+      <div style={{ marginTop: '14px', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+        <button disabled={refundSending} onClick={() => setRefundDraft({ open: false, reason: '', sending: false })} style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', cursor: refundSending ? 'not-allowed' : 'pointer', border: '1px solid var(--vfo-border-strong)', background: 'transparent', color: 'var(--vfo-muted)' }}>Cancel</button>
+        <button disabled={refundSending || !refundReason.trim()} onClick={() => sendDepositRefund(refundReason.trim())} style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', cursor: (refundSending || !refundReason.trim()) ? 'not-allowed' : 'pointer', border: '1px solid rgba(231,76,60,0.4)', background: refundReason.trim() ? 'rgba(231,76,60,0.18)' : 'rgba(231,76,60,0.06)', color: '#e74c3c', fontWeight: '600' }} title={!refundReason.trim() ? 'Enter the reason(s) first' : ''}>{refundSending ? 'Sending...' : 'Send Refund'}</button>
+      </div>
+    </div>
+  ) : null
+
+  const depositCascade = depositSent ? (
+    <div style={{ marginLeft: '18px', marginBottom: '4px', padding: '8px 14px', background: 'var(--vfo-tint)', borderRadius: '8px', border: '1px solid var(--vfo-border-chip)' }}>
+      <AutoRow label="Deposit payment link sent (ACH or Card choice)" done={!!ob.deposit_email_sent_at} date={ob.deposit_email_sent_at} />
+      <StallRows ob={ob} setOb={setOb} stall="deposit" />
+      <AutoRow label="Deposit collected" done={depositStatus === 'succeeded' || depositRefunded} date={ob.deposit_completed_at} tag={ob.deposit_method_type ? ob.deposit_method_type.toUpperCase() : null} />
+      <AutoRow label="Deposit confirmation emailed" done={!!ob.deposit_confirmation_email_sent_at} date={ob.deposit_confirmation_email_sent_at} />
+      {depositRefunded && (
+        <>
+          <AutoRow label="Deposit refunded" done={true} date={ob.deposit_refund_date} />
+          <AutoRow label="Refund email drafted" done={!!ob.deposit_refund_email_sent_at} date={ob.deposit_refund_email_sent_at} />
+        </>
+      )}
+    </div>
+  ) : null
+
   // Stage state: done if every "interesting" milestone on the active branch is set.
   function stage1State() {
     if (!ob.prelim_meeting_status) return 'pending'
@@ -410,18 +652,50 @@ function OnboardingDetail({ id, onBack }) {
   const emStage = ob.extra_meeting_stage
   const emRequested = !!ob.extra_meeting_requested_at
   const emCard = <OnboardingExtraMeetingCard ob={ob} pipeline="accountant" onComplete={loadDetail} compact />
+
+  // payment_amount is the TOTAL engagement value; a paid deposit comes off it and
+  // the balance is charged to the saved method, so the payment link only appears
+  // when there is no deposit or the balance charge fell back to one.
+  const depositOnFile = ob.deposit_status === 'succeeded' || ob.deposit_status === 'processing'
+  const depositPaid = depositOnFile ? (Number(ob.deposit_amount) || 0) : 0
+  const balance = Math.max(Number(ob.payment_amount || 0) - depositPaid, 0)
+  const priced = !!ob.agreement_signed_by_ceo_at
+  const depositCoversAll = priced && ob.deposit_status === 'succeeded' && depositPaid > 0 && Number(ob.payment_amount) > 0 && balance === 0
+  const showPaymentLinkRow = depositCoversAll ? false : (depositPaid === 0 || !!ob.payment_link_sent_at)
+  const balanceStatus = ob.balance_charge_status
+
   const yesRows = (withTags) => (
     <>
+      {depositPaid > 0 && (
+        <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', padding: '4px 0 6px 14px' }}>
+          Deposit of ${fmtMoney(depositPaid)} {ob.deposit_status === 'processing' ? 'pending (ACH clearing)' : `received ${formatDate(ob.deposit_completed_at)}`}{!priced ? ' · balance calculated at countersign' : balance > 0 ? ` · balance due $${fmtMoney(balance)}` : ' · nothing further due'}
+        </div>
+      )}
       <AutoRow label="Engagement agreement created and sent for signing" done={!!ob.agreement_sent_at} date={ob.agreement_sent_at} emails={ACCOUNTANT_AGREEMENT_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
       <StallRows ob={ob} setOb={setOb} stall="signing" />
       {emRequested && emStage === 'signing' && emCard}
       <AutoRow label="Engagement agreement signed" done={!!ob.agreement_signed_by_accountant_at} date={ob.agreement_signed_by_accountant_at} tag={withTags ? [ob.selected_vfo_ft && 'VFO FT', ob.selected_pft && 'PFT', ob.selected_corporate && 'CM'] : undefined} />
       <AutoRow label="Engagement agreement signed by CEO" done={!!ob.agreement_signed_by_ceo_at} date={ob.agreement_signed_by_ceo_at} emails={ACCOUNTANT_CEO_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
-      <AutoRow label="Payment link sent (ACH or Card choice)" done={!!ob.payment_link_sent_at} date={ob.payment_link_sent_at} emails={ACCOUNTANT_PAYMENT_LINK_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
-      <StallRows ob={ob} setOb={setOb} stall="payment" />
+      {showPaymentLinkRow && (
+        <>
+          <AutoRow label="Payment link sent (ACH or Card choice)" done={!!ob.payment_link_sent_at} date={ob.payment_link_sent_at} emails={ACCOUNTANT_PAYMENT_LINK_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
+          <StallRows ob={ob} setOb={setOb} stall="payment" />
+        </>
+      )}
       {emRequested && emStage === 'payment' && emCard}
       {/* The ACH confirmation email no longer gets its own row — preview it here. */}
-      <AutoRow label="Payment collected" done={ob.payment_status === 'succeeded'} date={ob.payment_completed_at} tag={withTags ? (ob.payment_method_type ? ob.payment_method_type.toUpperCase() : null) : undefined} emails={ACCOUNTANT_CONFIRMATION_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
+      {!depositCoversAll && (
+        <AutoRow label={depositPaid > 0 ? 'Remaining payment collected after deposit' : 'Payment collected'} done={ob.payment_status === 'succeeded'} date={ob.payment_completed_at} tag={withTags ? (ob.payment_method_type ? ob.payment_method_type.toUpperCase() : null) : undefined} emails={ACCOUNTANT_CONFIRMATION_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
+      )}
+      {!depositCoversAll && depositPaid > 0 && balanceStatus === 'awaiting_deposit' && (
+        <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', padding: '2px 0 4px 14px' }}>Waiting for the deposit to clear before charging the balance</div>
+      )}
+      {!depositCoversAll && depositPaid > 0 && (balanceStatus === 'declined' || balanceStatus === 'failed') && (
+        <div style={{ fontSize: '11px', color: '#e74c3c', padding: '2px 0 4px 14px' }}>Balance charge failed — a payment link has been sent</div>
+      )}
+      {depositCoversAll && (
+        <AutoRow label="Deposit covered the full onboarding payment" done={ob.payment_status === 'succeeded'} date={ob.payment_completed_at} />
+      )}
       <AutoRow label="Invoice and receipt created and emailed to client" done={!!ob.invoice_sent_at} date={ob.invoice_sent_at} emails={ACCOUNTANT_INVOICE_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} />
     </>
   )
@@ -458,21 +732,40 @@ function OnboardingDetail({ id, onBack }) {
       />
 
       {!isAssociate && <StageBlock stage={1} title="Preliminary Meeting" state={stage1State()} expanded={expanded[1]} onToggle={() => setExpanded(p => ({ ...p, 1: !p[1] }))}>
-        <Row label="Preliminary Meeting" done={!!ob.prelim_meeting_status} date={ob.prelim_meeting_status_at} onDateChange={d => saveStepDate('prelim_meeting_status_at', d)} saving={saving}>
-          <select value={ob.prelim_meeting_status || ''} onChange={e => savePrelimMeeting(e.target.value)} disabled={saving} style={{ ...selectStyle, color: 'var(--vfo-ink)' }}>
-            <option value="">-- Select --</option>
-            <option value="Completed">Completed</option>
-            <option value="No Show">No Show</option>
-            <option value="Request no meeting">Request no meeting</option>
-          </select>
-        </Row>
         <Row label="Team Member Responsible" done={!!ob.onboarding_team_member} date={ob.onboarding_team_member_at} onDateChange={d => saveStepDate('onboarding_team_member_at', d)} saving={saving}>
           <select value={ob.onboarding_team_member || ''} onChange={e => saveTeamMember(e.target.value)} disabled={saving} style={{ ...selectStyle, color: 'var(--vfo-ink)' }}>
             <option value="">-- Select --</option>
-            {SALES_TEAM_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
+            {ONBOARDING_TEAM_MEMBER_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
+            {ob.onboarding_team_member && !ONBOARDING_TEAM_MEMBER_NAMES.includes(ob.onboarding_team_member) && <option value={ob.onboarding_team_member}>{ob.onboarding_team_member}</option>}
           </select>
         </Row>
-        <Row label="Direct or Advisor Partnership" done={!!ob.accountant_partnership} date={ob.accountant_partnership_at} onDateChange={d => saveStepDate('accountant_partnership_at', d)} saving={saving}>
+        <Row label="Meeting Reminder Setup" done={reminderDone} date={reminderDate} emails={ACCOUNTANT_MEETING_REMINDER_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx}
+          locked={!reminderDone && !ob.onboarding_team_member} lockedHint="Select the Team Member Responsible first">
+          {reminderControl}
+        </Row>
+        {reminderCascade}
+        <Row label="Preliminary Meeting" done={!!prelimStatus} date={ob.prelim_meeting_status_at} onDateChange={d => saveStepDate('prelim_meeting_status_at', d)} saving={saving}
+          locked={!prelimStatus && !reminderDone} lockedHint="Send or skip the meeting reminder first">
+          <select value={prelimSelectValue} onChange={e => savePrelimMeeting(e.target.value)} disabled={saving || depositSent} title={depositSent ? 'A deposit link has already been sent' : undefined} style={{ ...selectStyle, color: 'var(--vfo-ink)' }}>
+            <option value="">-- Select --</option>
+            <option value={PRELIM_SEND_DEPOSIT}>{PRELIM_SEND_DEPOSIT}</option>
+            <option value={PRELIM_NO_DEPOSIT}>{PRELIM_NO_DEPOSIT}</option>
+            <option value="No Show">No Show</option>
+            <option value="Request no meeting">Requested no meeting</option>
+          </select>
+        </Row>
+        {prelimStatus === PRELIM_SEND_DEPOSIT && (
+          <>
+            <Row label="Deposit" done={depositSent} date={depositRefunded ? ob.deposit_refund_date : ob.deposit_email_sent_at} emails={ACCOUNTANT_DEPOSIT_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx}>
+              {depositControl}
+            </Row>
+            {!depositSent && <div style={{ fontSize: '11px', color: 'var(--vfo-muted)', padding: '4px 0 0 18px' }}>Minimum $500, maximum $4,000</div>}
+            {depositRefundCard}
+            {depositCascade}
+          </>
+        )}
+        <Row label="Direct or Advisor Partnership" done={!!ob.accountant_partnership} date={ob.accountant_partnership_at} onDateChange={d => saveStepDate('accountant_partnership_at', d)} saving={saving}
+          locked={!ob.accountant_partnership && !prelimSettled} lockedHint={prelimLockHint}>
           <select value={ob.accountant_partnership || ''} onChange={e => savePartnership(e.target.value)} disabled={saving} style={{ ...selectStyle, color: 'var(--vfo-ink)' }}>
             <option value="">-- Select --</option>
             <option value="No accountant partnership">Direct</option>
@@ -492,7 +785,8 @@ function OnboardingDetail({ id, onBack }) {
             />
           </Row>
         )}
-        <Row label="Preliminary Meeting Decision" done={!!decision} date={ob.prelim_meeting_decision_at} emails={ACCOUNTANT_DECISION_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} onDateChange={d => saveStepDate('prelim_meeting_decision_at', d)} saving={saving}>
+        <Row label="Preliminary Meeting Decision" done={!!decision} date={ob.prelim_meeting_decision_at} emails={ACCOUNTANT_DECISION_EMAILS} pipeline={ACCOUNTANT_PIPELINE} emailCtx={emailCtx} onDateChange={d => saveStepDate('prelim_meeting_decision_at', d)} saving={saving}
+          locked={!decision && !prelimSettled} lockedHint={prelimStatus === 'No Show' ? 'Preliminary meeting was a no-show' : prelimLockHint}>
           {decision ? (
             <span style={pillStyle(decision === 'Yes' ? '#1b9254' : decision === 'No' ? '#e74c3c' : '#e06717')}>{decision}</span>
           ) : (
@@ -614,18 +908,53 @@ function formatDate(d) {
   return `${String(dt.getMonth() + 1).padStart(2, '0')}/${String(dt.getDate()).padStart(2, '0')}`
 }
 
+// Keep only digits and a single decimal point, capped at 2 decimals, so the
+// dollar field can't hold anything that isn't a dollar amount.
+function sanitizeMoney(raw) {
+  let s = String(raw ?? '').replace(/[^0-9.]/g, '')
+  const dot = s.indexOf('.')
+  if (dot !== -1) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, '')
+  const cap = s.indexOf('.')
+  if (cap !== -1) s = s.slice(0, cap + 3)
+  return s
+}
+
+function fmtMoney(n) {
+  const num = Number(n) || 0
+  return num.toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(num) ? 0 : 2, maximumFractionDigits: 2 })
+}
+
 const dateTextStyle = { fontSize: '12px', color: 'var(--vfo-muted)', flexShrink: 0, display: 'inline-block', width: '38px' }
 
-function Row({ label, done, date, children, emails, pipeline, emailCtx, onDateChange, saving }) {
+// Prerequisite lock, drawn the same way the tax priorities tab draws it so every
+// locked step in the portal reads as one thing.
+function LockedIcon({ size = 13 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ opacity: 0.75, flexShrink: 0 }}>
+      <circle cx="8" cy="8" r="6.5" stroke="#e74c3c" strokeWidth="1.6" fill="none" />
+      <line x1="3.9" y1="12.1" x2="12.1" y2="3.9" stroke="#e74c3c" strokeWidth="1.6" />
+    </svg>
+  )
+}
+
+const lockedHintStyle = { fontSize: '11px', color: 'var(--vfo-muted)', fontWeight: 500 }
+
+// Full local date + time, for a scheduled send that hasn't happened yet.
+function formatStampFull(d) {
+  if (!d) return ''
+  const dt = new Date(String(d))
+  if (isNaN(dt.getTime())) return ''
+  return dt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+}
+
+function Row({ label, done, date, children, emails, pipeline, emailCtx, onDateChange, saving, locked, lockedHint }) {
+  return (
+    <div title={locked ? lockedHint : undefined} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0', borderBottom: '1px solid var(--vfo-border-soft)', flexWrap: 'wrap' }}>
       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: done ? '#1b9254' : 'transparent', flexShrink: 0, border: `1.5px solid ${done ? '#1b9254' : 'var(--vfo-border-mid)'}` }} />
       <span style={{ fontSize: '13px', color: done ? 'var(--vfo-muted)' : 'var(--vfo-ink)', flex: 1 }}>{label}{emails && <span style={{ marginLeft: '8px' }}><StepEmailsChip pipeline={pipeline} title={label} templates={emails} context={emailCtx} /></span>}</span>
       <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
-        {children}
-        {onDateChange && done && date
-          ? <StepDate value={(date || '').split('T')[0]} onChange={onDateChange} disabled={saving} />
-          : <span style={dateTextStyle}>{done && date ? formatDate(date) : ''}</span>}
+        {locked ? <><LockedIcon /><span style={lockedHintStyle}>{lockedHint}</span></> : children}
+        <span style={dateTextStyle}>{done && date ? formatDate(date) : ''}</span>
       </span>
     </div>
   )
@@ -750,6 +1079,7 @@ function StallRows({ ob, setOb, stall }) {
 
 const selectStyle = { padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-card)', color: 'var(--vfo-ink)', fontSize: '12px', minWidth: '150px', fontFamily: 'Inter, sans-serif' }
 function pillStyle(color) { return { fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: `${color}22`, color, border: `1px solid ${color}44` } }
+const neutralPillStyle = { fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--vfo-tint)', color: 'var(--vfo-muted)', border: '1px solid var(--vfo-border-chip)' }
 function branchBtn(color) { return { padding: '4px 12px', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', border: `1px solid ${color}66`, background: `${color}22`, color } }
 function pendingBtn(color, pendingValue, myValue) {
   const base = branchBtn(color)

@@ -44,6 +44,7 @@ import PayoutSetupPage from './pages/PayoutSetupPage'
 import SpecialistRevenuePayPage from './pages/SpecialistRevenuePayPage'
 import MembershipPayPage from './pages/MembershipPayPage'
 import MembershipMeetingPage from './pages/MembershipMeetingPage'
+import OnboardingMeetingPage from './pages/OnboardingMeetingPage'
 
 export default function App() {
   return (
@@ -75,6 +76,7 @@ export default function App() {
       <Route path="/specialist-revenue-pay" element={<SpecialistRevenuePayPage />} />
       <Route path="/membership-pay" element={<MembershipPayPage />} />
       <Route path="/membership-meeting" element={<MembershipMeetingPage />} />
+      <Route path="/onboarding-meeting" element={<OnboardingMeetingPage />} />
       <Route path="/member-setup" element={<MemberSetupPage />} />
       <Route path="/set-password" element={<SetPasswordPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
