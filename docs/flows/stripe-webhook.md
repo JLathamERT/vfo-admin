@@ -30,7 +30,11 @@ Triggered by presence of the `stripe-signature` header. Always returns before re
 
 ### Step 1 — Dispatch by event type
 
-The handler `if`-checks `event.type === "checkout.session.completed"` and `event.type === "payment_intent.succeeded"` (Branches A/B below). It ALSO handles a set of failure/lifecycle events (`payment_intent.payment_failed`, `checkout.session.async_payment_failed`, subscription/dispute/refund/transfer events — see [SESSION_REFERENCE.md](../SESSION_REFERENCE.md) "Failure-event handling"), including the v612 late-ACH off-session branches described in **Branch C** below. All other event types are ignored (200 OK with `{received: true}`).
+The handler `if`-checks `event.type === "checkout.session.completed"` and `event.type === "payment_intent.succeeded"` (Branches A/B below). It ALSO handles a set of failure/lifecycle events (`payment_intent.payment_failed`, **`payment_intent.canceled`**, `checkout.session.async_payment_failed`, subscription/dispute/refund/transfer events — see [SESSION_REFERENCE.md](../SESSION_REFERENCE.md) "Failure-event handling"), including the v612 late-ACH off-session branches described in **Branch C** below, and **`payment_intent.processing`** (**Branch D**). All other event types are ignored (200 OK with `{received: true}`).
+
+> **`payment_intent.processing` and `payment_intent.canceled` reach MAP 1 / Tax as of 2026-09-08 (v816).** Both were previously consumed for **SpecRev only**. They matter now because the `/pay` and `/tax-pay` ACH builders no longer pin `verification_method='instant'`, so a client can type their account and routing numbers and leave the PaymentIntent parked in `requires_action` — `processing` is the "bank verified, debit moving" signal and `canceled` is what micro-deposit expiry looks like. Both are already subscribed on the live and sandbox endpoints (they had to be, for SpecRev).
+
+> **VERIFIED LIVE 2026-09-08 (test client 62, sandbox, all fixtures wiped afterwards).** **Tax retainer** — plan 185 ($3,500, `fee_process_version` 2026-08-25): manual bank entry → `retainer_status='processing'`, `retainer_bank_verification_pending_at` **20:41:28Z**, PI `pi_3UDVp5Rv8yMNbvOJ0lglNbxH`, last4 6789, function log `pi_status: requires_action`, bells **1882** (Jake) + **1883** (Tracy), and the `TAX_confirmationemail|ach_verify` Gmail draft read end to end (correct subject and body, *"$3,500.00"*, *"retainer"*). Micro-deposits then verified on Stripe's own hosted page → `retainer_status='succeeded'`, stamp back to **NULL**, invoice `INV-59524-001-0050` + receipt `REC-59524-001-0038` at 20:47Z. **Holistic P1** — `pipeline_map1` row 149 (Quarterly, net 5400, P1 $1,350): manual entry → `pay1_status='processing'`, stamp **20:51:41Z**, last4 6789, bells **1888** (Jake) + **1889** (Tracy), and the `CONTRACT_confirmationemail|ach_verify` draft read (Payment 1 of 4, Core Membership). The **Stripe page's bolded first sentence** was confirmed rendering bold. **Not proved:** Branch D (below), the final-retainer manual path, and the re-worded "client paid" bells — the pre-v817 bells (1884/1885/1890) fired with the OLD wording, which is exactly what v817 fixes.
 
 ---
 
@@ -67,16 +71,22 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
 3. Calls Stripe `GET /v1/payment_intents/<id>?expand[]=payment_method` to get:
    - `payment_method.type` → `'card'` or `'us_bank_account'`
    - `card.last4` or `us_bank_account.last4` → `acct_last4`
+   - **`status`** *(2026-09-08, v816)* — `requires_action` on a non-card means the client typed their account and routing numbers, so Stripe is holding the PaymentIntent for micro-deposit verification and **no debit has been attempted**. `checkout.session.completed` on this path is a SUBMIT event, not a payment.
 4. Computes `card_processing_fee = (amount_received_cents / 100) - baseAmount` (only for card; ACH has no fee).
 5. UPDATEs `pipeline_map1`:
    - `pay1_status` = `'succeeded'` (card) or `'processing'` (ACH)
    - `payment_method_type`, `acct_last4`, `card_processing_fee`
    - `pay1_date` = today
    - For Quarterly plan: `pay2_date`, `pay3_date`, `pay4_date` = today + 91/182/273 days
+   - **`pay1_bank_verification_pending_at`** = now when the PI is `requires_action` on a non-card, else an explicit **NULL** — the column is written on every pass of this branch, never left untouched
    - `confirmation_status='Confirmation Needed'`
-6. **Chains** `automation_CONTRACT_confirmationemail` (always — both methods, deliberately). That handler owns the "client paid" PF bell, the ERT vault agreement copy and Tracy's new-case email in addition to the email, so the gate lives INSIDE it: for a **card** first payment it skips the client Gmail draft and stamps `confirmation_status='Skipped - Card (Receipt Only)'` (no `confirmation_email_sent_at`); ACH gets the confirmation. See [contract-and-payment.md](contract-and-payment.md) Step 11.
-7. **Chains** `automation_CONTRACT_invoicereceipt` for card only (ACH waits for `payment_intent.succeeded` to chain).
-8. **Chains** `automation_CONTRACT_revshare` for card only (P1). As of 2026-07-01 (gotcha #164) the Tracy Revenue-Master cross-check was removed — this **pays the share immediately** on clear (amounts from the PF input form) and also transfers the 10% strategic-partner share when the connected member is a strategic member; the daily 02:00-UTC `_revshare_sweep` cron now only retries **failed** transfers.
+
+   > **The status vocabulary did NOT gain a value — that is the whole design.** `pay1_status` still says `'processing'` while verification is pending, so every guard that ENUMERATES it (the `payment_intent.succeeded` settle, the late-ACH failure branches, the sweeps, the frontend status maps) keeps working untouched (**#371**). The sub-state lives in the nullable side-column. Migration `20260908120000_ach_bank_verification_pending_columns.sql`, no backfill — NULL correctly means "not awaiting verification".
+
+6. **On the pending path only:** raises `MAP1_ach_bank_verification_pending` via `notifyByRule` — a dismissible FYI to Jake + Tim (`dedupe:"unread"`), titled *"Bank verification pending — «Client» (MAP 1 payment 1)"*, saying no money has moved, that Stripe cancels the payment after about 10 days, and that the Gmail draft is the verify-bank version. Nothing in the portal clears it: the client either verifies (Branch D) or Stripe cancels (Branch C), and both arrive as their own webhook.
+7. **Chains** `automation_CONTRACT_confirmationemail` (always — both methods, deliberately). On the pending path that handler picks the **`CONTRACT_confirmationemail|ach_verify`** template instead of `|ach` and re-words its "client paid" PF bell — see [contract-and-payment.md](contract-and-payment.md) Step 11. That handler owns the "client paid" PF bell, the ERT vault agreement copy and Tracy's new-case email in addition to the email, so the gate lives INSIDE it: for a **card** first payment it skips the client Gmail draft and stamps `confirmation_status='Skipped - Card (Receipt Only)'` (no `confirmation_email_sent_at`); ACH gets the confirmation. See [contract-and-payment.md](contract-and-payment.md) Step 11.
+8. **Chains** `automation_CONTRACT_invoicereceipt` for card only (ACH waits for `payment_intent.succeeded` to chain).
+9. **Chains** `automation_CONTRACT_revshare` for card only (P1). As of 2026-07-01 (gotcha #164) the Tracy Revenue-Master cross-check was removed — this **pays the share immediately** on clear (amounts from the PF input form) and also transfers the 10% strategic-partner share when the connected member is a strategic member; the daily 02:00-UTC `_revshare_sweep` cron now only retries **failed** transfers.
 
 **Tables read:** `pipeline_map1`, `pipeline_sandbox_config`.
 **Tables written:** `pipeline_map1` (many columns).
@@ -116,7 +126,7 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
 **Discriminant:** No `payment_number` metadata, AND `pipeRow.pay1_status === 'processing'` (i.e., this is the ACH bank-debit clearing).
 
 **What it does:**
-1. UPDATEs `pay1_status='succeeded'`.
+1. UPDATEs `pay1_status='succeeded'` **and NULLs `pay1_bank_verification_pending_at`** (belt-and-braces — Branch D normally clears it at `payment_intent.processing`, but a bank that goes straight to `succeeded` never emits that event; this is the path that actually fired in the 2026-09-08 sandbox test).
 2. **Chains** `automation_CONTRACT_invoicereceipt` for payment 1.
 3. **Chains** `automation_CONTRACT_revshare` for payment 1.
 
@@ -128,18 +138,18 @@ The handler `if`-checks `event.type === "checkout.session.completed"` and `event
 
 **What it does:**
 1. Expands the PaymentIntent's payment method; derives the fee from **`final_retainer_amount`, NOT `retainer_amount`** — the full retainer is initial + final, so grossing against it writes a large NEGATIVE fee. The same bug existed on the initial-retainer branch in `checkout.session.completed` (which now derives its base from `initial_retainer_amount` on a 3-payment plan) and both were fixed in one change. **It writes that fee to `final_retainer_card_fee`, its OWN column (2026-08-26, v792)** — `card_processing_fee` belongs to the FIRST retainer payment for the life of the plan and is never touched here; the implementation branch below owns `implementation_card_fee` the same way (**#450**).
-2. UPDATEs `final_retainer_status='succeeded'` + `final_retainer_confirmation_status='Confirmation Needed'`, and **re-states** the PI id and charge date, because on the fresh-link recovery path Stripe can deliver `payment_intent.succeeded` *before* `checkout.session.completed`.
+2. UPDATEs `final_retainer_status='succeeded'` + `final_retainer_confirmation_status='Confirmation Needed'`, **NULLs `final_retainer_bank_verification_pending_at`**, and **re-states** the PI id and charge date, because on the fresh-link recovery path Stripe can deliver `payment_intent.succeeded` *before* `checkout.session.completed`.
 3. **Chains** `automation_TAX_final_retainer_receipt` (which also issues a fresh amended invoice when `fee_amended_at_tax4` is set).
 4. **Chains** `automation_TAX_revshare` with `payment_kind='retainer'` — the **deferred** retainer revenue share, paid on the FULL `retainer_amount`.
 5. Mints the "Complete Client decision 2" bell, but only after a `'Continue - Revenue Share'` decision — matching the 2-payment condition exactly.
 
 See [tax-fee-process.md](tax-fee-process.md) for why the revshare is deferred and which gate actually holds it (**#441**).
 
-> **A final retainer can also arrive through Branch A.** If the off-session charge failed and the client paid through a fresh `/tax-pay` link, `checkout.session.completed` books it off `session.metadata.payment_kind === 'final_retainer'` (card → `succeeded` + chain the receipt; ACH → `processing`, chains nothing). That block deliberately does **not** set `final_retainer_confirmation_status` — this branch owns the latch.
+> **A final retainer can also arrive through Branch A.** If the off-session charge failed and the client paid through a fresh `/tax-pay` link, `checkout.session.completed` books it off `session.metadata.payment_kind === 'final_retainer'` (card → `succeeded` + chain the receipt; ACH → `processing`, chains nothing). That block deliberately does **not** set `final_retainer_confirmation_status` — this branch owns the latch. **Since 2026-09-08 it also reads the fetched PaymentIntent's `status`** and, on a non-card `requires_action`, stamps `final_retainer_bank_verification_pending_at` + raises `TAX_ach_bank_verification_pending` (title *"Bank verification pending — «Client» (Tax final retainer)"*). No confirmation email exists on this path, so — unlike the retainer — there is no template swap; the bell is the whole signal.
 
 ---
 
-## Branch C — `payment_intent.payment_failed` (late-ACH off-session, v612)
+## Branch C — `payment_intent.payment_failed` **and `payment_intent.canceled`** (late-ACH off-session, v612; canceled widened 2026-09-08)
 
 An off-session charge (a swept quarterly installment or a Tax implementation charge) paid by **ACH** returns `processing` at creation and can **bounce days later**. The old blanket rationale ("payment_intent.payment_failed skips off-session installments because the sweeps alert synchronously") is CARD-ONLY; the late ACH failure was being dropped, stranding the row in `processing` forever. v612 adds two additive branches, each keyed on a `'processing'` status guard so a card sync-decline the sweep already handled is not double-alerted (gotcha #229):
 
@@ -151,12 +161,44 @@ An off-session charge (a swept quarterly installment or a Tax implementation cha
 
 The rule keys deliberately reuse the synchronous sweep paths'. See [SESSION_REFERENCE.md](../SESSION_REFERENCE.md) "Failure-event handling" for the full failure-event roster.
 
+### The `payment_intent.canceled` widening *(2026-09-08, v816)*
+
+**The whole block now also runs for `payment_intent.canceled`** when `metadata.pipeline === 'TAX'` **or** `metadata.payment_number` is set. This exists because of the ACH manual-entry path: when micro-deposit verification is never completed, Stripe cancels the PaymentIntent after **~10 business days** and emits **`payment_intent.canceled`, NOT `payment_intent.payment_failed`** — and a dashboard Cancel does the same. Before this, `canceled` was consumed for SpecRev only, so a MAP 1 or Tax row would have sat at `'processing'` **forever**, with no bell and no client email.
+
+- **`failReason`** reads `piF2.cancellation_reason` on a cancel (rendered *"canceled (…)"*) and `last_payment_error.message` on a failure. Every message in the block — the four bells and the three log lines — uses that one value.
+- **Holistic payment 1 needed an explicit arm.** A P1 PaymentIntent carries `metadata.payment_number = "1"`, and `isOffSession` is `!!md.payment_number`, so P1 was being classified as an off-session installment and skipped by the generic first-payment resolver. `isFirstInstallmentCancel` (`canceled` **and** `payment_number === "1"`) now removes it from `isOffSession`, so a cancelled P1 reaches `resolveStripeFirstPaymentFailure` → `pay1_status='failed'` + `FAILURE_first_payment_declined`. **A P1 BOUNCE is deliberately still left to `checkout.session.async_payment_failed`** — that path already owns it and fires the same bell title, which dedupes.
+- **Tax retainer cancel** carries no `payment_number` and no off-session `payment_kind`, so it falls through to the same generic resolver → `retainer_status='failed'`.
+- **Tax final retainer / implementation cancel** stay `isOffSession` and land in their existing late-ACH branches → `declined` + the `*_charge_failed` bell + `notifyJakeFailure` + the recovery-link wording. Their `'processing'` guards are unchanged, which is what stops a cancel on an already-settled row from doing anything.
+
+> **VERIFIED LIVE 2026-09-08 — on the Holistic P1 arm, which is the one that needed new code.** Test client 62, `pipeline_map1` row 149 (Quarterly, net 5400, P1 $1,350), sandbox: manual bank entry booked `pay1_status='processing'` with the stamp at 20:51:41Z, then a **Cancel from the Stripe dashboard** delivered `payment_intent.canceled` at 20:54:27Z → `pay1_status='failed'`, bell **1891** *"Payment FAILED — Test Client (MAP 1 first payment) … canceled (requested_by_customer)"*, and the log line `payment_intent.canceled — MAP 1 pipeline_map1 row 149`. That proves `isFirstInstallmentCancel`, the `failReason` read of `cancellation_reason`, and the whole block firing on the widened event. **The stamp is deliberately left set on the failed row** — nothing reads it, and clearing it would be a write with no reader.
+>
+> **Still CODE-ONLY:** the **Tax retainer** cancel through the same generic resolver, and the final-retainer / implementation `isOffSession` arms. A genuine ~10-business-day micro-deposit expiry has also never been observed — the dashboard Cancel is the same event with a different `cancellation_reason`.
+
+---
+
+## Branch D — `payment_intent.processing` *(MAP 1 / Tax, 2026-09-08, v816)*
+
+The MAP 1 / Tax twin of the SpecRev block that advances `awaiting_verification → processing`. **Nothing here touches a status**: these rows never left `'processing'`. All it does is NULL the `*_bank_verification_pending_at` stamp, which is what made the row read as *"waiting on the client"* — the bank is verified and the debit is now moving.
+
+**Guard:** `pi.customer` present AND `metadata.pipeline !== 'VFO_SPECIALIST_REVENUE'`, so the SpecRev block keeps sole ownership of `specialist_revenue_requests`. Then:
+
+| `metadata` | Row + column cleared |
+|---|---|
+| `pipeline='TAX'`, `payment_kind='retainer'` | `client_tax_plans.retainer_bank_verification_pending_at` |
+| `pipeline='TAX'`, `payment_kind='final_retainer'` | `client_tax_plans.final_retainer_bank_verification_pending_at` |
+| `payment_number='1'` (no TAX pipeline tag) | `pipeline_map1.pay1_bank_verification_pending_at` |
+| anything else | nothing — falls through silently |
+
+Each update is matched by `stripe_customer_id` and further narrowed with `.not(<column>, 'is', null)`, so a `processing` event on a row that was never pending writes nothing. A failed clear logs `console.error`; it does not throw.
+
+> **CODE-ONLY as of 2026-09-08.** The clear did not fire in the sandbox test — the test bank went straight from verification to `succeeded`, so `payment_intent.succeeded` did the clearing instead (see B2 and the two Tax settle branches). The belt-and-braces NULL on those three settle updates is what makes that harmless.
+
 ---
 
 ## Tables touched (across all branches)
 
 - **Read:** `pipeline_map1`, `pipeline_sandbox_config`, `gc_balances`, `client_tax_plans`.
-- **Written:** `pipeline_map1` (status/method/dates), `gc_balances` (insert/update), `gc_transactions` (insert), `client_tax_plans` (retainer / implementation / **final-retainer** status, method, dates, and **a card fee per payment** — `card_processing_fee` / `final_retainer_card_fee` / `implementation_card_fee`, never shared), `notifications` (the failure bells).
+- **Written:** `pipeline_map1` (status/method/dates, **+ `pay1_bank_verification_pending_at`**), `gc_balances` (insert/update), `gc_transactions` (insert), `client_tax_plans` (retainer / implementation / **final-retainer** status, method, dates, **+ `retainer_bank_verification_pending_at` / `final_retainer_bank_verification_pending_at`**, and **a card fee per payment** — `card_processing_fee` / `final_retainer_card_fee` / `implementation_card_fee`, never shared), `notifications` (the failure bells + the two bank-verification-pending FYIs).
 
 > This list has always been MAP1-centric and is still not exhaustive — the tax, advisor, accountant, PIP and specialist branches all write their own pipeline tables. Derive from `router/webhooks.ts`, not from here.
 
@@ -166,7 +208,7 @@ The rule keys deliberately reuse the synchronous sweep paths'. See [SESSION_REFE
 |---|---|
 | A1 (GC) | none |
 | A2 (MAP1 card) | `automation_CONTRACT_confirmationemail` (side effects only — **no client email**, status `'Skipped - Card (Receipt Only)'`) + `automation_CONTRACT_invoicereceipt` + `automation_CONTRACT_revshare` (payment 1) |
-| A2 (MAP1 ACH) | `automation_CONTRACT_confirmationemail` only (client confirmation email **is** drafted) |
+| A2 (MAP1 ACH) | `automation_CONTRACT_confirmationemail` only (client confirmation email **is** drafted — `\|ach`, or **`\|ach_verify`** when `pay1_bank_verification_pending_at` was just stamped) |
 | B1 (Quarterly N) | `automation_CONTRACT_invoicereceipt` + `automation_CONTRACT_revshare` (payment N) |
 | B2 (ACH cleared) | `automation_CONTRACT_invoicereceipt` + `automation_CONTRACT_revshare` (payment 1) |
 

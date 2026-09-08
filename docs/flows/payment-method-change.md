@@ -115,7 +115,7 @@ The page lists every engagement and offers a card / bank choice for each.
    - `customer: <engagement's stripe customer>`
    - `payment_method_types[]: card` **or** `us_bank_account`
    - `metadata: payment_kind=card_update, pipeline, row_id, token` (mirrored onto `setup_intent_data[metadata]` so the SetupIntent is tagged too)
-   - ACH adds `payment_method_options[us_bank_account][verification_method]=instant`
+   - ACH adds `payment_method_options[us_bank_account][verification_method]=instant` — **still pinned here, and no `custom_text` note.** The 2026-09-08 unpin (**#475**) covers `/pay` and `/tax-pay` only; this builder is one of the nine deliberately left out of scope. See [../integrations/stripe.md](../integrations/stripe.md) "ACH verification" for the full per-builder split.
    - `success_url = /update-card?token=…&updated=1`, `cancel_url = /update-card?token=…`
 5. Returns the Stripe URL; the page redirects. The person enters the new card/bank on Stripe's hosted page — **the only place raw payment data ever lives.**
 

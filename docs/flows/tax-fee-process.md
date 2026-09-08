@@ -93,6 +93,7 @@ All on `client_tax_plans`, all nullable, added by migration `20260825120000_tax_
 | Re-issued implementation invoice | `implementation_invoice_number`, `implementation_invoice_drive_id` |
 | Amendment stamps | `fee_amended_at_tax4`, `fee_amended_at_tax5` |
 | Per-payment card fees *(migration `20260826170000_tax_per_payment_card_fees.sql`, not the 2026-08-25 one)* | `final_retainer_card_fee`, `implementation_card_fee` — alongside the pre-existing `card_processing_fee`, which now means the FIRST retainer payment alone |
+| ACH micro-deposit sub-state *(migration `20260908120000_ach_bank_verification_pending_columns.sql`)* | `retainer_bank_verification_pending_at`, `final_retainer_bank_verification_pending_at` — set when `checkout.session.completed` finds the PaymentIntent in `requires_action`, cleared on `payment_intent.processing` and again at settle. **NOT a status value**, deliberately (**#371**) |
 
 New audit table **`client_tax_fee_amendments`** (RLS + deny-all policy in the same migration, #141). One row per amendment. **Audit only** — `client_tax_plans` carries the live amounts and nothing reads this table to make a money decision.
 
@@ -162,6 +163,21 @@ On a 3-payment plan the retainer is only **half** collected at the green click, 
 The final retainer follows the implementation charge's ACH shape exactly: the off-session charge writes `processing`, and a **late bounce** arrives as `payment_intent.payment_failed` with `metadata.payment_kind='final_retainer'`. That branch marks the charge `declined`, fires `TAX_final_retainer_charge_failed` **and** `FAILURE_tax_final_retainer_charge`, and points at the client's existing `/tax-pay` link, which `stripe-checkout.ts` now resolves to the final retainer when the status is declined. `payment_kind='final_retainer'` also joined the `isOffSession` test so a late failure does not fall through to the first-payment resolver.
 
 A final retainer paid through a **fresh `/tax-pay` link** is booked in `checkout.session.completed` off `session.metadata.payment_kind` (card → `succeeded` + chain the receipt; ACH → `processing`, chains nothing, settled later by `payment_intent.succeeded`). That block deliberately does **not** set `final_retainer_confirmation_status` — the `payment_intent.succeeded` branch owns the latch.
+
+#### Manual bank entry on the fresh link *(2026-09-08, v816)*
+
+`/tax-pay` no longer pins `payment_method_options[us_bank_account][verification_method]='instant'`, so Stripe's hosted page offers **bank sign-in first with manual account/routing entry as the fallback** (**#298**); a `custom_text[submit][message]` note asks the client to prefer sign-in, and Stripe's own manual-entry link text cannot be edited. On the manual path the fresh-link block reads the fetched PaymentIntent's `status`, and a non-card `requires_action` means **SUBMITTED, not paid** — no debit has been attempted. It then:
+
+- stamps **`final_retainer_bank_verification_pending_at`** while `final_retainer_status` still writes `processing` — **no new status value**, so nothing that enumerates that column changed (**#371**);
+- raises the dismissible FYI **`TAX_ach_bank_verification_pending`** to Jake + Tim, titled *"Bank verification pending — «Client» (Tax final retainer)"*.
+
+There is **no template swap here**, because this path sends the client no confirmation email at all — the bell is the whole signal. The stamp is cleared by `payment_intent.processing` (bank verified, debit moving) and again, belt-and-braces, by the `payment_intent.succeeded` settle branch.
+
+**If the client never verifies**, Stripe cancels the PaymentIntent after ~10 business days and emits **`payment_intent.canceled`, not `payment_intent.payment_failed`**. `payment_kind='final_retainer'` keeps it `isOffSession`, so it lands in the late-ACH branch above → `final_retainer_status='declined'` + `TAX_final_retainer_charge_failed` + `FAILURE_tax_final_retainer_charge` + the existing `/tax-pay` recovery wording. The **implementation** charge behaves identically through its own branch. Before this widening, `canceled` was consumed for SpecRev only and either row would have sat at `processing` forever. **Code-only.**
+
+> **⚠️ A Tax IMPLEMENTATION retry through a fresh `/tax-pay` link books NOTHING at `checkout.session.completed`** — that branch has never written the implementation columns, so the row stays `declined` until `payment_intent.succeeded` settles it. On the manual-entry path that is now a **~10-day** window instead of 2-4 days, during which the link stays payable and a second submission is possible. **Deliberately not fixed** — it is the same shape as the hub's existing *"a `/pay` ACH for N≥2"* item, and the money is still collected exactly once because the webhook books it by `payment_kind`.
+
+> **No stall sweep exists between submit and Stripe's cancel.** SpecRev has one (`payout-sweep.ts` bells Tracy after 5 days in `awaiting_verification`); MAP 1 and Tax deliberately do not. The checkout-time bell plus Stripe's own verification reminder emails are the coverage, and a poll-based backstop would only re-say what the bell already said.
 
 ### Card processing fees — one column per payment *(2026-08-26, v792 — CODE-ONLY)*
 

@@ -80,8 +80,11 @@ payment_intent_data.metadata.client_id: <int>
 payment_intent_data.metadata.checkout_token: <pipeline_map1.checkout_token>
 
 if ACH:
-  payment_method_options.us_bank_account.verification_method: instant
+  custom_text[submit][message]: <constants/ach-checkout-note.ts ACH_BANK_SIGN_IN_NOTE>
+  # NO payment_method_options[us_bank_account][verification_method] — see "ACH verification" below
 ```
+
+> **The `instant` pin was REMOVED here on 2026-09-08 (v816)** and replaced by the `custom_text` note. `/tax-pay` (`actions/tax/stripe-checkout.ts`) took the identical change in the same deploy. **Never re-pin it** — see the ACH-verification section below.
 
 ### Card-fee gross-up
 
@@ -184,9 +187,46 @@ Both branches carry the standard `event.livemode` vs row `sandbox` mode-mismatch
 
 Expiry timing differs by mode: the SPECREV recurring session is capped to **1 hour** via `expires_at` (so the billing anchor is still in the future at completion); a one-off Checkout session uses Stripe's **24 hour** default.
 
-**Related — SPECREV ACH verification (same deploy).** Neither SPECREV checkout builder sets `payment_method_options[us_bank_account][verification_method]` any more. The removed `'instant'` pin restricted the hosted page to the Financial Connections bank-login flow with **no manual account/routing fallback**; omitting the parameter falls back to Stripe's `automatic` default = instant login **plus** manual entry with 1-2 business-day micro-deposits. Consequence to design around: `checkout.session.completed` fires **at submit** even while micro-deposit verification is pending, so a recurring plan flips to `active` **before the bank is verified**; an unverified bank at charge day surfaces through the existing `invoice.payment_failed` branch (bell, plan stays active, Stripe retries). **Never re-add `'instant'` to a SPECREV builder, and do not add a second verification gate** (gotcha #298). The MAP 1 and Phase-D card-update sessions documented elsewhere in this file keep their own `verification_method` settings — this change is SPECREV-only.
+## ACH verification (`verification_method`) — which builders pin `instant`, and which do not
 
-**One-time SPECREV — PI-status-aware (2026-08-11, gotcha #370; UNDEPLOYED at time of writing).** The paragraph above is about RECURRING plans, where an unverified bank surfaces at charge day. The **one-time** path had no such surface, so it needed the opposite treatment. `checkout.session.completed` was writing `payment_status='processing'` for every non-card payment while already holding the PaymentIntent it had fetched for `payment_method` — it now branches on that PI's `status`:
+**Started SPECREV-only on 2026-07-28; extended to MAP 1 `/pay` and Tax `/tax-pay` on 2026-09-08 (v816).**
+
+Pinning `payment_method_options[us_bank_account][verification_method]='instant'` restricts Stripe's hosted page to the **Financial Connections bank-login flow with no manual account/routing fallback** — every bank Financial Connections does not support, and every payer who hits MFA trouble or bails at the final authorize click, is locked out with no other way through (that is how Dan Zimanski produced six expired sessions in 14 days, **#296**). Omitting the parameter falls back to Stripe's `automatic` default: **bank sign-in first, PLUS manual account/routing entry verified by 1-2 business-day micro-deposits**. The three values are `automatic` (the default when omitted) / `instant` / `microdeposits`.
+
+**Builders that OMIT the pin** (the manual-entry fallback is available, and all five carry the `custom_text` note below):
+
+| Builder | Flow |
+|---|---|
+| `actions/pipeline/contract-stripe-checkout.ts` | MAP 1 `/pay` *(2026-09-08)* |
+| `actions/tax/stripe-checkout.ts` | Tax `/tax-pay` *(2026-09-08)* |
+| `actions/specialist-revenue/checkout.ts` | SpecRev one-time *(2026-07-28)* |
+| `actions/specialist-revenue/recurring-checkout.ts` | SpecRev recurring setup *(2026-07-28)* |
+| `actions/onboarding/license-checkout.ts` — **continuation branch only** | Specialist licence continuation |
+
+**Builders that still pin `instant`, deliberately out of scope:** `actions/advisor/stripe-checkout.ts`, `actions/accountant/stripe-checkout.ts`, `actions/msm/pip-stripe-checkout.ts`, `actions/gc/create-checkout.ts`, `actions/membership/setup-checkout.ts`, `actions/migration/connect-checkout.ts`, `actions/onboarding/bg-checkout.ts`, `actions/onboarding/license-checkout.ts` (the **first-charge** branch, not the continuation one) and `actions/payments/card-update-checkout.ts`. Grep `verification_method` for the current list rather than trusting this one; each of those flows would need its own webhook work before the fallback is safe to expose.
+
+**Never re-add `'instant'` to any builder in the first table** — it is a narrowing, not a hardening (**#298**).
+
+### The consequence each side has to design around
+
+`checkout.session.completed` fires **at submit** while micro-deposit verification is still pending, so it means SUBMITTED, not PAID:
+
+- **SPECREV recurring** — the plan flips to `active` **before the bank is verified**. That is not a bug: the payer has ~10 days to verify through Stripe's own hosted page, and an unverified bank at charge day surfaces through the existing `invoice.payment_failed` branch (bell, plan stays active, Stripe retries). **Do not add a second verification gate** (**#298**).
+- **SPECREV one-time** — a fourth `payment_status` value, `awaiting_verification`; see the next section.
+- **MAP 1 P1 / Tax retainer / Tax final-retainer fresh link** *(2026-09-08)* — the completed branch reads the fetched PaymentIntent's `status` and, on a non-card `requires_action`, stamps `pay1_bank_verification_pending_at` / `retainer_bank_verification_pending_at` / `final_retainer_bank_verification_pending_at` and bells `MAP1_ach_bank_verification_pending` / `TAX_ach_bank_verification_pending`. **The status columns keep saying `processing`** — a side-column, not a new status value, so no enumerating guard changed (**#371**). The MAP 1 and Tax retainer confirmation emails swap to their `|ach_verify` templates and their "client paid" bells re-word. `payment_intent.processing` clears the stamp; `payment_intent.canceled` (micro-deposit expiry, ~10 business days) now routes those two pipelines into the failure block it previously served for SpecRev alone. Full detail: [../flows/stripe-webhook.md](../flows/stripe-webhook.md) Branches A2 / C / D, and **#475**.
+
+### `custom_text[submit][message]` — the only client-facing lever
+
+Stripe renders this string above the submit button on the hosted page and **supports `**bold**` markdown in it** (confirmed live 2026-09-08). Stripe's own *"Enter bank details manually (may take 1-2 business days)"* link text belongs to Stripe and **cannot be edited or hidden**, and the fallback itself must stay available — so this sentence is the entire steering mechanism. The wording lives in ONE place, `constants/ach-checkout-note.ts` `ACH_BANK_SIGN_IN_NOTE`, and every builder in the first table appends it on the non-card path only:
+
+- `/pay` and `/tax-pay` send the note alone.
+- The two **recurring** builders (SpecRev recurring setup, licence continuation) **prepend** it to their existing *"No charge today…"* sentence, separated by a blank line — that sentence still has to be said, and the note goes first.
+
+Do not fork the string; a second copy is a second thing to keep true.
+
+### One-time SPECREV — PI-status-aware *(2026-08-11, gotcha #370; UNDEPLOYED at time of writing)*
+
+The recurring case above tolerates an unverified bank because the failure surfaces at charge day. The **one-time** path had no such surface, so it needed the opposite treatment. `checkout.session.completed` was writing `payment_status='processing'` for every non-card payment while already holding the PaymentIntent it had fetched for `payment_method` — it now branches on that PI's `status`:
 
 | PI `status` | Row `payment_status` | Email / chain |
 |---|---|---|
@@ -203,6 +243,8 @@ Every money-movement failure routes an alert to Jake's bell via `utils/notify-ja
 
 - **`checkout.session.async_payment_failed`** — an ACH first payment that bounced after the session completed (previously silent everywhere). Flips the row's first-payment status to `failed` across MAP 1 / Tax retainer / Advisor / Accountant / PIP / Specialist bg.
 - **`payment_intent.payment_failed`** — broadened beyond Specialist to all first-payment pipelines. **As of v612 it ALSO handles LATE-ACH failures of OFF-SESSION charges** (previously skipped on the card-only rationale that the sweeps alert synchronously — but an off-session ACH returns `processing` and can bounce days later): two additive branches — MAP1 installment (`metadata.payment_number` 2-4, acts only when `pay{N}_status==='processing'`) and TAX implementation (`payment_kind='implementation'`, acts only when `implementation_charge_status==='processing'`) — each flip to `declined` + fire their `*_charge_failed` rule + `notifyJakeFailure`; the `'processing'` guard prevents double-alerting a card sync-decline the sweep already handled (gotcha #229).
+- **`payment_intent.canceled`** — SpecRev only until 2026-09-08 (v816); **the whole `payment_intent.payment_failed` block above now ALSO runs for it** when `metadata.pipeline === 'TAX'` or `metadata.payment_number` is set. Micro-deposit expiry (~10 business days on the ACH manual-entry path) and a dashboard Cancel both emit `canceled`, **not** `payment_failed`, so before this a MAP 1 or Tax row would have sat at `processing` forever. `failReason` reads `cancellation_reason`; Holistic P1 needed an explicit arm out of the `isOffSession` test because a P1 PaymentIntent carries `payment_number='1'`. See [../flows/stripe-webhook.md](../flows/stripe-webhook.md) Branch C.
+- **`payment_intent.processing`** — SpecRev advances `awaiting_verification → processing`; MAP 1 and Tax (2026-09-08) only NULL their `*_bank_verification_pending_at` stamp, touching no status. See [../flows/stripe-webhook.md](../flows/stripe-webhook.md) Branch D.
 - **`customer.subscription.updated` / `.deleted`** — Specialist $99/mo license past_due/canceled → "consider revoking access" alert (routed by `lic_subscription_id`); auto-clears + restores `lic_payment_status` on return to active.
 - **`charge.dispute.created` / `.closed`** — chargeback alert (action-required); close clears the opened alert, then posts the won/lost outcome.
 - **`charge.refunded`** + **`charge.refund.updated` / `refund.updated` / `refund.failed`** — tracks every refund (incl. Stripe-Dashboard-issued) and alerts on a failed refund.
@@ -231,6 +273,7 @@ metadata.row_id:       <engagement row id>
 metadata.token:        <card_update_tokens.token>
 setup_intent_data.metadata: { payment_kind, pipeline, row_id }   # mirrored onto the SetupIntent
 if ACH: payment_method_options.us_bank_account.verification_method: instant
+        # STILL PINNED here — the 2026-09-08 unpin covers /pay and /tax-pay only
 ```
 
 **Webhook — `checkout.session.completed` with `mode==='setup'` and `metadata.payment_kind==='card_update'`** ([router/webhooks.ts](C:/vfo-edge-functions/supabase/functions/vfo-admin-api/router/webhooks.ts)): a NEW isolated branch (does **not** touch the MAP 1 `pipeRow` logic). It expands the **SetupIntent** (`GET /v1/setup_intents/{id}?expand[]=payment_method`) to read the new method's id/type/last4, then:
