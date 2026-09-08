@@ -1,0 +1,289 @@
+# Advisor / Accountant onboarding — Stage 1, the meeting reminder ladder, the deposit and the balance charge
+
+The two pipelines are a **file-for-file clone** of one another: `actions/advisor/*` and `actions/accountant/*`
+hold the same handlers with the table, the pipeline key, the `<PREFIX>` and the noun swapped. Every statement
+below is true of both unless it names one. Any advisor-shaped constant found inside the accountant clone is a
+bug, not a variant (**#329**).
+
+Upstream of Stage 1: an accountant may arrive here from Partnership Fast Track — see
+[partnership-fast-track.md](partnership-fast-track.md), which owns the handoff, the `accountant_type` split and
+the `'Request no meeting'` fast path. Stopping an onboarding (`status` `'active' | 'stopped'`) is documented in
+that file too and is unchanged by this rework, except that a stopped row now also silences the meeting ladder.
+
+---
+
+## Stage 1 — strictly sequential since 2026-09-04 (v811)
+
+Stage 1 renders as a tax-style locked cascade: each step is greyed with a lock icon and a hint until the step
+above it is answered. The locks are choreography; **every one of them is backed by a handler 400** (#403).
+
+| # | Step | Unlocks when | Backing refusal |
+|---|---|---|---|
+| 1 | **Team Member Responsible** | — | `meeting-reminder.ts` 400s without one — the bells route to this person |
+| 2 | **Meeting Reminder Setup** *(NEW)* | a team member is picked | — |
+| 3 | **Preliminary Meeting** | the reminder was **sent or skipped** | `prelim-meeting.ts`: *"Send or skip the meeting reminder first"* |
+| 4 | **Deposit** *(NEW)* | outcome = `Completed - Send Deposit` | see *Deposit* below |
+| 5 | **Implementation value (including deposit)** [advisor] / **Direct or Advisor Partnership** + **CC Connected Advisor** [accountant] | the deposit step is settled or absent | — |
+| 6 | **Preliminary Meeting Decision** | step 5 answered | — |
+
+**The reminder prerequisite only fires when `prelim_meeting_status` is currently NULL.** That is deliberate:
+pre-existing rows that already carry an outcome are never forced back through a reminder they cannot arm.
+
+**Preliminary Meeting outcome vocabulary** (bare `text`, no CHECK — #431; the allowlist lives in
+`prelim-meeting.ts` as `PRELIM_STATUSES`):
+
+- `Completed - Send Deposit` — unlocks the Deposit step.
+- `Completed - No Deposit` — skips it. **Legacy `'Completed'` rows read and display as this**; there was no
+  backfill, so both values are live in the column.
+- `No Show` — auto-stops the onboarding (`status='stopped'`) and leaves the decision step locked.
+- `Request no meeting` — **the STORED value is unchanged on purpose**, because `actions/pft/ft-response.ts`
+  writes that exact literal on the PFT fast path; only the UI label changed, to *"Requested no meeting"*.
+
+**Once a deposit link has gone out the outcome cannot be moved off `Completed - Send Deposit`** —
+`prelim-meeting.ts` 400s on `deposit_email_sent_at` being set. All Stage 1 completion dates are now fixed
+`MM/DD` text: `StepDate` editing was removed from both components, so the backend action
+`save_onboarding_step_date` still exists and is still gated but **has no frontend caller**.
+
+Opening an onboarding writes `?onboarding=<id>` to the URL, so a reload stays on the record.
+
+---
+
+## Meeting Reminder Setup — a COUNTDOWN ladder
+
+Two buttons: green **Send reminder (with date)** and grey **Skip reminder**.
+
+The green button opens date / time / timezone (**time is required**) and confirms with
+*"This reminder will be sent to the prospective advisor 1 business day before the meeting."*
+`automation_{ADVISOR,ACCOUNTANT}_meetingreminder` (AUTH, admin-only) then writes:
+
+- `meeting_date` / `meeting_time` / `meeting_timezone` — what the admin typed;
+- `meeting_at` — that wall clock resolved to an instant;
+- `meeting_reminder_due_at` — **the same wall clock one BUSINESS day earlier**, via
+  `reminderDueAt()` in `utils/onboarding-meeting.ts`;
+- `meeting_reminder_token` — the credential for the public response page;
+- `meeting_reminder_scheduled_at` — the step's own done-stamp.
+
+Skip writes `meeting_reminder_skipped_at` and nothing else.
+
+### Reschedule RE-ARMS everything — the opposite of #404
+
+Reschedule reopens the same form and **nulls `meeting_reminder_sent_at`, `meeting_reminder_60m_sent_at`,
+`meeting_reminder_10m_sent_at` AND `meeting_response` / `meeting_response_at`.** A countdown ladder chases an
+instant that has moved, so re-arming is the correct behaviour — the exact inverse of the forward ladders in
+**#404**, where a resend must NOT re-stamp. Clearing the recorded response with the stamps is the part that is
+easy to miss: a stale `confirm` would let the 60- and 10-minute tiers fire against a meeting nobody has
+re-confirmed. See gotcha **#472**.
+
+### The cron — `onboarding-meeting-reminder-sweep-5min` (pg_cron jobid 18)
+
+`*/5 * * * *` → PUBLIC `automation_ONBOARDING_MEETING_sweep`
+(`actions/onboarding/meeting-reminder-sweep.ts`, service-role bearer required). One handler, both pipelines,
+three tiers, each stamping its guard column **only after the email actually went out**, and **every query
+filters `status='active'`** so a stopped row is silent across all three:
+
+| Tier | Fires when | Template |
+|---|---|---|
+| (a) reminder | `meeting_reminder_due_at <= now` **AND `meeting_at > now`**, scheduled, not sent, not skipped | `<PREFIX>_meeting_reminder` |
+| (b) 60 minutes | `meeting_at` within 60 min **and `meeting_response='confirm'`** | `<PREFIX>_meeting_reminder_60m` |
+| (c) 10 minutes | `meeting_at` within 10 min **and `meeting_response='confirm'`** | `<PREFIX>_meeting_reminder_10m` |
+
+The `meeting_at > now` half of tier (a) is what makes a meeting booked *inside* the one-business-day window
+send on the next 5-minute tick instead of never.
+
+**All six template rows (3 tiers × 2 pipelines) are `send_mode=true` — real sends, no human in between.**
+That takes the auto-send census from ELEVEN to **SEVENTEEN** (#325). It is deliberate: a draft nobody sends in
+time is not a reminder. While a pipeline's `pipeline_sandbox_config` toggle is on they route to the sandbox
+address like every other email (#324).
+
+### The response page
+
+Each reminder carries **✓ Confirm / ✗ Cancel / Reschedule** buttons →
+`/onboarding-meeting?token=<meeting_reminder_token>&response=confirm|cancel|reschedule`
+(`src/pages/OnboardingMeetingPage.jsx`, route 34 of 34). The page **shows a confirmation card and records
+nothing until the visitor clicks it** (#290), then calls PUBLIC `automation_ONBOARDING_meetingresponse`
+(`actions/onboarding/meeting-response.ts`), which is **idempotent on `meeting_response`**: the first click is
+recorded and every later click returns `existing_response`.
+
+Each response raises an FYI bell (`dismissible`, not action-required) to the **Team Member Responsible** via the
+`TEAM_MEMBER` dynamic token — `<PREFIX>_meeting_confirmed` / `_cancelled` / `_reschedule`. The reschedule
+response page currently says *"We will be in touch shortly to arrange a new time."*
+
+### Zoom + calendar links
+
+Per-team-member maps `TEAM_MEMBER_ZOOM_LINKS` / `TEAM_MEMBER_CALENDAR_LINKS` in
+`constants/onboarding-team.ts`. **Both are entirely BLANK today** (owed from Jake). Blank is a supported state,
+not a bug: `zoomLine()` renders *"The Zoom link for the meeting will be sent separately."* and the rebooking
+link is dropped from the email.
+
+### Team Member Responsible roster
+
+The dropdown is `ONBOARDING_TEAM_MEMBER_NAMES` — **Ian Welham, Vanessa Smith, Rachael Hopson, Jake Latham**.
+The New Model Sale modal keeps the wider `SALES_TEAM_NAMES`; the two lists are deliberately different sizes.
+`"Jake Latham"` → `jlatham@elitert.com` was added to `TEAM_MEMBER_LOGIN_EMAILS` so his bells resolve.
+
+---
+
+## The refundable Membership Deposit
+
+### Sending the link
+
+Amount **$500–$4,000** (inclusive, at most 2 decimals; enforced in `deposit-email.ts` with a 400) →
+`automation_{ADVISOR,ACCOUNTANT}_depositemail` (AUTH, admin-only):
+
+1. **Creates the Stripe customer EARLY if it is missing** — the deposit is now the first thing that needs one.
+2. Mints `deposit_checkout_token`.
+3. Drafts `<PREFIX>_deposit_payment_link`, stamps `deposit_email_sent_at` and `deposit_amount`.
+
+### The pay page serves BOTH legs
+
+`/advisor-pay` and `/accountant-pay` are unchanged pages serving a second token kind. `load-payment.ts` and
+`stripe-checkout.ts` resolve **`checkout_token` first, then `deposit_checkout_token`**. A deposit session
+carries `payment_kind='onboarding_deposit'` **on the session metadata AND on the PaymentIntent metadata**, plus
+`setup_future_usage=off_session` so the balance can reuse the method. The pages label the two legs
+*"Membership Deposit"* / *"Balance Payment"* and print the total / deposit / due-now line.
+
+### Webhook branches
+
+`router/webhooks.ts`, all of them keyed on metadata, never on the customer — **one Stripe customer now carries
+two legs** (gotcha **#473**):
+
+- **`checkout.session.completed`** — a NEW deposit branch guarded by `session.metadata.payment_kind`, placed
+  **ahead of** the old onboarding-payment block. Books `processing` (ACH) or `succeeded` (card) and chains
+  PUBLIC `automation_<P>_depositconfirmation` → `<PREFIX>_deposit_received`. **Both card and ACH get that
+  email** — a documented exception to the #287 purchase-email policy, because no receipt is issued until the
+  onboarding payment itself completes, so this is the only acknowledgement the deposit ever gets. The branch
+  carries a redelivery latch (#327): a settled deposit is never re-booked and a processing one only by a
+  different PaymentIntent.
+- **`payment_intent.succeeded`** — branches on `pi.metadata.payment_kind`:
+  `'onboarding_deposit'` settles the deposit and, **if `balance_charge_status='awaiting_deposit'` and the
+  agreement is countersigned, chains `_chargebalance`**; `'onboarding_balance'` settles the balance, chains
+  the invoice/receipt and writes `balance_charge_status='succeeded'`.
+- **`checkout.session.async_payment_failed`** → `handleOnboardingDepositFailure` (`deposit_status='failed'`,
+  action bell to Jake, and **re-chains `_stripecustomer` if a countersign was parked on it** — with the
+  deposit gone the whole fee is owed, so the ordinary payment-link route resumes).
+- **`payment_intent.payment_failed`** → the same deposit helper, or `handleOnboardingBalanceFailure` for a
+  bounced balance (`payment_status='declined'`, `balance_charge_status='failed'`, Jake bell
+  `<PREFIX>_balance_charge_failed` (action-required), and a **fresh `/advisor-pay` link for the balance**).
+- **The generic first-payment failure resolver now SKIPS both onboarding legs** — it writes `payment_status`,
+  which belongs to the onboarding payment and not to the deposit.
+
+### The 4th stall ladder + AI PC Admin
+
+`actions/{advisor,accountant}/sweep.ts` gained tier **(d)**: rules `<PREFIX>_stall_deposit_email`
+(2 business days, to the prospect) and `<PREFIX>_stall_deposit_bell` (4 business days, to the Team Member),
+template `<PREFIX>_deposit_reminder`, ack column **`deposit_pf_ack_at`** — whitelisted in
+`actions/automation/stall-ack.ts` under `stall: 'deposit'`. That whitelist entry deliberately carries **no
+extra-meeting bell coupling**: the deposit is sent before the decision email, so no extra-meeting bell can
+belong to this step. AI PC Admin sub-steps render the ladder under the Deposit row like every other stall.
+
+### Refund
+
+A clone of the tax deposit-refund step. `automation_{ADVISOR,ACCOUNTANT}_depositrefund` (AUTH, admin-only,
+`ADMIN_ONLY_ACTIONS`) refunds the deposit PaymentIntent **in full**, then writes
+`deposit_refund_status='succeeded'`, `deposit_status='refunded'` and **`status='stopped'`** — a refund ends the
+onboarding — and drafts `<PREFIX>_deposit_refund` with a required `[Refund Reason]`, plus bell
+`<PREFIX>_deposit_refunded` to the Team Member.
+
+Refusals: already refunded · no `deposit_payment_intent_id` · `deposit_status !== 'succeeded'` ·
+**`payment_status` is `succeeded` or `processing`** (*"refund it from Stripe"* — the portal will not unwind a
+collected engagement).
+
+---
+
+## The money fork at CEO countersign
+
+`actions/{advisor,accountant}/stripe-customer.ts` **no longer early-returns on an existing Stripe customer**
+(the deposit step may already have made one). It creates the customer if missing, then forks on
+`deposit_status`:
+
+| `deposit_status` | Route | Effect |
+|---|---|---|
+| `succeeded` | `balance` | chains PUBLIC `automation_<P>_chargebalance`. **No link, no payment email.** |
+| `processing` | `awaiting_deposit` | writes `balance_charge_status='awaiting_deposit'` and stops. Released by the deposit's own `payment_intent.succeeded` branch. |
+| anything else | `link` | the original behaviour: mint `checkout_token`, chain `_paymentemail` |
+
+`actions/{advisor,accountant}/charge-balance.ts` is copied from `tax/charge-final-retainer.ts`: an off-session
+PaymentIntent on the deposit's saved method, card **grossed up** as `(base + 0.30) / 0.971`, metadata
+`payment_kind='onboarding_balance'`, idempotency key `adv-balance-<id>-<pm>-<date>` /
+`acct-balance-<id>-<pm>-<date>` (logical and date-scoped, #228). `amountDue <= 0` takes a **paid-in-full**
+path with no PaymentIntent at all. A decline writes `payment_status='declined'`, raises the action-required
+Jake bell and mints a fresh payment link.
+
+**`payment_amount` keeps its meaning: the TOTAL engagement value.** `load-payment.ts`, `stripe-checkout.ts`,
+`payment-email.ts` and every webhook fee base **net a settled deposit off it**. A card deposit that is not
+netted off records a huge negative fee, which is what the netting exists to prevent.
+
+**TRAP — `payment_amount` carries a column DEFAULT of `4000`.** Before countersign prices the engagement, that
+default is indistinguishable from a written value, so the frontend gates every derived balance figure on
+`agreement_signed_by_ceo_at` instead. Gotcha **#469**.
+
+---
+
+## Email wording that had to move with the money
+
+- **`<PREFIX>_agreement_sent`** — the sentence promising *"a separate email with a secure payment link"* became
+  the **`[PAYMENT_NEXT_STEP]`** token. `send-agreement.ts` renders the ORIGINAL sentence when there is no
+  deposit and the balance sentence when there is, so a no-deposit row reads exactly as before.
+- **`<PREFIX>_payment_link`** — gained **`[Deposit Note]`** after the Total Payment line. The handler renders
+  `""` when no deposit settled, so the line is inert on an ordinary link and only appears on the fresh-link
+  fallback after a declined balance.
+
+Both edits shipped as data migration `20260908120000_onboarding_deposit_wording.sql`.
+
+---
+
+## ONE invoice + ONE receipt, deposit-aware
+
+`actions/{advisor,accountant}/invoice-receipt.ts`. The schedule gains **Deposit** and **Balance Payment** rows,
+each with its own card-fee and *Total Charged* rows — or a single **Deposit (paid in full)** row when the
+deposit covered everything. The Payment Plan label reads *"Deposit + Balance"* / *"Deposit (paid in full)"* /
+*"One-Time Payment"*, and the receipt gains a **Payment Breakdown** box.
+
+**The no-deposit output is byte-identical to before**, which the `invoiceShellHtml` split was extracted to
+guarantee. One small unrequested behaviour change rode along: **accountant money formatting now matches
+advisor** — it used to drop cents.
+
+---
+
+## Stage 2 rows are deposit-aware
+
+- The payment-link row is **hidden when a deposit is on file** (unless the fallback link exists).
+- *"Payment collected"* becomes *"Remaining payment collected after deposit"*.
+- **Both are hidden when the deposit covers the total**, replaced by *"Deposit covered the full onboarding
+  payment"*.
+- An info line reads *"Deposit of $X received … · balance calculated at countersign / balance due $Y /
+  nothing further due"* — **the balance figure only appears once `agreement_signed_by_ceo_at` is set**, for the
+  `payment_amount` default reason above.
+
+---
+
+## Once-only CEO countersign stamp
+
+BoldSign **redelivers `Completed`**, and the advisor/accountant branch in `router/webhooks.ts` wrote
+`agreement_signed_by_ceo_at: nowIso` unconditionally, re-stamping the signature date on every redelivery. It is
+now `advisor.agreement_signed_by_ceo_at || nowIso` on both pipelines. Gotcha **#470**. `boldsign-webhook`
+itself was NOT touched (still v40).
+
+---
+
+## Backend files
+
+`actions/advisor/` and `actions/accountant/` (identical sets): **new** `meeting-reminder.ts`,
+`deposit-email.ts`, `deposit-confirmation.ts`, `deposit-refund.ts`, `charge-balance.ts`; **changed**
+`prelim-meeting.ts`, `stripe-customer.ts`, `stripe-checkout.ts`, `load-payment.ts`, `payment-email.ts`,
+`send-agreement.ts`, `invoice-receipt.ts`, `sweep.ts`.
+Shared: `actions/onboarding/meeting-reminder-sweep.ts`, `actions/onboarding/meeting-response.ts`,
+`utils/onboarding-meeting.ts`, `constants/onboarding-team.ts`, `actions/automation/stall-ack.ts`,
+`router/webhooks.ts`, `router/dispatch.ts`, `constants/role-gates.ts`.
+
+**Actions (12 new).** AUTH + `ADMIN_ONLY_ACTIONS`: `automation_{ADVISOR,ACCOUNTANT}_meetingreminder`,
+`_depositemail`, `_depositrefund`. PUBLIC: `automation_{ADVISOR,ACCOUNTANT}_depositconfirmation`,
+`_chargebalance`, plus `automation_ONBOARDING_MEETING_sweep` and `automation_ONBOARDING_meetingresponse`.
+
+## Frontend
+
+`src/components/admin/AdvisorOnboarding.jsx` + `AccountantOnboarding.jsx` (the locked Stage 1 cascade, the
+reminder form, the deposit + refund cards, the deposit-aware Stage 2 rows),
+`src/pages/AdvisorPayPage.jsx` + `AccountantPayPage.jsx` (the two payment-kind labels),
+`src/pages/OnboardingMeetingPage.jsx` (`/onboarding-meeting`, added to `scripts/emit-route-pages.mjs`,
+33 → **34** route pages).

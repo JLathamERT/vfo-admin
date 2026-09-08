@@ -20,6 +20,7 @@ const ROUTES = [
   'member-setup',
   'membership-meeting',
   'membership-pay',
+  'onboarding-meeting',
   'pay',
   'payout-setup',
   'pft-decide',

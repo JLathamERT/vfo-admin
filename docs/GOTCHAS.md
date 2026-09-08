@@ -1,4 +1,4 @@
-# VFO Session-Learned Gotchas — full registry (#1–#443)
+# VFO Session-Learned Gotchas — full registry (#1–#474)
 
 > Split out of `SESSION_REFERENCE.md` on 2026-06-19 to keep the live hub lean. This is the **complete** numbered list; the hub keeps only a curated ALWAYS-APPLIES subset.
 >
@@ -1026,9 +1026,9 @@ Cross-ref **#266** (the `TAX_PLANNER` instance, and the reminder that sandbox su
 
 ---
 
-**325. ELEVEN `email_templates` rows carry `send_mode=true` and they are the ONLY emails in the entire system that leave without a human looking at them — every other template is Draft-only, and TWO of the eleven are SHARED rows whose blast radius is wider than their name suggests (2026-08-03, DML only; amended 2026-08-10). ALWAYS-APPLIES.** `send_mode` defaults to `false` everywhere (#181), so for most of this system's life "sending an email" has meant "creating a Gmail draft someone then reviews and sends". As of 2026-08-03 that is no longer universally true, and the exceptions are worth knowing by heart before you touch any of these templates' subject, body, recipients or the handlers that draft them — **an edit to one of these eleven goes out to a real person on the next trigger with nobody in between.**
+**325. SEVENTEEN `email_templates` rows carry `send_mode=true` and they are the ONLY emails in the entire system that leave without a human looking at them — every other template is Draft-only, and TWO of them are SHARED rows whose blast radius is wider than their name suggests (2026-08-03, DML only; amended 2026-08-10; census 11 → 17 on 2026-09-04). ALWAYS-APPLIES.** `send_mode` defaults to `false` everywhere (#181), so for most of this system's life "sending an email" has meant "creating a Gmail draft someone then reviews and sends". As of 2026-08-03 that is no longer universally true, and the exceptions are worth knowing by heart before you touch any of these templates' subject, body, recipients or the handlers that draft them — **an edit to one of these eleven goes out to a real person on the next trigger with nobody in between.**
 
-**The roster (verified against `SELECT id, pipeline, template_name FROM email_templates WHERE send_mode = true` — eleven rows out of 200 as of 2026-08-10, no others):**
+**The roster (verified against `SELECT id, pipeline, template_name FROM email_templates WHERE send_mode = true` — seventeen rows as of 2026-09-04, no others; never trust the count written here, run the query, #402):**
 
 | id | pipeline | template_name |
 |----|----------|---------------|
@@ -1043,6 +1043,14 @@ Cross-ref **#266** (the `TAX_PLANNER` instance, and the reminder that sandbox su
 | **210** | `VAULT` | `VAULT_request_documentation` |
 | **215** | `MEMBER_MEMBERSHIP_FEES` | `MEMBERSHIP_transfer_setup_link\|annual` |
 | **216** | `LOGIN_SETUP` | `password_reset` — added 2026-08-10; **the first row whose sender is a PUBLIC, unauthenticated handler** (`request_password_reset`), so Draft mode here is not "slower", it is BROKEN (#356) |
+| **247** | `ADVISOR_ONBOARDING` | `ADVISOR_meeting_reminder` — added 2026-09-04 |
+| **248** | `ADVISOR_ONBOARDING` | `ADVISOR_meeting_reminder_60m` — added 2026-09-04 |
+| **249** | `ADVISOR_ONBOARDING` | `ADVISOR_meeting_reminder_10m` — added 2026-09-04 |
+| **254** | `ACCOUNTANT_ONBOARDING` | `ACCOUNTANT_meeting_reminder` — added 2026-09-04 |
+| **255** | `ACCOUNTANT_ONBOARDING` | `ACCOUNTANT_meeting_reminder_60m` — added 2026-09-04 |
+| **256** | `ACCOUNTANT_ONBOARDING` | `ACCOUNTANT_meeting_reminder_10m` — added 2026-09-04 |
+
+**The six 2026-09-04 additions are the first `send_mode=true` rows that are NOT "here is your link" emails** — they are a *countdown*, fired by `onboarding-meeting-reminder-sweep-5min` at 1 business day / 60 minutes / 10 minutes before a preliminary meeting. The justification is the same shape as #356's: a reminder that sits in Drafts until someone notices it is not a reminder at all, so Draft mode here is not "slower", it is broken. They obey the pipeline sandbox toggle like every other email (#324), which is what made them safe to test.
 
 The theme is deliberate: they are all **"here is your link, go do the thing"** emails — portal password setup, Stripe Connect payout setup, membership setup, a documentation request, a self-service passcode reset. None of them carries money, a decision, an agreement or a receipt; every one of those still drafts.
 
@@ -2009,3 +2017,73 @@ One branch turned up the same failure three times in three unrelated areas, whic
 **(c) A PRONOUN IS NOT A TOKEN, AND "I" IS THE WORST ONE TO SWAP.** Converting 82 first-person-singular occurrences across 41 `email_templates` rows to plural shipped one defect on the first pass: *"Nevertheless, I hope that…"* became *"Nevertheless, **We** hope…"* eleven times. **"I" is capitalised in every position; every replacement for it inherits the case rules of an ordinary word,** so a global swap silently capitalises mid-sentence wherever the original sat after a comma or a semicolon. The check that finds this is cheap and total: **group every occurrence by its preceding ~24 characters and read the groups**, rather than spot-checking rows — that reduced ~70 sites to a dozen distinct contexts and made the single bad one obvious. Two further rules from the same pass: **carry the following word(s) in the pattern** so verb agreement moves with the pronoun (`I am writing` → `We are writing`, never `We am writing`); and **the sender is not the only voice in a template** — three matches were BUTTON LABELS in the recipient's voice (*"I Have Further Questions"* ×2, *"Reset my passcode"*), where pluralising makes the reader speak for a group they are not part of. A find-and-replace over a copy column has to answer "who is talking?" per occurrence.
 
 **The unifying rule: derive the report from the result.** (a) took its input from a precondition, (b) from the columns already on screen, (c) from a pattern instead of the rendered sentence. Related: **#465**, **#325**, **#324**, **#376**, **#431**, **#402**.
+
+---
+
+**469. A COLUMN DEFAULT IS A VALUE A READER CANNOT DISTINGUISH FROM A WRITTEN ONE — GATE EVERY DERIVED FIGURE ON THE EVENT THAT WRITES THE REAL VALUE (2026-09-08).**
+
+`advisor_onboarding.payment_amount` carries a column `DEFAULT 4000`. It means "the total engagement value", and it is written for real at CEO countersign, when the engagement is priced. Every row that has not reached countersign therefore already holds a plausible, wrong `4000` — and nothing in the row says so.
+
+The new Stage 2 info line derives a balance from it (`payment_amount - deposit_amount`), so an onboarding with a `$4,000` deposit and no countersign rendered **"nothing further due"** on a record whose price nobody had set yet. The arithmetic was right; the input was a default wearing a value's clothes.
+
+**A default is indistinguishable from a write by every ordinary test** — not NULL, not zero, the right type, inside the plausible range, and it survives `select`, `??` and truthiness checks identically. Only the *event* separates them. The fix is not a sentinel value and not a NOT NULL: it is to **gate the derived display on the column that proves the write happened** (here `agreement_signed_by_ceo_at`), and to say so on screen — *"balance calculated at countersign"* — rather than to print a number the row cannot justify.
+
+Generalises past this row: any `DEFAULT` on a column a human is supposed to fill later is a booby trap for the first consumer that reads it before they do. When you add such a default, name its "written for real" event in the same breath; when you consume such a column, ask what proves the value is a decision rather than a placeholder. Related: **#429** (a NULL that is itself the switch), **#414**, **#448**.
+
+---
+
+**470. A PROVIDER REDELIVERS ITS TERMINAL EVENT, SO AN UNCONDITIONAL `col = now()` IN THAT BRANCH RE-DATES HISTORY ON EVERY REDELIVERY — ONCE-ONLY WRITES NEED `existing || now` (2026-09-08).**
+
+BoldSign redelivers `Completed`. The advisor and accountant branches in `router/webhooks.ts` wrote `agreement_signed_by_ceo_at: nowIso` unconditionally, so each redelivery silently moved the countersign date forward to whenever the redelivery happened. Both are now `row.agreement_signed_by_ceo_at || nowIso`.
+
+**The failure is invisible by construction.** There is no error, no duplicate row, no count that changes — just a date that is quietly younger than the event it records, on the exact column downstream logic keys on (here: whether the balance figure may be shown at all, #469). It presents as "the stamp looks recent" and is easy to mistake for correct.
+
+Three rules fall out. **(1) Redelivery is normal, not exceptional** — we already know this for money (#327, where the answer is a latch column); a *timestamp* needs the same defence and rarely gets one, because nothing about it looks like a side effect. **(2) `existing || now` is the whole fix and it costs one `select` column** — the row is usually already loaded. **(3) Read the branch for OTHER unconditional writes at the same time**: a stamp is the cheapest thing to get wrong, but any `= now()`, sequence allocation or append in a redeliverable branch has the same shape. Related: **#327**, **#384** (which is why these columns matter), **#187**.
+
+---
+
+**471. WHEN A TOKEN LOOKUP 404s, CHECK THE REQUEST'S ACTUAL TOKEN BEFORE YOU CHECK THE CODE (2026-09-08).**
+
+`/onboarding-meeting` reported *"Invalid or expired link"* during testing and the handler was searched for a bug it did not have. The cause was that the URL had been copied out of a **chat message where the token was displayed truncated with an ellipsis** (`token=86f970d4...`), and the ellipsis was pasted along with the prefix.
+
+A token page cannot tell "no such token" from "a token you mangled" — both are zero rows, both render the same card, and that is correct behaviour, not a diagnostic gap to close. **So the first move on any token 404 is to print the token the server actually received and compare its LENGTH to the minted one** (32 bytes hex = 64 chars here). Documentation, chat transcripts, terminal wrapping and email clients all truncate or re-wrap long opaque strings, and every one of them produces a string that still *looks* like a token.
+
+Corollary for writing things down: when you paste an example URL into a doc or a message, either paste it whole or make it obviously unusable (`token=<token>`), never a real prefix with an ellipsis — someone will click it. Related: **#310** (the token row is the whole credential), **#295**.
+
+---
+
+**472. A COUNTDOWN LADDER MUST RE-ARM ON RESCHEDULE — INCLUDING THE RECORDED RESPONSE — WHICH IS THE EXACT OPPOSITE OF #404 (2026-09-04).**
+
+**#404** says a resend must NOT re-arm a chase: the recipient has had the form all along, so re-stamping `*_sent_at` restarts a chase from zero for nothing. The preliminary-meeting reminder is the mirror case and takes the mirror rule.
+
+Its ladder is a **countdown to an instant** — one business day out, then 60 minutes, then 10 minutes before `meeting_at`. When the meeting moves, every stamp describes a moment that no longer exists, so rescheduling **nulls `meeting_reminder_sent_at`, `meeting_reminder_60m_sent_at` and `meeting_reminder_10m_sent_at`** and lets the whole ladder run again against the new time. A forward ladder chases an unanswered ask; a countdown ladder chases a clock. Ask which kind you have before copying either behaviour.
+
+**The half that is easy to miss is `meeting_response`.** The 60- and 10-minute tiers are gated on `meeting_response='confirm'`, so a reschedule that clears the stamps but keeps the confirmation would fire two countdown emails at a meeting time the prospect has never agreed to. Reschedule nulls `meeting_response` and `meeting_response_at` too: **the answer belonged to the old question.** Any gate column that records an answer *about the thing being rescheduled* is part of the re-arm, not merely part of the history.
+
+**And a stopped row silences it entirely** — every tier filters `status='active'`, so a `No Show` recorded before the meeting time leaves the 60/10 tiers permanently unfired. That is correct, and it is also why those two tiers can look untested when the pipeline is behaving perfectly: the ladder was stopped, not broken. Related: **#404**, **#396/#397**, **#403**.
+
+---
+
+**473. ONE STRIPE CUSTOMER, TWO LEGS: EVERY WEBHOOK BRANCH KEYED ON THE CUSTOMER MUST SPLIT ON `payment_kind` FROM THE SESSION METADATA, AND EVERY GENERIC RESOLVER MUST SKIP THE NEW KINDS (2026-09-04).**
+
+The membership deposit and the onboarding payment are two separate collections on **the same** `advisor_onboarding` row and the same Stripe customer. Before the deposit existed, "this customer's `checkout.session.completed`" unambiguously meant the onboarding payment, and several branches were written that way.
+
+**Three things follow, and all three had to change together.**
+
+**(1) The discriminator has to live on the SESSION metadata, not only the PaymentIntent.** In `checkout.session.completed` the PI has not been fetched yet — the session is all you have — so `session.metadata.payment_kind` is the only thing available at the moment the branch is chosen. Set the kind on **both** the session and the PI when you create the session: the session serves checkout, the PI serves `payment_intent.succeeded` and `payment_intent.payment_failed`. Setting it on only one of them leaves half the lifecycle undiscriminated.
+
+**(2) The new branch goes AHEAD of the old one, and the old one keeps its own positive guard.** Ordering alone is not the fix — an unguarded legacy block below a guarded new one is one refactor away from catching the deposit again.
+
+**(3) The generic failure resolver is the part you will forget.** The shared first-payment failure handler writes `payment_status`, which belongs to the onboarding payment. Left alone it would write that column for a bounced *deposit* — a real status, on the right row, describing the wrong money. It now tests `payment_kind` and skips both onboarding legs, which route to their own `handleOnboardingDepositFailure` / `handleOnboardingBalanceFailure`.
+
+**The general rule: when a row gains a SECOND collection, enumerate every webhook branch and every shared resolver that identifies work by the row or the customer, and split each one explicitly.** None of them fails loudly when you miss it — they write a plausible value into a neighbouring column. This is #466's "give a new writer its own value" one level up, in the router. Related: **#466**, **#327**, **#287**, **#450**.
+
+---
+
+**474. `document_numbers` "EXACTLY ONE OWNER" MEANS A TEST ONBOARDING CANNOT BE UNLINKED FROM ITS NUMBERS — DELETE THE NUMBER ROWS (2026-09-08).**
+
+Cleaning up test advisor onboardings 20-24 and accountant 30 failed on the `document_numbers_exactly_one_owner` CHECK: it requires **exactly one** of `client_id` / `advisor_onboarding_id` / `accountant_onboarding_id` / `specialist_onboarding_id` to be non-null, so the usual "null out the FK, keep the ledger row" cleanup is not available. The rows must be deleted.
+
+**That is safe here, and it is worth knowing why, because "append-only sequence ledger" argues the opposite.** `allocateDocNumber` derives its candidate by **counting rows** and then retries past collisions, and the issued number **embeds the owner id** (`INV-ADV21-0050`), so a deleted test row can never be re-issued to a different owner — the id is gone with it. Deleting test rows therefore neither corrupts the sequence nor risks a duplicate.
+
+The reusable shape: **a CHECK that enforces "exactly one owner" also enforces "no orphans", which turns every child row into a hard dependency of its parent's deletion.** Before designing such a constraint, decide what test-data cleanup looks like under it; before cleaning up, read the allocator to learn whether deleting is safe or merely convenient. Related: **#282**, **#206**, and the reset procedure in [operations/test-client-reset.md](operations/test-client-reset.md).

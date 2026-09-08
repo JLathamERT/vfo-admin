@@ -76,9 +76,15 @@ export default function AdvisorPayPage() {
     </TokenShell>
   )
 
+  // payment_amount is always the amount DUE — for an onboarding token with a paid
+  // deposit the backend has already taken the deposit off it, so the fee maths
+  // below is unchanged either way.
   const baseAmount = Number(data.payment_amount) || 0
   const cardTotal = Math.round((baseAmount + 0.30) / (1 - 0.029) * 100) / 100
   const cardFee = Math.round((cardTotal - baseAmount) * 100) / 100
+  const isDeposit = data.kind === 'deposit'
+  const depositPaid = Number(data.deposit_paid) || 0
+  const lineLabel = isDeposit ? 'Membership Deposit' : depositPaid > 0 ? 'Balance Payment' : 'Advisor Onboarding'
 
   return (
     <TokenShell>
@@ -86,11 +92,16 @@ export default function AdvisorPayPage() {
         <div style={{ ...iconCircleStyle, width: '64px', height: '64px', background: 'rgba(34,197,94,0.15)' }}>
           <span style={{ fontSize: '28px', lineHeight: 1 }}>🔒</span>
         </div>
-        <h1 style={{ ...titleStyle, fontSize: '22px', textAlign: 'center', marginBottom: '8px' }}>VFO Advisor Onboarding Payment</h1>
+        <h1 style={{ ...titleStyle, fontSize: '22px', textAlign: 'center', marginBottom: '8px' }}>{isDeposit ? 'VFO Advisor Onboarding Deposit' : 'VFO Advisor Onboarding Payment'}</h1>
         <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '12px' }}>Choose your preferred payment method</p>
-        <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '32px', fontSize: '13px', color: 'var(--vfo-muted)' }}>
-          {data.selected_plans} · {data.advisor_name}
+        <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: depositPaid > 0 && !isDeposit ? '6px' : '32px', fontSize: '13px', color: 'var(--vfo-muted)' }}>
+          {isDeposit ? 'Membership Deposit' : data.selected_plans} · {data.advisor_name}
         </p>
+        {!isDeposit && depositPaid > 0 && (
+          <p style={{ ...subtitleStyle, textAlign: 'center', marginBottom: '32px', fontSize: '13px', color: 'var(--vfo-muted)' }}>
+            Total ${formatMoney(data.total_amount)} · deposit received ${formatMoney(depositPaid)} · due now ${formatMoney(baseAmount)}
+          </p>
+        )}
 
         <OptionCard
           isHovered={hoveredOption === 'ach'}
@@ -102,7 +113,7 @@ export default function AdvisorPayPage() {
           badgeClass="green"
           amount={baseAmount}
           breakdown={[
-            { label: 'Advisor Onboarding', value: `$${formatMoney(baseAmount)}`, valueColor: 'var(--vfo-ink-2)' },
+            { label: lineLabel, value: `$${formatMoney(baseAmount)}`, valueColor: 'var(--vfo-ink-2)' },
             { label: 'Processing Fee', value: '$0.00', valueColor: '#16a34a' },
           ]}
           footer="Funds transfer directly from your bank account. Takes 2-4 business days to process."
@@ -120,7 +131,7 @@ export default function AdvisorPayPage() {
           badgeClass="blue"
           amount={cardTotal}
           breakdown={[
-            { label: 'Advisor Onboarding', value: `$${formatMoney(baseAmount)}`, valueColor: 'var(--vfo-ink-2)' },
+            { label: lineLabel, value: `$${formatMoney(baseAmount)}`, valueColor: 'var(--vfo-ink-2)' },
             { label: 'Card Processing Fee (2.9% + $0.30)', value: `$${formatMoney(cardFee)}`, valueColor: 'var(--vfo-ink-2)' },
           ]}
           footer="Processes immediately. The processing fee covers card transaction costs."

@@ -19,11 +19,13 @@ All nine flows route through the same webhook endpoint (the `vfo-admin-api` func
 | Field | MAP1 | Tax | Advisor | Accountant | PIP | GC | Specialist | Card-update |
 |---|---|---|---|---|---|---|---|---|
 | `metadata.pipeline` | (none) | `TAX` | `ADVISOR_ONBOARDING` | `ACCOUNTANT_ONBOARDING` | `PIP` | (none) | `SPECIALIST_ONBOARDING` | `MAP 1` / `TAX` / `SPECIALIST_LICENSE` (which engagement) |
-| `metadata.payment_kind` | (none — uses `payment_number` for quarterly) | `retainer` / `implementation` | `onboarding` | `onboarding` | `purchase` | (none — uses `member_number` + `credits`) | `background_check` (+ `bg_type=core\|max`) **or `license`** (`mode=subscription`, $99/mo) | **`card_update`** (`mode=setup`, no charge) |
+| `metadata.payment_kind` | (none — uses `payment_number` for quarterly) | `retainer` / `implementation` | `onboarding` / **`onboarding_deposit`** / **`onboarding_balance`** *(2026-09-04)* | `onboarding` / **`onboarding_deposit`** / **`onboarding_balance`** *(2026-09-04)* | `purchase` | (none — uses `member_number` + `credits`) | `background_check` (+ `bg_type=core\|max`) **or `license`** (`mode=subscription`, $99/mo) | **`card_update`** (`mode=setup`, no charge) |
 | `metadata.payment_number` | `1` (P1) / `2-4` (chargescheduled sweep) | — | — | — | — | — | — | — |
 | `metadata.client_id` / `metadata.onboarding_id` | `client_id` | `tax_plan_id` (via `client_tax_plans`) | `onboarding_id` | `onboarding_id` | `priority_track_id` | — | `row_id` (the engagement row) + `token` |
 
 The webhook router uses these fields to pick the right DB table on `checkout.session.completed` and `payment_intent.succeeded`. Fallback chain: MAP1 lookup by `stripe_customer_id` → Tax lookup → Advisor lookup → PIP lookup → Accountant lookup. The **card-update** `mode=setup` branch is matched by `payment_kind=card_update` and routed directly by `metadata.pipeline` + `metadata.row_id` (no customer-id cascade).
+
+**2026-09-04 — the customer-lookup cascade is no longer sufficient on its own for the two onboarding pipelines (#473).** The refundable **Membership Deposit** and the onboarding payment are two collections on the SAME `advisor_onboarding` / `accountant_onboarding` row and the SAME Stripe customer, so the branch is chosen by `payment_kind` rather than by the lookup: `payment_kind` is set on **both** the Checkout Session and the PaymentIntent, because `checkout.session.completed` picks its branch before the PI is ever fetched. A deposit session also carries **`setup_future_usage=off_session`**, which is what lets `automation_<P>_chargebalance` charge the remainder off-session at CEO countersign. The generic first-payment failure resolver **skips both new kinds** — it writes `payment_status`, which belongs to the onboarding payment.
 
 ## Env vars
 
@@ -138,6 +140,8 @@ Two handlers run in sequence on this event:
 |---|---|---|
 | **Card** | invoice/receipt only — **no payment-confirmation email anywhere in the system** | (already settled) |
 | **ACH** | payment-confirmation email (it exists to break the 2–4 day silence) | invoice/receipt |
+
+**ONE documented exception (2026-09-04): the Advisor / Accountant Membership Deposit sends `<PREFIX>_deposit_received` on BOTH card and ACH.** The policy's card rule assumes a receipt is issued at purchase; the deposit issues none — no invoice or receipt exists until the onboarding payment itself completes — so the confirmation is the deposit's only acknowledgement. Do not "correct" it to ACH-only.
 | **Check** | confirmation **+** docs at check-clear — **deliberately unchanged** | n/a |
 
 A card clears the moment the buyer submits, so the invoice/receipt lands in the same breath and says everything the confirmation would; two emails read as a duplicate. Applies to MAP 1 payment 1, Tax retainer, Advisor onboarding, Accountant onboarding, PIP purchases, Specialist background check, Specialist monthly licence, SpecRev one-time, and Membership first sign-up. Growth Credits sends no purchase emails at all (unchanged). MAP 1 installments 2–4 and Tax implementation charges already had no confirmation.
