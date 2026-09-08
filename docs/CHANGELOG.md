@@ -8,6 +8,36 @@
 
 ---
 
+## 2026-09-08 (3rd branch) — The deposit gets priced by the partnership that pays it, and both onboarding pipelines stop drafting
+
+**A short follow-up to the same day's advisor + accountant onboarding rework (v811 → v814 + `live-185`; its entry is the *2026-09-04 / 2026-09-08* one below), from Jake testing it. `vfo-admin-api` v817 → **v818**, the frontend re-published, one data migration. No new action (493), no DDL, no cron, no new table, policy or DB function; `boldsign-webhook` untouched at `v40`. Gates: `deno check` **0** / action count **493** (6 + 487) / build **exit 0, 34 pages** / advisor **GREEN at the exact baseline** — a confirmation, since the only migration is an `UPDATE` on `email_templates`. **Smoke is owed against `v818`; 5/5 was last run against `v814`.**
+
+### The accountant's Stage 1 order was wrong, and the reason is the cap
+
+Accountant Stage 1 now runs Team Member → Meeting Reminder Setup → Preliminary Meeting → **Direct or Advisor Partnership → CC Connected Advisor → Deposit** → Preliminary Meeting Decision. The advisor order is untouched.
+
+The reorder is not cosmetic. **The deposit's maximum depends on the partnership:** a **Direct** accountant (`'No accountant partnership'`) may be asked for up to **$4,000**, an **Advisor**-partnership accountant (`'Accountant Partnership'`) for at most **$2,000**, because that accountant already pays a $2,000 baseline; the minimum stays $500 on both, and the advisor pipeline stays $500–$4,000. With the Deposit above the Partnership row, the admin was being asked to price the deposit before the system knew what to cap it at.
+
+So the ordering and the gating are the same fact seen twice. The Partnership row is **locked until the meeting outcome is set** (*"Complete the Preliminary Meeting step first"*, or *"Preliminary meeting was a no-show"*), the Deposit row is **locked until the partnership is picked** (*"Select Direct or Advisor Partnership first"*), the hint under the amount reads *"Minimum $500, maximum $2,000"* / *"$4,000"* and the Send button gates on that number. Per **#403** each lock is backed by a handler refusal: `deposit-email.ts` 400s a NULL partnership as well as an over-cap amount. And because the cap must not move under a link that has already been priced against it, the partnership select is **disabled once `deposit_email_sent_at` is set** (tooltip *"A deposit link has already been sent"*) with `save-partnership.ts` 400ing the same change — the same shape as the existing refusal to move the meeting outcome off `Completed - Send Deposit` after a link goes out.
+
+### Both onboarding pipelines stop landing in Drafts
+
+Migration `20260908150000_onboarding_reminders_deposit_send_mode.sql` flipped **14** `email_templates` rows to `send_mode=true` — per pipeline the four stall reminders (`_undecided_reminder`, `_signing_reminder`, `_payment_reminder`, `_deposit_reminder`) and the three deposit emails (`_deposit_payment_link`, `_deposit_received`, `_deposit_refund`). The six meeting-reminder rows were already `true` from 09-04, so **all twenty rows of both pipelines now auto-send** and the system-wide census goes **17 → 31** (**#325**).
+
+**No code changed.** Every sender on these paths already runs through `gmailDraftFetch` / `deliverRaw`, which dispatch on the flag alone; the pipeline's `pipeline_sandbox_config` toggle still reroutes to `jlatham@` upstream of delivery. What the flip did require was the **#428** pass over the UI copy, because draft-era wording invites a confused second click and a duplicate *real* send: the refund confirm dialog in **both** onboarding components now says *"send the refund email"* / *"emails the advisor|accountant"* where it said *"draft"* / *"drafts"*.
+
+**PRODUCTION CONSEQUENCE, and it is the point of the entry.** From the next daily sweeps — **05:00 UTC advisor, 06:00 UTC accountant** — the undecided / signing / payment / deposit stall reminders **real-send to prospects** instead of waiting in Drafts, and so do the deposit link, received and refund emails. These stall reminders are produced by a **cron**, so they are the first mail in this system that reaches an outside person with no human anywhere in the loop. One row is already inoculated: **William Winter (accountant 28)** carries `payment_reminder_sent_at` stamped 2026-09-05 — a draft addressed to `jlatham@` from the 09-04 → 09-08 sandbox window — so the ladder considers him reminded and sends nothing.
+
+### Verified live, and what was not
+
+On accountant row **31 "Test Cap"** (created and deleted the same evening): the Partnership row locked until the outcome was set and then unlocked; **Advisor** produced the *"maximum $2,000"* hint, **$2,500 was refused by the button and $2,000 accepted**; the deposit email **auto-sent**, with the function log reading `send_mode: auto-sent ACCOUNTANT_ONBOARDING/ACCOUNTANT_deposit_payment_link` — **the first real send of that template**; and the Partnership select was disabled afterwards.
+
+Not exercised: the **Direct $4,000** hint; **all three backend 400s** (over-cap, NULL partnership, partnership-change-after-link), each of which the UI's own locks make unreachable — they exist for the API caller that skips the UI; and the **deposit-received, refund and stall-reminder** real sends. The ACCOUNTANT sandbox toggle was ON for part of the test (Jake flipped it) and is `false` again; nothing else in this branch sent anything. Two empty live Stripe customers created for deleted test rows — `cus_VDzJ6oBNUDPVz2` and `cus_VDweR9Qz933DAM` — are Jake's to delete in the dashboard; neither carries a charge.
+
+**New gotcha #476** came out of the doc pass rather than the feature: every file in both working trees is **CRLF**, so a `\n`-anchored multi-line `perl`/`sed` rewrite matches nothing and still exits 0, leaving an empty `git diff` that reads exactly like "already applied".
+
+---
+
 ## 2026-09-08 (2nd branch) — The bank sign-in wall comes down on `/pay` and `/tax-pay`, and "the client paid" stops being said about a payment that has not happened
 
 **Edge repo only for CODE. `vfo-admin-api` v814 → **v815** (the feature) → **v816** (the Stripe-page wording, on all five builders that show the manual option) → **v817** (the re-worded "client paid" bells). The react repo carries **DOCS ONLY** — there is no frontend code change on this branch, so there was no `npm run build`, no `npm run deploy`, and deliberately **NO `live-N` tag**. TWO migrations, both applied via MCP and both committed as files. `boldsign-webhook` untouched at **v40**. Action count unmoved at **493**; route pages unmoved at 34; pg_cron unmoved at 17; `send_mode=true` unmoved at 17. **No new table, no policy, no DB function, no new action, no cron change.**

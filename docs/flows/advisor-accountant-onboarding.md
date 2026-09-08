@@ -22,9 +22,18 @@ above it is answered. The locks are choreography; **every one of them is backed 
 | 1 | **Team Member Responsible** | — | `meeting-reminder.ts` 400s without one — the bells route to this person |
 | 2 | **Meeting Reminder Setup** *(NEW)* | a team member is picked | — |
 | 3 | **Preliminary Meeting** | the reminder was **sent or skipped** | `prelim-meeting.ts`: *"Send or skip the meeting reminder first"* |
-| 4 | **Deposit** *(NEW)* | outcome = `Completed - Send Deposit` | see *Deposit* below |
-| 5 | **Implementation value (including deposit)** [advisor] / **Direct or Advisor Partnership** + **CC Connected Advisor** [accountant] | the deposit step is settled or absent | — |
+| 4 | **Deposit** *(NEW)* [advisor] / **Direct or Advisor Partnership** + **CC Connected Advisor** [accountant] | *advisor:* outcome = `Completed - Send Deposit` · *accountant:* the outcome is set and is not `No Show` | *advisor:* see *Deposit* below · *accountant:* `save-partnership.ts` |
+| 5 | **Implementation value (including deposit)** [advisor] / **Deposit** *(NEW)* [accountant] | *advisor:* the deposit step is settled or absent · *accountant:* a partnership is picked | *accountant:* `deposit-email.ts` 400s *"Select Direct or Advisor Partnership first"* |
 | 6 | **Preliminary Meeting Decision** | step 5 answered | — |
+
+**The two pipelines diverge at steps 4 and 5, since 2026-09-08 (v818).** The advisor order is the original one.
+On the **accountant** side the Deposit moved BELOW *Direct or Advisor Partnership* + *CC Connected Advisor*,
+because the partnership choice is what sets the deposit's maximum (see *Sending the link*) — asking for the
+money first would mean capping it against an answer nobody had given yet. The two new locks read
+*"Complete the Preliminary Meeting step first"* (or *"Preliminary meeting was a no-show"*) on the Partnership
+row and *"Select Direct or Advisor Partnership first"* on the Deposit row. **Once the deposit link is out the
+partnership select is disabled** (tooltip *"A deposit link has already been sent"*) and `save-partnership.ts`
+400s the same change — the cap must not move under a link that has already been priced against it.
 
 **The reminder prerequisite only fires when `prelim_meeting_status` is currently NULL.** That is deliberate:
 pre-existing rows that already carry an outcome are never forced back through a reminder they cannot arm.
@@ -91,9 +100,21 @@ The `meeting_at > now` half of tier (a) is what makes a meeting booked *inside* 
 send on the next 5-minute tick instead of never.
 
 **All six template rows (3 tiers × 2 pipelines) are `send_mode=true` — real sends, no human in between.**
-That takes the auto-send census from ELEVEN to **SEVENTEEN** (#325). It is deliberate: a draft nobody sends in
+That took the auto-send census from ELEVEN to **SEVENTEEN** (#325). It is deliberate: a draft nobody sends in
 time is not a reminder. While a pipeline's `pipeline_sandbox_config` toggle is on they route to the sandbox
 address like every other email (#324).
+
+**Since 2026-09-08 the WHOLE of both pipelines auto-sends — census 17 → 31 (#325).** Migration
+`20260908150000_onboarding_reminders_deposit_send_mode.sql` flipped the remaining **14** rows: per pipeline the
+four stall reminders (`<PREFIX>_undecided_reminder`, `_signing_reminder`, `_payment_reminder`,
+`_deposit_reminder`) and the three deposit emails (`_deposit_payment_link`, `_deposit_received`,
+`_deposit_refund`). **No code changed** — every sender here already runs through `gmailDraftFetch` /
+`deliverRaw`, which dispatch on the flag alone. Two consequences worth holding on to: the stall reminders are
+produced by a **cron** and now reach prospects with no human anywhere in the loop, the first mail in the system
+of which that is true; and per **#428** the flip is a **UI edit too** — the refund confirm dialog in both
+onboarding components was re-worded from *"draft the refund email"* / *"drafts an email to the
+advisor|accountant"* to *"send"* / *"emails"*, because draft-era copy invites a second click and a duplicate
+real send.
 
 ### The response page
 
@@ -127,12 +148,25 @@ The New Model Sale modal keeps the wider `SALES_TEAM_NAMES`; the two lists are d
 
 ### Sending the link
 
-Amount **$500–$4,000** (inclusive, at most 2 decimals; enforced in `deposit-email.ts` with a 400) →
+Amount (inclusive, at most 2 decimals; enforced in `deposit-email.ts` with a 400) →
 `automation_{ADVISOR,ACCOUNTANT}_depositemail` (AUTH, admin-only):
+
+| pipeline | minimum | maximum |
+|---|---|---|
+| **advisor** | $500 | **$4,000** |
+| **accountant**, `accountant_partnership = 'No accountant partnership'` (**Direct**) | $500 | **$4,000** |
+| **accountant**, `accountant_partnership = 'Accountant Partnership'` (**Advisor**) | $500 | **$2,000** |
+
+**The accountant cap is partnership-dependent as of 2026-09-08 (v818)** — an Advisor-partnership accountant
+pays a $2,000 baseline, so the deposit cannot exceed it. The hint under the field reads *"Minimum $500,
+maximum $2,000"* / *"$4,000"* and the Send button gates on the same number; `deposit-email.ts` enforces it
+server-side and **400s *"Select Direct or Advisor Partnership first"* when the partnership is still NULL** —
+a state the UI's lock makes unreachable, which is the point (#403). The advisor pipeline is unchanged.
 
 1. **Creates the Stripe customer EARLY if it is missing** — the deposit is now the first thing that needs one.
 2. Mints `deposit_checkout_token`.
-3. Drafts `<PREFIX>_deposit_payment_link`, stamps `deposit_email_sent_at` and `deposit_amount`.
+3. Sends `<PREFIX>_deposit_payment_link` (`send_mode=true` since 2026-09-08 — **this leaves for the prospect
+   with nobody reviewing it**), stamps `deposit_email_sent_at` and `deposit_amount`.
 
 ### The pay page serves BOTH legs
 
@@ -181,7 +215,7 @@ belong to this step. AI PC Admin sub-steps render the ladder under the Deposit r
 A clone of the tax deposit-refund step. `automation_{ADVISOR,ACCOUNTANT}_depositrefund` (AUTH, admin-only,
 `ADMIN_ONLY_ACTIONS`) refunds the deposit PaymentIntent **in full**, then writes
 `deposit_refund_status='succeeded'`, `deposit_status='refunded'` and **`status='stopped'`** — a refund ends the
-onboarding — and drafts `<PREFIX>_deposit_refund` with a required `[Refund Reason]`, plus bell
+onboarding — and **sends** `<PREFIX>_deposit_refund` (`send_mode=true` since 2026-09-08) with a required `[Refund Reason]`, plus bell
 `<PREFIX>_deposit_refunded` to the Team Member.
 
 Refusals: already refunded · no `deposit_payment_intent_id` · `deposit_status !== 'succeeded'` ·
@@ -271,7 +305,8 @@ itself was NOT touched (still v40).
 `actions/advisor/` and `actions/accountant/` (identical sets): **new** `meeting-reminder.ts`,
 `deposit-email.ts`, `deposit-confirmation.ts`, `deposit-refund.ts`, `charge-balance.ts`; **changed**
 `prelim-meeting.ts`, `stripe-customer.ts`, `stripe-checkout.ts`, `load-payment.ts`, `payment-email.ts`,
-`send-agreement.ts`, `invoice-receipt.ts`, `sweep.ts`.
+`send-agreement.ts`, `invoice-receipt.ts`, `sweep.ts`; **2026-09-08 (v818)** `accountant/deposit-email.ts` (the
+partnership cap + the NULL-partnership 400) and `accountant/save-partnership.ts` (frozen once a link is out).
 Shared: `actions/onboarding/meeting-reminder-sweep.ts`, `actions/onboarding/meeting-response.ts`,
 `utils/onboarding-meeting.ts`, `constants/onboarding-team.ts`, `actions/automation/stall-ack.ts`,
 `router/webhooks.ts`, `router/dispatch.ts`, `constants/role-gates.ts`.
