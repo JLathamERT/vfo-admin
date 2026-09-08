@@ -44,6 +44,11 @@ are separate. On a manual reset you must clear **both**.
   by `client_id` + `type` string (there is **no** tax_plan_id / pip FK); advisor/accountant
   by their `*_onboarding_id` FK. Leave behind → the handler's "existing invoice" lookup can
   re-serve an old number or reuse a sequence.
+  **You cannot unlink them: the `document_numbers_exactly_one_owner` CHECK requires exactly ONE
+  owner FK to be non-null, so "NULL the FK, keep the ledger row" is not available for an
+  onboarding — DELETE the number rows. That is safe: `allocateDocNumber` derives its candidate by
+  COUNTING rows and retries past collisions, and the issued number embeds the owner id
+  (`INV-ADV21-0050`), so a deleted test row can never be re-issued to a different owner (#474).**
 - **`notifications`** — admin notifications generated during the flow, by `client_id` + `pipeline`.
 - **`members` (+ `member_logins`)** — only for onboarding pipelines that reached Stage 3
   member creation. `member_logins` is keyed by email. FK note: `members.onboarding_id` /
@@ -107,9 +112,27 @@ UPDATE advisor_onboarding SET
   selected_vfo_ft=NULL, selected_pft=NULL, selected_corporate=NULL,
   payment_status=NULL, stripe_customer_id=NULL, member_number=NULL, member_created_at=NULL,
   decision_email_sent_at=NULL, login_setup_email_sent_at=NULL,
-  payment_amount=4000, status='active', engagement_term_months=6
+  payment_amount=4000, status='active', engagement_term_months=6,
+  -- 2026-09-04 meeting + deposit + balance families (35 columns; derive the list from
+  -- information_schema rather than trusting this comment):
+  prelim_meeting_status=NULL,
+  meeting_date=NULL, meeting_time=NULL, meeting_timezone=NULL, meeting_at=NULL,
+  meeting_reminder_due_at=NULL, meeting_reminder_token=NULL,
+  meeting_reminder_scheduled_at=NULL, meeting_reminder_skipped_at=NULL,
+  meeting_reminder_sent_at=NULL, meeting_reminder_60m_sent_at=NULL,
+  meeting_reminder_10m_sent_at=NULL, meeting_response=NULL, meeting_response_at=NULL,
+  deposit_amount=NULL, deposit_checkout_token=NULL, deposit_email_sent_at=NULL,
+  deposit_status=NULL, deposit_payment_intent_id=NULL, deposit_method_type=NULL,
+  deposit_acct_last4=NULL, deposit_card_fee=NULL, deposit_completed_at=NULL,
+  deposit_confirmation_email_sent_at=NULL, deposit_reminder_sent_at=NULL,
+  deposit_pf_notified_at=NULL, deposit_pf_ack_at=NULL,
+  deposit_refund_id=NULL, deposit_refund_amount=NULL, deposit_refund_date=NULL,
+  deposit_refund_status=NULL, deposit_refund_email_sent_at=NULL,
+  balance_charge_status=NULL, balance_payment_intent_id=NULL,
+  balance_card_fee=NULL, balance_charge_date=NULL
   /* …plus the remaining timestamp/reminder/login-setup fields… */
 WHERE id = <ONBOARDING_ID>;
+-- The accountant twin takes the identical block — the tables are clones.
 -- If a member was created, NULL members.onboarding_id (+ delete member_logins by email) first.
 ```
 

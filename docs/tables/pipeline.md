@@ -150,6 +150,57 @@ Written by `automation_CONTRACT_revshare`.
 
 ---
 
+## `advisor_onboarding` / `accountant_onboarding` — the meeting + deposit column families *(2026-09-04, migration `20260905100000`)*
+
+The two tables are clones of one another. This section documents only the **35 columns per table** added by the
+2026-09-04 rework; the older onboarding columns are described where they are used
+([../flows/advisor-accountant-onboarding.md](../flows/advisor-accountant-onboarding.md), which is the flow of
+record). Derive the full list rather than trusting any count here (#402):
+`select column_name, data_type from information_schema.columns where table_name='advisor_onboarding' order by ordinal_position;`
+
+**Preliminary-meeting reminder (12).** `meeting_date` (date) / `meeting_time` (text) / `meeting_timezone`
+(text) — what the admin typed; `meeting_at` (timestamptz) — that wall clock resolved to an instant;
+`meeting_reminder_due_at` (timestamptz) — **the same wall clock one BUSINESS day earlier**
+(`utils/onboarding-meeting.ts reminderDueAt`); `meeting_reminder_token` (text) — the credential for
+`/onboarding-meeting`; `meeting_reminder_scheduled_at` / `meeting_reminder_skipped_at` — the step's two
+mutually-exclusive done-stamps; `meeting_reminder_sent_at` / `meeting_reminder_60m_sent_at` /
+`meeting_reminder_10m_sent_at` — the three sweep-tier guards, each stamped **only after a successful send**;
+`meeting_response` (text) + `meeting_response_at`.
+
+**`meeting_response` vocabulary:** `'confirm'` | `'cancel'` | `'reschedule'` (bare `text`, no CHECK — #431).
+The 60- and 10-minute tiers fire **only** on `'confirm'`. **A reschedule NULLs the three `*_sent_at` stamps AND
+`meeting_response` / `meeting_response_at`** — a countdown ladder re-arms, the inverse of #404 (**#472**).
+
+**Deposit (18).** `deposit_amount` (numeric, **$500-$4,000**, enforced in the handler not the DB),
+`deposit_checkout_token`, `deposit_email_sent_at`, `deposit_status` (text), `deposit_payment_intent_id`,
+`deposit_method_type`, `deposit_acct_last4`, `deposit_card_fee` (numeric), `deposit_completed_at`,
+`deposit_confirmation_email_sent_at`, `deposit_reminder_sent_at` / `deposit_pf_notified_at` /
+**`deposit_pf_ack_at`** (the sweep's 4th stall ladder + its manual ack, whitelisted in
+`actions/automation/stall-ack.ts`), and the refund block `deposit_refund_id` / `_amount` / `_date` /
+`_status` / `_email_sent_at`.
+
+**`deposit_status` vocabulary:** NULL (no deposit) | `'processing'` (ACH in flight) | `'succeeded'` |
+`'failed'` | `'refunded'`. Bare `text`, no CHECK.
+
+**Balance (4).** `balance_charge_status` (text), `balance_payment_intent_id`, `balance_card_fee` (numeric),
+`balance_charge_date` (date).
+
+**`balance_charge_status` vocabulary:** NULL | `'awaiting_deposit'` (the agreement was countersigned while an
+ACH deposit was still clearing — released by the deposit's own `payment_intent.succeeded` branch) |
+`'processing'` | `'succeeded'` | `'failed'`. Bare `text`, no CHECK.
+
+> **TRAP — `payment_amount` carries a column `DEFAULT 4000`.** It means the TOTAL engagement value and is
+> written for real at CEO countersign. Before that, the default is indistinguishable from a written value, so
+> **every derived balance figure must be gated on `agreement_signed_by_ceo_at`**, which is what the frontend
+> now does. Gotcha **#469**. And `agreement_signed_by_ceo_at` itself is stamped **once-only** since 2026-09-08,
+> because BoldSign redelivers `Completed` (**#470**).
+
+`status` (`'active'` | `'stopped'`) is unchanged and documented in
+[../flows/partnership-fast-track.md](../flows/partnership-fast-track.md); as of 2026-09-04 it also silences all
+three meeting-reminder tiers and the deposit stall ladder.
+
+---
+
 ## `pipeline_sandbox_config`
 
 Per-pipeline sandbox/live toggle. Read at the top of every automation handler to decide whether to use `STRIPE_SECRET_KEY` vs `STRIPE_SECRET_KEY_SANDBOX` and `BOLDSIGN_API_KEY` vs `BOLDSIGN_API_KEY_SANDBOX`.

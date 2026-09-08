@@ -97,14 +97,27 @@ ACH retainer → off-session implementation charge is rejected by Stripe (`us_ba
 
 ### Advisor / Accountant onboarding
 
-Structurally identical — the accountant pipeline is a **file-for-file clone**, so any advisor-shaped constant inside it is suspect (**#329**).
+Structurally identical — the accountant pipeline is a **file-for-file clone**, so any advisor-shaped constant inside it is suspect (**#329**). Full flow: [../flows/advisor-accountant-onboarding.md](../flows/advisor-accountant-onboarding.md).
 
 | Trigger | Chain |
 |---|---|
-| Pre-auth | `automation_{ADVISOR,ACCOUNTANT}_stripecustomer` → `_paymentemail` |
+| Pre-auth, **no deposit** | `automation_{ADVISOR,ACCOUNTANT}_stripecustomer` → `_paymentemail` |
+| Pre-auth, **deposit `succeeded`** *(2026-09-04)* | `_stripecustomer` → **`_chargebalance`** — no link, no payment email |
+| Pre-auth, **deposit `processing`** *(2026-09-04)* | `_stripecustomer` parks `balance_charge_status='awaiting_deposit'` and chains **nothing** |
+| Deposit checkout completed *(2026-09-04)* | → **`_depositconfirmation`** (`<PREFIX>_deposit_received`) — **BOTH card and ACH** |
+| Deposit `payment_intent.succeeded` *(2026-09-04)* | settles the deposit; **if the balance was parked `awaiting_deposit` and the agreement is countersigned → `_chargebalance`** |
+| Balance `payment_intent.succeeded` *(2026-09-04)* | → `_invoicereceipt` **directly**, + `balance_charge_status='succeeded'` |
 | Card payment | → `_invoicereceipt` **directly** |
 | ACH payment | → `_confirmationemail`; on `payment_intent.succeeded` → `_invoicereceipt` **directly** |
 | 14-day implicit-No (cron) | → `_declineemail` |
+
+**The deposit is a SECOND collection on the same row and the same Stripe customer**, so every branch in `router/webhooks.ts` splits on `payment_kind` carried on the **session** metadata (the PI has not been fetched yet when `checkout.session.completed` picks its branch) and, redundantly, on the PI metadata for the `payment_intent.*` events. The new deposit branch sits **ahead of** the old onboarding-payment block and the old block keeps its own positive guard. Two failure helpers own the two legs — `handleOnboardingDepositFailure` (`deposit_status='failed'`, action bell to Jake, and it **re-chains `_stripecustomer`** if a countersign was parked on the deposit) and `handleOnboardingBalanceFailure` (`payment_status='declined'` + `balance_charge_status='failed'` + a fresh `/advisor-pay` link) — and **the generic first-payment failure resolver now skips both kinds**, because it writes `payment_status`, which belongs to the onboarding payment. Gotcha **#473**.
+
+**`_depositconfirmation` on BOTH card and ACH is a deliberate exception to the #287 purchase-email policy** (card = receipt only): no receipt is issued until the onboarding payment itself completes, so the confirmation is the only acknowledgement the deposit ever gets.
+
+**`payment_amount` still means the TOTAL engagement value.** `load-payment.ts`, `stripe-checkout.ts`, `payment-email.ts` and every webhook fee base net a settled deposit off it — a card deposit that is not netted off records a large NEGATIVE fee.
+
+**The BoldSign `Completed` branch stamps `agreement_signed_by_ceo_at` ONCE-ONLY as of 2026-09-08** (`row.agreement_signed_by_ceo_at || nowIso`). BoldSign redelivers `Completed`, and the unconditional write had been re-dating the countersign on every redelivery — gotcha **#470**. `boldsign-webhook` itself was not touched.
 
 **The confirmation handler no longer chains the receipt downstream** — the webhook owns receipt sequencing on every path (**#289**). Both write `renewal_date` = today + 6 months. **No revshare leg on either** — VFO holds the share internally; accountants *do* now carry a `revenue_decision`, which is **not** a reason to add one (**#375**).
 
@@ -168,17 +181,18 @@ One additive isolated block, **two SPECREV pipelines only**, branching on `sessi
 
 ## Sweeps — the cron half of the chain graph
 
-**16 `pg_cron` jobs, all active** (verified live 2026-08-27). Staggered to avoid races on the same row. All invoke `vfo-admin-api` with the service-role key.
+**17 `pg_cron` jobs, all active** (verified live 2026-09-08 — derive, never trust this number). Staggered to avoid races on the same row. All invoke `vfo-admin-api` with the service-role key.
 
 | Time (UTC) | Job | Handler | Does |
 |---|---|---|---|
 | `*/5 * * * *` | `reminder-sweep-5min` | `reminders/sweep.ts` | Delivers due `personal_reminders` via a **direct** `notifications` insert — the one documented **#176** exception |
+| `*/5 * * * *` | `onboarding-meeting-reminder-sweep-5min` (**jobid 18, NEW 2026-09-04**) | `onboarding/meeting-reminder-sweep.ts` | The preliminary-meeting **countdown** ladder for BOTH onboarding pipelines. (a) reminder when `meeting_reminder_due_at <= now` **AND `meeting_at > now`** — the second half is what makes a meeting booked inside the window send on the next tick instead of never; (b) 60 min and (c) 10 min out, **both gated on `meeting_response='confirm'`**. Each tier stamps its guard column only after the send succeeded; **every query filters `status='active'`**. All six templates are **`send_mode=true`** (real sends; census 11 → 17, #325) — a draft nobody sends in time is no reminder. Reschedule RE-ARMS the whole ladder incl. `meeting_response` (**#472**, the inverse of #404) |
 | 02:00 | `revshare-sweep-daily` | `pipeline/contract-revshare-sweep.ts` | Retries failed MAP 1 revshare + the MAP 1 3-stall reminder ladder + **(2026-08-24) a final pass re-firing `automation_PIP_revshare` for every held PIP member leg** — PIP has no cron of its own, so this is the only thing that releases one; returns `pip_held_refired`. **The 3-stall ladder (6 queries) filters `status='live'` since 2026-08-26; the three money loops in the same handler deliberately do NOT** — see *What ELSE stops a ladder* below |
 | 02:30 | `tax-revshare-sweep-daily` | `tax/revshare-sweep.ts` | **Sextuple duty** — see below. Its `isRetry` now also accepts the two member-held values (reason `member-held`) |
 | 03:00 | `chargescheduled-sweep-daily` | `pipeline/contract-chargescheduled-sweep.ts` | Off-session MAP 1 installments — **calendar dates, weekends included** |
 | 04:00 | `check-reminder-sweep-daily` | `pipeline/contract-check-reminder-sweep.ts` | 7-business-day pre-due nudges + uncleared-check bells + `sweepMigrationSetupLinks` |
-| 05:00 | `advisor-sweep-daily` | `advisor/sweep.ts` | 3 stalls × 2/4 + the 14-**calendar**-day auto-decline. **All seven queries filter `status='active'` since 2026-08-26** (the auto-decline also WRITES `status='stopped'`) |
-| 06:00 | `accountant-sweep-daily` | `accountant/sweep.ts` | Same shape as advisor |
+| 05:00 | `advisor-sweep-daily` | `advisor/sweep.ts` | **4 stalls** × 2/4 + the 14-**calendar**-day auto-decline. **All queries filter `status='active'` since 2026-08-26** (the auto-decline also WRITES `status='stopped'`). **Tier (d) added 2026-09-04**: the unpaid Membership **Deposit** — rules `ADVISOR_stall_deposit_email` / `_bell`, template `ADVISOR_deposit_reminder`, ack column `deposit_pf_ack_at` |
+| 06:00 | `accountant-sweep-daily` | `accountant/sweep.ts` | Same shape as advisor, incl. tier (d) |
 | 07:00 | `specialist-sweep-daily` | `onboarding/sweep.ts` | **7 stalls** × 2/4; no auto-decline. **+ tier 7b (2026-08-24)**: licence **CONTINUATION** link sent but not set up — same 2/4 ladder, template `SPECIALIST_lic_continuation_reminder` (pipeline `SPECIALIST_LICENSE_CONTINUATION`), **reusing tier 7's rule keys and guard columns** (no new `notification_rules`). "Done" is `lic_subscription_id IS NOT NULL`, **not** a payment — a deferred setup completes with no money moved (**#437**). Tier 7 unchanged |
 | 08:00 | `pft-sweep-daily` | `pft/sweep.ts` | Partnership Fast Track, 3 ladders; no auto-decline |
 | 09:00 | `tax-presentation-sweep-daily` | `tax/presentation-sweep.ts` | Drafts `TAX_presentation_link` — **drafts only, never auto-sends** |
@@ -207,6 +221,8 @@ A ladder's clock is a `*_sent_at` / `*_notified_at` column stamped by the handle
 
 **Three sites deliberately DO re-arm, and the difference is the direction the delay is counted.** `tax/ready-for-tax3.ts` nulls `tax3_assess_reminder_sent_at` **and, since 2026-08-20, `tax3_assess_reminder_early_sent_at`** when the booked date genuinely moves, because that reminder **counts down to the meeting** (#359) and a moved meeting invalidates it — the guard is an OR over the two stamps and the clear covers both, so a new countdown tier must be added in both places or it silently survives a reschedule. `regular/map4-set-meeting-date.ts` nulls all three of `map4_followup_sent_at` / `map4_reminder_sent_at` / `map4_stall_notified_at` on a genuine date change — a user-approved decision to re-draft the MAP 4 follow-up ladder against the new date. `tax/highlevel-meeting-confirm.ts` needed no change at all: it already nulls `tax4_meeting_reminder_last_sent_at` on every confirm. **Forward-counted ladders must not re-arm; backward-counted (countdown) ones must.**
 
+**The mirror case — a COUNTDOWN ladder must re-arm, and #404 does not apply to it (2026-09-04, #472).** The preliminary-meeting reminder counts DOWN to an instant (`meeting_at`), not FORWARD from an unanswered ask. When the meeting moves, every stamp describes a moment that no longer exists, so **Reschedule nulls `meeting_reminder_sent_at`, `meeting_reminder_60m_sent_at`, `meeting_reminder_10m_sent_at` AND `meeting_response` / `meeting_response_at`** and lets the whole ladder run again. Clearing the *response* with the stamps is the part that is easy to miss: the 60- and 10-minute tiers are gated on `meeting_response='confirm'`, so a kept confirmation would fire two countdown emails at a time the prospect never agreed to — the answer belonged to the old question. **Ask which kind of ladder you have before copying either rule.**
+
 ### What STOPS a stall ladder — the ack refire guard (2026-08-19, v760)
 
 Until v760 a stall ladder had **no off switch**: the 4-business-day PF bell was minted whenever the stall's own guard column said the tier had not fired, and the "Reached out?" acknowledgement (`<stall>_pf_ack_at`, #381) was written by nobody's reader. Ticking the box therefore did not stop the chase — it recorded that someone had chased, and the next nightly tick minted again over the top of it. **Every sweep that mints a stall bell now filters `.is("<stall>_pf_ack_at", null)`:**
@@ -231,8 +247,8 @@ The ack guard above silences **one tier of one stall**. A **stopped engagement**
 | Column | Values | Silences |
 |---|---|---|
 | `pipeline_map1.status` | `'live'` \| `'stopped'` | the **6** ladder queries in `pipeline/contract-revshare-sweep.ts` — c14 decision, c17 signing, pay1 payment, each in an email tier and a PF-bell tier |
-| `advisor_onboarding.status` | `'active'` \| `'stopped'` | all **6** ladders in `advisor/sweep.ts` **plus the 14-day auto-decline query** |
-| `accountant_onboarding.status` | `'active'` \| `'stopped'` | the same six + auto-decline in `accountant/sweep.ts` |
+| `advisor_onboarding.status` | `'active'` \| `'stopped'` | all **8** ladders in `advisor/sweep.ts` (**6 + the deposit tier's pair, 2026-09-04**) **plus the 14-day auto-decline query** — and, since 2026-09-04, **all three tiers of the preliminary-meeting countdown** in the shared `onboarding/meeting-reminder-sweep.ts` |
+| `accountant_onboarding.status` | `'active'` \| `'stopped'` | the same eight + auto-decline in `accountant/sweep.ts`, and the same three meeting tiers |
 
 `specialist_onboarding.status` already carried `'active' \| 'stopped' \| 'completed'` and its sweep was already filtered — no change there, and it is the shape the two new columns were modelled on.
 

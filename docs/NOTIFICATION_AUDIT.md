@@ -45,7 +45,7 @@
 ## Every notification in the system
 
 > **⚠️ THE TABLES BELOW ARE A SNAPSHOT, NOT AN INVENTORY — the DB is the source of truth.**
-> They were written when there were 128 rules in 11 areas. As of **2026-08-17 there are 186 rules in
+> They were written when there were 128 rules in 11 areas. As of **2026-09-08 there are 207 rules in
 > 16 areas**, so roughly a third of the live rules are NOT listed here. Derive the current picture
 > instead of trusting a count on this page:
 > `select area, count(*) from notification_rules group by area order by area;`
@@ -53,8 +53,8 @@
 > | Area | Live rules | Listed below |
 > |---|---|---|
 > | 90 Day Plan | 2 | ✗ no section |
-> | Accountant Onboarding | 12 | 11 |
-> | Advisor Onboarding | 12 | 11 |
+> | Accountant Onboarding | 19 | 18 |
+> | Advisor Onboarding | 19 | 18 |
 > | Growth Credits | 2 | ✗ no section |
 > | Growth Plan | 4 | 2 |
 > | MAP 1 | 17 | 14 |
@@ -139,7 +139,7 @@
 | **MAP 4 reminder email** — Reminder email to the client to complete the MAP 4 form. | Reminder email | The client (email) | Daily MAP 4 sweep (after follow-up) — after **2 business day(s)** (editable) |
 | **MAP 4 form stalled** — The client still has not submitted the MAP 4 form after the follow-up and reminder emails. | FYI | Tracy + Assigned PF | Daily MAP 4 sweep (after reminder) — after **2 business day(s)** (editable) |
 
-### Advisor Onboarding (11)
+### Advisor Onboarding (18)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
@@ -154,8 +154,15 @@
 | **Signing stalled (bell)** — The advisor still has not signed the onboarding agreement. | FYI | Onboarding Team Member | Daily advisor sweep — after **4 business day(s)** (editable) |
 | **Payment reminder email** — Reminder email (checkout button) to the advisor who has not paid the onboarding fee. | Reminder email | The advisor (email) | Daily advisor sweep — after **2 business day(s)** (editable) |
 | **Payment stalled (bell)** — The advisor still has not paid the onboarding fee. | FYI | Onboarding Team Member | Daily advisor sweep — after **4 business day(s)** (editable) |
+| **Prospective advisor confirmed the preliminary meeting** (`ADVISOR_meeting_confirmed`, NEW 2026-09-04) — the advisor clicked CONFIRM on the reminder email. | FYI | Onboarding Team Member | `/onboarding-meeting` click — instant |
+| **Prospective advisor cancelled the preliminary meeting** (`ADVISOR_meeting_cancelled`, NEW 2026-09-04) — the advisor clicked CANCEL. Rebooking happens outside the portal. | FYI | Onboarding Team Member | `/onboarding-meeting` click — instant |
+| **Prospective advisor asked to reschedule** (`ADVISOR_meeting_reschedule`, NEW 2026-09-04) — the advisor clicked RESCHEDULE. | FYI | Onboarding Team Member | `/onboarding-meeting` click — instant |
+| **Deposit reminder email** (`ADVISOR_stall_deposit_email`, NEW 2026-09-04) — reminder email (deposit checkout button) to the advisor who has not paid the Membership Deposit. | Reminder email | The advisor (email) | Daily advisor sweep — after **2 business day(s)** (editable) |
+| **Deposit stalled (bell)** (`ADVISOR_stall_deposit_bell`, NEW 2026-09-04) — the advisor still has not paid the Membership Deposit. Ack column `deposit_pf_ack_at`. | FYI | Onboarding Team Member | Daily advisor sweep — after **4 business day(s)** (editable) |
+| **Deposit refunded** (`ADVISOR_deposit_refunded`, NEW 2026-09-04) — the deposit was refunded in full via Stripe and **the onboarding was STOPPED**. | FYI | Onboarding Team Member | Admin clicks Refund on the Deposit step — instant |
+| **Balance charge failed** (`ADVISOR_balance_charge_failed`, NEW 2026-09-04) — the off-session balance charge on the deposit's saved method declined; a fresh payment link was drafted. | **Action required** | `jlatham@elitert.com` | `payment_intent.payment_failed` with `payment_kind='onboarding_balance'` — instant |
 
-### Accountant Onboarding (11)
+### Accountant Onboarding (18)
 
 | Notification | Type | Who gets it (default) | When it fires |
 |---|---|---|---|
@@ -170,6 +177,13 @@
 | **Signing stalled (bell)** — The accountant still has not signed the onboarding agreement. | FYI | Onboarding Team Member | Daily accountant sweep — after **4 business day(s)** (editable) |
 | **Payment reminder email** — Reminder email (checkout button) to the accountant who has not paid the onboarding fee. | Reminder email | The accountant (email) | Daily accountant sweep — after **2 business day(s)** (editable) |
 | **Payment stalled (bell)** — The accountant still has not paid the onboarding fee. | FYI | Onboarding Team Member | Daily accountant sweep — after **4 business day(s)** (editable) |
+| **Prospective accountant confirmed the preliminary meeting** (`ACCOUNTANT_meeting_confirmed`, NEW 2026-09-04) — the accountant clicked CONFIRM on the reminder email. | FYI | Onboarding Team Member | `/onboarding-meeting` click — instant |
+| **Prospective accountant cancelled the preliminary meeting** (`ACCOUNTANT_meeting_cancelled`, NEW 2026-09-04) — the accountant clicked CANCEL. Rebooking happens outside the portal. | FYI | Onboarding Team Member | `/onboarding-meeting` click — instant |
+| **Prospective accountant asked to reschedule** (`ACCOUNTANT_meeting_reschedule`, NEW 2026-09-04) — the accountant clicked RESCHEDULE. | FYI | Onboarding Team Member | `/onboarding-meeting` click — instant |
+| **Deposit reminder email** (`ACCOUNTANT_stall_deposit_email`, NEW 2026-09-04) — reminder email (deposit checkout button) to the accountant who has not paid the Membership Deposit. | Reminder email | The accountant (email) | Daily accountant sweep — after **2 business day(s)** (editable) |
+| **Deposit stalled (bell)** (`ACCOUNTANT_stall_deposit_bell`, NEW 2026-09-04) — the accountant still has not paid the Membership Deposit. Ack column `deposit_pf_ack_at`. | FYI | Onboarding Team Member | Daily accountant sweep — after **4 business day(s)** (editable) |
+| **Deposit refunded** (`ACCOUNTANT_deposit_refunded`, NEW 2026-09-04) — the deposit was refunded in full via Stripe and **the onboarding was STOPPED**. | FYI | Onboarding Team Member | Admin clicks Refund on the Deposit step — instant |
+| **Balance charge failed** (`ACCOUNTANT_balance_charge_failed`, NEW 2026-09-04) — the off-session balance charge on the deposit's saved method declined; a fresh payment link was drafted. | **Action required** | `jlatham@elitert.com` | `payment_intent.payment_failed` with `payment_kind='onboarding_balance'` — instant |
 
 ### Specialist Onboarding (34)
 

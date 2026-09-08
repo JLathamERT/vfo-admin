@@ -10,7 +10,7 @@ Two repos, one Supabase project, four external integrations, one static-hosted S
 
 The central business flow is the **MAP1 contract-and-payment chain**: PIP1 reconfirmation → PF decision → PCADMIN pricing → BoldSign agreement → CEO countersign → Stripe payment → confirmation/invoice/receipt → revenue share. State lives in a single 143-column row of `pipeline_map1`, with each handler advancing specific columns. See [flows/contract-and-payment.md](flows/contract-and-payment.md) for the end-to-end trace.
 
-Four parallel automation chains follow the same pattern: **Tax Planning** ([flows/tax-planning.md](flows/tax-planning.md) — on `client_tax_plans`), **Advisor Onboarding** (`ADVISOR_ONBOARDING_RESUMPTION.md` at repo root — on `advisor_onboarding`), **Accountant Onboarding** (`ACCOUNTANT_ONBOARDING_RESUMPTION.md` at repo root — on `accountant_onboarding`; mirrors advisor with a new Partnership? step gating pricing $4,000/$2,000 + dual agreement_templates rows; **since 2026-08-12 / v730 it also mirrors advisor on `revenue_decision`, writing `'Money Mapping'` rather than omitting the field** — gotcha #375), and **PIP Meetings** ([flows/pip-meetings.md](flows/pip-meetings.md) — on `client_priority_tracks` rows with `track_type='pip'`; mirrors MAP1 payment + invoice/receipt + revshare but without BoldSign + with 1-time payment only).
+Four parallel automation chains follow the same pattern: **Tax Planning** ([flows/tax-planning.md](flows/tax-planning.md) — on `client_tax_plans`), **Advisor Onboarding** ([flows/advisor-accountant-onboarding.md](flows/advisor-accountant-onboarding.md) — on `advisor_onboarding`; `ADVISOR_ONBOARDING_RESUMPTION.md` at the edge repo root is the older build log), **Accountant Onboarding** (`ACCOUNTANT_ONBOARDING_RESUMPTION.md` at repo root — on `accountant_onboarding`; mirrors advisor with a new Partnership? step gating pricing $4,000/$2,000 + dual agreement_templates rows; **since 2026-08-12 / v730 it also mirrors advisor on `revenue_decision`, writing `'Money Mapping'` rather than omitting the field** — gotcha #375) — same file, the two pipelines being file-for-file clones, and **PIP Meetings** ([flows/pip-meetings.md](flows/pip-meetings.md) — on `client_priority_tracks` rows with `track_type='pip'`; mirrors MAP1 payment + invoice/receipt + revshare but without BoldSign + with 1-time payment only).
 
 ## Doc tree
 
@@ -65,6 +65,7 @@ docs/
 │   ├── gift-credits.md               (GC marketplace buy/redeem)
 │   ├── pip-meetings.md               (PIP Meetings purchase + payment + invoice/receipt + revshare + unlock)
 │   ├── partnership-fast-track.md     (PFT accountant engagement track + meeting emails + discovery form + onboarding handoff)
+│   ├── advisor-accountant-onboarding.md (Stage 1 cascade + preliminary-meeting reminder ladder + Membership Deposit + balance charge)
 │   ├── membership-fees.md            (member annual/monthly membership fee billing + renewal / pause / cancel)
 │   ├── payment-method-change.md      (Phase D admin-initiated card/bank change — the only mode:'setup' flow)
 │   ├── notifications.md              (in-portal bell feed)
