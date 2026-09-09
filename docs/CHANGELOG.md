@@ -8,6 +8,49 @@
 
 ---
 
+## 2026-09-09 (3rd branch) — Looking at a payment page is not failing to make one: the `canceled` widening gets a booking gate (hotfix)
+
+**BACKEND ONLY — `vfo-admin-api` **`v822`**, a one-predicate hotfix to `router/webhooks.ts`. No frontend change of any kind, so no `npm run build`, no `npm run deploy` and deliberately NO `live-N` tag.** One file, one hunk. **Action count unmoved at 494** — no action added, renamed or removed. `deno check` **0**; **smoke 5/5 vs `v822`** (Jake). Route pages unmoved at **34**; crons unmoved at **17**; `send_mode=true` unmoved at **31**; `boldsign-webhook` untouched at **`v40`**. **No migration, no DDL, no policy, no DB function, no `email_templates` row, no cron change — so the security advisor was NOT re-run, which is the hub's rule and not an omission: this branch touches no table, no policy and no function.** Gates: `deno check` **0 errors** / action count **493** / **smoke to be recorded against `v822`**.
+
+### What broke
+
+The 2026-09-08 branch (`v815` → `v817`, gotcha **#475**) widened the `payment_intent.payment_failed` block so it also runs for **`payment_intent.canceled`** on MAP 1 / TAX metadata shapes. The reason was sound: when an ACH micro-deposit verification is never completed, Stripe cancels the PaymentIntent after ~10 business days and emits `canceled`, **not** `payment_failed`, and without the widening the row would sit at `'processing'` forever with no bell and no client email.
+
+**What was not costed is that Stripe mints the PaymentIntent when a Checkout page is OPENED, not when the payer submits.** A client who clicks a durable `/pay` or `/tax-pay` link, selects *"US bank account"*, looks at the form and closes the tab leaves a live PI behind carrying our full metadata. That session expires unpaid **24 hours** later and emits **`checkout.session.expired`** followed by **`payment_intent.canceled` with `cancellation_reason: 'automatic'`** — byte-for-byte the shape of the micro-deposit expiry the widening was written for. **`cancellation_reason` cannot distinguish them; both are `automatic`.**
+
+The generic first-payment branch then acted, because its only guard was `target.currentStatus !== "succeeded"` — a test that asks *"is this row unpaid?"*, which is true of every row nobody has ever touched.
+
+**Pat Hurst — client 123, `client_tax_plans` 87, retainer $6,750, `fee_process_version 2026-08-25`** — opened his durable `/tax-pay` link and chose ACH **twice on 2026-09-08 (19:08Z and 21:09Z)** without submitting. The expiries arrived on **2026-09-09 at 13:58Z (×2, redelivered) and 15:59Z**, each pair `checkout.session.expired` + `payment_intent.canceled (automatic)`. Each one flipped **`retainer_status` NULL → `'failed'`** and raised `FAILURE_first_payment_declined` — **notification 1898**, *"… canceled (automatic)"*. `actions/tax/stripe-checkout.ts` (~line 62) treats **any truthy `retainer_status` outside the recovery states** as *"Payment already completed"*, so **his link went dead**: the single surface he had to pay through, closed by the act of looking at it.
+
+**Census across the estate: exactly one client hit** — one `retainer_status='failed'` row and **zero** `pay1_status='failed'` rows. **The exposure window is exactly one day**: before `v815`-`v817` this event was ignored for TAX / MAP 1 altogether.
+
+### Remediation (already done, by hand)
+
+`client_tax_plans` 87's `retainer_status` was reset to **NULL** by SQL at **~18:30Z on 2026-09-09**, guarded on **`retainer_payment_intent_id IS NULL`** so the write could not possibly clobber a row that had a real booking behind it — the same evidence the code fix now gates on, used as the safety on the repair:
+
+```sql
+update client_tax_plans set retainer_status = null
+ where id = 87 and retainer_payment_intent_id is null;
+```
+
+His link works again. **Nothing was re-sent and no client contact was needed** — the link is durable, so restoring the column restored the page.
+
+### The fix (`v822`)
+
+In the generic first-payment branch of `router/webhooks.ts`:
+
+```ts
+const cancelWithoutBooking = event.type === "payment_intent.canceled" && target?.currentStatus !== "processing";
+```
+
+When true the branch **logs and ignores** (`… not booked, abandoned Checkout page — ignored`); otherwise it behaves exactly as before. **A canceled PaymentIntent is a failed payment only when the row was booked `'processing'` against it** — `'processing'` is written by `checkout.session.completed` at submit time and means the debit is in flight, which is precisely the micro-deposit case the widening exists to serve. The row's own booking is the evidence a payment was submitted; **the event is not**.
+
+**`payment_intent.payment_failed` behaviour is unchanged** — that event only exists once a charge was actually attempted, so it needs no booking test. **The three late-ACH arms were never exposed**: MAP 1 P2-4, Tax implementation and Tax final retainer already required `=== "processing"`. The generic first-payment arm was the only one without a booking test, because until the 2026-09-08 widening it had only ever seen `payment_failed`.
+
+Gotcha **#482** (*a canceled PaymentIntent is not a failed payment unless the row was booked against it*), which also narrows **#475** point (4) in place. `flows/stripe-webhook.md` gains the `'processing'` gate under Branch C, and `NOTIFICATION_AUDIT.md`'s *First payment declined* trigger cell was corrected — it still named `payment_intent.payment_failed` alone.
+
+---
+
 ## 2026-09-09 (2nd branch) — Five misc portal edits and one sub-fix: an account id stops meaning a payable account, a charge date stops being editable as one, and a seven-character rename breaks three slides
 
 **BACKEND SHIPPED — `vfo-admin-api` **`v819` → `v820`** (all five items) **→ `v821`** (the deck-template pointer alone, `actions/tax/generate-presentation.ts`). The FRONTEND is NOT YET PUBLISHED at the time of writing (`npm run deploy` owed), so there is no `live-N` tag yet.** Fourteen edge files (two new: `utils/connect-payout-readiness.ts`, `actions/gc/update-subscription-date.ts`), two new build scripts under `scripts/roi-presentation/`, and four react files (`AdminPortal.jsx`, `MembersPanel.jsx`, `MemberOverviewPanel.jsx`, `GCMarketplaceViews.jsx`). **Action count 493 → 494** — one action ADDED (`gc_update_subscription_date`), none renamed or removed. Route pages unmoved at **34**; crons unmoved at **17**; `send_mode=true` unmoved at **31**; `boldsign-webhook` untouched at **`v40`**. **No migration, no DDL, no policy, no DB function, no `email_templates` row, no cron change — so the security advisor was deliberately NOT re-run.** Gates against the shipping version: `deno check` **0 errors** / action count **494** (6 + 488) / `npm run build` **exit 0, 34 route pages** / **smoke 5/5 vs `v820`**, run by Jake. **`v821` was not smoke-gated, and that is a rule not an omission:** its only delta from `v820` is one handler file and its `TEMPLATE_OBJECT` constant, which the hub's gate table classes as an isolated single-handler change.
