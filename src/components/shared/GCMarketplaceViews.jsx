@@ -31,6 +31,37 @@ const isRecurring = (svc) => !!INTERVAL_NOUN[svc?.billing_interval]
 const intervalNoun = (bi) => INTERVAL_NOUN[bi] || ''
 const creditWord = (n) => (n === 1 ? 'credit' : 'credits')
 
+// Mirrors utils/gc-recurring.ts addInterval() on the backend, clamping included
+// (Jan 31 + monthly is Feb 28/29, never Mar 3). Used ONLY to preview the second
+// payment in the reschedule dialog — the real schedule is still written server
+// side, and this must be kept in step with that function if it ever changes.
+function addIntervalLocal(dateIso, billingInterval) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateIso || ''))) return ''
+  const [y, m, d] = String(dateIso).split('-').map(Number)
+  const monthsAdded = billingInterval === 'yearly' ? 12 : 1
+  const absMonth = m - 1 + monthsAdded
+  const year = y + Math.floor(absMonth / 12)
+  const month = ((absMonth % 12) + 12) % 12
+  const lastDayOfTarget = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(year, month, Math.min(d, lastDayOfTarget))).toISOString().slice(0, 10)
+}
+
+// The inverse of addIntervalLocal, used to show the CURRENT start date: a
+// subscription stores only its renewal, and day 1 is exactly one interval back
+// from it. Same clamping, so start -> renewal -> start round-trips on every day
+// of the month except the clamped ones (Aug 31 -> Sep 30 -> Aug 30), where the
+// stored renewal is what governs and the box simply opens on the clamped day.
+function subIntervalLocal(dateIso, billingInterval) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateIso || ''))) return ''
+  const [y, m, d] = String(dateIso).split('-').map(Number)
+  const monthsBack = billingInterval === 'yearly' ? 12 : 1
+  const absMonth = m - 1 - monthsBack
+  const year = y + Math.floor(absMonth / 12)
+  const month = ((absMonth % 12) + 12) % 12
+  const lastDayOfTarget = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(year, month, Math.min(d, lastDayOfTarget))).toISOString().slice(0, 10)
+}
+
 // next_charge_date arrives as a bare YYYY-MM-DD, which Date() reads as UTC
 // midnight and would render as the previous day west of Greenwich — pin those
 // to local midnight before formatting.
@@ -104,6 +135,10 @@ export function GCServicesView({
   const [redeeming, setRedeeming] = useState(false)
   const [cancelTarget, setCancelTarget] = useState(null)
   const [cancelling, setCancelling] = useState(false)
+  // Admin-only reschedule of a live subscription's next charge date.
+  const [rescheduleTarget, setRescheduleTarget] = useState(null)
+  const [rescheduleDate, setRescheduleDate] = useState('')
+  const [rescheduling, setRescheduling] = useState(false)
 
   // The host keeps this component mounted and flips `active`, so the catalogue
   // refreshes on every visit to the tab while what is already loaded stays on
@@ -158,6 +193,25 @@ export function GCServicesView({
     setCancelTarget(null)
   }
 
+  async function saveScheduleDate() {
+    if (!rescheduleTarget) return
+    setRescheduling(true)
+    try {
+      const res = await callApi('gc_update_subscription_date', { subscription_id: rescheduleTarget.sub.id, start_date: rescheduleDate })
+      // Quote the renewal the SERVER derived, not the one previewed here.
+      const renewal = res?.subscription?.next_charge_date || rescheduleStart.renewal
+      showBanner(`${rescheduleTarget.svc?.name || rescheduleTarget.sub.gc_services?.name || 'Recurring service'} now starts ${fmtDate(rescheduleDate)} and renews ${fmtDate(renewal)}. No additional credits were taken.`)
+      setRescheduleTarget(null)
+      await loadServices()
+    } catch (err) {
+      // Leave the dialog open — the likeliest failure is a date the server
+      // refuses (in the past, or the row was charged mid-edit), and both are
+      // fixed by changing the value that is still on screen.
+      showBanner('Error: ' + err.message)
+    }
+    setRescheduling(false)
+  }
+
   function toggleDetails(id) { setOpenDetails(p => ({ ...p, [id]: !p[id] })) }
 
   const categories = []
@@ -181,6 +235,29 @@ export function GCServicesView({
 
   const pillBase = { padding: '4px 12px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap' }
   const cancelBtnStyle = { padding: '4px 12px', borderRadius: '6px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: '#d93025', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }
+  // Borderless on purpose. A second OUTLINED control beside Cancel widened the
+  // right-hand cluster enough to wrap the service name onto two lines; a quiet
+  // text link reads as an annotation on the renewal date it sits beside, and
+  // leaves Cancel as the only bordered thing on the row.
+  const rescheduleBtnStyle = { padding: '4px 2px', border: 'none', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', whiteSpace: 'nowrap' }
+  // The server compares against ITS today, which is UTC — mirror that exactly
+  // rather than the browser's local today, so the dialog can never accept a date
+  // the save would bounce (or warn about one it would have taken).
+  const todayUtc = new Date().toISOString().slice(0, 10)
+  // The reschedule dialog works in START dates: the box is day 1 and the renewal
+  // is derived, so the value being edited can never itself be a charge date.
+  const rescheduleInterval = rescheduleTarget
+    ? (rescheduleTarget.svc?.billing_interval || rescheduleTarget.sub.gc_services?.billing_interval)
+    : ''
+  const rescheduleRenewal = addIntervalLocal(rescheduleDate, rescheduleInterval)
+  const rescheduleStart = {
+    current: rescheduleTarget ? subIntervalLocal(rescheduleTarget.sub.next_charge_date, rescheduleInterval) : '',
+    renewal: rescheduleRenewal,
+    noun: intervalNoun(rescheduleInterval) || 'month',
+    alreadyDue: !!rescheduleRenewal && rescheduleRenewal < todayUtc,
+  }
+  const rescheduleBlocked = rescheduling || !rescheduleDate || rescheduleStart.alreadyDue
+    || rescheduleDate === rescheduleStart.current
 
   return (
     <>
@@ -207,8 +284,8 @@ export function GCServicesView({
             const noun = intervalNoun(svc.billing_interval)
             return (
               <div key={svc.id} style={{ paddingBottom: '14px', borderBottom: '1px solid var(--vfo-border-soft)', marginBottom: '14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 240px', minWidth: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span style={{ color: 'var(--vfo-ink)', fontSize: '14px', textAlign: 'left' }}>{svc.name}</span>
                     {svc.description && (
                       <button onClick={() => toggleDetails(svc.id)}
@@ -217,7 +294,7 @@ export function GCServicesView({
                       </button>
                     )}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px', flexShrink: 0, flexWrap: 'wrap' }}>
                     <span style={{ color: 'var(--vfo-ink)', fontWeight: '700' }}>{svc.credit_cost}</span>
                     <span style={{ color: 'var(--vfo-muted)', fontSize: '11px' }}>{noun ? `credits / ${noun}` : 'credits'}</span>
                     {sub ? (
@@ -227,6 +304,7 @@ export function GCServicesView({
                         ) : (
                           <span style={{ ...pillBase, background: 'rgba(176,141,38,0.15)', color: '#b08d26' }}>On hold — add credits to resume</span>
                         )}
+                        {adminMode && <button onClick={() => { setRescheduleTarget({ sub, svc }); setRescheduleDate(subIntervalLocal(sub.next_charge_date, svc.billing_interval)) }} style={rescheduleBtnStyle}>Edit date</button>}
                         <button onClick={() => setCancelTarget({ sub, svc })} style={cancelBtnStyle}>Cancel</button>
                       </>
                     ) : balance !== null && balance < svc.credit_cost ? (
@@ -296,6 +374,39 @@ export function GCServicesView({
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {rescheduleTarget && (
+        <div onClick={() => { if (!rescheduling) setRescheduleTarget(null) }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(9,14,26,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '16px', boxShadow: '0 18px 50px rgba(9,14,26,0.35)', padding: '26px 28px', maxWidth: '420px', width: '100%', textAlign: 'left' }}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--vfo-heading)', marginBottom: '10px' }}>Reschedule recurring service</div>
+            <p style={{ fontSize: '14px', color: 'var(--vfo-ink)', margin: '0 0 14px', lineHeight: 1.5 }}>
+              Set the date <strong>{rescheduleTarget.svc?.name || rescheduleTarget.sub.gc_services?.name}</strong> starts. It currently starts <strong>{fmtDate(rescheduleStart.current)}</strong>.
+            </p>
+            <input type="date" value={rescheduleDate} disabled={rescheduling}
+              onChange={e => setRescheduleDate(e.target.value)}
+              style={{ padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--vfo-border-strong)', background: 'var(--vfo-input)', color: 'var(--vfo-ink)', fontSize: '14px', fontFamily: 'Inter, sans-serif', width: '100%', boxSizing: 'border-box' }} />
+            {rescheduleStart.renewal
+              ? (
+                <p style={{ fontSize: '12.5px', color: rescheduleStart.alreadyDue ? '#d93025' : 'var(--vfo-muted)', margin: '10px 0 18px', lineHeight: 1.5 }}>
+                  {rescheduleStart.alreadyDue
+                    ? <>That start date already renewed on <strong>{fmtDate(rescheduleStart.renewal)}</strong>, so they would be charged tonight. Pick a later start date.</>
+                    : <>Renews <strong>{fmtDate(rescheduleStart.renewal)}</strong>, then every {rescheduleStart.noun}. No additional credits are taken.</>}
+                </p>
+              )
+              : <div style={{ height: '18px' }} />}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button onClick={() => setRescheduleTarget(null)} disabled={rescheduling}
+                style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--vfo-border-mid)', background: 'transparent', color: 'var(--vfo-muted)', fontSize: '13px', cursor: rescheduling ? 'default' : 'pointer', opacity: rescheduling ? 0.6 : 1 }}>Cancel</button>
+              <button onClick={saveScheduleDate} disabled={rescheduleBlocked}
+                style={{ padding: '8px 22px', borderRadius: '8px', background: 'linear-gradient(135deg, #125ecc 0%, #0a85e8 100%)', border: 'none', boxShadow: '0 2px 8px rgba(18,94,204,0.28)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: rescheduleBlocked ? 'default' : 'pointer', opacity: rescheduleBlocked ? 0.6 : 1 }}>
+                {rescheduling ? 'Saving…' : 'Save date'}
+              </button>
+            </div>
           </div>
         </div>
       )}
