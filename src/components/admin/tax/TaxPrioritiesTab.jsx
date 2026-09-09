@@ -226,7 +226,9 @@ function planFeeSchedule(pl) {
 //     inside the $30,000-$31,000 buffer band, which store identically.
 //   every other shape (tax4 + 2-payment, tax5 either) -> the retainer side is
 //     settled and untouchable, so the whole movement lands on the implementation
-//     fee. Refused when that would leave the implementation fee at or below $0.
+//     fee. $0.00 EXACTLY is allowed (the retainer already paid covers the whole
+//     amended fee, so nothing further is due from the client); only a total BELOW
+//     the settled retainer is refused.
 //   both -> $0 < total <= MAX_TOTAL_FEE.
 //
 // Returns { empty: true } for a blank input (the not-yet-typed state — no error,
@@ -286,7 +288,10 @@ function amendFeePreview(pl, stage, rawTotal) {
   }
 
   const newImplCents = newTotalCents - retainerCents
-  if (newImplCents <= 0) return { error: 'Total must be more than the retainer already paid' }
+  // $0.00 exactly is allowed (mirrors amend-fee.ts): the retainer already paid
+  // covers the whole amended fee and nothing further is due. Only BELOW it — a
+  // negative payment against money already collected — is refused.
+  if (newImplCents < 0) return { error: 'Total cannot be less than the retainer already paid' }
   return {
     split: {
       total: newTotalCents / 100,
@@ -784,6 +789,11 @@ function AmendFeeStep({ task, plan, stage, status, completedDate, readOnly, onAn
               {preview?.converts && (
                 <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, marginTop: '6px' }}>
                   Converts to 2 payments: the ${fmtMoney((amendToCents(plan?.initial_retainer_amount)) / 100)} initial retainer already paid becomes the full retainer — no final retainer will be collected, and Client decision 1 releases the revenue share immediately.
+                </div>
+              )}
+              {preview?.split?.implementation === 0 && (
+                <div style={{ fontSize: '12px', color: '#e06717', fontWeight: 600, marginTop: '6px' }}>
+                  The retainer already paid covers the whole fee: no implementation fee will be collected, and nothing further is due from the client.
                 </div>
               )}
               {preview?.error && <div style={{ color: '#e74c3c', fontWeight: 500, fontSize: '12px', marginTop: '6px' }}>{preview.error}</div>}
@@ -2631,6 +2641,11 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
   const tax5bAipcDone = livePlan?.implementation_decision === 'Not Implementing'
     || ((livePlan?.implementation_decision === 'Proceed' || livePlan?.implementation_decision === 'Undecided') && tax5bImplFinal === 'Decline')
     || livePlan?.implementation_rev_email_sent === true
+    // A $0 implementation fee has no charge, receipt or revenue-share email to
+    // wait for, so the client's Proceed click completes the cascade on its own
+    // (mirrors implement-final-decision.ts's no-fee branch).
+    || (!(amendToCents(livePlan?.implementation_amount) > 0)
+      && (tax5bImplFinal === 'Proceed' || tax5bImplFinal === 'Confirmed'))
 
   const returnsChain = depositOk && returnsReceived
   const diagnosticChain = returnsChain && addlInfoDone && reviewProceed
@@ -3656,6 +3671,12 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       const chargeStatus = livePlan?.implementation_charge_status
       const recStatus = livePlan?.implementation_receipt_status
       const revEmailSent = livePlan?.implementation_rev_email_sent
+      // An amendment may leave implementation_amount at $0 (the retainer already
+      // covers the whole fee). Mirrors the backend's `implAmt > 0` gate in
+      // utils/tax-plan-steps.ts and implement-final-decision.ts's no-fee branch:
+      // no charge, no receipt, no revenue share — so show one done row, not three
+      // rows stuck on "Not completed" forever.
+      const implFeeDue = amendToCents(livePlan?.implementation_amount) > 0
 
       // No decision yet → waiting for admin
       if (!implDecision) {
@@ -3682,7 +3703,11 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
       )
       const stallRows = (stall) => stallSteps(stall, (label, done, at) => autoStep(label, done, null, at))
 
-      const chargeCascade = (
+      const chargeCascade = !implFeeDue ? (
+        <>
+          {autoStep('No implementation fee due — retainer covers the full fee', true, null, livePlan?.implementation_final_decision_at)}
+        </>
+      ) : (
         <>
           {autoStep('Implementation fee charged to saved payment method', chargeStatus === 'succeeded', (readOnly || plannerMode) ? null : <StepEmailsChip pipeline="TAX" title="Implementation fee auto-charged using saved payment method" templates={[{ name: 'TAX_implementdecision|Proceeding', when: 'Automatic — drafted when the client clicks Proceed on the implementation decision email' }, { name: 'TAX_invoicereceipt_email|implementation', when: 'Automatic — implementation invoice + receipt' }, { name: 'TAX_implementation_charge_failed', when: 'Automatic — if the implementation charge fails' }]} context={emailCtx} />, livePlan?.implementation_charge_date)}
           {autoStep('Implementation fee receipt created and emailed to client', recStatus === 'Sent', null, livePlan?.implementation_receipt_email_sent_at)}
@@ -3706,7 +3731,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 {!implFinal && !reminderSentAt && autoStep('Waiting for client to confirm (no auto-charge)', false)}
                 {implFinal === 'Decline' && (
                   <>
-                    {autoStep('Client clicked Decline', true)}
+                    {autoStep('Client clicked Decline', true, null, livePlan?.implementation_final_decision_at)}
                     {autoStep('Decline email sent to client', true)}
                   </>
                 )}
@@ -3718,7 +3743,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 )}
                 {implFinal === 'Confirmed' && (
                   <>
-                    {autoStep('Client confirmed Proceed (clicked "Proceed now")', true)}
+                    {autoStep('Client confirmed Proceed (clicked "Proceed now")', true, null, livePlan?.implementation_final_decision_at)}
                     {chargeCascade}
                   </>
                 )}
@@ -3733,13 +3758,13 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                 {!implFinal && !reminderSentAt && autoStep('Waiting for client decision', false)}
                 {implFinal === 'Proceed' && (
                   <>
-                    {autoStep('Client clicked Yes (proceed)', true)}
+                    {autoStep('Client clicked Yes (proceed)', true, null, livePlan?.implementation_final_decision_at)}
                     {chargeCascade}
                   </>
                 )}
                 {implFinal === 'Decline' && (
                   <>
-                    {autoStep('Client clicked No (do not proceed)', true)}
+                    {autoStep('Client clicked No (do not proceed)', true, null, livePlan?.implementation_final_decision_at)}
                     {autoStep('Decline email sent to client', true)}
                   </>
                 )}
@@ -4187,7 +4212,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                   {!clientDecision && autoStep('Waiting for client to confirm (click required)', false)}
                   {clientDecision === 'Refund' && (
                     <>
-                      {autoStep('Client clicked Refund', true)}
+                      {autoStep('Client clicked Refund', true, { at: livePlan?.post_review_client_decision_at })}
                       {autoStep('Refund issued', refundStatus === 'succeeded', { chip: refundChip })}
                     </>
                   )}
@@ -4199,7 +4224,7 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                   )}
                   {clientDecision === 'Confirmed' && (
                     <>
-                      {autoStep('Client confirmed Continue (clicked "Continue now")', true)}
+                      {autoStep('Client confirmed Continue (clicked "Continue now")', true, { at: livePlan?.post_review_client_decision_at })}
                       {autoStep('Revenue share verified, member paid, member emailed', revPaid === 'Yes', { na: zeroShare, chip: revshareChip, at: livePlan?.retainer_rev_email_sent_at || livePlan?.retainer_rev_completed_at })}
                     </>
                   )}
@@ -4212,13 +4237,13 @@ function TaxPlanTrackView({ plan, phases, progress: initialProgress, specialists
                   {!clientDecision && !reminderSentAt && autoStep('Waiting for client (2 business days before reminder)', false)}
                   {clientDecision === 'Proceed' && (
                     <>
-                      {autoStep('Client clicked Proceed', true)}
+                      {autoStep('Client clicked Proceed', true, { at: livePlan?.post_review_client_decision_at })}
                       {autoStep('Revenue share verified, member paid, member emailed', revPaid === 'Yes', { na: zeroShare, chip: revshareChip, at: livePlan?.retainer_rev_email_sent_at || livePlan?.retainer_rev_completed_at })}
                     </>
                   )}
                   {clientDecision === 'Refund' && (
                     <>
-                      {autoStep('Client clicked Refund', true)}
+                      {autoStep('Client clicked Refund', true, { at: livePlan?.post_review_client_decision_at })}
                       {autoStep('Refund issued', refundStatus === 'succeeded', { chip: refundChip })}
                     </>
                   )}
