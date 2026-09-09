@@ -8,6 +8,70 @@
 
 ---
 
+## 2026-09-09 — A $0.00 implementation fee is a legitimate answer: the tax fee amendment stops requiring that a payment still exist
+
+**BACKEND SHIPPED — `vfo-admin-api` **`v819`**, deployed 2026-09-09 ~13:39Z. The FRONTEND is NOT YET PUBLISHED at the time of writing (`npm run deploy` owed), so there is no `live-N` tag yet.** Four files: `actions/tax/amend-fee.ts`, `actions/tax/implement-final-decision.ts` and `utils/tax-plan-steps.ts` in the edge repo, `src/components/admin/tax/TaxPrioritiesTab.jsx` (a 47-line diff) in the react repo. **No migration, no DDL, no `email_templates` row, no cron change, no new action — the count is unmoved at 493** (6 + 487); route pages unmoved at **34**; crons unmoved at **17**; no new table, policy or DB function, so **the security advisor was deliberately NOT re-run**; `boldsign-webhook` untouched at **`v40`**. Gates against the shipping version: `deno check` **0 errors** / action count **493** / `npm run build` **exit 0, 34 route pages** / **smoke 5/5 vs `v819`**, run by Jake after the deploy.
+
+### The change
+
+The tax fee amendment's implementation-only arm — every shape except the two 3-payment Tax 4 arms — accepted a new total only if it was **strictly more** than the retainer already paid (*"Total must be more than the retainer already paid"*). That refused a real business shape: a client whose retainer already covers the whole amended fee owes **nothing further**. The floor is now `< 0` rather than `<= 0`, `$0.00` exactly stores on `implementation_amount`, and the refusal re-words to *"Total cannot be less than the retainer already paid"*. `TaxPrioritiesTab.jsx`'s `amendFeePreview` mirrors the floor and adds an orange preview note when the split lands on zero. **The 3-payment Tax 4 arms keep their own floors untouched — a `$0.00` FINAL RETAINER is still refused**, because that installment is a payment the client has yet to make.
+
+### The frontend half — one file, and one of its four edits is load-bearing
+
+`TaxPrioritiesTab.jsx` carries the mirrored floor and message, the orange preview note, **and two changes that are not cosmetic**:
+
+- **The charge cascade collapses to ONE done row.** A new `implFeeDue` const (`amendToCents(implementation_amount) > 0`, the FE mirror of the backend's `implAmt > 0`) swaps the three-row *charged / receipt / revenue share* cascade for a single done row, **"No implementation fee due — retainer covers the full fee"**, dated from `implementation_final_decision_at`. Without it the tab shows three rows stuck on *Not completed* forever, the exact shape the backend's step-machine gate exists to prevent.
+- **`tax5bAipcDone` gained an arm, and Tax 6 does not unlock without it:** `!(amendToCents(implementation_amount) > 0) && (implFinal === 'Proceed' || implFinal === 'Confirmed')`. The AI PC Admin cascade had always completed on the revenue-share email being sent; at `$0` that email never exists, so the bullet stayed hollow and the phase never closed. This is the FE-only twin of the step-machine gate — **the same missing "there is no payment" case, in a predicate no cross-repo check covers.**
+- **Nine client-click DATES are now rendered** — `post_review_client_decision_at` on the 4 Tax 4 rows (Continue now / Proceed / both Refund rows) and `implementation_final_decision_at` on the 5 Tax 5b rows (Proceed now / Yes proceed / Decline / No / the new no-fee row). **Both columns have existed since 2026-08-28 and had never been displayed anywhere**; the rows read *"Client clicked …"* with no date at all until now.
+
+### The three consumers that had to be re-walked
+
+The old floor was silently guaranteeing "a payment exists" to code well outside the handler — see **new gotcha #477**.
+
+- **`implement-final-decision.ts`** — the client's Proceed click at Client decision 2 now returns early at `$0` with `no_fee_due: true`: the decision is recorded, **no acknowledgement email is drafted** (its copy quotes the figure, so it would have said *"$0.00"* is now being processed), and **the charge chain is skipped**. The `TAX_impl_client_proceed` bell still fires, with the message *"No implementation fee is due — the fee was amended so the retainer already paid covers the whole engagement. Nothing was charged."* Without this the chain would have hit `charge-implementation.ts`'s own `implAmount <= 0` guard and surfaced a **400 as a FAILED CHARGE** on a plan where nothing was owed — the #468 shape of reporting intent instead of outcome. That guard stays as a belt.
+- **`utils/tax-plan-steps.ts`** — the three Tax 5 auto steps *Implementation charged* / *Implementation receipt* / *Implementation revenue share* are now `applicable: implReach && implAmt > 0`. At `$0` there is no charge to fire, no receipt to number and no payout leg to sweep, so leaving them applicable would have stranded the Implementation phase as **permanently incomplete** on Client Overview. They are overview-only `System` steps with **no frontend mirror** (`TaxAutomationPanel.jsx`'s timeline cards read plan columns directly and carry no applicability logic).
+- **The consumers that were already right** gate on `> 0` themselves and needed nothing: `actions/payments/normalize.ts` emits no implementation row, so `payments_cancel_remaining` skips it and `card-update-shared.ts` drops the plan from the card-update list.
+
+Client decision 1 and Client decision 2 emails needed no change either — neither body quotes the implementation figure; the only amendment-bearing text is `[AMENDMENT_PARAGRAPH]`, which quotes the new **total**.
+
+### Accepted non-behaviours
+
+- **No corrected invoice is ever issued** — a fresh invoice only issues at the next payment and there is none. Same reasoning as the existing decline case.
+- **The internal rev-share badge line prints *"Balance outstanding: $0.00"***, which is **true**, and is left alone.
+- **`utils/tax-invoice-html.ts` and `send-agreement.ts` would print a `$0.00` implementation row** if either were re-run after such an amendment. Both are unreachable in the ordinary flow, so neither was given a zero branch.
+- **Decline at Client decision 2 on such a plan charges and refunds nothing** — VFO holds the whole retainer; any partial refund (`$2,250` in Lana's case) is a **hand Stripe refund**, **by decision (Jake, 2026-09-09)**. Nothing was built for it.
+- **A Refund click at Client decision 1 still refunds the FULL retainer** (`$4,500` for Lana), exactly as on every other plan — the amendment does not change that path.
+
+### What motivated it — and why it became a RULE change
+
+Two production plans: **Petrus Phoa client 111 plan 71** (legacy, in its Tax 5b amendment window) and **Lana Hurdle client 159 plan 107** (revised 2-payment, in its Tax 4 window, her `$4,500` ACH retainer still `processing` since 2026-09-08). Either could have been fixed by hand with a single `UPDATE`. **Jake chose the rule change**, because "the retainer already covers the whole fee" is a legitimate business answer and a hand-patched row would have hit the same three unguarded consumers the moment the client clicked Proceed.
+
+### Verified live — fixture plan 186 on Test Client 62 (sandbox), wiped after
+
+Lana-shaped: `$9,000` total, `$4,500` retainer paid, 2-payment. In order: the Tax 4 refusal at **`$4,499`** carrying the new message; the amend to **`$4,500`** → `implementation_amount` **0**, shares re-scaled `3,000` → `1,500 ×3`, `fee_amended_at_tax4` stamped, `client_tax_fee_amendments` audit row **17** with `created_by` `jlatham`, step row *"Completed - Amended"*; **Client decision 1** sent and its green click recorded (bells 1899/1900, *"Complete Client decision 2"*, to the planner and the team member); **Tax 5b "Keep"** (*"Completed - Kept"*); then the single *"Send implementation decision email"* button — **which sends decision `'Undecided'`, and is the only implementation-decision send the tab offers** — followed by the client clicking **"Yes - Proceed"** on the email. That click wrote `implementation_final_decision='Proceed'` and **nothing else**: `implementation_charge_status` NULL, **no PaymentIntent, no checkout token, no receipt**, bells 1905/1906 carrying the new no-fee message, and **NO `"$0.00"` Proceeding draft in Gmail** (Jake checked the mailbox). Client Overview's next action moved to **"Tax 6"** with the three implementation rows gone; the tax tab showed the single done row, **AI PC Admin green and Tax 6 unlocked**; and the newly-wired dates rendered 09/09 on *Client confirmed Continue*, *Client clicked Yes (proceed)* and the no-fee row.
+
+**Cleanup:** plan 186, its 16 `client_tax_progress` rows, audit row 17 and one allocated specialist were all deleted — client 62 holds **zero** plans again. **Bells 1899–1906 were deliberately left** (12 unread on client 62), per the standing rule that a live sweep re-mints bells anyway.
+
+**One fixture artefact, NOT a defect:** the retainer revenue share on plan 186 refused with *"Receipt number not found for retainer"* — the fixture never took a real payment, so it carries no `retainer_receipt_number`. `retainer_rev_paid` was hand-set to `'N/A — No Share Due'` to move the overview along. **This is exactly the path Lana's real amendment will exercise for the first time.**
+
+### PRODUCTION DATA CHANGE — Petrus Phoa plan 71, through the portal, not by SQL
+
+Amended at **Tax 5b on 2026-09-09 14:17Z by Jake, on the ordinary path** (the same green button any admin would use, against `v819`): total **`29,000` → `14,500`**, implementation **`14,500` → `0`**, shares **`9,666.66` / `9,666.66` / `9,666.68` → `4,833.33` / `4,833.33` / `4,833.34`**, `client_tax_fee_amendments` audit row **18**, step row *"Completed - Amended"*. His retainer share was already paid on the **legacy** system, and the re-scaled legs leave that payout **cent-identical** — no money moved and none is owed. **His implementation decision email has NOT been sent yet** — the team sends it, and his real Yes click will be the first genuine `$0` Proceed through `implement-final-decision.ts`.
+
+Note that this **discharges nothing** on the 2026-09-03 planner-widening entry: Petrus was amended by Jake as an **admin**, so *"the first REAL planner amendment"* is still owed there.
+
+### Owed
+
+1. **Lana Hurdle plan 107 is the real one.** When her `$4,500` ACH retainer reaches `succeeded`, the team amends her to `$4,500` at Tax 4 — the **first real Tax 4 amend-to-`$0`** and the **first real retainer revenue share on re-scaled shares**, which the fixture could not fire.
+2. **Petrus's decision email + his Yes click** — the first real `$0` Proceed through the new early return.
+3. **The `Confirmed` value of that branch is UI-unreachable** (the tab only ever sends `'Undecided'`); it is code-identical to the `Proceed` arm and stays code-only.
+4. **Decline at `$0`** — charges and refunds nothing — has never been clicked.
+5. **Of the 9 newly-dated rows, only 3 were eyeballed** (Continue now, Yes proceed, the no-fee row). Refund / Decline / Proceed-now / No are code-only.
+6. **Pre-existing, flagged and NOT fixed by this branch:** the tab's *"Revenue share verified, member paid, member emailed"* row treats only a `$0` `member_share` as N/A, while the backend's `REV_DONE` also accepts `'N/A — No Share Due'` — so a hand-set N/A reads done on Client Overview and not-done on the tab; and the *"Email sent - awaiting client decision"* chip on the Implementation decision row never changes after the client clicks.
+7. **User-side:** today's two sandbox Gmail drafts for Test Client (Client decision 1, the implementation decision email). The test specialist allocation is already deleted.
+
+---
+
 ## 2026-09-08 (3rd branch) — The deposit gets priced by the partnership that pays it, and both onboarding pipelines stop drafting
 
 **A short follow-up to the same day's advisor + accountant onboarding rework (v811 → v814 + `live-185`; its entry is the *2026-09-04 / 2026-09-08* one below), from Jake testing it. `vfo-admin-api` v817 → **v818**, the frontend re-published, one data migration. No new action (493), no DDL, no cron, no new table, policy or DB function; `boldsign-webhook` untouched at `v40`. Gates: `deno check` **0** / action count **493** (6 + 487) / build **exit 0, 34 pages** / advisor **GREEN at the exact baseline** — a confirmation, since the only migration is an `UPDATE` on `email_templates`. **Smoke is owed against `v818`; 5/5 was last run against `v814`.**
