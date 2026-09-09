@@ -85,7 +85,7 @@ One live recurring service per member (2026-08-27, migration `20260827150000_gc_
 | `member_number` | text | not null. fk → `member_plugin_settings.plugin_member_number` (**CASCADE**) — mirrors `gc_balances` / `gc_redemptions`. |
 | `service_id` | integer | not null. fk → `gc_services.id` (**NO ACTION**) — mirrors `gc_redemptions.service_id`, so a service anyone has ever subscribed to cannot be deleted and history keeps resolving. |
 | `status` | text | not null, default `'active'`, CHECK `active \| on_hold \| cancelled`. **A real CHECK, unlike the bare-`text` status columns #431/#444 warn about.** |
-| `next_charge_date` | date | not null. **Deliberately NOT advanced while `on_hold`** — a funded hold charges once at the next sweep and is re-anchored one full period from THAT day, so missed periods never stack (#456). |
+| `next_charge_date` | date | not null. **Deliberately NOT advanced while `on_hold`** — a funded hold charges once at the next sweep and is re-anchored one full period from THAT day, so missed periods never stack (#456). **NEVER EDIT THIS AS IF IT WERE A START DATE (#478).** It is the date the sweep DEDUCTS CREDITS AGAIN; the member has already paid for the period they are in, because `gc_redeem` deducts synchronously and sets this one interval out. The admin re-schedule action `gc_update_subscription_date` therefore takes **`start_date` = day 1 of the current period** and stores `addInterval(start_date, billing_interval)` here, using the same `utils/gc-recurring.ts addInterval` the sweep uses; a UI that let an admin type this column's value directly would have taken a second year's credits eight days after a redemption. |
 | `last_charged_at` | timestamptz | Set at redemption (the first period) and on every successful renewal. |
 | `on_hold_notified_at` | timestamptz | One out-of-credits email per hold episode: stamped when the row goes `on_hold`, cleared by the charge that releases it. The sweep's `.is(…, null)` filter on the hold UPDATE is the dedupe. |
 | `created_at` | timestamptz | not null, default `now()` |
@@ -93,7 +93,7 @@ One live recurring service per member (2026-08-27, migration `20260827150000_gc_
 
 **Indexes:** `(status, next_charge_date)` for the sweep's candidate query; `(member_number)` for the portal + cancel handler.
 
-**Touched by:** `gc_redeem` (insert, and the duplicate-subscription refusal), `gc_load_subscriptions`, `gc_cancel_subscription`, `gc_update_redemption` (reject → cancel), `automation_GC_recurring_sweep`.
+**Touched by:** `gc_redeem` (insert, and the duplicate-subscription refusal), `gc_load_subscriptions`, `gc_cancel_subscription`, `gc_update_subscription_date` (admin-only re-anchor of `next_charge_date`, with an optimistic `.eq` on the value it read → 409 on a race with the sweep), `gc_update_redemption` (reject → cancel), `automation_GC_recurring_sweep`.
 
 No unique constraint enforces one live subscription per (member, service) — `gc_redeem`'s `active`/`on_hold` lookup is the guard, and the sweep's optimistic `next_charge_date` claim is what makes a double charge impossible if one ever slipped through.
 
