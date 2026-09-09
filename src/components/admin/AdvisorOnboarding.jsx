@@ -390,7 +390,7 @@ function OnboardingDetail({ id, onBack }) {
   }
 
   async function sendDepositRefund(reason) {
-    if (!window.confirm('Refund the deposit via Stripe and draft the refund email?\n\nThis refunds the deposit PaymentIntent in full, stops this onboarding and drafts an email to the advisor including your reason(s). Cannot be undone.')) return
+    if (!window.confirm('Refund the deposit via Stripe and send the refund email?\n\nThis refunds the deposit PaymentIntent in full, stops this onboarding and emails the advisor including your reason(s). Cannot be undone.')) return
     setRefundDraft(d => ({ ...d, sending: true }))
     try {
       const res = await callApi('automation_ADVISOR_depositrefund', { onboarding_id: id, reason })

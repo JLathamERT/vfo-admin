@@ -1,4 +1,4 @@
-# VFO Session-Learned Gotchas — full registry (#1–#474)
+# VFO Session-Learned Gotchas — full registry (#1–#476)
 
 > Split out of `SESSION_REFERENCE.md` on 2026-06-19 to keep the live hub lean. This is the **complete** numbered list; the hub keeps only a curated ALWAYS-APPLIES subset.
 >
@@ -1026,9 +1026,9 @@ Cross-ref **#266** (the `TAX_PLANNER` instance, and the reminder that sandbox su
 
 ---
 
-**325. SEVENTEEN `email_templates` rows carry `send_mode=true` and they are the ONLY emails in the entire system that leave without a human looking at them — every other template is Draft-only, and TWO of them are SHARED rows whose blast radius is wider than their name suggests (2026-08-03, DML only; amended 2026-08-10; census 11 → 17 on 2026-09-04). ALWAYS-APPLIES.** `send_mode` defaults to `false` everywhere (#181), so for most of this system's life "sending an email" has meant "creating a Gmail draft someone then reviews and sends". As of 2026-08-03 that is no longer universally true, and the exceptions are worth knowing by heart before you touch any of these templates' subject, body, recipients or the handlers that draft them — **an edit to one of these eleven goes out to a real person on the next trigger with nobody in between.**
+**325. THIRTY-ONE `email_templates` rows carry `send_mode=true` and they are the ONLY emails in the entire system that leave without a human looking at them — every other template is Draft-only, and TWO of them are SHARED rows whose blast radius is wider than their name suggests (2026-08-03, DML only; amended 2026-08-10; census 11 → 17 on 2026-09-04, 17 → 31 on 2026-09-08). ALWAYS-APPLIES.** `send_mode` defaults to `false` everywhere (#181), so for most of this system's life "sending an email" has meant "creating a Gmail draft someone then reviews and sends". As of 2026-08-03 that is no longer universally true, and the exceptions are worth knowing by heart before you touch any of these templates' subject, body, recipients or the handlers that draft them — **an edit to one of these thirty-one goes out to a real person on the next trigger with nobody in between.**
 
-**The roster (verified against `SELECT id, pipeline, template_name FROM email_templates WHERE send_mode = true` — seventeen rows as of 2026-09-04, no others; never trust the count written here, run the query, #402):**
+**The roster (verified against `SELECT id, pipeline, template_name FROM email_templates WHERE send_mode = true` — never trust the count written here, run the query, #402). The table below is the ORIGINAL ELEVEN link-emails of 2026-08-03/10 and is no longer the whole set:** on **2026-09-04** the six advisor/accountant meeting-reminder rows joined (ids 247–249, 254–256), and on **2026-09-08** fourteen more — the four stall reminders and three deposit emails **per pipeline** (ADVISOR ids 54, 55, 56, 250, 251, 252, 253; ACCOUNTANT ids 63, 70, 71, 257, 258, 259, 260). **All twenty rows of the two onboarding pipelines are now auto-send**, which is the first time a whole pipeline's mail left the Drafts folder, and the first time a *stall reminder* — mail a cron produces with no human in the loop at all — did.
 
 | id | pipeline | template_name |
 |----|----------|---------------|
@@ -2109,3 +2109,13 @@ The reusable shape: **a CHECK that enforces "exactly one owner" also enforces "n
 **Scope, deliberately.** Nine other builders (advisor, accountant, PIP, GC, membership setup, migration connect-checkout, background check, licence first-charge, card-update) still pin `instant` and were left alone — each would need its own version of items 1-5 first. **Accepted gaps:** a Tax IMPLEMENTATION retry through a fresh `/tax-pay` link books nothing at `checkout.session.completed`, so its link stays payable for the whole ~10-day wait rather than 2-4 days (same shape as the hub's *"a `/pay` ACH for N≥2"* item); and there is **no stall sweep** between submit and Stripe's cancel — SpecRev has one, here the checkout-time bell plus Stripe's own reminder emails are the coverage.
 
 Cross-ref **#298** (the unpin and why it is never re-pinned), **#370** (the same "completed ≠ paid" read on one-time SpecRev), **#371** (why the status column was left alone), **#448** (the select-list contract that makes the template swap work).
+
+---
+
+**476. EVERY FILE IN BOTH REPOS IS CRLF, SO A `\n`-ANCHORED MULTI-LINE `perl`/`sed` REWRITE MATCHES NOTHING AND STILL EXITS 0 (2026-09-08, docs + JSX). ALWAYS-APPLIES (tooling).**
+
+Both working trees are CRLF — `docs/*.md`, `*.jsx` and `*.ts` alike, which is why `git diff` keeps announcing *"LF will be replaced by CRLF the next time Git touches it"*. No editor shows you those bytes. A multi-line pattern written as `foo\n\s*bar` therefore cannot match, because the file actually holds `foo\r\n  bar`.
+
+**The failure is silent and wears the costume of success.** `perl -0pi -e 's/…/…/'` exits **0** having changed nothing; `sed -i` says nothing; the only evidence is an empty `git diff`, which reads exactly like *"the edit was already applied"* — so the natural next move is to carry on, and the change is simply missing from the commit. Single-line substitutions are unaffected, so the trap bites hardest on the largest, least-reviewable edits.
+
+**The rule: anchor multi-line patterns with `\r?\n`, never a bare `\n`, and never accept a rewrite's exit code as proof — confirm with `git diff --stat` on the file you meant to change, every time.** For prose files prefer the `Edit` tool, which matches literal text and fails **loudly** when the match is absent or not unique. Related encoding trap on the same files: a PowerShell redirect can prepend a **BOM**, which breaks anchored greps a second, equally invisible way — write docs with the `Edit` tool or explicit UTF-8-no-BOM .NET IO.
