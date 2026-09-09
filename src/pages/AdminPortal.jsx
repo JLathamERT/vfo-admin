@@ -4,7 +4,7 @@ import { getSession, clearSession, callApi } from '../lib/api'
 import { usePortalTheme } from '../lib/theme'
 import SpecialistsPanel from '../components/admin/SpecialistsPanel'
 import TaxPlannersPanel from '../components/admin/TaxPlannersPanel'
-import MembersPanel from '../components/admin/MembersPanel'
+import MembersPanel, { MEMBER_PROFILE_ORIGIN_KEY } from '../components/admin/MembersPanel'
 import MemberOverviewPanel from '../components/admin/MemberOverviewPanel'
 import ClientOverviewPanel from '../components/admin/ClientOverviewPanel'
 import AdminEditor from '../components/admin/AdminEditor'
@@ -295,6 +295,26 @@ export default function AdminPortal() {
     }
   }
 
+  // The return leg of openMemberProfile's `origin`: put the admin back on the tab
+  // they jumped from. The profile's Back handler has already cleared the selection
+  // keys, so the directory it leaves behind is collapsed to its list either way.
+  function backToProfileOrigin(origin) {
+    if (origin !== 'member_overview') return
+    setActiveTab('member_overview')
+    sessionStorage.setItem('adminActiveTab', 'member_overview')
+    setNavClickCount(c => c + 1)
+  }
+
+  // Targeted in-place update of one member row in the payload this portal is
+  // holding, for single-field saves that would otherwise need a full loadAllData()
+  // round-trip to become visible. `allMembers` is fetched ONCE, so a panel that
+  // saves and unmounts loses its change on the way back in.
+  function patchMember(memberNumber, patch) {
+    setAllMembers(ms => ms.map(m => (
+      String(m.plugin_member_number) === String(memberNumber) ? { ...m, ...patch } : m
+    )))
+  }
+
   function signOut() { clearSession(); navigate('/') }
   function handleTitleClick() { setShowEditor(false); setShowSettings(false); setActiveTab(null); sessionStorage.removeItem('adminActiveTab') }
 
@@ -407,7 +427,11 @@ export default function AdminPortal() {
   // category tab (Advisors / Accountants / Strategic). Each MemberDirectoryView
   // restores its selection from sessionStorage on mount, so we pre-seed the right
   // selection key + feature tab, then switch tabs.
-  function openMemberProfile(m, feature = 'profile_details') {
+  // `origin` names the tab the jump came FROM, when that is somewhere the
+  // profile's own "Back to list" could not otherwise return to. Only the Member
+  // Overview list passes one; every other caller (the profile name links) passes
+  // nothing and the stamp is CLEARED, so Back keeps its ordinary meaning there.
+  function openMemberProfile(m, feature = 'profile_details', origin = null) {
     const cat = m.member_category
     let tab, sectionSetter, sectionKey, section, selKey, featKey
     if (cat === 'accountant') {
@@ -422,6 +446,8 @@ export default function AdminPortal() {
     }
     sessionStorage.setItem(selKey, m.plugin_member_number)
     sessionStorage.setItem(featKey, feature)
+    if (origin) sessionStorage.setItem(MEMBER_PROFILE_ORIGIN_KEY, origin)
+    else sessionStorage.removeItem(MEMBER_PROFILE_ORIGIN_KEY)
     sectionSetter(section)
     sessionStorage.setItem(sectionKey, section)
     setActiveTab(tab)
@@ -779,7 +805,7 @@ export default function AdminPortal() {
           )}
 
           {activeTab === 'member_overview' && !loading && (
-            <MemberOverviewPanel allMembers={allMembers} onOpenMember={openMemberProfile} />
+            <MemberOverviewPanel allMembers={allMembers} onOpenMember={(m, feature) => openMemberProfile(m, feature, 'member_overview')} onPatchMember={patchMember} />
           )}
 
           {activeTab === 'client_overview' && !loading && (
@@ -791,7 +817,7 @@ export default function AdminPortal() {
               allMembers={allMembers} allExperts={allExperts}
               allExclusionMap={allExclusionMap} ecoMap={ecoMap}
               onDataChange={loadAllData} section={advisorsSection} navClickCount={navClickCount}
-              onOpenMember={openMemberProfile} memberConnections={memberConnections}
+              onOpenMember={openMemberProfile} onBackToOrigin={backToProfileOrigin} memberConnections={memberConnections}
             />
           )}
 
@@ -800,7 +826,7 @@ export default function AdminPortal() {
               allMembers={allMembers} allExperts={allExperts}
               allExclusionMap={allExclusionMap} ecoMap={ecoMap}
               onDataChange={loadAllData} section={accountantsSection} navClickCount={navClickCount}
-              onOpenMember={openMemberProfile} memberConnections={memberConnections}
+              onOpenMember={openMemberProfile} onBackToOrigin={backToProfileOrigin} memberConnections={memberConnections}
             />
           )}
 
@@ -809,7 +835,7 @@ export default function AdminPortal() {
               allMembers={allMembers} allExperts={allExperts}
               allExclusionMap={allExclusionMap} ecoMap={ecoMap}
               onDataChange={loadAllData} section={strategicSection} navClickCount={navClickCount}
-              onOpenMember={openMemberProfile} memberConnections={memberConnections}
+              onOpenMember={openMemberProfile} onBackToOrigin={backToProfileOrigin} memberConnections={memberConnections}
             />
           )}
 

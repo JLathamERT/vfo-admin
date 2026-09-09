@@ -8,7 +8,10 @@ import ListFilterButton, { matchesFilter, sortMembers, SortSelect, MEMBER_SORT_O
 // saveable engagement level, and rich filtering. Styled to match the Accounting
 // panels (navy/blue grid table + Totals row).
 
-const ENGAGEMENT = [
+// Exported because the member profile hero in MembersPanel renders the same
+// value as a pill — one list, one set of labels and colours, so a rename here
+// cannot leave the two surfaces disagreeing about what a stored value means.
+export const ENGAGEMENT = [
   { value: 'highly_engaged', label: 'Highly engaged', color: '#1b9254' },
   { value: 'reasonably_engaged', label: 'Reasonably engaged', color: '#f1c40f' },
   { value: 'somewhat_engaged', label: 'Somewhat engaged', color: '#e67e22' },
@@ -22,7 +25,8 @@ const EXCLUDED_TYPES = new Set([
   'Free Legacy TBM', 'Survey #1', 'Survey #2', 'Survey #3', 'Team Member',
 ])
 const ENGAGEMENT_LABELS = ENGAGEMENT.map(e => e.label)
-const engMeta = (v) => ENGAGEMENT.find(e => e.value === v) || null
+export const engagementMeta = (v) => ENGAGEMENT.find(e => e.value === v) || null
+const engMeta = engagementMeta
 
 function catLabel(m) {
   if (m.member_category === 'accountant') return 'Accountant'
@@ -45,7 +49,7 @@ function clientStatusColors(status) {
 }
 const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
 
-export default function MemberOverviewPanel({ allMembers = [], onOpenMember }) {
+export default function MemberOverviewPanel({ allMembers = [], onOpenMember, onPatchMember }) {
   const navigate = useNavigate()
   const [relations, setRelations] = useState({ programsByMember: {}, clientsByMember: {} })
   const [relLoading, setRelLoading] = useState(true)
@@ -116,6 +120,12 @@ export default function MemberOverviewPanel({ allMembers = [], onOpenMember }) {
     setSaving(s => ({ ...s, [mn]: true }))
     try {
       await callApi('member_save_engagement', { member_number: mn, engagement_level: value || null })
+      // The write lands, but `allMembers` is loaded ONCE by AdminPortal and never
+      // re-read on a tab switch — so without this the panel unmounts, engOverrides
+      // dies with it, and coming back renders the stale pre-save payload as if the
+      // save had failed. Patch the row the portal is actually holding; MembersPanel's
+      // own allMembers→selectedMember sync effect then carries it to the profile hero.
+      if (onPatchMember) onPatchMember(mn, { engagement_level: value || null })
     } catch (err) {
       setEngOverrides(o => ({ ...o, [mn]: prev }))
       alert('Could not save engagement level: ' + err.message)

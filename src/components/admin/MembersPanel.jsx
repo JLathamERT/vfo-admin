@@ -20,6 +20,10 @@ import ImageCropModal from './ImageCropModal'
 import { MemberNameLink } from '../shared/personLinks'
 import { CORPORATE_TYPES, isCorporateMember, leadMemberNumberOf, findLeadMember } from '../shared/corporateMember'
 import { GCServicesView, GCTransactionHistory } from '../shared/GCMarketplaceViews'
+// The engagement rating is set on the Member Overview tab; the profile hero
+// only DISPLAYS it. Admin surface throughout — the member portal never renders
+// it, and load_data strips the column for non-admin callers.
+import { engagementMeta } from './MemberOverviewPanel'
 
 // Creating advisors / accountants / strategic members is restricted to the
 // SuperAdmin (Jake) plus Tray Valdés-Dennis (tvaldes@elitert.com).
@@ -81,7 +85,16 @@ const ACCOUNTANT_TYPES = [
   'FAC Historic',
 ]
 
-export default function MembersPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, section, navClickCount, onOpenMember, memberConnections = [] }) {
+// Where the currently-open member profile was reached FROM. Written by
+// AdminPortal.openMemberProfile when the jump came off the Member Overview list,
+// read by that profile's "Back to list" so it returns you to the list you were
+// actually on rather than to the category directory the profile happens to live
+// in. Cleared whenever a profile is opened any other way (a directory row click,
+// or an openMemberProfile call with no origin), so it can never go stale and
+// send a later Back click somewhere the user never was.
+export const MEMBER_PROFILE_ORIGIN_KEY = 'adminMemberProfileOrigin'
+
+export default function MembersPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, section, navClickCount, onOpenMember, onBackToOrigin, memberConnections = [] }) {
   if (section === 'advisor_onboarding') return <AdvisorOnboarding />
   if (section === 'accountant_onboarding') return <AccountantOnboarding />
   if (section === 'advisor_kpis') return <MemberKpiPanel allMembers={allMembers} category="advisor" />
@@ -97,26 +110,26 @@ export default function MembersPanel({ allMembers, allExperts, allExclusionMap, 
   if (section === 'strategic_member_search' || section === 'add_strategic_member') {
     return (
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-        <StrategicMembersPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} initialTab={section === 'add_strategic_member' ? 'add' : 'search'} section={section} navClickCount={navClickCount} onOpenMember={onOpenMember} memberConnections={memberConnections} />
+        <StrategicMembersPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} initialTab={section === 'add_strategic_member' ? 'add' : 'search'} section={section} navClickCount={navClickCount} onOpenMember={onOpenMember} onBackToOrigin={onBackToOrigin} memberConnections={memberConnections} />
       </div>
     )
   }
   if (section === 'accountant_search' || section === 'add_accountant') {
     return (
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-        <AccountantsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} initialTab={section === 'add_accountant' ? 'add' : 'search'} section={section} navClickCount={navClickCount} onOpenMember={onOpenMember} memberConnections={memberConnections} />
+        <AccountantsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} initialTab={section === 'add_accountant' ? 'add' : 'search'} section={section} navClickCount={navClickCount} onOpenMember={onOpenMember} onBackToOrigin={onBackToOrigin} memberConnections={memberConnections} />
       </div>
     )
   }
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-      <AdvisorsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} initialTab={section === 'add_advisor' ? 'add' : 'search'} section={section} navClickCount={navClickCount} onOpenMember={onOpenMember} memberConnections={memberConnections} />
+      <AdvisorsPanel allMembers={allMembers} allExperts={allExperts} allExclusionMap={allExclusionMap} ecoMap={ecoMap} onDataChange={onDataChange} initialTab={section === 'add_advisor' ? 'add' : 'search'} section={section} navClickCount={navClickCount} onOpenMember={onOpenMember} onBackToOrigin={onBackToOrigin} memberConnections={memberConnections} />
     </div>
   )
 }
 
-function AccountantsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount, onOpenMember, memberConnections = [] }) {
+function AccountantsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount, onOpenMember, onBackToOrigin, memberConnections = [] }) {
   // Accountants are tagged durably by member_category (set at create time).
   const accountantMembers = allMembers.filter(m => m.member_category === 'accountant')
 
@@ -135,6 +148,7 @@ function AccountantsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onD
       initialTab={initialTab}
       navClickCount={navClickCount}
       onOpenMember={onOpenMember}
+      onBackToOrigin={onBackToOrigin}
       memberConnections={memberConnections}
       growthPlan={true}
       listTitle="Accountants"
@@ -309,6 +323,7 @@ function MemberDirectoryView({
   initialTab,
   navClickCount,
   onOpenMember,
+  onBackToOrigin,
   memberConnections = [],
   hiddenFields = [],
   growthPlan = false,
@@ -421,7 +436,7 @@ function MemberDirectoryView({
           <div>
             {sortMembers(filteredMembers, listSort).map(m => (
               <div key={m.plugin_member_number}
-                onClick={(e) => { if (reconciliationLocked(m)) { flashDeny(e); return } setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem(selectedKey, m.plugin_member_number); sessionStorage.setItem(featureTabKey, 'profile_details'); window.scrollTo(0, 0) }}
+                onClick={(e) => { if (reconciliationLocked(m)) { flashDeny(e); return } setSelectedMember(m); setMemberFeatureTab('profile_details'); sessionStorage.setItem(selectedKey, m.plugin_member_number); sessionStorage.setItem(featureTabKey, 'profile_details'); sessionStorage.removeItem(MEMBER_PROFILE_ORIGIN_KEY); window.scrollTo(0, 0) }}
                 style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 16px', marginBottom: '6px', background: 'var(--vfo-card)', border: '1px solid var(--vfo-border-soft)', borderRadius: '12px', boxShadow: '0 2px 8px rgba(20,45,95,0.04)', cursor: 'pointer' }}
                 onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,149,255,0.4)'}
                 onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--vfo-border-soft)'}>
@@ -447,7 +462,17 @@ function MemberDirectoryView({
 
       {activeTab === 'search' && selectedMember && (
         <>
-          <button onClick={() => { setSelectedMember(null); sessionStorage.removeItem(selectedKey); sessionStorage.removeItem(featureTabKey) }} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
+          <button onClick={() => {
+            // "The list" is wherever you came from. Reaching this profile off the
+            // Member Overview tab and landing back in the Advisors directory is a
+            // different list than the one you left, so honour the origin stamp
+            // first — and clear it either way, so the next Back is judged on its
+            // own journey.
+            const origin = sessionStorage.getItem(MEMBER_PROFILE_ORIGIN_KEY)
+            sessionStorage.removeItem(MEMBER_PROFILE_ORIGIN_KEY)
+            setSelectedMember(null); sessionStorage.removeItem(selectedKey); sessionStorage.removeItem(featureTabKey)
+            if (origin && onBackToOrigin) onBackToOrigin(origin)
+          }} style={{ background: 'none', border: 'none', color: '#0095ff', fontWeight: 500, fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>← Back to list</button>
           <TrackHero
             eyebrow={listTitle}
             title={selectedMember.name}
@@ -457,6 +482,7 @@ function MemberDirectoryView({
                 <span style={{ fontFamily: 'monospace' }}>{selectedMember.plugin_member_number}</span>
                 {selectedMember.member_type && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span>{selectedMember.member_type}{heroLeadNumber && <> - <MemberNameLink memberNumber={heroLeadNumber}>{heroLeadName || heroLeadNumber}</MemberNameLink></>}</span></>}
                 {selectedMember.elite_status && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: selectedMember.elite_status === 'Active' ? '#1b9254' : selectedMember.elite_status === 'Lost' ? '#e74c3c' : 'var(--vfo-faint)', flexShrink: 0 }} />{selectedMember.elite_status}</span></>}
+                {engagementMeta(selectedMember.engagement_level) && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: engagementMeta(selectedMember.engagement_level).color, flexShrink: 0 }} />{engagementMeta(selectedMember.engagement_level).label}</span></>}
                 {selectedMember.paused && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e06717', flexShrink: 0 }} />Paused</span></>}
                 {(selectedMember.suspended || selectedMember.membership_suspended) && <><span style={{ color: 'var(--vfo-border-mid)' }}>·</span><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--vfo-ink)' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#e74c3c', flexShrink: 0 }} />Suspended</span></>}
               </>
@@ -488,7 +514,7 @@ function MemberDirectoryView({
   )
 }
 
-function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount, onOpenMember, memberConnections = [] }) {
+function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount, onOpenMember, onBackToOrigin, memberConnections = [] }) {
   return (
     <MemberDirectoryView
       displayMembers={allMembers.filter(m => m.member_category !== 'accountant' && m.member_category !== 'strategic_member')}
@@ -504,6 +530,7 @@ function AdvisorsPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onData
       initialTab={initialTab}
       navClickCount={navClickCount}
       onOpenMember={onOpenMember}
+      onBackToOrigin={onBackToOrigin}
       memberConnections={memberConnections}
       hiddenFields={[]}
       growthPlan={true}
@@ -643,7 +670,7 @@ function AddAdvisorForm({ allMembers, onDataChange }) {
 // dropdown is DB-driven: each Strategic Member Group (a company) is an option,
 // and a strategic member (a person at that company) stores the group name in
 // member_type. No Legacy/New model — they auto-number from a single bucket.
-function StrategicMembersPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount, onOpenMember, memberConnections = [] }) {
+function StrategicMembersPanel({ allMembers, allExperts, allExclusionMap, ecoMap, onDataChange, initialTab, section, navClickCount, onOpenMember, onBackToOrigin, memberConnections = [] }) {
   const [groups, setGroups] = useState([])
 
   async function loadGroups() {
@@ -670,6 +697,7 @@ function StrategicMembersPanel({ allMembers, allExperts, allExclusionMap, ecoMap
       initialTab={initialTab}
       navClickCount={navClickCount}
       onOpenMember={onOpenMember}
+      onBackToOrigin={onBackToOrigin}
       memberConnections={memberConnections}
       hiddenFields={[]}
       listTitle="Strategic Members"
